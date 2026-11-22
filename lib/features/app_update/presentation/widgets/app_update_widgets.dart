@@ -180,6 +180,7 @@ class AppUpdateBanner extends StatelessWidget {
                       ),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.14),
                           foregroundColor: Colors.white,
                           side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
                         ),
