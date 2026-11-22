@@ -18,6 +18,7 @@ import '../../features/budgets/data/repositories/budget_repository_impl.dart';
 import '../../features/budgets/domain/repositories/budget_repository.dart';
 import '../../features/budgets/domain/usecases/budget_usecases.dart';
 import '../../features/budgets/presentation/bloc/budget_bloc.dart';
+import '../../features/calendar/data/datasources/google_calendar_api_datasource.dart';
 import '../../features/calendar/data/repositories/calendar_repository_impl.dart';
 import '../../features/calendar/domain/repositories/calendar_repository.dart';
 import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
@@ -54,6 +55,7 @@ Future<void> configureDependencies({
   AndroidNotificationBridge? bridgeOverride,
   NativeAppUpdaterBridge? updaterBridgeOverride,
   GoogleAuthHandler? googleAuthOverride,
+  GoogleCalendarTokenProvider? googleCalendarTokenOverride,
   http.Client? httpClientOverride,
 }) async {
   await sl.reset();
@@ -95,8 +97,18 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<FamilyRemoteDataSource>(
     () => FamilyRemoteDataSource(sl<FirebaseFirestore>()),
   );
+  sl.registerLazySingleton<GoogleCalendarApiDataSource>(
+    () => GoogleCalendarApiDataSource(
+      firebaseAuth: sl<FirebaseAuth>(),
+      httpClient: httpClientOverride,
+      tokenProviderOverride: googleCalendarTokenOverride,
+    ),
+  );
   sl.registerLazySingleton<CalendarRemoteDataSource>(
-    () => CalendarRemoteDataSource(sl<FirebaseFirestore>()),
+    () => CalendarRemoteDataSource(
+      sl<FirebaseFirestore>(),
+      googleApi: sl<GoogleCalendarApiDataSource>(),
+    ),
   );
   sl.registerLazySingleton<TaskRemoteDataSource>(
     () => TaskRemoteDataSource(sl<FirebaseFirestore>()),
@@ -186,7 +198,10 @@ Future<void> configureDependencies({
   sl.registerLazySingleton(() => CreateSharedBillSplitUseCase(sl<FamilyRepository>()));
   sl.registerLazySingleton(() => RecordDebtSettlementUseCase(sl<FamilyRepository>()));
 
+  sl.registerLazySingleton(() => CreateManagedCalendarUseCase(sl<CalendarRepository>()));
   sl.registerLazySingleton(() => CreateCalendarEventUseCase(sl<CalendarRepository>()));
+  sl.registerLazySingleton(() => UpdateCalendarEventUseCase(sl<CalendarRepository>()));
+  sl.registerLazySingleton(() => SyncGoogleCalendarUseCase(sl<CalendarRepository>()));
 
   sl.registerLazySingleton(() => CreateTaskUseCase(sl<TaskRepository>()));
   sl.registerLazySingleton(() => RespondToTaskUseCase(sl<TaskRepository>()));
@@ -255,7 +270,10 @@ Future<void> configureDependencies({
   sl.registerFactory<CalendarBloc>(
     () => CalendarBloc(
       repository: sl<CalendarRepository>(),
+      createCalendar: sl<CreateManagedCalendarUseCase>(),
       createEvent: sl<CreateCalendarEventUseCase>(),
+      updateEvent: sl<UpdateCalendarEventUseCase>(),
+      syncGoogle: sl<SyncGoogleCalendarUseCase>(),
     ),
   );
   sl.registerFactory<TaskBloc>(

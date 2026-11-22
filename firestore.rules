@@ -96,6 +96,10 @@ service cloud.firestore {
       }
 
       // PRIVATE CALENDAR — Family Owners/Admins NEVER have access!
+      match /calendars/{calId} {
+        allow read, write: if isOwner(userId);
+      }
+
       match /private_events/{eventId} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
