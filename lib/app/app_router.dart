@@ -256,6 +256,15 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
           create: (_) => sl<VehicleBloc>()
             ..add(VehiclesWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
         ),
+        BlocProvider<NotificationIngestionBloc>(
+          create: (_) => sl<NotificationIngestionBloc>()
+            ..add(
+              NotificationsCenterStarted(
+                user.id,
+                defaultWalletId: 'wallet_bank_default',
+              ),
+            ),
+        ),
       ],
       child: LayoutBuilder(
         builder: (context, constraints) {

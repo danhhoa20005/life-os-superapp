@@ -10,19 +10,89 @@ import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../domain/entities/notification_entities.dart';
 import '../../domain/repositories/notifications_repository.dart';
+import '../datasources/sepay_api_datasource.dart';
 
 class NotificationsRemoteDataSource {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _firebaseAuth;
   final AndroidNotificationBridge _bridge;
+  final SePayApiDataSource _sePayApi;
 
-  const NotificationsRemoteDataSource({
+  NotificationsRemoteDataSource({
     required FirebaseFirestore firestore,
     required FirebaseAuth firebaseAuth,
     required AndroidNotificationBridge bridge,
+    SePayApiDataSource? sePayApi,
   })  : _firestore = firestore,
         _firebaseAuth = firebaseAuth,
-        _bridge = bridge;
+        _bridge = bridge,
+        _sePayApi = sePayApi ?? SePayApiDataSource();
+
+  Future<bool> isNativePermissionGranted() => _bridge.isNotificationAccessGranted();
+
+  Future<void> openNativePermissionSettings() => _bridge.openNotificationAccessSettings();
+
+  Stream<Map<String, dynamic>> watchLiveNativeSignals() =>
+      _bridge.watchIncomingBankNotifications();
+
+  DocumentReference<Map<String, dynamic>> _sePayConfigRef(String userId) =>
+      _firestore.collection('users').doc(userId).collection('consents').doc('sepay_api');
+
+  Future<String?> getSavedSePayMaskedToken(String userId) async {
+    final snap = await _sePayConfigRef(userId).get();
+    if (!snap.exists) return null;
+    final token = (snap.data()?['apiToken'] as String?)?.trim() ?? '';
+    if (token.isEmpty) return null;
+    if (token.length <= 6) return '••••••';
+    return '••••••••••••${token.substring(token.length - 4)}';
+  }
+
+  Future<int> syncSePayTransactions({
+    required String userId,
+    required String walletId,
+    String? apiTokenOverride,
+    int limit = 40,
+  }) async {
+    var resolvedToken = apiTokenOverride?.trim() ?? '';
+    if (resolvedToken.isNotEmpty) {
+      await _sePayConfigRef(userId).set(
+        {
+          'sourceId': 'sepay_api',
+          'ownerId': userId,
+          'apiToken': resolvedToken,
+          'defaultWalletId': walletId,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        },
+        SetOptions(merge: true),
+      );
+    } else {
+      final snap = await _sePayConfigRef(userId).get();
+      resolvedToken = (snap.data()?['apiToken'] as String?)?.trim() ?? '';
+    }
+
+    final remoteItems = await _sePayApi.fetchRecentTransactions(
+      apiToken: resolvedToken,
+      limit: limit,
+    );
+
+    var appliedCount = 0;
+    for (final item in remoteItems) {
+      final outcome = await ingestVerifiedBankFeedEvent(
+        userId: userId,
+        walletId: walletId,
+        externalTransactionId: item.externalId,
+        direction: item.direction,
+        amountMinor: item.amountMinor,
+        content: '${item.bankBrandName}: ${item.content}',
+        occurredAt: item.occurredAt,
+        referenceCode: item.referenceCode,
+      );
+      if (outcome.kind == IngestionOutcomeKind.upgradedToVerified) {
+        appliedCount += 1;
+      }
+    }
+    return appliedCount;
+  }
 
   DocumentReference<Map<String, dynamic>> _consentRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('consents').doc('android_notification');
@@ -317,9 +387,12 @@ class NotificationsRemoteDataSource {
         'receivedAt': Timestamp.fromDate(now),
       });
 
+      final newWalletBalance = currentBal + delta;
+      final resolvedWalletName = (walletSnap.data()?['name'] as String?) ?? 'Ngân hàng';
+
       if (walletSnap.exists) {
         tx.update(walletRef, {
-          'balanceMinor': currentBal + delta,
+          'balanceMinor': newWalletBalance,
           'updatedAt': Timestamp.fromDate(now),
         });
       }
@@ -330,6 +403,8 @@ class NotificationsRemoteDataSource {
           'verification': 'verified',
           'sourceKind': 'bankApi',
           'walletId': walletId,
+          'walletName': resolvedWalletName,
+          'balanceAfterMinor': newWalletBalance,
           'updatedAt': Timestamp.fromDate(now),
         });
       } else {
@@ -343,6 +418,8 @@ class NotificationsRemoteDataSource {
             'id': targetTxId,
             'ownerId': userId,
             'walletId': walletId,
+            'walletName': resolvedWalletName,
+            'balanceAfterMinor': newWalletBalance,
             'categoryName': inferred.category,
             'kind': direction == 'credit' ? 'income' : 'expense',
             'direction': direction,
@@ -697,6 +774,48 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
     try {
       await _remoteDataSource.deleteAccountAndPersonalData(userId);
       return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<bool> isNativeNotificationAccessGranted() =>
+      _remoteDataSource.isNativePermissionGranted();
+
+  @override
+  Future<void> openNativeNotificationAccessSettings() =>
+      _remoteDataSource.openNativePermissionSettings();
+
+  @override
+  Stream<Map<String, dynamic>> watchLiveAndroidBankSignals() =>
+      _remoteDataSource.watchLiveNativeSignals();
+
+  @override
+  Future<Result<String?>> getSavedSePayMaskedToken(String userId) async {
+    try {
+      final masked = await _remoteDataSource.getSavedSePayMaskedToken(userId);
+      return Success(masked);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<int>> syncSePayTransactions({
+    required String userId,
+    required String walletId,
+    String? apiTokenOverride,
+    int limit = 40,
+  }) async {
+    try {
+      final count = await _remoteDataSource.syncSePayTransactions(
+        userId: userId,
+        walletId: walletId,
+        apiTokenOverride: apiTokenOverride,
+        limit: limit,
+      );
+      return Success(count);
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }

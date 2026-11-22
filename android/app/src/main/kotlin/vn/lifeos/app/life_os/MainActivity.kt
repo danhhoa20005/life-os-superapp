@@ -166,6 +166,41 @@ class MainActivity : FlutterActivity() {
                             result.error("OPEN_URL_FAILED", e.message, null)
                         }
                     }
+                    "shareTextFile" -> {
+                        val fileName = call.argument<String>("fileName") ?: "SaoKe_LifeOS.csv"
+                        val content = call.argument<String>("content") ?: ""
+                        val mimeType = call.argument<String>("mimeType") ?: "text/csv"
+                        val shareTitle = call.argument<String>("title") ?: "Xuất Sao kê Life OS"
+                        try {
+                            val exportFile = File(cacheDir, fileName)
+                            // Prepend UTF-8 BOM for CSV so Excel & Sheets display Vietnamese accents accurately
+                            val bytes = if (mimeType.contains("csv")) {
+                                byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) +
+                                    content.toByteArray(Charsets.UTF_8)
+                            } else {
+                                content.toByteArray(Charsets.UTF_8)
+                            }
+                            exportFile.writeBytes(bytes)
+                            val uri = FileProvider.getUriForFile(
+                                this,
+                                "$packageName.fileprovider",
+                                exportFile
+                            )
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = mimeType
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, shareTitle)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            val chooser = Intent.createChooser(sendIntent, shareTitle).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(chooser)
+                            result.success(exportFile.absolutePath)
+                        } catch (e: Exception) {
+                            result.error("SHARE_FILE_FAILED", e.message, null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

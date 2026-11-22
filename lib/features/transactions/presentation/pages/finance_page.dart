@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/smart_quick_entry_parser.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
@@ -64,6 +66,23 @@ class FinancePage extends StatelessWidget {
           appBar: LiquidGlassBar(
             title: const Text('Tài chính & Sổ quỹ'),
             actions: [
+              BlocBuilder<TransactionListBloc, TransactionListState>(
+                builder: (context, listState) {
+                  return IconButton(
+                    key: const Key('export_statement_csv_button'),
+                    tooltip: 'Xuất Sao kê CSV thực tế',
+                    onPressed: listState.filteredTransactions.isEmpty
+                        ? null
+                        : () => _exportMonthlyStatementCsv(
+                              context,
+                              monthKey: listState.monthKey,
+                              transactions: listState.filteredTransactions,
+                              wallets: listState.wallets,
+                            ),
+                    icon: const Icon(Icons.ios_share_rounded, size: 20),
+                  );
+                },
+              ),
               IconButton(
                 tooltip: 'Thêm ví / tài khoản mới',
                 onPressed: () => _showCreateWalletDialog(context, user.id),
@@ -123,6 +142,58 @@ class FinancePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _exportMonthlyStatementCsv(
+    BuildContext context, {
+    required String monthKey,
+    required List<TransactionEntity> transactions,
+    required List<WalletEntity> wallets,
+  }) async {
+    final walletNames = <String, String>{for (final w in wallets) w.id: w.name};
+    String esc(String input) {
+      final cleaned = input.replaceAll('"', '""').replaceAll('\n', ' ');
+      return '"$cleaned"';
+    }
+
+    final buf = StringBuffer()
+      ..writeln(
+        'ThoiGian,MaButToan,TaiKhoanVi,PhanLoai,HangMuc,NoiDung,SoTienVND,SoDuSauGD,TrangThai',
+      );
+
+    for (final tx in transactions) {
+      final dt =
+          '${tx.occurredAt.year}-${tx.occurredAt.month.toString().padLeft(2, '0')}-${tx.occurredAt.day.toString().padLeft(2, '0')} '
+          '${tx.occurredAt.hour.toString().padLeft(2, '0')}:${tx.occurredAt.minute.toString().padLeft(2, '0')}';
+      final wName = tx.walletName ?? walletNames[tx.walletId] ?? tx.walletId;
+      final signedAmt = tx.direction == 'credit' ? tx.amountMinor : -tx.amountMinor;
+      final balAfter = tx.balanceAfterMinor?.toString() ?? '';
+      final status = tx.isReversed ? 'REVERSED' : tx.verification.name.toUpperCase();
+      buf.writeln(
+        '${esc(dt)},${esc(tx.id)},${esc(wName)},${esc(tx.kind.name)},${esc(tx.categoryName)},'
+        '${esc(tx.merchant)},$signedAmt,$balAfter,${esc(status)}',
+      );
+    }
+
+    final fileName = 'SaoKe_LifeOS_$monthKey.csv';
+    final savedPath = await sl<NativeAppUpdaterBridge>().shareTextFile(
+      fileName: fileName,
+      content: buf.toString(),
+      mimeType: 'text/csv',
+      title: 'Sao kê Sổ cái Life OS ($monthKey)',
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedPath != null
+                ? '✓ Đã xuất tệp sao kê $fileName (${transactions.length} bút toán).'
+                : '✓ Đã sao chép sao kê CSV (${transactions.length} bút toán) vào bộ nhớ tạm.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _showCreateWalletDialog(BuildContext context, String userId) async {

@@ -112,4 +112,28 @@ class NativeAppUpdaterBridge {
       return false;
     }
   }
+
+  Future<String?> shareTextFile({
+    required String fileName,
+    required String content,
+    String mimeType = 'text/csv',
+    String title = 'Xuất Sao kê Sổ cái Life OS',
+  }) async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        final path = await _channel.invokeMethod<String>(
+          'shareTextFile',
+          <String, dynamic>{
+            'fileName': fileName,
+            'content': content,
+            'mimeType': mimeType,
+            'title': title,
+          },
+        );
+        if (path != null && path.isNotEmpty) return path;
+      } catch (_) {}
+    }
+    await Clipboard.setData(ClipboardData(text: content));
+    return null;
+  }
 }

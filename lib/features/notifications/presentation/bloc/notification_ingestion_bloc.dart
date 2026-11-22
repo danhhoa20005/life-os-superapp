@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
@@ -16,10 +18,23 @@ sealed class NotificationIngestionEvent extends Equatable {
 
 final class NotificationsCenterStarted extends NotificationIngestionEvent {
   final String userId;
-  const NotificationsCenterStarted(this.userId);
+  final String defaultWalletId;
+
+  const NotificationsCenterStarted(
+    this.userId, {
+    this.defaultWalletId = 'wallet_cash_default',
+  });
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [userId, defaultWalletId];
+}
+
+final class NativePermissionStatusRefreshed extends NotificationIngestionEvent {
+  const NativePermissionStatusRefreshed();
+}
+
+final class OpenNativePermissionSettingsRequested extends NotificationIngestionEvent {
+  const OpenNativePermissionSettingsRequested();
 }
 
 final class ConsentConfigUpdated extends NotificationIngestionEvent {
@@ -43,6 +58,8 @@ final class BankNotificationSignalReceived extends NotificationIngestionEvent {
   final String packageName;
   final String title;
   final String body;
+  final DateTime? postedAt;
+  final String? notificationId;
 
   const BankNotificationSignalReceived({
     required this.userId,
@@ -50,10 +67,35 @@ final class BankNotificationSignalReceived extends NotificationIngestionEvent {
     required this.packageName,
     required this.title,
     required this.body,
+    this.postedAt,
+    this.notificationId,
   });
 
   @override
-  List<Object?> get props => [userId, defaultWalletId, packageName, title, body];
+  List<Object?> get props => [
+        userId,
+        defaultWalletId,
+        packageName,
+        title,
+        body,
+        postedAt,
+        notificationId,
+      ];
+}
+
+final class SePayLiveSyncSubmitted extends NotificationIngestionEvent {
+  final String userId;
+  final String walletId;
+  final String? apiTokenOverride;
+
+  const SePayLiveSyncSubmitted({
+    required this.userId,
+    required this.walletId,
+    this.apiTokenOverride,
+  });
+
+  @override
+  List<Object?> get props => [userId, walletId, apiTokenOverride];
 }
 
 final class CsvStatementImportSubmitted extends NotificationIngestionEvent {
@@ -89,6 +131,9 @@ final class AccountDeletionConfirmed extends NotificationIngestionEvent {
 
 final class NotificationIngestionState extends Equatable {
   final bool isLoading;
+  final bool isSyncingSePay;
+  final bool isNativePermissionGranted;
+  final String? savedSePayMaskedToken;
   final SourceConsentEntity? consent;
   final IngestionOutcome? lastOutcome;
   final String? infoMessage;
@@ -98,6 +143,9 @@ final class NotificationIngestionState extends Equatable {
 
   const NotificationIngestionState({
     this.isLoading = false,
+    this.isSyncingSePay = false,
+    this.isNativePermissionGranted = false,
+    this.savedSePayMaskedToken,
     this.consent,
     this.lastOutcome,
     this.infoMessage,
@@ -108,6 +156,9 @@ final class NotificationIngestionState extends Equatable {
 
   NotificationIngestionState copyWith({
     bool? isLoading,
+    bool? isSyncingSePay,
+    bool? isNativePermissionGranted,
+    String? savedSePayMaskedToken,
     SourceConsentEntity? consent,
     IngestionOutcome? lastOutcome,
     String? infoMessage,
@@ -118,6 +169,9 @@ final class NotificationIngestionState extends Equatable {
   }) {
     return NotificationIngestionState(
       isLoading: isLoading ?? this.isLoading,
+      isSyncingSePay: isSyncingSePay ?? this.isSyncingSePay,
+      isNativePermissionGranted: isNativePermissionGranted ?? this.isNativePermissionGranted,
+      savedSePayMaskedToken: savedSePayMaskedToken ?? this.savedSePayMaskedToken,
       consent: consent ?? this.consent,
       lastOutcome: lastOutcome ?? this.lastOutcome,
       infoMessage: infoMessage ?? this.infoMessage,
@@ -130,6 +184,9 @@ final class NotificationIngestionState extends Equatable {
   @override
   List<Object?> get props => [
         isLoading,
+        isSyncingSePay,
+        isNativePermissionGranted,
+        savedSePayMaskedToken,
         consent,
         lastOutcome,
         infoMessage,
@@ -142,13 +199,20 @@ final class NotificationIngestionState extends Equatable {
 class NotificationIngestionBloc
     extends Bloc<NotificationIngestionEvent, NotificationIngestionState> {
   final NotificationsRepository _repository;
+  StreamSubscription<Map<String, dynamic>>? _nativeSignalsSub;
 
   NotificationIngestionBloc({required NotificationsRepository repository})
       : _repository = repository,
         super(const NotificationIngestionState()) {
     on<NotificationsCenterStarted>(_onStarted, transformer: restartable());
+    on<NativePermissionStatusRefreshed>(_onNativePermRefreshed, transformer: droppable());
+    on<OpenNativePermissionSettingsRequested>(
+      _onOpenNativePermSettings,
+      transformer: droppable(),
+    );
     on<ConsentConfigUpdated>(_onConsentUpdated, transformer: sequential());
     on<BankNotificationSignalReceived>(_onSignalReceived, transformer: sequential());
+    on<SePayLiveSyncSubmitted>(_onSePaySynced, transformer: droppable());
     on<CsvStatementImportSubmitted>(_onCsvImported, transformer: sequential());
     on<PersonalDataExportRequested>(_onExportRequested, transformer: droppable());
     on<AccountDeletionConfirmed>(_onAccountDeletionConfirmed, transformer: sequential());
@@ -159,6 +223,37 @@ class NotificationIngestionBloc
     Emitter<NotificationIngestionState> emit,
   ) async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
+    final permGranted = await _repository.isNativeNotificationAccessGranted();
+    final maskedTokenRes = await _repository.getSavedSePayMaskedToken(event.userId);
+    final maskedToken = maskedTokenRes.fold((_) => null, (v) => v);
+    emit(
+      state.copyWith(
+        isNativePermissionGranted: permGranted,
+        savedSePayMaskedToken: maskedToken,
+      ),
+    );
+
+    await _nativeSignalsSub?.cancel();
+    _nativeSignalsSub = _repository.watchLiveAndroidBankSignals().listen((payload) {
+      final pkg = (payload['packageName'] ?? '').toString().trim();
+      final title = (payload['title'] ?? '').toString();
+      final body = (payload['body'] ?? '').toString();
+      if (pkg.isEmpty || (title.isEmpty && body.isEmpty)) return;
+      final epochMs = (payload['postedAtEpochMs'] as num?)?.toInt();
+      final notifKey = payload['notificationKey']?.toString();
+      add(
+        BankNotificationSignalReceived(
+          userId: event.userId,
+          defaultWalletId: event.defaultWalletId,
+          packageName: pkg,
+          title: title,
+          body: body,
+          postedAt: epochMs != null ? DateTime.fromMillisecondsSinceEpoch(epochMs) : null,
+          notificationId: notifKey,
+        ),
+      );
+    });
+
     await emit.forEach<Result<SourceConsentEntity>>(
       _repository.watchAndroidNotificationConsent(event.userId),
       onData: (res) => res.fold(
@@ -166,6 +261,21 @@ class NotificationIngestionBloc
         (c) => state.copyWith(isLoading: false, consent: c, clearFailure: true),
       ),
     );
+  }
+
+  Future<void> _onNativePermRefreshed(
+    NativePermissionStatusRefreshed event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    final granted = await _repository.isNativeNotificationAccessGranted();
+    emit(state.copyWith(isNativePermissionGranted: granted));
+  }
+
+  Future<void> _onOpenNativePermSettings(
+    OpenNativePermissionSettingsRequested event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    await _repository.openNativeNotificationAccessSettings();
   }
 
   Future<void> _onConsentUpdated(
@@ -190,10 +300,45 @@ class NotificationIngestionBloc
       packageName: event.packageName,
       title: event.title,
       body: event.body,
+      postedAt: event.postedAt,
+      notificationId: event.notificationId,
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (outcome) => emit(state.copyWith(lastOutcome: outcome, clearFailure: true)),
+    );
+  }
+
+  Future<void> _onSePaySynced(
+    SePayLiveSyncSubmitted event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    emit(state.copyWith(isSyncingSePay: true, clearFailure: true));
+    final res = await _repository.syncSePayTransactions(
+      userId: event.userId,
+      walletId: event.walletId,
+      apiTokenOverride: event.apiTokenOverride,
+    );
+    final refreshedMaskRes = await _repository.getSavedSePayMaskedToken(event.userId);
+    final refreshedMask = refreshedMaskRes.fold((_) => state.savedSePayMaskedToken, (v) => v);
+    res.fold(
+      (f) => emit(
+        state.copyWith(
+          isSyncingSePay: false,
+          savedSePayMaskedToken: refreshedMask,
+          failure: f,
+        ),
+      ),
+      (count) => emit(
+        state.copyWith(
+          isSyncingSePay: false,
+          savedSePayMaskedToken: refreshedMask,
+          infoMessage: count > 0
+              ? 'Đã đồng bộ xác thực $count giao dịch mới trực tiếp từ SePay!'
+              : 'Sổ cái đã đồng bộ mới nhất với SePay (0 giao dịch mới).',
+          clearFailure: true,
+        ),
+      ),
     );
   }
 
@@ -238,5 +383,11 @@ class NotificationIngestionBloc
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(state.copyWith(accountDeleted: true, clearFailure: true)),
     );
+  }
+
+  @override
+  Future<void> close() async {
+    await _nativeSignalsSub?.cancel();
+    return super.close();
   }
 }

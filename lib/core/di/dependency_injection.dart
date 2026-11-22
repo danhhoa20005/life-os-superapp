@@ -29,6 +29,7 @@ import '../../features/family/data/repositories/family_repository_impl.dart';
 import '../../features/family/domain/repositories/family_repository.dart';
 import '../../features/family/domain/usecases/family_usecases.dart';
 import '../../features/family/presentation/bloc/family_bloc.dart';
+import '../../features/notifications/data/datasources/sepay_api_datasource.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
 import '../../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
@@ -116,11 +117,15 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<VehicleRemoteDataSource>(
     () => VehicleRemoteDataSource(sl<FirebaseFirestore>()),
   );
+  sl.registerLazySingleton<SePayApiDataSource>(
+    () => SePayApiDataSource(httpClient: httpClientOverride),
+  );
   sl.registerLazySingleton<NotificationsRemoteDataSource>(
     () => NotificationsRemoteDataSource(
       firestore: sl<FirebaseFirestore>(),
       firebaseAuth: sl<FirebaseAuth>(),
       bridge: sl<AndroidNotificationBridge>(),
+      sePayApi: sl<SePayApiDataSource>(),
     ),
   );
 

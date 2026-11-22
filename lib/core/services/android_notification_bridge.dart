@@ -44,15 +44,39 @@ class AndroidNotificationBridge {
     }
   }
 
+  bool get _hasServicesBinding {
+    try {
+      ServicesBinding.instance;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Stream<Map<String, dynamic>> watchIncomingBankNotifications() {
-    if (!isSupportedPlatform) {
+    if (!isSupportedPlatform || !_hasServicesBinding) {
       return const Stream<Map<String, dynamic>>.empty();
     }
-    return _eventChannel.receiveBroadcastStream().map((raw) {
-      if (raw is Map) {
-        return Map<String, dynamic>.from(raw);
+    return Stream<Map<String, dynamic>>.multi((controller) {
+      StreamSubscription<dynamic>? sub;
+      try {
+        sub = _eventChannel.receiveBroadcastStream().listen(
+          (raw) {
+            if (raw is Map) {
+              controller.add(Map<String, dynamic>.from(raw));
+            }
+          },
+          onError: (_) {},
+        );
+      } catch (_) {
+        controller.close();
+        return;
       }
-      return <String, dynamic>{};
+      controller.onCancel = () async {
+        try {
+          await sub?.cancel();
+        } catch (_) {}
+      };
     });
   }
 }

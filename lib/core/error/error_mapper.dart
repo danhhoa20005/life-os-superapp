@@ -76,9 +76,14 @@ abstract final class ErrorMapper {
         'too-many-requests' => const AuthenticationFailure(
             message: 'Quá nhiều lần thử thất bại. Vui lòng đợi ít phút rồi thử lại.',
           ),
-        _ => AuthenticationFailure(
-            message: error.message ?? 'Xác thực không thành công. Vui lòng thử lại.',
-          ),
+        _ => (error.message != null && error.message!.contains('CONFIGURATION_NOT_FOUND'))
+            ? const AuthenticationFailure(
+                message:
+                    'Dự án Cloud life-os-vn-2026 cần bật nút "Get started" 1 lần tại Firebase Console (Authentication → Sign-in method → Bật Email/Password & Google).',
+              )
+            : AuthenticationFailure(
+                message: error.message ?? 'Xác thực không thành công. Vui lòng thử lại.',
+              ),
       };
     }
 

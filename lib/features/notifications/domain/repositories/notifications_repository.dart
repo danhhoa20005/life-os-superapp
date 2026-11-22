@@ -42,4 +42,19 @@ abstract interface class NotificationsRepository {
 
   /// Permanently deletes personal data & revokes family memberships (PDPL 91/2025 & Google Play User Data Policy).
   Future<Result<void>> deleteAccountAndPersonalData(String userId);
+
+  Future<bool> isNativeNotificationAccessGranted();
+
+  Future<void> openNativeNotificationAccessSettings();
+
+  Stream<Map<String, dynamic>> watchLiveAndroidBankSignals();
+
+  Future<Result<String?>> getSavedSePayMaskedToken(String userId);
+
+  Future<Result<int>> syncSePayTransactions({
+    required String userId,
+    required String walletId,
+    String? apiTokenOverride,
+    int limit = 40,
+  });
 }
