@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -13,6 +15,7 @@ import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../tasks/domain/entities/task_entities.dart';
 import '../../../tasks/domain/repositories/task_repository.dart';
 import '../../../tasks/presentation/bloc/task_bloc.dart';
+import '../../../tasks/presentation/pages/tasks_board_page.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../../domain/repositories/calendar_repository.dart';
 import '../bloc/calendar_bloc.dart';
@@ -58,67 +61,69 @@ class PlanningPage extends StatelessWidget {
       child: DefaultTabController(
         length: 2,
         child: Scaffold(
-          appBar: LiquidGlassBar(
-            title: const Text('Lịch Google & Giao việc'),
-            actions: [
-              IconButton(
-                key: const Key('open_create_event_button'),
-                tooltip: 'Thêm sự kiện lịch mới',
-                onPressed: () => showUpsertCalendarEventDialog(
-                  context,
-                  userId: user.id,
-                  userName: user.fullName,
-                  familyId: activeFamily?.id,
-                  availabilityOptIn: user.availabilityOptIn,
-                ),
-                icon: const Icon(Icons.edit_calendar_rounded),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: FilledButton.icon(
-                  onPressed: () => _showCreateTaskDialog(
-                    context,
-                    userId: user.id,
-                    userName: user.fullName,
-                    familyId: activeFamily?.id,
-                    members: activeFamily?.members ?? const [],
+          body: LifeOsMintWaveCanvas(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  LifeOsTopBrandHeader(
+                    title: 'Lịch',
+                    subtitle: 'Quản lý lịch trình, sự kiện và kế hoạch của bạn.',
+                    extraBrandActions: [
+                      LifeOsHeaderCircleButton(
+                        buttonKey: const Key('open_create_event_button'),
+                        icon: Icons.edit_calendar_rounded,
+                        tooltip: 'Thêm sự kiện lịch mới',
+                        onTap: () => showUpsertCalendarEventDialog(
+                          context,
+                          userId: user.id,
+                          userName: user.fullName,
+                          familyId: activeFamily?.id,
+                          availabilityOptIn: user.availabilityOptIn,
+                        ),
+                      ),
+                    ],
+                    trailingAction: FilledButton.icon(
+                      onPressed: () => _showCreateTaskDialog(
+                        context,
+                        userId: user.id,
+                        userName: user.fullName,
+                        familyId: activeFamily?.id,
+                        members: activeFamily?.members ?? const [],
+                      ),
+                      icon: const Icon(Icons.add_task_rounded, size: 18),
+                      label: const Text('Giao việc'),
+                    ),
                   ),
-                  icon: const Icon(Icons.add_task_rounded, size: 18),
-                  label: const Text('Giao việc'),
-                ),
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              const ProPillTabContainer(
-                tabBar: TabBar(
-                  tabs: [
-                    Tab(
-                      key: Key('planning_calendar_tab'),
-                      text: 'Google Calendar',
+                  const ProPillTabContainer(
+                    tabBar: TabBar(
+                      tabs: [
+                        Tab(
+                          key: Key('planning_calendar_tab'),
+                          text: 'Lịch trình',
+                        ),
+                        Tab(
+                          key: Key('planning_tasks_tab'),
+                          text: 'Việc làm & Giao việc',
+                        ),
+                      ],
                     ),
-                    Tab(
-                      key: Key('planning_tasks_tab'),
-                      text: 'Nhiệm vụ & Việc nhà',
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _GoogleAndLifeOsCalendarTab(
+                          userId: user.id,
+                          userName: user.fullName,
+                          familyId: activeFamily?.id,
+                          availabilityOptIn: user.availabilityOptIn,
+                        ),
+                        UnifiedTasksBoardView(userId: user.id),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _GoogleAndLifeOsCalendarTab(
-                      userId: user.id,
-                      userName: user.fullName,
-                      familyId: activeFamily?.id,
-                      availabilityOptIn: user.availabilityOptIn,
-                    ),
-                    _TasksListView(userId: user.id),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -445,13 +450,12 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                 AppSpacing.xxl,
               ),
               children: [
-                // 1. Google Calendar API v3 Hero Control Card
-                ProHeroGradientCard(
-                  gradientColors: const [
-                    Color(0xFF0B3C5D),
-                    Color(0xFF1971C2),
-                    Color(0xFF0CA678),
-                  ],
+                // 0. Unified LifeOS Month Grid + Day Timeline (`02_Lich.png`)
+                _LifeOsInteractiveCalendarDeck(events: state.events),
+                const SizedBox(height: 14),
+
+                // 1. Google Calendar API v3 Sync Card
+                LifeOsMintHeroCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -464,6 +468,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(11),
+                              border: Border.all(color: c.separator),
                             ),
                             child: const GoogleBrandMark(size: 20),
                           ),
@@ -472,20 +477,20 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Google Calendar API v3 · Đồng bộ 2 chiều',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: c.textPrimary,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 16,
+                                    fontSize: 15,
                                   ),
                                 ),
                                 Text(
                                   state.lastSyncReport != null
-                                      ? 'Đồng bộ lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · Chuẩn RFC 5545 RRULE & SyncToken'
-                                      : 'Quản lý đa bộ lịch, sự kiện lặp RRULE, sửa/xóa & đồng bộ đám mây',
+                                      ? 'Đồng bộ lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · ${state.calendars.length} bộ lịch · $recurringCount lặp RRULE'
+                                      : '${state.calendars.length} bộ lịch · $syncedCount đã đồng bộ · Chuẩn RFC 5545 RRULE',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.84),
+                                    color: c.textSecondary,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -495,50 +500,17 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                           IconButton(
                             tooltip: 'Cấu hình OAuth Token nâng cao',
                             onPressed: () => _showOAuthTokenSyncDialog(context),
-                            icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                            icon: Icon(Icons.tune_rounded, color: c.primary),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          ProGlassStatPill(
-                            icon: Icons.layers_rounded,
-                            label: 'Bộ lịch',
-                            value: '${state.calendars.length}',
-                          ),
-                          ProGlassStatPill(
-                            icon: Icons.event_note_rounded,
-                            label: 'Sự kiện',
-                            value: '${state.events.length}',
-                          ),
-                          ProGlassStatPill(
-                            icon: Icons.repeat_rounded,
-                            label: 'Lịch lặp RRULE',
-                            value: '$recurringCount',
-                            iconColor: const Color(0xFFFDE047),
-                          ),
-                          ProGlassStatPill(
-                            icon: Icons.cloud_done_rounded,
-                            label: 'Đã đồng bộ GCal',
-                            value: '$syncedCount',
-                            iconColor: const Color(0xFF86EFAC),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
                           FilledButton.icon(
                             key: const Key('sync_google_calendar_button'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF0B3C5D),
-                            ),
                             onPressed: state.isSyncingGoogle
                                 ? null
                                 : () => context.read<CalendarBloc>().add(
@@ -551,7 +523,10 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : const Icon(Icons.sync_rounded, size: 18),
                             label: Text(
@@ -560,21 +535,21 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                                   : 'Đồng bộ Google Calendar',
                             ),
                           ),
-                          ProHeroQuickAction(
-                            icon: Icons.create_new_folder_outlined,
-                            label: 'Tạo bộ lịch',
-                            onTap: () => _showCreateCalendarDialog(context),
+                          OutlinedButton.icon(
+                            onPressed: () => _showCreateCalendarDialog(context),
+                            icon: const Icon(Icons.create_new_folder_outlined, size: 17),
+                            label: const Text('Tạo bộ lịch'),
                           ),
-                          ProHeroQuickAction(
-                            icon: Icons.add_circle_outline_rounded,
-                            label: 'Thêm sự kiện / Lịch lặp',
-                            onTap: () => showUpsertCalendarEventDialog(
+                          OutlinedButton.icon(
+                            onPressed: () => showUpsertCalendarEventDialog(
                               context,
                               userId: userId,
                               userName: userName,
                               familyId: familyId,
                               availabilityOptIn: availabilityOptIn,
                             ),
+                            icon: const Icon(Icons.add_circle_outline_rounded, size: 17),
+                            label: const Text('Thêm sự kiện / Lịch lặp'),
                           ),
                         ],
                       ),
@@ -1302,183 +1277,366 @@ Future<void> showUpsertCalendarEventDialog(
   countCtrl.dispose();
 }
 
-class _TasksListView extends StatelessWidget {
-  final String userId;
-  const _TasksListView({required this.userId});
+/// Interactive Month Grid + Day Timeline matching `02_Lich.png` in Unified LifeOS Style.
+class _LifeOsInteractiveCalendarDeck extends StatefulWidget {
+  final List<CalendarEventEntity> events;
+
+  const _LifeOsInteractiveCalendarDeck({required this.events});
+
+  @override
+  State<_LifeOsInteractiveCalendarDeck> createState() =>
+      _LifeOsInteractiveCalendarDeckState();
+}
+
+class _LifeOsInteractiveCalendarDeckState
+    extends State<_LifeOsInteractiveCalendarDeck> {
+  String _viewMode = 'day';
+  late DateTime _focusedMonth;
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _focusedMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = DateTime(now.year, now.month, now.day);
+  }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<TaskBloc, TaskState>(
-      builder: (context, state) {
-        if (state.tasks.isEmpty) {
-          return const EmptyStateView(
-            icon: Icons.checklist_rounded,
-            imageAsset: AppAssets.planningAssetsIllustration,
-            title: 'Chưa có công việc nào',
-            subtitle:
-                'Giao việc cho thành viên gia đình mà không cần xem hay can thiệp vào lịch riêng tư của họ.',
-          );
-        }
+    final c = TammySemanticColors.of(context);
+    final timeFmt = DateFormat('HH:mm');
 
-        final completedByMember = <String, int>{};
-        final totalByMember = <String, int>{};
-        for (final task in state.tasks) {
-          totalByMember[task.assigneeName] = (totalByMember[task.assigneeName] ?? 0) + 1;
-          if (task.status == TaskWorkflowStatus.done) {
-            completedByMember[task.assigneeName] =
-                (completedByMember[task.assigneeName] ?? 0) + 1;
-          }
-        }
+    final firstOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final startOffset = firstOfMonth.weekday - 1; // Monday = 0
+    final gridStart = firstOfMonth.subtract(Duration(days: startOffset));
 
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
-            child: ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: [
-                if (totalByMember.isNotEmpty) ...[
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Bảng Cân bằng Việc nhà & Nhiệm vụ Thành viên',
-                            style: Theme.of(context).textTheme.titleMedium,
+    final dayEvents = widget.events
+        .where((e) => _sameDay(e.startsAt, _selectedDate))
+        .toList()
+      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+
+    const weekdaysVi = <int, String>{
+      DateTime.monday: 'Thứ Hai',
+      DateTime.tuesday: 'Thứ Ba',
+      DateTime.wednesday: 'Thứ Tư',
+      DateTime.thursday: 'Thứ Năm',
+      DateTime.friday: 'Thứ Sáu',
+      DateTime.saturday: 'Thứ Bảy',
+      DateTime.sunday: 'Chủ Nhật',
+    };
+    final selectedDayHeader =
+        '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day} tháng ${_selectedDate.month}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Segmented Bar: Ngày | Tuần | Tháng
+        LifeOsSegmentedPills<String>(
+          selected: _viewMode,
+          options: const [
+            ('day', 'Ngày', null),
+            ('week', 'Tuần', null),
+            ('month', 'Tháng', null),
+          ],
+          onChanged: (v) => setState(() => _viewMode = v),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. Interactive Month Calendar Card (`02_Lich.png`)
+        LifeOsSoftCard(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  LifeOsHeaderCircleButton(
+                    icon: Icons.chevron_left_rounded,
+                    tooltip: 'Tháng trước',
+                    onTap: () => setState(() {
+                      _focusedMonth =
+                          DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
+                    }),
+                  ),
+                  Text(
+                    'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  LifeOsHeaderCircleButton(
+                    icon: Icons.chevron_right_rounded,
+                    tooltip: 'Tháng sau',
+                    onTap: () => setState(() {
+                      _focusedMonth =
+                          DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+                    }),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+                    .map(
+                      (lbl) => Expanded(
+                        child: Center(
+                          child: Text(
+                            lbl,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF667085),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          ...totalByMember.entries.map((e) {
-                            final done = completedByMember[e.key] ?? 0;
-                            final total = e.value;
-                            final ratio = total > 0 ? done / total : 0.0;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        e.key,
-                                        style: Theme.of(context).textTheme.labelLarge,
-                                      ),
-                                      Text(
-                                        '$done/$total hoàn thành',
-                                        style: Theme.of(context).textTheme.labelSmall,
-                                      ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+              for (var week = 0; week < 5; week++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: List.generate(7, (dow) {
+                      final cellDate =
+                          gridStart.add(Duration(days: week * 7 + dow));
+                      final inMonth = cellDate.month == _focusedMonth.month;
+                      final isSelected = _sameDay(cellDate, _selectedDate);
+                      final hasEvent = widget.events
+                          .any((ev) => _sameDay(ev.startsAt, cellDate));
+
+                      return Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => _selectedDate = cellDate),
+                          child: Container(
+                            height: 40,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              color: isSelected ? c.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${cellDate.day}',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : inMonth
+                                            ? c.textPrimary
+                                            : c.textSecondary
+                                                .withValues(alpha: 0.45),
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: LinearProgressIndicator(
-                                      value: ratio,
-                                      minHeight: 6,
+                                ),
+                                if (hasEvent || isSelected) ...[
+                                  const SizedBox(height: 2),
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? Colors.white : c.primary,
+                                      shape: BoxShape.circle,
                                     ),
                                   ),
                                 ],
-                              ),
-                            );
-                          }),
-                        ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 3. Selected Day Timeline Card (`02_Lich.png` -> tap opens `/event-detail`)
+        LifeOsSoftCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.calendar_today_rounded, size: 19, color: c.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      selectedDayHeader,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
                       ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  LifeOsStatusPill(
+                    label: '${dayEvents.isEmpty ? widget.events.length : dayEvents.length} sự kiện',
+                    tone: LifeOsAccentTone.emerald,
+                  ),
                 ],
-                ...List.generate(state.tasks.length, (index) {
-                  final t = state.tasks[index];
-                  final isAssignee = t.assigneeId == userId;
+              ),
+              const SizedBox(height: 12),
+              if (dayEvents.isEmpty && widget.events.isEmpty) ...[
+                _DayTimelineRow(
+                  barColor: c.primary,
+                  icon: Icons.groups_outlined,
+                  tone: LifeOsAccentTone.emerald,
+                  title: 'Họp phụ huynh & Gia đình',
+                  timeRange: '18:30 – 20:00',
+                  tagLabel: 'Gia đình',
+                  onTap: () => context.push('/event-detail'),
+                ),
+                const SizedBox(height: 10),
+                _DayTimelineRow(
+                  barColor: const Color(0xFF2563EB),
+                  icon: Icons.alarm_on_rounded,
+                  tone: LifeOsAccentTone.blue,
+                  title: 'Xem thử Báo thức sự kiện 07:30',
+                  timeRange: '07:30 – 08:00',
+                  tagLabel: 'Báo thức',
+                  onTap: () => context.push('/event-alarm'),
+                ),
+              ] else
+                ...(dayEvents.isNotEmpty ? dayEvents : widget.events.take(4))
+                    .toList()
+                    .asMap()
+                    .entries
+                    .map((entry) {
+                  final idx = entry.key;
+                  final ev = entry.value;
+                  final isShared =
+                      ev.visibility == CalendarEventVisibility.sharedEvent;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    t.title,
-                                    style: Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                ),
-                                SemanticStatusBadge(
-                                  kind: switch (t.status) {
-                                    TaskWorkflowStatus.done => SemanticStatusKind.success,
-                                    TaskWorkflowStatus.proposed => SemanticStatusKind.provisional,
-                                    TaskWorkflowStatus.declined => SemanticStatusKind.error,
-                                    _ => SemanticStatusKind.info,
-                                  },
-                                  label: t.status.name.toUpperCase(),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Người giao: ${t.creatorName} → Người nhận: ${t.assigneeName}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: 8),
-                            if (t.status == TaskWorkflowStatus.proposed && isAssignee)
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  OutlinedButton(
-                                    onPressed: () => context.read<TaskBloc>().add(
-                                          TaskResponseSubmitted(
-                                            RespondToTaskParams(
-                                              actorUserId: userId,
-                                              task: t,
-                                              accept: false,
-                                            ),
-                                          ),
-                                        ),
-                                    child: const Text('Từ chối'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () => context.read<TaskBloc>().add(
-                                          TaskResponseSubmitted(
-                                            RespondToTaskParams(
-                                              actorUserId: userId,
-                                              task: t,
-                                              accept: true,
-                                            ),
-                                          ),
-                                        ),
-                                    child: const Text('Chấp nhận việc'),
-                                  ),
-                                ],
-                              )
-                            else if (t.status == TaskWorkflowStatus.accepted ||
-                                t.status == TaskWorkflowStatus.inProgress)
-                              FilledButton.tonalIcon(
-                                onPressed: () => context.read<TaskBloc>().add(
-                                      TaskStatusChanged(
-                                        actorUserId: userId,
-                                        task: t,
-                                        nextStatus: TaskWorkflowStatus.done,
-                                      ),
-                                    ),
-                                icon: const Icon(Icons.check_rounded, size: 18),
-                                label: const Text('Đánh dấu Hoàn thành'),
-                              ),
-                          ],
-                        ),
-                      ),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _DayTimelineRow(
+                      barColor:
+                          idx.isEven ? c.primary : const Color(0xFF2563EB),
+                      icon: isShared
+                          ? Icons.groups_outlined
+                          : Icons.event_note_outlined,
+                      tone: isShared
+                          ? LifeOsAccentTone.emerald
+                          : LifeOsAccentTone.blue,
+                      title: ev.title,
+                      timeRange:
+                          '${timeFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}',
+                      tagLabel: isShared ? 'Gia đình' : 'Cá nhân',
+                      onTap: () => context.push('/event-detail', extra: ev),
                     ),
                   );
                 }),
-              ],
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ],
+    );
+  }
+}
+
+class _DayTimelineRow extends StatelessWidget {
+  final Color barColor;
+  final IconData icon;
+  final LifeOsAccentTone tone;
+  final String title;
+  final String timeRange;
+  final String tagLabel;
+  final VoidCallback onTap;
+
+  const _DayTimelineRow({
+    required this.barColor,
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.timeRange,
+    required this.tagLabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c.separator),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 10),
+              LifeOsIconSquircle(icon: icon, tone: tone, size: 38, iconSize: 19),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 13,
+                          color: c.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          timeRange,
+                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              LifeOsStatusPill(label: tagLabel, tone: tone),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, size: 19, color: c.textSecondary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

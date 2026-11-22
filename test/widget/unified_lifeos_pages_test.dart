@@ -1,0 +1,161 @@
+import 'dart:io';
+
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:life_os/app/app.dart';
+import 'package:life_os/app/theme/app_theme.dart';
+import 'package:life_os/core/di/dependency_injection.dart';
+import 'package:life_os/features/authentication/presentation/pages/auth_pages.dart';
+import 'package:life_os/features/calendar/presentation/pages/event_detail_and_alarm_pages.dart';
+
+void main() {
+  test('Architectural Rule: Strictly ZERO Cubit classes anywhere in lib/', () {
+    final dartFiles = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'));
+    for (final file in dartFiles) {
+      final src = file.readAsStringSync();
+      expect(
+        RegExp(r'\bextends\s+Cubit\b').hasMatch(src),
+        isFalse,
+        reason: 'Forbidden Cubit found in ${file.path}',
+      );
+    }
+  });
+
+  testWidgets('WelcomePage and Full-Screen EventAlarmPage (07:30) render cleanly', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const WelcomePage(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Bắt đầu'), findsOneWidget);
+    expect(find.text('Tôi đã có tài khoản'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const EventAlarmPage(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Báo thức sự kiện'), findsOneWidget);
+    expect(find.text('07:30'), findsOneWidget);
+    expect(find.text('Hoãn 5 phút'), findsOneWidget);
+    expect(find.text('Tắt báo thức'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Unified LifeOS Navigation: Center + Quick Hub, Auto-Tx 98% Review, Document Vault & Settings Dark Mode',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockUser = MockUser(
+        isAnonymous: false,
+        uid: 'uid_unified_test',
+        email: 'hoa@lifeos.vn',
+        displayName: 'Nguyễn Hòa',
+        isEmailVerified: true,
+      );
+      final mockAuth = MockFirebaseAuth(mockUser: mockUser, signedIn: true);
+      final fakeFirestore = FakeFirebaseFirestore();
+      await fakeFirestore.collection('users').doc('uid_unified_test').set({
+        'id': 'uid_unified_test',
+        'email': 'hoa@lifeos.vn',
+        'fullName': 'Nguyễn Hòa',
+        'onboardingCompleted': true,
+        'availabilityOptIn': false,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      await configureDependencies(
+        authOverride: mockAuth,
+        firestoreOverride: fakeFirestore,
+        httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+      );
+
+      await tester.pumpWidget(const LifeOsApp());
+      await tester.pumpAndSettle();
+
+      // 1. Verify Unified Home Page (LifeOS wordmark, greeting, 3x3 Grid & Center + FAB)
+      expect(find.text('LifeOS'), findsWidgets);
+      expect(find.textContaining('Xin chào, Hòa'), findsOneWidget);
+      expect(find.byKey(const Key('lifeos_center_quick_add_fab')), findsOneWidget);
+
+      // 2. Open Center + Quick Create Hub -> Navigate to Auto-Transaction 98% Review Page
+      await tester.tap(find.byKey(const Key('lifeos_center_quick_add_fab')));
+      await tester.pumpAndSettle();
+      expect(find.text('Tạo nhanh LifeOS'), findsOneWidget);
+
+      await tester.tap(find.textContaining('Duyệt Giao dịch Ngân hàng Tự động'));
+      await tester.pumpAndSettle();
+      expect(find.text('Chi tiết giao dịch (Tự động)'), findsOneWidget);
+      expect(find.textContaining('98%'), findsOneWidget);
+
+      // Go back to Home
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+
+      // 3. Scroll Home ListView into view and tap "Tài liệu" tile in Home 3x3 Grid
+      await tester.drag(find.byType(ListView).first, const Offset(0, -320));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tài liệu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tài liệu gia đình'), findsOneWidget);
+      expect(find.text('Hóa đơn & Hợp đồng'), findsOneWidget);
+      expect(find.text('Giấy tờ xe'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Thêm tài liệu'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('document_title_input')),
+        'Đăng ký xe Toyota Cross 30H-123.45',
+      );
+      await tester.tap(find.byKey(const Key('submit_document_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đăng ký xe Toyota Cross 30H-123.45'), findsOneWidget);
+
+      // Go back to Home and open Settings Hub ("Cài đặt")
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cài đặt'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đồng bộ Google Calendar'), findsOneWidget);
+      expect(find.text('Nhận diện thông báo ngân hàng'), findsOneWidget);
+      expect(find.text('Chế độ tối'), findsOneWidget);
+
+      // Toggle True Dark Mode live!
+      await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('settings_dark_mode_switch')));
+      await tester.pumpAndSettle();
+      expect(find.text('Đang bật'), findsOneWidget);
+    },
+  );
+}

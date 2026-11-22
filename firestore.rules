@@ -151,6 +151,16 @@ service cloud.firestore {
         allow read, create, update: if isOwner(userId);
         allow delete: if isOwner(userId);
       }
+
+      // PERSONAL DOCUMENT VAULT (Contracts, Vehicle Papers, Insurance, IDs)
+      match /documents/{docId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId;
+        allow update: if isOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId;
+        allow delete: if isOwner(userId);
+      }
     }
 
     // =========================================================================
@@ -274,6 +284,18 @@ service cloud.firestore {
 
       match /shopping_items/{itemId} {
         allow read, create, update, delete: if isFamilyMember(familyId);
+      }
+
+      // SHARED FAMILY DOCUMENT VAULT (Bills & Contracts, Vehicle Papers, Insurance, Important Docs)
+      match /documents/{docId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.familyId == familyId
+          && request.resource.data.uploadedBy == request.auth.uid;
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.familyId == resource.data.familyId;
+        allow delete: if isFamilyManager(familyId)
+          || (isFamilyMember(familyId) && resource.data.uploadedBy == request.auth.uid);
       }
 
       // SHARED BILL SPLITTING (Eating out, Housework, Utilities, Rent, Trips)

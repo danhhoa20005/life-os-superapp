@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Semantic color tokens implementing the "Tammy × Apple" Design System (`a.docx`).
+/// Unified LifeOS Fresh Emerald-Mint Design System tokens (Light & True Dark Mode).
 @immutable
 class TammySemanticColors extends ThemeExtension<TammySemanticColors> {
   final Color primary;
@@ -44,45 +44,45 @@ class TammySemanticColors extends ThemeExtension<TammySemanticColors> {
   });
 
   static const TammySemanticColors light = TammySemanticColors(
-    primary: Color(0xFF0B7A2A),
+    primary: Color(0xFF12B847),
     onPrimary: Color(0xFFFFFFFF),
-    primarySubtle: Color(0xFFE7F7EB),
-    secondary: Color(0xFF0057B8),
+    primarySubtle: Color(0xFFEBFBEE),
+    secondary: Color(0xFF2563EB),
     onSecondary: Color(0xFFFFFFFF),
-    background: Color(0xFFF2F2F7),
+    background: Color(0xFFF6F9F7),
     surface: Color(0xFFFFFFFF),
-    surfaceRaised: Color(0xFFF7F7FA),
-    textPrimary: Color(0xFF1D1D1F),
-    textSecondary: Color(0xFF54545A),
-    border: Color(0xFF8E8E93),
-    separator: Color(0xFFD1D1D6),
-    success: Color(0xFF006D5B),
-    successSubtle: Color(0xFFE8F7F2),
-    warning: Color(0xFF8A4B00),
-    warningSubtle: Color(0xFFFFF7E6),
-    error: Color(0xFFB42318),
-    errorSubtle: Color(0xFFFFF0EE),
+    surfaceRaised: Color(0xFFF2F6F3),
+    textPrimary: Color(0xFF101828),
+    textSecondary: Color(0xFF667085),
+    border: Color(0xFFD0D5DD),
+    separator: Color(0xFFE4E7EC),
+    success: Color(0xFF0E9F3E),
+    successSubtle: Color(0xFFEBFBEE),
+    warning: Color(0xFFD97706),
+    warningSubtle: Color(0xFFFEF3C7),
+    error: Color(0xFFDC2626),
+    errorSubtle: Color(0xFFFEE2E2),
   );
 
   static const TammySemanticColors dark = TammySemanticColors(
-    primary: Color(0xFF19C23E),
-    onPrimary: Color(0xFF000000),
-    primarySubtle: Color(0xFF123C1F),
-    secondary: Color(0xFF64D2FF),
-    onSecondary: Color(0xFF000000),
-    background: Color(0xFF000000),
-    surface: Color(0xFF1C1C1E),
-    surfaceRaised: Color(0xFF2C2C2E),
-    textPrimary: Color(0xFFF5F5F7),
-    textSecondary: Color(0xFFB8B8BE),
-    border: Color(0xFF747478),
-    separator: Color(0xFF3A3A3C),
-    success: Color(0xFF63E6BE),
-    successSubtle: Color(0xFF10352E),
-    warning: Color(0xFFFFD60A),
-    warningSubtle: Color(0xFF3A2C05),
-    error: Color(0xFFFF453A),
-    errorSubtle: Color(0xFF3A1715),
+    primary: Color(0xFF1ED759),
+    onPrimary: Color(0xFFFFFFFF),
+    primarySubtle: Color(0xFF13331E),
+    secondary: Color(0xFF60A5FA),
+    onSecondary: Color(0xFF0B0F0D),
+    background: Color(0xFF0B0F0D),
+    surface: Color(0xFF151C18),
+    surfaceRaised: Color(0xFF1E2722),
+    textPrimary: Color(0xFFF4F7F5),
+    textSecondary: Color(0xFFA0AEB6),
+    border: Color(0xFF34433B),
+    separator: Color(0xFF26332B),
+    success: Color(0xFF34D399),
+    successSubtle: Color(0xFF0F2F21),
+    warning: Color(0xFFFBBF24),
+    warningSubtle: Color(0xFF38290A),
+    error: Color(0xFFF87171),
+    errorSubtle: Color(0xFF3A1616),
   );
 
   static TammySemanticColors of(BuildContext context) {

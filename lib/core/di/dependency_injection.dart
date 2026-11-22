@@ -25,6 +25,9 @@ import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
 import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
 import '../../features/dashboard/presentation/bloc/dashboard_bloc.dart';
+import '../../features/documents/data/repositories/document_vault_repository_impl.dart';
+import '../../features/documents/domain/repositories/document_vault_repository.dart';
+import '../../features/documents/presentation/bloc/document_vault_bloc.dart';
 import '../../features/family/data/repositories/family_repository_impl.dart';
 import '../../features/family/domain/repositories/family_repository.dart';
 import '../../features/family/domain/usecases/family_usecases.dart';
@@ -165,6 +168,9 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<NotificationsRepository>(
     () => NotificationsRepositoryImpl(sl<NotificationsRemoteDataSource>()),
   );
+  sl.registerLazySingleton<DocumentVaultRepository>(
+    () => DocumentVaultRepositoryImpl(sl<FirebaseFirestore>()),
+  );
   sl.registerLazySingleton<DashboardRepository>(
     () => DashboardRepositoryImpl(
       transactionRepo: sl<TransactionRepository>(),
@@ -304,5 +310,8 @@ Future<void> configureDependencies({
   );
   sl.registerFactory<NotificationIngestionBloc>(
     () => NotificationIngestionBloc(repository: sl<NotificationsRepository>()),
+  );
+  sl.registerFactory<DocumentVaultBloc>(
+    () => DocumentVaultBloc(repository: sl<DocumentVaultRepository>()),
   );
 }

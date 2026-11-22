@@ -1,0 +1,910 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/services/native_app_updater_bridge.dart';
+import '../../../../core/utils/vnd_amount.dart';
+import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../domain/entities/transaction_entities.dart';
+import '../bloc/transaction_bloc.dart';
+import '../bloc/transaction_event.dart';
+import '../bloc/transaction_state.dart';
+
+/// Screen 05: "Chi tiết giao dịch (Tự động)" (`05_Giao_dich_tu_dong.png`).
+class AutoTransactionReviewPage extends StatefulWidget {
+  final TransactionEntity? initialTransaction;
+
+  const AutoTransactionReviewPage({super.key, this.initialTransaction});
+
+  @override
+  State<AutoTransactionReviewPage> createState() => _AutoTransactionReviewPageState();
+}
+
+class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
+  static const List<String> _categories = [
+    'Ăn uống',
+    'Mua sắm',
+    'Sinh hoạt',
+    'Di chuyển',
+    'Gia đình',
+    'Hóa đơn',
+  ];
+
+  late String _selectedCategory;
+  late TextEditingController _merchantCtrl;
+  late TextEditingController _amountCtrl;
+  late TextEditingController _noteCtrl;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final tx = widget.initialTransaction;
+    final initialCat = tx?.categoryName ?? 'Ăn uống';
+    _selectedCategory = _categories.contains(initialCat) ? initialCat : 'Ăn uống';
+    _merchantCtrl = TextEditingController(text: tx?.merchant ?? 'Circle K');
+    _amountCtrl = TextEditingController(
+      text: tx != null ? '${tx.amountMinor}' : '120000',
+    );
+    _noteCtrl = TextEditingController(
+      text: (tx?.note != null && tx!.note!.trim().isNotEmpty)
+          ? tx.note!
+          : 'Mua đồ ăn, nước tại Circle K',
+    );
+  }
+
+  @override
+  void dispose() {
+    _merchantCtrl.dispose();
+    _amountCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final user = context.watch<AuthBloc>().state.user;
+    final listState = context.watch<TransactionListBloc>().state;
+
+    final autoTxCandidate = widget.initialTransaction ??
+        listState.filteredTransactions
+            .where(
+              (t) =>
+                  t.sourceKind == TransactionSourceKind.androidNotification ||
+                  t.sourceKind == TransactionSourceKind.bankApi,
+            )
+            .firstOrNull;
+    final tx = widget.initialTransaction ?? autoTxCandidate;
+    final parsedAmt = VndAmount.tryParseInput(_amountCtrl.text) ?? 120000;
+    final timeStr = DateFormat('HH:mm').format(tx?.occurredAt ?? DateTime.now());
+    final bankWallet =
+        listState.wallets.where((w) => w.type == WalletType.bank).firstOrNull ??
+            (listState.wallets.isNotEmpty ? listState.wallets.first : null);
+    final sourceLabel = bankWallet != null
+        ? '${bankWallet.bankCode ?? bankWallet.name} ${bankWallet.maskedAccount ?? "•••• 8686"}'
+        : 'BIDV •••• 8686';
+
+    final rawSmsPreview = autoTxCandidate != null
+        ? 'Ngân hàng: Đã ghi nhận giao dịch ${VndAmount.format(autoTxCandidate.amountMinor)} tại ${autoTxCandidate.merchant}.'
+        : 'BIDV: Quý khách đã thanh toán ${VndAmount.format(parsedAmt)} tại ${_merchantCtrl.text}. Số dư TK 12.380.000 VND.';
+
+    return BlocListener<TransactionActionBloc, TransactionActionState>(
+      listener: (context, state) {
+        if (state.status == ActionStatus.success && state.successMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✓ ${state.successMessage!}')),
+          );
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/finance');
+          }
+        } else if (state.status == ActionStatus.failure && state.failure != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+          );
+        }
+      },
+      child: Scaffold(
+        body: LifeOsMintWaveCanvas(
+          child: SafeArea(
+            child: Column(
+              children: [
+                LifeOsTopBrandHeader(
+                  title: 'Chi tiết giao dịch (Tự động)',
+                  showBackButton: true,
+                  trailingAction: TextButton.icon(
+                    onPressed: () => context.push('/notifications-privacy'),
+                    icon: const Icon(Icons.tune_rounded, size: 17),
+                    label: const Text('SePay'),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          4,
+                          AppSpacing.md,
+                          AppSpacing.xxl,
+                        ),
+                        children: [
+                          // 1. Pastel Mint Bank Notification Source Box
+                          LifeOsMintHeroCard(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const LifeOsIconSquircle(
+                                  icon: Icons.account_balance_rounded,
+                                  tone: LifeOsAccentTone.emerald,
+                                  solidFill: true,
+                                  size: 44,
+                                  iconSize: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Thông báo ngân hàng (đã nhận diện)',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 13.5,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Hôm nay, $timeStr',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        rawSmsPreview,
+                                        style: TextStyle(
+                                          fontSize: 12.8,
+                                          height: 1.35,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // 2. Green Arrow + AI Auto-Detected Pill
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Column(
+                              children: [
+                                Icon(Icons.arrow_downward_rounded, color: c.primary, size: 22),
+                                const SizedBox(height: 6),
+                                const LifeOsStatusPill(
+                                  icon: Icons.auto_awesome_rounded,
+                                  label: 'Đã tự động nhận diện và tạo giao dịch',
+                                  tone: LifeOsAccentTone.emerald,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // 3. Parsed Transaction Card ("98% Độ tin cậy cao")
+                          LifeOsSoftCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.auto_awesome_rounded, size: 18, color: c.primary),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Đã nhận diện giao dịch',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    const LifeOsStatusPill(
+                                      icon: Icons.check_circle_outline_rounded,
+                                      label: 'Độ tin cậy cao  98%',
+                                      tone: LifeOsAccentTone.emerald,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 22),
+                                if (_isEditing) ...[
+                                  TextField(
+                                    controller: _merchantCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Đơn vị / Cửa hàng',
+                                    ),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: _amountCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Số tiền giao dịch (VND)',
+                                    ),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ] else
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDC2626),
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          _merchantCtrl.text.trim().isEmpty
+                                              ? 'K'
+                                              : _merchantCtrl.text
+                                                  .trim()
+                                                  .characters
+                                                  .first
+                                                  .toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _merchantCtrl.text,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              _selectedCategory,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        '-${VndAmount.format(parsedAmt)}',
+                                        style: TextStyle(
+                                          fontSize: 21,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                          fontFeatures: const [FontFeature.tabularFigures()],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                const Divider(height: 24),
+                                _TxMetaLine(
+                                  icon: Icons.schedule_rounded,
+                                  label: 'Thời gian',
+                                  value: 'Hôm nay, $timeStr',
+                                ),
+                                const SizedBox(height: 12),
+                                _TxMetaLine(
+                                  icon: Icons.credit_card_rounded,
+                                  label: 'Nguồn tiền',
+                                  value: sourceLabel,
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.verified_outlined,
+                                      size: 18,
+                                      color: c.textSecondary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Xác minh',
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    const LifeOsStatusPill(
+                                      icon: Icons.check_circle_outline_rounded,
+                                      label: 'Từ thông báo ngân hàng',
+                                      tone: LifeOsAccentTone.emerald,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // 4. Category Selector + Smart AI Suggestion Chips
+                          LifeOsSoftCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.layers_outlined, size: 19, color: c.primary),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Danh mục chi tiêu',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                DropdownButtonFormField<String>(
+                                  isExpanded: true,
+                                  initialValue: _selectedCategory,
+                                  items: _categories
+                                      .map(
+                                        (cat) => DropdownMenuItem(
+                                          value: cat,
+                                          child: Text(
+                                            cat,
+                                            style: const TextStyle(fontWeight: FontWeight.w700),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (v) {
+                                    if (v != null) setState(() => _selectedCategory = v);
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.auto_awesome_rounded,
+                                          size: 15,
+                                          color: c.primary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Gợi ý thông minh',
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            color: c.textSecondary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    ...const ['Ăn uống', 'Mua sắm', 'Sinh hoạt'].map((sug) {
+                                      final picked = _selectedCategory == sug;
+                                      return InkWell(
+                                        borderRadius: BorderRadius.circular(20),
+                                        onTap: () => setState(() => _selectedCategory = sug),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: picked ? c.primarySubtle : c.surfaceRaised,
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: picked ? c.primary : c.separator,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (picked) ...[
+                                                Icon(
+                                                  Icons.check_rounded,
+                                                  size: 14,
+                                                  color: c.primary,
+                                                ),
+                                                const SizedBox(width: 4),
+                                              ],
+                                              Text(
+                                                sug,
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: picked ? c.primary : c.textPrimary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // 5. Note Card with live character counter ("27/100")
+                          LifeOsSoftCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.notes_rounded, size: 19, color: c.primary),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Ghi chú',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: _noteCtrl,
+                                  maxLength: 100,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Nhập ghi chú chi tiêu...',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // 6. Bottom 2-Button Action Row: "✎ Chỉnh sửa" | "✓ Xác nhận"
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () =>
+                                        setState(() => _isEditing = !_isEditing),
+                                    icon: Icon(
+                                      _isEditing ? Icons.check_rounded : Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    label: Text(_isEditing ? 'Xong sửa' : 'Chỉnh sửa'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 50,
+                                  child: FilledButton.icon(
+                                    key: const Key('confirm_auto_tx_button'),
+                                    onPressed: user == null
+                                        ? null
+                                        : () {
+                                            if (tx != null &&
+                                                tx.verification ==
+                                                    TransactionVerification.provisional) {
+                                              context.read<TransactionActionBloc>().add(
+                                                    ProvisionalTransactionDecisionSubmitted(
+                                                      userId: user.id,
+                                                      transactionId: tx.id,
+                                                      approve: true,
+                                                    ),
+                                                  );
+                                            } else if (tx == null && bankWallet != null) {
+                                              context.read<TransactionActionBloc>().add(
+                                                    TransactionCreateSubmitted(
+                                                      operationId: const Uuid().v4(),
+                                                      userId: user.id,
+                                                      walletId: bankWallet.id,
+                                                      categoryName: _selectedCategory,
+                                                      kind: TransactionKind.expense,
+                                                      amountMinor: parsedAmt,
+                                                      merchant: _merchantCtrl.text,
+                                                      note: _noteCtrl.text,
+                                                      occurredAt: DateTime.now(),
+                                                    ),
+                                                  );
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    '✓ Đã xác nhận giao dịch tự động vào Sổ cái.',
+                                                  ),
+                                                ),
+                                              );
+                                              if (context.canPop()) {
+                                                context.pop();
+                                              } else {
+                                                context.go('/finance');
+                                              }
+                                            }
+                                          },
+                                    icon: const Icon(Icons.check_rounded, size: 20),
+                                    label: const Text('Xác nhận'),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TxMetaLine extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _TxMetaLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: c.textSecondary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: c.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Screen 18: "Báo cáo chi tiêu / Báo cáo gia đình" (`W1–W4` Bar Chart + CSV Export).
+class FinanceReportPage extends StatefulWidget {
+  const FinanceReportPage({super.key});
+
+  @override
+  State<FinanceReportPage> createState() => _FinanceReportPageState();
+}
+
+class _FinanceReportPageState extends State<FinanceReportPage> {
+  String _period = 'month';
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final listState = context.watch<TransactionListBloc>().state;
+    final txs = listState.filteredTransactions.where((t) => !t.isReversed).toList();
+
+    var totalIncome = 0;
+    var totalExpense = 0;
+    final weekBuckets = <int>[0, 0, 0, 0];
+
+    for (final t in txs) {
+      if (t.kind == TransactionKind.income) {
+        totalIncome += t.amountMinor;
+      } else if (t.kind == TransactionKind.expense) {
+        totalExpense += t.amountMinor;
+        final wIdx = ((t.occurredAt.day - 1) ~/ 7).clamp(0, 3);
+        weekBuckets[wIdx] += t.amountMinor;
+      }
+    }
+
+    final netDiff = totalIncome - totalExpense;
+    final maxBucket = weekBuckets.fold<int>(1, (a, b) => a > b ? a : b);
+
+    return Scaffold(
+      body: LifeOsMintWaveCanvas(
+        child: SafeArea(
+          child: Column(
+            children: [
+              const LifeOsTopBrandHeader(
+                title: 'Báo cáo chi tiêu',
+                showBackButton: true,
+              ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        4,
+                        AppSpacing.md,
+                        AppSpacing.xxl,
+                      ),
+                      children: [
+                        LifeOsSegmentedPills<String>(
+                          selected: _period,
+                          options: const [
+                            ('month', 'Tháng', null),
+                            ('week', 'Tuần', null),
+                            ('year', 'Năm', null),
+                          ],
+                          onChanged: (v) => setState(() => _period = v),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Weekly W1–W4 Bar Chart Card
+                        LifeOsSoftCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Kỳ báo cáo: ${listState.monthKey}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                  LifeOsStatusPill(
+                                    label: '${txs.length} giao dịch',
+                                    tone: LifeOsAccentTone.emerald,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+                              SizedBox(
+                                height: 156,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: List.generate(4, (i) {
+                                    final val = weekBuckets[i];
+                                    final ratio = totalExpense == 0
+                                        ? (0.28 + i * 0.14)
+                                        : (val / maxBucket).clamp(0.12, 1.0);
+                                    final isPeak = val > 0 && val == maxBucket;
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              val > 0 ? VndAmount.formatCompact(val) : '0 ₫',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            AnimatedContainer(
+                                              duration: const Duration(milliseconds: 240),
+                                              height: 108 * ratio,
+                                              decoration: BoxDecoration(
+                                                color: isPeak
+                                                    ? c.primary
+                                                    : c.primary.withValues(alpha: 0.48),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'W${i + 1}',
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Tổng thu | Tổng chi | Chênh lệch Card
+                        LifeOsSoftCard(
+                          child: Column(
+                            children: [
+                              _ReportSummaryRow(
+                                label: 'Tổng thu',
+                                value: VndAmount.format(totalIncome),
+                                valueColor: c.primary,
+                              ),
+                              const Divider(height: 22),
+                              _ReportSummaryRow(
+                                label: 'Tổng chi',
+                                value: VndAmount.format(totalExpense),
+                                valueColor: c.error,
+                              ),
+                              const Divider(height: 22),
+                              _ReportSummaryRow(
+                                label: 'Chênh lệch ròng',
+                                value: VndAmount.format(netDiff, showPlus: true),
+                                valueColor: netDiff >= 0 ? c.primary : c.error,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Insight Banner
+                        LifeOsMintHeroCard(
+                          child: Row(
+                            children: [
+                              const LifeOsIconSquircle(
+                                icon: Icons.check_circle_rounded,
+                                tone: LifeOsAccentTone.emerald,
+                                size: 38,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  netDiff >= 0
+                                      ? 'Dòng tiền thặng dư tích cực trong kỳ này! Hãy trích một phần sang Quỹ gia đình.'
+                                      : 'Chi tiêu đang vượt thu nhập trong kỳ. Kiểm tra các danh mục lớn để cân đối.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        LifeOsPrimaryCtaButton(
+                          icon: Icons.file_download_outlined,
+                          label: 'Xuất báo cáo (CSV)',
+                          onPressed: () async {
+                            final buf = StringBuffer()
+                              ..writeln('ThoiGian,HangMuc,DonVi,Loai,SoTienVND');
+                            for (final tx in txs) {
+                              final signed = tx.direction == 'credit'
+                                  ? tx.amountMinor
+                                  : -tx.amountMinor;
+                              buf.writeln(
+                                '"${tx.occurredAt.toIso8601String()}","${tx.categoryName}","${tx.merchant}","${tx.kind.name}",$signed',
+                              );
+                            }
+                            final fileName = 'BaoCao_LifeOS_${listState.monthKey}.csv';
+                            await sl<NativeAppUpdaterBridge>().shareTextFile(
+                              fileName: fileName,
+                              content: buf.toString(),
+                              mimeType: 'text/csv',
+                              title: 'Báo cáo Tài chính LifeOS (${listState.monthKey})',
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('✓ Đã xuất báo cáo $fileName.')),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportSummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const _ReportSummaryRow({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: c.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: valueColor,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}

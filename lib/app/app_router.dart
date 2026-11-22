@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +9,7 @@ import '../core/di/dependency_injection.dart';
 import '../core/services/native_home_widget_bridge.dart';
 import '../core/utils/smart_quick_entry_parser.dart';
 import '../core/utils/vnd_amount.dart';
+import '../core/widgets/lifeos_design_system.dart';
 import '../core/widgets/voice_smart_capture_sheet.dart';
 import '../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_state.dart';
@@ -17,18 +17,27 @@ import '../features/authentication/presentation/pages/account_profile_page.dart'
 import '../features/authentication/presentation/pages/auth_pages.dart';
 import '../features/authentication/presentation/pages/splash_page.dart';
 import '../features/budgets/presentation/bloc/budget_bloc.dart';
+import '../features/calendar/domain/entities/calendar_entities.dart';
 import '../features/calendar/presentation/bloc/calendar_bloc.dart';
+import '../features/calendar/presentation/pages/event_detail_and_alarm_pages.dart';
 import '../features/calendar/presentation/pages/planning_page.dart';
 import '../features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../features/dashboard/presentation/pages/home_widgets_studio_page.dart';
 import '../features/dashboard/presentation/pages/today_page.dart';
+import '../features/documents/presentation/bloc/document_vault_bloc.dart';
+import '../features/documents/presentation/pages/family_documents_page.dart';
 import '../features/family/presentation/bloc/family_bloc.dart';
+import '../features/family/presentation/pages/family_funds_page.dart';
 import '../features/family/presentation/pages/family_page.dart';
 import '../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
+import '../features/notifications/presentation/pages/activity_and_settings_pages.dart';
 import '../features/notifications/presentation/pages/notifications_privacy_page.dart';
 import '../features/tasks/presentation/bloc/task_bloc.dart';
+import '../features/tasks/presentation/pages/tasks_board_page.dart';
+import '../features/transactions/domain/entities/transaction_entities.dart';
 import '../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../features/transactions/presentation/bloc/transaction_event.dart';
+import '../features/transactions/presentation/pages/auto_tx_and_report_pages.dart';
 import '../features/transactions/presentation/pages/finance_page.dart';
 import '../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../features/vehicles/presentation/pages/assets_page.dart';
@@ -70,7 +79,12 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
         return loc == '/splash' ? null : '/splash';
       }
 
-      final isPublicAuthRoute = loc == '/login' || loc == '/register';
+      final isPublicAuthRoute = loc == '/welcome' ||
+          loc == '/login' ||
+          loc == '/register' ||
+          loc == '/forgot-password' ||
+          loc == '/verify-otp' ||
+          loc == '/reset-password';
       if (authState.status == AuthStatus.unauthenticated) {
         return isPublicAuthRoute ? null : '/login';
       }
@@ -92,12 +106,32 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
         builder: (_, __) => const SplashPage(),
       ),
       GoRoute(
+        path: '/welcome',
+        builder: (_, __) => const WelcomePage(),
+      ),
+      GoRoute(
         path: '/login',
         builder: (_, __) => const LoginPage(),
       ),
       GoRoute(
         path: '/register',
         builder: (_, __) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, state) => ForgotPasswordPage(
+          initialEmail: state.extra is String ? state.extra as String : null,
+        ),
+      ),
+      GoRoute(
+        path: '/verify-otp',
+        builder: (_, state) => VerifyOtpPage(
+          email: state.extra is String ? state.extra as String : null,
+        ),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (_, __) => const ResetPasswordPage(),
       ),
       GoRoute(
         path: '/onboarding',
@@ -148,17 +182,9 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
         builder: (context, _) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
-          return MultiBlocProvider(
-            providers: [
-              BlocProvider<TransactionListBloc>(
-                create: (_) => sl<TransactionListBloc>()
-                  ..add(TransactionsSubscriptionRequested(userId: user.id)),
-              ),
-              BlocProvider<NotificationIngestionBloc>(
-                create: (_) => sl<NotificationIngestionBloc>()
-                  ..add(NotificationsCenterStarted(user.id)),
-              ),
-            ],
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
             child: const NotificationsPrivacyPage(),
           );
         },
@@ -168,39 +194,122 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
         builder: (context, _) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
-          return MultiBlocProvider(
-            providers: [
-              BlocProvider<DashboardBloc>(
-                create: (_) => sl<DashboardBloc>()
-                  ..add(DashboardWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
-              ),
-              BlocProvider<TransactionListBloc>(
-                create: (_) => sl<TransactionListBloc>()
-                  ..add(TransactionsSubscriptionRequested(userId: user.id)),
-              ),
-              BlocProvider<TransactionActionBloc>(
-                create: (_) => sl<TransactionActionBloc>(),
-              ),
-              BlocProvider<FamilyBloc>(
-                create: (_) => sl<FamilyBloc>()
-                  ..add(
-                    FamilySubscriptionRequested(
-                      userId: user.id,
-                      preferredFamilyId: user.activeFamilyId,
-                    ),
-                  ),
-              ),
-              BlocProvider<NotificationIngestionBloc>(
-                create: (_) => sl<NotificationIngestionBloc>()
-                  ..add(
-                    NotificationsCenterStarted(
-                      user.id,
-                      defaultWalletId: 'wallet_bank_default',
-                    ),
-                  ),
-              ),
-            ],
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
             child: const HomeWidgetsStudioPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/event-detail',
+        builder: (context, state) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: EventDetailPage(
+              initialEvent:
+                  state.extra is CalendarEventEntity ? state.extra as CalendarEventEntity : null,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/event-alarm',
+        builder: (context, state) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return EventAlarmPage(
+            event: state.extra is CalendarEventEntity ? state.extra as CalendarEventEntity : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/tasks-board',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const TasksBoardPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/auto-tx-review',
+        builder: (context, state) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: AutoTransactionReviewPage(
+              initialTransaction:
+                  state.extra is TransactionEntity ? state.extra as TransactionEntity : null,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/finance-report',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const FinanceReportPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/family-funds',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const FamilyFundsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/family-documents',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const FamilyDocumentsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/activity-notifications',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const ActivityNotificationsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/settings-hub',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const SettingsHubPage(),
           );
         },
       ),
@@ -208,40 +317,129 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
   );
 }
 
+/// Shared BLoC provider bundle used by both the main shell and pushed sub-routes.
+class _ScopedAuthenticatedProviders extends StatelessWidget {
+  final String userId;
+  final String? familyId;
+  final Widget child;
+
+  const _ScopedAuthenticatedProviders({
+    super.key,
+    required this.userId,
+    required this.familyId,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final monthKey = TransactionListBloc.currentMonthKey();
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<DashboardBloc>(
+          create: (_) => sl<DashboardBloc>()
+            ..add(DashboardWatchStarted(userId: userId, familyId: familyId)),
+        ),
+        BlocProvider<TransactionListBloc>(
+          create: (_) => sl<TransactionListBloc>()
+            ..add(TransactionsSubscriptionRequested(userId: userId, monthKey: monthKey)),
+        ),
+        BlocProvider<TransactionActionBloc>(
+          create: (_) => sl<TransactionActionBloc>(),
+        ),
+        BlocProvider<BudgetBloc>(
+          create: (_) => sl<BudgetBloc>()
+            ..add(
+              BudgetsSubscriptionRequested(
+                userId: userId,
+                monthKey: monthKey,
+                familyId: familyId,
+              ),
+            ),
+        ),
+        BlocProvider<FamilyBloc>(
+          create: (_) => sl<FamilyBloc>()
+            ..add(
+              FamilySubscriptionRequested(
+                userId: userId,
+                preferredFamilyId: familyId,
+              ),
+            ),
+        ),
+        BlocProvider<CalendarBloc>(
+          create: (_) => sl<CalendarBloc>()
+            ..add(CalendarWatchStarted(userId: userId, familyId: familyId)),
+        ),
+        BlocProvider<TaskBloc>(
+          create: (_) => sl<TaskBloc>()
+            ..add(TasksWatchStarted(userId: userId, familyId: familyId)),
+        ),
+        BlocProvider<VehicleBloc>(
+          create: (_) => sl<VehicleBloc>()
+            ..add(VehiclesWatchStarted(userId: userId, familyId: familyId)),
+        ),
+        BlocProvider<NotificationIngestionBloc>(
+          create: (_) => sl<NotificationIngestionBloc>()
+            ..add(
+              NotificationsCenterStarted(
+                userId,
+                defaultWalletId: 'wallet_bank_default',
+              ),
+            ),
+        ),
+        BlocProvider<DocumentVaultBloc>(
+          create: (_) => sl<DocumentVaultBloc>()
+            ..add(DocumentVaultWatchStarted(userId: userId, familyId: familyId)),
+        ),
+      ],
+      child: child,
+    );
+  }
+}
+
 class _AuthenticatedAdaptiveShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   const _AuthenticatedAdaptiveShell({required this.navigationShell});
 
-  static const List<({IconData icon, IconData activeIcon, String assetPath, String label})>
-      _tabs = [
+  static const List<({
+    int branchIndex,
+    IconData icon,
+    IconData activeIcon,
+    String assetPath,
+    String label,
+  })> _tabs = [
     (
-      icon: Icons.wb_sunny_outlined,
-      activeIcon: Icons.wb_sunny_rounded,
+      branchIndex: 0,
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
       assetPath: AppAssets.icNavToday,
       label: 'Hôm nay',
     ),
     (
-      icon: Icons.account_balance_wallet_outlined,
-      activeIcon: Icons.account_balance_wallet_rounded,
+      branchIndex: 1,
+      icon: Icons.bar_chart_rounded,
+      activeIcon: Icons.bar_chart_rounded,
       assetPath: AppAssets.icNavFinance,
       label: 'Tài chính',
     ),
     (
+      branchIndex: 2,
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_today_rounded,
       assetPath: AppAssets.icNavCalendar,
       label: 'Lịch & Việc',
     ),
     (
-      icon: Icons.groups_outlined,
-      activeIcon: Icons.groups_rounded,
+      branchIndex: 3,
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
       assetPath: AppAssets.icNavFamily,
       label: 'Gia đình',
     ),
     (
-      icon: Icons.two_wheeler_outlined,
-      activeIcon: Icons.two_wheeler_rounded,
+      branchIndex: 4,
+      icon: Icons.directions_car_outlined,
+      activeIcon: Icons.directions_car_rounded,
       assetPath: AppAssets.icNavAssets,
       label: 'Tài sản',
     ),
@@ -254,188 +452,221 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final monthKey = TransactionListBloc.currentMonthKey();
     final scopeKey = ValueKey('shell_${user.id}_${user.activeFamilyId ?? "none"}');
 
-    return MultiBlocProvider(
+    return _ScopedAuthenticatedProviders(
       key: scopeKey,
-      providers: [
-        BlocProvider<DashboardBloc>(
-          create: (_) => sl<DashboardBloc>()
-            ..add(DashboardWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
-        ),
-        BlocProvider<TransactionListBloc>(
-          create: (_) => sl<TransactionListBloc>()
-            ..add(TransactionsSubscriptionRequested(userId: user.id, monthKey: monthKey)),
-        ),
-        BlocProvider<TransactionActionBloc>(
-          create: (_) => sl<TransactionActionBloc>(),
-        ),
-        BlocProvider<BudgetBloc>(
-          create: (_) => sl<BudgetBloc>()
-            ..add(
-              BudgetsSubscriptionRequested(
-                userId: user.id,
-                monthKey: monthKey,
-                familyId: user.activeFamilyId,
-              ),
-            ),
-        ),
-        BlocProvider<FamilyBloc>(
-          create: (_) => sl<FamilyBloc>()
-            ..add(
-              FamilySubscriptionRequested(
-                userId: user.id,
-                preferredFamilyId: user.activeFamilyId,
-              ),
-            ),
-        ),
-        BlocProvider<CalendarBloc>(
-          create: (_) => sl<CalendarBloc>()
-            ..add(CalendarWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
-        ),
-        BlocProvider<TaskBloc>(
-          create: (_) => sl<TaskBloc>()
-            ..add(TasksWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
-        ),
-        BlocProvider<VehicleBloc>(
-          create: (_) => sl<VehicleBloc>()
-            ..add(VehiclesWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
-        ),
-        BlocProvider<NotificationIngestionBloc>(
-          create: (_) => sl<NotificationIngestionBloc>()
-            ..add(
-              NotificationsCenterStarted(
-                user.id,
-                defaultWalletId: 'wallet_bank_default',
-              ),
-            ),
-        ),
-      ],
+      userId: user.id,
+      familyId: user.activeFamilyId,
       child: _HomeWidgetSyncAndIntentHost(
         navigationShell: navigationShell,
         child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= AppSpacing.tabletBreakpoint;
-          final c = TammySemanticColors.of(context);
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= AppSpacing.tabletBreakpoint;
+            final c = TammySemanticColors.of(context);
 
-          if (isWide) {
-            return Scaffold(
-              body: Row(
-                children: [
-                  NavigationRail(
-                    leading: const Padding(
-                      padding: EdgeInsets.only(top: 12, bottom: 8),
-                      child: BrandLogoMark(size: 40, borderRadius: 12),
-                    ),
-                    selectedIndex: navigationShell.currentIndex,
-                    onDestinationSelected: (idx) => navigationShell.goBranch(
-                      idx,
-                      initialLocation: idx == navigationShell.currentIndex,
-                    ),
-                    labelType: NavigationRailLabelType.all,
-                    backgroundColor: c.surface,
-                    indicatorColor: c.primarySubtle,
-                    selectedIconTheme: IconThemeData(color: c.primary),
-                    selectedLabelTextStyle: TextStyle(
-                      color: c.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                    destinations: _tabs
-                        .map(
-                          (t) => NavigationRailDestination(
-                            icon: Opacity(
-                              opacity: 0.78,
-                              child: BananaGlassIcon(
-                                assetPath: t.assetPath,
-                                fallbackIcon: t.icon,
-                                size: 28,
-                                borderRadius: 9,
-                              ),
+            if (isWide) {
+              return Scaffold(
+                body: Row(
+                  children: [
+                    NavigationRail(
+                      leading: Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 8),
+                        child: Column(
+                          children: [
+                            const LifeOsLeafMark(size: 38, borderRadius: 12),
+                            const SizedBox(height: 10),
+                            IconButton.filled(
+                              tooltip: 'Tạo nhanh LifeOS',
+                              onPressed: () => showLifeOsQuickCreateHub(context),
+                              icon: const Icon(Icons.add_rounded),
                             ),
-                            selectedIcon: BananaGlassIcon(
-                              assetPath: t.assetPath,
-                              fallbackIcon: t.activeIcon,
-                              size: 30,
-                              borderRadius: 10,
-                              isSelected: true,
-                            ),
-                            label: Text(t.label),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  VerticalDivider(width: 1, thickness: 0.8, color: c.separator),
-                  Expanded(child: navigationShell),
-                ],
-              ),
-            );
-          }
-
-          return Scaffold(
-            extendBody: false,
-            body: navigationShell,
-            bottomNavigationBar: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: c.separator.withValues(alpha: 0.7),
-                      width: 0.8,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                    child: NavigationBar(
-                      height: 66,
                       selectedIndex: navigationShell.currentIndex,
                       onDestinationSelected: (idx) => navigationShell.goBranch(
                         idx,
                         initialLocation: idx == navigationShell.currentIndex,
                       ),
+                      labelType: NavigationRailLabelType.all,
+                      backgroundColor: c.surface,
+                      indicatorColor: c.primarySubtle,
+                      selectedIconTheme: IconThemeData(color: c.primary),
+                      selectedLabelTextStyle: TextStyle(
+                        color: c.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                       destinations: _tabs
                           .map(
-                            (t) => NavigationDestination(
-                              icon: Opacity(
-                                opacity: 0.78,
-                                child: BananaGlassIcon(
-                                  assetPath: t.assetPath,
-                                  fallbackIcon: t.icon,
-                                  size: 26,
-                                  borderRadius: 9,
-                                ),
-                              ),
-                              selectedIcon: BananaGlassIcon(
-                                assetPath: t.assetPath,
-                                fallbackIcon: t.activeIcon,
-                                size: 28,
-                                borderRadius: 10,
-                                isSelected: true,
-                              ),
-                              label: t.label,
+                            (t) => NavigationRailDestination(
+                              icon: Icon(t.icon),
+                              selectedIcon: Icon(t.activeIcon),
+                              label: Text(t.label),
                             ),
                           )
                           .toList(),
                     ),
+                    VerticalDivider(width: 1, thickness: 0.8, color: c.separator),
+                    Expanded(child: navigationShell),
+                  ],
+                ),
+              );
+            }
+
+            // Mobile Unified LifeOS Bottom Navigation Bar with Center Emerald `+` Squircle
+            final leftTabs = [_tabs[0], _tabs[2]]; // Hôm nay | Lịch & Việc
+            final rightTabs = [_tabs[1], _tabs[3], _tabs[4]]; // Tài chính | Gia đình | Tài sản
+
+            return Scaffold(
+              extendBody: false,
+              body: navigationShell,
+              bottomNavigationBar: Container(
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  border: Border(
+                    top: BorderSide(color: c.separator, width: 1),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF101828).withValues(alpha: 0.06),
+                      blurRadius: 20,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    height: 66,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Row(
+                        children: [
+                          for (final tab in leftTabs)
+                            _BottomNavTabButton(
+                              icon: tab.icon,
+                              activeIcon: tab.activeIcon,
+                              label: tab.label,
+                              isSelected: navigationShell.currentIndex == tab.branchIndex,
+                              onTap: () => navigationShell.goBranch(
+                                tab.branchIndex,
+                                initialLocation:
+                                    tab.branchIndex == navigationShell.currentIndex,
+                              ),
+                            ),
+
+                          // Signature Center Emerald `+` Squircle Button (`01`–`10` Mockups)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Tooltip(
+                              message: 'Tạo nhanh & Giọng nói AI',
+                              child: Material(
+                                color: c.primary,
+                                borderRadius: BorderRadius.circular(15),
+                                elevation: 0,
+                                child: InkWell(
+                                  key: const Key('lifeos_center_quick_add_fab'),
+                                  borderRadius: BorderRadius.circular(15),
+                                  onTap: () => showLifeOsQuickCreateHub(context),
+                                  child: Container(
+                                    width: 46,
+                                    height: 46,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(15),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: c.primary.withValues(alpha: 0.34),
+                                          blurRadius: 14,
+                                          offset: const Offset(0, 5),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.add_rounded,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          for (final tab in rightTabs)
+                            _BottomNavTabButton(
+                              icon: tab.icon,
+                              activeIcon: tab.activeIcon,
+                              label: tab.label,
+                              isSelected: navigationShell.currentIndex == tab.branchIndex,
+                              onTap: () => navigationShell.goBranch(
+                                tab.branchIndex,
+                                initialLocation:
+                                    tab.branchIndex == navigationShell.currentIndex,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
+    );
+  }
+}
+
+class _BottomNavTabButton extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _BottomNavTabButton({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final color = isSelected ? c.primary : c.textSecondary;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                size: 23,
+                color: color,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

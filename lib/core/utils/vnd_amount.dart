@@ -68,6 +68,24 @@ final class VndAmount extends Equatable {
     return '$sign${buffer.toString()} ₫';
   }
 
+  static String formatCompact(int amountMinor) {
+    final abs = amountMinor.abs();
+    final sign = amountMinor < 0 ? '-' : '';
+    if (abs >= 1000000000) {
+      final ty = (abs / 1000000000).toStringAsFixed(1).replaceAll('.0', '');
+      return '$sign$ty tỷ';
+    }
+    if (abs >= 1000000) {
+      final tr = (abs / 1000000).toStringAsFixed(1).replaceAll('.0', '');
+      return '$sign$tr tr';
+    }
+    if (abs >= 1000) {
+      final k = (abs ~/ 1000);
+      return '$sign${k}k ₫';
+    }
+    return format(amountMinor);
+  }
+
   @override
   List<Object?> get props => [minor];
 }
