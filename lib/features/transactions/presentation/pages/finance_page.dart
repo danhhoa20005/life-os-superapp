@@ -97,7 +97,7 @@ class FinancePage extends StatelessWidget {
                 tabBar: TabBar(
                   tabs: [
                     Tab(text: 'Sổ giao dịch'),
-                    Tab(text: 'Ngân sách & Quỹ'),
+                    Tab(text: 'Ngân sách'),
                     Tab(
                       key: Key('finance_analytics_tab'),
                       text: 'Phân tích',
