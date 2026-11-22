@@ -1008,6 +1008,41 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       tone: LifeOsAccentTone.purple,
     ),
     (
+      title: 'Tất cả Dịch vụ Siêu ứng dụng 360°',
+      subtitle: ' Trung tâm 20+ phân hệ: Tài chính, Sức khỏe, Đi chợ, Điện EVN, Lương',
+      icon: Icons.apps_rounded,
+      route: '/super-app-hub',
+      tone: LifeOsAccentTone.emerald,
+    ),
+    (
+      title: 'Sức khỏe, Tủ thuốc & Thẻ Y tế SOS 115',
+      subtitle: 'Lịch uống thuốc, BMI Châu Á, huyết áp & mã số BHYT khẩn cấp',
+      icon: Icons.favorite_outline_rounded,
+      route: '/health-hub',
+      tone: LifeOsAccentTone.coral,
+    ),
+    (
+      title: 'Bếp Gia đình, "Hôm nay ăn gì?" & Đi chợ',
+      subtitle: 'Thực đơn cơm nhà, giỏ chợ 1 chạm trừ Ví & tủ lạnh chống hỏng',
+      icon: Icons.shopping_basket_outlined,
+      route: '/kitchen-groceries',
+      tone: LifeOsAccentTone.emerald,
+    ),
+    (
+      title: 'Điện 6 bậc EVN, Nước & Hợp đồng Thuê nhà',
+      subtitle: 'Tính công tơ điện bậc thang +8% VAT, chia phòng trọ & tiền cọc',
+      icon: Icons.electric_bolt_rounded,
+      route: '/home-living',
+      tone: LifeOsAccentTone.amber,
+    ),
+    (
+      title: 'Sổ tay Ghi chú Ghim & Lương Gross ⇄ Net',
+      subtitle: 'Ghim ghi chú, nhật ký tâm trạng & tính thuế TNCN 7 bậc',
+      icon: Icons.sticky_note_2_outlined,
+      route: '/smart-notes-hub',
+      tone: LifeOsAccentTone.purple,
+    ),
+    (
       title: 'Cài đặt & Kết nối tích hợp',
       subtitle: 'Google Calendar, SePay Bank Hub, Chế độ tối & Bảo mật',
       icon: Icons.settings_outlined,
@@ -1175,6 +1210,16 @@ Future<void> showLifeOsQuickCreateHub(BuildContext context) async {
           onTap: () {
             Navigator.of(sheetCtx).pop();
             context.push('/tasks-board');
+          },
+        ),
+        (
+          title: 'Mở Trung tâm Siêu ứng dụng Đời sống 360°',
+          subtitle: 'Sức khỏe & Tủ thuốc · Đi chợ · Điện EVN 6 bậc · Lương Gross–Net',
+          icon: Icons.apps_rounded,
+          tone: LifeOsAccentTone.emerald,
+          onTap: () {
+            Navigator.of(sheetCtx).pop();
+            context.push('/super-app-hub');
           },
         ),
         (

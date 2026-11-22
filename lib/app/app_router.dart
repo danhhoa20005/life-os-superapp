@@ -21,6 +21,12 @@ import '../features/calendar/domain/entities/calendar_entities.dart';
 import '../features/calendar/presentation/bloc/calendar_bloc.dart';
 import '../features/calendar/presentation/pages/event_detail_and_alarm_pages.dart';
 import '../features/calendar/presentation/pages/planning_page.dart';
+import '../features/daily_life/presentation/bloc/daily_life_bloc.dart';
+import '../features/daily_life/presentation/pages/health_medical_hub_page.dart';
+import '../features/daily_life/presentation/pages/home_living_utilities_page.dart';
+import '../features/daily_life/presentation/pages/kitchen_groceries_page.dart';
+import '../features/daily_life/presentation/pages/smart_notes_salary_page.dart';
+import '../features/daily_life/presentation/pages/super_app_directory_page.dart';
 import '../features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../features/dashboard/presentation/pages/home_widgets_studio_page.dart';
 import '../features/dashboard/presentation/pages/today_page.dart';
@@ -379,6 +385,66 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
           );
         },
       ),
+      GoRoute(
+        path: '/super-app-hub',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const SuperAppDirectoryPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/health-hub',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const HealthMedicalHubPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/kitchen-groceries',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const KitchenGroceriesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/home-living',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const HomeLivingUtilitiesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/smart-notes-hub',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const SmartNotesSalaryPage(),
+          );
+        },
+      ),
     ],
   );
 }
@@ -458,6 +524,9 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
         ),
         BlocProvider<ProUtilitiesBloc>(
           create: (_) => sl<ProUtilitiesBloc>()..add(ProUtilitiesWatchStarted(userId)),
+        ),
+        BlocProvider<DailyLifeBloc>(
+          create: (_) => sl<DailyLifeBloc>()..add(DailyLifeWatchStarted(userId)),
         ),
       ],
       child: child,

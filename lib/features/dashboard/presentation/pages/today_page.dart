@@ -592,7 +592,7 @@ class TodayPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
 
-                            // 4b. Paid-Market Replacement Pro Suite Banner ("Tiện ích Pro 0₫")
+                            // 4a. Paid-Market Replacement Pro Suite Banner ("Tiện ích Pro 0₫")
                             LifeOsSoftCard(
                               key: const Key('open_pro_utilities_hub_card'),
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -645,6 +645,83 @@ class TodayPage extends StatelessWidget {
                                   Icon(Icons.chevron_right_rounded, color: c.textSecondary),
                                 ],
                               ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 4b. 360° Daily Life Super App Expansion Row (Health, Kitchen, EVN Utilities, Notes/Salary, All 30+)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Đời sống Hằng ngày 360°',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  key: const Key('open_super_app_directory_btn'),
+                                  onPressed: () => context.push('/super-app-hub'),
+                                  icon: const Icon(Icons.apps_rounded, size: 17),
+                                  label: const Text('Tất cả'),
+                                ),
+                              ],
+                            ),
+                            GridView.count(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.06,
+                              children: [
+                                LifeOsFeatureGridTile(
+                                  key: const Key('home_tile_health'),
+                                  icon: Icons.favorite_outline_rounded,
+                                  label: 'Sức khỏe',
+                                  tone: LifeOsAccentTone.coral,
+                                  onTap: () => context.push('/health-hub'),
+                                ),
+                                LifeOsFeatureGridTile(
+                                  key: const Key('home_tile_kitchen'),
+                                  icon: Icons.shopping_basket_outlined,
+                                  label: 'Bếp & Đi chợ',
+                                  tone: LifeOsAccentTone.emerald,
+                                  onTap: () => context.push('/kitchen-groceries'),
+                                ),
+                                LifeOsFeatureGridTile(
+                                  key: const Key('home_tile_evn'),
+                                  icon: Icons.electric_bolt_rounded,
+                                  label: 'Điện nước EVN',
+                                  tone: LifeOsAccentTone.amber,
+                                  onTap: () => context.push('/home-living'),
+                                ),
+                                LifeOsFeatureGridTile(
+                                  key: const Key('home_tile_notes_salary'),
+                                  icon: Icons.sticky_note_2_outlined,
+                                  label: 'Ghi chú & Lương',
+                                  tone: LifeOsAccentTone.purple,
+                                  onTap: () => context.push('/smart-notes-hub'),
+                                ),
+                                LifeOsFeatureGridTile(
+                                  key: const Key('home_tile_pro_suite'),
+                                  icon: Icons.workspace_premium_rounded,
+                                  label: 'Tiện ích Pro 0₫',
+                                  tone: LifeOsAccentTone.blue,
+                                  onTap: () => context.push('/pro-utilities'),
+                                ),
+                                LifeOsFeatureGridTile(
+                                  key: const Key('home_tile_all_services'),
+                                  icon: Icons.grid_view_rounded,
+                                  label: 'Siêu App 360°',
+                                  tone: LifeOsAccentTone.emerald,
+                                  onTap: () => context.push('/super-app-hub'),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 10),
 

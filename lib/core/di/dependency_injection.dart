@@ -22,6 +22,9 @@ import '../../features/calendar/data/datasources/google_calendar_api_datasource.
 import '../../features/calendar/data/repositories/calendar_repository_impl.dart';
 import '../../features/calendar/domain/repositories/calendar_repository.dart';
 import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
+import '../../features/daily_life/data/repositories/daily_life_repository_impl.dart';
+import '../../features/daily_life/domain/repositories/daily_life_repository.dart';
+import '../../features/daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
 import '../../features/dashboard/presentation/bloc/dashboard_bloc.dart';
@@ -177,6 +180,9 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<ProUtilitiesRepository>(
     () => ProUtilitiesRepositoryImpl(sl<FirebaseFirestore>()),
   );
+  sl.registerLazySingleton<DailyLifeRepository>(
+    () => DailyLifeRepositoryImpl(sl<FirebaseFirestore>()),
+  );
   sl.registerLazySingleton<DashboardRepository>(
     () => DashboardRepositoryImpl(
       transactionRepo: sl<TransactionRepository>(),
@@ -322,5 +328,8 @@ Future<void> configureDependencies({
   );
   sl.registerFactory<ProUtilitiesBloc>(
     () => ProUtilitiesBloc(repository: sl<ProUtilitiesRepository>()),
+  );
+  sl.registerFactory<DailyLifeBloc>(
+    () => DailyLifeBloc(sl<DailyLifeRepository>()),
   );
 }

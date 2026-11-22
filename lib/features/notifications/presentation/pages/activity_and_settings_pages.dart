@@ -512,6 +512,19 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           statusPillTone: LifeOsAccentTone.emerald,
                           onTap: () => context.push('/home-widgets'),
                         ),
+                        const SizedBox(height: 10),
+
+                        // 8b. Siêu Ứng dụng Đời sống 360° (Sức khỏe, Đi chợ, Điện EVN, Ghi chú & Lương)
+                        _SettingsCardItem(
+                          icon: Icons.apps_rounded,
+                          tone: LifeOsAccentTone.emerald,
+                          title: 'Trung tâm Siêu ứng dụng Đời sống 360°',
+                          subtitle:
+                              'Sức khỏe & Tủ thuốc, Bếp & Đi chợ, Điện nước EVN 6 bậc, Ghi chú & Lương Gross–Net.',
+                          statusPillLabel: 'Trọn bộ 20+ tiện ích đời sống',
+                          statusPillTone: LifeOsAccentTone.emerald,
+                          onTap: () => context.push('/super-app-hub'),
+                        ),
                         const SizedBox(height: 16),
 
                         // 9. Bottom Emerald CTA ("🔗 Quản lý kết nối và tích hợp ->")
