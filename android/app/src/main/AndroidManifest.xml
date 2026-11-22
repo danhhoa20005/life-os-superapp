@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application
         android:label="Life OS"
@@ -26,7 +27,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Secure FileProvider for In-App OTA APK Self-Update -->
+        <!-- Secure FileProvider for In-App OTA APK Self-Update & CSV Statement Export -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -37,7 +38,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Consent-driven Bank Notification Listener (Disabled until user opts in) -->
+        <!-- Consent-driven Bank Notification Listener (Queues background signals safely) -->
         <service
             android:name=".BankNotificationListenerService"
             android:label="Life OS — Nhận diện biến động ngân hàng"
@@ -47,6 +48,55 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- 4 Purpose-Built Native Android Home Screen Widgets -->
+        <receiver
+            android:name=".VoiceQuickWidgetProvider"
+            android:label="Life OS · Trợ lý Giọng nói &amp; Ghi nhanh"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_voice_quick" />
+        </receiver>
+
+        <receiver
+            android:name=".WealthNetWorthWidgetProvider"
+            android:label="Life OS · Tổng Tài Sản &amp; Dòng Tiền"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_wealth_net_worth" />
+        </receiver>
+
+        <receiver
+            android:name=".GroupSplitWidgetProvider"
+            android:label="Life OS · Chia Tiền Nhóm &amp; Gia Đình"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_group_split" />
+        </receiver>
+
+        <receiver
+            android:name=".DailySafeSpendWidgetProvider"
+            android:label="Life OS · Hạn Mức An Toàn Hôm Nay"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_daily_safe_spend" />
+        </receiver>
 
         <meta-data
             android:name="flutterEmbedding"
@@ -60,6 +110,12 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
         </intent>
     </queries>
 </manifest>

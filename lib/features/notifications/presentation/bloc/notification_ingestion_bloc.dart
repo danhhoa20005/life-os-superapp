@@ -41,15 +41,17 @@ final class ConsentConfigUpdated extends NotificationIngestionEvent {
   final String userId;
   final bool enabled;
   final List<String> allowedPackages;
+  final bool? autoConfirmSignals;
 
   const ConsentConfigUpdated({
     required this.userId,
     required this.enabled,
     required this.allowedPackages,
+    this.autoConfirmSignals,
   });
 
   @override
-  List<Object?> get props => [userId, enabled, allowedPackages];
+  List<Object?> get props => [userId, enabled, allowedPackages, autoConfirmSignals];
 }
 
 final class BankNotificationSignalReceived extends NotificationIngestionEvent {
@@ -254,6 +256,38 @@ class NotificationIngestionBloc
       );
     });
 
+    // Drain any notifications captured by Android OS while Life OS was closed in background!
+    final queued = await _repository.drainQueuedAndroidBankSignals();
+    for (final payload in queued) {
+      final pkg = (payload['packageName'] ?? '').toString().trim();
+      final title = (payload['title'] ?? '').toString();
+      final body = (payload['body'] ?? '').toString();
+      if (pkg.isEmpty || (title.isEmpty && body.isEmpty)) continue;
+      final epochMs = (payload['postedAtEpochMs'] as num?)?.toInt();
+      final notifKey = payload['notificationKey']?.toString();
+      add(
+        BankNotificationSignalReceived(
+          userId: event.userId,
+          defaultWalletId: event.defaultWalletId,
+          packageName: pkg,
+          title: title,
+          body: body,
+          postedAt: epochMs != null ? DateTime.fromMillisecondsSinceEpoch(epochMs) : null,
+          notificationId: notifKey,
+        ),
+      );
+    }
+
+    // Zero-touch automatic SePay background reconciliation when user has linked a token
+    if (maskedToken != null) {
+      add(
+        SePayLiveSyncSubmitted(
+          userId: event.userId,
+          walletId: event.defaultWalletId,
+        ),
+      );
+    }
+
     await emit.forEach<Result<SourceConsentEntity>>(
       _repository.watchAndroidNotificationConsent(event.userId),
       onData: (res) => res.fold(
@@ -286,6 +320,7 @@ class NotificationIngestionBloc
       userId: event.userId,
       enabled: event.enabled,
       allowedPackages: event.allowedPackages,
+      autoConfirmSignals: event.autoConfirmSignals,
     );
     res.fold((f) => emit(state.copyWith(failure: f)), (_) {});
   }

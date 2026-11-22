@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Life OS</string>
+    <string name="widget_voice_desc">1 chạm nói tiếng Việt để tự ghi thu/chi hoặc phân tích câu chia tiền nhóm</string>
+    <string name="widget_wealth_desc">Theo dõi Tổng Tài Sản Ròng, Dòng tiền Thu/Chi tháng và trạng thái Auto-Sync</string>
+    <string name="widget_group_desc">Chia hóa đơn ăn uống, việc nhà bằng giọng nói và mở nhanh mã VietQR</string>
+    <string name="widget_safe_spend_desc">Kiểm soát hạn mức an toàn còn được tiêu hôm nay và sức bền Quỹ dự phòng</string>
+</resources>

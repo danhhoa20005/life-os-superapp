@@ -47,6 +47,8 @@ import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../services/android_notification_bridge.dart';
 import '../services/file_storage_service.dart';
 import '../services/native_app_updater_bridge.dart';
+import '../services/native_home_widget_bridge.dart';
+import '../services/native_voice_assistant_bridge.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -69,6 +71,12 @@ Future<void> configureDependencies({
   );
   sl.registerSingleton<NativeAppUpdaterBridge>(
     updaterBridgeOverride ?? const NativeAppUpdaterBridge(),
+  );
+  sl.registerLazySingleton<NativeVoiceAssistantBridge>(
+    () => const NativeVoiceAssistantBridge(),
+  );
+  sl.registerLazySingleton<NativeHomeWidgetBridge>(
+    () => NativeHomeWidgetBridge(),
   );
   sl.registerLazySingleton<FileStorageService>(
     () => const SparkSafeFileStorageService(),

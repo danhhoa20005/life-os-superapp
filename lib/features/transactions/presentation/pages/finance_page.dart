@@ -11,6 +11,7 @@ import '../../../../core/utils/smart_quick_entry_parser.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
+import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../budgets/domain/entities/budget_entities.dart';
 import '../../../budgets/domain/usecases/budget_usecases.dart';
@@ -2105,7 +2106,14 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
+                IconButton.filledTonal(
+                  key: const Key('finance_voice_capture_button'),
+                  tooltip: 'Ghi / Chia tiền bằng Giọng nói AI',
+                  onPressed: () => showVoiceSmartCaptureSheet(context),
+                  icon: const Icon(Icons.mic_rounded, size: 20),
+                ),
+                const SizedBox(width: 6),
                 FilledButton(
                   key: const Key('smart_quick_entry_submit_button'),
                   onPressed: _submitQuickEntry,

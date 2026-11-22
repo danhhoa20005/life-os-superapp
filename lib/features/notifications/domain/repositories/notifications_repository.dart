@@ -8,6 +8,7 @@ abstract interface class NotificationsRepository {
     required String userId,
     required bool enabled,
     required List<String> allowedPackages,
+    bool? autoConfirmSignals,
   });
 
   Future<Result<IngestionOutcome>> ingestAndroidNotification({
@@ -48,6 +49,8 @@ abstract interface class NotificationsRepository {
   Future<void> openNativeNotificationAccessSettings();
 
   Stream<Map<String, dynamic>> watchLiveAndroidBankSignals();
+
+  Future<List<Map<String, dynamic>>> drainQueuedAndroidBankSignals();
 
   Future<Result<String?>> getSavedSePayMaskedToken(String userId);
 

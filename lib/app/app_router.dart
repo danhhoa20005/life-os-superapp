@@ -7,6 +7,10 @@ import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_assets.dart';
 import '../core/di/dependency_injection.dart';
+import '../core/services/native_home_widget_bridge.dart';
+import '../core/utils/smart_quick_entry_parser.dart';
+import '../core/utils/vnd_amount.dart';
+import '../core/widgets/voice_smart_capture_sheet.dart';
 import '../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_state.dart';
 import '../features/authentication/presentation/pages/account_profile_page.dart';
@@ -16,6 +20,7 @@ import '../features/budgets/presentation/bloc/budget_bloc.dart';
 import '../features/calendar/presentation/bloc/calendar_bloc.dart';
 import '../features/calendar/presentation/pages/planning_page.dart';
 import '../features/dashboard/presentation/bloc/dashboard_bloc.dart';
+import '../features/dashboard/presentation/pages/home_widgets_studio_page.dart';
 import '../features/dashboard/presentation/pages/today_page.dart';
 import '../features/family/presentation/bloc/family_bloc.dart';
 import '../features/family/presentation/pages/family_page.dart';
@@ -158,6 +163,47 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
           );
         },
       ),
+      GoRoute(
+        path: '/home-widgets',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<DashboardBloc>(
+                create: (_) => sl<DashboardBloc>()
+                  ..add(DashboardWatchStarted(userId: user.id, familyId: user.activeFamilyId)),
+              ),
+              BlocProvider<TransactionListBloc>(
+                create: (_) => sl<TransactionListBloc>()
+                  ..add(TransactionsSubscriptionRequested(userId: user.id)),
+              ),
+              BlocProvider<TransactionActionBloc>(
+                create: (_) => sl<TransactionActionBloc>(),
+              ),
+              BlocProvider<FamilyBloc>(
+                create: (_) => sl<FamilyBloc>()
+                  ..add(
+                    FamilySubscriptionRequested(
+                      userId: user.id,
+                      preferredFamilyId: user.activeFamilyId,
+                    ),
+                  ),
+              ),
+              BlocProvider<NotificationIngestionBloc>(
+                create: (_) => sl<NotificationIngestionBloc>()
+                  ..add(
+                    NotificationsCenterStarted(
+                      user.id,
+                      defaultWalletId: 'wallet_bank_default',
+                    ),
+                  ),
+              ),
+            ],
+            child: const HomeWidgetsStudioPage(),
+          );
+        },
+      ),
     ],
   );
 }
@@ -266,7 +312,9 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
             ),
         ),
       ],
-      child: LayoutBuilder(
+      child: _HomeWidgetSyncAndIntentHost(
+        navigationShell: navigationShell,
+        child: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= AppSpacing.tabletBreakpoint;
           final c = TammySemanticColors.of(context);
@@ -388,6 +436,110 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
           );
         },
       ),
+      ),
+    );
+  }
+}
+
+class _HomeWidgetSyncAndIntentHost extends StatefulWidget {
+  final StatefulNavigationShell navigationShell;
+  final Widget child;
+
+  const _HomeWidgetSyncAndIntentHost({
+    required this.navigationShell,
+    required this.child,
+  });
+
+  @override
+  State<_HomeWidgetSyncAndIntentHost> createState() => _HomeWidgetSyncAndIntentHostState();
+}
+
+class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHost> {
+  StreamSubscription<String>? _widgetActionSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final bridge = sl<NativeHomeWidgetBridge>();
+    _widgetActionSub = bridge.widgetActions.listen(_handleWidgetAction);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final pending = await bridge.consumePendingWidgetAction();
+      if (pending != null && mounted) {
+        _handleWidgetAction(pending);
+      }
+    });
+  }
+
+  void _handleWidgetAction(String action) {
+    if (!mounted) return;
+    switch (action) {
+      case NativeHomeWidgetBridge.actionVoiceCapture:
+        showVoiceSmartCaptureSheet(context, autoStartListening: true);
+      case NativeHomeWidgetBridge.actionVoiceSplit:
+        showVoiceSmartCaptureSheet(
+          context,
+          autoStartListening: true,
+          initialTranscript: 'Ăn lẩu bò 450 nghìn chia đều 3 người',
+        );
+      case NativeHomeWidgetBridge.actionOpenToday:
+        widget.navigationShell.goBranch(0);
+      case NativeHomeWidgetBridge.actionOpenFinance:
+        widget.navigationShell.goBranch(1);
+      case NativeHomeWidgetBridge.actionOpenFamily:
+        widget.navigationShell.goBranch(3);
+    }
+  }
+
+  void _syncAllHomeWidgets() {
+    final dash = context.read<DashboardBloc>().state.data;
+    final fam = context.read<FamilyBloc>().state.activeFamily;
+    final autoConfirm =
+        context.read<NotificationIngestionBloc>().state.consent?.autoConfirmSignals ?? false;
+    final runway = EmergencyRunwaySnapshot.compute(
+      netLiquidMinor: dash.netWorthMinor,
+      monthlyExpenseMinor: dash.monthlyExpenseMinor,
+    );
+    final usedPct = dash.dailySafeToSpendMinor > 0
+        ? ((dash.todayExpenseMinor * 100) ~/ dash.dailySafeToSpendMinor).clamp(5, 100)
+        : 15;
+
+    sl<NativeHomeWidgetBridge>().syncWidgets(
+      netWorth: VndAmount.format(dash.netWorthMinor),
+      monthlyIncome: '+${VndAmount.format(dash.monthlyIncomeMinor)}',
+      monthlyExpense: '-${VndAmount.format(dash.monthlyExpenseMinor)}',
+      todayExpense: VndAmount.format(dash.todayExpenseMinor),
+      safeDaily: VndAmount.format(dash.dailySafeToSpendMinor),
+      wealthBadge: autoConfirm ? 'Auto-Ledger BẬT' : 'Auto-Sync',
+      groupTitle: fam != null
+          ? '${fam.name.toUpperCase()} · ${fam.members.length} THÀNH VIÊN'
+          : 'HỘI NHÓM & GIA ĐÌNH · CHIA TIỀN NHANH',
+      groupStatus: 'Nói câu chia ăn uống, việc nhà, điện nước',
+      runwayLabel:
+          'Quỹ dự phòng: ${runway.monthsOfRunway.toStringAsFixed(1)} tháng · ${runway.statusBadge}',
+      dailyUsedPct: usedPct,
+    );
+  }
+
+  @override
+  void dispose() {
+    _widgetActionSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<DashboardBloc, DashboardState>(
+          listenWhen: (p, c) => p.data != c.data,
+          listener: (_, __) => _syncAllHomeWidgets(),
+        ),
+        BlocListener<FamilyBloc, FamilyState>(
+          listenWhen: (p, c) => p.activeFamily != c.activeFamily,
+          listener: (_, __) => _syncAllHomeWidgets(),
+        ),
+      ],
+      child: widget.child,
     );
   }
 }

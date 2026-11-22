@@ -10,6 +10,7 @@ import '../../../../core/utils/smart_quick_entry_parser.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
+import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/pages/account_profile_page.dart';
@@ -335,17 +336,17 @@ class _TodayPageState extends State<TodayPage> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Symmetric 4-Button Banking Action Dock
+                          // Symmetric 4-Button Banking & Voice AI Action Dock
                           Row(
                             children: [
                               ProHeroBankingDockItem(
-                                icon: Icons.add_card_rounded,
-                                label: 'Thu / Chi',
-                                onTap: () => context.go('/finance'),
+                                icon: Icons.mic_rounded,
+                                label: 'Giọng nói AI',
+                                onTap: () => showVoiceSmartCaptureSheet(context),
                               ),
                               ProHeroBankingDockItem(
-                                icon: Icons.swap_horiz_rounded,
-                                label: 'Chuyển ví',
+                                icon: Icons.add_card_rounded,
+                                label: 'Thu / Chi',
                                 onTap: () => context.go('/finance'),
                               ),
                               ProHeroBankingDockItem(
@@ -354,13 +355,88 @@ class _TodayPageState extends State<TodayPage> {
                                 onTap: () => context.go('/family'),
                               ),
                               ProHeroBankingDockItem(
-                                icon: Icons.pie_chart_rounded,
-                                label: 'Ngân sách',
-                                onTap: () => context.go('/finance'),
+                                icon: Icons.widgets_rounded,
+                                label: '4 Widget',
+                                onTap: () => context.push('/home-widgets'),
                               ),
                             ],
                           ),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: AppSpacing.sm),
+
+                    // 1b. Zero-Touch Auto-Update & 4 Home Screen Widgets Quick Strip
+                    Container(
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: c.primary.withValues(alpha: 0.32),
+                          width: 0.9,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          key: const Key('open_home_widgets_studio_card'),
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => context.push('/home-widgets'),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF064E1E), Color(0xFF10B981)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                  child: const Icon(
+                                    Icons.widgets_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Tự động Cập nhật & 4 Widget Màn Hình Chính',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      Text(
+                                        'Bắt số dư không cần ghi tay · Ghim 4 Widget · Nói để chia tiền',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context).textTheme.labelSmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton.filledTonal(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Nói để Ghi / Chia tiền ngay',
+                                  onPressed: () => showVoiceSmartCaptureSheet(
+                                    context,
+                                    autoStartListening: true,
+                                  ),
+                                  icon: const Icon(Icons.mic_rounded, size: 18),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
 

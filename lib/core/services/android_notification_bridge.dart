@@ -44,6 +44,22 @@ class AndroidNotificationBridge {
     }
   }
 
+  Future<List<Map<String, dynamic>>> drainQueuedBackgroundNotifications() async {
+    if (!isSupportedPlatform || !_hasServicesBinding) {
+      return const <Map<String, dynamic>>[];
+    }
+    try {
+      final rawList = await _methodChannel.invokeMethod<List<dynamic>>('drainQueuedNotifications');
+      if (rawList == null) return const <Map<String, dynamic>>[];
+      return rawList
+          .whereType<Map<dynamic, dynamic>>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
+
   bool get _hasServicesBinding {
     try {
       ServicesBinding.instance;

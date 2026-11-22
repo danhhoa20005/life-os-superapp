@@ -4,6 +4,7 @@ class SourceConsentEntity extends Equatable {
   final String sourceId;
   final String ownerId;
   final bool enabled;
+  final bool autoConfirmSignals;
   final List<String> allowedPackages;
   final DateTime updatedAt;
 
@@ -11,12 +12,20 @@ class SourceConsentEntity extends Equatable {
     required this.sourceId,
     required this.ownerId,
     required this.enabled,
+    this.autoConfirmSignals = false,
     required this.allowedPackages,
     required this.updatedAt,
   });
 
   @override
-  List<Object?> get props => [sourceId, ownerId, enabled, allowedPackages, updatedAt];
+  List<Object?> get props => [
+        sourceId,
+        ownerId,
+        enabled,
+        autoConfirmSignals,
+        allowedPackages,
+        updatedAt,
+      ];
 }
 
 enum IngestionOutcomeKind {

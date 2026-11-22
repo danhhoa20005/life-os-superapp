@@ -9,6 +9,7 @@ import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../../core/widgets/vietqr_settlement_sheet.dart';
+import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../domain/entities/family_entities.dart';
@@ -48,6 +49,14 @@ class FamilyPage extends StatelessWidget {
           appBar: LiquidGlassBar(
             title: const Text('Gia đình & Hội nhóm'),
             actions: [
+              IconButton(
+                tooltip: 'Nói câu chia tiền nhóm bằng Giọng nói AI',
+                onPressed: () => showVoiceSmartCaptureSheet(
+                  context,
+                  initialTranscript: 'Ăn lẩu bò 450 nghìn chia đều 3 người',
+                ),
+                icon: const Icon(Icons.mic_rounded),
+              ),
               IconButton(
                 tooltip: 'Nhập mã mời',
                 onPressed: () => _showJoinFamilyDialog(context, user.id, user.fullName),

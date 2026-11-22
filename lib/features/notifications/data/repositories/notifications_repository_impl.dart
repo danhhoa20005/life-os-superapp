@@ -35,6 +35,9 @@ class NotificationsRemoteDataSource {
   Stream<Map<String, dynamic>> watchLiveNativeSignals() =>
       _bridge.watchIncomingBankNotifications();
 
+  Future<List<Map<String, dynamic>>> drainQueuedNativeSignals() =>
+      _bridge.drainQueuedBackgroundNotifications();
+
   DocumentReference<Map<String, dynamic>> _sePayConfigRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('consents').doc('sepay_api');
 
@@ -108,6 +111,7 @@ class NotificationsRemoteDataSource {
         sourceId: 'android_notification',
         ownerId: userId,
         enabled: (d['enabled'] as bool?) ?? false,
+        autoConfirmSignals: (d['autoConfirmSignals'] as bool?) ?? false,
         allowedPackages: pkgs,
         updatedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
       );
@@ -118,6 +122,7 @@ class NotificationsRemoteDataSource {
     required String userId,
     required bool enabled,
     required List<String> allowedPackages,
+    bool? autoConfirmSignals,
   }) async {
     final now = DateTime.now();
     final batch = _firestore.batch();
@@ -127,6 +132,7 @@ class NotificationsRemoteDataSource {
         'sourceId': 'android_notification',
         'ownerId': userId,
         'enabled': enabled,
+        if (autoConfirmSignals != null) 'autoConfirmSignals': autoConfirmSignals,
         'allowedPackages': allowedPackages,
         'updatedAt': Timestamp.fromDate(now),
       },
@@ -176,6 +182,7 @@ class NotificationsRemoteDataSource {
     final consentSnap = await _consentRef(userId).get();
     final consentData = consentSnap.data() ?? const <String, dynamic>{};
     final enabled = (consentData['enabled'] as bool?) ?? false;
+    final autoConfirm = (consentData['autoConfirmSignals'] as bool?) ?? false;
     final allowedPackages = (consentData['allowedPackages'] as List<dynamic>? ?? const <dynamic>[])
         .map((e) => e.toString())
         .toSet();
@@ -269,10 +276,28 @@ class NotificationsRemoteDataSource {
       final monthKey =
           '${signal.occurredAt.year.toString().padLeft(4, '0')}-${signal.occurredAt.month.toString().padLeft(2, '0')}';
 
+      int? newWalletBal;
+      String? resolvedWalletName;
+      if (autoConfirm) {
+        final walletRef =
+            _firestore.collection('users').doc(userId).collection('wallets').doc(defaultWalletId);
+        final wSnap = await tx.get(walletRef);
+        if (wSnap.exists) {
+          final curBal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+          final delta = signal.direction == 'credit' ? signal.amountMinor : -signal.amountMinor;
+          newWalletBal = curBal + delta;
+          resolvedWalletName = (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
+          tx.update(walletRef, {
+            'balanceMinor': newWalletBal,
+            'updatedAt': Timestamp.fromDate(now),
+          });
+        }
+      }
+
       tx.set(eventRef, {
         'eventKey': signal.sourceEventKey,
         'source': 'android_notification',
-        'status': 'provisional_created',
+        'status': autoConfirm ? 'auto_confirmed' : 'provisional_created',
         'linkedTransactionId': txId,
         'receivedAt': Timestamp.fromDate(now),
       });
@@ -283,6 +308,8 @@ class NotificationsRemoteDataSource {
           'id': txId,
           'ownerId': userId,
           'walletId': defaultWalletId,
+          if (resolvedWalletName != null) 'walletName': resolvedWalletName,
+          if (newWalletBal != null) 'balanceAfterMinor': newWalletBal,
           'categoryName': signal.categorySuggestion,
           'kind': signal.direction == 'credit' ? 'income' : 'expense',
           'direction': signal.direction,
@@ -292,7 +319,7 @@ class NotificationsRemoteDataSource {
           'occurredAt': Timestamp.fromDate(signal.occurredAt),
           'monthKey': monthKey,
           'sourceKind': 'androidNotification',
-          'verification': 'provisional',
+          'verification': autoConfirm ? 'userConfirmed' : 'provisional',
           'crossSourceFingerprint': signal.crossSourceFingerprint,
           'softWindowFingerprint': softFp,
           'isVehicleMaintenanceHint': signal.isVehicleMaintenanceHint,
@@ -674,12 +701,14 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
     required String userId,
     required bool enabled,
     required List<String> allowedPackages,
+    bool? autoConfirmSignals,
   }) async {
     try {
       await _remoteDataSource.updateConsent(
         userId: userId,
         enabled: enabled,
         allowedPackages: allowedPackages,
+        autoConfirmSignals: autoConfirmSignals,
       );
       return const Success(null);
     } catch (e) {
@@ -790,6 +819,10 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   @override
   Stream<Map<String, dynamic>> watchLiveAndroidBankSignals() =>
       _remoteDataSource.watchLiveNativeSignals();
+
+  @override
+  Future<List<Map<String, dynamic>>> drainQueuedAndroidBankSignals() =>
+      _remoteDataSource.drainQueuedNativeSignals();
 
   @override
   Future<Result<String?>> getSavedSePayMaskedToken(String userId) async {

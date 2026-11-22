@@ -5,13 +5,16 @@ import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.flutter.plugin.common.EventChannel
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Privacy-first Android NotificationListenerService for Life OS.
  * - Disabled by default (`enabled = false`).
  * - Only inspects notifications from explicitly allowlisted Vietnamese bank packages.
  * - Drops any notification containing OTP, PIN, CVV, or verification codes on-device BEFORE emitting.
- * - Never logs raw notification text.
+ * - When Life OS is closed (`eventSink == null`), queues redacted payloads locally in private
+ *   SharedPreferences and refreshes Home Screen Widgets so zero bank movements are missed!
  */
 class BankNotificationListenerService : NotificationListenerService() {
 
@@ -19,6 +22,7 @@ class BankNotificationListenerService : NotificationListenerService() {
         const val PREFS_NAME = "lifeos_bank_listener_prefs"
         const val KEY_ENABLED = "consent_enabled"
         const val KEY_PACKAGES = "allowed_packages"
+        const val KEY_QUEUED_JSON = "queued_notifications_json"
 
         @Volatile
         var eventSink: EventChannel.EventSink? = null
@@ -47,19 +51,44 @@ class BankNotificationListenerService : NotificationListenerService() {
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         if (title.isEmpty() && text.isEmpty()) return
 
-        // Strict on-device OTP/secret block — never leaves the listener
+        // Strict on-device OTP/secret block — never leaves the listener or enters local queue
         if (containsOtpOrSecrets("$title $text")) {
             return
         }
 
-        val sink = eventSink ?: return
-        val payload = mapOf(
-            "packageName" to pkg,
-            "title" to title,
-            "body" to text,
-            "postedAtEpochMs" to sbn.postTime,
-            "notificationKey" to (sbn.key ?: "${pkg}_${sbn.postTime}")
-        )
-        sink.success(payload)
+        val notifKey = sbn.key ?: "${pkg}_${sbn.postTime}"
+        val sink = eventSink
+        if (sink != null) {
+            val payload = mapOf(
+                "packageName" to pkg,
+                "title" to title,
+                "body" to text,
+                "postedAtEpochMs" to sbn.postTime,
+                "notificationKey" to notifKey
+            )
+            sink.success(payload)
+        } else {
+            // App is in background / killed -> persist safely in private queue for instant auto-ingest!
+            try {
+                val rawArr = prefs.getString(KEY_QUEUED_JSON, "[]") ?: "[]"
+                val arr = JSONArray(rawArr)
+                val item = JSONObject().apply {
+                    put("packageName", pkg)
+                    put("title", title)
+                    put("body", text)
+                    put("postedAtEpochMs", sbn.postTime)
+                    put("notificationKey", notifKey)
+                }
+                val trimmed = JSONArray()
+                val startIdx = (arr.length() - 59).coerceAtLeast(0)
+                for (i in startIdx until arr.length()) {
+                    trimmed.put(arr.get(i))
+                }
+                trimmed.put(item)
+                prefs.edit().putString(KEY_QUEUED_JSON, trimmed.toString()).apply()
+                LifeOsWidgetStore.onBackgroundBankSignalCaptured(applicationContext)
+            } catch (_: Exception) {
+            }
+        }
     }
 }
