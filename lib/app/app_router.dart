@@ -167,16 +167,38 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
 
   const _AuthenticatedAdaptiveShell({required this.navigationShell});
 
-  static const List<({IconData icon, IconData activeIcon, String label})> _tabs = [
-    (icon: Icons.wb_sunny_outlined, activeIcon: Icons.wb_sunny_rounded, label: 'Hôm nay'),
+  static const List<({IconData icon, IconData activeIcon, String assetPath, String label})>
+      _tabs = [
+    (
+      icon: Icons.wb_sunny_outlined,
+      activeIcon: Icons.wb_sunny_rounded,
+      assetPath: AppAssets.icNavToday,
+      label: 'Hôm nay',
+    ),
     (
       icon: Icons.account_balance_wallet_outlined,
       activeIcon: Icons.account_balance_wallet_rounded,
+      assetPath: AppAssets.icNavFinance,
       label: 'Tài chính',
     ),
-    (icon: Icons.calendar_today_outlined, activeIcon: Icons.calendar_today_rounded, label: 'Lịch & Việc'),
-    (icon: Icons.groups_outlined, activeIcon: Icons.groups_rounded, label: 'Gia đình'),
-    (icon: Icons.two_wheeler_outlined, activeIcon: Icons.two_wheeler_rounded, label: 'Tài sản'),
+    (
+      icon: Icons.calendar_today_outlined,
+      activeIcon: Icons.calendar_today_rounded,
+      assetPath: AppAssets.icNavCalendar,
+      label: 'Lịch & Việc',
+    ),
+    (
+      icon: Icons.groups_outlined,
+      activeIcon: Icons.groups_rounded,
+      assetPath: AppAssets.icNavFamily,
+      label: 'Gia đình',
+    ),
+    (
+      icon: Icons.two_wheeler_outlined,
+      activeIcon: Icons.two_wheeler_rounded,
+      assetPath: AppAssets.icNavAssets,
+      label: 'Tài sản',
+    ),
   ];
 
   @override
@@ -266,8 +288,22 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                     destinations: _tabs
                         .map(
                           (t) => NavigationRailDestination(
-                            icon: Icon(t.icon),
-                            selectedIcon: Icon(t.activeIcon),
+                            icon: Opacity(
+                              opacity: 0.78,
+                              child: BananaGlassIcon(
+                                assetPath: t.assetPath,
+                                fallbackIcon: t.icon,
+                                size: 28,
+                                borderRadius: 9,
+                              ),
+                            ),
+                            selectedIcon: BananaGlassIcon(
+                              assetPath: t.assetPath,
+                              fallbackIcon: t.activeIcon,
+                              size: 30,
+                              borderRadius: 10,
+                              isSelected: true,
+                            ),
                             label: Text(t.label),
                           ),
                         )
@@ -315,8 +351,22 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                       destinations: _tabs
                           .map(
                             (t) => NavigationDestination(
-                              icon: Icon(t.icon),
-                              selectedIcon: Icon(t.activeIcon),
+                              icon: Opacity(
+                                opacity: 0.78,
+                                child: BananaGlassIcon(
+                                  assetPath: t.assetPath,
+                                  fallbackIcon: t.icon,
+                                  size: 26,
+                                  borderRadius: 9,
+                                ),
+                              ),
+                              selectedIcon: BananaGlassIcon(
+                                assetPath: t.assetPath,
+                                fallbackIcon: t.activeIcon,
+                                size: 28,
+                                borderRadius: 10,
+                                isSelected: true,
+                              ),
                               label: t.label,
                             ),
                           )

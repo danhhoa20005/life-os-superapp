@@ -241,6 +241,7 @@ class TodayPage extends StatelessWidget {
                           children: [
                             ProBentoTile(
                               icon: Icons.pending_actions_rounded,
+                              bananaIconAsset: AppAssets.icNavFinance,
                               accentColor: const Color(0xFFD97706),
                               title: 'Giao dịch chờ duyệt',
                               metric: '${d.provisionalPendingCount}',
@@ -254,6 +255,7 @@ class TodayPage extends StatelessWidget {
                             ),
                             ProBentoTile(
                               icon: Icons.task_alt_rounded,
+                              bananaIconAsset: AppAssets.icCatHousework,
                               accentColor: const Color(0xFF0CA678),
                               title: 'Nhiệm vụ & Việc nhà',
                               metric: '${d.openTasksCount} mở',
@@ -267,6 +269,7 @@ class TodayPage extends StatelessWidget {
                             ),
                             ProBentoTile(
                               icon: Icons.event_available_rounded,
+                              bananaIconAsset: AppAssets.icNavCalendar,
                               accentColor: const Color(0xFF1971C2),
                               title: 'Lịch trình sắp tới',
                               metric: '${d.upcomingEventsCount}',
@@ -276,6 +279,7 @@ class TodayPage extends StatelessWidget {
                             ),
                             ProBentoTile(
                               icon: Icons.two_wheeler_rounded,
+                              bananaIconAsset: AppAssets.icCatVehicle,
                               accentColor: const Color(0xFF5F3DC4),
                               title: 'Bảo dưỡng xe',
                               metric: '${d.dueVehiclesCount} xe',
@@ -303,14 +307,12 @@ class TodayPage extends StatelessWidget {
                             padding: const EdgeInsets.all(AppSpacing.md),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: c.primarySubtle,
-                                    borderRadius: BorderRadius.circular(13),
-                                  ),
-                                  child: Icon(Icons.health_and_safety_rounded, color: c.primary),
+                                BananaGlassIcon(
+                                  assetPath: AppAssets.icSysShield,
+                                  fallbackIcon: Icons.health_and_safety_rounded,
+                                  fallbackColor: c.primary,
+                                  size: 44,
+                                  borderRadius: 13,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(

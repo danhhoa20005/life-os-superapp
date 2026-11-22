@@ -594,28 +594,15 @@ class _TransactionsTabView extends StatelessWidget {
                         ? c.secondary
                         : (isCredit ? c.success : c.textPrimary);
 
-                    final catVisual = ProCategoryStyle.resolve(
-                      tx.categoryName,
-                      isTransfer: isInternal,
-                    );
-
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                       child: Card(
                         child: ListTile(
-                          leading: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: (isCredit ? c.success : catVisual.color)
-                                  .withValues(alpha: 0.13),
-                              borderRadius: BorderRadius.circular(13),
-                            ),
-                            child: Icon(
-                              isCredit ? Icons.south_west_rounded : catVisual.icon,
-                              color: isCredit ? c.success : catVisual.color,
-                              size: 21,
-                            ),
+                          leading: ProCategoryStyle.buildCategoryBadge(
+                            tx.categoryName,
+                            isCredit: isCredit,
+                            isTransfer: isInternal,
+                            size: 44,
                           ),
                           title: Text(
                             tx.merchant,

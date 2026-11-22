@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../constants/app_assets.dart';
 import '../utils/vnd_amount.dart';
 import 'status_widgets.dart';
 
@@ -226,6 +227,7 @@ class ProHeroQuickAction extends StatelessWidget {
 /// Tactile Bento Grid Tile for 2x2 mobile & desktop dashboards.
 class ProBentoTile extends StatelessWidget {
   final IconData icon;
+  final String? bananaIconAsset;
   final Color accentColor;
   final String title;
   final String metric;
@@ -236,6 +238,7 @@ class ProBentoTile extends StatelessWidget {
   const ProBentoTile({
     super.key,
     required this.icon,
+    this.bananaIconAsset,
     required this.accentColor,
     required this.title,
     required this.metric,
@@ -281,15 +284,24 @@ class ProBentoTile extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
-                        borderRadius: BorderRadius.circular(12),
+                    if (bananaIconAsset != null)
+                      BananaGlassIcon(
+                        assetPath: bananaIconAsset!,
+                        fallbackIcon: icon,
+                        fallbackColor: accentColor,
+                        size: 40,
+                        borderRadius: 12,
+                      )
+                    else
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, size: 20, color: accentColor),
                       ),
-                      child: Icon(icon, size: 20, color: accentColor),
-                    ),
                     Icon(
                       Icons.north_east_rounded,
                       size: 16,
@@ -467,47 +479,127 @@ class ProWalletCreditCard extends StatelessWidget {
   }
 }
 
-/// Curated Vietnamese category visual mapping (Squircle Icon + Harmonic Color).
+/// Curated Vietnamese category visual mapping (Nano Banana 3D Glass Squircle Icon + Harmonic Color).
 abstract final class ProCategoryStyle {
-  static ({IconData icon, Color color}) resolve(String categoryName, {bool isTransfer = false}) {
+  static ({IconData icon, Color color, String assetPath}) resolve(
+    String categoryName, {
+    bool isTransfer = false,
+  }) {
     if (isTransfer) {
-      return (icon: Icons.swap_horiz_rounded, color: const Color(0xFF0066CC));
+      return (
+        icon: Icons.swap_horiz_rounded,
+        color: const Color(0xFF0066CC),
+        assetPath: AppAssets.icSysVietQr,
+      );
     }
     final lower = categoryName.toLowerCase();
-    if (lower.contains('ăn') || lower.contains('cafe')) {
-      return (icon: Icons.restaurant_rounded, color: const Color(0xFFE8590C));
+    if (lower.contains('ăn') || lower.contains('cafe') || lower.contains('phở')) {
+      return (
+        icon: Icons.restaurant_rounded,
+        color: const Color(0xFFE8590C),
+        assetPath: AppAssets.icCatFood,
+      );
     }
     if (lower.contains('việc nhà') || lower.contains('gia dụng')) {
-      return (icon: Icons.cleaning_services_rounded, color: const Color(0xFF0CA678));
+      return (
+        icon: Icons.cleaning_services_rounded,
+        color: const Color(0xFF0CA678),
+        assetPath: AppAssets.icCatHousework,
+      );
     }
-    if (lower.contains('nhà cửa') || lower.contains('thuê')) {
-      return (icon: Icons.home_work_rounded, color: const Color(0xFF5F3DC4));
+    if (lower.contains('nhà cửa') || lower.contains('thuê') || lower.contains('trọ')) {
+      return (
+        icon: Icons.home_work_rounded,
+        color: const Color(0xFF5F3DC4),
+        assetPath: AppAssets.icCatHousing,
+      );
     }
     if (lower.contains('điện') || lower.contains('nước') || lower.contains('internet')) {
-      return (icon: Icons.bolt_rounded, color: const Color(0xFFD97706));
+      return (
+        icon: Icons.bolt_rounded,
+        color: const Color(0xFFD97706),
+        assetPath: AppAssets.icCatUtilities,
+      );
     }
     if (lower.contains('chợ') || lower.contains('mua sắm')) {
-      return (icon: Icons.shopping_bag_rounded, color: const Color(0xFFD6336C));
+      return (
+        icon: Icons.shopping_bag_rounded,
+        color: const Color(0xFFD6336C),
+        assetPath: AppAssets.icCatShopping,
+      );
     }
     if (lower.contains('bảo dưỡng') || lower.contains('sửa xe')) {
-      return (icon: Icons.handyman_rounded, color: const Color(0xFF495057));
+      return (
+        icon: Icons.handyman_rounded,
+        color: const Color(0xFF495057),
+        assetPath: AppAssets.icCatVehicle,
+      );
     }
-    if (lower.contains('xe') || lower.contains('di chuyển')) {
-      return (icon: Icons.two_wheeler_rounded, color: const Color(0xFF1971C2));
+    if (lower.contains('xe') || lower.contains('di chuyển') || lower.contains('xăng')) {
+      return (
+        icon: Icons.two_wheeler_rounded,
+        color: const Color(0xFF1971C2),
+        assetPath: AppAssets.icCatVehicle,
+      );
     }
     if (lower.contains('sức khỏe') || lower.contains('giáo dục')) {
-      return (icon: Icons.favorite_rounded, color: const Color(0xFFC92A2A));
+      return (
+        icon: Icons.favorite_rounded,
+        color: const Color(0xFFC92A2A),
+        assetPath: AppAssets.icCatHealth,
+      );
     }
     if (lower.contains('giải trí') || lower.contains('đăng ký')) {
-      return (icon: Icons.movie_filter_rounded, color: const Color(0xFF7048E8));
+      return (
+        icon: Icons.movie_filter_rounded,
+        color: const Color(0xFF7048E8),
+        assetPath: AppAssets.icCatShopping,
+      );
     }
     if (lower.contains('lương') || lower.contains('thu nhập')) {
-      return (icon: Icons.payments_rounded, color: const Color(0xFF0B7A2A));
+      return (
+        icon: Icons.payments_rounded,
+        color: const Color(0xFF0B7A2A),
+        assetPath: AppAssets.icCatIncome,
+      );
     }
     if (lower.contains('tiết kiệm') || lower.contains('quỹ')) {
-      return (icon: Icons.savings_rounded, color: const Color(0xFF087F5B));
+      return (
+        icon: Icons.savings_rounded,
+        color: const Color(0xFF087F5B),
+        assetPath: AppAssets.icCatIncome,
+      );
     }
-    return (icon: Icons.category_rounded, color: const Color(0xFF0B7A2A));
+    return (
+      icon: Icons.category_rounded,
+      color: const Color(0xFF0B7A2A),
+      assetPath: AppAssets.icNavFinance,
+    );
+  }
+
+  static Widget buildCategoryBadge(
+    String categoryName, {
+    bool isCredit = false,
+    bool isTransfer = false,
+    double size = 44,
+  }) {
+    if (isCredit && !isTransfer) {
+      return BananaGlassIcon(
+        assetPath: AppAssets.icCatIncome,
+        fallbackIcon: Icons.south_west_rounded,
+        fallbackColor: const Color(0xFF0B7A2A),
+        size: size,
+        borderRadius: 13,
+      );
+    }
+    final resolved = resolve(categoryName, isTransfer: isTransfer);
+    return BananaGlassIcon(
+      assetPath: resolved.assetPath,
+      fallbackIcon: resolved.icon,
+      fallbackColor: resolved.color,
+      size: size,
+      borderRadius: 13,
+    );
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../bloc/app_update_bloc.dart';
 
@@ -51,17 +52,12 @@ class AppUpdateBanner extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.system_update_rounded,
-                        color: Color(0xFF86EFAC),
-                        size: 22,
-                      ),
+                    const BananaGlassIcon(
+                      assetPath: AppAssets.icSysOtaUpdate,
+                      fallbackIcon: Icons.system_update_rounded,
+                      fallbackColor: Color(0xFF86EFAC),
+                      size: 42,
+                      borderRadius: 12,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -236,14 +232,12 @@ class AppUpdateSettingsCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: c.primarySubtle,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.rocket_launch_rounded, color: c.primary, size: 20),
+                    BananaGlassIcon(
+                      assetPath: AppAssets.icSysOtaUpdate,
+                      fallbackIcon: Icons.rocket_launch_rounded,
+                      fallbackColor: c.primary,
+                      size: 42,
+                      borderRadius: 12,
                     ),
                     const SizedBox(width: 12),
                     Expanded(

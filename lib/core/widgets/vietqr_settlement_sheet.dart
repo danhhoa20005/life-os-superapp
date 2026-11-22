@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../constants/app_assets.dart';
 import '../utils/vnd_amount.dart';
 import 'status_widgets.dart';
 
@@ -58,13 +59,12 @@ Future<void> showVietQrSettlementSheet({
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: c.primarySubtle,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(Icons.qr_code_2_rounded, color: c.primary),
+                        BananaGlassIcon(
+                          assetPath: AppAssets.icSysVietQr,
+                          fallbackIcon: Icons.qr_code_2_rounded,
+                          fallbackColor: c.primary,
+                          size: 42,
+                          borderRadius: 12,
                         ),
                         const SizedBox(width: 10),
                         Expanded(

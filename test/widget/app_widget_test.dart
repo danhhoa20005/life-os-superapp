@@ -16,7 +16,7 @@ import 'package:life_os/features/authentication/presentation/pages/splash_page.d
 
 void main() {
   testWidgets('Branded SplashPage renders Nano Banana artwork, logo & Tammy x Apple typography cleanly', (tester) async {
-    for (final path in const [
+    for (final path in <String>[
       AppAssets.logo,
       AppAssets.splashHero,
       AppAssets.authHero,
@@ -25,6 +25,7 @@ void main() {
       AppAssets.financeIllustration,
       AppAssets.familySplitIllustration,
       AppAssets.planningAssetsIllustration,
+      ...AppAssets.allBananaIcons,
     ]) {
       expect(File(path).existsSync(), isTrue, reason: 'Missing asset $path');
     }

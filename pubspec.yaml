@@ -1,7 +1,7 @@
 name: life_os
 description: "Life OS — Super App Quản lý Cuộc sống & Gia đình (Clean Architecture + BLoC, Tammy x Apple Design System)"
 publish_to: 'none'
-version: 1.2.0+3
+version: 1.3.0+4
 
 environment:
   sdk: ^3.10.0
@@ -47,3 +47,19 @@ flutter:
     - assets/images/finance_illustration.png
     - assets/images/family_split_illustration.png
     - assets/images/planning_assets_illustration.png
+    - assets/icons/ic_nav_today.png
+    - assets/icons/ic_nav_finance.png
+    - assets/icons/ic_nav_calendar.png
+    - assets/icons/ic_nav_family.png
+    - assets/icons/ic_nav_assets.png
+    - assets/icons/ic_cat_food.png
+    - assets/icons/ic_cat_housework.png
+    - assets/icons/ic_cat_housing.png
+    - assets/icons/ic_cat_utilities.png
+    - assets/icons/ic_cat_shopping.png
+    - assets/icons/ic_cat_income.png
+    - assets/icons/ic_cat_vehicle.png
+    - assets/icons/ic_cat_health.png
+    - assets/icons/ic_sys_shield.png
+    - assets/icons/ic_sys_vietqr.png
+    - assets/icons/ic_sys_ota_update.png
