@@ -1,0 +1,293 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isPositiveInt(val) {
+      return val is int && val > 0;
+    }
+
+    function familyDoc(familyId) {
+      return get(/databases/$(database)/documents/families/$(familyId));
+    }
+
+    function isFamilyMember(familyId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/families/$(familyId))
+        && request.auth.uid in familyDoc(familyId).data.memberIds;
+    }
+
+    function isFamilyManager(familyId) {
+      return isFamilyMember(familyId)
+        && (
+          familyDoc(familyId).data.memberRoles[request.auth.uid] == 'owner'
+          || familyDoc(familyId).data.memberRoles[request.auth.uid] == 'admin'
+        );
+    }
+
+    // =========================================================================
+    // 1. PERSONAL USER SPACE — STRICT OWNER ISOLATION (NO FAMILY ADMIN ACCESS!)
+    // =========================================================================
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.id == userId
+        && !('password' in request.resource.data);
+      allow update: if isOwner(userId)
+        && request.resource.data.id == resource.data.id
+        && !('password' in request.resource.data);
+      allow delete: if isOwner(userId);
+
+      match /wallets/{walletId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && request.resource.data.balanceMinor is int;
+        allow update: if isOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.balanceMinor is int;
+        allow delete: if isOwner(userId);
+      }
+
+      match /categories/{categoryId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /transactions/{txId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && isPositiveInt(request.resource.data.amountMinor)
+          && request.resource.data.currencyCode == 'VND';
+        allow update: if isOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && isPositiveInt(request.resource.data.amountMinor);
+        allow delete: if false; // Immutable ledger: use reversal entry instead of hard delete
+      }
+
+      match /budgets/{budgetId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && isPositiveInt(request.resource.data.limitMinor);
+        allow delete: if isOwner(userId);
+      }
+
+      match /personal_funds/{fundId} {
+        allow read, write: if isOwner(userId);
+
+        match /contributions/{contribId} {
+          allow read, create: if isOwner(userId)
+            && isPositiveInt(request.resource.data.amountMinor);
+        }
+
+        match /expenses/{expId} {
+          allow read, create, update: if isOwner(userId)
+            && isPositiveInt(request.resource.data.amountMinor);
+        }
+      }
+
+      // PRIVATE CALENDAR — Family Owners/Admins NEVER have access!
+      match /private_events/{eventId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId;
+        allow update: if isOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /personal_tasks/{taskId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /vehicles/{vehicleId} {
+        allow read, write: if isOwner(userId);
+
+        match /maintenances/{recordId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      match /bills/{billId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /consents/{sourceId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /source_events/{eventKey} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // =========================================================================
+    // 2. FAMILY INVITE CODES — GET BY EXACT CODE ONLY (NO DIRECTORY LISTING)
+    // =========================================================================
+    match /family_invites/{inviteCode} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isFamilyManager(request.resource.data.familyId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && isFamilyManager(resource.data.familyId);
+    }
+
+    // =========================================================================
+    // 3. HOUSEHOLD SHARED SPACE — ENFORCED RBAC & NO SELF-ROLE ESCALATION
+    // =========================================================================
+    match /families/{familyId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberRoles[request.auth.uid] == 'owner';
+
+      allow update: if isSignedIn() && (
+        // 1. Owner/Admin manages family metadata or member roles without forging creator
+        (
+          (resource.data.memberRoles[request.auth.uid] == 'owner'
+            || resource.data.memberRoles[request.auth.uid] == 'admin')
+          && request.resource.data.createdBy == resource.data.createdBy
+        )
+        // 2. Member leaves voluntarily: cannot alter other members' roles
+        || (
+          request.auth.uid in resource.data.memberIds
+          && !(request.auth.uid in request.resource.data.memberIds)
+          && request.resource.data.createdBy == resource.data.createdBy
+        )
+        // 3. New user joins with a valid invite code ONLY as 'member' (prevents privilege escalation!)
+        || (
+          !(request.auth.uid in resource.data.memberIds)
+          && request.auth.uid in request.resource.data.memberIds
+          && request.resource.data.memberRoles[request.auth.uid] == 'member'
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.lastJoinedInviteCode is string
+          && exists(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode))
+          && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.familyId == familyId
+        )
+      );
+
+      allow delete: if false;
+
+      match /funds/{fundId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.familyId == familyId;
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.familyId == resource.data.familyId;
+        allow delete: if isFamilyManager(familyId);
+
+        match /contributions/{contribId} {
+          allow read: if isFamilyMember(familyId);
+          allow create: if isFamilyMember(familyId)
+            && request.resource.data.contributorId == request.auth.uid
+            && isPositiveInt(request.resource.data.amountMinor);
+        }
+
+        match /expenses/{expId} {
+          allow read: if isFamilyMember(familyId);
+          allow create: if isFamilyMember(familyId)
+            && request.resource.data.requesterId == request.auth.uid
+            && isPositiveInt(request.resource.data.amountMinor);
+          allow update: if isFamilyManager(familyId);
+        }
+      }
+
+      match /shared_events/{eventId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == request.auth.uid;
+        allow update, delete: if isFamilyMember(familyId)
+          && (resource.data.ownerId == request.auth.uid || isFamilyManager(familyId));
+      }
+
+      match /availability/{slotId} {
+        allow read: if isFamilyMember(familyId);
+        allow create, update, delete: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == request.auth.uid;
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.createdBy == resource.data.createdBy
+          && (
+            request.auth.uid == resource.data.assigneeId
+            || request.auth.uid == resource.data.createdBy
+            || isFamilyManager(familyId)
+          );
+        allow delete: if isFamilyMember(familyId)
+          && (resource.data.createdBy == request.auth.uid || isFamilyManager(familyId));
+      }
+
+      match /vehicles/{vehicleId} {
+        allow read: if isFamilyMember(familyId);
+        allow create, update: if isFamilyMember(familyId);
+        allow delete: if isFamilyManager(familyId);
+
+        match /maintenances/{recordId} {
+          allow read, create: if isFamilyMember(familyId);
+        }
+      }
+
+      match /bills/{billId} {
+        allow read, create, update: if isFamilyMember(familyId);
+        allow delete: if isFamilyManager(familyId);
+      }
+
+      match /shopping_items/{itemId} {
+        allow read, create, update, delete: if isFamilyMember(familyId);
+      }
+
+      // SHARED BILL SPLITTING (Eating out, Housework, Utilities, Rent, Trips)
+      match /split_bills/{billId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.familyId == familyId
+          && isPositiveInt(request.resource.data.totalAmountMinor);
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.familyId == resource.data.familyId
+          && isPositiveInt(request.resource.data.totalAmountMinor);
+        allow delete: if isFamilyManager(familyId)
+          || (isFamilyMember(familyId) && resource.data.paidByUserId == request.auth.uid);
+      }
+
+      // DEBT SETTLEMENT LEDGER (Immutable audit trail of member-to-member repayments)
+      match /settlements/{settlementId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.familyId == familyId
+          && isPositiveInt(request.resource.data.amountMinor);
+        allow update, delete: if false;
+      }
+    }
+
+    // =========================================================================
+    // 4. APP RELEASE MANIFEST (OTA IN-APP UPDATE METADATA — SIGNED-IN READ ONLY)
+    // =========================================================================
+    match /app_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // DEFAULT DENY ALL OTHER PATHS
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

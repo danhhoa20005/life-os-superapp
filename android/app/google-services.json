@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "913180533540",
+    "project_id": "life-os-vn-2026",
+    "storage_bucket": "life-os-vn-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:913180533540:android:156f7d8732017879a289b1",
+        "android_client_info": {
+          "package_name": "vn.lifeos.app.life_os"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQ6tXMZrL-fN883uHQxnJ-N9qcEt7pQis"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

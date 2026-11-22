@@ -1,0 +1,30 @@
+# Flutter / Dart build & tool artifacts
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+coverage/
+*.iml
+.idea/
+
+# Firebase Emulator & Debug logs
+*-debug.log
+.firebase/
+firebase-export-*/
+firebase/emulator_data/
+
+# Secrets & Service Account Keys (NEVER COMMIT)
+.env
+.env.*
+!*env.example
+*service-account*.json
+google-services.json.secret
+
+# Node modules inside firebase/rules_tests
+node_modules/
+firebase/rules_tests/node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db

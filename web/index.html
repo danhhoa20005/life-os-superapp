@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Life OS — Super App Quản lý Tài chính Cá nhân, Hội nhóm & Gia đình chuẩn Riêng tư Mặc định.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Life OS">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Life OS — Tài chính &amp; Gia đình</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #EAF6EE 0%, #F7F9F8 52%, #E8F1FB 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #lifeos-web-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      background: linear-gradient(135deg, #EAF6EE 0%, #F7F9F8 52%, #E8F1FB 100%);
+      transition: opacity 0.35s ease;
+    }
+    #lifeos-web-splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .splash-logo {
+      width: 92px;
+      height: 92px;
+      border-radius: 22px;
+      box-shadow: 0 16px 36px rgba(11, 122, 42, 0.18);
+      margin-bottom: 18px;
+    }
+    .splash-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #111827;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+    .splash-sub {
+      font-size: 14px;
+      color: #4B5563;
+      margin: 6px 0 20px 0;
+    }
+    .splash-spinner {
+      width: 26px;
+      height: 26px;
+      border: 3px solid rgba(11, 122, 42, 0.18);
+      border-top-color: #0B7A2A;
+      border-radius: 50%;
+      animation: lifeos-spin 0.8s linear infinite;
+    }
+    @keyframes lifeos-spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="lifeos-web-splash">
+    <img class="splash-logo" src="icons/Icon-192.png" alt="Life OS Logo" />
+    <h1 class="splash-title">Life OS</h1>
+    <p class="splash-sub">Tài chính Cá nhân · Hội nhóm · Gia đình</p>
+    <div class="splash-spinner"></div>
+  </div>
+
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('lifeos-web-splash');
+      if (splash) {
+        splash.classList.add('fade-out');
+        setTimeout(function () { splash.remove(); }, 380);
+      }
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

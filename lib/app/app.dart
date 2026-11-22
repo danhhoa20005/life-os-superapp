@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:go_router/go_router.dart';
+
+import '../core/di/dependency_injection.dart';
+import '../features/app_update/presentation/bloc/app_update_bloc.dart';
+import '../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../features/authentication/presentation/bloc/auth_event.dart';
+import '../features/authentication/presentation/bloc/auth_state.dart';
+import 'app_router.dart';
+import 'theme/app_theme.dart';
+import 'theme/theme_bloc.dart';
+
+class LifeOsApp extends StatefulWidget {
+  const LifeOsApp({super.key});
+
+  @override
+  State<LifeOsApp> createState() => _LifeOsAppState();
+}
+
+class _LifeOsAppState extends State<LifeOsApp> {
+  late final AuthBloc _authBloc;
+  late final ThemeBloc _themeBloc;
+  late final AppUpdateBloc _appUpdateBloc;
+  late final BlocRouterRefreshStream _routerRefresh;
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _authBloc = sl<AuthBloc>()..add(const AuthSubscriptionRequested());
+    _themeBloc = sl<ThemeBloc>();
+    _appUpdateBloc = sl<AppUpdateBloc>()
+      ..add(const AppUpdateCheckRequested(silent: true));
+    _routerRefresh = BlocRouterRefreshStream(_authBloc.stream);
+    _router = createAppRouter(_authBloc, _routerRefresh);
+  }
+
+  @override
+  void dispose() {
+    _routerRefresh.dispose();
+    _router.dispose();
+    _authBloc.close();
+    _themeBloc.close();
+    _appUpdateBloc.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<ThemeBloc>.value(value: _themeBloc),
+        BlocProvider<AppUpdateBloc>.value(value: _appUpdateBloc),
+      ],
+      child: BlocListener<AuthBloc, AuthState>(
+        listenWhen: (prev, curr) =>
+            prev.status != curr.status && curr.status == AuthStatus.authenticated,
+        listener: (_, __) {
+          _appUpdateBloc.add(const AppUpdateCheckRequested(silent: true));
+        },
+        child: BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (context, themeState) {
+            return MaterialApp.router(
+              title: 'Life OS — Quản lý Cuộc sống & Gia đình',
+              debugShowCheckedModeBanner: false,
+              themeMode: themeState.themeMode,
+              theme: AppTheme.light(highContrast: themeState.highContrast),
+              darkTheme: AppTheme.dark(highContrast: themeState.highContrast),
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('vi', 'VN'),
+                Locale('en', 'US'),
+              ],
+              routerConfig: _router,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
