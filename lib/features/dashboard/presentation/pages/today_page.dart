@@ -592,6 +592,62 @@ class TodayPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
 
+                            // 4b. Paid-Market Replacement Pro Suite Banner ("Tiện ích Pro 0₫")
+                            LifeOsSoftCard(
+                              key: const Key('open_pro_utilities_hub_card'),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              onTap: () => context.push('/pro-utilities'),
+                              child: Row(
+                                children: [
+                                  const LifeOsIconSquircle(
+                                    icon: Icons.workspace_premium_rounded,
+                                    tone: LifeOsAccentTone.emerald,
+                                    size: 42,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Tiện ích Pro 0₫ (Thay 6 App Trả Phí)',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 13.8,
+                                                  color: c.textPrimary,
+                                                ),
+                                              ),
+                                            ),
+                                            const LifeOsStatusPill(
+                                              label: 'MỚI',
+                                              tone: LifeOsAccentTone.emerald,
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Radar Gói đăng ký & Bảo hành · Quét Bill AI · Pomodoro · Sổ Hiếu Hỷ',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: c.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(Icons.chevron_right_rounded, color: c.textSecondary),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
                             // 5. Voice Sentence Split AI & 4 Android Home Screen Widgets Quick Card
                             LifeOsMintHeroCard(
                               key: const Key('open_home_widgets_studio_card'),

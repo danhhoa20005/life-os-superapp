@@ -36,6 +36,9 @@ import '../../features/notifications/data/datasources/sepay_api_datasource.dart'
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
 import '../../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
+import '../../features/pro_utilities/data/repositories/pro_utilities_repository_impl.dart';
+import '../../features/pro_utilities/domain/repositories/pro_utilities_repository.dart';
+import '../../features/pro_utilities/presentation/bloc/pro_utilities_bloc.dart';
 import '../../features/tasks/data/repositories/task_repository_impl.dart';
 import '../../features/tasks/domain/repositories/task_repository.dart';
 import '../../features/tasks/presentation/bloc/task_bloc.dart';
@@ -170,6 +173,9 @@ Future<void> configureDependencies({
   );
   sl.registerLazySingleton<DocumentVaultRepository>(
     () => DocumentVaultRepositoryImpl(sl<FirebaseFirestore>()),
+  );
+  sl.registerLazySingleton<ProUtilitiesRepository>(
+    () => ProUtilitiesRepositoryImpl(sl<FirebaseFirestore>()),
   );
   sl.registerLazySingleton<DashboardRepository>(
     () => DashboardRepositoryImpl(
@@ -313,5 +319,8 @@ Future<void> configureDependencies({
   );
   sl.registerFactory<DocumentVaultBloc>(
     () => DocumentVaultBloc(repository: sl<DocumentVaultRepository>()),
+  );
+  sl.registerFactory<ProUtilitiesBloc>(
+    () => ProUtilitiesBloc(repository: sl<ProUtilitiesRepository>()),
   );
 }

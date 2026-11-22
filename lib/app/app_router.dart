@@ -32,6 +32,12 @@ import '../features/family/presentation/pages/family_page.dart';
 import '../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
 import '../features/notifications/presentation/pages/activity_and_settings_pages.dart';
 import '../features/notifications/presentation/pages/notifications_privacy_page.dart';
+import '../features/pro_utilities/presentation/bloc/pro_utilities_bloc.dart';
+import '../features/pro_utilities/presentation/pages/habits_focus_page.dart';
+import '../features/pro_utilities/presentation/pages/pro_utilities_hub_page.dart';
+import '../features/pro_utilities/presentation/pages/social_ledger_travel_page.dart';
+import '../features/pro_utilities/presentation/pages/subscriptions_warranty_page.dart';
+import '../features/pro_utilities/presentation/pages/wealth_tools_page.dart';
 import '../features/tasks/presentation/bloc/task_bloc.dart';
 import '../features/tasks/presentation/pages/tasks_board_page.dart';
 import '../features/transactions/domain/entities/transaction_entities.dart';
@@ -313,6 +319,66 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
           );
         },
       ),
+      GoRoute(
+        path: '/pro-utilities',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const ProUtilitiesHubPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/subscriptions-warranty',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const SubscriptionsWarrantyPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/habits-focus',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const HabitsFocusPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/social-ledger-travel',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const SocialLedgerTravelPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/wealth-tools',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const WealthToolsPage(),
+          );
+        },
+      ),
     ],
   );
 }
@@ -389,6 +455,9 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
         BlocProvider<DocumentVaultBloc>(
           create: (_) => sl<DocumentVaultBloc>()
             ..add(DocumentVaultWatchStarted(userId: userId, familyId: familyId)),
+        ),
+        BlocProvider<ProUtilitiesBloc>(
+          create: (_) => sl<ProUtilitiesBloc>()..add(ProUtilitiesWatchStarted(userId)),
         ),
       ],
       child: child,

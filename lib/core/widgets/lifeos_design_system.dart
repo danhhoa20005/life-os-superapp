@@ -973,6 +973,41 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       tone: LifeOsAccentTone.purple,
     ),
     (
+      title: 'Tiện ích Pro 0₫ (Thay thế 6 App Trả phí)',
+      subtitle: 'Radar Gói đăng ký & Bảo hành, Quét Bill AI, Pomodoro, Sổ Hiếu Hỷ',
+      icon: Icons.workspace_premium_rounded,
+      route: '/pro-utilities',
+      tone: LifeOsAccentTone.emerald,
+    ),
+    (
+      title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
+      subtitle: 'Phát hiện phí thuê bao trừ ngầm & đếm ngược hạn bảo hành thiết bị',
+      icon: Icons.radar_rounded,
+      route: '/subscriptions-warranty',
+      tone: LifeOsAccentTone.emerald,
+    ),
+    (
+      title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
+      subtitle: 'Bóc tách hóa đơn nhiều món, tính dư nợ giảm dần & 6 Chiếc Lọ',
+      icon: Icons.calculate_outlined,
+      route: '/wealth-tools',
+      tone: LifeOsAccentTone.blue,
+    ),
+    (
+      title: 'Chuỗi Thói quen, Uống Nước & Pomodoro',
+      subtitle: 'Đồng hồ tập trung sâu 25p/45p, nhắc uống nước & chuỗi không tiêu thừa',
+      icon: Icons.local_fire_department_outlined,
+      route: '/habits-focus',
+      tone: LifeOsAccentTone.amber,
+    ),
+    (
+      title: 'Sổ Hiếu Hỷ "Có Đi Có Lại" & Hành lý Du lịch',
+      subtitle: 'Tra cứu tiền mừng cưới/tân gia hai chiều & mẫu đồ đi biển/Tết',
+      icon: Icons.card_giftcard_rounded,
+      route: '/social-ledger-travel',
+      tone: LifeOsAccentTone.purple,
+    ),
+    (
       title: 'Cài đặt & Kết nối tích hợp',
       subtitle: 'Google Calendar, SePay Bank Hub, Chế độ tối & Bảo mật',
       icon: Icons.settings_outlined,
@@ -1140,6 +1175,16 @@ Future<void> showLifeOsQuickCreateHub(BuildContext context) async {
           onTap: () {
             Navigator.of(sheetCtx).pop();
             context.push('/tasks-board');
+          },
+        ),
+        (
+          title: 'Mở Tiện ích Pro 0₫ (Quét Bill AI · Sổ Hiếu Hỷ · Pomodoro)',
+          subtitle: '4 bộ công cụ cao cấp: Gói đăng ký, Lãi vay, FIRE, Thói quen',
+          icon: Icons.workspace_premium_rounded,
+          tone: LifeOsAccentTone.emerald,
+          onTap: () {
+            Navigator.of(sheetCtx).pop();
+            context.push('/pro-utilities');
           },
         ),
         (

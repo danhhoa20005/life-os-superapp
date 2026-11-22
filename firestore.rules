@@ -161,6 +161,27 @@ service cloud.firestore {
           && request.resource.data.ownerId == resource.data.ownerId;
         allow delete: if isOwner(userId);
       }
+
+      // PRO UTILITIES SUITE (Subscriptions/Warranties, Habits/Focus, Gift Ledger, Travel Packing)
+      match /subscriptions_warranties/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /habits/{habitId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /wellness_daily/{dayKey} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /gift_ledger/{entryId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /packing_items/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // =========================================================================
