@@ -21,10 +21,32 @@ class TransactionRemoteDataSource {
   CollectionReference<Map<String, dynamic>> _txCol(String userId) =>
       _firestore.collection('users').doc(userId).collection('transactions');
 
+  CollectionReference<Map<String, dynamic>> _auditCol(String userId) =>
+      _firestore.collection('users').doc(userId).collection('ledger_audits');
+
+  CollectionReference<Map<String, dynamic>> _snapshotCol(String userId) =>
+      _firestore.collection('users').doc(userId).collection('net_worth_snapshots');
+
+  static int _walletTypeRank(WalletType type) => switch (type) {
+        WalletType.cash => 0,
+        WalletType.bank => 1,
+        WalletType.savings => 2,
+        WalletType.creditCard => 3,
+      };
+
   Stream<List<WalletModel>> watchWallets(String userId) {
     return _walletsCol(userId)
         .snapshots(includeMetadataChanges: true)
-        .map((snap) => snap.docs.map(WalletModel.fromFirestore).toList());
+        .map((snap) {
+      final list = snap.docs.map(WalletModel.fromFirestore).toList();
+      list.sort((a, b) {
+        if (a.id == 'wallet_cash_default') return -1;
+        if (b.id == 'wallet_cash_default') return 1;
+        final r = _walletTypeRank(a.type).compareTo(_walletTypeRank(b.type));
+        return r != 0 ? r : a.name.compareTo(b.name);
+      });
+      return list;
+    });
   }
 
   Stream<List<CategoryModel>> watchCategories(String userId) {
@@ -103,15 +125,20 @@ class TransactionRemoteDataSource {
       if (!sourceSnap.exists) {
         throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy ví nguồn.');
       }
-      final sourceBal = (sourceSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final sourceData = sourceSnap.data() ?? const <String, dynamic>{};
+      final sourceBal = (sourceData['balanceMinor'] as num?)?.toInt() ?? 0;
+      final sourceName = (sourceData['name'] as String?) ?? 'Ví nguồn';
 
       int? targetBal;
+      String? targetName;
       if (targetWalletRef != null) {
         final targetSnap = await tx.get(targetWalletRef);
         if (!targetSnap.exists) {
           throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy ví đích.');
         }
-        targetBal = (targetSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+        final targetData = targetSnap.data() ?? const <String, dynamic>{};
+        targetBal = (targetData['balanceMinor'] as num?)?.toInt() ?? 0;
+        targetName = (targetData['name'] as String?) ?? 'Ví đích';
       }
 
       final now = DateTime.now();
@@ -124,20 +151,60 @@ class TransactionRemoteDataSource {
         occurredAt: occurredAt,
       );
 
+      late final int newSourceBal;
       if (kind == TransactionKind.transfer || kind == TransactionKind.creditCardPayment) {
+        newSourceBal = sourceBal - amountMinor;
+        final newTargetBal = targetBal! + amountMinor;
         tx.update(sourceWalletRef, {
-          'balanceMinor': sourceBal - amountMinor,
+          'balanceMinor': newSourceBal,
           'updatedAt': Timestamp.fromDate(now),
         });
         tx.update(targetWalletRef!, {
-          'balanceMinor': targetBal! + amountMinor,
+          'balanceMinor': newTargetBal,
           'updatedAt': Timestamp.fromDate(now),
+        });
+        tx.set(_auditCol(userId).doc('aud_${operationId}_src'), {
+          'id': 'aud_${operationId}_src',
+          'ownerId': userId,
+          'txId': operationId,
+          'walletId': walletId,
+          'walletName': sourceName,
+          'previousBalanceMinor': sourceBal,
+          'deltaMinor': -amountMinor,
+          'newBalanceMinor': newSourceBal,
+          'kind': kind.name,
+          'createdAt': Timestamp.fromDate(now),
+        });
+        tx.set(_auditCol(userId).doc('aud_${operationId}_dst'), {
+          'id': 'aud_${operationId}_dst',
+          'ownerId': userId,
+          'txId': operationId,
+          'walletId': targetWalletId,
+          'walletName': targetName,
+          'previousBalanceMinor': targetBal,
+          'deltaMinor': amountMinor,
+          'newBalanceMinor': newTargetBal,
+          'kind': kind.name,
+          'createdAt': Timestamp.fromDate(now),
         });
       } else {
         final delta = direction == 'credit' ? amountMinor : -amountMinor;
+        newSourceBal = sourceBal + delta;
         tx.update(sourceWalletRef, {
-          'balanceMinor': sourceBal + delta,
+          'balanceMinor': newSourceBal,
           'updatedAt': Timestamp.fromDate(now),
+        });
+        tx.set(_auditCol(userId).doc('aud_$operationId'), {
+          'id': 'aud_$operationId',
+          'ownerId': userId,
+          'txId': operationId,
+          'walletId': walletId,
+          'walletName': sourceName,
+          'previousBalanceMinor': sourceBal,
+          'deltaMinor': delta,
+          'newBalanceMinor': newSourceBal,
+          'kind': kind.name,
+          'createdAt': Timestamp.fromDate(now),
         });
       }
 
@@ -162,6 +229,8 @@ class TransactionRemoteDataSource {
           isVehicleMaintenanceHint: inferred.isVehicleMaintenance ||
               splitLines.any((l) => l.categoryName.contains('Bảo dưỡng')),
           splitLines: splitLines,
+          balanceAfterMinor: newSourceBal,
+          walletName: sourceName,
           now: now,
         ),
       );
@@ -311,5 +380,29 @@ class TransactionRemoteDataSource {
         'updatedAt': Timestamp.fromDate(now),
       });
     });
+  }
+
+  Future<void> upsertNetWorthSnapshot({
+    required String userId,
+    required String monthKey,
+    required FinanceOverviewSummary summary,
+  }) async {
+    final now = DateTime.now();
+    await _snapshotCol(userId).doc(monthKey).set(
+      {
+        'id': monthKey,
+        'ownerId': userId,
+        'monthKey': monthKey,
+        'netWorthMinor': summary.netWorthMinor,
+        'liquidAssetsMinor': summary.liquidAssetsMinor,
+        'savingsAssetsMinor': summary.savingsAssetsMinor,
+        'creditLiabilityMinor': summary.creditLiabilityMinor,
+        'monthlyIncomeMinor': summary.monthlyIncomeMinor,
+        'monthlyExpenseMinor': summary.monthlyExpenseMinor,
+        'financialHealthScore': summary.financialHealthScore,
+        'updatedAt': Timestamp.fromDate(now),
+      },
+      SetOptions(merge: true),
+    );
   }
 }

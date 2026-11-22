@@ -49,4 +49,10 @@ abstract interface class TransactionRepository {
     String? updatedCategoryName,
     String? updatedMerchant,
   });
+
+  Future<Result<void>> saveNetWorthSnapshot({
+    required String userId,
+    required String monthKey,
+    required FinanceOverviewSummary summary,
+  });
 }

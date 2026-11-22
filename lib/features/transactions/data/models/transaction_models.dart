@@ -9,6 +9,7 @@ class WalletModel {
   final String? bankCode;
   final String? maskedAccount;
   final int balanceMinor;
+  final int? creditLimitMinor;
   final bool isEstimatedBalance;
   final bool hasPendingWrites;
 
@@ -20,6 +21,7 @@ class WalletModel {
     this.bankCode,
     this.maskedAccount,
     required this.balanceMinor,
+    this.creditLimitMinor,
     required this.isEstimatedBalance,
     required this.hasPendingWrites,
   });
@@ -30,6 +32,7 @@ class WalletModel {
     final type = switch (rawType) {
       'bank' => WalletType.bank,
       'creditCard' || 'credit_card' => WalletType.creditCard,
+      'savings' || 'investment' => WalletType.savings,
       _ => WalletType.cash,
     };
     return WalletModel(
@@ -40,6 +43,7 @@ class WalletModel {
       bankCode: d['bankCode'] as String?,
       maskedAccount: d['maskedAccount'] as String?,
       balanceMinor: (d['balanceMinor'] as num?)?.toInt() ?? 0,
+      creditLimitMinor: (d['creditLimitMinor'] as num?)?.toInt(),
       isEstimatedBalance: (d['isEstimatedBalance'] as bool?) ?? true,
       hasPendingWrites: doc.metadata.hasPendingWrites,
     );
@@ -54,6 +58,7 @@ class WalletModel {
       bankCode: bankCode,
       maskedAccount: maskedAccount,
       balanceMinor: balanceMinor,
+      creditLimitMinor: creditLimitMinor,
       isEstimatedBalance: isEstimatedBalance,
       hasPendingWrites: hasPendingWrites,
     );
@@ -168,6 +173,8 @@ class TransactionModel {
         reversedById: d['reversedById'] as String?,
         isVehicleMaintenanceHint: (d['isVehicleMaintenanceHint'] as bool?) ?? false,
         splitLines: splitLines,
+        balanceAfterMinor: (d['balanceAfterMinor'] as num?)?.toInt(),
+        walletName: d['walletName'] as String?,
         hasPendingWrites: doc.metadata.hasPendingWrites,
       ),
     );
@@ -193,6 +200,8 @@ class TransactionModel {
     String? reversedById,
     bool isVehicleMaintenanceHint = false,
     List<TransactionSplitLine> splitLines = const [],
+    int? balanceAfterMinor,
+    String? walletName,
     required DateTime now,
   }) {
     final monthKey =
@@ -218,6 +227,8 @@ class TransactionModel {
       'reversalOfId': reversalOfId,
       'reversedById': reversedById,
       'isVehicleMaintenanceHint': isVehicleMaintenanceHint,
+      if (balanceAfterMinor != null) 'balanceAfterMinor': balanceAfterMinor,
+      if (walletName != null && walletName.isNotEmpty) 'walletName': walletName,
       'splitLines': splitLines
           .map(
             (l) => <String, dynamic>{

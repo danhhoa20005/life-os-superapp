@@ -57,6 +57,24 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
+      // IMMUTABLE DOUBLE-ENTRY WALLET AUDIT TRAIL (APPEND-ONLY BANKING PASSBOOK)
+      match /ledger_audits/{auditId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && request.resource.data.newBalanceMinor is int;
+        allow update, delete: if false;
+      }
+
+      // MONTHLY NET WORTH & CASHFLOW SNAPSHOTS FOR HISTORICAL WEALTH ANALYTICS
+      match /net_worth_snapshots/{monthKey} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && request.resource.data.netWorthMinor is int;
+        allow delete: if false;
+      }
+
       match /categories/{categoryId} {
         allow read, write: if isOwner(userId);
       }

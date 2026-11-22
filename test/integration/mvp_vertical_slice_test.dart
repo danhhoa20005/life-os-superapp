@@ -101,10 +101,27 @@ void main() {
       );
 
       final walletsFirst = (await txRepo.watchWallets(minh.id).first as Success<List<WalletEntity>>).value;
+      expect(walletsFirst.any((w) => w.id == 'wallet_bank_default'), isTrue);
+      expect(walletsFirst.any((w) => w.id == 'wallet_savings_default'), isTrue);
       final vcbAfter = walletsFirst.firstWhere((w) => w.id == bankWallet.id);
       final cashAfter = walletsFirst.firstWhere((w) => w.id == 'wallet_cash_default');
       expect(vcbAfter.balanceMinor, 8800000); // 10M - 200k - 1M
       expect(cashAfter.balanceMinor, 1000000); // 0 + 1M
+
+      // Verify atomic passbook audit trail & balanceAfterMinor in Firestore
+      final expDoc = await fakeFirestore
+          .collection('users')
+          .doc(minh.id)
+          .collection('transactions')
+          .doc('op_exp_1')
+          .get();
+      expect(expDoc.data()?['balanceAfterMinor'], 9800000);
+      final auditsSnap = await fakeFirestore
+          .collection('users')
+          .doc(minh.id)
+          .collection('ledger_audits')
+          .get();
+      expect(auditsSnap.docs.length, greaterThanOrEqualTo(3)); // 1 expense + 2 transfer legs
 
       // Reverse the 200,000 VND expense -> restores VCB to 9,000,000 VND!
       await txRepo.reverseTransaction(
@@ -283,21 +300,25 @@ void main() {
       final funds = (await budgetRepo.watchFunds(userId: minh.id, familyId: fam.id).first
               as Success<List<FundEntity>>)
           .value;
-      expect(funds.single.name, 'Quỹ Sắm Tết');
+      expect(funds.any((f) => f.id == 'fund_emergency_default'), isTrue);
+      final tetFund = funds.firstWhere((f) => f.name == 'Quỹ Sắm Tết');
 
       await budgetRepo.contributeToFund(
         userId: minh.id,
         userName: minh.fullName,
         scope: FundScope.family,
         familyId: fam.id,
-        fundId: funds.single.id,
+        fundId: tetFund.id,
         amountMinor: 2000000,
         note: 'Góp đợt 1',
       );
       final updatedFunds = (await budgetRepo.watchFunds(userId: minh.id, familyId: fam.id).first
               as Success<List<FundEntity>>)
           .value;
-      expect(updatedFunds.single.balanceMinor, 2000000);
+      expect(
+        updatedFunds.firstWhere((f) => f.id == tetFund.id).balanceMinor,
+        2000000,
+      );
 
       // Create Private Calendar Event + Vehicle + Recurring Task
       await calRepo.createEvent(

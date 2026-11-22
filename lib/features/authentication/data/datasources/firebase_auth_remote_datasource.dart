@@ -425,6 +425,56 @@ class FirebaseAuthRemoteDataSource {
       SetOptions(merge: true),
     );
 
+    final bankWalletDoc = userDoc.collection('wallets').doc('wallet_bank_default');
+    batch.set(
+      bankWalletDoc,
+      {
+        'id': 'wallet_bank_default',
+        'ownerId': uid,
+        'name': 'Ngân hàng Thanh toán',
+        'type': 'bank',
+        'bankCode': 'NAPAS247',
+        'maskedAccount': 'SePay · Auto-Sync',
+        'balanceMinor': 0,
+        'isEstimatedBalance': false,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+      },
+      SetOptions(merge: true),
+    );
+
+    final savingsWalletDoc = userDoc.collection('wallets').doc('wallet_savings_default');
+    batch.set(
+      savingsWalletDoc,
+      {
+        'id': 'wallet_savings_default',
+        'ownerId': uid,
+        'name': 'Sổ Tiết kiệm Tích lũy',
+        'type': 'savings',
+        'maskedAccount': 'Lãi kép mục tiêu',
+        'balanceMinor': 0,
+        'isEstimatedBalance': false,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+      },
+      SetOptions(merge: true),
+    );
+
+    final emergencyFundDoc = userDoc.collection('personal_funds').doc('fund_emergency_default');
+    batch.set(
+      emergencyFundDoc,
+      {
+        'id': 'fund_emergency_default',
+        'ownerId': uid,
+        'name': 'Quỹ Dự phòng Khẩn cấp (6 Tháng)',
+        'targetAmountMinor': 60000000,
+        'balanceMinor': 0,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+      },
+      SetOptions(merge: true),
+    );
+
     for (final cat in _defaultCategories) {
       batch.set(
         userDoc.collection('categories').doc(cat.id),

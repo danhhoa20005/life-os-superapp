@@ -336,47 +336,65 @@ class ProBentoTile extends StatelessWidget {
   }
 }
 
-/// Physical-Digital Apple Wallet / Revolut Bank, Cash & Credit Card component.
+/// Physical-Digital Apple Wallet / Revolut Bank, Cash, Savings & Credit Card component.
 class ProWalletCreditCard extends StatelessWidget {
   final String name;
-  final String walletTypeKey; // 'cash' | 'bank' | 'creditCard'
+  final String walletTypeKey; // 'cash' | 'bank' | 'creditCard' | 'savings'
   final int balanceMinor;
+  final String? bankCode;
   final String? maskedAccount;
   final bool isEstimatedBalance;
   final bool hasPendingWrites;
+  final bool obscureBalance;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
   const ProWalletCreditCard({
     super.key,
     required this.name,
     required this.walletTypeKey,
     required this.balanceMinor,
+    this.bankCode,
     this.maskedAccount,
     required this.isEstimatedBalance,
     required this.hasPendingWrites,
+    this.obscureBalance = false,
+    this.isSelected = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final (colors, typeLabel, typeIcon) = switch (walletTypeKey) {
+    final (colors, typeLabel, typeIcon, badgeLabel) = switch (walletTypeKey) {
       'bank' => (
-          const [Color(0xFF0F294A), Color(0xFF1A4B84), Color(0xFF103562)],
-          'Tài khoản Ngân hàng',
+          const [Color(0xFF0A2240), Color(0xFF14427A), Color(0xFF0D2E59)],
+          'Tài khoản Thanh toán',
           Icons.account_balance_rounded,
+          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'NAPAS247',
         ),
       'creditCard' => (
-          const [Color(0xFF1F2026), Color(0xFF343741), Color(0xFF18191E)],
+          const [Color(0xFF181A20), Color(0xFF2E323D), Color(0xFF121318)],
           'Thẻ Tín dụng',
           Icons.credit_card_rounded,
+          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'CREDIT',
+        ),
+      'savings' => (
+          const [Color(0xFF543405), Color(0xFF925A0C), Color(0xFF3E2604)],
+          'Sổ Tiết kiệm & Tích lũy',
+          Icons.savings_rounded,
+          'WEALTH VAULT',
         ),
       _ => (
-          const [Color(0xFF085822), Color(0xFF0D8233), Color(0xFF09471D)],
+          const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF073B17)],
           'Tiền mặt Sẵn có',
           Icons.payments_rounded,
+          'LIQUID CASH',
         ),
     };
 
-    return Container(
-      width: 268,
+    final cardBody = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: 276,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -385,10 +403,16 @@ class ProWalletCreditCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: colors,
         ),
+        border: Border.all(
+          color: isSelected
+              ? const Color(0xFF63E6BE)
+              : Colors.white.withValues(alpha: 0.14),
+          width: isSelected ? 2.2 : 0.9,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colors[0].withValues(alpha: 0.24),
-            blurRadius: 18,
+            color: colors[0].withValues(alpha: isSelected ? 0.36 : 0.22),
+            blurRadius: isSelected ? 22 : 16,
             offset: const Offset(0, 8),
           ),
         ],
@@ -402,14 +426,14 @@ class ProWalletCreditCard extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(typeIcon, size: 17, color: Colors.white.withValues(alpha: 0.9)),
+                    Icon(typeIcon, size: 17, color: Colors.white.withValues(alpha: 0.92)),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -418,25 +442,39 @@ class ProWalletCreditCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Metallic EMV card chip motif
-              Container(
-                width: 28,
-                height: 20,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(5),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFDE68A), Color(0xFFD97706)],
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.contactless_rounded,
+                    size: 16,
+                    color: Colors.white.withValues(alpha: 0.65),
                   ),
-                ),
+                  const SizedBox(width: 5),
+                  Container(
+                    width: 28,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFDE68A), Color(0xFFD97706)],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        width: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 14),
           Text(
-            VndAmount.format(balanceMinor),
+            obscureBalance ? '•••••••• ₫' : VndAmount.format(balanceMinor),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 22.5,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.4,
               fontFeatures: [FontFeature.tabularFigures()],
@@ -456,19 +494,48 @@ class ProWalletCreditCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                hasPendingWrites ? Icons.cloud_upload_outlined : Icons.cloud_done_rounded,
-                size: 14,
-                color: hasPendingWrites ? const Color(0xFFFCD34D) : const Color(0xFF86EFAC),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      hasPendingWrites ? Icons.cloud_upload_outlined : Icons.verified_user_rounded,
+                      size: 13.5,
+                      color: hasPendingWrites ? const Color(0xFFFCD34D) : const Color(0xFF86EFAC),
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        hasPendingWrites ? 'Chờ đồng bộ' : 'Đã đối soát Cloud',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 5),
-              Text(
-                hasPendingWrites ? 'Chờ đồng bộ Offline' : 'Đã lưu Cloud',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.88),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badgeLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
                 ),
               ),
             ],
@@ -476,6 +543,9 @@ class ProWalletCreditCard extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap == null) return cardBody;
+    return GestureDetector(onTap: onTap, child: cardBody);
   }
 }
 
@@ -766,5 +836,683 @@ class _DonutRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DonutRingPainter oldDelegate) {
     return oldDelegate.slices != slices || oldDelegate.emptyTrackColor != emptyTrackColor;
+  }
+}
+
+/// Luminous Private-Banking Wealth Sparkline Curve rendered inside `ProHeroGradientCard`.
+class ProHeroSparkline extends StatelessWidget {
+  final int netWorthMinor;
+  final List<int> dailyIncomesMinor;
+  final List<int> dailyExpensesMinor;
+  final double width;
+  final double height;
+
+  const ProHeroSparkline({
+    super.key,
+    required this.netWorthMinor,
+    required this.dailyIncomesMinor,
+    required this.dailyExpensesMinor,
+    this.width = 112,
+    this.height = 46,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pts = <double>[];
+    var cursor = netWorthMinor.toDouble();
+    final revPoints = <double>[cursor];
+    final n = math.min(dailyIncomesMinor.length, dailyExpensesMinor.length);
+    for (var i = n - 1; i >= 1; i--) {
+      final delta = (dailyIncomesMinor[i] - dailyExpensesMinor[i]).toDouble();
+      cursor -= delta;
+      revPoints.add(cursor);
+    }
+    pts.addAll(revPoints.reversed);
+    if (pts.length < 7) {
+      while (pts.length < 7) {
+        pts.insert(0, netWorthMinor * 0.94);
+      }
+    }
+    // Ensure subtle visual progression when flat so the sparkline stays informative
+    final minV = pts.reduce(math.min);
+    final maxV = pts.reduce(math.max);
+    final series = (maxV - minV).abs() < 1.0
+        ? <double>[0.35, 0.42, 0.40, 0.54, 0.51, 0.68, 0.78]
+        : pts;
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(
+        size: Size(width, height),
+        painter: _SparklineCurvePainter(points: series),
+      ),
+    );
+  }
+}
+
+class _SparklineCurvePainter extends CustomPainter {
+  final List<double> points;
+
+  const _SparklineCurvePainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final minVal = points.reduce(math.min);
+    final maxVal = points.reduce(math.max);
+    final span = math.max(1.0, maxVal - minVal);
+
+    final coords = <Offset>[];
+    for (var i = 0; i < points.length; i++) {
+      final x = (i / (points.length - 1)) * (size.width - 8) + 4;
+      final norm = (points[i] - minVal) / span;
+      final y = (size.height - 8) - norm * (size.height - 14) + 4;
+      coords.add(Offset(x, y));
+    }
+
+    final path = Path()..moveTo(coords.first.dx, coords.first.dy);
+    for (var i = 0; i < coords.length - 1; i++) {
+      final p0 = coords[i];
+      final p1 = coords[i + 1];
+      final ctrlX = (p0.dx + p1.dx) / 2;
+      path.cubicTo(ctrlX, p0.dy, ctrlX, p1.dy, p1.dx, p1.dy);
+    }
+
+    final fillPath = Path.from(path)
+      ..lineTo(coords.last.dx, size.height)
+      ..lineTo(coords.first.dx, size.height)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF63E6BE).withValues(alpha: 0.34),
+          const Color(0xFF63E6BE).withValues(alpha: 0.0),
+        ],
+      ).createShader(Offset.zero & size);
+    canvas.drawPath(fillPath, fillPaint);
+
+    final linePaint = Paint()
+      ..color = const Color(0xFF8CE99A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    canvas.drawPath(path, linePaint);
+
+    // Glowing terminal pulse dot
+    final end = coords.last;
+    canvas.drawCircle(
+      end,
+      6.5,
+      Paint()..color = const Color(0xFF8CE99A).withValues(alpha: 0.28),
+    );
+    canvas.drawCircle(end, 3.3, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklineCurvePainter oldDelegate) =>
+      oldDelegate.points != points;
+}
+
+/// Symmetric 1-Row Banking Quick-Action Squircle Button inside `ProHeroGradientCard`.
+class ProHeroBankingDockItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const ProHeroBankingDockItem({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Icon(icon, size: 20, color: Colors.white),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Executive 7-Day Cashflow Bar Chart + Wealth Allocation & Financial Health Score Card.
+class ProCashflowPulseCard extends StatelessWidget {
+  final List<int> dailyIncomesMinor;
+  final List<int> dailyExpensesMinor;
+  final int liquidAssetsMinor;
+  final int savingsAssetsMinor;
+  final int dailySafeToSpendMinor;
+  final int financialHealthScore;
+  final bool obscureAmounts;
+  final VoidCallback? onTapAnalytics;
+
+  const ProCashflowPulseCard({
+    super.key,
+    required this.dailyIncomesMinor,
+    required this.dailyExpensesMinor,
+    required this.liquidAssetsMinor,
+    required this.savingsAssetsMinor,
+    required this.dailySafeToSpendMinor,
+    required this.financialHealthScore,
+    this.obscureAmounts = false,
+    this.onTapAnalytics,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scoreLabel = financialHealthScore >= 80
+        ? 'Xuất sắc'
+        : (financialHealthScore >= 65 ? 'Tốt' : 'Cần tối ưu');
+    final scoreColor = financialHealthScore >= 80
+        ? c.success
+        : (financialHealthScore >= 65 ? c.primary : c.warning);
+
+    final now = DateTime.now();
+    final weekdayLabels = List<String>.generate(7, (idx) {
+      final d = now.subtract(Duration(days: 6 - idx));
+      return switch (d.weekday) {
+        DateTime.sunday => 'CN',
+        final w => 'T${w + 1}',
+      };
+    });
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: c.separator.withValues(alpha: isDark ? 0.85 : 0.55),
+          width: 0.8,
+        ),
+        boxShadow: isDark
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTapAnalytics,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: c.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.candlestick_chart_rounded, size: 19, color: c.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Nhịp Dòng Tiền 7 Ngày & Cấu Trúc Vốn',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Đối chiếu Thu / Chi thực tế từ Sổ cái Cloud',
+                            style: Theme.of(context).textTheme.labelSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: scoreColor.withValues(alpha: 0.13),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                        border: Border.all(
+                          color: scoreColor.withValues(alpha: 0.3),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.workspace_premium_rounded, size: 14, color: scoreColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$financialHealthScore/100 · $scoreLabel',
+                            style: TextStyle(
+                              color: scoreColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 92,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    painter: _CashflowBarsPainter(
+                      incomes: dailyIncomesMinor,
+                      expenses: dailyExpensesMinor,
+                      incomeColor: c.success,
+                      expenseColor: const Color(0xFFF59F00),
+                      gridColor: c.separator.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: List.generate(7, (idx) {
+                    final isToday = idx == 6;
+                    return Expanded(
+                      child: Text(
+                        weekdayLabels[idx],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                          color: isToday ? c.primary : c.textSecondary,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const Divider(height: 22),
+                Row(
+                  children: [
+                    _CapitalColumn(
+                      label: 'Thanh khoản',
+                      value: obscureAmounts ? '•••••• ₫' : VndAmount.format(liquidAssetsMinor),
+                      valueColor: c.textPrimary,
+                    ),
+                    Container(width: 1, height: 28, color: c.separator.withValues(alpha: 0.6)),
+                    _CapitalColumn(
+                      label: 'Tích lũy',
+                      value: obscureAmounts ? '•••••• ₫' : VndAmount.format(savingsAssetsMinor),
+                      valueColor: c.success,
+                    ),
+                    Container(width: 1, height: 28, color: c.separator.withValues(alpha: 0.6)),
+                    _CapitalColumn(
+                      label: 'Hạn mức / ngày',
+                      value: obscureAmounts ? '•••••• ₫' : VndAmount.format(dailySafeToSpendMinor),
+                      valueColor: c.secondary,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CapitalColumn extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const _CapitalColumn({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: valueColor,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashflowBarsPainter extends CustomPainter {
+  final List<int> incomes;
+  final List<int> expenses;
+  final Color incomeColor;
+  final Color expenseColor;
+  final Color gridColor;
+
+  const _CashflowBarsPainter({
+    required this.incomes,
+    required this.expenses,
+    required this.incomeColor,
+    required this.expenseColor,
+    required this.gridColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.8;
+
+    for (final frac in const [0.0, 0.5, 1.0]) {
+      final y = size.height * frac;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    var maxVal = 1;
+    for (final v in incomes) {
+      if (v > maxVal) maxVal = v;
+    }
+    for (final v in expenses) {
+      if (v > maxVal) maxVal = v;
+    }
+
+    // Use logarithmic / dampened scaling so normal daily expenses (e.g. 100k) stay visible
+    // next to a monthly salary spike (e.g. 18.5M)!
+    double normHeight(int val) {
+      if (val <= 0) return 4.0;
+      final logV = math.log(val.toDouble() + 1);
+      final logMax = math.log(maxVal.toDouble() + 1);
+      return (logV / math.max(1.0, logMax)) * (size.height - 8);
+    }
+
+    final slotW = size.width / 7;
+    const barW = 9.0;
+
+    for (var i = 0; i < 7; i++) {
+      final inc = i < incomes.length ? incomes[i] : 0;
+      final exp = i < expenses.length ? expenses[i] : 0;
+      final cx = slotW * i + slotW / 2;
+
+      final incH = inc > 0 ? math.max(8.0, normHeight(inc)) : 4.0;
+      final expH = exp > 0 ? math.max(8.0, normHeight(exp)) : 4.0;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(cx - barW - 1.5, size.height - incH, barW, incH),
+          const Radius.circular(4),
+        ),
+        Paint()..color = inc > 0 ? incomeColor : gridColor,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(cx + 1.5, size.height - expH, barW, expH),
+          const Radius.circular(4),
+        ),
+        Paint()..color = exp > 0 ? expenseColor : gridColor,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CashflowBarsPainter oldDelegate) {
+    return oldDelegate.incomes != incomes || oldDelegate.expenses != expenses;
+  }
+}
+
+/// Bank-Passbook Grade Transaction Row (Revolut / Mercury / Private Banking aesthetic).
+class ProFintechStatementTile extends StatelessWidget {
+  final String merchant;
+  final String categoryName;
+  final String? walletName;
+  final String timeLabel;
+  final int amountMinor;
+  final int? balanceAfterMinor;
+  final bool isCredit;
+  final bool isTransfer;
+  final bool isReversed;
+  final bool isVerified;
+  final bool hasPendingWrites;
+  final String? splitSummary;
+  final bool obscureAmounts;
+  final VoidCallback? onTap;
+
+  const ProFintechStatementTile({
+    super.key,
+    required this.merchant,
+    required this.categoryName,
+    this.walletName,
+    required this.timeLabel,
+    required this.amountMinor,
+    this.balanceAfterMinor,
+    required this.isCredit,
+    required this.isTransfer,
+    this.isReversed = false,
+    this.isVerified = true,
+    this.hasPendingWrites = false,
+    this.splitSummary,
+    this.obscureAmounts = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final amountColor = isReversed
+        ? c.textSecondary
+        : (isTransfer ? c.secondary : (isCredit ? c.success : c.textPrimary));
+
+    final formattedAmount = obscureAmounts
+        ? '•••••• ₫'
+        : (isTransfer
+            ? '⇄ ${VndAmount.format(amountMinor)}'
+            : VndAmount.format(isCredit ? amountMinor : -amountMinor, showPlus: true));
+
+    final metaParts = <String>[
+      categoryName,
+      if (walletName != null && walletName!.isNotEmpty) walletName!,
+      timeLabel,
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: c.separator.withValues(alpha: isDark ? 0.78 : 0.52),
+          width: 0.8,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            child: Row(
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    ProCategoryStyle.buildCategoryBadge(
+                      categoryName,
+                      isCredit: isCredit,
+                      isTransfer: isTransfer,
+                      size: 46,
+                    ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(1.5),
+                        child: Icon(
+                          hasPendingWrites
+                              ? Icons.cloud_upload_rounded
+                              : (isVerified ? Icons.verified_rounded : Icons.check_circle_rounded),
+                          size: 13,
+                          color: hasPendingWrites ? c.warning : c.success,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        merchant,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              decoration: isReversed ? TextDecoration.lineThrough : null,
+                            ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        metaParts.join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontSize: 11.5,
+                            ),
+                      ),
+                      if (splitSummary != null && splitSummary!.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          splitSummary!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: c.primary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formattedAmount,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: amountColor,
+                        decoration: isReversed ? TextDecoration.lineThrough : null,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isReversed
+                          ? 'Đã đảo bút toán'
+                          : (balanceAfterMinor != null && !obscureAmounts
+                              ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
+                              : (hasPendingWrites ? 'Chờ đồng bộ' : 'Đã lưu Cloud')),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: c.textSecondary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

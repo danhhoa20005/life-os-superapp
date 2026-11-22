@@ -12,13 +12,24 @@ import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
-import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/pages/account_profile_page.dart';
 import '../../domain/entities/dashboard_entities.dart';
 import '../bloc/dashboard_bloc.dart';
 
-class TodayPage extends StatelessWidget {
+class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
+
+  @override
+  State<TodayPage> createState() => _TodayPageState();
+}
+
+class _TodayPageState extends State<TodayPage> {
+  bool _obscureAmounts = false;
+
+  String _fmt(int minor, {bool showPlus = false}) {
+    if (_obscureAmounts) return '•••••• ₫';
+    return VndAmount.format(minor, showPlus: showPlus);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,48 +46,79 @@ class TodayPage extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Xin chào, ${user?.fullName ?? 'Life OS'}',
-              style: Theme.of(context).textTheme.titleMedium,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: c.success,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'QUẢN TRỊ TÀI SẢN · CLOUD SYNC',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.7,
+                      color: c.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
             Text(
-              'Trung tâm Điều hành Hôm nay',
-              style: Theme.of(context).textTheme.labelSmall,
+              user?.fullName ?? 'Life OS Wealth',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
           ],
         ),
         actions: [
-          if (user != null)
-            IconButton(
-              key: const Key('open_account_profile_button'),
-              tooltip: 'Hồ sơ & Bảo mật tài khoản',
-              onPressed: () => context.push('/account-profile'),
-              icon: UserAvatarBadge(user: user, radius: 16),
-            ),
           IconButton(
-            tooltip: 'Thông báo ngân hàng & Quyền riêng tư',
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Đối soát SePay & Quyền riêng tư',
             onPressed: () => context.push('/notifications-privacy'),
-            icon: const Icon(Icons.shield_outlined),
+            icon: const Icon(Icons.verified_user_outlined, size: 21),
           ),
           BlocBuilder<ThemeBloc, ThemeState>(
             builder: (context, themeState) {
               final isDark = themeState.themeMode == ThemeMode.dark;
               return IconButton(
+                visualDensity: VisualDensity.compact,
                 tooltip: 'Đổi giao diện Sáng / Tối',
                 onPressed: () {
                   context.read<ThemeBloc>().add(
                         ThemeModeChanged(isDark ? ThemeMode.light : ThemeMode.dark),
                       );
                 },
-                icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  size: 21,
+                ),
               );
             },
           ),
-          IconButton(
-            tooltip: 'Đăng xuất',
-            onPressed: () => context.read<AuthBloc>().add(const AuthSignOutRequested()),
-            icon: const Icon(Icons.logout_rounded),
-          ),
+          if (user != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                key: const Key('open_account_profile_button'),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Hồ sơ & Bảo mật tài khoản',
+                onPressed: () => context.push('/account-profile'),
+                icon: UserAvatarBadge(user: user, radius: 16),
+              ),
+            ),
         ],
       ),
       body: SafeArea(
@@ -102,6 +144,11 @@ class TodayPage extends StatelessWidget {
             }
 
             final d = state.data;
+            final runway = EmergencyRunwaySnapshot.compute(
+              netLiquidMinor: d.netWorthMinor,
+              monthlyExpenseMinor: d.monthlyExpenseMinor,
+            );
+
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -113,27 +160,51 @@ class TodayPage extends StatelessWidget {
                     AppSpacing.xl,
                   ),
                   children: [
-                    // 0. Automatic OTA In-App Update Notification Banner (when new release exists)
+                    // 0. Automatic OTA In-App Update Notification Banner
                     const AppUpdateBanner(),
 
-                    // 1. Flagship Emerald Mesh Hero Card (UI/UX Pro Max)
+                    // 1. Flagship Private-Banking Net Worth & Cashflow Hero Card
                     ProHeroGradientCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 6,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'TÀI SẢN RÒNG ƯỚC TÍNH',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.9,
-                                  color: Colors.white.withValues(alpha: 0.8),
+                              Flexible(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        'TỔNG TÀI SẢN RÒNG',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.9,
+                                          color: Colors.white.withValues(alpha: 0.84),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(20),
+                                      onTap: () =>
+                                          setState(() => _obscureAmounts = !_obscureAmounts),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: Icon(
+                                          _obscureAmounts
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 16,
+                                          color: Colors.white.withValues(alpha: 0.85),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               Container(
@@ -141,18 +212,31 @@ class TodayPage extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.16),
                                   borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                    width: 0.7,
+                                  ),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.lock_rounded, size: 12, color: Colors.white),
-                                    SizedBox(width: 4),
+                                    Icon(
+                                      d.monthlyIncomeMinor > 0 && d.netCashFlowMinor >= 0
+                                          ? Icons.trending_up_rounded
+                                          : Icons.lock_rounded,
+                                      size: 13,
+                                      color: const Color(0xFF8CE99A),
+                                    ),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Chỉ mình bạn thấy',
-                                      style: TextStyle(
+                                      d.monthlyIncomeMinor > 0
+                                          ? 'Tiết kiệm ${d.savingsRatePct.clamp(-99, 99).toStringAsFixed(0)}%'
+                                          : 'Sổ cái Bảo mật',
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
+                                        fontFeatures: [FontFeature.tabularFigures()],
                                       ),
                                     ),
                                   ],
@@ -161,60 +245,118 @@ class TodayPage extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            VndAmount.format(d.netWorthMinor),
-                            style: const TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -0.8,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              ProGlassStatPill(
-                                icon: Icons.south_west_rounded,
-                                label: 'Thu tháng này',
-                                value: VndAmount.format(d.monthlyIncomeMinor),
-                                iconColor: const Color(0xFF86EFAC),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _obscureAmounts
+                                          ? '•••••••••• ₫'
+                                          : VndAmount.format(d.netWorthMinor),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                        letterSpacing: -0.8,
+                                        fontFeatures: [FontFeature.tabularFigures()],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${d.walletCount > 0 ? d.walletCount : 1} nguồn vốn · Chuẩn đối soát Kép (VND)',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white.withValues(alpha: 0.76),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              ProGlassStatPill(
-                                icon: Icons.north_east_rounded,
-                                label: 'Chi tháng này',
-                                value: VndAmount.format(d.monthlyExpenseMinor),
-                                iconColor: const Color(0xFFFDE68A),
-                              ),
-                              ProGlassStatPill(
-                                icon: Icons.today_rounded,
-                                label: 'Chi hôm nay',
-                                value: VndAmount.format(d.todayExpenseMinor),
-                                iconColor: const Color(0xFFFCA5A5),
+                              const SizedBox(width: 8),
+                              ProHeroSparkline(
+                                netWorthMinor: d.netWorthMinor,
+                                dailyIncomesMinor: d.recent7DayIncomesMinor,
+                                dailyExpensesMinor: d.recent7DayExpensesMinor,
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+
+                          // Symmetric 3-Column Financial Strip (Thu tháng · Chi tháng · Chi hôm nay)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.16),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: IntrinsicHeight(
+                              child: Row(
+                                children: [
+                                  _HeroLedgerMetric(
+                                    label: '↓ Thu tháng',
+                                    value: _fmt(d.monthlyIncomeMinor),
+                                    accentColor: const Color(0xFF86EFAC),
+                                  ),
+                                  VerticalDivider(
+                                    width: 14,
+                                    thickness: 0.8,
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                  ),
+                                  _HeroLedgerMetric(
+                                    label: '↑ Chi tháng',
+                                    value: _fmt(d.monthlyExpenseMinor),
+                                    accentColor: const Color(0xFFFDE68A),
+                                  ),
+                                  VerticalDivider(
+                                    width: 14,
+                                    thickness: 0.8,
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                  ),
+                                  _HeroLedgerMetric(
+                                    label: '⚡ Hôm nay',
+                                    value: _fmt(d.todayExpenseMinor),
+                                    accentColor: const Color(0xFFFCA5A5),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Symmetric 4-Button Banking Action Dock
+                          Row(
                             children: [
-                              ProHeroQuickAction(
+                              ProHeroBankingDockItem(
                                 icon: Icons.add_card_rounded,
-                                label: 'Ghi chi tiêu',
+                                label: 'Thu / Chi',
                                 onTap: () => context.go('/finance'),
                               ),
-                              ProHeroQuickAction(
-                                icon: Icons.call_split_rounded,
-                                label: 'Chia tiền nhóm',
+                              ProHeroBankingDockItem(
+                                icon: Icons.swap_horiz_rounded,
+                                label: 'Chuyển ví',
+                                onTap: () => context.go('/finance'),
+                              ),
+                              ProHeroBankingDockItem(
+                                icon: Icons.qr_code_2_rounded,
+                                label: 'Chia bill QR',
                                 onTap: () => context.go('/family'),
                               ),
-                              ProHeroQuickAction(
-                                icon: Icons.add_task_rounded,
-                                label: 'Giao việc',
-                                onTap: () => context.go('/planning'),
+                              ProHeroBankingDockItem(
+                                icon: Icons.pie_chart_rounded,
+                                label: 'Ngân sách',
+                                onTap: () => context.go('/finance'),
                               ),
                             ],
                           ),
@@ -224,7 +366,21 @@ class TodayPage extends StatelessWidget {
 
                     const SizedBox(height: AppSpacing.md),
 
-                    // 2. True 2x2 Bento Grid (Mobile & Tablet Responsive!)
+                    // 2. 7-Day Cashflow Bar Chart & Capital Allocation Pulse Card
+                    ProCashflowPulseCard(
+                      dailyIncomesMinor: d.recent7DayIncomesMinor,
+                      dailyExpensesMinor: d.recent7DayExpensesMinor,
+                      liquidAssetsMinor: d.liquidAssetsMinor,
+                      savingsAssetsMinor: d.savingsAssetsMinor,
+                      dailySafeToSpendMinor: d.dailySafeToSpendMinor,
+                      financialHealthScore: d.financialHealthScore,
+                      obscureAmounts: _obscureAmounts,
+                      onTapAnalytics: () => context.go('/finance'),
+                    ),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    // 3. Wealth-First 2x2 Bento Grid
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final cols = constraints.maxWidth >= 720 ? 4 : 2;
@@ -240,13 +396,17 @@ class TodayPage extends StatelessWidget {
                           childAspectRatio: aspect,
                           children: [
                             ProBentoTile(
-                              icon: Icons.pending_actions_rounded,
+                              icon: Icons.account_balance_wallet_rounded,
                               bananaIconAsset: AppAssets.icNavFinance,
-                              accentColor: const Color(0xFFD97706),
-                              title: 'Giao dịch chờ duyệt',
-                              metric: '${d.provisionalPendingCount}',
+                              accentColor: const Color(0xFF0B7A2A),
+                              title: d.provisionalPendingCount > 0
+                                  ? 'Giao dịch chờ duyệt'
+                                  : 'Thặng dư Dòng tiền',
+                              metric: d.provisionalPendingCount > 0
+                                  ? '${d.provisionalPendingCount} khoản'
+                                  : _fmt(d.netCashFlowMinor, showPlus: true),
                               badgeText: d.provisionalPendingCount > 0
-                                  ? 'Cần xác nhận'
+                                  ? 'Cần xác nhận SMS'
                                   : 'Đã đối soát sạch',
                               statusKind: d.provisionalPendingCount > 0
                                   ? SemanticStatusKind.provisional
@@ -254,37 +414,42 @@ class TodayPage extends StatelessWidget {
                               onTap: () => context.go('/finance'),
                             ),
                             ProBentoTile(
-                              icon: Icons.task_alt_rounded,
-                              bananaIconAsset: AppAssets.icCatHousework,
+                              icon: Icons.shield_rounded,
+                              bananaIconAsset: AppAssets.icSysShield,
                               accentColor: const Color(0xFF0CA678),
-                              title: 'Nhiệm vụ & Việc nhà',
-                              metric: '${d.openTasksCount} mở',
+                              title: 'Sức bền Quỹ Dự phòng',
+                              metric: _obscureAmounts
+                                  ? '••• tháng'
+                                  : '${runway.monthsOfRunway.toStringAsFixed(1)} tháng',
+                              badgeText: runway.statusBadge,
+                              statusKind: runway.monthsOfRunway >= 3.0
+                                  ? SemanticStatusKind.success
+                                  : SemanticStatusKind.warning,
+                              onTap: () => context.go('/finance'),
+                            ),
+                            ProBentoTile(
+                              icon: Icons.event_available_rounded,
+                              bananaIconAsset: AppAssets.icNavCalendar,
+                              accentColor: const Color(0xFF1971C2),
+                              title: 'Lịch thanh toán & Việc',
+                              metric: '${d.upcomingEventsCount} lịch · ${d.openTasksCount} việc',
                               badgeText: d.proposedTasksForMeCount > 0
-                                  ? '${d.proposedTasksForMeCount} lời mời mới'
-                                  : 'Đồng thuận ổn định',
+                                  ? '${d.proposedTasksForMeCount} đề xuất mới'
+                                  : 'Đồng bộ Google',
                               statusKind: d.proposedTasksForMeCount > 0
                                   ? SemanticStatusKind.warning
                                   : SemanticStatusKind.info,
                               onTap: () => context.go('/planning'),
                             ),
                             ProBentoTile(
-                              icon: Icons.event_available_rounded,
-                              bananaIconAsset: AppAssets.icNavCalendar,
-                              accentColor: const Color(0xFF1971C2),
-                              title: 'Lịch trình sắp tới',
-                              metric: '${d.upcomingEventsCount}',
-                              badgeText: 'Riêng tư & Gia đình',
-                              statusKind: SemanticStatusKind.info,
-                              onTap: () => context.go('/planning'),
-                            ),
-                            ProBentoTile(
                               icon: Icons.two_wheeler_rounded,
                               bananaIconAsset: AppAssets.icCatVehicle,
                               accentColor: const Color(0xFF5F3DC4),
-                              title: 'Bảo dưỡng xe',
-                              metric: '${d.dueVehiclesCount} xe',
-                              badgeText:
-                                  d.dueVehiclesCount > 0 ? 'Sắp đến hạn km' : 'Vận hành tốt',
+                              title: 'Tài sản & Chi phí Xe',
+                              metric: '${d.dueVehiclesCount} đến hạn',
+                              badgeText: d.dueVehiclesCount > 0
+                                  ? 'Sắp đến hạn km'
+                                  : 'Chi phí ổn định',
                               statusKind: d.dueVehiclesCount > 0
                                   ? SemanticStatusKind.warning
                                   : SemanticStatusKind.success,
@@ -295,61 +460,92 @@ class TodayPage extends StatelessWidget {
                       },
                     ),
 
-                    const SizedBox(height: AppSpacing.md),
-                    Builder(
-                      builder: (context) {
-                        final runway = EmergencyRunwaySnapshot.compute(
-                          netLiquidMinor: d.netWorthMinor,
-                          monthlyExpenseMinor: d.monthlyExpenseMinor,
-                        );
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            child: Row(
-                              children: [
-                                BananaGlassIcon(
-                                  assetPath: AppAssets.icSysShield,
-                                  fallbackIcon: Icons.health_and_safety_rounded,
-                                  fallbackColor: c.primary,
-                                  size: 44,
-                                  borderRadius: 13,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                    if (d.topCategories.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Top Tỷ Trọng Chi Tiêu Trong Tháng',
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => context.go('/finance'),
+                                    child: const Text('Chi tiết →'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              ...d.topCategories.map((cat) {
+                                final style = ProCategoryStyle.resolve(cat.categoryName);
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Row(
                                     children: [
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        crossAxisAlignment: WrapCrossAlignment.center,
-                                        children: [
-                                          Text(
-                                            'Quỹ Dự phòng Khẩn cấp',
-                                            style: Theme.of(context).textTheme.titleSmall,
-                                          ),
-                                          SemanticStatusBadge(
-                                            kind: runway.monthsOfRunway >= 3.0
-                                                ? SemanticStatusKind.success
-                                                : SemanticStatusKind.warning,
-                                            label: runway.statusBadge,
-                                          ),
-                                        ],
+                                      ProCategoryStyle.buildCategoryBadge(
+                                        cat.categoryName,
+                                        size: 38,
                                       ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        runway.headline,
-                                        style: Theme.of(context).textTheme.bodySmall,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    cat.categoryName,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${_fmt(cat.amountMinor)} (${cat.sharePct.toStringAsFixed(0)}%)',
+                                                  style: const TextStyle(
+                                                    fontSize: 12.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    fontFeatures: [FontFeature.tabularFigures()],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 5),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(5),
+                                              child: LinearProgressIndicator(
+                                                minHeight: 6,
+                                                value: (cat.sharePct / 100.0).clamp(0.02, 1.0),
+                                                color: style.color,
+                                                backgroundColor:
+                                                    style.color.withValues(alpha: 0.12),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
-                            ),
+                                );
+                              }),
+                            ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: AppSpacing.lg),
                     Row(
@@ -357,7 +553,7 @@ class TodayPage extends StatelessWidget {
                         Icon(Icons.auto_awesome_rounded, size: 18, color: c.primary),
                         const SizedBox(width: 6),
                         Text(
-                          'Trợ lý Quan sát & Gợi ý Tự động',
+                          'Kiểm toán Tự động & Cảnh báo Sổ quỹ',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ],
@@ -369,16 +565,12 @@ class TodayPage extends StatelessWidget {
                           padding: const EdgeInsets.all(AppSpacing.md),
                           child: Row(
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Image.asset(
-                                  AppAssets.dashboardBanner,
-                                  width: 76,
-                                  height: 64,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      Icon(Icons.check_circle_rounded, color: c.success, size: 32),
-                                ),
+                              BananaGlassIcon(
+                                assetPath: AppAssets.icSysShield,
+                                fallbackIcon: Icons.verified_rounded,
+                                fallbackColor: c.success,
+                                size: 46,
+                                borderRadius: 13,
                               ),
                               const SizedBox(width: AppSpacing.md),
                               Expanded(
@@ -386,12 +578,14 @@ class TodayPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Nhịp sống hôm nay rất cân bằng!',
-                                      style: Theme.of(context).textTheme.titleMedium,
+                                      'Sổ cái cân bằng & Đối soát an toàn',
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Không có cảnh báo hóa đơn bất thường, xe quá hạn hay giao dịch chờ xác nhận.',
+                                      'Mọi bút toán đều khớp số dư ví, không có hóa đơn trễ hạn hay biến động bất thường.',
                                       style: Theme.of(context).textTheme.bodySmall,
                                     ),
                                   ],
@@ -445,6 +639,52 @@ class TodayPage extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _HeroLedgerMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color accentColor;
+
+  const _HeroLedgerMetric({
+    required this.label,
+    required this.value,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: accentColor,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }

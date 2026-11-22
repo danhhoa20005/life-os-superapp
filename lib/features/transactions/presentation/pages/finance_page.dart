@@ -127,6 +127,8 @@ class FinancePage extends StatelessWidget {
 
   Future<void> _showCreateWalletDialog(BuildContext context, String userId) async {
     final nameCtrl = TextEditingController();
+    final bankCodeCtrl = TextEditingController();
+    final maskedCtrl = TextEditingController();
     final openingCtrl = TextEditingController(text: '0');
     var selectedType = WalletType.bank;
     final actionBloc = context.read<TransactionActionBloc>();
@@ -135,7 +137,7 @@ class FinancePage extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Thêm Ví / Tài khoản Tham chiếu'),
+          title: const Text('Thêm Ví / Tài khoản Sổ cái'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -148,27 +150,61 @@ class FinancePage extends StatelessWidget {
                   decoration: const InputDecoration(hintText: 'VD: Vietcombank Lương'),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                const Text('Loại tài khoản'),
+                const Text('Phân loại nguồn vốn'),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<WalletType>(
                   isExpanded: true,
                   initialValue: selectedType,
                   items: const [
-                    DropdownMenuItem(value: WalletType.cash, child: Text('Tiền mặt')),
-                    DropdownMenuItem(value: WalletType.bank, child: Text('Tài khoản Ngân hàng')),
+                    DropdownMenuItem(value: WalletType.cash, child: Text('Tiền mặt (Liquid Cash)')),
+                    DropdownMenuItem(
+                      value: WalletType.bank,
+                      child: Text('Tài khoản Ngân hàng (NAPAS247)'),
+                    ),
+                    DropdownMenuItem(
+                      value: WalletType.savings,
+                      child: Text('Sổ Tiết kiệm & Tích lũy (Wealth Vault)'),
+                    ),
                     DropdownMenuItem(value: WalletType.creditCard, child: Text('Thẻ tín dụng')),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedType = val);
                   },
                 ),
+                if (selectedType == WalletType.bank || selectedType == WalletType.creditCard) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: bankCodeCtrl,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: const InputDecoration(
+                            labelText: 'Mã NH',
+                            hintText: 'VCB / TCB',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: maskedCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Số đuôi TK',
+                            hintText: '•••• 8868',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.sm),
-                const Text('Số dư đầu kỳ ước tính (VND)'),
+                const Text('Số dư đầu kỳ (VND)'),
                 const SizedBox(height: 6),
                 TextField(
                   controller: openingCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(hintText: '5000000'),
+                  decoration: const InputDecoration(hintText: '5000000', suffixText: 'VND'),
                 ),
               ],
             ),
@@ -177,13 +213,15 @@ class FinancePage extends StatelessWidget {
             TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
             FilledButton(
               onPressed: () {
-                final opening = int.tryParse(openingCtrl.text.replaceAll('.', '').trim()) ?? 0;
+                final opening = VndAmount.tryParseInput(openingCtrl.text) ?? 0;
                 actionBloc.add(
                   WalletCreateSubmitted(
                     userId: userId,
                     name: nameCtrl.text,
                     type: selectedType,
                     openingBalanceMinor: opening,
+                    bankCode: bankCodeCtrl.text.trim().isEmpty ? null : bankCodeCtrl.text.trim(),
+                    maskedAccount: maskedCtrl.text.trim().isEmpty ? null : maskedCtrl.text.trim(),
                   ),
                 );
                 Navigator.of(ctx).pop();
@@ -465,15 +503,228 @@ class FinancePage extends StatelessWidget {
   }
 }
 
-class _TransactionsTabView extends StatelessWidget {
+class _TransactionsTabView extends StatefulWidget {
   final String userId;
   const _TransactionsTabView({required this.userId});
+
+  @override
+  State<_TransactionsTabView> createState() => _TransactionsTabViewState();
+}
+
+class _TransactionsTabViewState extends State<_TransactionsTabView> {
+  String? _selectedWalletId;
+  bool _obscureBalances = false;
+
+  String _formatDateHeader(DateTime date, DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final diff = today.difference(target).inDays;
+    final dd = date.day.toString().padLeft(2, '0');
+    final mm = date.month.toString().padLeft(2, '0');
+    if (diff == 0) return 'HÔM NAY · $dd/$mm/${date.year}';
+    if (diff == 1) return 'HÔM QUA · $dd/$mm/${date.year}';
+    return 'NGÀY $dd/$mm/${date.year}';
+  }
+
+  String _formatTimeLabel(DateTime dt) {
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+  Future<void> _showTransactionReceiptSheet(
+    BuildContext context,
+    TransactionEntity tx,
+    String resolvedWalletName,
+  ) async {
+    final c = TammySemanticColors.of(context);
+    final isCredit = tx.direction == 'credit';
+    final isInternal =
+        tx.kind == TransactionKind.transfer || tx.kind == TransactionKind.creditCardPayment;
+    final amountColor =
+        isInternal ? c.secondary : (isCredit ? c.success : c.textPrimary);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ProCategoryStyle.buildCategoryBadge(
+                  tx.categoryName,
+                  isCredit: isCredit,
+                  isTransfer: isInternal,
+                  size: 58,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  tx.merchant,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isInternal
+                      ? '⇄ ${VndAmount.format(tx.amountMinor)}'
+                      : VndAmount.format(
+                          isCredit ? tx.amountMinor : -tx.amountMinor,
+                          showPlus: true,
+                        ),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: amountColor,
+                    letterSpacing: -0.6,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SemanticStatusBadge(
+                  kind: tx.isReversed
+                      ? SemanticStatusKind.warning
+                      : SemanticStatusKind.success,
+                  label: tx.isReversed
+                      ? 'BÚT TOÁN ĐÃ ĐẢO NGƯỢC'
+                      : 'BIÊN LAI SỔ CÁI ĐÃ ĐỐI SOÁT (${tx.verification.name.toUpperCase()})',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: c.surfaceRaised,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: c.separator.withValues(alpha: 0.7), width: 0.8),
+                  ),
+                  child: Column(
+                    children: [
+                      _ReceiptRow(label: 'Hạng mục kế toán', value: tx.categoryName),
+                      const Divider(height: 16),
+                      _ReceiptRow(label: 'Tài khoản / Ví nguồn', value: resolvedWalletName),
+                      if (tx.balanceAfterMinor != null) ...[
+                        const Divider(height: 16),
+                        _ReceiptRow(
+                          label: 'Số dư ví sau GD',
+                          value: VndAmount.format(tx.balanceAfterMinor!),
+                        ),
+                      ],
+                      const Divider(height: 16),
+                      _ReceiptRow(
+                        label: 'Thời gian ghi sổ',
+                        value:
+                            '${tx.occurredAt.day.toString().padLeft(2, '0')}/${tx.occurredAt.month.toString().padLeft(2, '0')}/${tx.occurredAt.year} · ${_formatTimeLabel(tx.occurredAt)}',
+                      ),
+                      const Divider(height: 16),
+                      _ReceiptRow(
+                        label: 'Mã bút toán Cloud',
+                        value: tx.id.length > 16 ? '#${tx.id.substring(0, 16)}' : '#${tx.id}',
+                      ),
+                      if (tx.note != null && tx.note!.trim().isNotEmpty) ...[
+                        const Divider(height: 16),
+                        _ReceiptRow(label: 'Diễn giải', value: tx.note!),
+                      ],
+                      if (tx.splitLines.isNotEmpty) ...[
+                        const Divider(height: 16),
+                        _ReceiptRow(
+                          label: 'Tách khoản',
+                          value: tx.splitLines
+                              .map((l) => '${l.categoryName}: ${VndAmount.format(l.amountMinor)}')
+                              .join('\n'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                        child: const Text('Đóng biên lai'),
+                      ),
+                    ),
+                    if (tx.isConfirmedInLedger &&
+                        !tx.isReversed &&
+                        tx.kind != TransactionKind.reversal) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          icon: const Icon(Icons.undo_rounded, size: 18),
+                          label: const Text('Đảo bút toán'),
+                          onPressed: () async {
+                            Navigator.of(sheetCtx).pop();
+                            final ok = await showDestructiveConfirmDialog(
+                              context: context,
+                              title: 'Đảo bút toán giao dịch?',
+                              message:
+                                  'Hệ thống giữ nguyên lịch sử kiểm toán và sinh bút toán đối ứng để hoàn lại số dư ví chính xác.',
+                              confirmLabel: 'Thực hiện đảo bút toán',
+                            );
+                            if (ok && context.mounted) {
+                              context.read<TransactionActionBloc>().add(
+                                    TransactionReverseRequested(
+                                      userId: widget.userId,
+                                      transactionId: tx.id,
+                                    ),
+                                  );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     return BlocBuilder<TransactionListBloc, TransactionListState>(
       builder: (context, state) {
+        final s = state.summary;
+        final walletMap = <String, WalletEntity>{
+          for (final w in state.wallets) w.id: w,
+        };
+
+        final visibleTxs = _selectedWalletId == null
+            ? state.filteredTransactions
+            : state.filteredTransactions
+                .where(
+                  (t) =>
+                      t.walletId == _selectedWalletId ||
+                      t.targetWalletId == _selectedWalletId,
+                )
+                .toList(growable: false);
+
+        // Group visible transactions chronologically by calendar day
+        final now = DateTime.now();
+        final groupedByDay = <String, List<TransactionEntity>>{};
+        final dayHeaders = <String, String>{};
+        for (final tx in visibleTxs) {
+          final dayKey =
+              '${tx.occurredAt.year}-${tx.occurredAt.month.toString().padLeft(2, '0')}-${tx.occurredAt.day.toString().padLeft(2, '0')}';
+          groupedByDay.putIfAbsent(dayKey, () => <TransactionEntity>[]).add(tx);
+          dayHeaders.putIfAbsent(dayKey, () => _formatDateHeader(tx.occurredAt, now));
+        }
+
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -481,16 +732,137 @@ class _TransactionsTabView extends StatelessWidget {
               key: const Key('transactions_list_view'),
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-                Text(
-                  'Ví cá nhân & Số dư ước tính',
-                  style: Theme.of(context).textTheme.titleMedium,
+                // 1. Portfolio Liquidity & Net Cashflow Executive Strip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: c.separator.withValues(alpha: 0.65), width: 0.8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'TỔNG TÀI SẢN SỔ QUỸ (${state.monthKey})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.6,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () =>
+                                      setState(() => _obscureBalances = !_obscureBalances),
+                                  child: Icon(
+                                    _obscureBalances
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 15,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _obscureBalances
+                                  ? '•••••••••• ₫'
+                                  : VndAmount.format(s.netWorthMinor),
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            _obscureBalances
+                                ? '+•••••• ₫'
+                                : '+${VndAmount.format(s.monthlyIncomeMinor)}',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: c.success,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _obscureBalances
+                                ? '-•••••• ₫'
+                                : '-${VndAmount.format(s.monthlyExpenseMinor)}',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: c.error,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
+
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Danh mục Nguồn vốn (${state.wallets.length})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_selectedWalletId != null)
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () => setState(() => _selectedWalletId = null),
+                        icon: const Icon(Icons.filter_alt_off_rounded, size: 15),
+                        label: const Text('Bỏ lọc ví'),
+                      )
+                    else
+                      Flexible(
+                        child: Text(
+                          'Chạm thẻ để lọc sao kê',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 if (state.wallets.isEmpty)
                   const Card(
                     child: Padding(
                       padding: EdgeInsets.all(AppSpacing.md),
-                      child: Text('Đang khởi tạo ví tiền mặt mặc định...'),
+                      child: Text('Đang khởi tạo danh mục ví mặc định...'),
                     ),
                   )
                 else
@@ -499,15 +871,24 @@ class _TransactionsTabView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: state.wallets.map((w) {
+                        final selected = _selectedWalletId == w.id;
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpacing.sm),
                           child: ProWalletCreditCard(
                             name: w.name,
                             walletTypeKey: w.type.name,
                             balanceMinor: w.balanceMinor,
+                            bankCode: w.bankCode,
                             maskedAccount: w.maskedAccount,
                             isEstimatedBalance: w.isEstimatedBalance,
                             hasPendingWrites: w.hasPendingWrites,
+                            obscureBalance: _obscureBalances,
+                            isSelected: selected,
+                            onTap: () {
+                              setState(() {
+                                _selectedWalletId = selected ? null : w.id;
+                              });
+                            },
                           ),
                         );
                       }).toList(),
@@ -517,7 +898,7 @@ class _TransactionsTabView extends StatelessWidget {
                 if (state.provisionalTransactions.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Gợi ý giao dịch chờ xác nhận (${state.provisionalTransactions.length})',
+                    'Biến động số dư chờ duyệt (${state.provisionalTransactions.length})',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: AppSpacing.xs),
@@ -535,7 +916,7 @@ class _TransactionsTabView extends StatelessWidget {
                               OutlinedButton(
                                 onPressed: () => context.read<TransactionActionBloc>().add(
                                       ProvisionalTransactionDecisionSubmitted(
-                                        userId: userId,
+                                        userId: widget.userId,
                                         transactionId: tx.id,
                                         approve: false,
                                       ),
@@ -545,7 +926,7 @@ class _TransactionsTabView extends StatelessWidget {
                               FilledButton(
                                 onPressed: () => context.read<TransactionActionBloc>().add(
                                       ProvisionalTransactionDecisionSubmitted(
-                                        userId: userId,
+                                        userId: widget.userId,
                                         transactionId: tx.id,
                                         approve: true,
                                       ),
@@ -560,11 +941,11 @@ class _TransactionsTabView extends StatelessWidget {
                   ),
                 ],
 
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 if (state.wallets.isNotEmpty) ...[
                   _SmartQuickEntryCard(
-                    userId: userId,
-                    defaultWalletId: state.wallets.first.id,
+                    userId: widget.userId,
+                    defaultWalletId: _selectedWalletId ?? state.wallets.first.id,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
@@ -573,116 +954,141 @@ class _TransactionsTabView extends StatelessWidget {
                   onChanged: (q) =>
                       context.read<TransactionListBloc>().add(TransactionsSearchChanged(q)),
                   decoration: const InputDecoration(
-                    labelText: 'Tìm kiếm giao dịch theo nội dung hoặc danh mục',
+                    labelText: 'Tìm sao kê theo nội dung, đối tác hoặc hạng mục',
                     prefixIcon: Icon(Icons.search_rounded),
                   ),
                 ),
+                const SizedBox(height: 10),
+
+                // Statement Type Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _StatementKindChip(
+                        label: 'Tất cả sao kê',
+                        selected: state.kindFilter == null,
+                        onSelected: () => context
+                            .read<TransactionListBloc>()
+                            .add(const TransactionsKindFilterChanged(null)),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatementKindChip(
+                        label: '↓ Thu nhập',
+                        selected: state.kindFilter == TransactionKind.income,
+                        onSelected: () => context
+                            .read<TransactionListBloc>()
+                            .add(const TransactionsKindFilterChanged(TransactionKind.income)),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatementKindChip(
+                        label: '↑ Chi tiêu',
+                        selected: state.kindFilter == TransactionKind.expense,
+                        onSelected: () => context
+                            .read<TransactionListBloc>()
+                            .add(const TransactionsKindFilterChanged(TransactionKind.expense)),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatementKindChip(
+                        label: '⇄ Chuyển ví',
+                        selected: state.kindFilter == TransactionKind.transfer,
+                        onSelected: () => context
+                            .read<TransactionListBloc>()
+                            .add(const TransactionsKindFilterChanged(TransactionKind.transfer)),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: AppSpacing.md),
-                if (state.filteredTransactions.isEmpty)
+                if (visibleTxs.isEmpty)
                   const EmptyStateView(
                     icon: Icons.receipt_long_outlined,
                     imageAsset: AppAssets.financeIllustration,
-                    title: 'Chưa có giao dịch trong kỳ',
-                    subtitle: 'Nhấn "Ghi giao dịch" ở góc trên để thêm thu/chi, tách khoản hoặc chuyển ví.',
+                    title: 'Chưa có bút toán trong bộ lọc hiện tại',
+                    subtitle:
+                        'Nhấn "Ghi giao dịch" ở góc trên để thêm thu/chi, tách khoản hoặc chuyển ví.',
                   )
                 else
-                  ...state.filteredTransactions.map((tx) {
-                    final isCredit = tx.direction == 'credit';
-                    final isInternal = tx.kind == TransactionKind.transfer ||
-                        tx.kind == TransactionKind.creditCardPayment;
-                    final amountColor = isInternal
-                        ? c.secondary
-                        : (isCredit ? c.success : c.textPrimary);
+                  ...groupedByDay.entries.map((entry) {
+                    final dayKey = entry.key;
+                    final dayTxs = entry.value;
+                    var dayNetMinor = 0;
+                    for (final tx in dayTxs) {
+                      if (tx.isReversed ||
+                          tx.kind == TransactionKind.transfer ||
+                          tx.kind == TransactionKind.creditCardPayment ||
+                          tx.kind == TransactionKind.reversal) {
+                        continue;
+                      }
+                      dayNetMinor += tx.direction == 'credit' ? tx.amountMinor : -tx.amountMinor;
+                    }
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                      child: Card(
-                        child: ListTile(
-                          leading: ProCategoryStyle.buildCategoryBadge(
-                            tx.categoryName,
-                            isCredit: isCredit,
-                            isTransfer: isInternal,
-                            size: 44,
-                          ),
-                          title: Text(
-                            tx.merchant,
-                            style: TextStyle(
-                              decoration: tx.isReversed ? TextDecoration.lineThrough : null,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(tx.categoryName),
-                                  SemanticStatusBadge(
-                                    kind: tx.verification == TransactionVerification.verified
-                                        ? SemanticStatusKind.success
-                                        : tx.verification == TransactionVerification.provisional
-                                            ? SemanticStatusKind.provisional
-                                            : SemanticStatusKind.info,
-                                    label: tx.isReversed
-                                        ? 'Đã đảo bút toán'
-                                        : tx.verification.name.toUpperCase(),
-                                  ),
-                                  CloudSyncIndicator(hasPendingWrites: tx.hasPendingWrites),
-                                ],
-                              ),
-                              if (tx.splitLines.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    'Đã tách: ${tx.splitLines.map((l) => '${l.categoryName} (${VndAmount.format(l.amountMinor)})').join(' · ')}',
-                                    style: Theme.of(context).textTheme.labelSmall,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, bottom: 8, left: 2, right: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                VndAmount.format(
-                                  isCredit ? tx.amountMinor : -tx.amountMinor,
-                                  showPlus: true,
-                                ),
+                                dayHeaders[dayKey] ?? dayKey,
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: amountColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                  color: c.textSecondary,
                                 ),
                               ),
-                              if (tx.isConfirmedInLedger &&
-                                  !tx.isReversed &&
-                                  tx.kind != TransactionKind.reversal)
-                                IconButton(
-                                  tooltip: 'Đảo bút toán (Hoàn tiền / Hủy)',
-                                  icon: const Icon(Icons.undo_rounded, size: 20),
-                                  onPressed: () async {
-                                    final ok = await showDestructiveConfirmDialog(
-                                      context: context,
-                                      title: 'Đảo bút toán giao dịch?',
-                                      message:
-                                          'Hệ thống không xóa lịch sử mà sẽ tạo một bút toán đảo đối ứng để hoàn lại số dư ví chính xác.',
-                                      confirmLabel: 'Thực hiện đảo bút toán',
-                                    );
-                                    if (ok && context.mounted) {
-                                      context.read<TransactionActionBloc>().add(
-                                            TransactionReverseRequested(
-                                              userId: userId,
-                                              transactionId: tx.id,
-                                            ),
-                                          );
-                                    }
-                                  },
+                              if (dayNetMinor != 0 && !_obscureBalances)
+                                Text(
+                                  VndAmount.format(dayNetMinor, showPlus: true),
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: dayNetMinor > 0 ? c.success : c.textSecondary,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                             ],
                           ),
                         ),
-                      ),
+                        ...dayTxs.map((tx) {
+                          final isCredit = tx.direction == 'credit';
+                          final isInternal = tx.kind == TransactionKind.transfer ||
+                              tx.kind == TransactionKind.creditCardPayment;
+                          final wName = tx.walletName ?? walletMap[tx.walletId]?.name;
+                          final splitSummary = tx.splitLines.isNotEmpty
+                              ? 'Tách khoản: ${tx.splitLines.map((l) => '${l.categoryName} (${VndAmount.format(l.amountMinor)})').join(' · ')}'
+                              : null;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 9),
+                            child: ProFintechStatementTile(
+                              merchant: tx.merchant,
+                              categoryName: tx.categoryName,
+                              walletName: wName,
+                              timeLabel: _formatTimeLabel(tx.occurredAt),
+                              amountMinor: tx.amountMinor,
+                              balanceAfterMinor: tx.balanceAfterMinor,
+                              isCredit: isCredit,
+                              isTransfer: isInternal,
+                              isReversed: tx.isReversed,
+                              isVerified: tx.verification == TransactionVerification.verified ||
+                                  tx.verification == TransactionVerification.userConfirmed,
+                              hasPendingWrites: tx.hasPendingWrites,
+                              splitSummary: splitSummary,
+                              obscureAmounts: _obscureBalances,
+                              onTap: () => _showTransactionReceiptSheet(
+                                context,
+                                tx,
+                                wName ?? 'Ví cá nhân',
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
                     );
                   }),
               ],
@@ -690,6 +1096,68 @@ class _TransactionsTabView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _StatementKindChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  const _StatementKindChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class _ReceiptRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ReceiptRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 4,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 12, color: c.textSecondary),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 6,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

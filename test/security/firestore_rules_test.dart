@@ -66,6 +66,9 @@ void main() {
       expect(rules, contains('isPositiveInt(request.resource.data.totalAmountMinor)'));
       expect(rules, contains('match /settlements/{settlementId}'));
       expect(rules, contains('allow update, delete: if false;'));
+      // Immutable double-entry wallet passbook audit trail & monthly net worth snapshots
+      expect(rules, contains('match /ledger_audits/{auditId}'));
+      expect(rules, contains('match /net_worth_snapshots/{monthKey}'));
     });
 
     test('Unauthenticated client is denied read and write on all paths', () async {

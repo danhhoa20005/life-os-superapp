@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum WalletType { cash, bank, creditCard }
+enum WalletType { cash, bank, creditCard, savings }
 
 enum TransactionKind { expense, income, transfer, creditCardPayment, reversal }
 
@@ -34,6 +34,7 @@ class WalletEntity extends Equatable {
   final String? bankCode;
   final String? maskedAccount;
   final int balanceMinor;
+  final int? creditLimitMinor;
   final bool isEstimatedBalance;
   final bool hasPendingWrites;
 
@@ -45,6 +46,7 @@ class WalletEntity extends Equatable {
     this.bankCode,
     this.maskedAccount,
     required this.balanceMinor,
+    this.creditLimitMinor,
     this.isEstimatedBalance = true,
     this.hasPendingWrites = false,
   });
@@ -58,6 +60,7 @@ class WalletEntity extends Equatable {
         bankCode,
         maskedAccount,
         balanceMinor,
+        creditLimitMinor,
         isEstimatedBalance,
         hasPendingWrites,
       ];
@@ -104,6 +107,8 @@ class TransactionEntity extends Equatable {
   final String? reversedById;
   final bool isVehicleMaintenanceHint;
   final List<TransactionSplitLine> splitLines;
+  final int? balanceAfterMinor;
+  final String? walletName;
   final bool hasPendingWrites;
 
   const TransactionEntity({
@@ -128,6 +133,8 @@ class TransactionEntity extends Equatable {
     this.reversedById,
     this.isVehicleMaintenanceHint = false,
     this.splitLines = const [],
+    this.balanceAfterMinor,
+    this.walletName,
     this.hasPendingWrites = false,
   });
 
@@ -162,6 +169,8 @@ class TransactionEntity extends Equatable {
         reversedById,
         isVehicleMaintenanceHint,
         splitLines,
+        balanceAfterMinor,
+        walletName,
         hasPendingWrites,
       ];
 }
@@ -183,6 +192,9 @@ class CategorySpendShare extends Equatable {
 
 class FinanceOverviewSummary extends Equatable {
   final int netWorthMinor;
+  final int liquidAssetsMinor;
+  final int savingsAssetsMinor;
+  final int creditLiabilityMinor;
   final int monthlyIncomeMinor;
   final int monthlyExpenseMinor;
   final int monthlyInternalTransferMinor;
@@ -193,6 +205,9 @@ class FinanceOverviewSummary extends Equatable {
 
   const FinanceOverviewSummary({
     required this.netWorthMinor,
+    this.liquidAssetsMinor = 0,
+    this.savingsAssetsMinor = 0,
+    this.creditLiabilityMinor = 0,
     required this.monthlyIncomeMinor,
     required this.monthlyExpenseMinor,
     required this.monthlyInternalTransferMinor,
@@ -209,6 +224,34 @@ class FinanceOverviewSummary extends Equatable {
     if (monthlyIncomeMinor <= 0) return 0.0;
     final net = monthlyIncomeMinor - monthlyExpenseMinor;
     return (net * 100.0) / monthlyIncomeMinor;
+  }
+
+  /// Composite 0–100 personal wealth & cashflow discipline score.
+  int get financialHealthScore {
+    var score = 55;
+    if (netWorthMinor > 0) score += 15;
+    if (savingsAssetsMinor > 0) score += 8;
+    if (monthlyIncomeMinor > 0) {
+      final rate = savingsRatePct;
+      if (rate >= 25) {
+        score += 18;
+      } else if (rate >= 10) {
+        score += 10;
+      } else if (rate < 0) {
+        score -= 15;
+      }
+    }
+    if (creditLiabilityMinor == 0) {
+      score += 4;
+    } else if (liquidAssetsMinor > creditLiabilityMinor * 2) {
+      score += 2;
+    } else {
+      score -= 8;
+    }
+    if (provisionalCount == 0 && (verifiedCount + userConfirmedCount) > 0) {
+      score += 4;
+    }
+    return score.clamp(20, 99);
   }
 
   /// Average daily burn rate over a standard 30-day cycle (exact integer VND).
@@ -241,6 +284,20 @@ class FinanceOverviewSummary extends Equatable {
     required List<TransactionEntity> transactions,
   }) {
     final netWorth = wallets.fold<int>(0, (sum, w) => sum + w.balanceMinor);
+    var liquidAssets = 0;
+    var savingsAssets = 0;
+    var creditLiability = 0;
+    for (final w in wallets) {
+      switch (w.type) {
+        case WalletType.cash:
+        case WalletType.bank:
+          if (w.balanceMinor > 0) liquidAssets += w.balanceMinor;
+        case WalletType.savings:
+          if (w.balanceMinor > 0) savingsAssets += w.balanceMinor;
+        case WalletType.creditCard:
+          if (w.balanceMinor < 0) creditLiability += -w.balanceMinor;
+      }
+    }
     var income = 0;
     var expense = 0;
     var internalTransfers = 0;
@@ -288,6 +345,9 @@ class FinanceOverviewSummary extends Equatable {
 
     return FinanceOverviewSummary(
       netWorthMinor: netWorth,
+      liquidAssetsMinor: liquidAssets,
+      savingsAssetsMinor: savingsAssets,
+      creditLiabilityMinor: creditLiability,
       monthlyIncomeMinor: income,
       monthlyExpenseMinor: expense,
       monthlyInternalTransferMinor: internalTransfers,
@@ -301,6 +361,9 @@ class FinanceOverviewSummary extends Equatable {
   @override
   List<Object?> get props => [
         netWorthMinor,
+        liquidAssetsMinor,
+        savingsAssetsMinor,
+        creditLiabilityMinor,
         monthlyIncomeMinor,
         monthlyExpenseMinor,
         monthlyInternalTransferMinor,

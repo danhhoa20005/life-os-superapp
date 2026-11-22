@@ -165,4 +165,22 @@ class TransactionRepositoryImpl implements TransactionRepository {
       return Err(ErrorMapper.map(e));
     }
   }
+
+  @override
+  Future<Result<void>> saveNetWorthSnapshot({
+    required String userId,
+    required String monthKey,
+    required FinanceOverviewSummary summary,
+  }) async {
+    try {
+      await _remoteDataSource.upsertNetWorthSnapshot(
+        userId: userId,
+        monthKey: monthKey,
+        summary: summary,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
 }

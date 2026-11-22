@@ -36,13 +36,16 @@ class DashboardRepositoryImpl implements DashboardRepository {
     String? familyId,
   }) {
     final now = DateTime.now();
-    final monthKey = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+    final monthKey =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
     final financePair = StreamCombiner.combine2(
       _transactionRepo.watchWallets(userId),
       _transactionRepo.watchTransactions(userId: userId, monthKey: monthKey),
       (w, t) => (wallets: w, txs: t),
     );
+
+    var lastPersistedNetWorth = -1;
 
     final combined = StreamCombiner.combine4(
       financePair,
@@ -67,8 +70,21 @@ class DashboardRepositoryImpl implements DashboardRepository {
             : const <VehicleEntity>[];
 
         final summary = FinanceOverviewSummary.compute(wallets: wallets, transactions: txs);
+        if (wallets.isNotEmpty && summary.netWorthMinor != lastPersistedNetWorth) {
+          lastPersistedNetWorth = summary.netWorthMinor;
+          unawaited(
+            _transactionRepo.saveNetWorthSnapshot(
+              userId: userId,
+              monthKey: monthKey,
+              summary: summary,
+            ),
+          );
+        }
+
         final todayStart = DateTime(now.year, now.month, now.day);
         var todayExpense = 0;
+        final dailyExp = List<int>.filled(7, 0);
+        final dailyInc = List<int>.filled(7, 0);
         final alerts = <DashboardAlertItem>[];
 
         for (final tx in txs) {
@@ -82,22 +98,29 @@ class DashboardRepositoryImpl implements DashboardRepository {
                 isUrgent: true,
               ),
             );
-          } else if (tx.isConfirmedInLedger &&
-              !tx.isReversed &&
-              tx.kind == TransactionKind.expense) {
-            if (!tx.occurredAt.isBefore(todayStart)) {
-              todayExpense += tx.amountMinor;
-            }
-            if (tx.isVehicleMaintenanceHint && vehicles.isNotEmpty) {
-              alerts.add(
-                DashboardAlertItem(
-                  id: 'smart_${tx.id}',
-                  category: 'smart_rule',
-                  title: 'Gợi ý thông minh: Cập nhật bảo dưỡng cho ${vehicles.first.name}',
-                  subtitle:
-                      'Từ khoản chi "${tx.merchant}" (${VndAmount.format(tx.amountMinor)})',
-                ),
-              );
+          } else if (tx.isConfirmedInLedger && !tx.isReversed) {
+            final txDay = DateTime(tx.occurredAt.year, tx.occurredAt.month, tx.occurredAt.day);
+            final daysAgo = todayStart.difference(txDay).inDays;
+            if (tx.kind == TransactionKind.expense) {
+              if (!tx.occurredAt.isBefore(todayStart)) {
+                todayExpense += tx.amountMinor;
+              }
+              if (daysAgo >= 0 && daysAgo < 7) {
+                dailyExp[6 - daysAgo] += tx.amountMinor;
+              }
+              if (tx.isVehicleMaintenanceHint && vehicles.isNotEmpty) {
+                alerts.add(
+                  DashboardAlertItem(
+                    id: 'smart_${tx.id}',
+                    category: 'smart_rule',
+                    title: 'Gợi ý thông minh: Cập nhật bảo dưỡng cho ${vehicles.first.name}',
+                    subtitle:
+                        'Từ khoản chi "${tx.merchant}" (${VndAmount.format(tx.amountMinor)})',
+                  ),
+                );
+              }
+            } else if (tx.kind == TransactionKind.income && daysAgo >= 0 && daysAgo < 7) {
+              dailyInc[6 - daysAgo] += tx.amountMinor;
             }
           }
         }
@@ -121,6 +144,16 @@ class DashboardRepositoryImpl implements DashboardRepository {
           }
         }
 
+        // Compute dynamic Safe-to-Spend per day for the rest of the current month
+        final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+        final remainingDays = (lastDayOfMonth - now.day + 1).clamp(1, 31);
+        // Target 80% of monthly income (20% pay-yourself-first savings), or fallback to 25% of liquid assets
+        final spendEnvelope = summary.monthlyIncomeMinor > 0
+            ? (summary.monthlyIncomeMinor * 80) ~/ 100
+            : (summary.liquidAssetsMinor > 0 ? summary.liquidAssetsMinor ~/ 4 : 0);
+        final remainingBudget = spendEnvelope - summary.monthlyExpenseMinor;
+        final safeToSpendDaily = remainingBudget > 0 ? remainingBudget ~/ remainingDays : 0;
+
         final openTasks = tasks
             .where((t) =>
                 t.status != TaskWorkflowStatus.done && t.status != TaskWorkflowStatus.declined)
@@ -130,17 +163,38 @@ class DashboardRepositoryImpl implements DashboardRepository {
             .length;
         final upcomingEvents = events.where((e) => !e.endsAt.isBefore(now)).length;
 
+        final topCats = summary.sortedCategoryShares
+            .take(3)
+            .map(
+              (s) => DashboardCategorySlice(
+                categoryName: s.categoryName,
+                amountMinor: s.amountMinor,
+                sharePct: s.sharePct,
+              ),
+            )
+            .toList(growable: false);
+
         return Success<TodayDashboardEntity>(
           TodayDashboardEntity(
             netWorthMinor: summary.netWorthMinor,
+            liquidAssetsMinor: summary.liquidAssetsMinor,
+            savingsAssetsMinor: summary.savingsAssetsMinor,
+            creditDebtMinor: summary.creditLiabilityMinor,
+            walletCount: wallets.length,
             todayExpenseMinor: todayExpense,
             monthlyExpenseMinor: summary.monthlyExpenseMinor,
             monthlyIncomeMinor: summary.monthlyIncomeMinor,
+            dailySafeToSpendMinor: safeToSpendDaily,
+            financialHealthScore: summary.financialHealthScore,
+            savingsRatePct: summary.savingsRatePct,
             provisionalPendingCount: summary.provisionalCount,
             openTasksCount: openTasks,
             proposedTasksForMeCount: proposedForMe,
             upcomingEventsCount: upcomingEvents,
             dueVehiclesCount: dueVehCount,
+            recent7DayExpensesMinor: dailyExp,
+            recent7DayIncomesMinor: dailyInc,
+            topCategories: topCats,
             highlights: alerts.take(8).toList(growable: false),
           ),
         );
