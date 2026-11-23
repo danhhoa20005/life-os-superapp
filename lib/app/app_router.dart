@@ -714,32 +714,36 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                                   ),
                                 ),
 
-                              // Signature Center BrandKit Gradient `+` Squircle Button
+                              // Signature Center BrandKit Gradient `+` Squircle Button (48×48 Tactile Target)
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 4),
                                 child: Tooltip(
-                                  message: 'Tạo nhanh & Giọng nói',
+                                  message: 'Thêm nhanh',
                                   child: Material(
                                     color: Colors.transparent,
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(17),
                                     child: InkWell(
                                       key: const Key('lifeos_center_quick_add_fab'),
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(17),
                                       onTap: () => showLifeOsQuickCreateHub(context),
                                       child: Container(
-                                        width: 46,
-                                        height: 46,
+                                        width: 48,
+                                        height: 48,
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(17),
                                           gradient: const LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                             colors: LifeOSBrandColors.appIconBgGradient,
                                             stops: LifeOSBrandColors.appIconBgStops,
                                           ),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.34),
+                                            width: 1.1,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: c.primary.withValues(alpha: 0.32),
+                                              color: c.primary.withValues(alpha: 0.34),
                                               blurRadius: 14,
                                               offset: const Offset(0, 5),
                                             ),
@@ -748,7 +752,7 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                                         child: const Icon(
                                           Icons.add_rounded,
                                           color: Colors.white,
-                                          size: 27,
+                                          size: 28,
                                         ),
                                       ),
                                     ),

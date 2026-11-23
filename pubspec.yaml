@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Clean Architecture + BLoC + Đồng Bộ Lịch Thật 2 Chiều v3.5)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Clean Architecture + BLoC + Menu Dấu + Siêu Nhanh v3.6)"
 publish_to: 'none'
-version: 3.5.0+20
+version: 3.6.0+21
 
 environment:
   sdk: ^3.10.0

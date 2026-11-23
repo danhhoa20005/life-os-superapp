@@ -116,12 +116,31 @@ void main() {
       expect(find.textContaining('Xin chào, Hòa'), findsOneWidget);
       expect(find.byKey(const Key('lifeos_center_quick_add_fab')), findsOneWidget);
 
-      // 2. Open Center + Quick Create Hub -> Navigate to Auto-Transaction 98% Review Page
+      // 2. Open Redesigned Center + Quick Action Hub ("Thêm nhanh"):
+      //    Verify 1-line instant expense save + 2×3 clear Bento tiles + Bank Review shortcut
       await tester.tap(find.byKey(const Key('lifeos_center_quick_add_fab')));
       await tester.pumpAndSettle();
-      expect(find.text('Tạo nhanh LifeOS'), findsOneWidget);
+      expect(find.text('Thêm nhanh'), findsOneWidget);
+      expect(find.text('Ghi thu chi'), findsOneWidget);
+      expect(find.text('Chia tiền nhóm'), findsOneWidget);
+      expect(find.text('Thêm lịch hẹn'), findsOneWidget);
+      expect(find.text('Thêm việc làm'), findsOneWidget);
+      expect(find.text('Mã QR thu tiền'), findsOneWidget);
+      expect(find.text('Đi chợ & Ghi chú'), findsOneWidget);
 
-      await tester.tap(find.textContaining('Duyệt Giao dịch Ngân hàng Chờ Xác nhận'));
+      // Test 1-line instant input ("Cà phê 35k" -> Lưu) right inside `+` sheet!
+      await tester.tap(find.text('Cà phê 35k'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('35.000 ₫'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('quick_hub_save_inline_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      // Re-open Center + Quick Action Hub -> Navigate to Auto-Transaction Review Page
+      await tester.tap(find.byKey(const Key('lifeos_center_quick_add_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_hub_auto_tx_btn')));
       await tester.pumpAndSettle();
       expect(find.text('Chi tiết giao dịch (Tự động)'), findsOneWidget);
       expect(find.textContaining('Khớp mẫu · Chờ duyệt'), findsOneWidget);
