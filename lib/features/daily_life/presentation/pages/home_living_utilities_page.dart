@@ -23,10 +23,12 @@ class HomeLivingUtilitiesPage extends StatefulWidget {
 class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
   String _tab = 'evn';
 
-  // EVN & Roommate Utility Meter Calculator State
+  // EVN & Roommate Utility Meter Calculator State (2892/QĐ-BCT 5-Tier Default)
   bool _useEvnTiered = true;
+  EvnTariffPolicy _evnPolicy = EvnTariffPolicy.qd2892Nov2026;
+  int _vatRatePercent = 8;
   final int _prevKwh = 1240;
-  int _currKwh = 1485; // 245 kWh across Tiers 1-4
+  int _currKwh = 1485; // 245 kWh
   final int _prevWater = 82;
   int _currWater = 94; // 12 m3
   final int _flatRoomElectricRate = 3800;
@@ -49,6 +51,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
       prevWaterM3: _prevWater,
       currWaterM3: _currWater,
       useEvnTieredTariff: _useEvnTiered,
+      policy: _evnPolicy,
+      vatRatePercent: _vatRatePercent,
       customFlatElectricVndPerKwh: _flatRoomElectricRate,
       waterVndPerM3: _waterRatePerM3,
       internetAndManagementMinor: _fixedInternetTrashMinor,
@@ -82,7 +86,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   const LifeOsTopBrandHeader(
                     title: 'Điện nước EVN & Nhà cửa',
                     subtitle:
-                        'Tính điện sinh hoạt 6 bậc thang, chia phòng trọ & hợp đồng thuê nhà.',
+                        'Biểu giá điện 5 bậc EVN (QĐ 2892/QĐ-BCT), chia phòng trọ & hợp đồng nhà.',
                     showBackButton: true,
                   ),
                   Expanded(
@@ -125,7 +129,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                             ),
                                             Text(
                                               _useEvnTiered
-                                                  ? 'Biểu giá bán lẻ Điện 6 bậc EVN (+8% VAT)'
+                                                  ? '${_evnPolicy.title} (+$_vatRatePercent% VAT)'
                                                   : 'Biểu giá Điện phòng trọ (${VndAmount.format(_flatRoomElectricRate)}/kWh)',
                                               style: TextStyle(
                                                 fontSize: 12,
@@ -248,7 +252,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   ),
                   SegmentedButton<bool>(
                     segments: const [
-                      ButtonSegment(value: true, label: Text('EVN 6 bậc')),
+                      ButtonSegment(value: true, label: Text('EVN 5 bậc')),
                       ButtonSegment(value: false, label: Text('Phòng trọ')),
                     ],
                     selected: {_useEvnTiered},
@@ -256,15 +260,54 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   ),
                 ],
               ),
+              if (_useEvnTiered) ...[
+                const SizedBox(height: 10),
+                DropdownButtonFormField<EvnTariffPolicy>(
+                  isExpanded: true,
+                  initialValue: _evnPolicy,
+                  decoration: const InputDecoration(
+                    labelText: 'Chính sách biểu giá Bộ Công Thương',
+                    isDense: true,
+                  ),
+                  items: EvnTariffPolicy.values
+                      .map((p) => DropdownMenuItem(value: p, child: Text(p.title)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _evnPolicy = v);
+                  },
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Thuế suất GTGT (VAT) áp dụng theo kỳ',
+                        style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                      ),
+                    ),
+                    ChoiceChip(
+                      label: const Text('8%'),
+                      selected: _vatRatePercent == 8,
+                      onSelected: (_) => setState(() => _vatRatePercent = 8),
+                    ),
+                    const SizedBox(width: 6),
+                    ChoiceChip(
+                      label: const Text('10%'),
+                      selected: _vatRatePercent == 10,
+                      onSelected: (_) => setState(() => _vatRatePercent = 10),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
 
               _MeterSliderControl(
                 title: 'Sản lượng Điện tiêu thụ trong tháng',
                 trailing:
                     '$_prevKwh → $_currKwh (${calc.kwhConsumed} kWh)',
-                value: calc.kwhConsumed.toDouble(),
+                value: calc.kwhConsumed.toDouble().clamp(20, 900),
                 min: 20,
-                max: 700,
+                max: 900,
                 onChanged: (v) => setState(() => _currKwh = _prevKwh + v.round()),
               ),
               _MeterSliderControl(

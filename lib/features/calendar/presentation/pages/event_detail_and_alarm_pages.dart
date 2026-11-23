@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../domain/entities/calendar_entities.dart';
@@ -25,6 +26,22 @@ class EventDetailPage extends StatefulWidget {
 class _EventDetailPageState extends State<EventDetailPage> {
   int _selectedReminderMinutes = 15;
   bool _enableFullScreenAlarm = true;
+  ScheduledEventAlarmInfo? _scheduledAlarm;
+  String? _loadedEventId;
+
+  Future<void> _loadExistingAlarm(String eventId) async {
+    if (_loadedEventId == eventId) return;
+    _loadedEventId = eventId;
+    final info = await NativeAlarmSchedulerBridge.instance.getScheduledAlarm(eventId);
+    if (!mounted) return;
+    if (info != null) {
+      setState(() {
+        _scheduledAlarm = info;
+        _selectedReminderMinutes = info.minutesBefore;
+        _enableFullScreenAlarm = info.fullScreen;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +77,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
       DateTime.saturday: 'Thứ Bảy',
       DateTime.sunday: 'Chủ Nhật',
     };
+    _loadExistingAlarm(event.id);
     final dateLabel =
         '${weekdayNames[event.startsAt.weekday]}, ${DateFormat('dd \'tháng\' MM, yyyy').format(event.startsAt)}';
     final timeLabel =
@@ -374,24 +392,92 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         ),
                         const SizedBox(height: 16),
 
-                        // 5. Full-width Emerald CTA ("Lưu nhắc nhở")
+                        // 5. Real OS Alarm Scheduler CTA ("Lưu nhắc nhở" + Cancel + Optional Preview)
+                        if (_scheduledAlarm != null) ...[
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: c.primarySubtle,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: c.primary.withValues(alpha: 0.35)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.alarm_on_rounded, color: c.primary, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Đã đăng ký chuông hệ thống lúc ${DateFormat('HH:mm dd/MM').format(_scheduledAlarm!.triggerAt)} (tự đổ chuông kể cả khi đóng app)',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  key: const Key('cancel_event_alarm_button'),
+                                  onPressed: () async {
+                                    await NativeAlarmSchedulerBridge.instance
+                                        .cancelEventAlarm(event.id);
+                                    if (!context.mounted) return;
+                                    setState(() => _scheduledAlarm = null);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Đã hủy lịch báo thức trên hệ thống.'),
+                                      ),
+                                    );
+                                  },
+                                  child: Text('Hủy', style: TextStyle(color: c.error)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         LifeOsPrimaryCtaButton(
-                          icon: Icons.notifications_none_rounded,
-                          label: 'Lưu nhắc nhở',
-                          onPressed: () {
+                          icon: Icons.alarm_add_rounded,
+                          label: _scheduledAlarm == null
+                              ? 'Lưu nhắc nhở hệ thống'
+                              : 'Cập nhật giờ báo thức',
+                          onPressed: () async {
+                            final info =
+                                await NativeAlarmSchedulerBridge.instance.scheduleEventAlarm(
+                              eventId: event.id,
+                              title: event.title,
+                              subtitle: '$timeLabel · ${event.location ?? "Lịch trình LifeOS"}',
+                              eventStartsAt: event.startsAt,
+                              minutesBefore: _selectedReminderMinutes,
+                              fullScreen: _enableFullScreenAlarm,
+                            );
+                            if (!context.mounted) return;
+                            setState(() => _scheduledAlarm = info);
+                            final triggerFmt = DateFormat('HH:mm dd/MM').format(info.triggerAt);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  _selectedReminderMinutes == 0
-                                      ? '✓ Đã lưu nhắc nhở đúng giờ cho "${event.title}".'
-                                      : '✓ Đã lưu nhắc nhở trước $_selectedReminderMinutes phút cho "${event.title}".',
+                                  '✓ Đã đặt báo thức hệ thống lúc $triggerFmt cho "${event.title}".',
                                 ),
+                                action: !info.exactScheduled
+                                    ? SnackBarAction(
+                                        label: 'Cấp quyền đúng giây',
+                                        onPressed: () => NativeAlarmSchedulerBridge.instance
+                                            .openExactAlarmSettings(),
+                                      )
+                                    : null,
                               ),
                             );
-                            if (_enableFullScreenAlarm) {
-                              context.push('/event-alarm', extra: event);
-                            }
                           },
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton.icon(
+                            key: const Key('preview_alarm_screen_button'),
+                            onPressed: () => context.push('/event-alarm', extra: event),
+                            icon: const Icon(Icons.volume_up_outlined, size: 17),
+                            label: const Text('Xem thử màn hình báo thức'),
+                          ),
                         ),
                       ],
                     ),

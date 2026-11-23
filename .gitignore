@@ -20,6 +20,9 @@ firebase/emulator_data/
 !*env.example
 *service-account*.json
 google-services.json.secret
+android/key.properties
+*.jks
+*.keystore
 
 # Node modules inside firebase/rules_tests
 node_modules/

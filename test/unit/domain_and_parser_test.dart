@@ -404,9 +404,10 @@ void main() {
       expect(unauthorized, isA<Err<void>>());
       expect((unauthorized as Err<void>).failure, isA<PermissionDeniedFailure>());
 
-      // PHẦN 11: SparkSafeFileStorageService blocks binary uploads to protect Spark 0 VND billing
+      // PHẦN 11: SparkSafeFileStorageService keeps Cloud Storage disabled (Spark 0 VND) while storing locally
       const storage = SparkSafeFileStorageService();
       expect(storage.isCloudObjectStorageEnabled, isFalse);
+      expect(storage.isLocalDeviceVaultEnabled, isTrue);
       final uploadAttempt = await storage.uploadUserAttachment(
         userId: 'owner_1',
         folder: 'receipts',
@@ -414,7 +415,11 @@ void main() {
         mimeType: 'image/jpeg',
         bytes: Uint8List.fromList([1, 2, 3, 4]),
       );
-      expect(uploadAttempt, isA<Err<StoredFileReference>>());
+      expect(uploadAttempt, isA<Success<StoredFileReference>>());
+      await storage.deleteUserAttachment(
+        userId: 'owner_1',
+        storageKey: (uploadAttempt as Success<StoredFileReference>).value.storageKey,
+      );
     });
 
     test('SemanticAppVersion, SmartQuickEntryParser & EmergencyRunwaySnapshot work deterministically', () {

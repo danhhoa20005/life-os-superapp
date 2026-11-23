@@ -31,20 +31,26 @@ class MainActivity : FlutterActivity() {
     private val homeWidgetsChannelName = "vn.lifeos.app/home_widgets"
     private val voiceMethodChannelName = "vn.lifeos.app/voice_assistant"
     private val voiceEventChannelName = "vn.lifeos.app/voice_events"
+    private val secureVaultChannelName = "vn.lifeos.app/secure_vault"
+    private val alarmSchedulerChannelName = "vn.lifeos.app/alarm_scheduler"
 
     private var pendingWidgetAction: String? = null
+    private var pendingAlarmPayload: Map<String, String>? = null
     private var homeWidgetsMethodChannel: MethodChannel? = null
+    private var alarmMethodChannel: MethodChannel? = null
     private var speechRecognizer: SpeechRecognizer? = null
     private var voiceEventSink: EventChannel.EventSink? = null
 
     companion object {
         private const val REQ_RECORD_AUDIO = 7201
         private const val REQ_SPEECH_INTENT = 7202
+        private const val REQ_POST_NOTIFICATIONS = 7203
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         captureWidgetIntent(intent)
+        captureAlarmIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -57,12 +63,32 @@ class MainActivity : FlutterActivity() {
                 homeWidgetsMethodChannel?.invokeMethod("onWidgetAction", act)
             }
         }
+        if (captureAlarmIntent(intent)) {
+            val payload = pendingAlarmPayload
+            if (payload != null && alarmMethodChannel != null) {
+                pendingAlarmPayload = null
+                alarmMethodChannel?.invokeMethod("onAlarmRinging", payload)
+            }
+        }
     }
 
     private fun captureWidgetIntent(intent: Intent?): Boolean {
         val action = intent?.action ?: return false
         if (action.startsWith("vn.lifeos.app.WIDGET_ACTION_")) {
             pendingWidgetAction = action
+            return true
+        }
+        return false
+    }
+
+    private fun captureAlarmIntent(intent: Intent?): Boolean {
+        val action = intent?.action ?: return false
+        if (action == LifeOsAlarmScheduler.ACTION_OPEN_RINGING_UI) {
+            pendingAlarmPayload = mapOf(
+                "eventId" to (intent.getStringExtra("eventId") ?: ""),
+                "title" to (intent.getStringExtra("title") ?: "Nhắc lịch trình LifeOS"),
+                "subtitle" to (intent.getStringExtra("subtitle") ?: "")
+            )
             return true
         }
         return false
@@ -378,6 +404,113 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // 5. Hardware-Backed Android Keystore Vault (AES-256-GCM) + Private Document Vault
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, secureVaultChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "writeSecret" -> {
+                        val key = call.argument<String>("key") ?: ""
+                        val value = call.argument<String>("value") ?: ""
+                        if (key.isBlank()) {
+                            result.error("INVALID_KEY", "Key trống", null)
+                        } else {
+                            LifeOsSecureVault.writeSecret(applicationContext, key, value)
+                            result.success(true)
+                        }
+                    }
+                    "readSecret" -> {
+                        val key = call.argument<String>("key") ?: ""
+                        result.success(if (key.isBlank()) null else LifeOsSecureVault.readSecret(applicationContext, key))
+                    }
+                    "deleteSecret" -> {
+                        val key = call.argument<String>("key") ?: ""
+                        if (key.isNotBlank()) {
+                            LifeOsSecureVault.deleteSecret(applicationContext, key)
+                        }
+                        result.success(true)
+                    }
+                    "clearAllSecrets" -> {
+                        LifeOsSecureVault.clearAll(applicationContext)
+                        val vaultDir = File(filesDir, "secure_doc_vault")
+                        if (vaultDir.exists()) vaultDir.deleteRecursively()
+                        result.success(true)
+                    }
+                    "getVaultDirectoryPath" -> {
+                        val vaultDir = File(filesDir, "secure_doc_vault")
+                        if (!vaultDir.exists()) vaultDir.mkdirs()
+                        result.success(vaultDir.absolutePath)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // 6. Native OS Calendar Alarm & Reminder Scheduler (`AlarmManager` + Boot Persistence)
+        val alarmCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, alarmSchedulerChannelName)
+        alarmMethodChannel = alarmCh
+        alarmCh.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "scheduleAlarm" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            REQ_POST_NOTIFICATIONS
+                        )
+                    }
+                    val eventId = call.argument<String>("eventId") ?: ""
+                    val title = call.argument<String>("title") ?: "Sự kiện LifeOS"
+                    val subtitle = call.argument<String>("subtitle") ?: ""
+                    val triggerAtEpochMs = call.argument<Number>("triggerAtEpochMs")?.toLong() ?: 0L
+                    val minutesBefore = call.argument<Int>("minutesBefore") ?: 15
+                    val fullScreen = call.argument<Boolean>("fullScreen") ?: false
+                    if (eventId.isBlank() || triggerAtEpochMs <= 0L) {
+                        result.error("INVALID_ALARM", "Thiếu mã sự kiện hoặc thời gian nhắc.", null)
+                    } else {
+                        val scheduled = LifeOsAlarmScheduler.scheduleAlarm(
+                            context = applicationContext,
+                            eventId = eventId,
+                            title = title,
+                            subtitle = subtitle,
+                            triggerAtEpochMs = triggerAtEpochMs,
+                            minutesBefore = minutesBefore,
+                            fullScreen = fullScreen
+                        )
+                        result.success(scheduled)
+                    }
+                }
+                "cancelAlarm" -> {
+                    val eventId = call.argument<String>("eventId") ?: ""
+                    if (eventId.isNotBlank()) {
+                        LifeOsAlarmScheduler.cancelAlarm(applicationContext, eventId)
+                    }
+                    result.success(true)
+                }
+                "getScheduledAlarm" -> {
+                    val eventId = call.argument<String>("eventId") ?: ""
+                    result.success(if (eventId.isBlank()) null else LifeOsAlarmScheduler.getScheduledAlarm(applicationContext, eventId))
+                }
+                "clearAllAlarms" -> {
+                    LifeOsAlarmScheduler.clearAllAlarms(applicationContext)
+                    result.success(true)
+                }
+                "canScheduleExactAlarms" -> {
+                    result.success(LifeOsAlarmScheduler.canScheduleExact(applicationContext))
+                }
+                "openExactAlarmSettings" -> {
+                    LifeOsAlarmScheduler.openExactAlarmSettings(applicationContext)
+                    result.success(true)
+                }
+                "consumeInitialAlarmPayload" -> {
+                    val p = pendingAlarmPayload
+                    pendingAlarmPayload = null
+                    result.success(p)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun startVietnameseVoiceCapture() {

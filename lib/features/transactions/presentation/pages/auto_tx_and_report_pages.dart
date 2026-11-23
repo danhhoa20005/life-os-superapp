@@ -230,9 +230,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                                       ),
                                     ),
                                     const LifeOsStatusPill(
-                                      icon: Icons.check_circle_outline_rounded,
-                                      label: 'Độ tin cậy cao  98%',
-                                      tone: LifeOsAccentTone.emerald,
+                                      icon: Icons.rule_folder_outlined,
+                                      label: 'Khớp mẫu · Chờ duyệt',
+                                      tone: LifeOsAccentTone.amber,
                                     ),
                                   ],
                                 ),

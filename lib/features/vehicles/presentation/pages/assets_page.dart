@@ -352,7 +352,8 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                   final due = activeVehicle.dueStateAt(now);
                   final remDays = activeVehicle.remainingDaysFrom(now).clamp(0, 999);
                   final nextServiceDate = now.add(Duration(days: remDays));
-                  final insuranceDate = now.add(const Duration(days: 207));
+                  final insuranceDate = activeVehicle.insuranceExpiryDate;
+                  final insuranceRemDays = insuranceDate?.difference(now).inDays;
 
                   final (pillTone, pillLabel) = switch (due) {
                     VehicleDueState.overdue => (LifeOsAccentTone.coral, 'Quá hạn'),
@@ -496,35 +497,44 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                               ),
                               VerticalDivider(width: 16, color: c.separator),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      Icons.verified_user_outlined,
-                                      size: 20,
-                                      color: c.primary,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Bảo hiểm hết hạn',
-                                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      dateFmt.format(insuranceDate),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.textPrimary,
+                                child: InkWell(
+                                  onTap: () => context.push('/family-documents'),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.verified_user_outlined,
+                                        size: 20,
+                                        color: c.primary,
                                       ),
-                                    ),
-                                    Text(
-                                      'Còn 207 ngày',
-                                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Bảo hiểm TNDS',
+                                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        insuranceDate != null
+                                            ? dateFmt.format(insuranceDate)
+                                            : 'Chưa cập nhật',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        insuranceRemDays != null
+                                            ? (insuranceRemDays >= 0
+                                                ? 'Còn $insuranceRemDays ngày'
+                                                : 'Quá hạn ${-insuranceRemDays} ngày')
+                                            : 'Chạm lưu giấy tờ',
+                                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -589,11 +599,17 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                     const Divider(height: 22),
                     _ServiceChecklistTile(
                       icon: Icons.fact_check_outlined,
-                      title: 'Nhắc đăng kiểm',
-                      subtitle: 'Chu kỳ 24 tháng',
-                      pillLabel: 'Còn 142 ngày',
+                      title: 'Hạn đăng kiểm định kỳ',
+                      subtitle: activeVehicle.inspectionExpiryDate != null
+                          ? 'Hạn: ${dateFmt.format(activeVehicle.inspectionExpiryDate!)}'
+                          : 'Chưa khai báo hạn đăng kiểm của xe này',
+                      pillLabel: activeVehicle.inspectionExpiryDate != null
+                          ? 'Còn ${activeVehicle.inspectionExpiryDate!.difference(now).inDays} ngày'
+                          : 'Chưa cập nhật',
                       pillIcon: Icons.calendar_today_outlined,
-                      pillTone: LifeOsAccentTone.emerald,
+                      pillTone: activeVehicle.inspectionExpiryDate != null
+                          ? LifeOsAccentTone.emerald
+                          : LifeOsAccentTone.neutral,
                       onTap: () => context.push('/family-documents'),
                     ),
                   ],

@@ -106,10 +106,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Tạo nhanh LifeOS'), findsOneWidget);
 
-      await tester.tap(find.textContaining('Duyệt Giao dịch Ngân hàng Tự động'));
+      await tester.tap(find.textContaining('Duyệt Giao dịch Ngân hàng Chờ Xác nhận'));
       await tester.pumpAndSettle();
       expect(find.text('Chi tiết giao dịch (Tự động)'), findsOneWidget);
-      expect(find.textContaining('98%'), findsOneWidget);
+      expect(find.textContaining('Khớp mẫu · Chờ duyệt'), findsOneWidget);
 
       // Go back to Home
       await tester.tap(find.byTooltip('Quay lại'));

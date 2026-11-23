@@ -36,17 +36,38 @@ class SePayApiDataSource {
 
   SePayApiDataSource({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
 
-  static int _parseSePayDecimalVnd(Object? raw) {
+  /// Exact integer decimal parser for VND amounts (NEVER routes through IEEE-754 `double`).
+  /// Handles strings such as `"500000.00"`, `"12,345,678.50"`, `"-45000"`, or integer/num inputs.
+  static int parseExactDecimalVnd(Object? raw) {
     if (raw == null) return 0;
-    if (raw is num) return raw.round();
-    final clean = raw.toString().trim();
-    if (clean.isEmpty) return 0;
-    // SePay returns strings like "500000.00" or "0.00"
-    final doubleVal = double.tryParse(clean.replaceAll(',', ''));
-    if (doubleVal != null) return doubleVal.round();
-    final digits = clean.replaceAll(RegExp(r'[^0-9\-]'), '');
-    return int.tryParse(digits) ?? 0;
+    if (raw is int) return raw;
+    final rawText = raw.toString().trim();
+    if (rawText.isEmpty) return 0;
+
+    final isNegative = rawText.startsWith('-');
+    // Remove thousand separators, currency symbols, and whitespace, keeping digits and '.'
+    final cleaned = rawText.replaceAll(',', '').replaceAll(RegExp(r'[^0-9.]'), '');
+    if (cleaned.isEmpty) return 0;
+
+    final dotIndex = cleaned.indexOf('.');
+    if (dotIndex < 0) {
+      final whole = int.tryParse(cleaned) ?? 0;
+      return isNegative ? -whole : whole;
+    }
+
+    final wholePartStr = dotIndex == 0 ? '0' : cleaned.substring(0, dotIndex);
+    final fracPartStr = cleaned.substring(dotIndex + 1).replaceAll('.', '');
+    var whole = int.tryParse(wholePartStr) ?? 0;
+    if (fracPartStr.isNotEmpty) {
+      final firstFracDigit = int.tryParse(fracPartStr[0]) ?? 0;
+      if (firstFracDigit >= 5) {
+        whole += 1;
+      }
+    }
+    return isNegative ? -whole : whole;
   }
+
+  static int _parseSePayDecimalVnd(Object? raw) => parseExactDecimalVnd(raw);
 
   static DateTime _parseSePayDateTime(Object? raw) {
     if (raw == null) return DateTime.now();

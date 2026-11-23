@@ -248,6 +248,7 @@ class ManagedCalendarEntity extends Equatable {
   final String colorHex;
   final bool isPrimary;
   final bool isSelected;
+  final bool isReadOnly;
   final CalendarProviderSource source;
   final String? googleCalendarId;
   final String? googleSyncToken;
@@ -262,6 +263,7 @@ class ManagedCalendarEntity extends Equatable {
     this.colorHex = '#0B7A2A',
     this.isPrimary = false,
     this.isSelected = true,
+    this.isReadOnly = false,
     this.source = CalendarProviderSource.lifeOsPrivate,
     this.googleCalendarId,
     this.googleSyncToken,
@@ -279,6 +281,7 @@ class ManagedCalendarEntity extends Equatable {
     String? colorHex,
     bool? isPrimary,
     bool? isSelected,
+    bool? isReadOnly,
     CalendarProviderSource? source,
     String? googleCalendarId,
     String? googleSyncToken,
@@ -294,6 +297,7 @@ class ManagedCalendarEntity extends Equatable {
       colorHex: colorHex ?? this.colorHex,
       isPrimary: isPrimary ?? this.isPrimary,
       isSelected: isSelected ?? this.isSelected,
+      isReadOnly: isReadOnly ?? this.isReadOnly,
       source: source ?? this.source,
       googleCalendarId: googleCalendarId ?? this.googleCalendarId,
       googleSyncToken: clearSyncToken ? null : (googleSyncToken ?? this.googleSyncToken),

@@ -11,6 +11,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAccountDeletionActive(userId) {
+      return isOwner(userId)
+        && exists(/databases/$(database)/documents/users/$(userId))
+        && get(/databases/$(database)/documents/users/$(userId)).data.deletionInProgress == true;
+    }
+
     function isPositiveInt(val) {
       return val is int && val > 0;
     }
@@ -63,7 +69,8 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.newBalanceMinor is int;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isAccountDeletionActive(userId);
       }
 
       // MONTHLY NET WORTH & CASHFLOW SNAPSHOTS FOR HISTORICAL WEALTH ANALYTICS
@@ -72,7 +79,7 @@ service cloud.firestore {
         allow create, update: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.netWorthMinor is int;
-        allow delete: if false;
+        allow delete: if isAccountDeletionActive(userId);
       }
 
       match /categories/{categoryId} {
@@ -88,7 +95,8 @@ service cloud.firestore {
         allow update: if isOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
           && isPositiveInt(request.resource.data.amountMinor);
-        allow delete: if false; // Immutable ledger: use reversal entry instead of hard delete
+        // Immutable during normal operation; purged cleanly only during verified right-to-erasure account deletion
+        allow delete: if isAccountDeletionActive(userId);
       }
 
       match /budgets/{budgetId} {
@@ -105,11 +113,13 @@ service cloud.firestore {
         match /contributions/{contribId} {
           allow read, create: if isOwner(userId)
             && isPositiveInt(request.resource.data.amountMinor);
+          allow delete: if isAccountDeletionActive(userId);
         }
 
         match /expenses/{expId} {
           allow read, create, update: if isOwner(userId)
             && isPositiveInt(request.resource.data.amountMinor);
+          allow delete: if isAccountDeletionActive(userId);
         }
       }
 
@@ -144,7 +154,10 @@ service cloud.firestore {
       }
 
       match /consents/{sourceId} {
-        allow read, write: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
+        // Never allow plaintext partner/banking API tokens (`apiToken`) to be persisted in Cloud Firestore!
+        allow create, update: if isOwner(userId)
+          && !('apiToken' in request.resource.data);
       }
 
       match /source_events/{eventKey} {
@@ -225,8 +238,16 @@ service cloud.firestore {
       allow list: if false;
       allow create: if isSignedIn()
         && isFamilyManager(request.resource.data.familyId)
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isSignedIn();
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.inviteCode == inviteCode
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time;
+      // Restricted strictly to family Owner/Admin with immutable identity fields
+      allow update: if isSignedIn()
+        && isFamilyManager(resource.data.familyId)
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.inviteCode == resource.data.inviteCode;
       allow delete: if isSignedIn() && isFamilyManager(resource.data.familyId);
     }
 
@@ -254,7 +275,7 @@ service cloud.firestore {
           && !(request.auth.uid in request.resource.data.memberIds)
           && request.resource.data.createdBy == resource.data.createdBy
         )
-        // 3. New user joins with a valid invite code ONLY as 'member' (prevents privilege escalation!)
+        // 3. New user joins with a valid, UNEXPIRED invite code ONLY as 'member'
         || (
           !(request.auth.uid in resource.data.memberIds)
           && request.auth.uid in request.resource.data.memberIds
@@ -263,6 +284,8 @@ service cloud.firestore {
           && request.resource.data.lastJoinedInviteCode is string
           && exists(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode))
           && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.familyId == familyId
+          && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.expiresAt > request.time
+          && !(get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.revoked == true)
         )
       );
 

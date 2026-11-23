@@ -655,19 +655,66 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                 ],
               ),
               const Divider(height: 22),
-              _MedicalFieldRow(label: 'Nhóm máu', value: card.bloodType),
-              _MedicalFieldRow(label: 'Dị ứng thuốc / thức ăn', value: card.allergies),
-              _MedicalFieldRow(label: 'Tiền sử / Bệnh nền', value: card.chronicConditions),
+              if (!card.isConfigured)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: c.warningSubtle,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 18, color: c.warning),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Thẻ y tế chưa được kê khai. Ứng dụng không điền sẵn giá trị giả định để đảm bảo an toàn cấp cứu.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              _MedicalFieldRow(
+                label: 'Nhóm máu',
+                value: card.bloodType.trim().isEmpty ? 'Chưa cung cấp' : card.bloodType,
+              ),
+              _MedicalFieldRow(
+                label: 'Dị ứng thuốc / thức ăn',
+                value: card.allergies.trim().isEmpty ? 'Chưa cung cấp' : card.allergies,
+              ),
+              _MedicalFieldRow(
+                label: 'Tiền sử / Bệnh nền',
+                value: card.chronicConditions.trim().isEmpty
+                    ? 'Chưa cung cấp'
+                    : card.chronicConditions,
+              ),
               _MedicalFieldRow(
                 label: 'Mã số BHYT',
-                value: card.insuranceCode.isEmpty ? 'Chưa cập nhật mã thẻ BHYT' : card.insuranceCode,
+                value: card.insuranceCode.trim().isEmpty
+                    ? 'Chưa cung cấp'
+                    : card.insuranceCode,
               ),
-              _MedicalFieldRow(label: 'Nơi ĐK khám chữa bệnh', value: card.preferredHospital),
+              _MedicalFieldRow(
+                label: 'Nơi ĐK khám chữa bệnh',
+                value: card.preferredHospital.trim().isEmpty
+                    ? 'Chưa cung cấp'
+                    : card.preferredHospital,
+              ),
               _MedicalFieldRow(
                 label: 'Liên hệ khẩn cấp',
-                value: card.emergencyContactPhone.isEmpty
-                    ? card.emergencyContactName
-                    : '${card.emergencyContactName} (${card.emergencyContactPhone})',
+                value: card.emergencyContactName.trim().isEmpty &&
+                        card.emergencyContactPhone.trim().isEmpty
+                    ? 'Chưa cung cấp'
+                    : card.emergencyContactPhone.trim().isEmpty
+                        ? card.emergencyContactName
+                        : '${card.emergencyContactName} (${card.emergencyContactPhone})',
               ),
               const SizedBox(height: 12),
               LifeOsPrimaryCtaButton(
@@ -818,7 +865,8 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
     String userId,
     EmergencyMedicalCardEntity current,
   ) async {
-    var blood = current.bloodType.isEmpty ? 'O+' : current.bloodType;
+    const validBloodOptions = ['', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+    var blood = validBloodOptions.contains(current.bloodType) ? current.bloodType : '';
     final allergyCtrl = TextEditingController(text: current.allergies);
     final bhytCtrl = TextEditingController(text: current.insuranceCode);
     final contactNameCtrl = TextEditingController(text: current.emergencyContactName);
@@ -849,13 +897,15 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     isExpanded: true,
-                    initialValue: const ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
-                            .contains(blood)
-                        ? blood
-                        : 'O+',
-                    decoration: const InputDecoration(labelText: 'Nhóm máu'),
-                    items: const ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
-                        .map((b) => DropdownMenuItem(value: b, child: Text('Nhóm máu $b')))
+                    initialValue: blood,
+                    decoration: const InputDecoration(labelText: 'Nhóm máu (theo phiếu xét nghiệm)'),
+                    items: validBloodOptions
+                        .map(
+                          (b) => DropdownMenuItem(
+                            value: b,
+                            child: Text(b.isEmpty ? 'Chưa biết / Chưa xét nghiệm' : 'Nhóm máu $b'),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) {
                       if (v != null) setModal(() => blood = v);

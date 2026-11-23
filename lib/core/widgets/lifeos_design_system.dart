@@ -1259,7 +1259,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
     ),
     (
       title: 'Chi tiết giao dịch (Tự động)',
-      subtitle: 'Đối soát biến động số dư ngân hàng 98% độ tin cậy',
+      subtitle: 'Đối soát biến động số dư ngân hàng theo bộ quy tắc & xác nhận',
       icon: Icons.auto_awesome_rounded,
       route: '/auto-tx-review',
       tone: LifeOsAccentTone.emerald,
@@ -1321,8 +1321,8 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       tone: LifeOsAccentTone.purple,
     ),
     (
-      title: 'Tiện ích Pro 0₫ (Thay thế 6 App Trả phí)',
-      subtitle: 'Radar Gói đăng ký & Bảo hành, Quét Bill AI, Pomodoro, Sổ Hiếu Hỷ',
+      title: 'Tiện ích Tài chính & Đời sống nâng cao',
+      subtitle: 'Radar Gói đăng ký & Bảo hành, Quét Bill, Pomodoro, Sổ Hiếu Hỷ',
       icon: Icons.workspace_premium_rounded,
       route: '/pro-utilities',
       tone: LifeOsAccentTone.emerald,
@@ -1521,7 +1521,7 @@ Future<void> showLifeOsQuickCreateHub(BuildContext context) async {
           },
         ),
         (
-          title: 'Duyệt Giao dịch Ngân hàng Tự động (98% AI)',
+          title: 'Duyệt Giao dịch Ngân hàng Chờ Xác nhận',
           subtitle: 'Kiểm tra và xác nhận biến động số dư vừa bắt được',
           icon: Icons.auto_awesome_rounded,
           tone: LifeOsAccentTone.emerald,

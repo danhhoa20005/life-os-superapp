@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
+import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/utils/stream_combiner.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../../domain/repositories/calendar_repository.dart';
@@ -42,6 +43,7 @@ class CalendarRemoteDataSource {
       colorHex: (d['colorHex'] as String?) ?? '#0B7A2A',
       isPrimary: (d['isPrimary'] as bool?) ?? (doc.id == 'primary'),
       isSelected: (d['isSelected'] as bool?) ?? true,
+      isReadOnly: (d['isReadOnly'] as bool?) ?? false,
       source: source,
       googleCalendarId: d['googleCalendarId'] as String?,
       googleSyncToken: d['googleSyncToken'] as String?,
@@ -59,6 +61,7 @@ class CalendarRemoteDataSource {
       'colorHex': cal.colorHex,
       'isPrimary': cal.isPrimary,
       'isSelected': cal.isSelected,
+      'isReadOnly': cal.isReadOnly,
       'source': cal.source.name,
       'googleCalendarId': cal.googleCalendarId,
       'googleSyncToken': cal.googleSyncToken,
@@ -235,7 +238,7 @@ class CalendarRemoteDataSource {
       'calendarId': ev.calendarId,
       'ownerId': ev.ownerId,
       'ownerName': ev.ownerName,
-      'familyId': ev.visibility == CalendarEventVisibility.sharedEvent ? ev.familyId : null,
+      'familyId': ev.familyId,
       'visibility': ev.visibility.name,
       'title': ev.title,
       'description': ev.description,
@@ -358,7 +361,7 @@ class CalendarRemoteDataSource {
       calendarId: calendarId,
       ownerId: userId,
       ownerName: userName,
-      familyId: visibility == CalendarEventVisibility.sharedEvent ? familyId : null,
+      familyId: familyId,
       visibility: visibility,
       title: title,
       description: description,
@@ -519,6 +522,9 @@ class CalendarRemoteDataSource {
           'startsAt': Timestamp.fromDate(startsAt),
           'endsAt': Timestamp.fromDate(endsAt),
         });
+      } else {
+        // Immediately revoke previously published Busy/Free slot when user disables sharing!
+        batch.delete(slotRef);
       }
     }
 
@@ -535,6 +541,7 @@ class CalendarRemoteDataSource {
     String? googleCalendarId,
     String? googleEventId,
   }) async {
+    await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(eventId);
     if (visibility == CalendarEventVisibility.privateEvent) {
       final docRef =
           _firestore.collection('users').doc(userId).collection('private_events').doc(eventId);

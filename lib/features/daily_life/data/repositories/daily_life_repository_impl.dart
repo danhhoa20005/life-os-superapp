@@ -45,7 +45,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         );
       }
 
-      final s1 = _userRef(userId).collection('medications').snapshots().listen((snap) {
+      final s1 = _userRef(userId)
+          .collection('medications')
+          .limit(60)
+          .snapshots()
+          .listen((snap) {
         meds = snap.docs.map((doc) {
           final d = doc.data();
           return MedicationCabinetItemEntity(
@@ -65,7 +69,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         emitNow();
       });
 
-      final s2 = _userRef(userId).collection('health_logs').snapshots().listen((snap) {
+      final s2 = _userRef(userId)
+          .collection('health_logs')
+          .limit(45)
+          .snapshots()
+          .listen((snap) {
         healthLogs = snap.docs.map((doc) {
           final d = doc.data();
           return HealthVitalLogEntity(
@@ -94,19 +102,25 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           final d = doc.data()!;
           emergencyCard = EmergencyMedicalCardEntity(
             ownerId: userId,
-            bloodType: (d['bloodType'] ?? 'O+') as String,
-            allergies: (d['allergies'] ?? 'Không có dị ứng thuốc đã biết') as String,
-            chronicConditions: (d['chronicConditions'] ?? 'Sức khỏe bình thường') as String,
-            insuranceCode: (d['insuranceCode'] ?? '') as String,
-            emergencyContactName: (d['emergencyContactName'] ?? 'Người thân gia đình') as String,
-            emergencyContactPhone: (d['emergencyContactPhone'] ?? '') as String,
-            preferredHospital: (d['preferredHospital'] ?? 'Bệnh viện Đa khoa gần nhất') as String,
+            bloodType: ((d['bloodType'] ?? '') as String).trim(),
+            allergies: ((d['allergies'] ?? '') as String).trim(),
+            chronicConditions: ((d['chronicConditions'] ?? '') as String).trim(),
+            insuranceCode: ((d['insuranceCode'] ?? '') as String).trim(),
+            emergencyContactName: ((d['emergencyContactName'] ?? '') as String).trim(),
+            emergencyContactPhone: ((d['emergencyContactPhone'] ?? '') as String).trim(),
+            preferredHospital: ((d['preferredHospital'] ?? '') as String).trim(),
           );
+        } else {
+          emergencyCard = EmergencyMedicalCardEntity(ownerId: userId);
         }
         emitNow();
       });
 
-      final s4 = _userRef(userId).collection('grocery_items').snapshots().listen((snap) {
+      final s4 = _userRef(userId)
+          .collection('grocery_items')
+          .limit(100)
+          .snapshots()
+          .listen((snap) {
         groceries = snap.docs.map((doc) {
           final d = doc.data();
           return SmartGroceryItemEntity(
@@ -126,7 +140,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         emitNow();
       });
 
-      final s5 = _userRef(userId).collection('meal_plans').snapshots().listen((snap) {
+      final s5 = _userRef(userId)
+          .collection('meal_plans')
+          .limit(31)
+          .snapshots()
+          .listen((snap) {
         mealPlans = snap.docs.map((doc) {
           final d = doc.data();
           return DailyMealPlanEntity(
@@ -143,7 +161,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         emitNow();
       });
 
-      final s6 = _userRef(userId).collection('utility_readings').snapshots().listen((snap) {
+      final s6 = _userRef(userId)
+          .collection('utility_readings')
+          .limit(36)
+          .snapshots()
+          .listen((snap) {
         readings = snap.docs.map((doc) {
           final d = doc.data();
           return UtilityMeterReadingEntity(
@@ -185,7 +207,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         emitNow();
       });
 
-      final s8 = _userRef(userId).collection('life_notes').snapshots().listen((snap) {
+      final s8 = _userRef(userId)
+          .collection('life_notes')
+          .limit(80)
+          .snapshots()
+          .listen((snap) {
         notes = snap.docs.map((doc) {
           final d = doc.data();
           return SmartLifeNoteEntity(

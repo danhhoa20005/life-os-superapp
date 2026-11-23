@@ -1,9 +1,24 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Load production release keystore credentials from `android/key.properties` or CI environment variables.
+// See `android/key.properties.example` for Play App Signing / production key setup.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+}
+val envStoreFile = System.getenv("LIFEOS_RELEASE_STORE_FILE")
+val hasReleaseKeystore = (keystoreProperties.getProperty("storeFile")?.isNotBlank() == true &&
+    rootProject.file(keystoreProperties.getProperty("storeFile")).exists()) ||
+    (!envStoreFile.isNullOrBlank() && file(envStoreFile).exists())
 
 android {
     namespace = "vn.lifeos.app.life_os"
@@ -16,25 +31,41 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "vn.lifeos.app.life_os"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                val storePath = keystoreProperties.getProperty("storeFile") ?: envStoreFile!!
+                storeFile = if (keystorePropertiesFile.exists()) rootProject.file(storePath) else file(storePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                    ?: System.getenv("LIFEOS_RELEASE_STORE_PASSWORD")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                    ?: System.getenv("LIFEOS_RELEASE_KEY_ALIAS")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                    ?: System.getenv("LIFEOS_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                logger.lifecycle(
+                    "LifeOS Signing Notice: android/key.properties not found; falling back to local dev/OTA keystore. " +
+                        "Configure android/key.properties (see key.properties.example) before Google Play upload."
+                )
+                signingConfig = signingConfigs.getByName("debug")
+            }
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
@@ -47,8 +78,4 @@ kotlin {
 
 flutter {
     source = "../.."
-}
-
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
 }

@@ -1,0 +1,8 @@
+# Copy this file to `android/key.properties` (git-ignored) for Google Play App Signing / Production APK signing.
+# Generate an upload keystore with:
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+# Remember to register the production SHA-1 & SHA-256 fingerprints in Firebase Console (`life-os-vn-2026`).
+storePassword=CHANGE_ME_STORE_PASSWORD
+keyPassword=CHANGE_ME_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks

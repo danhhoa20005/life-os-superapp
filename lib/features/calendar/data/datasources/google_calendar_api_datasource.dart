@@ -198,12 +198,12 @@ class GoogleCalendarApiDataSource {
     }
   }
 
-  /// `GET /users/me/calendarList`
+  /// `GET /users/me/calendarList` — includes BOTH writable AND read-only calendars (holidays, shared schedules).
   Future<List<ManagedCalendarEntity>> listCalendars({
     required String accessToken,
     required String ownerId,
   }) async {
-    final uri = Uri.parse('$baseUrl/users/me/calendarList?minAccessRole=writer');
+    final uri = Uri.parse('$baseUrl/users/me/calendarList');
     final resp = await _httpClient.get(uri, headers: _headers(accessToken));
     await _invalidateIfUnauthorized(resp.statusCode, accessToken);
     if (resp.statusCode != 200) {
@@ -221,6 +221,8 @@ class GoogleCalendarApiDataSource {
       final gId = (item['id'] as String?) ?? '';
       if (gId.isEmpty) continue;
       final isPrimary = (item['primary'] as bool?) ?? false;
+      final accessRole = ((item['accessRole'] as String?) ?? 'writer').trim();
+      final isReadOnly = accessRole == 'reader' || accessRole == 'freeBusyReader';
       result.add(
         ManagedCalendarEntity(
           id: isPrimary ? 'primary' : _sanitizeDocId(gId),
@@ -231,6 +233,7 @@ class GoogleCalendarApiDataSource {
           colorHex: (item['backgroundColor'] as String?) ?? '#0B7A2A',
           isPrimary: isPrimary,
           isSelected: (item['selected'] as bool?) ?? true,
+          isReadOnly: isReadOnly,
           source: CalendarProviderSource.googleCalendar,
           googleCalendarId: gId,
         ),

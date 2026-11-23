@@ -118,16 +118,25 @@ class EmergencyMedicalCardEntity extends Equatable {
   final String emergencyContactPhone;
   final String preferredHospital;
 
+  /// Never pre-fills unverified medical values (such as fake 'O+' or 'No allergies').
+  /// Empty strings represent unprovided fields and render as "Chưa cung cấp" in UI.
   const EmergencyMedicalCardEntity({
     required this.ownerId,
-    this.bloodType = 'O+',
-    this.allergies = 'Không có dị ứng thuốc đã biết',
-    this.chronicConditions = 'Sức khỏe bình thường',
+    this.bloodType = '',
+    this.allergies = '',
+    this.chronicConditions = '',
     this.insuranceCode = '',
-    this.emergencyContactName = 'Người thân gia đình',
+    this.emergencyContactName = '',
     this.emergencyContactPhone = '',
-    this.preferredHospital = 'Bệnh viện Đa khoa gần nhất',
+    this.preferredHospital = '',
   });
+
+  bool get isConfigured =>
+      bloodType.trim().isNotEmpty ||
+      allergies.trim().isNotEmpty ||
+      chronicConditions.trim().isNotEmpty ||
+      insuranceCode.trim().isNotEmpty ||
+      emergencyContactPhone.trim().isNotEmpty;
 
   static const empty = EmergencyMedicalCardEntity(ownerId: '');
 
@@ -484,9 +493,47 @@ class UtilityBillCalculation extends Equatable {
       ];
 }
 
+/// Versioned EVN Retail Residential Electricity Tariff Policy.
+enum EvnTariffPolicy {
+  /// Quyết định 2892/QĐ-BCT của Bộ Công Thương (hiệu lực từ 01/11/2026) — 5 bậc thang.
+  qd2892Nov2026(
+    code: 'QD_2892_BCT_2026_11_01',
+    title: 'Biểu giá 5 bậc EVN (QĐ 2892/QĐ-BCT · từ 01/11/2026)',
+    effectiveFromIso: '2026-11-01',
+  ),
+
+  /// Biểu giá 6 bậc trước ngày 01/11/2026 (dùng đối chiếu hóa đơn kỳ cũ).
+  legacy6TierPreNov2026(
+    code: 'EVN_LEGACY_6_TIER_PRE_2026_11',
+    title: 'Biểu giá 6 bậc cũ (Trước 01/11/2026)',
+    effectiveFromIso: '2024-10-11',
+  );
+
+  final String code;
+  final String title;
+  final String effectiveFromIso;
+
+  const EvnTariffPolicy({
+    required this.code,
+    required this.title,
+    required this.effectiveFromIso,
+  });
+}
+
 class VietnamEvnUtilityEngine {
-  /// Updated EVN 6-tier residential retail electricity tariff (VND/kWh before 8% VAT).
-  static const List<({int tier, String label, int capKwh, int priceVnd})> evnResidentialTiers = [
+  /// Official 5-tier residential retail electricity tariff from 01/11/2026 (`Quyết định 2892/QĐ-BCT`).
+  static const List<({int tier, String label, int capKwh, int priceVnd})>
+      evn5TiersQd2892Nov2026 = [
+    (tier: 1, label: 'Bậc 1 (0 – 100 kWh)', capKwh: 100, priceVnd: 1901),
+    (tier: 2, label: 'Bậc 2 (101 – 200 kWh)', capKwh: 100, priceVnd: 2289),
+    (tier: 3, label: 'Bậc 3 (201 – 400 kWh)', capKwh: 200, priceVnd: 2894),
+    (tier: 4, label: 'Bậc 4 (401 – 700 kWh)', capKwh: 300, priceVnd: 3456),
+    (tier: 5, label: 'Bậc 5 (Trên 700 kWh)', capKwh: 999999, priceVnd: 3844),
+  ];
+
+  /// Historical 6-tier residential tariff prior to 01/11/2026 for auditing older bills.
+  static const List<({int tier, String label, int capKwh, int priceVnd})>
+      evnLegacy6Tiers = [
     (tier: 1, label: 'Bậc 1 (0 – 50 kWh)', capKwh: 50, priceVnd: 1893),
     (tier: 2, label: 'Bậc 2 (51 – 100 kWh)', capKwh: 50, priceVnd: 1956),
     (tier: 3, label: 'Bậc 3 (101 – 200 kWh)', capKwh: 100, priceVnd: 2271),
@@ -501,6 +548,8 @@ class VietnamEvnUtilityEngine {
     required int prevWaterM3,
     required int currWaterM3,
     bool useEvnTieredTariff = true,
+    EvnTariffPolicy policy = EvnTariffPolicy.qd2892Nov2026,
+    int vatRatePercent = 8,
     int customFlatElectricVndPerKwh = 3800,
     int waterVndPerM3 = 15000,
     int internetAndManagementMinor = 220000,
@@ -509,14 +558,18 @@ class VietnamEvnUtilityEngine {
     final kwh = (currElectricKwh - prevElectricKwh).clamp(0, 100000);
     final m3 = (currWaterM3 - prevWaterM3).clamp(0, 10000);
     final safeMembers = splitMemberCount.clamp(1, 30);
+    final safeVatPct = vatRatePercent.clamp(0, 20);
 
     final slices = <EvnTierSlice>[];
     var elecPreVat = 0;
     var elecVat = 0;
 
     if (useEvnTieredTariff) {
+      final activeTiers = policy == EvnTariffPolicy.qd2892Nov2026
+          ? evn5TiersQd2892Nov2026
+          : evnLegacy6Tiers;
       var remaining = kwh;
-      for (final t in evnResidentialTiers) {
+      for (final t in activeTiers) {
         if (remaining <= 0) break;
         final usedInTier = remaining > t.capKwh ? t.capKwh : remaining;
         final sub = usedInTier * t.priceVnd;
@@ -532,7 +585,7 @@ class VietnamEvnUtilityEngine {
         elecPreVat += sub;
         remaining -= usedInTier;
       }
-      elecVat = (elecPreVat * 0.08).round();
+      elecVat = ((elecPreVat * safeVatPct) / 100).round();
     } else {
       elecPreVat = kwh * customFlatElectricVndPerKwh.clamp(0, 50000);
       slices.add(
@@ -782,15 +835,77 @@ class VietnamSalaryTaxResult extends Equatable {
       ];
 }
 
+/// Regional Minimum Wage Zones (`Nghị định 293/2025/NĐ-CP`, hiệu lực từ 01/01/2026).
+enum VietnamWageRegion {
+  region1(label: 'Vùng I (5,31tr · Trần BHTN 106,2tr)', minWage2026Vnd: 5310000, minWage2025Vnd: 4960000),
+  region2(label: 'Vùng II (4,73tr · Trần BHTN 94,6tr)', minWage2026Vnd: 4730000, minWage2025Vnd: 4410000),
+  region3(label: 'Vùng III (4,14tr · Trần BHTN 82,8tr)', minWage2026Vnd: 4140000, minWage2025Vnd: 3860000),
+  region4(label: 'Vùng IV (3,70tr · Trần BHTN 74,0tr)', minWage2026Vnd: 3700000, minWage2025Vnd: 3450000);
+
+  final String label;
+  final int minWage2026Vnd;
+  final int minWage2025Vnd;
+
+  const VietnamWageRegion({
+    required this.label,
+    required this.minWage2026Vnd,
+    required this.minWage2025Vnd,
+  });
+
+  int bhtnSalaryCapForPolicy(VietnamTaxPolicy policy) {
+    final base = policy == VietnamTaxPolicy.law109Year2026 ? minWage2026Vnd : minWage2025Vnd;
+    return base * 20;
+  }
+}
+
+/// Versioned Personal Income Tax Policy (`Luật Thuế TNCN 109/2025/QH15` vs Legacy 2025).
+enum VietnamTaxPolicy {
+  /// Kỳ tính thuế từ 2026: Giảm trừ bản thân 15,5 triệu/tháng, NPT 6,2 triệu/tháng, Biểu thuế 5 bậc.
+  law109Year2026(
+    code: 'LAW_109_2025_QH15_YEAR_2026',
+    title: 'Kỳ thuế 2026 (Luật 109/2025 · 5 bậc · Giảm trừ 15,5tr)',
+    personalDeductionVnd: 15500000,
+    dependentDeductionVnd: 6200000,
+  ),
+
+  /// Kỳ tính thuế trước 2026: Giảm trừ bản thân 11 triệu/tháng, NPT 4,4 triệu/tháng, Biểu thuế 7 bậc.
+  legacy7Bracket2025(
+    code: 'PIT_LEGACY_7_BRACKET_PRE_2026',
+    title: 'Kỳ thuế 2025 trở về trước (7 bậc · Giảm trừ 11tr)',
+    personalDeductionVnd: 11000000,
+    dependentDeductionVnd: 4400000,
+  );
+
+  final String code;
+  final String title;
+  final int personalDeductionVnd;
+  final int dependentDeductionVnd;
+
+  const VietnamTaxPolicy({
+    required this.code,
+    required this.title,
+    required this.personalDeductionVnd,
+    required this.dependentDeductionVnd,
+  });
+}
+
 class VietnamGrossNetTaxEngine {
-  static const int personalDeductionVnd = 11000000;
-  static const int dependentDeductionPerPersonVnd = 4400000;
   // 20x statutory base salary (2.340.000 * 20 = 46.800.000 VND) cap for BHXH/BHYT
   static const int bhxhBhytSalaryCapVnd = 46800000;
-  // 20x Region I minimum wage (4.960.000 * 20 = 99.200.000 VND) cap for BHTN
-  static const int bhtnRegion1SalaryCapVnd = 99200000;
 
-  static const List<({int level, String label, int capVnd, int ratePct})> pitBrackets = [
+  /// Official 5-bracket progressive PIT schedule from tax year 2026 (`Luật Thuế TNCN 109/2025/QH15`).
+  static const List<({int level, String label, int capVnd, int ratePct})>
+      pit5Brackets2026 = [
+    (level: 1, label: 'Bậc 1 (Đến 10 triệu)', capVnd: 10000000, ratePct: 5),
+    (level: 2, label: 'Bậc 2 (Trên 10 – 30 triệu)', capVnd: 20000000, ratePct: 10),
+    (level: 3, label: 'Bậc 3 (Trên 30 – 60 triệu)', capVnd: 30000000, ratePct: 20),
+    (level: 4, label: 'Bậc 4 (Trên 60 – 100 triệu)', capVnd: 40000000, ratePct: 30),
+    (level: 5, label: 'Bậc 5 (Trên 100 triệu)', capVnd: 999999999999, ratePct: 35),
+  ];
+
+  /// Legacy 7-bracket progressive PIT schedule (for historical 2025 comparison).
+  static const List<({int level, String label, int capVnd, int ratePct})>
+      pitLegacy7Brackets2025 = [
     (level: 1, label: 'Bậc 1 (Đến 5 triệu)', capVnd: 5000000, ratePct: 5),
     (level: 2, label: 'Bậc 2 (Trên 5 – 10 triệu)', capVnd: 5000000, ratePct: 10),
     (level: 3, label: 'Bậc 3 (Trên 10 – 18 triệu)', capVnd: 8000000, ratePct: 15),
@@ -803,12 +918,15 @@ class VietnamGrossNetTaxEngine {
   static VietnamSalaryTaxResult fromGross({
     required int grossMinor,
     int dependentsCount = 0,
+    VietnamTaxPolicy policy = VietnamTaxPolicy.law109Year2026,
+    VietnamWageRegion region = VietnamWageRegion.region1,
   }) {
     final gross = grossMinor.clamp(0, 5000000000);
     final deps = dependentsCount.clamp(0, 20);
+    final bhtnCap = region.bhtnSalaryCapForPolicy(policy);
 
     final bhxhBase = gross > bhxhBhytSalaryCapVnd ? bhxhBhytSalaryCapVnd : gross;
-    final bhtnBase = gross > bhtnRegion1SalaryCapVnd ? bhtnRegion1SalaryCapVnd : gross;
+    final bhtnBase = gross > bhtnCap ? bhtnCap : gross;
 
     final bhxh = (bhxhBase * 0.08).round();
     final bhyt = (bhxhBase * 0.015).round();
@@ -816,15 +934,20 @@ class VietnamGrossNetTaxEngine {
     final totalEmpIns = bhxh + bhyt + bhtn;
 
     final incomeBeforeTax = gross - totalEmpIns;
-    final depDeduct = deps * dependentDeductionPerPersonVnd;
+    final personalDeduct = policy.personalDeductionVnd;
+    final depDeduct = deps * policy.dependentDeductionVnd;
     final taxable =
-        (incomeBeforeTax - personalDeductionVnd - depDeduct).clamp(0, 5000000000);
+        (incomeBeforeTax - personalDeduct - depDeduct).clamp(0, 5000000000);
+
+    final activeBrackets = policy == VietnamTaxPolicy.law109Year2026
+        ? pit5Brackets2026
+        : pitLegacy7Brackets2025;
 
     final breakdown = <PitBracketBreakdown>[];
     var remainingTaxable = taxable;
     var totalPit = 0;
 
-    for (final b in pitBrackets) {
+    for (final b in activeBrackets) {
       if (remainingTaxable <= 0) break;
       final slice = remainingTaxable > b.capVnd ? b.capVnd : remainingTaxable;
       final tax = ((slice * b.ratePct) / 100).round();
@@ -851,7 +974,7 @@ class VietnamGrossNetTaxEngine {
       bhytMinor: bhyt,
       bhtnMinor: bhtn,
       totalEmployeeInsuranceMinor: totalEmpIns,
-      personalDeductionMinor: personalDeductionVnd,
+      personalDeductionMinor: personalDeduct,
       dependentDeductionMinor: depDeduct,
       taxableIncomeMinor: taxable,
       personalIncomeTaxMinor: totalPit,
@@ -865,22 +988,41 @@ class VietnamGrossNetTaxEngine {
   static VietnamSalaryTaxResult fromNet({
     required int targetNetMinor,
     int dependentsCount = 0,
+    VietnamTaxPolicy policy = VietnamTaxPolicy.law109Year2026,
+    VietnamWageRegion region = VietnamWageRegion.region1,
   }) {
     final target = targetNetMinor.clamp(0, 2000000000);
-    if (target == 0) return fromGross(grossMinor: 0, dependentsCount: dependentsCount);
+    if (target == 0) {
+      return fromGross(
+        grossMinor: 0,
+        dependentsCount: dependentsCount,
+        policy: policy,
+        region: region,
+      );
+    }
 
     var low = target;
     var high = (target * 2) + 50000000;
     for (var i = 0; i < 42; i++) {
       final mid = (low + high) ~/ 2;
-      final attempt = fromGross(grossMinor: mid, dependentsCount: dependentsCount);
+      final attempt = fromGross(
+        grossMinor: mid,
+        dependentsCount: dependentsCount,
+        policy: policy,
+        region: region,
+      );
       if (attempt.netSalaryMinor < target) {
         low = mid + 1;
       } else {
         high = mid;
       }
     }
-    return fromGross(grossMinor: low, dependentsCount: dependentsCount);
+    return fromGross(
+      grossMinor: low,
+      dependentsCount: dependentsCount,
+      policy: policy,
+      region: region,
+    );
   }
 }
 

@@ -22,6 +22,8 @@ class VehicleRemoteDataSource {
   ) {
     final d = doc.data() ?? const <String, dynamic>{};
     final lastDateRaw = d['lastServiceDate'];
+    final insRaw = d['insuranceExpiryDate'];
+    final inspRaw = d['inspectionExpiryDate'];
     return VehicleEntity(
       id: (d['id'] as String?) ?? doc.id,
       ownerId: (d['ownerId'] as String?) ?? '',
@@ -35,6 +37,8 @@ class VehicleRemoteDataSource {
       lastServiceDate: lastDateRaw is Timestamp ? lastDateRaw.toDate() : DateTime.now(),
       serviceIntervalKm: (d['serviceIntervalKm'] as num?)?.toInt() ?? 3000,
       serviceIntervalDays: (d['serviceIntervalDays'] as num?)?.toInt() ?? 90,
+      insuranceExpiryDate: insRaw is Timestamp ? insRaw.toDate() : null,
+      inspectionExpiryDate: inspRaw is Timestamp ? inspRaw.toDate() : null,
     );
   }
 

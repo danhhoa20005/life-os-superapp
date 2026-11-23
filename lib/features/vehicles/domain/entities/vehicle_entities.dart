@@ -16,6 +16,8 @@ class VehicleEntity extends Equatable {
   final DateTime lastServiceDate;
   final int serviceIntervalKm;
   final int serviceIntervalDays;
+  final DateTime? insuranceExpiryDate;
+  final DateTime? inspectionExpiryDate;
 
   const VehicleEntity({
     required this.id,
@@ -30,6 +32,8 @@ class VehicleEntity extends Equatable {
     required this.lastServiceDate,
     this.serviceIntervalKm = 3000,
     this.serviceIntervalDays = 90,
+    this.insuranceExpiryDate,
+    this.inspectionExpiryDate,
   });
 
   String displayPlateForViewer(String viewerUserId) {
@@ -73,6 +77,8 @@ class VehicleEntity extends Equatable {
         lastServiceDate,
         serviceIntervalKm,
         serviceIntervalDays,
+        insuranceExpiryDate,
+        inspectionExpiryDate,
       ];
 }
 

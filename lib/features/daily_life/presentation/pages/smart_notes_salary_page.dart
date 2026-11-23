@@ -24,10 +24,12 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
   String _tab = 'notes';
   String _noteSearch = '';
 
-  // Vietnam Gross <-> Net & 7-Bracket PIT Salary Engine State
+  // Vietnam Gross <-> Net & 5-Bracket 2026 PIT Salary Engine State (Luật 109/2025/QH15)
   bool _grossToNetMode = true;
   int _salaryInputMinor = 25000000;
   int _dependents = 0;
+  VietnamTaxPolicy _taxPolicy = VietnamTaxPolicy.law109Year2026;
+  VietnamWageRegion _wageRegion = VietnamWageRegion.region1;
 
   static const List<int> _salaryPresets = [
     15000000,
@@ -49,10 +51,14 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
         ? VietnamGrossNetTaxEngine.fromGross(
             grossMinor: _salaryInputMinor,
             dependentsCount: _dependents,
+            policy: _taxPolicy,
+            region: _wageRegion,
           )
         : VietnamGrossNetTaxEngine.fromNet(
             targetNetMinor: _salaryInputMinor,
             dependentsCount: _dependents,
+            policy: _taxPolicy,
+            region: _wageRegion,
           );
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
@@ -81,7 +87,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                   const LifeOsTopBrandHeader(
                     title: 'Ghi chú & Lương Gross–Net',
                     subtitle:
-                        'Sổ tay ghim thông minh, nhật ký cảm xúc & tính thuế TNCN 7 bậc.',
+                        'Sổ tay thông minh, nhật ký cảm xúc & thuế TNCN 5 bậc 2026 (Luật 109/2025).',
                     showBackButton: true,
                   ),
                   Expanded(
@@ -436,7 +442,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Số người phụ thuộc (4,4 triệu/người)',
+                      'Người phụ thuộc (${VndAmount.format(_taxPolicy.dependentDeductionVnd)}/người)',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 13, color: c.textSecondary),
@@ -454,6 +460,36 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                     },
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<VietnamTaxPolicy>(
+                isExpanded: true,
+                initialValue: _taxPolicy,
+                decoration: const InputDecoration(
+                  labelText: 'Chính sách Thuế TNCN & Giảm trừ gia cảnh',
+                  isDense: true,
+                ),
+                items: VietnamTaxPolicy.values
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p.title)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _taxPolicy = v);
+                },
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<VietnamWageRegion>(
+                isExpanded: true,
+                initialValue: _wageRegion,
+                decoration: const InputDecoration(
+                  labelText: 'Vùng lương tối thiểu đóng BHTN (NĐ 293/2025)',
+                  isDense: true,
+                ),
+                items: VietnamWageRegion.values
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r.label)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _wageRegion = v);
+                },
               ),
             ],
           ),
@@ -492,7 +528,9 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 amount: res.taxableIncomeMinor,
               ),
               _TaxLine(
-                label: 'Thuế TNCN lũy tiến (${res.brackets.length} bậc)',
+                label: _taxPolicy == VietnamTaxPolicy.law109Year2026
+                    ? 'Thuế TNCN lũy tiến 5 bậc (Luật 109/2025)'
+                    : 'Thuế TNCN lũy tiến 7 bậc (Kỳ 2025)',
                 amount: -res.personalIncomeTaxMinor,
                 highlightCoral: res.personalIncomeTaxMinor > 0,
               ),

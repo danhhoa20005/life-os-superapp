@@ -11,48 +11,62 @@ import 'package:life_os/features/daily_life/domain/entities/daily_life_entities.
 import 'package:life_os/features/daily_life/presentation/bloc/daily_life_bloc.dart';
 
 void main() {
-  group('360° Daily Life Engines (EVN 6-Tier, Gross-Net 7-Bracket PIT, Asian BMI/TDEE)', () {
-    test('VietnamEvnUtilityEngine calculates 6-tier EVN residential bill + 8% VAT & split accurately', () {
-      final bill = VietnamEvnUtilityEngine.calculate(
+  group('360° Daily Life Engines (EVN 5-Tier QĐ 2892/2026, PIT 5-Bracket Luật 109/2025, Asian BMI/TDEE)', () {
+    test('VietnamEvnUtilityEngine calculates 2026 5-tier EVN (QĐ 2892/QĐ-BCT) & legacy 6-tier accurately', () {
+      // 1. Default 2026 5-tier (0-100@1901, 101-200@2289, 201-400@2894) for 250 kWh:
+      // 100*1901 (190100) + 100*2289 (228900) + 50*2894 (144700) = 563700; 8% VAT = 45096 => 608796
+      final bill2026 = VietnamEvnUtilityEngine.calculate(
         prevElectricKwh: 1000,
-        currElectricKwh: 1250, // 250 kWh: 50@T1 + 50@T2 + 100@T3 + 50@T4
+        currElectricKwh: 1250,
         prevWaterM3: 40,
-        currWaterM3: 50, // 10 m3 * 15.000 = 150.000
+        currWaterM3: 50,
         useEvnTieredTariff: true,
         waterVndPerM3: 15000,
         internetAndManagementMinor: 200000,
         splitMemberCount: 2,
       );
+      expect(bill2026.kwhConsumed, 250);
+      expect(bill2026.evnTiers.length, 3);
+      expect(bill2026.electricityPreVatMinor, 563700);
+      expect(bill2026.electricityVatMinor, 45096);
+      expect(bill2026.electricityTotalMinor, 608796);
+      expect(bill2026.grandTotalMinor, 958796);
+      expect(bill2026.perPersonShareMinor, 479398);
 
-      expect(bill.kwhConsumed, 250);
-      expect(bill.evnTiers.length, 4);
-      // 50*1893 (94650) + 50*1956 (97800) + 100*2271 (227100) + 50*2860 (143000) = 562550
-      expect(bill.electricityPreVatMinor, 562550);
-      expect(bill.electricityVatMinor, 45004); // 8% VAT
-      expect(bill.electricityTotalMinor, 607554);
-      expect(bill.waterTotalMinor, 150000);
-      expect(bill.grandTotalMinor, 957554);
-      expect(bill.perPersonShareMinor, 478777);
+      // 2. Legacy 6-tier comparison mode
+      final billLegacy = VietnamEvnUtilityEngine.calculate(
+        prevElectricKwh: 1000,
+        currElectricKwh: 1250,
+        prevWaterM3: 40,
+        currWaterM3: 50,
+        useEvnTieredTariff: true,
+        policy: EvnTariffPolicy.legacy6TierPreNov2026,
+        waterVndPerM3: 15000,
+        internetAndManagementMinor: 200000,
+        splitMemberCount: 2,
+      );
+      expect(billLegacy.evnTiers.length, 4);
+      expect(billLegacy.electricityPreVatMinor, 562550);
     });
 
-    test('VietnamGrossNetTaxEngine computes BHXH/BHYT/BHTN, 7 PIT brackets & round-trip Net->Gross', () {
-      final gross30M = VietnamGrossNetTaxEngine.fromGross(
-        grossMinor: 30000000,
+    test('VietnamGrossNetTaxEngine computes 2026 5-bracket PIT (15.5M/6.2M) & round-trip Net->Gross', () {
+      final gross35M = VietnamGrossNetTaxEngine.fromGross(
+        grossMinor: 35000000,
         dependentsCount: 1,
       );
-      // Insurance: 8% (2.4M) + 1.5% (450k) + 1% (300k) = 3.150.000
-      expect(gross30M.totalEmployeeInsuranceMinor, 3150000);
-      // Taxable: 30M - 3.15M - 11M - 4.4M = 11.450.000 (Bracket 1: 5M@5%=250k, Bracket 2: 5M@10%=500k, Bracket 3: 1.45M@15%=217.5k => 967.500)
-      expect(gross30M.taxableIncomeMinor, 11450000);
-      expect(gross30M.personalIncomeTaxMinor, 967500);
-      expect(gross30M.netSalaryMinor, 25882500);
+      // Insurance: 8% (2.8M) + 1.5% (525k) + 1% (350k) = 3.675.000
+      expect(gross35M.totalEmployeeInsuranceMinor, 3675000);
+      // Taxable (2026): 35M - 3.675M - 15.5M - 6.2M = 9.625.000 (Bracket 1 <=10M @ 5% => 481.250)
+      expect(gross35M.taxableIncomeMinor, 9625000);
+      expect(gross35M.personalIncomeTaxMinor, 481250);
+      expect(gross35M.netSalaryMinor, 30843750);
 
-      // Reverse Net -> Gross
+      // Reverse Net -> Gross (2026 policy)
       final reversed = VietnamGrossNetTaxEngine.fromNet(
-        targetNetMinor: 25882500,
+        targetNetMinor: 30843750,
         dependentsCount: 1,
       );
-      expect((reversed.grossSalaryMinor - 30000000).abs() <= 5, isTrue);
+      expect((reversed.grossSalaryMinor - 35000000).abs() <= 5, isTrue);
     });
 
     test('AsianHealthBmiTdeeEngine applies Asian-Pacific WHO cutoffs (18.5–22.9)', () {
@@ -183,7 +197,7 @@ void main() {
     await tester.drag(find.byType(ListView).first, const Offset(0, -280));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tiện ích thường dùng'), findsOneWidget);
+    expect(find.text('Tiện ích của bạn'), findsOneWidget);
 
     // 1. Open Health & Medication Hub from 4x2 Dock
     await tester.tap(find.byKey(const Key('home_tile_health')));

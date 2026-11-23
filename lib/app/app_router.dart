@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_assets.dart';
 import '../core/di/dependency_injection.dart';
+import '../core/services/native_alarm_scheduler_bridge.dart';
 import '../core/services/native_home_widget_bridge.dart';
 import '../core/utils/smart_quick_entry_parser.dart';
 import '../core/utils/vnd_amount.dart';
@@ -831,12 +832,43 @@ class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHo
     super.initState();
     final bridge = sl<NativeHomeWidgetBridge>();
     _widgetActionSub = bridge.widgetActions.listen(_handleWidgetAction);
+    NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(_handleRingingAlarm);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final pending = await bridge.consumePendingWidgetAction();
       if (pending != null && mounted) {
         _handleWidgetAction(pending);
       }
+      final pendingAlarm =
+          await NativeAlarmSchedulerBridge.instance.consumeInitialAlarmPayload();
+      if (pendingAlarm != null && mounted) {
+        _handleRingingAlarm(pendingAlarm);
+      }
     });
+  }
+
+  void _handleRingingAlarm(Map<String, String> payload) {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final eventId = payload['eventId'] ?? '';
+    final existing = context
+        .read<CalendarBloc>()
+        .state
+        .events
+        .where((e) => e.id == eventId)
+        .firstOrNull;
+    final ev = existing ??
+        CalendarEventEntity(
+          id: eventId.isEmpty ? 'alarm_ringing' : eventId,
+          ownerId: 'self',
+          ownerName: 'LifeOS',
+          calendarId: 'primary',
+          visibility: CalendarEventVisibility.privateEvent,
+          title: payload['title'] ?? 'Nhắc lịch trình LifeOS',
+          location: payload['subtitle'],
+          startsAt: now,
+          endsAt: now.add(const Duration(hours: 1)),
+        );
+    context.push('/event-alarm', extra: ev);
   }
 
   void _handleWidgetAction(String action) {
@@ -891,6 +923,7 @@ class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHo
 
   @override
   void dispose() {
+    NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(null);
     _widgetActionSub?.cancel();
     super.dispose();
   }

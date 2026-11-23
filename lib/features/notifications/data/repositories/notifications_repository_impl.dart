@@ -7,6 +7,8 @@ import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/android_notification_bridge.dart';
+import '../../../../core/services/native_alarm_scheduler_bridge.dart';
+import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../domain/entities/notification_entities.dart';
 import '../../domain/repositories/notifications_repository.dart';
@@ -41,13 +43,46 @@ class NotificationsRemoteDataSource {
   DocumentReference<Map<String, dynamic>> _sePayConfigRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('consents').doc('sepay_api');
 
+  static String _sePayVaultKey(String userId) => 'sepay_api_token_$userId';
+
+  static String _maskSecretToken(String token) {
+    final t = token.trim();
+    if (t.isEmpty) return '';
+    if (t.length <= 6) return '••••••';
+    return '••••••••••••${t.substring(t.length - 4)}';
+  }
+
   Future<String?> getSavedSePayMaskedToken(String userId) async {
+    final vaultToken = await NativeSecureVaultBridge.instance.readSecret(_sePayVaultKey(userId));
+    if (vaultToken != null && vaultToken.trim().isNotEmpty) {
+      return _maskSecretToken(vaultToken);
+    }
     final snap = await _sePayConfigRef(userId).get();
     if (!snap.exists) return null;
-    final token = (snap.data()?['apiToken'] as String?)?.trim() ?? '';
-    if (token.isEmpty) return null;
-    if (token.length <= 6) return '••••••';
-    return '••••••••••••${token.substring(token.length - 4)}';
+    final data = snap.data() ?? const <String, dynamic>{};
+    // Auto-migrate & scrub any legacy plaintext `apiToken` stored by older app versions
+    final legacyPlain = (data['apiToken'] as String?)?.trim() ?? '';
+    if (legacyPlain.isNotEmpty) {
+      await NativeSecureVaultBridge.instance.writeSecret(
+        key: _sePayVaultKey(userId),
+        value: legacyPlain,
+      );
+      final masked = _maskSecretToken(legacyPlain);
+      await _sePayConfigRef(userId).set(
+        {
+          'sourceId': 'sepay_api',
+          'ownerId': userId,
+          'hasTokenConfigured': true,
+          'maskedToken': masked,
+          'apiToken': FieldValue.delete(),
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        },
+        SetOptions(merge: true),
+      );
+      return masked;
+    }
+    final savedMasked = (data['maskedToken'] as String?)?.trim() ?? '';
+    return savedMasked.isEmpty ? null : savedMasked;
   }
 
   Future<int> syncSePayTransactions({
@@ -58,19 +93,45 @@ class NotificationsRemoteDataSource {
   }) async {
     var resolvedToken = apiTokenOverride?.trim() ?? '';
     if (resolvedToken.isNotEmpty) {
+      await NativeSecureVaultBridge.instance.writeSecret(
+        key: _sePayVaultKey(userId),
+        value: resolvedToken,
+      );
+      // Store ONLY non-sensitive masked status in Firestore (NEVER plaintext `apiToken`!)
       await _sePayConfigRef(userId).set(
         {
           'sourceId': 'sepay_api',
           'ownerId': userId,
-          'apiToken': resolvedToken,
+          'hasTokenConfigured': true,
+          'maskedToken': _maskSecretToken(resolvedToken),
+          'apiToken': FieldValue.delete(),
           'defaultWalletId': walletId,
           'updatedAt': Timestamp.fromDate(DateTime.now()),
         },
         SetOptions(merge: true),
       );
     } else {
-      final snap = await _sePayConfigRef(userId).get();
-      resolvedToken = (snap.data()?['apiToken'] as String?)?.trim() ?? '';
+      resolvedToken =
+          (await NativeSecureVaultBridge.instance.readSecret(_sePayVaultKey(userId)))?.trim() ?? '';
+      if (resolvedToken.isEmpty) {
+        final snap = await _sePayConfigRef(userId).get();
+        final legacyPlain = (snap.data()?['apiToken'] as String?)?.trim() ?? '';
+        if (legacyPlain.isNotEmpty) {
+          resolvedToken = legacyPlain;
+          await NativeSecureVaultBridge.instance.writeSecret(
+            key: _sePayVaultKey(userId),
+            value: legacyPlain,
+          );
+          await _sePayConfigRef(userId).set(
+            {
+              'hasTokenConfigured': true,
+              'maskedToken': _maskSecretToken(legacyPlain),
+              'apiToken': FieldValue.delete(),
+            },
+            SetOptions(merge: true),
+          );
+        }
+      }
     }
 
     final remoteItems = await _sePayApi.fetchRecentTransactions(
@@ -622,13 +683,36 @@ class NotificationsRemoteDataSource {
 
   Future<void> deleteAccountAndPersonalData(String userId) async {
     await _bridge.syncConsentConfig(enabled: false, allowedPackages: const []);
+    await NativeSecureVaultBridge.instance.clearAllSecrets();
+    await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
 
-    // Remove user from any families without deleting shared family ledgers
+    final userDocRef = _firestore.collection('users').doc(userId);
+    // Mark account deletion active so Cloud Firestore Security Rules allow purging append-only ledgers
+    await userDocRef.set(
+      {
+        'id': userId,
+        'deletionInProgress': true,
+        'deletionStartedAt': Timestamp.fromDate(DateTime.now()),
+      },
+      SetOptions(merge: true),
+    );
+
+    // Revoke any published Busy/Free slots & remove user from shared families without deleting family ledgers
     final famSnap = await _firestore
         .collection('families')
         .where('memberIds', arrayContains: userId)
         .get();
     for (final famDoc in famSnap.docs) {
+      try {
+        final availSnap = await famDoc.reference
+            .collection('availability')
+            .where('ownerId', isEqualTo: userId)
+            .get();
+        for (final slot in availSnap.docs) {
+          await slot.reference.delete();
+        }
+      } catch (_) {}
+
       final d = famDoc.data();
       final members = (d['memberIds'] as List<dynamic>? ?? const <dynamic>[])
           .map((e) => e.toString())
@@ -643,10 +727,31 @@ class NotificationsRemoteDataSource {
       });
     }
 
-    // Delete personal subcollections owned by user (excluding immutable transactions if restricted by cloud rules, handled gracefully)
-    const deletableSubcollections = [
+    // Purge nested subcollections inside personal_funds & vehicles first
+    final pFundsSnap = await userDocRef.collection('personal_funds').get();
+    for (final fundDoc in pFundsSnap.docs) {
+      for (final nested in const ['contributions', 'expenses']) {
+        final nSnap = await fundDoc.reference.collection(nested).get();
+        for (final nDoc in nSnap.docs) {
+          await nDoc.reference.delete();
+        }
+      }
+    }
+    final vehiclesSnap = await userDocRef.collection('vehicles').get();
+    for (final vDoc in vehiclesSnap.docs) {
+      final mSnap = await vDoc.reference.collection('maintenances').get();
+      for (final mDoc in mSnap.docs) {
+        await mDoc.reference.delete();
+      }
+    }
+
+    // Purge ALL 28 personal subcollections (including transactions, audits, health, kitchen, notes & vault metadata)
+    const allPersonalSubcollections = [
       'wallets',
+      'ledger_audits',
+      'net_worth_snapshots',
       'categories',
+      'transactions',
       'budgets',
       'personal_funds',
       'calendars',
@@ -671,8 +776,7 @@ class NotificationsRemoteDataSource {
       'home_contracts',
       'life_notes',
     ];
-    final userDocRef = _firestore.collection('users').doc(userId);
-    for (final sub in deletableSubcollections) {
+    for (final sub in allPersonalSubcollections) {
       final subSnap = await userDocRef.collection(sub).get();
       for (final d in subSnap.docs) {
         await d.reference.delete();
