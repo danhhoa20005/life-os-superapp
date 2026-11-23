@@ -81,8 +81,7 @@ class AppUpdateBanner extends StatelessWidget {
                           ),
                           Text(
                             'Hiện tại: v${state.installedVersion} → Mới: v${manifest.latestVersion}'
-                            '${manifest.formattedSizeMb != null ? " (${manifest.formattedSizeMb})" : ""}'
-                            ' · Nguồn: ${manifest.sourceName}',
+                            '${manifest.formattedSizeMb != null ? " (${manifest.formattedSizeMb})" : ""}',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.82),
                               fontSize: 12,
@@ -188,22 +187,6 @@ class AppUpdateBanner extends StatelessWidget {
                               : 'Tải & Cập nhật ngay',
                         ),
                       ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.14),
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        onPressed: () => context.read<AppUpdateBloc>().add(
-                          AppUpdateOpenReleasePageRequested(
-                            manifest.htmlReleaseUrl,
-                          ),
-                        ),
-                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                        label: const Text('Xem trên GitHub'),
-                      ),
                     ],
                   ),
                 ],
@@ -270,7 +253,7 @@ class AppUpdateSettingsCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            'Đang dùng: v${state.installedDisplay}',
+                            'Đang dùng: v${state.installedVersion}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -284,8 +267,8 @@ class AppUpdateSettingsCard extends StatelessWidget {
                       ? SemanticStatusKind.warning
                       : SemanticStatusKind.success,
                   label: state.hasUpdate
-                      ? 'Có bản cập nhật mới: v${manifest?.latestVersion} (${manifest?.sourceName})'
-                      : 'Hệ thống đang ở phiên bản mới nhất',
+                      ? 'Có bản cập nhật mới: v${manifest?.latestVersion}'
+                      : 'Bạn đang sử dụng phiên bản mới nhất',
                 ),
                 if (state.hasUpdate && manifest != null) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -363,15 +346,6 @@ class AppUpdateSettingsCard extends StatelessWidget {
                             )
                           : const Icon(Icons.sync_rounded, size: 18),
                       label: const Text('Kiểm tra bản mới'),
-                    ),
-                    TextButton.icon(
-                      onPressed: () => context.read<AppUpdateBloc>().add(
-                        const AppUpdateOpenReleasePageRequested(
-                          'https://github.com/danhhoa20005/life-os-superapp/releases',
-                        ),
-                      ),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 17),
-                      label: const Text('GitHub Releases'),
                     ),
                   ],
                 ),

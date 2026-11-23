@@ -236,7 +236,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
               const SizedBox(height: 12),
               const LifeOsStatusPill(
                 icon: Icons.check_circle_outline_rounded,
-                label: 'Sổ cái đã đồng bộ · 0 chờ duyệt',
+                label: 'Đã đồng bộ · Không có giao dịch chờ duyệt',
                 tone: LifeOsAccentTone.emerald,
               ),
             ],

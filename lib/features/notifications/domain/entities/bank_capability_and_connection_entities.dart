@@ -503,11 +503,11 @@ class FinancialNotificationEntity extends Equatable {
   bool get isVerified => verificationStatus == 'VERIFIED';
 
   String get sourceLabel => switch (sourceKind) {
-    'sepay_webhook' => 'SePay Webhook',
-    'sepay_api' => 'SePay API',
-    'androidNotification' => 'Thông báo Android',
-    'test' => 'Thông báo kiểm thử',
-    _ => sourceKind,
+    'sepay_webhook' => 'Đồng bộ tự động',
+    'sepay_api' => 'Đối soát ngân hàng',
+    'androidNotification' => 'Thông báo điện thoại',
+    'test' => 'Thông báo hệ thống',
+    _ => 'Tự động',
   };
 
   String get statusLabel => switch (verificationStatus) {

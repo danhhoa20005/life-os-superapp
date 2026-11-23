@@ -219,7 +219,7 @@ class FinancePage extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Thêm Ví / Tài khoản Sổ cái'),
+          title: const Text('Thêm Ví / Tài khoản mới'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -232,20 +232,20 @@ class FinancePage extends StatelessWidget {
                   decoration: const InputDecoration(hintText: 'VD: Vietcombank Lương'),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                const Text('Phân loại nguồn vốn'),
+                const Text('Loại tài khoản'),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<WalletType>(
                   isExpanded: true,
                   initialValue: selectedType,
                   items: const [
-                    DropdownMenuItem(value: WalletType.cash, child: Text('Tiền mặt (Liquid Cash)')),
+                    DropdownMenuItem(value: WalletType.cash, child: Text('Tiền mặt')),
                     DropdownMenuItem(
                       value: WalletType.bank,
-                      child: Text('Tài khoản Ngân hàng (NAPAS247)'),
+                      child: Text('Tài khoản Ngân hàng'),
                     ),
                     DropdownMenuItem(
                       value: WalletType.savings,
-                      child: Text('Sổ Tiết kiệm & Tích lũy (Wealth Vault)'),
+                      child: Text('Sổ Tiết kiệm & Tích lũy'),
                     ),
                     DropdownMenuItem(value: WalletType.creditCard, child: Text('Thẻ tín dụng')),
                   ],
@@ -363,13 +363,13 @@ class FinancePage extends StatelessWidget {
           final isTransfer =
               kind == TransactionKind.transfer || kind == TransactionKind.creditCardPayment;
           return AlertDialog(
-            title: const Text('Ghi nhận Giao dịch Sổ cái'),
+            title: const Text('Ghi giao dịch mới'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Loại bút toán'),
+                  const Text('Loại giao dịch'),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<TransactionKind>(
                     isExpanded: true,
@@ -443,7 +443,7 @@ class FinancePage extends StatelessWidget {
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         dense: true,
-                        title: const Text('Tách hóa đơn vào nhiều khoản (Split)'),
+                        title: const Text('Tách hóa đơn vào nhiều danh mục'),
                         subtitle: const Text('VD: Đi siêu thị gồm Ăn uống + Việc nhà'),
                         value: enableSplitCategories,
                         onChanged: (val) => setDialogState(() => enableSplitCategories = val),
@@ -469,7 +469,7 @@ class FinancePage extends StatelessWidget {
                     ],
                   ],
                   const SizedBox(height: AppSpacing.sm),
-                  const Text('Tổng số tiền (VND nguyên đồng)'),
+                  const Text('Số tiền (VNĐ)'),
                   const SizedBox(height: 6),
                   TextField(
                     key: const Key('tx_amount_input'),
@@ -746,11 +746,13 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                         value:
                             '${tx.occurredAt.day.toString().padLeft(2, '0')}/${tx.occurredAt.month.toString().padLeft(2, '0')}/${tx.occurredAt.year} · ${_formatTimeLabel(tx.occurredAt)}',
                       ),
-                      const Divider(height: 16),
-                      _ReceiptRow(
-                        label: 'Mã giao dịch',
-                        value: tx.id.length > 16 ? '#${tx.id.substring(0, 16)}' : '#${tx.id}',
-                      ),
+                      if (tx.referenceCode != null && tx.referenceCode!.trim().isNotEmpty) ...[
+                        const Divider(height: 16),
+                        _ReceiptRow(
+                          label: 'Mã tham chiếu',
+                          value: tx.referenceCode!,
+                        ),
+                      ],
                       if (tx.note != null && tx.note!.trim().isNotEmpty) ...[
                         const Divider(height: 16),
                         _ReceiptRow(label: 'Ghi chú', value: tx.note!),

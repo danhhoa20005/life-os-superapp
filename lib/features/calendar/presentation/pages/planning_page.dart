@@ -407,57 +407,6 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
     descCtrl.dispose();
   }
 
-  Future<void> _showOAuthTokenSyncDialog(BuildContext context) async {
-    final tokenCtrl = TextEditingController();
-    final calBloc = context.read<CalendarBloc>();
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Kết nối thủ công (nâng cao)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ứng dụng tự kết nối qua tài khoản Google. Chỉ nhập mã bên dưới nếu cần kiểm thử thủ công:',
-              style: Theme.of(ctx).textTheme.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: tokenCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Mã kết nối Google (tùy chọn)',
-                hintText: 'ya29...',
-                prefixIcon: Icon(Icons.key_rounded),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Đóng')),
-          FilledButton.icon(
-            onPressed: () {
-              final manual = tokenCtrl.text.trim();
-              Navigator.of(ctx).pop();
-              calBloc.add(
-                GoogleCalendarSyncRequested(
-                  userId: userId,
-                  userName: userName,
-                  interactive: true,
-                  manualAccessTokenOverride: manual.isEmpty ? null : manual,
-                ),
-              );
-            },
-            icon: const Icon(Icons.sync_rounded, size: 18),
-            label: const Text('Đồng bộ ngay'),
-          ),
-        ],
-      ),
-    );
-    tokenCtrl.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
@@ -554,11 +503,6 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
                                 ),
                               ],
                             ),
-                          ),
-                          IconButton(
-                            tooltip: 'Tùy chọn nâng cao',
-                            onPressed: () => _showOAuthTokenSyncDialog(context),
-                            icon: Icon(Icons.tune_rounded, color: c.primary),
                           ),
                         ],
                       ),

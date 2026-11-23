@@ -252,7 +252,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                     contentPadding: EdgeInsets.zero,
                                     dense: true,
                                     title: Text(
-                                      'Tự ghi thẳng vào Sổ cái & cập nhật Widget',
+                                      'Tự động ghi thu chi & cập nhật Widget',
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,

@@ -48,6 +48,18 @@ void main() {
           'Thay thế Rocket Money',
           'Zero-OTP',
           'Khử trùng lặp SHA-256',
+          'GitHub Releases',
+          'Xem trên GitHub',
+          'Google OAuth',
+          'Sao chép mã EMVCo',
+          'Mô phỏng nhận tiền tự động ngay',
+          'Kiểm tra thông báo (Không tạo giao dịch thật)',
+          'kiểm thử thủ công',
+          'Cloud Functions',
+          'Liquid Cash',
+          'Wealth Vault',
+          'Loại bút toán',
+          'Bộ nhận diện thương hiệu LifeOS',
         ];
         final uiFiles = Directory('lib/features')
             .listSync(recursive: true)

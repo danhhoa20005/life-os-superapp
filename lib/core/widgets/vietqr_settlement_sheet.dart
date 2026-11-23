@@ -88,7 +88,7 @@ Future<void> showVietQrSettlementSheet({
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Mã QR Thanh Toán Nhóm · Chuẩn NAPAS 247',
+                                'Mã QR Thanh Toán Nhóm',
                                 style: Theme.of(ctx).textTheme.titleMedium,
                               ),
                               Text(

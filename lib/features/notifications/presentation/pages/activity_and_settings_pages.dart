@@ -54,31 +54,29 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
           })
         >[];
 
-    // 1. Real-time Financial Notifications (SePay Webhook, SePay API, Android Listener, Test)
-    for (final fn in notifState.financialNotifications.take(30)) {
+    // 1. Real-time Financial Notifications (excluding internal test items)
+    for (final fn
+        in notifState.financialNotifications
+            .where((f) => !f.isTestNotification)
+            .take(30)) {
       if (fn.transactionId.isNotEmpty) {
         seenTxIds.add(fn.transactionId);
       }
       final sign = fn.direction == 'credit' ? '+' : '-';
-      final amountText = fn.isTestNotification
-          ? '[Thông báo kiểm thử — Không tạo giao dịch thật]'
-          : '$sign${VndAmount.format(fn.amountMinor)} · ${fn.bankName} ${fn.accountMasked}';
+      final amountText =
+          '$sign${VndAmount.format(fn.amountMinor)} · ${fn.bankName} ${fn.accountMasked}';
       items.add((
         category: fn.direction == 'credit' ? 'credit' : 'debit',
         title: fn.title,
         subtitle: '$amountText\n${fn.content}',
         metaBadge: '${fn.statusLabel} · ${fn.sourceLabel}',
         timeLabel: timeFmt.format(fn.occurredAt),
-        icon: fn.isTestNotification
-            ? Icons.science_outlined
-            : (fn.direction == 'credit'
-                  ? Icons.south_west_rounded
-                  : Icons.north_east_rounded),
-        tone: fn.isTestNotification
-            ? LifeOsAccentTone.blue
-            : (fn.direction == 'credit'
-                  ? LifeOsAccentTone.emerald
-                  : LifeOsAccentTone.coral),
+        icon: fn.direction == 'credit'
+            ? Icons.south_west_rounded
+            : Icons.north_east_rounded,
+        tone: fn.direction == 'credit'
+            ? LifeOsAccentTone.emerald
+            : LifeOsAccentTone.coral,
         onTap: () {
           if (fn.transactionId.isNotEmpty) {
             context.push(
@@ -91,17 +89,17 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
       ));
     }
 
-    // 2. Remaining Ledger Transactions not yet represented in financialNotifications
+    // 2. Remaining Transactions not yet represented in financialNotifications
     for (final tx in txState.filteredTransactions.take(15)) {
       if (seenTxIds.contains(tx.id)) continue;
       final isCredit = tx.direction == 'credit';
       final srcLabel = switch (tx.sourceKind) {
-        _ when tx.sourceKind.name == 'bankWebhook' => 'SePay Webhook',
-        _ when tx.sourceKind.name == 'bankApi' => 'SePay API',
+        _ when tx.sourceKind.name == 'bankWebhook' => 'Đồng bộ tự động',
+        _ when tx.sourceKind.name == 'bankApi' => 'Đối soát ngân hàng',
         _ when tx.sourceKind.name == 'androidNotification' =>
-          'Thông báo Android',
-        _ when tx.sourceKind.name == 'csv' => 'Sao kê CSV',
-        _ => 'Sổ cái',
+          'Thông báo điện thoại',
+        _ when tx.sourceKind.name == 'csv' => 'Sao kê ngân hàng',
+        _ => 'Ghi thủ công',
       };
       items.add((
         category: isCredit ? 'credit' : 'debit',
