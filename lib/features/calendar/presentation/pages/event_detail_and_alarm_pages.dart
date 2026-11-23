@@ -424,7 +424,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                         .cancelEventAlarm(event.id);
                                     if (!context.mounted) return;
                                     setState(() => _scheduledAlarm = null);
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    LifeOsTopToast.fromSnackBar(context, 
                                       const SnackBar(
                                         content: Text('Đã hủy lịch báo thức trên hệ thống.'),
                                       ),
@@ -454,7 +454,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                             if (!context.mounted) return;
                             setState(() => _scheduledAlarm = info);
                             final triggerFmt = DateFormat('HH:mm dd/MM').format(info.triggerAt);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            LifeOsTopToast.fromSnackBar(context, 
                               SnackBar(
                                 content: Text(
                                   '✓ Đã đặt báo thức hệ thống lúc $triggerFmt cho "${event.title}".',
@@ -762,7 +762,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                           ),
                         ),
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          LifeOsTopToast.fromSnackBar(context, 
                             const SnackBar(
                               content: Text('⏰ Đã hoãn báo thức thêm 5 phút.'),
                             ),

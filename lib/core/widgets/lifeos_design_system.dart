@@ -10,6 +10,8 @@ import '../../app/theme/lifeos_brand_colors.dart';
 import '../../app/theme/theme_bloc.dart';
 import 'voice_smart_capture_sheet.dart';
 
+export 'lifeos_top_toast.dart';
+
 ThemeBloc? _maybeThemeBloc(BuildContext context, {bool listen = false}) {
   try {
     return BlocProvider.of<ThemeBloc>(context, listen: listen);
@@ -510,42 +512,37 @@ class _MintOrganicWavePainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    final softWave1 = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        begin: Alignment.topRight,
-        end: Alignment.bottomLeft,
+    final topRightGlow = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.92, -0.75),
+        radius: 1.05,
         colors: isDark
             ? [
-                const Color(0xFF14532D).withValues(alpha: 0.26),
-                const Color(0xFF0B0F0D).withValues(alpha: 0.0),
+                const Color(0xFF0B7A2A).withValues(alpha: 0.22),
+                const Color(0xFF080C0A).withValues(alpha: 0.0),
               ]
             : [
-                const Color(0xFFBBF7D0).withValues(alpha: 0.55),
-                const Color(0xFFDCFCE7).withValues(alpha: 0.12),
+                const Color(0xFFC2F5D1).withValues(alpha: 0.58),
+                const Color(0xFFF2F5F3).withValues(alpha: 0.0),
               ],
-      ).createShader(Rect.fromLTWH(w * 0.35, 0, w * 0.65, h));
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), topRightGlow);
 
-    final p1 = Path()
-      ..moveTo(w * 0.52, h * 0.72)
-      ..quadraticBezierTo(w * 0.72, h * 0.36, w, h * 0.32)
-      ..lineTo(w, h * 0.88)
-      ..quadraticBezierTo(w * 0.78, h * 0.92, w * 0.52, h * 0.72)
-      ..close();
-    canvas.drawPath(p1, softWave1);
-
-    final softWave2 = Paint()
-      ..style = PaintingStyle.fill
-      ..color = isDark
-          ? const Color(0xFF166534).withValues(alpha: 0.18)
-          : const Color(0xFF86EFAC).withValues(alpha: 0.30);
-
-    final p2 = Path()
-      ..moveTo(w * 0.70, h * 0.76)
-      ..quadraticBezierTo(w * 0.84, h * 0.45, w, h * 0.44)
-      ..lineTo(w, h * 0.82)
-      ..close();
-    canvas.drawPath(p2, softWave2);
+    final topLeftGlow = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.85, -0.9),
+        radius: 0.9,
+        colors: isDark
+            ? [
+                const Color(0xFF113824).withValues(alpha: 0.20),
+                Colors.transparent,
+              ]
+            : [
+                const Color(0xFFE7F7EB).withValues(alpha: 0.72),
+                Colors.transparent,
+              ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), topLeftGlow);
   }
 
   @override
@@ -573,37 +570,54 @@ class LifeOsHeaderCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: c.surfaceRaised,
-        shape: const CircleBorder(),
-        child: InkWell(
-          key: buttonKey,
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(icon, size: 20, color: c.textPrimary),
-                if (showUnreadDot)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: c.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: c.surface, width: 1.4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: c.surface,
+          shape: BoxShape.circle,
+          border: Border.all(color: c.separator, width: 0.9),
+          boxShadow: isDark
+              ? const []
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF0A140E).withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            key: buttonKey,
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(icon, size: 19, color: c.textPrimary),
+                  if (showUnreadDot)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: c.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: c.surface, width: 1.5),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -612,7 +626,9 @@ class LifeOsHeaderCircleButton extends StatelessWidget {
   }
 }
 
-/// Unified LifeOS Top Brand + Page Title Header following the 10-screen Design Rule.
+/// Redesigned Pro Max Top Header:
+/// - Sub-pages (`showBackButton == true`): Sleek single-row bar (`< Back` + Title/Subtitle + Trailing), saving vertical space.
+/// - Primary Tab Roots (`showBackButton == false`): Official `LifeOsBrandWordmark` + Unified Pill Action Capsule (`Aa · Search · Bell`) + Title Row.
 class LifeOsTopBrandHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -642,6 +658,88 @@ class LifeOsTopBrandHeader extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final compact = themeBloc?.state.compactDensity ?? true;
 
+    if (showBackButton) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          compact ? 6 : 10,
+          AppSpacing.md,
+          compact ? 6 : 10,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+            child: Row(
+              children: [
+                LifeOsHeaderCircleButton(
+                  icon: Icons.chevron_left_rounded,
+                  tooltip: 'Quay lại',
+                  onTap: onBack ??
+                      () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/today');
+                        }
+                      },
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: compact ? 18 : 19.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.35,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle!.isNotEmpty)
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.8,
+                            fontWeight: FontWeight.w500,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                ...extraBrandActions.map(
+                  (w) => Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: w,
+                  ),
+                ),
+                if (themeBloc != null) ...[
+                  const SizedBox(width: 6),
+                  LifeOsHeaderCircleButton(
+                    buttonKey: const Key('open_appearance_studio_button'),
+                    icon: isDark ? Icons.light_mode_outlined : Icons.text_fields_rounded,
+                    tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
+                    onTap: () => showLifeOsAppearanceSheet(context),
+                  ),
+                ],
+                if (trailingAction != null) ...[
+                  const SizedBox(width: 8),
+                  trailingAction!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -656,7 +754,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Row 1: Brand Wordmark + Appearance/Font (☀️/🌙 Aa) + Search + Bell + Profile
+              // Row 1: Official Brand Wordmark + Unified Frosted Pill Capsule + Profile
               Row(
                 children: [
                   LifeOsBrandWordmark(
@@ -670,26 +768,45 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       child: w,
                     ),
                   ),
-                  if (themeBloc != null) ...[
-                    LifeOsHeaderCircleButton(
-                      buttonKey: const Key('open_appearance_studio_button'),
-                      icon: isDark ? Icons.light_mode_outlined : Icons.text_fields_rounded,
-                      tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
-                      onTap: () => showLifeOsAppearanceSheet(context),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: c.separator, width: 0.9),
+                      boxShadow: isDark
+                          ? const []
+                          : [
+                              BoxShadow(
+                                color: const Color(0xFF0A140E).withValues(alpha: 0.04),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
-                    const SizedBox(width: 6),
-                  ],
-                  LifeOsHeaderCircleButton(
-                    icon: Icons.search_rounded,
-                    tooltip: 'Tìm kiếm nhanh LifeOS',
-                    onTap: () => showLifeOsOmniSearchSheet(context),
-                  ),
-                  const SizedBox(width: 6),
-                  LifeOsHeaderCircleButton(
-                    icon: Icons.notifications_none_rounded,
-                    tooltip: 'Trung tâm Thông báo',
-                    showUnreadDot: showUnreadNotificationDot,
-                    onTap: () => context.push('/activity-notifications'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (themeBloc != null)
+                          _CapsuleIconBtn(
+                            buttonKey: const Key('open_appearance_studio_button'),
+                            icon: isDark ? Icons.light_mode_outlined : Icons.text_fields_rounded,
+                            tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
+                            onTap: () => showLifeOsAppearanceSheet(context),
+                          ),
+                        _CapsuleIconBtn(
+                          icon: Icons.search_rounded,
+                          tooltip: 'Tìm kiếm nhanh LifeOS',
+                          onTap: () => showLifeOsOmniSearchSheet(context),
+                        ),
+                        _CapsuleIconBtn(
+                          icon: Icons.notifications_none_rounded,
+                          tooltip: 'Trung tâm Thông báo',
+                          showUnreadDot: showUnreadNotificationDot,
+                          onTap: () => context.push('/activity-notifications'),
+                        ),
+                      ],
+                    ),
                   ),
                   if (profileTrailing != null) ...[
                     const SizedBox(width: 4),
@@ -697,85 +814,102 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                   ],
                 ],
               ),
-              SizedBox(height: compact ? 8 : 12),
+              SizedBox(height: compact ? 8 : 11),
 
-              // Row 2: Either `< Back + Detail Title` OR `Page Title + Subtitle + Trailing`
-              if (showBackButton)
-                Row(
-                  children: [
-                    LifeOsHeaderCircleButton(
-                      icon: Icons.chevron_left_rounded,
-                      tooltip: 'Quay lại',
-                      onTap: onBack ??
-                          () {
-                            if (context.canPop()) {
-                              context.pop();
-                            } else {
-                              context.go('/today');
-                            }
-                          },
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: compact ? 18.5 : 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: c.textPrimary,
+              // Row 2: Page Greeting / Title + Subtitle + Optional Primary Action
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: compact ? 20.5 : 23,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.45,
+                            height: 1.15,
+                            color: c.textPrimary,
+                          ),
                         ),
-                      ),
-                    ),
-                    if (trailingAction != null) ...[
-                      const SizedBox(width: 8),
-                      trailingAction!,
-                    ],
-                  ],
-                )
-              else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        if (subtitle != null && subtitle!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
                           Text(
-                            title,
+                            subtitle!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: compact ? 21 : 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                              height: 1.15,
-                              color: c.textPrimary,
+                              fontSize: compact ? 12 : 12.8,
+                              fontWeight: FontWeight.w500,
+                              color: c.textSecondary,
                             ),
                           ),
-                          if (subtitle != null && subtitle!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: compact ? 12.2 : 13,
-                                fontWeight: FontWeight.w500,
-                                color: c.textSecondary,
-                              ),
-                            ),
-                          ],
                         ],
-                      ),
+                      ],
                     ),
-                    if (trailingAction != null) ...[
-                      const SizedBox(width: 8),
-                      trailingAction!,
-                    ],
+                  ),
+                  if (trailingAction != null) ...[
+                    const SizedBox(width: 8),
+                    trailingAction!,
                   ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CapsuleIconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool showUnreadDot;
+  final Key? buttonKey;
+
+  const _CapsuleIconBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.showUnreadDot = false,
+    this.buttonKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        key: buttonKey,
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: SizedBox(
+          width: 34,
+          height: 32,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(icon, size: 18.5, color: c.textPrimary),
+              if (showUnreadDot)
+                Positioned(
+                  right: 7,
+                  top: 6,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: c.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.surface, width: 1.2),
+                    ),
+                  ),
                 ),
             ],
           ),

@@ -150,7 +150,13 @@ void main() {
 
     await tester.drag(find.byKey(const Key('split_bills_list_view')), const Offset(0, -350));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Ăn tối & Nước lau nhà'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('split_bills_list_view')),
+        matching: find.textContaining('Ăn tối & Nước lau nhà'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('1-Tap Google Sign-In / Sign-Up initializes Personal Space, Onboarding & Account Profile Page', (tester) async {

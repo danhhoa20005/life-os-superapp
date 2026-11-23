@@ -172,11 +172,11 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
           return;
         }
         if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.infoMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('✓ ${state.infoMessage!}')),
           );
         }

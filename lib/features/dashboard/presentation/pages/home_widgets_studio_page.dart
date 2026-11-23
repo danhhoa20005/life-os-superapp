@@ -23,7 +23,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
   Future<void> _pinWidget(BuildContext context, String kind, String title) async {
     final ok = await sl<NativeHomeWidgetBridge>().requestPinWidget(kind);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    LifeOsTopToast.fromSnackBar(context, 
       SnackBar(
         content: Text(
           ok
@@ -55,7 +55,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
       dailyUsedPct: usedPct,
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    LifeOsTopToast.fromSnackBar(context, 
       const SnackBar(
         content: Text('✓ Đã đồng bộ số liệu mới nhất ra cả 4 Widget Màn hình chính!'),
       ),

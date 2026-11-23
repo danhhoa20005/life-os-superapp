@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/di/dependency_injection.dart';
+import '../core/widgets/lifeos_top_toast.dart';
 import '../features/app_update/presentation/bloc/app_update_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_event.dart';
@@ -81,7 +82,9 @@ class _LifeOsAppState extends State<LifeOsApp> {
                   data: mq.copyWith(
                     textScaler: TextScaler.linear(themeState.textScale),
                   ),
-                  child: child ?? const SizedBox.shrink(),
+                  child: LifeOsTopToastHost(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 );
               },
               localizationsDelegates: const [

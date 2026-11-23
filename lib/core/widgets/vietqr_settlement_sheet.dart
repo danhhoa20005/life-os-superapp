@@ -1,3 +1,4 @@
+import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -107,7 +108,7 @@ Future<void> showVietQrSettlementSheet({
                             borderRadius: BorderRadius.circular(10),
                             onTap: () {
                               Clipboard.setData(ClipboardData(text: sePayCode));
-                              ScaffoldMessenger.of(ctx).showSnackBar(
+                              LifeOsTopToast.fromSnackBar(ctx, 
                                 SnackBar(content: Text('✓ Đã sao chép nội dung: $sePayCode')),
                               );
                             },

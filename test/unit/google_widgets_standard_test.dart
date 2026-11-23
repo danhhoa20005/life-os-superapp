@@ -88,6 +88,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Open Kho Dịch vụ 360° -> 4 Widget Chính
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('home_tile_all_services')),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('home_tile_all_services')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('4 Widget Chính'));

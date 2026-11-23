@@ -38,11 +38,11 @@ class FinancePage extends StatelessWidget {
         BlocListener<TransactionActionBloc, TransactionActionState>(
           listener: (context, state) {
             if (state.status == ActionStatus.failure && state.failure != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              LifeOsTopToast.fromSnackBar(context, 
                 SnackBar(content: Text('⚠ ${state.failure!.message}')),
               );
             } else if (state.status == ActionStatus.success && state.successMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              LifeOsTopToast.fromSnackBar(context, 
                 SnackBar(content: Text('✓ ${state.successMessage!}')),
               );
             }
@@ -52,11 +52,11 @@ class FinancePage extends StatelessWidget {
           listenWhen: (p, c) => p.failure != c.failure || p.actionMessage != c.actionMessage,
           listener: (context, state) {
             if (state.failure != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              LifeOsTopToast.fromSnackBar(context, 
                 SnackBar(content: Text('⚠ ${state.failure!.message}')),
               );
             } else if (state.actionMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              LifeOsTopToast.fromSnackBar(context, 
                 SnackBar(content: Text('✓ ${state.actionMessage!}')),
               );
             }
@@ -189,7 +189,7 @@ class FinancePage extends StatelessWidget {
     );
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      LifeOsTopToast.fromSnackBar(context, 
         SnackBar(
           content: Text(
             savedPath != null
@@ -1414,7 +1414,7 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                           );
                                         }
                                       }
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      LifeOsTopToast.fromSnackBar(context, 
                                         SnackBar(
                                           content: Text(
                                             '✓ Đã áp dụng bảng phân bổ vào Ngân sách tháng ${state.monthKey}.',
@@ -1957,7 +1957,7 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
   void _submitQuickEntry() {
     final parsed = _preview ?? SmartQuickEntryParser.tryParse(_ctrl.text);
     if (parsed == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      LifeOsTopToast.fromSnackBar(context, 
         const SnackBar(
           content: Text(
             '⚠ Hãy nhập nội dung kèm số tiền (VD: "ăn phở 65k", "tiền điện 850k", "lương 18tr").',

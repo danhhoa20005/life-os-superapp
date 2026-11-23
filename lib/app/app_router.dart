@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +13,7 @@ import '../core/utils/smart_quick_entry_parser.dart';
 import '../core/utils/vnd_amount.dart';
 import '../core/widgets/lifeos_design_system.dart';
 import '../core/widgets/voice_smart_capture_sheet.dart';
+import 'theme/lifeos_brand_colors.dart';
 import '../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_state.dart';
 import '../features/authentication/presentation/pages/account_profile_page.dart';
@@ -654,98 +656,109 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
               );
             }
 
-            // Mobile Unified LifeOS Bottom Navigation Bar with Center Emerald `+` Squircle
+            // Mobile Floating Frosted Liquid-Glass Dock with BrandKit Gradient `+` Squircle
             final leftTabs = [_tabs[0], _tabs[2]]; // Hôm nay | Lịch & Việc
             final rightTabs = [_tabs[1], _tabs[3], _tabs[4]]; // Tài chính | Gia đình | Tài sản
+            final isDark = Theme.of(context).brightness == Brightness.dark;
 
             return Scaffold(
               extendBody: false,
               body: navigationShell,
-              bottomNavigationBar: Container(
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border(
-                    top: BorderSide(color: c.separator, width: 1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF101828).withValues(alpha: 0.06),
-                      blurRadius: 20,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: SizedBox(
-                    height: 66,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Row(
-                        children: [
-                          for (final tab in leftTabs)
-                            _BottomNavTabButton(
-                              icon: tab.icon,
-                              activeIcon: tab.activeIcon,
-                              label: tab.label,
-                              isSelected: navigationShell.currentIndex == tab.branchIndex,
-                              onTap: () => navigationShell.goBranch(
-                                tab.branchIndex,
-                                initialLocation:
-                                    tab.branchIndex == navigationShell.currentIndex,
-                              ),
+              bottomNavigationBar: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(26),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Container(
+                        height: 66,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: c.surface.withValues(alpha: isDark ? 0.92 : 0.95),
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(color: c.separator, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0A140E)
+                                  .withValues(alpha: isDark ? 0.36 : 0.08),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
                             ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            for (final tab in leftTabs)
+                              _BottomNavTabButton(
+                                icon: tab.icon,
+                                activeIcon: tab.activeIcon,
+                                label: tab.label,
+                                isSelected: navigationShell.currentIndex == tab.branchIndex,
+                                onTap: () => navigationShell.goBranch(
+                                  tab.branchIndex,
+                                  initialLocation:
+                                      tab.branchIndex == navigationShell.currentIndex,
+                                ),
+                              ),
 
-                          // Signature Center Emerald `+` Squircle Button (`01`–`10` Mockups)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Tooltip(
-                              message: 'Tạo nhanh & Giọng nói AI',
-                              child: Material(
-                                color: c.primary,
-                                borderRadius: BorderRadius.circular(15),
-                                elevation: 0,
-                                child: InkWell(
-                                  key: const Key('lifeos_center_quick_add_fab'),
-                                  borderRadius: BorderRadius.circular(15),
-                                  onTap: () => showLifeOsQuickCreateHub(context),
-                                  child: Container(
-                                    width: 46,
-                                    height: 46,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(15),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: c.primary.withValues(alpha: 0.34),
-                                          blurRadius: 14,
-                                          offset: const Offset(0, 5),
+                            // Signature Center BrandKit Gradient `+` Squircle Button
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Tooltip(
+                                message: 'Tạo nhanh & Giọng nói',
+                                child: Material(
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: InkWell(
+                                    key: const Key('lifeos_center_quick_add_fab'),
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => showLifeOsQuickCreateHub(context),
+                                    child: Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(16),
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: LifeOSBrandColors.appIconBgGradient,
+                                          stops: LifeOSBrandColors.appIconBgStops,
                                         ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.add_rounded,
-                                      color: Colors.white,
-                                      size: 28,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: c.primary.withValues(alpha: 0.32),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 5),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.add_rounded,
+                                        color: Colors.white,
+                                        size: 27,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
 
-                          for (final tab in rightTabs)
-                            _BottomNavTabButton(
-                              icon: tab.icon,
-                              activeIcon: tab.activeIcon,
-                              label: tab.label,
-                              isSelected: navigationShell.currentIndex == tab.branchIndex,
-                              onTap: () => navigationShell.goBranch(
-                                tab.branchIndex,
-                                initialLocation:
-                                    tab.branchIndex == navigationShell.currentIndex,
+                            for (final tab in rightTabs)
+                              _BottomNavTabButton(
+                                icon: tab.icon,
+                                activeIcon: tab.activeIcon,
+                                label: tab.label,
+                                isSelected: navigationShell.currentIndex == tab.branchIndex,
+                                onTap: () => navigationShell.goBranch(
+                                  tab.branchIndex,
+                                  initialLocation:
+                                      tab.branchIndex == navigationShell.currentIndex,
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -780,25 +793,33 @@ class _BottomNavTabButton extends StatelessWidget {
     final color = isSelected ? c.primary : c.textSecondary;
     return Expanded(
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                isSelected ? activeIcon : icon,
-                size: 23,
-                color: color,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isSelected ? c.primarySubtle : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  size: 21.5,
+                  color: color,
+                ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 10.3,
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   color: color,
                 ),

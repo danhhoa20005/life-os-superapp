@@ -203,23 +203,23 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: c.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: c.surfaceRaised,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: c.border),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: c.border, width: 0.9),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: c.border.withValues(alpha: 0.85)),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: c.border.withValues(alpha: 0.85), width: 0.9),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: c.primary, width: 1.8),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: c.primary, width: 1.7),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: c.error, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: c.error, width: 1.4),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(

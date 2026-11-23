@@ -29,11 +29,9 @@ class AssetsPage extends StatelessWidget {
       listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
       listener: (context, state) {
         if (state.failure != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('⚠ ${state.failure!.message}')));
+          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
         } else if (state.message != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('✓ ${state.message!}')));
+          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.message!}')));
         }
       },
       child: DefaultTabController(

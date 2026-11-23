@@ -316,7 +316,7 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                                   occurredAt: DateTime.now(),
                                 ),
                               );
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          LifeOsTopToast.fromSnackBar(context, 
                             SnackBar(
                               content: Text(
                                 '✓ Đã ghi hóa đơn "${parsed.merchant}" (${VndAmount.format(parsed.totalMinor)}) vào Sổ cái.',

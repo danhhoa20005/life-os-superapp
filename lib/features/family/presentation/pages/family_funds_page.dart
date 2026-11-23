@@ -30,11 +30,11 @@ class FamilyFundsPage extends StatelessWidget {
       listenWhen: (p, c) => p.failure != c.failure || p.actionMessage != c.actionMessage,
       listener: (context, state) {
         if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.actionMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('✓ ${state.actionMessage!}')),
           );
         }

@@ -1,3 +1,4 @@
+import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -92,11 +93,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
           return;
         }
         if (state.failure != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('⚠ ${state.failure!.message}')));
+          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
         } else if (state.infoMessage != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('✓ ${state.infoMessage!}')));
+          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.infoMessage!}')));
         }
       },
       child: Scaffold(

@@ -98,7 +98,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     return BlocListener<TransactionActionBloc, TransactionActionState>(
       listener: (context, state) {
         if (state.status == ActionStatus.success && state.successMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('✓ ${state.successMessage!}')),
           );
           if (context.canPop()) {
@@ -107,7 +107,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
             context.go('/finance');
           }
         } else if (state.status == ActionStatus.failure && state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         }
@@ -553,7 +553,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                                                     ),
                                                   );
                                             } else {
-                                              ScaffoldMessenger.of(context).showSnackBar(
+                                              LifeOsTopToast.fromSnackBar(context, 
                                                 const SnackBar(
                                                   content: Text(
                                                     '✓ Đã xác nhận giao dịch tự động vào Sổ cái.',
@@ -851,7 +851,7 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                               title: 'Báo cáo Tài chính LifeOS (${listState.monthKey})',
                             );
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              LifeOsTopToast.fromSnackBar(context, 
                                 SnackBar(content: Text('✓ Đã xuất báo cáo $fileName.')),
                               );
                             }

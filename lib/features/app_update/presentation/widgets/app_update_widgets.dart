@@ -1,3 +1,4 @@
+import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -210,11 +211,11 @@ class AppUpdateSettingsCard extends StatelessWidget {
       listenWhen: (p, n) => p.infoMessage != n.infoMessage || p.failure != n.failure,
       listener: (context, state) {
         if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.infoMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('✓ ${state.infoMessage!}')),
           );
         }

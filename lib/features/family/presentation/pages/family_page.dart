@@ -41,11 +41,9 @@ class FamilyPage extends StatelessWidget {
           context.read<AuthBloc>().add(AuthActiveFamilyChanged(state.selectedFamilyId!));
         }
         if (state.failure != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('⚠ ${state.failure!.message}')));
+          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
         } else if (state.message != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('✓ ${state.message!}')));
+          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.message!}')));
         }
       },
       child: DefaultTabController(
@@ -666,7 +664,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                               OutlinedButton.icon(
                                 onPressed: () {
                                   Clipboard.setData(ClipboardData(text: tr.sePayTransferCode));
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  LifeOsTopToast.fromSnackBar(context, 
                                     const SnackBar(
                                       content: Text('✓ Đã sao chép mã chuyển khoản SEVQR.'),
                                     ),
@@ -1098,7 +1096,7 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                               Clipboard.setData(
                                 ClipboardData(text: state.latestInviteCode!),
                               );
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              LifeOsTopToast.fromSnackBar(context, 
                                 const SnackBar(content: Text('✓ Đã sao chép mã mời.')),
                               );
                             },

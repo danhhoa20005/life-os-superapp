@@ -66,11 +66,11 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           p.successBanner != n.successBanner || p.failure != n.failure,
       listener: (context, state) {
         if (state.successBanner != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text(state.successBanner!)),
           );
         } else if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text(state.failure!.message)),
           );
         }
@@ -602,7 +602,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                                 occurredAt: DateTime.now(),
                               ),
                             );
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        LifeOsTopToast.fromSnackBar(context, 
                           const SnackBar(
                             content: Text('✓ Đã cộng Lương thực nhận (Net) vào Ví!'),
                           ),

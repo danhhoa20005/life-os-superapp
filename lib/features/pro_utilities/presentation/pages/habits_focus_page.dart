@@ -63,7 +63,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                 addPomodoros: 1,
               ),
             );
-        ScaffoldMessenger.of(context).showSnackBar(
+        LifeOsTopToast.fromSnackBar(context, 
           SnackBar(
             content: Text(
               '🎉 Hoàn thành phiên tập trung $_selectedPresetMinutes phút! Đã lưu vào nhật ký.',

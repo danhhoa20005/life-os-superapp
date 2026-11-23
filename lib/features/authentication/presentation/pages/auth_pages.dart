@@ -415,11 +415,11 @@ class _LoginPageState extends State<LoginPage> {
             prev.failure != curr.failure || prev.infoMessage != curr.infoMessage,
         listener: (context, state) {
           if (state.failure != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            LifeOsTopToast.fromSnackBar(context, 
               SnackBar(content: Text('⚠ ${state.failure!.message}')),
             );
           } else if (state.infoMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            LifeOsTopToast.fromSnackBar(context, 
               SnackBar(content: Text('✓ ${state.infoMessage!}')),
             );
           }
@@ -645,7 +645,7 @@ class _RegisterPageState extends State<RegisterPage> {
         listenWhen: (prev, curr) => prev.failure != curr.failure,
         listener: (context, state) {
           if (state.failure != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            LifeOsTopToast.fromSnackBar(context, 
               SnackBar(content: Text('⚠ ${state.failure!.message}')),
             );
           }
@@ -1310,7 +1310,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     LifeOsPrimaryCtaButton(
                       label: 'Lưu mật khẩu',
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        LifeOsTopToast.fromSnackBar(context, 
                           const SnackBar(
                             content: Text('✓ Đã cập nhật mật khẩu mới an toàn.'),
                           ),

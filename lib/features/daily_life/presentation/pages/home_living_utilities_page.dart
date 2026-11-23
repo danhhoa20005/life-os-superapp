@@ -64,11 +64,11 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
           p.successBanner != n.successBanner || p.failure != n.failure,
       listener: (context, state) {
         if (state.successBanner != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text(state.successBanner!)),
           );
         } else if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text(state.failure!.message)),
           );
         }
@@ -493,7 +493,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                       occurredAt: DateTime.now(),
                                     ),
                                   );
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              LifeOsTopToast.fromSnackBar(context, 
                                 const SnackBar(
                                   content: Text(
                                     '✓ Đã ghi hóa đơn Điện Nước vào Sổ cái Ví!',
@@ -729,7 +729,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                       occurredAt: DateTime.now(),
                                     ),
                                   );
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              LifeOsTopToast.fromSnackBar(context, 
                                 const SnackBar(
                                   content: Text('✓ Đã ghi khoản Tiền nhà vào Sổ cái Ví!'),
                                 ),

@@ -22,19 +22,12 @@ class ProPillTabContainer extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
           child: Container(
-            height: 46,
+            height: 44,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: c.separator, width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF101828).withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              color: c.surfaceRaised,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: c.separator, width: 0.9),
             ),
             child: tabBar,
           ),

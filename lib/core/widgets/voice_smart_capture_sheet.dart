@@ -1,3 +1,4 @@
+import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -243,7 +244,7 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
         }
         if (context.mounted) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(
               content: Text(
                 '✓ Đã chia hóa đơn "${split.title}" (${VndAmount.format(split.totalAmountMinor)}) cho ${split.shares.length} người!',

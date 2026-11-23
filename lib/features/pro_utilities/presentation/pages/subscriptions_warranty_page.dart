@@ -40,11 +40,11 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
       listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
       listener: (context, state) {
         if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.message != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          LifeOsTopToast.fromSnackBar(context, 
             SnackBar(content: Text('✓ ${state.message!}')),
           );
         }
@@ -415,7 +415,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                             occurredAt: DateTime.now(),
                                                           ),
                                                         );
-                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                    LifeOsTopToast.fromSnackBar(context, 
                                                       SnackBar(
                                                         content: Text(
                                                           '✓ Đã ghi chi tiêu gia hạn "${item.title}" vào Ví.',
