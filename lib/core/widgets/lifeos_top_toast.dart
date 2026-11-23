@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/lifeos_brand_colors.dart';
+import 'liquid_glass.dart';
 
 enum LifeOsToastKind { success, error, warning, info }
 
@@ -347,121 +347,105 @@ class _TopToastBannerCard extends StatelessWidget {
 
     final hasAction = data.actionLabel != null && data.onAction != null;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          key: const Key('lifeos_top_toast_banner'),
-          padding: EdgeInsets.fromLTRB(12, 10, hasAction ? 8 : 14, 10),
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF151F19).withValues(alpha: 0.95)
-                : Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: accent.withValues(alpha: isDark ? 0.42 : 0.28),
-              width: 1.1,
+    return LiquidGlassSurface(
+      key: const Key('lifeos_top_toast_banner'),
+      material: LiquidGlassMaterial.floatingToast,
+      borderRadius: 24,
+      blurSigma: 26,
+      accentRimColor: accent,
+      rimIntensity: 1.15,
+      padding: EdgeInsets.fromLTRB(12, 10, hasAction ? 8 : 14, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: subtleBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: accent.withValues(alpha: isDark ? 0.34 : 0.22),
+                width: 0.9,
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(
-                  0xFF0A140E,
-                ).withValues(alpha: isDark ? 0.42 : 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            child: Icon(icon, size: 20, color: accent),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: subtleBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 20, color: accent),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      badgeTitle,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 10.8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.2,
-                        color: accent,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      data.message,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                        color: c.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (hasAction) ...[
-                const SizedBox(width: 6),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    foregroundColor: accent,
-                    backgroundColor: subtleBg,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    final cb = data.onAction;
-                    onDismiss();
-                    cb?.call();
-                  },
-                  child: Text(
-                    data.actionLabel!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  badgeTitle,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 10.8,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                    color: accent,
                   ),
                 ),
-                Semantics(
-                  button: true,
-                  label: 'Đóng thông báo',
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: onDismiss,
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 17,
-                        color: c.textSecondary,
-                      ),
-                    ),
+                const SizedBox(height: 1),
+                Text(
+                  data.message,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                    color: c.textPrimary,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          if (hasAction) ...[
+            const SizedBox(width: 6),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: accent,
+                backgroundColor: subtleBg,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                final cb = data.onAction;
+                onDismiss();
+                cb?.call();
+              },
+              child: Text(
+                data.actionLabel!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Semantics(
+              button: true,
+              label: 'Đóng thông báo',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: onDismiss,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 17,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

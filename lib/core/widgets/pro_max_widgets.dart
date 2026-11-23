@@ -5,9 +5,10 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../constants/app_assets.dart';
 import '../utils/vnd_amount.dart';
+import 'liquid_glass.dart';
 import 'status_widgets.dart';
 
-/// Sunken pill container framing a `TabBar` as an Apple/Linear Segmented Control.
+/// Sunken Apple Liquid Glass pill container framing a `TabBar` as an iOS 26 Segmented Control.
 class ProPillTabContainer extends StatelessWidget {
   final TabBar tabBar;
 
@@ -15,7 +16,6 @@ class ProPillTabContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
     final responsiveTabs = tabBar.tabs
         .map((w) {
           if (w is Tab && w.text != null && w.child == null && w.icon == null) {
@@ -60,15 +60,12 @@ class ProPillTabContainer extends StatelessWidget {
           constraints: const BoxConstraints(
             maxWidth: AppSpacing.maxContentWidth,
           ),
-          child: Container(
-            height: 46,
+          child: LiquidGlassSurface(
+            material: LiquidGlassMaterial.segmentedTrough,
+            borderRadius: 23,
+            enableBlur: false,
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: c.surfaceRaised,
-              borderRadius: BorderRadius.circular(23),
-              border: Border.all(color: c.separator, width: 0.9),
-            ),
-            child: responsiveTabBar,
+            child: SizedBox(height: 38, child: responsiveTabBar),
           ),
         ),
       ),
@@ -76,7 +73,7 @@ class ProPillTabContainer extends StatelessWidget {
   }
 }
 
-/// Deep Emerald Mesh Hero Card with luminous ambient orbs (Apple Wallet / Revolut Pro Max style).
+/// Deep Emerald Mesh Hero Card with luminous ambient orbs & Apple Liquid Glass specular rim.
 class ProHeroGradientCard extends StatelessWidget {
   final Widget child;
   final List<Color>? gradientColors;
@@ -97,68 +94,79 @@ class ProHeroGradientCard extends StatelessWidget {
             : const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF0E9447)]);
 
     return RepaintBoundary(
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: colors,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colors[1].withValues(alpha: isDark ? 0.32 : 0.24),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
+      child: CustomPaint(
+        foregroundPainter: const LiquidGlassRimPainter(
+          borderRadius: 24,
+          isDark: true,
+          accentRimColor: Color(0xFF63E6BE),
+          intensity: 1.12,
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              right: -36,
-              top: -42,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.16),
-                      Colors.white.withValues(alpha: 0.0),
-                    ],
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors[1].withValues(alpha: isDark ? 0.36 : 0.26),
+                blurRadius: 26,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned(
+                right: -36,
+                top: -42,
+                child: Container(
+                  width: 164,
+                  height: 164,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.20),
+                        Colors.white.withValues(alpha: 0.0),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              left: -28,
-              bottom: -48,
-              child: Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFF63E6BE).withValues(alpha: 0.18),
-                      Colors.transparent,
-                    ],
+              Positioned(
+                left: -28,
+                bottom: -48,
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF63E6BE).withValues(alpha: 0.20),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: child),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: child,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Translucent glass stat pill placed inside `ProHeroGradientCard`.
+/// Translucent Liquid Glass stat pill placed inside `ProHeroGradientCard`.
 class ProGlassStatPill extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -178,11 +186,18 @@ class ProGlassStatPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.20),
+            Colors.white.withValues(alpha: 0.10),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-          width: 0.8,
+          color: Colors.white.withValues(alpha: 0.28),
+          width: 0.95,
         ),
       ),
       child: Row(
@@ -201,7 +216,7 @@ class ProGlassStatPill extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.84),
+                    color: Colors.white.withValues(alpha: 0.86),
                   ),
                 ),
                 FittedBox(
@@ -226,7 +241,7 @@ class ProGlassStatPill extends StatelessWidget {
   }
 }
 
-/// Quick action button styled for Hero cards.
+/// Quick action Liquid Glass pill button styled for Hero cards.
 class ProHeroQuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -241,28 +256,45 @@ class ProHeroQuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.16),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      child: InkWell(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.24),
+            Colors.white.withValues(alpha: 0.13),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.30),
+          width: 0.9,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -270,7 +302,7 @@ class ProHeroQuickAction extends StatelessWidget {
   }
 }
 
-/// Tactile Bento Grid Tile for 2x2 mobile & desktop dashboards.
+/// Tactile Apple Liquid Glass Bento Grid Tile for 2x2 mobile & desktop dashboards.
 class ProBentoTile extends StatelessWidget {
   final IconData icon;
   final String? bananaIconAsset;
@@ -298,88 +330,68 @@ class ProBentoTile extends StatelessWidget {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: c.separator.withValues(alpha: isDark ? 0.85 : 0.55),
-          width: 0.8,
-        ),
-        boxShadow: isDark
-            ? const []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.035),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    if (bananaIconAsset != null)
-                      BananaGlassIcon(
-                        assetPath: bananaIconAsset!,
-                        fallbackIcon: icon,
-                        fallbackColor: accentColor,
-                        size: 40,
-                        borderRadius: 12,
-                      )
-                    else
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(
-                            alpha: isDark ? 0.22 : 0.12,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(icon, size: 20, color: accentColor),
-                      ),
-                    Icon(
-                      Icons.north_east_rounded,
-                      size: 16,
-                      color: c.textSecondary.withValues(alpha: 0.7),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    metric,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+    return LiquidGlassSurface(
+      material: LiquidGlassMaterial.card,
+      borderRadius: 20,
+      padding: const EdgeInsets.all(14),
+      onTap: onTap,
+      enableBlur: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (bananaIconAsset != null)
+                BananaGlassIcon(
+                  assetPath: bananaIconAsset!,
+                  fallbackIcon: icon,
+                  fallbackColor: accentColor,
+                  size: 40,
+                  borderRadius: 12,
+                )
+              else
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.22),
+                      width: 0.85,
                     ),
                   ),
+                  child: Icon(icon, size: 20, color: accentColor),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  title,
-                  softWrap: true,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                SemanticStatusBadge(kind: statusKind, label: badgeText),
-              ],
+              Icon(
+                Icons.north_east_rounded,
+                size: 16,
+                color: c.textSecondary.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              metric,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
-        ),
+          const SizedBox(height: 3),
+          Text(
+            title,
+            softWrap: true,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          SemanticStatusBadge(kind: statusKind, label: badgeText),
+        ],
       ),
     );
   }
@@ -441,172 +453,180 @@ class ProWalletCreditCard extends StatelessWidget {
       ),
     };
 
-    final cardBody = AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      width: 276,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-        border: Border.all(
-          color: isSelected
-              ? const Color(0xFF63E6BE)
-              : Colors.white.withValues(alpha: 0.14),
-          width: isSelected ? 2.2 : 0.9,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colors[0].withValues(alpha: isSelected ? 0.36 : 0.22),
-            blurRadius: isSelected ? 22 : 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    final cardBody = CustomPaint(
+      foregroundPainter: LiquidGlassRimPainter(
+        borderRadius: 22,
+        isDark: true,
+        accentRimColor: isSelected ? const Color(0xFF63E6BE) : null,
+        strokeWidth: isSelected ? 2.0 : 1.15,
+        intensity: isSelected ? 1.35 : 1.05,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      typeIcon,
-                      size: 17,
-                      color: Colors.white.withValues(alpha: 0.92),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        name,
-                        softWrap: true,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14.5,
-                          height: 1.18,
-                          fontWeight: FontWeight.w700,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 276,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors[0].withValues(alpha: isSelected ? 0.38 : 0.24),
+              blurRadius: isSelected ? 22 : 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        typeIcon,
+                        size: 17,
+                        color: Colors.white.withValues(alpha: 0.92),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          name,
+                          softWrap: true,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14.5,
+                            height: 1.18,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.contactless_rounded,
-                    size: 16,
-                    color: Colors.white.withValues(alpha: 0.65),
-                  ),
-                  const SizedBox(width: 5),
-                  Container(
-                    width: 28,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFDE68A), Color(0xFFD97706)],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        width: 0.6,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              obscureBalance ? '•••••••• ₫' : VndAmount.format(balanceMinor),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            maskedAccount != null && maskedAccount!.isNotEmpty
-                ? '$typeLabel · $maskedAccount'
-                : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
-            softWrap: true,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.82),
-              fontSize: 11.8,
-              height: 1.24,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      hasPendingWrites
-                          ? Icons.cloud_upload_outlined
-                          : Icons.verified_user_rounded,
-                      size: 13.5,
-                      color: hasPendingWrites
-                          ? const Color(0xFFFCD34D)
-                          : const Color(0xFF86EFAC),
+                      Icons.contactless_rounded,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.65),
                     ),
                     const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        hasPendingWrites ? 'Đang lưu' : 'Đã đồng bộ',
-                        softWrap: true,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                    Container(
+                      width: 28,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFDE68A), Color(0xFFD97706)],
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          width: 0.6,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
+              ],
+            ),
+            const SizedBox(height: 12),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                obscureBalance ? '•••••••• ₫' : VndAmount.format(balanceMinor),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
-                child: Text(
-                  badgeLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              maskedAccount != null && maskedAccount!.isNotEmpty
+                  ? '$typeLabel · $maskedAccount'
+                  : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
+              softWrap: true,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 11.8,
+                height: 1.24,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        hasPendingWrites
+                            ? Icons.cloud_upload_outlined
+                            : Icons.verified_user_rounded,
+                        size: 13.5,
+                        color: hasPendingWrites
+                            ? const Color(0xFFFCD34D)
+                            : const Color(0xFF86EFAC),
+                      ),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          hasPendingWrites ? 'Đang lưu' : 'Đã đồng bộ',
+                          softWrap: true,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badgeLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
 
-    if (onTap == null) return cardBody;
+    if (onTap == null) {
+      return cardBody;
+    }
     return GestureDetector(onTap: onTap, child: cardBody);
   }
 }
@@ -1066,11 +1086,18 @@ class ProHeroBankingDockItem extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.24),
+                        Colors.white.withValues(alpha: 0.12),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(15),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      width: 0.8,
+                      color: Colors.white.withValues(alpha: 0.30),
+                      width: 0.9,
                     ),
                   ),
                   child: Icon(icon, size: 20, color: Colors.white),
@@ -1122,7 +1149,6 @@ class ProCashflowPulseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final scoreLabel = financialHealthScore >= 80
         ? 'Xuất sắc'
         : (financialHealthScore >= 65 ? 'Tốt' : 'Cần tối ưu');
@@ -1139,182 +1165,155 @@ class ProCashflowPulseCard extends StatelessWidget {
       };
     });
 
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: c.separator.withValues(alpha: isDark ? 0.85 : 0.55),
-          width: 0.8,
-        ),
-        boxShadow: isDark
-            ? const []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.035),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+    return LiquidGlassSurface(
+      material: LiquidGlassMaterial.card,
+      borderRadius: 20,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      onTap: onTapAnalytics,
+      enableBlur: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: c.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTapAnalytics,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Icon(
+                  Icons.candlestick_chart_rounded,
+                  size: 19,
+                  color: c.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: c.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.candlestick_chart_rounded,
-                        size: 19,
-                        color: c.primary,
+                    Text(
+                      'Dòng tiền 7 ngày',
+                      softWrap: true,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dòng tiền 7 ngày',
-                            softWrap: true,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            'Thu chi thực tế trong tuần',
-                            softWrap: true,
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scoreColor.withValues(alpha: 0.13),
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusPill,
-                        ),
-                        border: Border.all(
-                          color: scoreColor.withValues(alpha: 0.3),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.workspace_premium_rounded,
-                            size: 14,
-                            color: scoreColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$financialHealthScore điểm · $scoreLabel',
-                            style: TextStyle(
-                              color: scoreColor,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    Text(
+                      'Thu chi thực tế trong tuần',
+                      softWrap: true,
+                      style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 92,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: _CashflowBarsPainter(
-                      incomes: dailyIncomesMinor,
-                      expenses: dailyExpensesMinor,
-                      incomeColor: c.success,
-                      expenseColor: const Color(0xFFF59F00),
-                      gridColor: c.separator.withValues(alpha: 0.45),
-                    ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: scoreColor.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  border: Border.all(
+                    color: scoreColor.withValues(alpha: 0.3),
+                    width: 0.8,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: List.generate(7, (idx) {
-                    final isToday = idx == 6;
-                    return Expanded(
-                      child: Text(
-                        weekdayLabels[idx],
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: isToday
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                          color: isToday ? c.primary : c.textSecondary,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-                const Divider(height: 22),
-                Row(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _CapitalColumn(
-                      label: 'Thanh khoản',
-                      value: obscureAmounts
-                          ? '•••••• ₫'
-                          : VndAmount.format(liquidAssetsMinor),
-                      valueColor: c.textPrimary,
+                    Icon(
+                      Icons.workspace_premium_rounded,
+                      size: 14,
+                      color: scoreColor,
                     ),
-                    Container(
-                      width: 1,
-                      height: 28,
-                      color: c.separator.withValues(alpha: 0.6),
-                    ),
-                    _CapitalColumn(
-                      label: 'Tích lũy',
-                      value: obscureAmounts
-                          ? '•••••• ₫'
-                          : VndAmount.format(savingsAssetsMinor),
-                      valueColor: c.success,
-                    ),
-                    Container(
-                      width: 1,
-                      height: 28,
-                      color: c.separator.withValues(alpha: 0.6),
-                    ),
-                    _CapitalColumn(
-                      label: 'Hạn mức / ngày',
-                      value: obscureAmounts
-                          ? '•••••• ₫'
-                          : VndAmount.format(dailySafeToSpendMinor),
-                      valueColor: c.secondary,
+                    const SizedBox(width: 4),
+                    Text(
+                      '$financialHealthScore điểm · $scoreLabel',
+                      style: TextStyle(
+                        color: scoreColor,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 92,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _CashflowBarsPainter(
+                incomes: dailyIncomesMinor,
+                expenses: dailyExpensesMinor,
+                incomeColor: c.success,
+                expenseColor: const Color(0xFFF59F00),
+                gridColor: c.separator.withValues(alpha: 0.45),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Row(
+            children: List.generate(7, (idx) {
+              final isToday = idx == 6;
+              return Expanded(
+                child: Text(
+                  weekdayLabels[idx],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                    color: isToday ? c.primary : c.textSecondary,
+                  ),
+                ),
+              );
+            }),
+          ),
+          const Divider(height: 22),
+          Row(
+            children: [
+              _CapitalColumn(
+                label: 'Thanh khoản',
+                value: obscureAmounts
+                    ? '•••••• ₫'
+                    : VndAmount.format(liquidAssetsMinor),
+                valueColor: c.textPrimary,
+              ),
+              Container(
+                width: 1,
+                height: 28,
+                color: c.separator.withValues(alpha: 0.6),
+              ),
+              _CapitalColumn(
+                label: 'Tích lũy',
+                value: obscureAmounts
+                    ? '•••••• ₫'
+                    : VndAmount.format(savingsAssetsMinor),
+                valueColor: c.success,
+              ),
+              Container(
+                width: 1,
+                height: 28,
+                color: c.separator.withValues(alpha: 0.6),
+              ),
+              _CapitalColumn(
+                label: 'Hạn mức / ngày',
+                value: obscureAmounts
+                    ? '•••••• ₫'
+                    : VndAmount.format(dailySafeToSpendMinor),
+                valueColor: c.secondary,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1480,7 +1479,6 @@ class ProFintechStatementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final amountColor = isReversed
         ? c.textSecondary
@@ -1501,135 +1499,115 @@ class ProFintechStatementTile extends StatelessWidget {
       timeLabel,
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: c.separator.withValues(alpha: isDark ? 0.78 : 0.52),
-          width: 0.8,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-            child: Row(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    ProCategoryStyle.buildCategoryBadge(
-                      categoryName,
-                      isCredit: isCredit,
-                      isTransfer: isTransfer,
-                      size: 46,
-                    ),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(1.5),
-                        child: Icon(
-                          hasPendingWrites
-                              ? Icons.cloud_upload_rounded
-                              : (isVerified
-                                    ? Icons.verified_rounded
-                                    : Icons.check_circle_rounded),
-                          size: 13,
-                          color: hasPendingWrites ? c.warning : c.success,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        merchant,
-                        softWrap: true,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.22,
-                          decoration: isReversed
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        metaParts.join(' · '),
-                        softWrap: true,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          height: 1.28,
-                        ),
-                      ),
-                      if (splitSummary != null && splitSummary!.isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          splitSummary!,
-                          softWrap: true,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: c.primary,
-                          ),
-                        ),
-                      ],
-                    ],
+    return LiquidGlassSurface(
+      material: LiquidGlassMaterial.card,
+      borderRadius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      onTap: onTap,
+      enableBlur: false,
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ProCategoryStyle.buildCategoryBadge(
+                categoryName,
+                isCredit: isCredit,
+                isTransfer: isTransfer,
+                size: 46,
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(1.5),
+                  child: Icon(
+                    hasPendingWrites
+                        ? Icons.cloud_upload_rounded
+                        : (isVerified
+                              ? Icons.verified_rounded
+                              : Icons.check_circle_rounded),
+                    size: 13,
+                    color: hasPendingWrites ? c.warning : c.success,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formattedAmount,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: amountColor,
-                        decoration: isReversed
-                            ? TextDecoration.lineThrough
-                            : null,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      isReversed
-                          ? 'Đã hoàn tác'
-                          : (balanceAfterMinor != null && !obscureAmounts
-                                ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
-                                : (hasPendingWrites
-                                      ? 'Chờ đồng bộ'
-                                      : 'Đã lưu')),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: c.textSecondary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  merchant,
+                  softWrap: true,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.22,
+                    decoration: isReversed ? TextDecoration.lineThrough : null,
+                  ),
                 ),
+                const SizedBox(height: 3),
+                Text(
+                  metaParts.join(' · '),
+                  softWrap: true,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.28),
+                ),
+                if (splitSummary != null && splitSummary!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    splitSummary!,
+                    softWrap: true,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: c.primary,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formattedAmount,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  color: amountColor,
+                  decoration: isReversed ? TextDecoration.lineThrough : null,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                isReversed
+                    ? 'Đã hoàn tác'
+                    : (balanceAfterMinor != null && !obscureAmounts
+                          ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
+                          : (hasPendingWrites ? 'Chờ đồng bộ' : 'Đã lưu')),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: c.textSecondary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -59,6 +59,7 @@ class FamilyPage extends StatelessWidget {
         child: Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
+              bottom: false,
               child: Column(
                 children: [
                   LifeOsTopBrandHeader(
@@ -367,7 +368,12 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
         child: ListView(
           key: const Key('split_bills_list_view'),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.dockClearance,
+          ),
           children: [
             // Unified LifeOS "Tổng quan gia đình" Pastel Mint Hero Card (`06_Gia_dinh.png`)
             Builder(
@@ -1109,7 +1115,12 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
         child: ListView(
           key: const Key('members_list_view'),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.dockClearance,
+          ),
           children: [
             Card(
               child: Padding(
@@ -1255,7 +1266,12 @@ class _SharedShoppingTabView extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
         child: ListView(
           key: const Key('shopping_list_view'),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.dockClearance,
+          ),
           children: [
             Wrap(
               spacing: AppSpacing.sm,
@@ -1410,7 +1426,7 @@ class _HouseholdAndAssetsHubView extends StatelessWidget {
             AppSpacing.md,
             AppSpacing.xs,
             AppSpacing.md,
-            AppSpacing.xxl,
+            AppSpacing.dockClearance,
           ),
           children: [
             if (showSoloGroupInviteCard) ...[

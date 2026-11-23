@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,7 +13,6 @@ import '../core/utils/smart_quick_entry_parser.dart';
 import '../core/utils/vnd_amount.dart';
 import '../core/widgets/lifeos_design_system.dart';
 import '../core/widgets/voice_smart_capture_sheet.dart';
-import 'theme/lifeos_brand_colors.dart';
 import '../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_state.dart';
 import '../features/authentication/presentation/pages/account_profile_page.dart';
@@ -692,137 +690,76 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
               );
             }
 
-            // Symmetrical 4-Tab + Center `+` Floating Liquid-Glass Dock:
+            // Symmetrical 4-Tab + Center `+` Apple Liquid Glass Floating Dock:
             // Left: Hôm nay | Tài chính  •  Center: [+]  •  Right: Lịch & Việc | Gia đình
             final leftTabs = [_tabs[0], _tabs[1]];
             final rightTabs = [_tabs[2], _tabs[3]];
-            final isDark = Theme.of(context).brightness == Brightness.dark;
 
             return Scaffold(
-              extendBody: false,
+              extendBody: true,
               body: navigationShell,
               bottomNavigationBar: RepaintBoundary(
                 child: SafeArea(
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(26),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: Container(
-                          height: 66,
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: c.surface.withValues(
-                              alpha: isDark ? 0.92 : 0.95,
+                    child: LiquidGlassSurface(
+                      key: const Key('lifeos_liquid_glass_bottom_dock'),
+                      material: LiquidGlassMaterial.floatingDock,
+                      borderRadius: 32,
+                      blurSigma: 28,
+                      rimIntensity: 1.18,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: SizedBox(
+                        height: 68,
+                        child: Row(
+                          children: [
+                            for (final tab in leftTabs)
+                              _BottomNavTabButton(
+                                icon: tab.icon,
+                                activeIcon: tab.activeIcon,
+                                label: tab.label,
+                                isSelected:
+                                    navigationShell.currentIndex ==
+                                    tab.branchIndex,
+                                onTap: () => navigationShell.goBranch(
+                                  tab.branchIndex,
+                                  initialLocation:
+                                      tab.branchIndex ==
+                                      navigationShell.currentIndex,
+                                ),
+                              ),
+
+                            // Signature 3D Glossy Apple Liquid Glass `+` Jewel (48×48 Tactile Target)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              child: LiquidGlassJewelButton(
+                                buttonKey: const Key(
+                                  'lifeos_center_quick_add_fab',
+                                ),
+                                tooltip: 'Thêm nhanh',
+                                onTap: () => showLifeOsQuickCreateHub(context),
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(26),
-                            border: Border.all(color: c.separator, width: 1),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF0A140E,
-                                ).withValues(alpha: isDark ? 0.36 : 0.08),
-                                blurRadius: 24,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              for (final tab in leftTabs)
-                                _BottomNavTabButton(
-                                  icon: tab.icon,
-                                  activeIcon: tab.activeIcon,
-                                  label: tab.label,
-                                  isSelected:
-                                      navigationShell.currentIndex ==
-                                      tab.branchIndex,
-                                  onTap: () => navigationShell.goBranch(
-                                    tab.branchIndex,
-                                    initialLocation:
-                                        tab.branchIndex ==
-                                        navigationShell.currentIndex,
-                                  ),
-                                ),
 
-                              // Signature Center BrandKit Gradient `+` Squircle Button (48×48 Tactile Target)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                child: Tooltip(
-                                  message: 'Thêm nhanh',
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    borderRadius: BorderRadius.circular(17),
-                                    child: InkWell(
-                                      key: const Key(
-                                        'lifeos_center_quick_add_fab',
-                                      ),
-                                      borderRadius: BorderRadius.circular(17),
-                                      onTap: () =>
-                                          showLifeOsQuickCreateHub(context),
-                                      child: Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            17,
-                                          ),
-                                          gradient: const LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: LifeOSBrandColors
-                                                .appIconBgGradient,
-                                            stops: LifeOSBrandColors
-                                                .appIconBgStops,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.34,
-                                            ),
-                                            width: 1.1,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: c.primary.withValues(
-                                                alpha: 0.34,
-                                              ),
-                                              blurRadius: 14,
-                                              offset: const Offset(0, 5),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.add_rounded,
-                                          color: Colors.white,
-                                          size: 28,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                            for (final tab in rightTabs)
+                              _BottomNavTabButton(
+                                icon: tab.icon,
+                                activeIcon: tab.activeIcon,
+                                label: tab.label,
+                                isSelected:
+                                    navigationShell.currentIndex ==
+                                    tab.branchIndex,
+                                onTap: () => navigationShell.goBranch(
+                                  tab.branchIndex,
+                                  initialLocation:
+                                      tab.branchIndex ==
+                                      navigationShell.currentIndex,
                                 ),
                               ),
-
-                              for (final tab in rightTabs)
-                                _BottomNavTabButton(
-                                  icon: tab.icon,
-                                  activeIcon: tab.activeIcon,
-                                  label: tab.label,
-                                  isSelected:
-                                      navigationShell.currentIndex ==
-                                      tab.branchIndex,
-                                  onTap: () => navigationShell.goBranch(
-                                    tab.branchIndex,
-                                    initialLocation:
-                                        tab.branchIndex ==
-                                        navigationShell.currentIndex,
-                                  ),
-                                ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
@@ -855,46 +792,84 @@ class _BottomNavTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isSelected ? c.primary : c.textSecondary;
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected ? c.primarySubtle : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  isSelected ? activeIcon : icon,
-                  size: 21.5,
-                  color: color,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                gradient: isSelected
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark
+                            ? [
+                                c.primary.withValues(alpha: 0.24),
+                                c.primarySubtle.withValues(alpha: 0.72),
+                              ]
+                            : [
+                                Colors.white.withValues(alpha: 0.92),
+                                c.primarySubtle.withValues(alpha: 0.85),
+                              ],
+                      )
+                    : null,
+                borderRadius: BorderRadius.circular(22),
+                border: isSelected
+                    ? Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.22)
+                            : Colors.white.withValues(alpha: 0.95),
+                        width: 1.0,
+                      )
+                    : null,
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: c.primary.withValues(
+                            alpha: isDark ? 0.20 : 0.10,
+                          ),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
               ),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: 11.2,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isSelected ? activeIcon : icon,
+                    size: 21.5,
                     color: color,
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 11.2,
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

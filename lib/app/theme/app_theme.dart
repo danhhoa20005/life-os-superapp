@@ -80,14 +80,19 @@ abstract final class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: c.surface,
-        elevation: isDark ? 0 : 0.4,
-        shadowColor: const Color(0xFF101828).withValues(alpha: 0.06),
+        color: c.surface.withValues(alpha: isDark ? 0.90 : 0.92),
+        elevation: isDark ? 0 : 0.5,
+        shadowColor: const Color(0xFF0B1510).withValues(alpha: 0.06),
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
-          side: BorderSide(color: c.separator, width: 1),
+          side: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.14)
+                : Colors.white.withValues(alpha: 0.88),
+            width: 1.05,
+          ),
         ),
       ),
       switchTheme: SwitchThemeData(
@@ -116,24 +121,41 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         indicator: BoxDecoration(
-          color: c.primary,
-          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF25CF65), const Color(0xFF0E8F3E)]
+                : [const Color(0xFF14963A), c.primary],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: isDark ? 0.30 : 0.42),
+            width: 1.0,
+          ),
           boxShadow: [
             BoxShadow(
-              color: c.primary.withValues(alpha: 0.24),
-              blurRadius: 10,
+              color: c.primary.withValues(alpha: isDark ? 0.34 : 0.24),
+              blurRadius: 12,
               offset: const Offset(0, 3),
             ),
           ],
         ),
-        splashBorderRadius: BorderRadius.circular(22),
+        splashBorderRadius: BorderRadius.circular(20),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: c.surface.withValues(alpha: isDark ? 0.95 : 0.96),
         surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: const Color(
+          0xFF07130C,
+        ).withValues(alpha: isDark ? 0.48 : 0.14),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: c.separator),
+          borderRadius: BorderRadius.circular(26),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.86),
+            width: 1.1,
+          ),
         ),
         titleTextStyle: TextStyle(
           fontSize: 19,
@@ -143,16 +165,29 @@ abstract final class AppTheme {
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: c.surface.withValues(alpha: isDark ? 0.92 : 0.94),
+        modalBarrierColor: const Color(
+          0xFF060D09,
+        ).withValues(alpha: isDark ? 0.52 : 0.26),
+        dragHandleColor: c.textSecondary.withValues(alpha: 0.34),
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.84),
+            width: 1.1,
+          ),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: c.surfaceRaised,
-        side: BorderSide(color: c.separator),
+        backgroundColor: c.surface.withValues(alpha: isDark ? 0.78 : 0.84),
+        selectedColor: c.primarySubtle,
+        side: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.14)
+              : c.separator.withValues(alpha: 0.9),
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
         ),
@@ -170,7 +205,11 @@ abstract final class AppTheme {
           minimumSize: const Size(AppSpacing.minHitTarget, 48),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.24),
+              width: 0.9,
+            ),
           ),
           textStyle: const TextStyle(
             fontSize: 15,
@@ -183,11 +222,15 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: c.textPrimary,
           minimumSize: const Size(AppSpacing.minHitTarget, 48),
-          side: BorderSide(color: c.border),
-          backgroundColor: c.surface,
+          side: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.18)
+                : c.border.withValues(alpha: 0.9),
+          ),
+          backgroundColor: c.surface.withValues(alpha: isDark ? 0.76 : 0.84),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
           textStyle: const TextStyle(
             fontSize: 14.5,
@@ -207,7 +250,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: c.surfaceRaised,
+        fillColor: c.surface.withValues(alpha: isDark ? 0.72 : 0.84),
         hintMaxLines: 2,
         errorMaxLines: 3,
         helperMaxLines: 3,
@@ -216,22 +259,24 @@ abstract final class AppTheme {
           vertical: 13,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: c.border, width: 0.9),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(
-            color: c.border.withValues(alpha: 0.85),
-            width: 0.9,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.14)
+                : c.border.withValues(alpha: 0.82),
+            width: 0.95,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: c.primary, width: 1.7),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: c.error, width: 1.4),
         ),
       ),

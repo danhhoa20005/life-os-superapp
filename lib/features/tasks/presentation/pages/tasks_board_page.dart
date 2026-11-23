@@ -116,7 +116,7 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                 AppSpacing.md,
                 4,
                 AppSpacing.md,
-                AppSpacing.xxl,
+                AppSpacing.dockClearance,
               ),
               children: [
                 // 1. 4-Column Pastel Mint Summary Card ("Tổng việc | Đang làm | Chờ | Hoàn thành")

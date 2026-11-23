@@ -8,6 +8,7 @@ abstract final class AppSpacing {
   static const double xl = 24.0;
   static const double xxl = 32.0;
   static const double xxxl = 48.0;
+  static const double dockClearance = 104.0;
 
   static const double radiusSm = 8.0;
   static const double radiusMd = 12.0;

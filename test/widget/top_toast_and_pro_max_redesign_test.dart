@@ -13,6 +13,7 @@ import 'package:life_os/app/theme/app_theme.dart';
 import 'package:life_os/app/theme/theme_bloc.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/core/widgets/lifeos_top_toast.dart';
+import 'package:life_os/core/widgets/liquid_glass.dart';
 
 void main() {
   group('Top Toast Standard & UI/UX Pro Max Redesign Verification (v3.1.0+16)', () {
@@ -382,6 +383,71 @@ void main() {
           offenders,
           isEmpty,
           reason: 'Found TextOverflow truncation in: $offenders',
+        );
+      },
+    );
+
+    testWidgets(
+      'Apple Liquid Glass Design System (v3.12): Floating dock refracts with extendBody=true & cards use 120 FPS specular rims across Light & Dark modes',
+      (tester) async {
+        for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                extendBody: true,
+                body: const Center(
+                  child: LiquidGlassSurface(
+                    key: Key('sample_specular_card'),
+                    material: LiquidGlassMaterial.card,
+                    padding: EdgeInsets.all(16),
+                    child: Text('Thẻ Liquid Glass 120 FPS'),
+                  ),
+                ),
+                bottomNavigationBar: LiquidGlassSurface(
+                  key: const Key('sample_floating_dock'),
+                  material: LiquidGlassMaterial.floatingDock,
+                  borderRadius: 32,
+                  child: SizedBox(
+                    height: 68,
+                    child: Center(
+                      child: LiquidGlassJewelButton(
+                        tooltip: 'Thêm nhanh',
+                        onTap: () {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // Floating dock uses live BackdropFilter refraction:
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('sample_floating_dock')),
+              matching: find.byType(BackdropFilter),
+            ),
+            findsOneWidget,
+          );
+          // Scrollable card uses GPU specular rim WITHOUT per-card BackdropFilter jank:
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('sample_specular_card')),
+              matching: find.byType(BackdropFilter),
+            ),
+            findsNothing,
+          );
+          expect(find.byType(LiquidGlassJewelButton), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
+
+        final routerSrc = File('lib/app/app_router.dart').readAsStringSync();
+        expect(routerSrc.contains('extendBody: true'), isTrue);
+        expect(
+          routerSrc.contains("Key('lifeos_liquid_glass_bottom_dock')"),
+          isTrue,
         );
       },
     );

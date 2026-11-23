@@ -49,17 +49,21 @@ Future<void> showLifeOsQuickCreateHubSheet(BuildContext context) async {
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: true,
+    backgroundColor: Colors.transparent,
+    showDragHandle: false,
     builder: (sheetCtx) {
-      return _QuickCreateHubBody(
-        parentContext: context,
-        authBloc: authBloc,
-        txListBloc: txListBloc,
-        txActionBloc: txActionBloc,
-        calBloc: calBloc,
-        taskBloc: taskBloc,
-        familyBloc: familyBloc,
-        dailyBloc: dailyBloc,
+      return LiquidGlassSheetFrame(
+        showHandle: true,
+        child: _QuickCreateHubBody(
+          parentContext: context,
+          authBloc: authBloc,
+          txListBloc: txListBloc,
+          txActionBloc: txActionBloc,
+          calBloc: calBloc,
+          taskBloc: taskBloc,
+          familyBloc: familyBloc,
+          dailyBloc: dailyBloc,
+        ),
       );
     },
   );

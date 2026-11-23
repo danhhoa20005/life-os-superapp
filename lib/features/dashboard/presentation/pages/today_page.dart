@@ -310,6 +310,7 @@ class _TodayPageState extends State<TodayPage> {
     return Scaffold(
       body: LifeOsMintWaveCanvas(
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               LifeOsTopBrandHeader(
@@ -570,7 +571,7 @@ class _TodayPageState extends State<TodayPage> {
                             AppSpacing.md,
                             2,
                             AppSpacing.md,
-                            AppSpacing.xl,
+                            104,
                           ),
                           children: [
                             // 0. OTA In-App Update Notification Banner

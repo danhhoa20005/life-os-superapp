@@ -69,6 +69,7 @@ class FinancePage extends StatelessWidget {
         child: Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
+              bottom: false,
               child: Column(
                 children: [
                   LifeOsTopBrandHeader(
@@ -848,7 +849,12 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
             constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
             child: ListView(
               key: const Key('transactions_list_view'),
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
+              ),
               children: [
                 // 1. Unified LifeOS Month & 3-Column Budget Progress Card
                 _LifeOsSpendingOverviewDeck(state: state, onlyTopSummary: true),
@@ -1274,7 +1280,12 @@ class _PersonalAnalyticsAndAllocationTabViewState
             constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
             child: ListView(
               key: const Key('analytics_list_view'),
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
+              ),
               children: [
                 const BrandVisualBanner(
                   assetPath: AppAssets.financeIllustration,
@@ -1581,7 +1592,12 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
             child: ListView(
               key: const Key('budgets_list_view'),
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
+              ),
               children: [
                 Wrap(
                   spacing: AppSpacing.sm,
@@ -2601,7 +2617,7 @@ class _FinanceToolsHubTabView extends StatelessWidget {
             AppSpacing.md,
             AppSpacing.xs,
             AppSpacing.md,
-            AppSpacing.xxl,
+            AppSpacing.dockClearance,
           ),
           children: [
             const LifeOsSectionHeader(

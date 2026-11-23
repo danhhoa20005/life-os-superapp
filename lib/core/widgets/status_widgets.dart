@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import 'liquid_glass.dart';
 
 /// WCAG 2.2 AA compliant semantic badge: NEVER conveys meaning by color alone (always Icon + Label).
 enum SemanticStatusKind { success, warning, error, info, provisional }
@@ -116,17 +117,43 @@ class LiquidGlassBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: AppBar(
-          leading: leading,
-          title: title,
-          actions: actions,
-          backgroundColor: c.surface.withValues(alpha: 0.82),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(0.8),
-            child: Container(height: 0.8, color: c.separator),
+        filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LiquidGlassTokens.surfaceGradient(
+              isDark: isDark,
+              material: LiquidGlassMaterial.navigationChrome,
+            ),
+          ),
+          child: AppBar(
+            leading: leading,
+            title: title,
+            actions: actions,
+            backgroundColor: Colors.transparent,
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1.0),
+              child: Container(
+                height: 1.0,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [
+                            Colors.white.withValues(alpha: 0.22),
+                            c.separator.withValues(alpha: 0.65),
+                            Colors.white.withValues(alpha: 0.14),
+                          ]
+                        : [
+                            Colors.white.withValues(alpha: 0.95),
+                            c.separator.withValues(alpha: 0.72),
+                            Colors.white.withValues(alpha: 0.85),
+                          ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

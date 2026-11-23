@@ -16,9 +16,11 @@ import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../utils/vnd_amount.dart';
+import 'liquid_glass.dart';
 import 'quick_create_hub_sheet.dart';
 
 export 'lifeos_top_toast.dart';
+export 'liquid_glass.dart';
 
 ThemeBloc? _maybeThemeBloc(BuildContext context, {bool listen = false}) {
   try {
@@ -478,7 +480,8 @@ class LifeOsStackedBrandLogo extends StatelessWidget {
   }
 }
 
-/// Top-right soft organic mint leaf wave background shared across ALL LifeOS screens.
+/// Multi-orb refractive ambient light canvas shared across ALL LifeOS screens
+/// so Apple Liquid Glass cards, capsules, and floating docks visibly refract subtle depth.
 class LifeOsMintWaveCanvas extends StatelessWidget {
   final Widget child;
 
@@ -492,11 +495,7 @@ class LifeOsMintWaveCanvas extends StatelessWidget {
       color: c.background,
       child: Stack(
         children: [
-          Positioned(
-            top: 0,
-            right: 0,
-            left: 0,
-            height: 250,
+          Positioned.fill(
             child: IgnorePointer(
               child: RepaintBoundary(
                 child: CustomPaint(
@@ -505,7 +504,7 @@ class LifeOsMintWaveCanvas extends StatelessWidget {
               ),
             ),
           ),
-          child,
+          Material(type: MaterialType.transparency, child: child),
         ],
       ),
     );
@@ -519,40 +518,58 @@ class _MintOrganicWavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+    final rect = Offset.zero & size;
 
+    // 1. Top-Right Emerald Ice Bloom
     final topRightGlow = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(0.92, -0.75),
+        center: const Alignment(0.92, -0.82),
         radius: 1.05,
         colors: isDark
             ? [
-                const Color(0xFF0B7A2A).withValues(alpha: 0.22),
-                const Color(0xFF080C0A).withValues(alpha: 0.0),
+                const Color(0xFF0B7A2A).withValues(alpha: 0.24),
+                Colors.transparent,
               ]
             : [
-                const Color(0xFFC2F5D1).withValues(alpha: 0.58),
-                const Color(0xFFF2F5F3).withValues(alpha: 0.0),
+                const Color(0xFFBDF5CF).withValues(alpha: 0.62),
+                Colors.transparent,
               ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), topRightGlow);
+      ).createShader(rect);
+    canvas.drawRect(rect, topRightGlow);
 
+    // 2. Top-Left Cool Sky-Mint Refraction Bloom
     final topLeftGlow = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(-0.85, -0.9),
-        radius: 0.9,
+        center: const Alignment(-0.88, -0.78),
+        radius: 0.92,
         colors: isDark
             ? [
-                const Color(0xFF113824).withValues(alpha: 0.20),
+                const Color(0xFF0E4A5C).withValues(alpha: 0.18),
                 Colors.transparent,
               ]
             : [
-                const Color(0xFFE7F7EB).withValues(alpha: 0.72),
+                const Color(0xFFDCF2FD).withValues(alpha: 0.56),
                 Colors.transparent,
               ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), topLeftGlow);
+      ).createShader(rect);
+    canvas.drawRect(rect, topLeftGlow);
+
+    // 3. Lower Ambient Aurora Bloom (gives floating Liquid Glass bottom dock subtle refraction)
+    final lowerGlow = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.45, 0.92),
+        radius: 0.95,
+        colors: isDark
+            ? [
+                const Color(0xFF0A4D23).withValues(alpha: 0.16),
+                Colors.transparent,
+              ]
+            : [
+                const Color(0xFFDFF7E8).withValues(alpha: 0.52),
+                Colors.transparent,
+              ],
+      ).createShader(rect);
+    canvas.drawRect(rect, lowerGlow);
   }
 
   @override
@@ -560,7 +577,7 @@ class _MintOrganicWavePainter extends CustomPainter {
       oldDelegate.isDark != isDark;
 }
 
-/// Circular soft icon button used in `LifeOsTopBrandHeader` (Search, Bell, Back, Extra).
+/// Circular Apple Liquid Glass icon orb used in `LifeOsTopBrandHeader` (Search, Bell, Back, Extra).
 class LifeOsHeaderCircleButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -580,24 +597,12 @@ class LifeOsHeaderCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Tooltip(
       message: tooltip,
-      child: Container(
-        decoration: BoxDecoration(
-          color: c.surface,
-          shape: BoxShape.circle,
-          border: Border.all(color: c.separator, width: 0.9),
-          boxShadow: isDark
-              ? const []
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF0A140E).withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-        ),
+      child: LiquidGlassSurface(
+        material: LiquidGlassMaterial.navigationChrome,
+        borderRadius: 19,
+        blurSigma: 20,
         child: Material(
           color: Colors.transparent,
           shape: const CircleBorder(),
@@ -812,26 +817,13 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       ),
                     ),
                   ],
-                  Container(
+                  LiquidGlassSurface(
+                    material: LiquidGlassMaterial.navigationChrome,
+                    borderRadius: 24,
+                    blurSigma: 22,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 4,
                       vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: c.separator, width: 0.9),
-                      boxShadow: isDark
-                          ? const []
-                          : [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF0A140E,
-                                ).withValues(alpha: 0.04),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -971,7 +963,7 @@ class _CapsuleIconBtn extends StatelessWidget {
   }
 }
 
-/// Crisp white / dark `22px` card following the unified LifeOS surface rule.
+/// Specular 60/120 FPS Apple Liquid Glass `22px` card surface.
 class LifeOsSoftCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -992,36 +984,20 @@ class LifeOsSoftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor ?? c.surface,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: borderColor ?? c.separator, width: 1),
-        boxShadow: isDark
-            ? const []
-            : [
-                BoxShadow(
-                  color: const Color(0xFF101828).withValues(alpha: 0.045),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(borderRadius),
-          onTap: onTap,
-          child: Padding(padding: padding, child: child),
-        ),
-      ),
+    return LiquidGlassSurface(
+      material: LiquidGlassMaterial.card,
+      borderRadius: borderRadius,
+      padding: padding,
+      onTap: onTap,
+      enableBlur: false,
+      tintColor: backgroundColor,
+      accentRimColor: borderColor,
+      child: child,
     );
   }
 }
 
-/// Signature Pastel Mint Summary Card used at the top of Home, Family, Funds, Tasks, Event Detail & Settings.
+/// Signature Pastel-Emerald Apple Liquid Glass Summary Card used across Home, Family, Funds, Tasks & Settings.
 class LifeOsMintHeroCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -1036,44 +1012,20 @@ class LifeOsMintHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? const [Color(0xFF112C1B), Color(0xFF15221A)]
-              : const [Color(0xFFEAFBF0), Color(0xFFF6FDF8)],
-        ),
-        border: Border.all(
-          color: isDark ? const Color(0xFF1E4D2F) : const Color(0xFFC8F2D6),
-          width: 1,
-        ),
-        boxShadow: isDark
-            ? const []
-            : [
-                BoxShadow(
-                  color: const Color(0xFF12B847).withValues(alpha: 0.06),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: onTap,
-          child: Padding(padding: padding, child: child),
-        ),
-      ),
+    return LiquidGlassSurface(
+      material: LiquidGlassMaterial.mintHero,
+      borderRadius: 22,
+      padding: padding,
+      onTap: onTap,
+      enableBlur: false,
+      accentRimColor: const Color(0xFF34D399),
+      rimIntensity: 1.1,
+      child: child,
     );
   }
 }
 
-/// Unified `42×42` rounded squircle icon container with semantic pastel background.
+/// Unified `42×42` rounded Liquid Glass squircle icon container with specular inner border.
 class LifeOsIconSquircle extends StatelessWidget {
   final IconData icon;
   final LifeOsAccentTone tone;
@@ -1092,13 +1044,34 @@ class LifeOsIconSquircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final (bg, fg) = tone.resolve(context);
+    final radius = size * 0.32;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: solidFill ? fg : bg,
-        borderRadius: BorderRadius.circular(size * 0.31),
+        gradient: solidFill
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color.lerp(fg, Colors.white, 0.16)!, fg],
+              )
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(bg, Colors.white, isDark ? 0.08 : 0.42)!,
+                  bg,
+                ],
+              ),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: solidFill
+              ? Colors.white.withValues(alpha: 0.34)
+              : fg.withValues(alpha: isDark ? 0.30 : 0.18),
+          width: 0.9,
+        ),
       ),
       child: Icon(icon, size: iconSize, color: solidFill ? Colors.white : fg),
     );
@@ -1346,7 +1319,7 @@ class LifeOsFeatureGridTile extends StatelessWidget {
   }
 }
 
-/// Unified Segmented Pill Bar (`Ngày | Tuần | Tháng` or `Danh sách | Bảng`).
+/// Unified Apple Liquid Glass Segmented Pill Bar (`Ngày | Tuần | Tháng` or `Sáng | Tối | Hệ thống`).
 class LifeOsSegmentedPills<T> extends StatelessWidget {
   final List<(T value, String label, IconData? icon)> options;
   final T selected;
@@ -1362,57 +1335,88 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return Container(
-      height: 48,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return LiquidGlassSurface(
+      material: LiquidGlassMaterial.segmentedTrough,
+      borderRadius: 25,
+      enableBlur: false,
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: c.separator),
-      ),
-      child: Row(
-        children: options.map((item) {
-          final isSelected = item.$1 == selected;
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(21),
-              onTap: () => onChanged(item.$1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                decoration: BoxDecoration(
-                  color: isSelected ? c.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(21),
-                ),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (item.$3 != null) ...[
-                        Icon(
-                          item.$3,
-                          size: 16,
-                          color: isSelected ? Colors.white : c.textSecondary,
+      child: SizedBox(
+        height: 40,
+        child: Row(
+          children: options.map((item) {
+            final isSelected = item.$1 == selected;
+            return Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(21),
+                onTap: () => onChanged(item.$1),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    gradient: isSelected
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF25CF65),
+                                    const Color(0xFF0E8F3E),
+                                  ]
+                                : [const Color(0xFF14963A), c.primary],
+                          )
+                        : null,
+                    borderRadius: BorderRadius.circular(21),
+                    border: isSelected
+                        ? Border.all(
+                            color: Colors.white.withValues(
+                              alpha: isDark ? 0.30 : 0.42,
+                            ),
+                            width: 1.0,
+                          )
+                        : null,
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: c.primary.withValues(
+                                alpha: isDark ? 0.32 : 0.22,
+                              ),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (item.$3 != null) ...[
+                          Icon(
+                            item.$3,
+                            size: 16,
+                            color: isSelected ? Colors.white : c.textSecondary,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        Text(
+                          item.$2,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected ? Colors.white : c.textSecondary,
+                          ),
                         ),
-                        const SizedBox(width: 5),
                       ],
-                      Text(
-                        item.$2,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected ? Colors.white : c.textSecondary,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -1628,6 +1632,8 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    showDragHandle: false,
     builder: (sheetCtx) {
       var query = '';
       return StatefulBuilder(
@@ -1767,163 +1773,167 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
             initialChildSize: 0.72,
             maxChildSize: 0.92,
             minChildSize: 0.45,
-            builder: (_, scrollCtrl) => Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    key: const Key('omni_search_text_field'),
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText:
-                          'Tìm chi tiêu, lịch hẹn, việc làm, ghi chú, tiện ích...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: query.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'Xóa',
-                              onPressed: () => setModalState(() => query = ''),
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                            ),
+            builder: (_, scrollCtrl) => LiquidGlassSheetFrame(
+              showHandle: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      key: const Key('omni_search_text_field'),
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Tìm chi tiêu, lịch hẹn, việc làm, ghi chú, tiện ích...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Xóa',
+                                onPressed: () =>
+                                    setModalState(() => query = ''),
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                              ),
+                      ),
+                      onChanged: (v) => setModalState(() => query = v),
                     ),
-                    onChanged: (v) => setModalState(() => query = v),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: combined.isEmpty
-                        ? ListView(
-                            controller: scrollCtrl,
-                            children: [
-                              const SizedBox(height: 24),
-                              Icon(
-                                Icons.search_off_rounded,
-                                size: 42,
-                                color: c.textSecondary,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Chưa tìm thấy "$query" trong dữ liệu của bạn',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                  color: c.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Bạn muốn tạo nhanh một khoản chi tiêu, lịch hẹn hoặc ghi chú mới?',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 13,
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: combined.isEmpty
+                          ? ListView(
+                              controller: scrollCtrl,
+                              children: [
+                                const SizedBox(height: 24),
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 42,
                                   color: c.textSecondary,
                                 ),
-                              ),
-                              const SizedBox(height: 14),
-                              Center(
-                                child: FilledButton.icon(
-                                  onPressed: () {
-                                    Navigator.of(sheetCtx).pop();
-                                    showLifeOsQuickCreateHub(context);
-                                  },
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Mở Thêm nhanh (+)'),
-                                ),
-                              ),
-                            ],
-                          )
-                        : ListView.separated(
-                            controller: scrollCtrl,
-                            itemCount: combined.length,
-                            separatorBuilder: (_, __) =>
                                 const SizedBox(height: 8),
-                            itemBuilder: (_, idx) {
-                              final item = combined[idx];
-                              return LifeOsSoftCard(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
+                                Text(
+                                  'Chưa tìm thấy "$query" trong dữ liệu của bạn',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    color: c.textPrimary,
+                                  ),
                                 ),
-                                onTap: () {
-                                  Navigator.of(sheetCtx).pop();
-                                  if (item.route == '/today' ||
-                                      item.route == '/finance' ||
-                                      item.route == '/planning' ||
-                                      item.route == '/family') {
-                                    context.go(item.route);
-                                  } else {
-                                    context.push(item.route);
-                                  }
-                                },
-                                child: Row(
-                                  children: [
-                                    LifeOsIconSquircle(
-                                      icon: item.icon,
-                                      tone: item.tone,
-                                      size: 40,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.title,
-                                            softWrap: true,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 14.5,
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Bạn muốn tạo nhanh một khoản chi tiêu, lịch hẹn hoặc ghi chú mới?',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Center(
+                                  child: FilledButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(sheetCtx).pop();
+                                      showLifeOsQuickCreateHub(context);
+                                    },
+                                    icon: const Icon(Icons.add_rounded),
+                                    label: const Text('Mở Thêm nhanh (+)'),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              controller: scrollCtrl,
+                              itemCount: combined.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
+                              itemBuilder: (_, idx) {
+                                final item = combined[idx];
+                                return LifeOsSoftCard(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
+                                  ),
+                                  onTap: () {
+                                    Navigator.of(sheetCtx).pop();
+                                    if (item.route == '/today' ||
+                                        item.route == '/finance' ||
+                                        item.route == '/planning' ||
+                                        item.route == '/family') {
+                                      context.go(item.route);
+                                    } else {
+                                      context.push(item.route);
+                                    }
+                                  },
+                                  child: Row(
+                                    children: [
+                                      LifeOsIconSquircle(
+                                        icon: item.icon,
+                                        tone: item.tone,
+                                        size: 40,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.title,
+                                              softWrap: true,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14.5,
+                                              ),
+                                            ),
+                                            Text(
+                                              item.subtitle,
+                                              softWrap: true,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (item.badge != null) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: c.primarySubtle,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
                                             ),
                                           ),
-                                          Text(
-                                            item.subtitle,
-                                            softWrap: true,
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.bodySmall,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (item.badge != null) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: c.primarySubtle,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
+                                          child: Text(
+                                            item.badge!,
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: c.primary,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                        child: Text(
-                                          item.badge!,
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: c.primary,
-                                            fontFeatures: const [
-                                              FontFeature.tabularFigures(),
-                                            ],
-                                          ),
+                                      ] else
+                                        const Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 20,
                                         ),
-                                      ),
-                                    ] else
-                                      const Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 20,
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -2045,6 +2055,8 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    showDragHandle: false,
     builder: (sheetCtx) {
       return BlocProvider<ThemeBloc>.value(
         value: themeBloc,
@@ -2055,169 +2067,172 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
               data: MediaQuery.of(
                 ctx,
               ).copyWith(textScaler: TextScaler.linear(state.textScale)),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const LifeOsIconSquircle(
-                            icon: Icons.palette_outlined,
-                            tone: LifeOsAccentTone.emerald,
-                            size: 38,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Giao diện Sáng/Tối & Cỡ chữ',
-                                  style: TextStyle(
-                                    fontSize: 16.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: c.textPrimary,
-                                  ),
-                                ),
-                                Text(
-                                  'Áp dụng tức thì và tự lưu cho mọi màn hình',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                              ],
+              child: LiquidGlassSheetFrame(
+                showHandle: true,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const LifeOsIconSquircle(
+                              icon: Icons.palette_outlined,
+                              tone: LifeOsAccentTone.emerald,
+                              size: 38,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 1. Light / Dark / System Segmented Selector
-                      Text(
-                        'Chế độ màu sắc',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Giao diện Sáng/Tối & Cỡ chữ',
+                                    style: TextStyle(
+                                      fontSize: 16.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Áp dụng tức thì và tự lưu cho mọi màn hình',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      LifeOsSegmentedPills<ThemeMode>(
-                        selected: state.themeMode,
-                        onChanged: (mode) =>
-                            themeBloc.add(ThemeModeChanged(mode)),
-                        options: const [
-                          (ThemeMode.light, 'Sáng', Icons.light_mode_rounded),
-                          (ThemeMode.dark, 'Tối', Icons.dark_mode_rounded),
-                          (
-                            ThemeMode.system,
-                            'Hệ thống',
-                            Icons.phone_android_rounded,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
+                        const SizedBox(height: 14),
 
-                      // 2. Font Scale Quick Presets + Fine Slider
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Kích cỡ chữ hiển thị (Aa)',
+                        // 1. Light / Dark / System Segmented Selector
+                        Text(
+                          'Chế độ màu sắc',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        LifeOsSegmentedPills<ThemeMode>(
+                          selected: state.themeMode,
+                          onChanged: (mode) =>
+                              themeBloc.add(ThemeModeChanged(mode)),
+                          options: const [
+                            (ThemeMode.light, 'Sáng', Icons.light_mode_rounded),
+                            (ThemeMode.dark, 'Tối', Icons.dark_mode_rounded),
+                            (
+                              ThemeMode.system,
+                              'Hệ thống',
+                              Icons.phone_android_rounded,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 2. Font Scale Quick Presets + Fine Slider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Kích cỡ chữ hiển thị (Aa)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                            ),
+                            LifeOsStatusPill(
+                              label: '${state.textScalePercent}%',
+                              tone: LifeOsAccentTone.emerald,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final preset
+                                in const <(double scale, String label)>[
+                                  (0.85, 'Nhỏ gọn (85%)'),
+                                  (0.92, 'Tối ưu (92%)'),
+                                  (1.00, 'Chuẩn (100%)'),
+                                  (1.12, 'Chữ lớn (112%)'),
+                                ])
+                              ChoiceChip(
+                                label: Text(preset.$2),
+                                selected:
+                                    (state.textScale - preset.$1).abs() < 0.025,
+                                onSelected: (_) =>
+                                    themeBloc.add(TextScaleChanged(preset.$1)),
+                              ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              'A-',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                            Expanded(
+                              child: Slider(
+                                key: const Key('appearance_font_scale_slider'),
+                                value: state.textScale,
+                                min: 0.80,
+                                max: 1.25,
+                                divisions: 18,
+                                onChanged: (v) =>
+                                    themeBloc.add(TextScaleChanged(v)),
+                              ),
+                            ),
+                            Text(
+                              'A+',
+                              style: TextStyle(
+                                fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 color: c.textPrimary,
                               ),
                             ),
-                          ),
-                          LifeOsStatusPill(
-                            label: '${state.textScalePercent}%',
-                            tone: LifeOsAccentTone.emerald,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final preset
-                              in const <(double scale, String label)>[
-                                (0.85, 'Nhỏ gọn (85%)'),
-                                (0.92, 'Tối ưu (92%)'),
-                                (1.00, 'Chuẩn (100%)'),
-                                (1.12, 'Chữ lớn (112%)'),
-                              ])
-                            ChoiceChip(
-                              label: Text(preset.$2),
-                              selected:
-                                  (state.textScale - preset.$1).abs() < 0.025,
-                              onSelected: (_) =>
-                                  themeBloc.add(TextScaleChanged(preset.$1)),
-                            ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            'A-',
+                          ],
+                        ),
+
+                        // 3. Spatial Compactness Toggle
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Tối ưu không gian gọn gàng',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w700,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                          Expanded(
-                            child: Slider(
-                              key: const Key('appearance_font_scale_slider'),
-                              value: state.textScale,
-                              min: 0.80,
-                              max: 1.25,
-                              divisions: 18,
-                              onChanged: (v) =>
-                                  themeBloc.add(TextScaleChanged(v)),
-                            ),
-                          ),
-                          Text(
-                            'A+',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
                               color: c.textPrimary,
                             ),
                           ),
-                        ],
-                      ),
-
-                      // 3. Spatial Compactness Toggle
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Tối ưu không gian gọn gàng',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: c.textPrimary,
+                          subtitle: Text(
+                            'Thu gọn khoảng đệm thừa để hiển thị trọn vẹn nội dung trên 1 màn hình',
+                            style: TextStyle(
+                              fontSize: 11.8,
+                              color: c.textSecondary,
+                            ),
                           ),
+                          value: state.compactDensity,
+                          onChanged: (v) =>
+                              themeBloc.add(CompactDensityToggled(v)),
                         ),
-                        subtitle: Text(
-                          'Thu gọn khoảng đệm thừa để hiển thị trọn vẹn nội dung trên 1 màn hình',
-                          style: TextStyle(
-                            fontSize: 11.8,
-                            color: c.textSecondary,
-                          ),
-                        ),
-                        value: state.compactDensity,
-                        onChanged: (v) =>
-                            themeBloc.add(CompactDensityToggled(v)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

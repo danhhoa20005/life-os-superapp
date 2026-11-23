@@ -59,6 +59,7 @@ class PlanningPage extends StatelessWidget {
         child: Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
+              bottom: false,
               child: Column(
                 children: [
                   LifeOsTopBrandHeader(
@@ -430,7 +431,7 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
                 AppSpacing.md,
                 AppSpacing.sm,
                 AppSpacing.md,
-                AppSpacing.xxl,
+                AppSpacing.dockClearance,
               ),
               children: [
                 // 0. Unified LifeOS Month Grid + Day/Week/Month Real Timeline (Zero Mock Data)
@@ -1812,7 +1813,7 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
             AppSpacing.md,
             AppSpacing.xs,
             AppSpacing.md,
-            AppSpacing.xxl,
+            AppSpacing.dockClearance,
           ),
           children: [
             const LifeOsSectionHeader(
