@@ -55,14 +55,14 @@ class PlanningPage extends StatelessWidget {
         ),
       ],
       child: DefaultTabController(
-        length: 2,
+        length: 3,
         child: Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
               child: Column(
                 children: [
                   LifeOsTopBrandHeader(
-                    title: 'Lịch',
+                    title: 'Lịch & Việc',
                     extraBrandActions: [
                       LifeOsHeaderCircleButton(
                         buttonKey: const Key('open_create_event_button'),
@@ -91,6 +91,7 @@ class PlanningPage extends StatelessWidget {
                   ),
                   const ProPillTabContainer(
                     tabBar: TabBar(
+                      labelPadding: EdgeInsets.symmetric(horizontal: 6),
                       tabs: [
                         Tab(
                           key: Key('planning_calendar_tab'),
@@ -98,7 +99,11 @@ class PlanningPage extends StatelessWidget {
                         ),
                         Tab(
                           key: Key('planning_tasks_tab'),
-                          text: 'Việc làm & Giao việc',
+                          text: 'Việc làm',
+                        ),
+                        Tab(
+                          key: Key('planning_tools_tab'),
+                          text: 'Thói quen & Sổ',
                         ),
                       ],
                     ),
@@ -113,6 +118,7 @@ class PlanningPage extends StatelessWidget {
                           availabilityOptIn: user.availabilityOptIn,
                         ),
                         UnifiedTasksBoardView(userId: user.id),
+                        const _PlanningHabitsAndNotesTabView(),
                       ],
                     ),
                   ),
@@ -498,7 +504,13 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
                     initialDate: selectedDate,
                   ),
                 ),
-                const SizedBox(height: 14),
+
+                // Clearly Separated Section: Đồng bộ Google Calendar & Lịch máy
+                const LifeOsSectionHeader(
+                  title: 'Đồng bộ Lịch & Nguồn sự kiện',
+                  tone: LifeOsAccentTone.blue,
+                  padding: EdgeInsets.only(top: 12, bottom: 6, left: 2, right: 2),
+                ),
 
                 // 1. Device & Google Calendar 2-Way Sync Card
                 LifeOsMintHeroCard(
@@ -1841,6 +1853,96 @@ class _DayTimelineRow extends StatelessWidget {
               Icon(Icons.chevron_right_rounded, size: 19, color: c.textSecondary),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanningHabitsAndNotesTabView extends StatelessWidget {
+  const _PlanningHabitsAndNotesTabView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+        child: ListView(
+          key: const Key('planning_tools_hub_list_view'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xxl,
+          ),
+          children: [
+            const LifeOsSectionHeader(
+              title: 'Báo thức & Tập trung mỗi ngày',
+              subtitle: 'Chuông nhắc sự kiện, đồng hồ Pomodoro và uống nước',
+              tone: LifeOsAccentTone.amber,
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('planning_hub_alarm_tile'),
+                      icon: Icons.alarm_on_rounded,
+                      tone: LifeOsAccentTone.blue,
+                      title: 'Báo thức lịch',
+                      subtitle: 'Chuông nhắc hẹn',
+                      onTap: () => context.push('/event-alarm'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('planning_hub_habits_tile'),
+                      icon: Icons.local_fire_department_outlined,
+                      tone: LifeOsAccentTone.amber,
+                      title: 'Thói quen & Nước',
+                      subtitle: 'Pomodoro tập trung',
+                      onTap: () => context.push('/habits-focus'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const LifeOsSectionHeader(
+              title: 'Sổ tay cá nhân & Nhiệm vụ',
+              subtitle: 'Ghi chú ghim nhanh, nhật ký cảm xúc và bảng việc làm',
+              tone: LifeOsAccentTone.purple,
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('planning_hub_notes_tile'),
+                      icon: Icons.sticky_note_2_outlined,
+                      tone: LifeOsAccentTone.purple,
+                      title: 'Sổ tay & Cảm xúc',
+                      subtitle: 'Ghi chú & tâm trạng',
+                      onTap: () => context.push('/smart-notes-hub'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('planning_hub_tasks_tile'),
+                      icon: Icons.task_alt_rounded,
+                      tone: LifeOsAccentTone.emerald,
+                      title: 'Bảng việc làm',
+                      subtitle: 'Việc cá nhân & nhóm',
+                      onTap: () => context.push('/tasks-board'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

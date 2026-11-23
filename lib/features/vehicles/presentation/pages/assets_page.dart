@@ -48,7 +48,8 @@ class AssetsPage extends StatelessWidget {
               child: Column(
                 children: [
                   LifeOsTopBrandHeader(
-                    title: 'Xe cộ',
+                    title: 'Xe cộ & Hóa đơn',
+                    showBackButton: true,
                     extraBrandActions: [
                       LifeOsHeaderCircleButton(
                         icon: Icons.receipt_long_outlined,

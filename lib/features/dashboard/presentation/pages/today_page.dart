@@ -35,7 +35,6 @@ class _ShortcutSpec {
   final IconData icon;
   final LifeOsAccentTone tone;
   final String route;
-  final bool isBranchGo;
   final Key? tileKey;
 
   const _ShortcutSpec({
@@ -44,7 +43,6 @@ class _ShortcutSpec {
     required this.icon,
     required this.tone,
     required this.route,
-    this.isBranchGo = false,
     this.tileKey,
   });
 }
@@ -84,20 +82,11 @@ class TodayPage extends StatefulWidget {
 class _TodayPageState extends State<TodayPage> {
   static const List<_ShortcutSpec> _allShortcuts = [
     _ShortcutSpec(
-      id: 'finance',
-      label: 'Chi tiêu',
-      icon: Icons.payments_outlined,
+      id: 'bank_qr',
+      label: 'Ngân hàng & QR',
+      icon: Icons.qr_code_2_rounded,
       tone: LifeOsAccentTone.emerald,
-      route: '/finance',
-      isBranchGo: true,
-    ),
-    _ShortcutSpec(
-      id: 'family',
-      label: 'Tổ ấm & Nhóm',
-      icon: Icons.groups_outlined,
-      tone: LifeOsAccentTone.emerald,
-      route: '/family',
-      isBranchGo: true,
+      route: '/notifications-privacy',
     ),
     _ShortcutSpec(
       id: 'vehicles',
@@ -105,7 +94,6 @@ class _TodayPageState extends State<TodayPage> {
       icon: Icons.directions_car_outlined,
       tone: LifeOsAccentTone.blue,
       route: '/assets',
-      isBranchGo: true,
     ),
     _ShortcutSpec(
       id: 'health',
@@ -139,13 +127,6 @@ class _TodayPageState extends State<TodayPage> {
       route: '/family-documents',
     ),
     _ShortcutSpec(
-      id: 'settings',
-      label: 'Cài đặt',
-      icon: Icons.settings_outlined,
-      tone: LifeOsAccentTone.neutral,
-      route: '/settings-hub',
-    ),
-    _ShortcutSpec(
       id: 'notes_salary',
       label: 'Lương & Thuế',
       icon: Icons.request_quote_outlined,
@@ -153,12 +134,25 @@ class _TodayPageState extends State<TodayPage> {
       route: '/smart-notes-hub',
     ),
     _ShortcutSpec(
-      id: 'calendar',
-      label: 'Lịch trình',
-      icon: Icons.calendar_today_rounded,
-      tone: LifeOsAccentTone.emerald,
-      route: '/planning',
-      isBranchGo: true,
+      id: 'settings',
+      label: 'Cài đặt',
+      icon: Icons.settings_outlined,
+      tone: LifeOsAccentTone.neutral,
+      route: '/settings-hub',
+    ),
+    _ShortcutSpec(
+      id: 'habits',
+      label: 'Thói quen',
+      icon: Icons.local_fire_department_outlined,
+      tone: LifeOsAccentTone.amber,
+      route: '/habits-focus',
+    ),
+    _ShortcutSpec(
+      id: 'wealth',
+      label: 'Lãi vay & Bill',
+      icon: Icons.calculate_outlined,
+      tone: LifeOsAccentTone.blue,
+      route: '/wealth-tools',
     ),
     _ShortcutSpec(
       id: 'widgets',
@@ -170,13 +164,13 @@ class _TodayPageState extends State<TodayPage> {
   ];
 
   final Set<String> _pinnedIds = <String>{
-    'finance',
-    'family',
+    'bank_qr',
     'vehicles',
     'health',
     'kitchen',
     'evn',
     'documents',
+    'notes_salary',
     'settings',
   };
 
@@ -530,7 +524,7 @@ class _TodayPageState extends State<TodayPage> {
                           subtitle:
                               'Mốc tiếp theo: ${dueVehicles.first.nextDueKm} km',
                           badge: 'Đến hạn',
-                          onTap: () => context.go('/assets'),
+                          onTap: () => context.push('/assets'),
                         ),
                       if (dueBills.isNotEmpty)
                         _InboxActionItem(
@@ -540,7 +534,7 @@ class _TodayPageState extends State<TodayPage> {
                           subtitle:
                               'Dự kiến ${_fmtMoney(dueBills.first.estimatedAmountMinor)}',
                           badge: 'Hóa đơn',
-                          onTap: () => context.go('/assets'),
+                          onTap: () => context.push('/assets'),
                         ),
                       if (hasConfiguredBudget && spentPct >= 85)
                         _InboxActionItem(
@@ -916,7 +910,7 @@ class _TodayPageState extends State<TodayPage> {
                             ),
                             const SizedBox(height: 10),
 
-                            // 2. 3-Column Daily Pulse Bento Row ("Việc cần làm · Lịch sắp tới · Cần xử lý")
+                            // 2. 3-Column Daily Pulse Bento Row
                             IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -955,7 +949,9 @@ class _TodayPageState extends State<TodayPage> {
                                         if (inboxItems.isNotEmpty) {
                                           inboxItems.first.onTap();
                                         } else {
-                                          context.push('/activity-feed');
+                                          context.push(
+                                            '/activity-notifications',
+                                          );
                                         }
                                       },
                                     ),
@@ -1138,7 +1134,7 @@ class _TodayPageState extends State<TodayPage> {
                             ),
                             const SizedBox(height: 10),
 
-                            // 4. 2-Column Honest Finance Split: "Ngân sách tháng" | "Quỹ chung & Tổ ấm"
+                            // 4. 2-Column Honest Finance Split: "Ngân sách tháng" | "Quỹ mục tiêu"
                             IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1326,9 +1322,17 @@ class _TodayPageState extends State<TodayPage> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
-
-                            // 5. Customizable Pinned Shortcuts ("Tiện ích của bạn · Tùy chỉnh")
+                            // 5. Clearly Separated Section: Lối tắt nhanh & Khám phá 360°
+                            const LifeOsSectionHeader(
+                              title: 'Lối tắt chuyên sâu',
+                              tone: LifeOsAccentTone.purple,
+                              padding: EdgeInsets.only(
+                                top: 10,
+                                bottom: 6,
+                                left: 2,
+                                right: 2,
+                              ),
+                            ),
                             LifeOsSoftCard(
                               padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
                               child: Column(
@@ -1415,13 +1419,7 @@ class _TodayPageState extends State<TodayPage> {
                                         icon: spec.icon,
                                         label: spec.label,
                                         tone: spec.tone,
-                                        onTap: () {
-                                          if (spec.isBranchGo) {
-                                            context.go(spec.route);
-                                          } else {
-                                            context.push(spec.route);
-                                          }
-                                        },
+                                        onTap: () => context.push(spec.route),
                                       );
                                     }).toList(),
                                   ),

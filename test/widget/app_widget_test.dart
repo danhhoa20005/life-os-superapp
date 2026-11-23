@@ -113,12 +113,16 @@ void main() {
       await tester.tap(onboardingBtn);
       await tester.pumpAndSettle();
 
-      // 4. Arrives on TodayPage with 5 Tammy x Apple bottom navigation tabs
+      // 4. Arrives on TodayPage with strictly 4 symmetrical bottom navigation tabs + Center `+`
       expect(find.text('Hôm nay'), findsWidgets);
       expect(find.text('Tài chính'), findsOneWidget);
       expect(find.text('Lịch & Việc'), findsOneWidget);
       expect(find.text('Gia đình'), findsOneWidget);
-      expect(find.text('Tài sản'), findsOneWidget);
+      expect(
+        find.byKey(const Key('lifeos_center_quick_add_fab')),
+        findsOneWidget,
+      );
+      expect(find.text('Tài sản'), findsNothing);
 
       // 5. Switch to Finance tab and record a real expense through BLoC -> UseCase -> Firestore
       await tester.tap(find.text('Tài chính'));

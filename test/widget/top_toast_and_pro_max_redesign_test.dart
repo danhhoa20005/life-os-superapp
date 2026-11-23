@@ -291,19 +291,25 @@ void main() {
         expect(find.text('Lương Gross–Net'), findsOneWidget);
         expect(tester.takeException(), isNull);
 
-        // Pop back to Home and traverse Finance, Planning, Family, and Assets tabs at 360px + 112% font
+        // Pop back to Home and traverse all 4 symmetrical tabs + pushed Vehicles/Assets hub at 360px + 112% font
         await tester.tap(find.byTooltip('Quay lại'));
         await tester.pumpAndSettle();
 
-        for (final tabLabel in const [
-          'Tài chính',
-          'Lịch & Việc',
-          'Gia đình',
-          'Tài sản',
-        ]) {
+        for (final tabLabel in const ['Tài chính', 'Lịch & Việc', 'Gia đình']) {
           await tester.tap(find.text(tabLabel).last);
           await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
         }
+
+        // Inside Gia đình tab (solo mode), verify clearly separated Vehicles & Living hub opens AssetsPage cleanly
+        final vehiclesTile = find.byKey(const Key('family_hub_vehicles_tile'));
+        expect(vehiclesTile, findsOneWidget);
+        await tester.tap(vehiclesTile);
+        await tester.pumpAndSettle();
+        expect(find.text('Xe cộ & Hóa đơn'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Quay lại'));
+        await tester.pumpAndSettle();
       },
     );
   });

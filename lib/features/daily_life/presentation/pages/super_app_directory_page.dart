@@ -178,7 +178,6 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       icon: Icons.directions_car_outlined,
       tone: LifeOsAccentTone.blue,
       route: '/assets',
-      isShellTab: true,
     ),
     SuperAppServiceEntry(
       domainKey: 'home_assets',

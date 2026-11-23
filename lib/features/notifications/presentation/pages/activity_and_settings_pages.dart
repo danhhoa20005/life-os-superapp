@@ -151,7 +151,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
         timeLabel: 'Định kỳ',
         icon: Icons.directions_car_outlined,
         tone: LifeOsAccentTone.emerald,
-        onTap: () => context.go('/assets'),
+        onTap: () => context.push('/assets'),
       ));
     }
 
@@ -476,7 +476,16 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                         ),
                         const SizedBox(height: 12),
 
-                        // 2. Hồ sơ cá nhân
+                        // Nhóm 1: Tài khoản & Kết nối tự động
+                        const LifeOsSectionHeader(
+                          title: 'Tài khoản & Kết nối tự động',
+                          padding: EdgeInsets.only(
+                            top: 8,
+                            bottom: 6,
+                            left: 2,
+                            right: 2,
+                          ),
+                        ),
                         _SettingsCardItem(
                           icon: Icons.person_outline_rounded,
                           tone: LifeOsAccentTone.emerald,
@@ -484,9 +493,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           subtitle: 'Tên hiển thị, email & mật khẩu',
                           onTap: () => context.push('/account-profile'),
                         ),
-                        const SizedBox(height: 10),
-
-                        // 3. Đồng bộ Google Calendar
+                        const SizedBox(height: 8),
                         _SettingsCardItem(
                           icon: Icons.calendar_month_rounded,
                           tone: LifeOsAccentTone.blue,
@@ -515,9 +522,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           ),
                           onTap: () => context.go('/planning'),
                         ),
-                        const SizedBox(height: 10),
-
-                        // 4. Nhận diện thông báo ngân hàng
+                        const SizedBox(height: 8),
                         _SettingsCardItem(
                           icon: Icons.account_balance_outlined,
                           tone: LifeOsAccentTone.emerald,
@@ -554,9 +559,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           ),
                           onTap: () => context.push('/notifications-privacy'),
                         ),
-                        const SizedBox(height: 10),
-
-                        // 5. Quyền nhắc nhở
+                        const SizedBox(height: 8),
                         _SettingsCardItem(
                           icon: Icons.notifications_none_rounded,
                           tone: LifeOsAccentTone.emerald,
@@ -575,9 +578,18 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           ),
                           onTap: () => context.push('/event-alarm'),
                         ),
-                        const SizedBox(height: 10),
 
-                        // 6. Chế độ tối
+                        // Nhóm 2: Giao diện & Hiển thị
+                        const LifeOsSectionHeader(
+                          title: 'Giao diện & Hiển thị',
+                          tone: LifeOsAccentTone.amber,
+                          padding: EdgeInsets.only(
+                            top: 12,
+                            bottom: 6,
+                            left: 2,
+                            right: 2,
+                          ),
+                        ),
                         _SettingsCardItem(
                           icon: Icons.dark_mode_outlined,
                           tone: LifeOsAccentTone.emerald,
@@ -599,9 +611,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 10),
-
-                        // 6b. Tùy chỉnh Giao diện & Cỡ chữ (Aa)
+                        const SizedBox(height: 8),
                         _SettingsCardItem(
                           icon: Icons.text_fields_rounded,
                           tone: LifeOsAccentTone.amber,
@@ -612,9 +622,18 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           statusPillTone: LifeOsAccentTone.emerald,
                           onTap: () => showLifeOsAppearanceSheet(context),
                         ),
-                        const SizedBox(height: 10),
 
-                        // 7. Tài liệu & Quyền riêng tư gia đình
+                        // Nhóm 3: Tiện ích mở rộng & Màn hình chính
+                        const LifeOsSectionHeader(
+                          title: 'Gia đình & Tiện ích mở rộng',
+                          tone: LifeOsAccentTone.purple,
+                          padding: EdgeInsets.only(
+                            top: 12,
+                            bottom: 6,
+                            left: 2,
+                            right: 2,
+                          ),
+                        ),
                         _SettingsCardItem(
                           icon: Icons.groups_outlined,
                           tone: LifeOsAccentTone.emerald,
@@ -622,9 +641,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           subtitle: 'Quản lý giấy tờ chung & quyền xem',
                           onTap: () => context.push('/family-documents'),
                         ),
-                        const SizedBox(height: 10),
-
-                        // 8. Widget Màn hình chính
+                        const SizedBox(height: 8),
                         _SettingsCardItem(
                           icon: Icons.widgets_outlined,
                           tone: LifeOsAccentTone.purple,
@@ -632,9 +649,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           subtitle: 'Ghim tiện ích ra màn hình điện thoại',
                           onTap: () => context.push('/home-widgets'),
                         ),
-                        const SizedBox(height: 10),
-
-                        // 8b. Tất cả tiện ích
+                        const SizedBox(height: 8),
                         _SettingsCardItem(
                           icon: Icons.apps_rounded,
                           tone: LifeOsAccentTone.emerald,

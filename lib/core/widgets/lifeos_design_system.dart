@@ -1857,8 +1857,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                   if (item.route == '/today' ||
                                       item.route == '/finance' ||
                                       item.route == '/planning' ||
-                                      item.route == '/family' ||
-                                      item.route == '/assets') {
+                                      item.route == '/family') {
                                     context.go(item.route);
                                   } else {
                                     context.push(item.route);
@@ -2569,4 +2568,139 @@ Future<void> showLifeOsBrandIdentitySheet(BuildContext context) {
       );
     },
   );
+}
+
+/// Clear visual section divider header (UI/UX Pro Max) that separates functional
+/// domains on a screen so cards never blur into a single undifferentiated stack.
+class LifeOsSectionHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final LifeOsAccentTone tone;
+  final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+
+  const LifeOsSectionHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.tone = LifeOsAccentTone.emerald,
+    this.trailing,
+    this.padding = const EdgeInsets.only(top: 14, bottom: 8, left: 2, right: 2),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final (_, fg) = tone.resolve(context);
+    return Padding(
+      padding: padding,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 4,
+            height: subtitle != null ? 26 : 16,
+            decoration: BoxDecoration(
+              color: fg,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.8,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.15,
+                    color: c.textPrimary,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.6, color: c.textSecondary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+        ],
+      ),
+    );
+  }
+}
+
+/// Tactile 2-column Bento shortcut card (`>= 48dp` hit target, zero overflow)
+/// used to organize domain sub-features cleanly into separate tabs.
+class LifeOsFeatureBentoTile extends StatelessWidget {
+  final Key? tileKey;
+  final IconData icon;
+  final LifeOsAccentTone tone;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const LifeOsFeatureBentoTile({
+    super.key,
+    this.tileKey,
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return LifeOsSoftCard(
+      key: tileKey,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
+      borderRadius: 18,
+      onTap: onTap,
+      child: Row(
+        children: [
+          LifeOsIconSquircle(icon: icon, tone: tone, size: 36, iconSize: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.8,
+                    fontWeight: FontWeight.w800,
+                    color: c.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.2, color: c.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, size: 16, color: c.textSecondary),
+        ],
+      ),
+    );
+  }
 }

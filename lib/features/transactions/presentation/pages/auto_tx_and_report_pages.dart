@@ -734,7 +734,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                               .state
                               .vehicles;
                           if (vehicles.isEmpty) {
-                            context.go('/assets');
+                            context.push('/assets');
                             return;
                           }
                           final targetVehicle = vehicles.first;

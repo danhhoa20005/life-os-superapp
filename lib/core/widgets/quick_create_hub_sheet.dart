@@ -466,9 +466,11 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-
-            // 3. 2×3 Bento Grid of Everyday Actions (Short, Clear, 1-Tap Direct Sheets)
+            // 3. Clearly Separated Section: Tạo mới theo danh mục
+            const LifeOsSectionHeader(
+              title: 'Tạo mới theo mục',
+              padding: EdgeInsets.only(top: 10, bottom: 6, left: 2, right: 2),
+            ),
             for (var i = 0; i < tiles.length; i += 2) ...[
               if (i > 0) const SizedBox(height: 8),
               IntrinsicHeight(
@@ -482,9 +484,13 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                 ),
               ),
             ],
-            const SizedBox(height: 10),
 
-            // 4. Compact Footer Row: Bank Transaction Review + Document Vault
+            // 4. Clearly Separated Section: Đối soát & Lưu trữ
+            const LifeOsSectionHeader(
+              title: 'Đối soát & Lưu trữ',
+              tone: LifeOsAccentTone.blue,
+              padding: EdgeInsets.only(top: 10, bottom: 6, left: 2, right: 2),
+            ),
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

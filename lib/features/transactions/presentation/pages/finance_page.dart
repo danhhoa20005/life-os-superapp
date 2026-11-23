@@ -65,14 +65,14 @@ class FinancePage extends StatelessWidget {
         ),
       ],
       child: DefaultTabController(
-        length: 3,
+        length: 4,
         child: Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
               child: Column(
                 children: [
                   LifeOsTopBrandHeader(
-                    title: 'Chi tiêu',
+                    title: 'Tài chính',
                     extraBrandActions: [
                       BlocBuilder<TransactionListBloc, TransactionListState>(
                         builder: (context, listState) {
@@ -117,12 +117,17 @@ class FinancePage extends StatelessWidget {
                   ),
                   const ProPillTabContainer(
                     tabBar: TabBar(
+                      labelPadding: EdgeInsets.symmetric(horizontal: 6),
                       tabs: [
-                        Tab(text: 'Tổng quan & Sổ'),
+                        Tab(text: 'Sổ thu chi'),
                         Tab(text: 'Ngân sách'),
                         Tab(
                           key: Key('finance_analytics_tab'),
                           text: 'Phân tích',
+                        ),
+                        Tab(
+                          key: Key('finance_tools_tab'),
+                          text: 'Công cụ',
                         ),
                       ],
                     ),
@@ -137,6 +142,7 @@ class FinancePage extends StatelessWidget {
                           familyId: user.activeFamilyId,
                         ),
                         _PersonalAnalyticsAndAllocationTabView(userId: user.id),
+                        const _FinanceToolsHubTabView(),
                       ],
                     ),
                   ),
@@ -845,46 +851,30 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
               key: const Key('transactions_list_view'),
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-                // 1. Unified LifeOS Month & 3-Column Budget Progress Card (`04_Chi_tieu.png`)
+                // 1. Unified LifeOS Month & 3-Column Budget Progress Card
                 _LifeOsSpendingOverviewDeck(state: state, onlyTopSummary: true),
 
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Ví của bạn (${state.wallets.length})',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (_selectedWalletId != null)
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        onPressed: () => setState(() => _selectedWalletId = null),
-                        icon: const Icon(Icons.filter_alt_off_rounded, size: 15),
-                        label: const Text('Bỏ lọc'),
-                      )
-                    else
-                      Flexible(
-                        child: Text(
-                          'Chạm để lọc',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ),
-                  ],
+                // 2. Clearly Separated Section: Ví & Tài khoản
+                LifeOsSectionHeader(
+                  title: 'Ví của bạn (${state.wallets.length})',
+                  subtitle: 'Chạm vào thẻ ví để lọc riêng giao dịch của ví đó',
+                  trailing: _selectedWalletId != null
+                      ? TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          onPressed: () {
+                            setState(() => _selectedWalletId = null);
+                          },
+                          icon: const Icon(
+                            Icons.filter_alt_off_rounded,
+                            size: 15,
+                          ),
+                          label: const Text('Bỏ lọc'),
+                        )
+                      : null,
                 ),
-                const SizedBox(height: 6),
                 if (state.wallets.isEmpty)
                   const Card(
                     child: Padding(
@@ -968,7 +958,10 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   ),
                 ],
 
-                const SizedBox(height: AppSpacing.md),
+                const LifeOsSectionHeader(
+                  title: 'Sổ thu chi & Sao kê',
+                  padding: EdgeInsets.only(top: 10, bottom: 6, left: 2, right: 2),
+                ),
                 if (state.wallets.isNotEmpty) ...[
                   _SmartQuickEntryCard(
                     userId: widget.userId,
@@ -2593,6 +2586,124 @@ class _MiniCategoryCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FinanceToolsHubTabView extends StatelessWidget {
+  const _FinanceToolsHubTabView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+        child: ListView(
+          key: const Key('finance_tools_hub_list_view'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xxl,
+          ),
+          children: [
+            const LifeOsSectionHeader(
+              title: 'Kết nối Ngân hàng & Báo cáo',
+              subtitle: 'Đồng bộ biến động tự động, mã QR thu tiền và sao kê',
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('finance_hub_bank_qr_tile'),
+                      icon: Icons.qr_code_2_rounded,
+                      tone: LifeOsAccentTone.emerald,
+                      title: 'Ngân hàng & QR',
+                      subtitle: 'Biến động tự động',
+                      onTap: () => context.push('/notifications-privacy'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('finance_hub_report_tile'),
+                      icon: Icons.bar_chart_rounded,
+                      tone: LifeOsAccentTone.blue,
+                      title: 'Báo cáo thu chi',
+                      subtitle: 'Thống kê theo tuần',
+                      onTap: () => context.push('/finance-report'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const LifeOsSectionHeader(
+              title: 'Thu nhập, Lãi vay & Chi định kỳ',
+              subtitle: 'Tính lương Gross–Net, trả góp, hóa đơn & thuê bao tháng',
+              tone: LifeOsAccentTone.purple,
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('finance_hub_salary_tax_tile'),
+                      icon: Icons.request_quote_outlined,
+                      tone: LifeOsAccentTone.purple,
+                      title: 'Lương & Thuế',
+                      subtitle: 'Gross–Net 2026',
+                      onTap: () => context.push('/smart-notes-hub'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('finance_hub_wealth_tools_tile'),
+                      icon: Icons.calculate_outlined,
+                      tone: LifeOsAccentTone.blue,
+                      title: 'Lãi vay & Bill',
+                      subtitle: 'Trả góp & tích lũy',
+                      onTap: () => context.push('/wealth-tools'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('finance_hub_subs_tile'),
+                      icon: Icons.radar_rounded,
+                      tone: LifeOsAccentTone.amber,
+                      title: 'Gói thuê bao',
+                      subtitle: 'Gia hạn & bảo hành',
+                      onTap: () => context.push('/subscriptions-warranty'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('finance_hub_auto_tx_tile'),
+                      icon: Icons.bolt_rounded,
+                      tone: LifeOsAccentTone.emerald,
+                      title: 'Duyệt GD tự động',
+                      subtitle: 'Đối soát biến động',
+                      onTap: () => context.push('/auto-tx-review'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

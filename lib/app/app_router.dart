@@ -176,12 +176,19 @@ GoRouter createAppRouter(
               GoRoute(path: '/family', builder: (_, __) => const FamilyPage()),
             ],
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/assets', builder: (_, __) => const AssetsPage()),
-            ],
-          ),
         ],
+      ),
+      GoRoute(
+        path: '/assets',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const AssetsPage(),
+          );
+        },
       ),
       GoRoute(
         path: '/account-profile',
@@ -601,17 +608,10 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
     ),
     (
       branchIndex: 3,
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
+      icon: Icons.groups_outlined,
+      activeIcon: Icons.groups_rounded,
       assetPath: AppAssets.icNavFamily,
       label: 'Gia đình',
-    ),
-    (
-      branchIndex: 4,
-      icon: Icons.directions_car_outlined,
-      activeIcon: Icons.directions_car_rounded,
-      assetPath: AppAssets.icNavAssets,
-      label: 'Tài sản',
     ),
   ];
 
@@ -692,14 +692,10 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
               );
             }
 
-            // Mobile Floating Frosted Liquid-Glass Dock with BrandKit Gradient `+` Squircle
-            // Ordered by daily thumb-zone ergonomics: Hôm nay & Tài chính on left, Planning/Family/Assets on right.
-            final leftTabs = [_tabs[0], _tabs[1]]; // Hôm nay | Tài chính
-            final rightTabs = [
-              _tabs[2],
-              _tabs[3],
-              _tabs[4],
-            ]; // Lịch & Việc | Gia đình | Tài sản
+            // Symmetrical 4-Tab + Center `+` Floating Liquid-Glass Dock:
+            // Left: Hôm nay | Tài chính  •  Center: [+]  •  Right: Lịch & Việc | Gia đình
+            final leftTabs = [_tabs[0], _tabs[1]];
+            final rightTabs = [_tabs[2], _tabs[3]];
             final isDark = Theme.of(context).brightness == Brightness.dark;
 
             return Scaffold(

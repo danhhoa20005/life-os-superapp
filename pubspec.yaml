@@ -1,7 +1,7 @@
 name: life_os
 description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Real-Time Banking Webhook + FCM Push + Clean Architecture BLoC v3.8)"
 publish_to: 'none'
-version: 3.8.0+23
+version: 3.9.0+24
 
 environment:
   sdk: ^3.10.0

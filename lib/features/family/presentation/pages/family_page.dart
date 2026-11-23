@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/constants/app_assets.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
@@ -56,7 +55,7 @@ class FamilyPage extends StatelessWidget {
         }
       },
       child: DefaultTabController(
-        length: 3,
+        length: 4,
         child: Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
@@ -99,14 +98,14 @@ class FamilyPage extends StatelessWidget {
                       builder: (context, state) {
                         final family = state.activeFamily;
                         if (family == null) {
-                          return EmptyStateView(
-                            icon: Icons.family_restroom_rounded,
-                            imageAsset: AppAssets.familySplitIllustration,
-                            title: 'Chưa tham gia nhóm nào',
-                            subtitle:
-                                'Tạo không gian gia đình, nhà trọ hoặc nhóm bạn để chia chi phí chung.',
-                            actionLabel: 'Tạo nhóm đầu tiên',
-                            onAction: () => _showCreateFamilyDialog(
+                          return _HouseholdAndAssetsHubView(
+                            showSoloGroupInviteCard: true,
+                            onCreateGroup: () => _showCreateFamilyDialog(
+                              context,
+                              user.id,
+                              user.fullName,
+                            ),
+                            onJoinGroup: () => _showJoinFamilyDialog(
                               context,
                               user.id,
                               user.fullName,
@@ -159,10 +158,17 @@ class FamilyPage extends StatelessWidget {
                               ),
                             const ProPillTabContainer(
                               tabBar: TabBar(
+                                labelPadding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
                                 tabs: [
                                   Tab(
                                     key: Key('family_split_tab'),
-                                    text: 'Tổng quan & Chia',
+                                    text: 'Chia tiền',
+                                  ),
+                                  Tab(
+                                    key: Key('family_assets_life_tab'),
+                                    text: 'Tiện ích nhà',
                                   ),
                                   Tab(
                                     key: Key('family_members_tab'),
@@ -183,6 +189,9 @@ class FamilyPage extends StatelessWidget {
                                     state: state,
                                     currentUserId: user.id,
                                     currentUserName: user.fullName,
+                                  ),
+                                  const _HouseholdAndAssetsHubView(
+                                    showSoloGroupInviteCard: false,
                                   ),
                                   _MembersAndGovernanceTabView(
                                     family: family,
@@ -564,6 +573,14 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                             label: const Text('Chia khoản mới'),
                           ),
                           OutlinedButton.icon(
+                            onPressed: () => context.push('/assets'),
+                            icon: const Icon(
+                              Icons.directions_car_outlined,
+                              size: 17,
+                            ),
+                            label: const Text('Xe & Hóa đơn'),
+                          ),
+                          OutlinedButton.icon(
                             onPressed: () => context.push('/family-funds'),
                             icon: const Icon(Icons.savings_outlined, size: 17),
                             label: const Text('Quỹ chung'),
@@ -576,11 +593,6 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                             ),
                             label: const Text('Tài liệu'),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: () => context.push('/tasks-board'),
-                            icon: const Icon(Icons.task_alt_rounded, size: 17),
-                            label: const Text('Giao việc'),
-                          ),
                         ],
                       ),
                     ],
@@ -589,12 +601,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
               },
             ),
 
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Cân đối chi tiêu thành viên',
-              style: Theme.of(context).textTheme.titleMedium,
+            const LifeOsSectionHeader(
+              title: 'Cân đối chi tiêu thành viên',
+              subtitle: 'Tự động tính bù trừ và tạo mã VietQR quyết toán',
             ),
-            const SizedBox(height: AppSpacing.xs),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.sm),
@@ -1375,6 +1385,242 @@ class _SharedShoppingTabView extends StatelessWidget {
             child: const Text('Thêm'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Unified Household, Vehicles, Living & Health Hub housed cleanly inside Tab 4 (`Gia đình`),
+/// keeping the bottom navigation bar strictly at 4 tabs + `+` while giving every
+/// home/asset/wellness tool a clearly separated, logical home.
+class _HouseholdAndAssetsHubView extends StatelessWidget {
+  final bool showSoloGroupInviteCard;
+  final VoidCallback? onCreateGroup;
+  final VoidCallback? onJoinGroup;
+
+  const _HouseholdAndAssetsHubView({
+    required this.showSoloGroupInviteCard,
+    this.onCreateGroup,
+    this.onJoinGroup,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+        child: ListView(
+          key: const Key('family_household_assets_list_view'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xxl,
+          ),
+          children: [
+            if (showSoloGroupInviteCard) ...[
+              const LifeOsSectionHeader(
+                title: 'Không gian Nhóm & Chia tiền chung',
+                subtitle: 'Gia đình, nhà ở ghép hoặc nhóm bạn đi du lịch',
+              ),
+              LifeOsMintHeroCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const LifeOsIconSquircle(
+                          icon: Icons.family_restroom_rounded,
+                          tone: LifeOsAccentTone.emerald,
+                          solidFill: true,
+                          size: 42,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Chưa tham gia nhóm nào',
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Tạo không gian chung để chia hóa đơn, giao việc và đi chợ cùng nhau.',
+                                style: TextStyle(
+                                  fontSize: 12.2,
+                                  height: 1.3,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (onCreateGroup != null)
+                          FilledButton.icon(
+                            onPressed: onCreateGroup,
+                            icon: const Icon(Icons.add_home_outlined, size: 17),
+                            label: const Text('Tạo nhóm đầu tiên'),
+                          ),
+                        if (onJoinGroup != null)
+                          OutlinedButton.icon(
+                            onPressed: onJoinGroup,
+                            icon: const Icon(
+                              Icons.group_add_outlined,
+                              size: 17,
+                            ),
+                            label: const Text('Nhập mã mời'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Group 1: Xe cộ, Điện nước, Tài liệu & Quỹ mục tiêu
+            const LifeOsSectionHeader(
+              title: 'Xe cộ, Nhà cửa & Giấy tờ',
+              subtitle:
+                  'Phương tiện, hóa đơn định kỳ, điện nước EVN và hợp đồng',
+              tone: LifeOsAccentTone.blue,
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_vehicles_tile'),
+                      icon: Icons.directions_car_outlined,
+                      tone: LifeOsAccentTone.blue,
+                      title: 'Xe & Hóa đơn',
+                      subtitle: 'Bảo dưỡng & định kỳ',
+                      onTap: () => context.push('/assets'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_evn_tile'),
+                      icon: Icons.electric_bolt_rounded,
+                      tone: LifeOsAccentTone.amber,
+                      title: 'Điện nước EVN',
+                      subtitle: '5 bậc thang & nhà ở',
+                      onTap: () => context.push('/home-living'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_docs_tile'),
+                      icon: Icons.folder_open_rounded,
+                      tone: LifeOsAccentTone.purple,
+                      title: 'Kho Tài liệu',
+                      subtitle: 'Hợp đồng & giấy tờ',
+                      onTap: () => context.push('/family-documents'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_funds_tile'),
+                      icon: Icons.savings_outlined,
+                      tone: LifeOsAccentTone.emerald,
+                      title: 'Quỹ mục tiêu',
+                      subtitle: 'Tích lũy chung',
+                      onTap: () => context.push('/family-funds'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Group 2: Sức khỏe, Bếp, Hiếu Hỷ & Cài đặt
+            const LifeOsSectionHeader(
+              title: 'Sức khỏe, Bếp & Đời sống',
+              subtitle:
+                  'Tủ thuốc gia đình, thực đơn đi chợ, hiếu hỷ & hệ thống',
+              tone: LifeOsAccentTone.coral,
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_health_tile'),
+                      icon: Icons.favorite_outline_rounded,
+                      tone: LifeOsAccentTone.coral,
+                      title: 'Sức khỏe & SOS',
+                      subtitle: 'Tủ thuốc & BMI',
+                      onTap: () => context.push('/health-hub'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_kitchen_tile'),
+                      icon: Icons.shopping_basket_outlined,
+                      tone: LifeOsAccentTone.emerald,
+                      title: 'Bếp & Đi chợ',
+                      subtitle: 'Thực đơn & tủ lạnh',
+                      onTap: () => context.push('/kitchen-groceries'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_gift_tile'),
+                      icon: Icons.card_giftcard_rounded,
+                      tone: LifeOsAccentTone.purple,
+                      title: 'Sổ Hiếu Hỷ',
+                      subtitle: 'Mừng cưới & du lịch',
+                      onTap: () => context.push('/social-ledger-travel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LifeOsFeatureBentoTile(
+                      tileKey: const Key('family_hub_settings_tile'),
+                      icon: Icons.settings_outlined,
+                      tone: LifeOsAccentTone.neutral,
+                      title: 'Cài đặt chung',
+                      subtitle: 'Hồ sơ & giao diện',
+                      onTap: () => context.push('/settings-hub'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
