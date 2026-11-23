@@ -11,9 +11,13 @@ import 'package:http/testing.dart';
 import 'package:life_os/app/app.dart';
 import 'package:life_os/app/theme/app_theme.dart';
 import 'package:life_os/app/theme/theme_bloc.dart';
+import 'package:life_os/core/constants/app_assets.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
+import 'package:life_os/core/error/app_exception.dart';
 import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:life_os/core/widgets/liquid_glass.dart';
+import 'package:life_os/features/family/domain/entities/family_entities.dart';
+import 'package:life_os/features/family/domain/repositories/family_repository.dart';
 
 void main() {
   group('Top Toast Standard & UI/UX Pro Max Redesign Verification (v3.1.0+16)', () {
@@ -449,6 +453,223 @@ void main() {
           routerSrc.contains("Key('lifeos_liquid_glass_bottom_dock')"),
           isTrue,
         );
+      },
+    );
+
+    test(
+      'Nano Banana Pro 3D Icons & Bank Card Skins (v3.13): All 26 icons + 7 clean bank card skins exist and map accurately',
+      () {
+        expect(AppAssets.allBananaIcons.length, 26);
+        expect(AppAssets.allBankCardSkins.length, 7);
+
+        for (final path in [
+          ...AppAssets.allBananaIcons,
+          ...AppAssets.allBankCardSkins,
+        ]) {
+          final file = File(path);
+          expect(
+            file.existsSync(),
+            isTrue,
+            reason: 'Missing Nano Banana asset on disk: $path',
+          );
+          expect(file.lengthSync(), greaterThan(1024));
+        }
+
+        expect(
+          AppAssets.resolveBankCardSkin(walletTypeKey: 'bank', bankCode: 'VCB'),
+          AppAssets.cardVcbEmerald,
+        );
+        expect(
+          AppAssets.resolveBankCardSkin(walletTypeKey: 'bank', bankCode: 'TCB'),
+          AppAssets.cardTcbCrimson,
+        );
+        expect(
+          AppAssets.resolveBankCardSkin(walletTypeKey: 'bank', bankCode: 'MBB'),
+          AppAssets.cardMbbRoyal,
+        );
+        expect(
+          AppAssets.resolveBankCardSkin(
+            walletTypeKey: 'bank',
+            bankCode: 'BIDV',
+          ),
+          AppAssets.cardBidvTeal,
+        );
+        expect(
+          AppAssets.resolveBankCardSkin(walletTypeKey: 'bank', bankCode: 'TPB'),
+          AppAssets.cardTpbViolet,
+        );
+        expect(
+          AppAssets.resolveBankCardSkin(walletTypeKey: 'creditCard'),
+          AppAssets.cardBlackTitanium,
+        );
+        expect(
+          AppAssets.resolveBankCardSkin(walletTypeKey: 'savings'),
+          AppAssets.cardSavingsGold,
+        );
+        expect(
+          AppAssets.resolveBananaIconForGlyph(Icons.qr_code_2_rounded),
+          AppAssets.icSysVietQr,
+        );
+        expect(
+          AppAssets.resolveBananaIconForGlyph(Icons.apps_rounded),
+          AppAssets.icSysAllServices,
+        );
+      },
+    );
+
+    testWidgets(
+      'Invited Members Lifecycle (v3.13): Targeted invite, chat-paste code extraction, preview, join transition, revoke & Vietnamese roles work end-to-end',
+      (tester) async {
+        tester.view.physicalSize = const Size(430, 932);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final fakeFirestore = FakeFirebaseFirestore();
+        const ownerUid = 'uid_owner_minh';
+        const inviteeUid = 'uid_invitee_lan';
+
+        await fakeFirestore.collection('users').doc(ownerUid).set({
+          'id': ownerUid,
+          'email': 'minh@lifeos.vn',
+          'fullName': 'Nguyễn Minh',
+          'onboardingCompleted': true,
+          'availabilityOptIn': false,
+        });
+        await fakeFirestore.collection('users').doc(inviteeUid).set({
+          'id': inviteeUid,
+          'email': 'lan@lifeos.vn',
+          'fullName': 'Trần Lan',
+          'onboardingCompleted': true,
+          'availabilityOptIn': false,
+        });
+
+        final mockAuth = MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(
+            uid: ownerUid,
+            email: 'minh@lifeos.vn',
+            displayName: 'Nguyễn Minh',
+          ),
+        );
+
+        await sl.reset();
+        await configureDependencies(
+          authOverride: mockAuth,
+          firestoreOverride: fakeFirestore,
+          httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+        );
+
+        final familyRepo = sl<FamilyRepository>();
+        final createdFam =
+            (await familyRepo.createFamily(
+                      userId: ownerUid,
+                      userName: 'Nguyễn Minh',
+                      familyName: 'Tổ ấm Minh & Lan',
+                    )
+                    as Success<FamilyEntity>)
+                .value;
+
+        // 1. Create a targeted invitation for Trần Lan
+        final inviteCode =
+            (await familyRepo.createInviteCode(
+                      userId: ownerUid,
+                      familyId: createdFam.id,
+                      familyName: createdFam.name,
+                      invitedByName: 'Nguyễn Minh',
+                      inviteeName: 'Trần Lan',
+                      inviteeContact: 'lan@lifeos.vn',
+                    )
+                    as Success<String>)
+                .value;
+
+        // Verify code extraction from full Zalo/SMS chat text + previewInviteCode
+        final pastedZaloText =
+            'Chào Trần Lan, mời bạn tham gia nhóm "Tổ ấm Minh & Lan" trên ứng dụng LifeOS. Nhập mã mời: ${inviteCode.toLowerCase()} (hiệu lực 7 ngày).';
+        expect(
+          FamilyInviteCodeExtractor.extractCode(pastedZaloText),
+          inviteCode,
+        );
+
+        final previewRes = await familyRepo.previewInviteCode(
+          inviteCode: pastedZaloText,
+        );
+        expect(previewRes, isA<Success<FamilyPendingInviteEntity>>());
+        final preview =
+            (previewRes as Success<FamilyPendingInviteEntity>).value;
+        expect(preview.familyName, 'Tổ ấm Minh & Lan');
+        expect(preview.inviteeName, 'Trần Lan');
+        expect(preview.invitedByName, 'Nguyễn Minh');
+
+        // 2. Mount app as Owner and verify "Thành viên được mời (1)" & Vietnamese role "Trưởng nhóm"
+        await fakeFirestore.collection('users').doc(ownerUid).update({
+          'activeFamilyId': createdFam.id,
+        });
+        await tester.pumpWidget(const LifeOsApp());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Gia đình').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('family_members_tab')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Thành viên được mời (1)'), findsOneWidget);
+        expect(find.text('Trần Lan'), findsOneWidget);
+        expect(find.text('Trưởng nhóm'), findsWidgets);
+        // Raw English enum label 'owner' must never appear!
+        expect(find.text('owner'), findsNothing);
+
+        // 3. Invitee joins via pasted message -> moves from pending (0) to official members (2)!
+        final joinedRes = await familyRepo.joinFamilyByInvite(
+          userId: inviteeUid,
+          userName: 'Trần Lan',
+          inviteCode: pastedZaloText,
+        );
+        expect(joinedRes, isA<Success<FamilyEntity>>());
+        await tester.pumpAndSettle();
+
+        expect(find.text('Thành viên được mời (0)'), findsOneWidget);
+        expect(find.text('Thành viên chính thức (2)'), findsOneWidget);
+        expect(find.text('Thành viên'), findsWidgets);
+
+        // 4. Create & revoke a second invite -> joining with revoked code is rejected
+        final secondCode =
+            (await familyRepo.createInviteCode(
+                      userId: ownerUid,
+                      familyId: createdFam.id,
+                      familyName: createdFam.name,
+                      invitedByName: 'Nguyễn Minh',
+                      inviteeName: 'Phạm Hùng',
+                    )
+                    as Success<String>)
+                .value;
+        await tester.pumpAndSettle();
+        expect(find.text('Thành viên được mời (1)'), findsOneWidget);
+
+        await tester.tap(find.byKey(Key('revoke_invite_$secondCode')));
+        await tester.pumpAndSettle();
+        expect(find.text('Thành viên được mời (0)'), findsOneWidget);
+
+        final rejectedJoin = await familyRepo.joinFamilyByInvite(
+          userId: 'uid_hung',
+          userName: 'Phạm Hùng',
+          inviteCode: secondCode,
+        );
+        expect(rejectedJoin, isA<Err<FamilyEntity>>());
+
+        // 5. Owner promotes Trần Lan to Quản trị (admin)
+        final roleRes = await familyRepo.updateMemberRole(
+          actorUserId: ownerUid,
+          familyId: createdFam.id,
+          targetUserId: inviteeUid,
+          newRole: HouseholdRole.admin,
+        );
+        expect(roleRes, isA<Success<void>>());
+        await tester.pumpAndSettle();
+        expect(find.text('Quản trị'), findsWidgets);
+        expect(tester.takeException(), isNull);
       },
     );
   });

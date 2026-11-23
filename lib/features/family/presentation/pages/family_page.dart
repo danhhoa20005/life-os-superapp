@@ -197,6 +197,7 @@ class FamilyPage extends StatelessWidget {
                                     family: family,
                                     state: state,
                                     currentUserId: user.id,
+                                    currentUserName: user.fullName,
                                   ),
                                   _SharedShoppingTabView(
                                     family: family,
@@ -307,41 +308,232 @@ class FamilyPage extends StatelessWidget {
     String userName,
   ) async {
     final ctrl = TextEditingController();
-    final bloc = context.read<FamilyBloc>();
-    await showDialog<void>(
+    final bloc = context.read<FamilyBloc>()
+      ..add(const FamilyInvitePreviewCleared());
+
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tham gia bằng Mã mời 7 ngày'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Mã mời (VD: FAM-8K2P9Q)'),
-            const SizedBox(height: 6),
-            TextField(controller: ctrl),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () {
-              bloc.add(
-                FamilyJoinByCodeSubmitted(
-                  userId: userId,
-                  userName: userName,
-                  inviteCode: ctrl.text,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      showDragHandle: false,
+      builder: (sheetCtx) {
+        return BlocProvider<FamilyBloc>.value(
+          value: bloc,
+          child: BlocBuilder<FamilyBloc, FamilyState>(
+            builder: (ctx, famState) {
+              final c = TammySemanticColors.of(ctx);
+              final preview = famState.previewedInvite;
+              final viewInsets = MediaQuery.viewInsetsOf(ctx);
+
+              return LiquidGlassSheetFrame(
+                showHandle: true,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    18,
+                    6,
+                    18,
+                    20 + viewInsets.bottom,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const LifeOsIconSquircle(
+                              icon: Icons.group_add_outlined,
+                              tone: LifeOsAccentTone.emerald,
+                              size: 40,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Tham gia nhóm được mời',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Nhập mã FAM-XXXXXX hoặc dán nguyên tin nhắn mời',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          key: const Key('join_family_invite_input'),
+                          controller: ctrl,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            labelText: 'Mã mời tham gia',
+                            hintText: 'VD: FAM-8K2P9Q',
+                            suffixIcon: IconButton(
+                              tooltip: 'Dán từ bộ nhớ tạm',
+                              icon: const Icon(Icons.content_paste_rounded),
+                              onPressed: () async {
+                                final clip = await Clipboard.getData(
+                                  Clipboard.kTextPlain,
+                                );
+                                final raw = clip?.text ?? '';
+                                if (raw.trim().isNotEmpty) {
+                                  final extracted =
+                                      FamilyInviteCodeExtractor.extractCode(
+                                        raw,
+                                      );
+                                  ctrl.text = extracted;
+                                  bloc.add(
+                                    FamilyInvitePreviewRequested(extracted),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          onChanged: (val) {
+                            final extracted =
+                                FamilyInviteCodeExtractor.extractCode(val);
+                            if (extracted.startsWith('FAM-') &&
+                                extracted.length >= 8) {
+                              bloc.add(FamilyInvitePreviewRequested(extracted));
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            key: const Key('preview_family_invite_button'),
+                            onPressed: famState.isPreviewingInvite
+                                ? null
+                                : () => bloc.add(
+                                    FamilyInvitePreviewRequested(ctrl.text),
+                                  ),
+                            icon: famState.isPreviewingInvite
+                                ? const SizedBox(
+                                    width: 15,
+                                    height: 15,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.verified_outlined, size: 17),
+                            label: const Text('Kiểm tra thông tin lời mời'),
+                          ),
+                        ),
+                        if (preview != null) ...[
+                          const SizedBox(height: 6),
+                          LifeOsMintHeroCard(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      size: 18,
+                                      color: Color(0xFF0B7A2A),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        preview.familyName,
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    LifeOsStatusPill(
+                                      label:
+                                          'Còn ${preview.remainingDaysFrom(DateTime.now())} ngày',
+                                      tone: LifeOsAccentTone.emerald,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${preview.spaceType.displayLabel} · Mời bởi ${preview.invitedByName}',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12.4,
+                                    fontWeight: FontWeight.w600,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                                if (preview.isTargetedInvite) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Dành cho: ${preview.inviteeName}',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12.2,
+                                      fontWeight: FontWeight.w700,
+                                      color: c.primary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(sheetCtx).pop(),
+                                child: const Text('Hủy'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: FilledButton.icon(
+                                key: const Key('confirm_join_family_button'),
+                                onPressed: () {
+                                  bloc.add(
+                                    FamilyJoinByCodeSubmitted(
+                                      userId: userId,
+                                      userName: userName,
+                                      inviteCode: ctrl.text,
+                                    ),
+                                  );
+                                  Navigator.of(sheetCtx).pop();
+                                },
+                                icon: const Icon(Icons.login_rounded, size: 18),
+                                label: const Text('Tham gia'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
-              Navigator.of(ctx).pop();
             },
-            child: const Text('Tham gia'),
           ),
-        ],
-      ),
+        );
+      },
     );
+    ctrl.dispose();
   }
 }
 
@@ -425,26 +617,45 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          LifeOsAvatarStack(
-                            names: family.members
-                                .map((m) => m.fullName)
-                                .toList(),
-                            radius: 16,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '${family.members.length} thành viên cùng quản lý',
-                              style: TextStyle(
-                                fontSize: 12.2,
-                                fontWeight: FontWeight.w600,
-                                color: c.textSecondary,
+                      Builder(
+                        builder: (context) {
+                          final activeInvites = family.activePendingInvites();
+                          return Row(
+                            children: [
+                              LifeOsAvatarStack(
+                                names: family.members
+                                    .map((m) => m.fullName)
+                                    .toList(),
+                                pendingNames: activeInvites
+                                    .map((i) => i.displayInviteeTitle)
+                                    .toList(),
+                                onAddTap: family.isManager(currentUserId)
+                                    ? () => showFamilyInviteMemberSheet(
+                                        context,
+                                        family: family,
+                                        currentUserId: currentUserId,
+                                        currentUserName: currentUserName,
+                                      )
+                                    : null,
+                                radius: 16,
                               ),
-                            ),
-                          ),
-                        ],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  activeInvites.isEmpty
+                                      ? '${family.members.length} thành viên cùng quản lý'
+                                      : '${family.members.length} thành viên · ${activeInvites.length} lời mời đang chờ',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12.2,
+                                    fontWeight: FontWeight.w600,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const Divider(height: 22),
                       IntrinsicHeight(
@@ -1097,19 +1308,272 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
   }
 }
 
+String _buildFamilyInviteShareText({
+  required String familyName,
+  required String inviteCode,
+  String? inviteeName,
+}) {
+  final greeting = (inviteeName != null && inviteeName.trim().isNotEmpty)
+      ? 'Chào ${inviteeName.trim()}, mời bạn'
+      : 'Mời bạn';
+  return '$greeting tham gia nhóm "$familyName" trên ứng dụng LifeOS. Mở mục Gia đình → Nhập mã mời: $inviteCode (hiệu lực 7 ngày).';
+}
+
+Future<void> showFamilyInviteMemberSheet(
+  BuildContext context, {
+  required FamilyEntity family,
+  required String currentUserId,
+  required String currentUserName,
+}) async {
+  final nameCtrl = TextEditingController();
+  final contactCtrl = TextEditingController();
+  final bloc = context.read<FamilyBloc>();
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    showDragHandle: false,
+    builder: (sheetCtx) {
+      return BlocProvider<FamilyBloc>.value(
+        value: bloc,
+        child: BlocBuilder<FamilyBloc, FamilyState>(
+          builder: (ctx, famState) {
+            final c = TammySemanticColors.of(ctx);
+            final viewInsets = MediaQuery.viewInsetsOf(ctx);
+            final updatedFamily =
+                famState.families.where((f) => f.id == family.id).firstOrNull ??
+                family;
+            final latestInvite = updatedFamily
+                .activePendingInvites()
+                .where((i) => i.inviteCode == famState.latestInviteCode)
+                .firstOrNull;
+
+            return LiquidGlassSheetFrame(
+              showHandle: true,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  6,
+                  18,
+                  20 + viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const LifeOsIconSquircle(
+                            icon: Icons.group_add_outlined,
+                            tone: LifeOsAccentTone.emerald,
+                            size: 40,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mời thành viên vào "${family.name}"',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 16.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  'Nhập tên để theo dõi người đang chờ hoặc để trống để tạo mã chung',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        key: const Key('invite_member_name_input'),
+                        controller: nameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Tên thành viên được mời (khuyên dùng)',
+                          hintText: 'VD: Trần Lan / Minh Anh',
+                          prefixIcon: Icon(Icons.person_outline_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('invite_member_contact_input'),
+                        controller: contactCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Số điện thoại hoặc Email (tùy chọn)',
+                          hintText: 'VD: 0909 123 456 hoặc lan@gmail.com',
+                          prefixIcon: Icon(Icons.alternate_email_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        key: const Key('submit_create_member_invite_button'),
+                        onPressed: famState.isSubmitting
+                            ? null
+                            : () {
+                                bloc.add(
+                                  FamilyInviteGenerated(
+                                    userId: currentUserId,
+                                    familyId: family.id,
+                                    familyName: family.name,
+                                    spaceType: family.spaceType,
+                                    invitedByName: currentUserName,
+                                    inviteeName: nameCtrl.text,
+                                    inviteeContact: contactCtrl.text,
+                                  ),
+                                );
+                              },
+                        icon: const Icon(Icons.send_rounded, size: 18),
+                        label: const Text('Tạo lời mời 7 ngày'),
+                      ),
+                      if (famState.latestInviteCode != null) ...[
+                        const SizedBox(height: 14),
+                        LifeOsMintHeroCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      latestInvite != null &&
+                                              latestInvite.isTargetedInvite
+                                          ? 'Lời mời dành cho ${latestInvite.inviteeName}'
+                                          : 'Mã mời sẵn sàng gửi (7 ngày)',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  const LifeOsStatusPill(
+                                    label: 'Đang chờ',
+                                    tone: LifeOsAccentTone.amber,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SelectableText(
+                                famState.latestInviteCode!,
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.2,
+                                  color: c.primary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  FilledButton.tonalIcon(
+                                    key: const Key('copy_invite_code_btn'),
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text: famState.latestInviteCode!,
+                                        ),
+                                      );
+                                      LifeOsTopToast.show(
+                                        ctx,
+                                        'Đã sao chép mã mời ${famState.latestInviteCode!}.',
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Sao chép mã'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    key: const Key(
+                                      'copy_full_invite_message_btn',
+                                    ),
+                                    onPressed: () {
+                                      final msg = _buildFamilyInviteShareText(
+                                        familyName: family.name,
+                                        inviteCode: famState.latestInviteCode!,
+                                        inviteeName: latestInvite?.inviteeName,
+                                      );
+                                      Clipboard.setData(
+                                        ClipboardData(text: msg),
+                                      );
+                                      LifeOsTopToast.show(
+                                        ctx,
+                                        'Đã sao chép lời mời đầy đủ để gửi Zalo / Tin nhắn.',
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Chép tin nhắn mời'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    },
+  );
+  nameCtrl.dispose();
+  contactCtrl.dispose();
+}
+
 class _MembersAndGovernanceTabView extends StatelessWidget {
   final FamilyEntity family;
   final FamilyState state;
   final String currentUserId;
+  final String currentUserName;
 
   const _MembersAndGovernanceTabView({
     required this.family,
     required this.state,
     required this.currentUserId,
+    required this.currentUserName,
   });
 
   @override
   Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final now = DateTime.now();
+    final isManager = family.isManager(currentUserId);
+    final isOwner = family.isOwnerUser(currentUserId);
+    final activeInvites = family.activePendingInvites(now);
+    final balanceByUid = <String, MemberNetBalance>{
+      for (final b in state.sharedLedger.memberBalances) b.userId: b,
+    };
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -1122,125 +1586,471 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
             AppSpacing.dockClearance,
           ),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          family.name,
-                          style: Theme.of(context).textTheme.titleLarge,
+            // 1. Group Governance & Quick Invite Hero Card
+            LifeOsMintHeroCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        family.name,
+                        softWrap: true,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        SemanticStatusBadge(
-                          kind: SemanticStatusKind.info,
-                          label:
-                              '${family.spaceType.displayLabel} · ${family.roleOf(currentUserId).displayLabel}',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      family.spaceType.subtitleHint,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: [
-                        if (family.isManager(currentUserId))
-                          OutlinedButton.icon(
-                            onPressed: () => context.read<FamilyBloc>().add(
-                              FamilyInviteGenerated(
-                                userId: currentUserId,
-                                familyId: family.id,
-                                familyName: family.name,
-                              ),
-                            ),
-                            icon: const Icon(Icons.qr_code_rounded, size: 18),
-                            label: const Text('Tạo mã mời 7 ngày'),
-                          ),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            final ok = await showDestructiveConfirmDialog(
-                              context: context,
-                              title: 'Rời khỏi "${family.name}"?',
-                              message:
-                                  'Quyền truy cập dữ liệu chung sẽ thu hồi ngay lập tức. Ví và giao dịch cá nhân của bạn vẫn được giữ nguyên 100%.',
-                              confirmLabel: 'Rời không gian',
-                            );
-                            if (ok && context.mounted) {
-                              context.read<FamilyBloc>().add(
-                                FamilyLeaveConfirmed(
-                                  userId: currentUserId,
-                                  familyId: family.id,
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-                          label: const Text('Rời nhóm'),
-                        ),
-                      ],
-                    ),
-                    if (state.latestInviteCode != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text('Mã mời hiện tại: ${state.latestInviteCode}'),
-                          IconButton(
-                            tooltip: 'Sao chép mã mời',
-                            onPressed: () {
-                              Clipboard.setData(
-                                ClipboardData(text: state.latestInviteCode!),
-                              );
-                              LifeOsTopToast.fromSnackBar(
-                                context,
-                                const SnackBar(
-                                  content: Text('✓ Đã sao chép mã mời.'),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.copy_rounded, size: 18),
-                          ),
-                        ],
+                      ),
+                      SemanticStatusBadge(
+                        kind: SemanticStatusKind.info,
+                        label:
+                            '${family.spaceType.displayLabel} · ${family.roleOf(currentUserId).displayLabel}',
                       ),
                     ],
-                    const Divider(height: 24),
-                    Text(
-                      'Thành viên (${family.members.length})',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    ...family.members.map(
-                      (m) => ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person_outline),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    family.spaceType.subtitleHint,
+                    softWrap: true,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (isManager)
+                        FilledButton.icon(
+                          key: const Key('open_invite_member_sheet_button'),
+                          onPressed: () => showFamilyInviteMemberSheet(
+                            context,
+                            family: family,
+                            currentUserId: currentUserId,
+                            currentUserName: currentUserName,
+                          ),
+                          icon: const Icon(
+                            Icons.person_add_alt_1_rounded,
+                            size: 18,
+                          ),
+                          label: const Text('Mời thành viên'),
                         ),
-                        title: Text(m.fullName),
-                        trailing: SemanticStatusBadge(
-                          kind: m.role == HouseholdRole.owner
-                              ? SemanticStatusKind.success
-                              : SemanticStatusKind.info,
-                          label: m.role.name,
+                      if (isManager)
+                        OutlinedButton.icon(
+                          key: const Key('quick_generate_invite_code_button'),
+                          onPressed: () => context.read<FamilyBloc>().add(
+                            FamilyInviteGenerated(
+                              userId: currentUserId,
+                              familyId: family.id,
+                              familyName: family.name,
+                              spaceType: family.spaceType,
+                              invitedByName: currentUserName,
+                            ),
+                          ),
+                          icon: const Icon(Icons.qr_code_rounded, size: 18),
+                          label: const Text('Tạo mã mời 7 ngày'),
+                        ),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final ok = await showDestructiveConfirmDialog(
+                            context: context,
+                            title: 'Rời khỏi "${family.name}"?',
+                            message:
+                                'Quyền truy cập dữ liệu chung sẽ thu hồi ngay lập tức. Ví và giao dịch cá nhân của bạn vẫn được giữ nguyên 100%.',
+                            confirmLabel: 'Rời không gian',
+                          );
+                          if (ok && context.mounted) {
+                            context.read<FamilyBloc>().add(
+                              FamilyLeaveConfirmed(
+                                userId: currentUserId,
+                                familyId: family.id,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+                        label: const Text('Rời nhóm'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // 2. Pending Invited Members Section ("Thành viên được mời · Đang chờ")
+            LifeOsSectionHeader(
+              title: 'Thành viên được mời (${activeInvites.length})',
+              subtitle: activeInvites.isEmpty
+                  ? 'Chưa có lời mời nào đang chờ phản hồi'
+                  : 'Đang chờ nhập mã tham gia — tự động vào nhóm ngay khi xác nhận',
+              tone: LifeOsAccentTone.amber,
+            ),
+            if (activeInvites.isEmpty)
+              LifeOsSoftCard(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    const LifeOsIconSquircle(
+                      icon: Icons.group_add_outlined,
+                      tone: LifeOsAccentTone.amber,
+                      size: 38,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isManager
+                            ? 'Nhấn "Mời thành viên" để tạo lời mời đích danh hoặc gửi mã tham gia qua Zalo / Tin nhắn.'
+                            : 'Hiện không có lời mời mới nào đang chờ xác nhận.',
+                        softWrap: true,
+                        style: TextStyle(
+                          fontSize: 12.6,
+                          height: 1.32,
+                          color: c.textSecondary,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
+              )
+            else
+              ...activeInvites.map((inv) {
+                final daysLeft = inv.remainingDaysFrom(now);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: LifeOsSoftCard(
+                    key: Key('pending_invite_card_${inv.inviteCode}'),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: c.warningSubtle,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: c.warning,
+                                  width: 1.4,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                inv.isTargetedInvite
+                                    ? Icons.person_add_alt_1_rounded
+                                    : Icons.link_rounded,
+                                size: 19,
+                                color: c.warning,
+                              ),
+                            ),
+                            const SizedBox(width: 11),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    inv.displayInviteeTitle,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                  if (inv.inviteeContact != null &&
+                                      inv.inviteeContact!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inv.inviteeContact!,
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Mời bởi ${inv.invitedByName} · Còn hạn $daysLeft ngày',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 11.8,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const SemanticStatusBadge(
+                              kind: SemanticStatusKind.warning,
+                              label: 'Đang chờ',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: c.primarySubtle,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                inv.inviteCode,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                  color: c.primary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: inv.inviteCode),
+                                );
+                                LifeOsTopToast.show(
+                                  context,
+                                  'Đã sao chép mã mời ${inv.inviteCode}.',
+                                );
+                              },
+                              icon: const Icon(Icons.copy_rounded, size: 15),
+                              label: const Text('Sao chép mã'),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () {
+                                final msg = _buildFamilyInviteShareText(
+                                  familyName: family.name,
+                                  inviteCode: inv.inviteCode,
+                                  inviteeName: inv.inviteeName,
+                                );
+                                Clipboard.setData(ClipboardData(text: msg));
+                                LifeOsTopToast.show(
+                                  context,
+                                  'Đã sao chép tin nhắn mời để gửi lại.',
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.send_outlined,
+                                size: 15,
+                              ),
+                              label: const Text('Gửi lại lời mời'),
+                            ),
+                            if (isManager)
+                              TextButton.icon(
+                                key: Key('revoke_invite_${inv.inviteCode}'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: c.error,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: () =>
+                                    context.read<FamilyBloc>().add(
+                                      FamilyInviteRevokeRequested(
+                                        actorUserId: currentUserId,
+                                        familyId: family.id,
+                                        inviteCode: inv.inviteCode,
+                                      ),
+                                    ),
+                                icon: const Icon(
+                                  Icons.cancel_outlined,
+                                  size: 15,
+                                ),
+                                label: const Text('Thu hồi'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+
+            // 3. Official Joined Members Section ("Thành viên chính thức")
+            LifeOsSectionHeader(
+              title: 'Thành viên chính thức (${family.members.length})',
+              subtitle: 'Cùng chia sẻ sổ chi chung, lịch nhóm & công việc',
+              tone: LifeOsAccentTone.emerald,
             ),
+            ...family.members.map((m) {
+              final isSelf = m.userId == currentUserId;
+              final net = balanceByUid[m.userId]?.netBalanceMinor ?? 0;
+              final netLabel = net == 0
+                  ? 'Đã cân bằng chi chung'
+                  : (net > 0
+                        ? 'Cần nhận lại +${VndAmount.format(net)}'
+                        : 'Cần thanh toán -${VndAmount.format(net.abs())}');
+              final netColor = net == 0
+                  ? c.textSecondary
+                  : (net > 0 ? c.success : c.warning);
+
+              final canManageTarget =
+                  !isSelf &&
+                  m.role != HouseholdRole.owner &&
+                  (isOwner ||
+                      (isManager && m.role == HouseholdRole.member));
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: LifeOsSoftCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: m.role == HouseholdRole.owner
+                            ? c.primary
+                            : c.primarySubtle,
+                        child: Text(
+                          m.fullName.trim().isEmpty
+                              ? 'TV'
+                              : m.fullName
+                                    .trim()
+                                    .characters
+                                    .first
+                                    .toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: m.role == HouseholdRole.owner
+                                ? Colors.white
+                                : c.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isSelf ? '${m.fullName} (Bạn)' : m.fullName,
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              netLabel,
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: netColor,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SemanticStatusBadge(
+                        kind: m.role == HouseholdRole.owner
+                            ? SemanticStatusKind.success
+                            : SemanticStatusKind.info,
+                        label: m.role.displayLabel,
+                      ),
+                      if (canManageTarget)
+                        PopupMenuButton<String>(
+                          key: Key('manage_member_menu_${m.userId}'),
+                          tooltip: 'Quản lý thành viên',
+                          onSelected: (action) async {
+                            if (action == 'promote_admin') {
+                              context.read<FamilyBloc>().add(
+                                FamilyMemberRoleUpdated(
+                                  actorUserId: currentUserId,
+                                  familyId: family.id,
+                                  targetUserId: m.userId,
+                                  targetName: m.fullName,
+                                  newRole: HouseholdRole.admin,
+                                ),
+                              );
+                            } else if (action == 'demote_member') {
+                              context.read<FamilyBloc>().add(
+                                FamilyMemberRoleUpdated(
+                                  actorUserId: currentUserId,
+                                  familyId: family.id,
+                                  targetUserId: m.userId,
+                                  targetName: m.fullName,
+                                  newRole: HouseholdRole.member,
+                                ),
+                              );
+                            } else if (action == 'remove_member') {
+                              final ok = await showDestructiveConfirmDialog(
+                                context: context,
+                                title: 'Xóa ${m.fullName} khỏi nhóm?',
+                                message:
+                                    'Thành viên này sẽ không còn thấy chi tiêu chung, lịch hoặc công việc của "${family.name}".',
+                                confirmLabel: 'Xóa khỏi nhóm',
+                              );
+                              if (ok && context.mounted) {
+                                context.read<FamilyBloc>().add(
+                                  FamilyMemberRemoved(
+                                    actorUserId: currentUserId,
+                                    familyId: family.id,
+                                    targetUserId: m.userId,
+                                    targetName: m.fullName,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            if (isOwner && m.role == HouseholdRole.member)
+                              const PopupMenuItem(
+                                value: 'promote_admin',
+                                child: Text('Cấp quyền Quản trị'),
+                              ),
+                            if (isOwner && m.role == HouseholdRole.admin)
+                              const PopupMenuItem(
+                                value: 'demote_member',
+                                child: Text('Chuyển về Thành viên'),
+                              ),
+                            PopupMenuItem(
+                              value: 'remove_member',
+                              child: Text(
+                                'Xóa khỏi nhóm',
+                                style: TextStyle(color: c.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),

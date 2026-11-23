@@ -453,18 +453,23 @@ class ProWalletCreditCard extends StatelessWidget {
       ),
     };
 
+    final skinAsset = AppAssets.resolveBankCardSkin(
+      walletTypeKey: walletTypeKey,
+      bankCode: bankCode,
+      walletName: name,
+    );
+
     final cardBody = CustomPaint(
       foregroundPainter: LiquidGlassRimPainter(
         borderRadius: 22,
         isDark: true,
         accentRimColor: isSelected ? const Color(0xFF63E6BE) : null,
         strokeWidth: isSelected ? 2.0 : 1.15,
-        intensity: isSelected ? 1.35 : 1.05,
+        intensity: isSelected ? 1.35 : 1.08,
       ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: 276,
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           gradient: LinearGradient(
@@ -480,144 +485,176 @@ class ProWalletCreditCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
+            Positioned.fill(
+              child: Image.asset(
+                skinAsset,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.10),
+                      Colors.black.withValues(alpha: 0.30),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(
-                        typeIcon,
-                        size: 17,
-                        color: Colors.white.withValues(alpha: 0.92),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(
+                              typeIcon,
+                              size: 17,
+                              color: Colors.white.withValues(alpha: 0.92),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                name,
+                                softWrap: true,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14.5,
+                                  height: 1.18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.contactless_rounded,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.65),
+                          ),
+                          const SizedBox(width: 5),
+                          Container(
+                            width: 28,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(5),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFDE68A), Color(0xFFD97706)],
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                width: 0.6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      obscureBalance
+                          ? '•••••••• ₫'
+                          : VndAmount.format(balanceMinor),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    maskedAccount != null && maskedAccount!.isNotEmpty
+                        ? '$typeLabel · $maskedAccount'
+                        : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
+                    softWrap: true,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: 11.8,
+                      height: 1.24,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              hasPendingWrites
+                                  ? Icons.cloud_upload_outlined
+                                  : Icons.verified_user_rounded,
+                              size: 13.5,
+                              color: hasPendingWrites
+                                  ? const Color(0xFFFCD34D)
+                                  : const Color(0xFF86EFAC),
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                hasPendingWrites ? 'Đang lưu' : 'Đã đồng bộ',
+                                softWrap: true,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 6),
-                      Flexible(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Text(
-                          name,
-                          softWrap: true,
+                          badgeLabel,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14.5,
-                            height: 1.18,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.contactless_rounded,
-                      size: 16,
-                      color: Colors.white.withValues(alpha: 0.65),
-                    ),
-                    const SizedBox(width: 5),
-                    Container(
-                      width: 28,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFDE68A), Color(0xFFD97706)],
-                        ),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.35),
-                          width: 0.6,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                obscureBalance ? '•••••••• ₫' : VndAmount.format(balanceMinor),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
+                ],
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              maskedAccount != null && maskedAccount!.isNotEmpty
-                  ? '$typeLabel · $maskedAccount'
-                  : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
-              softWrap: true,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                fontSize: 11.8,
-                height: 1.24,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        hasPendingWrites
-                            ? Icons.cloud_upload_outlined
-                            : Icons.verified_user_rounded,
-                        size: 13.5,
-                        color: hasPendingWrites
-                            ? const Color(0xFFFCD34D)
-                            : const Color(0xFF86EFAC),
-                      ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          hasPendingWrites ? 'Đang lưu' : 'Đã đồng bộ',
-                          softWrap: true,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    badgeLabel,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -713,7 +750,7 @@ abstract final class ProCategoryStyle {
       return (
         icon: Icons.movie_filter_rounded,
         color: const Color(0xFF7048E8),
-        assetPath: AppAssets.icCatShopping,
+        assetPath: AppAssets.icToolSubscription,
       );
     }
     if (lower.contains('lương') || lower.contains('thu nhập')) {

@@ -718,6 +718,7 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                               _BottomNavTabButton(
                                 icon: tab.icon,
                                 activeIcon: tab.activeIcon,
+                                assetPath: tab.assetPath,
                                 label: tab.label,
                                 isSelected:
                                     navigationShell.currentIndex ==
@@ -748,6 +749,7 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                               _BottomNavTabButton(
                                 icon: tab.icon,
                                 activeIcon: tab.activeIcon,
+                                assetPath: tab.assetPath,
                                 label: tab.label,
                                 isSelected:
                                     navigationShell.currentIndex ==
@@ -777,6 +779,7 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
 class _BottomNavTabButton extends StatelessWidget {
   final IconData icon;
   final IconData activeIcon;
+  final String assetPath;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
@@ -784,6 +787,7 @@ class _BottomNavTabButton extends StatelessWidget {
   const _BottomNavTabButton({
     required this.icon,
     required this.activeIcon,
+    required this.assetPath,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -796,7 +800,7 @@ class _BottomNavTabButton extends StatelessWidget {
     final color = isSelected ? c.primary : c.textSecondary;
     return Expanded(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
         child: Material(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(22),
@@ -847,10 +851,17 @@ class _BottomNavTabButton extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    isSelected ? activeIcon : icon,
-                    size: 21.5,
-                    color: color,
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: isSelected ? 1.0 : 0.82,
+                    child: BananaGlassIcon(
+                      assetPath: assetPath,
+                      fallbackIcon: isSelected ? activeIcon : icon,
+                      fallbackColor: color,
+                      size: 24,
+                      borderRadius: 8,
+                      isSelected: isSelected,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   FittedBox(

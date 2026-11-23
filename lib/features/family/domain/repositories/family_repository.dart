@@ -21,12 +21,39 @@ abstract interface class FamilyRepository {
     required String userId,
     required String familyId,
     required String familyName,
+    CollaborationSpaceType spaceType = CollaborationSpaceType.family,
+    String? invitedByName,
+    String? inviteeName,
+    String? inviteeContact,
+  });
+
+  Future<Result<FamilyPendingInviteEntity>> previewInviteCode({
+    required String inviteCode,
+  });
+
+  Future<Result<void>> revokeInviteCode({
+    required String actorUserId,
+    required String familyId,
+    required String inviteCode,
   });
 
   Future<Result<FamilyEntity>> joinFamilyByInvite({
     required String userId,
     required String userName,
     required String inviteCode,
+  });
+
+  Future<Result<void>> updateMemberRole({
+    required String actorUserId,
+    required String familyId,
+    required String targetUserId,
+    required HouseholdRole newRole,
+  });
+
+  Future<Result<void>> removeMember({
+    required String actorUserId,
+    required String familyId,
+    required String targetUserId,
   });
 
   Future<Result<void>> leaveFamily({

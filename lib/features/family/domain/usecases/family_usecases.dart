@@ -62,9 +62,13 @@ class JoinFamilyByCodeUseCase
 
   @override
   Future<Result<FamilyEntity>> call(JoinFamilyParams params) async {
-    final code = params.inviteCode.trim().toUpperCase();
+    final code = FamilyInviteCodeExtractor.extractCode(params.inviteCode);
     if (code.length < 4) {
-      return const Err(ValidationFailure(message: 'Mã mời không hợp lệ.'));
+      return const Err(
+        ValidationFailure(
+          message: 'Vui lòng nhập mã mời hợp lệ (ví dụ: FAM-8K2P9Q).',
+        ),
+      );
     }
     return _repository.joinFamilyByInvite(
       userId: params.userId,

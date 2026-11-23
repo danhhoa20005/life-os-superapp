@@ -49,14 +49,48 @@ class FamilyRemoteDataSource {
       _ => CollaborationSpaceType.family,
     };
 
+    final famId = (d['id'] as String?) ?? doc.id;
+    final famName = (d['name'] as String?) ?? 'Gia đình';
+    final rawPendingMap = Map<String, dynamic>.from(
+      (d['pendingInvites'] as Map<dynamic, dynamic>?) ??
+          const <dynamic, dynamic>{},
+    );
+    final pendingInvites = <FamilyPendingInviteEntity>[];
+    for (final entry in rawPendingMap.entries) {
+      if (entry.value is! Map) {
+        continue;
+      }
+      final m = Map<String, dynamic>.from(entry.value as Map);
+      final cTs = m['createdAt'];
+      final eTs = m['expiresAt'];
+      pendingInvites.add(
+        FamilyPendingInviteEntity(
+          inviteCode: (m['inviteCode'] as String?) ?? entry.key,
+          familyId: famId,
+          familyName: (m['familyName'] as String?) ?? famName,
+          spaceType: spaceType,
+          inviteeName: m['inviteeName'] as String?,
+          inviteeContact: m['inviteeContact'] as String?,
+          invitedByUserId: (m['createdBy'] as String?) ?? '',
+          invitedByName: (m['invitedByName'] as String?) ?? 'Quản trị nhóm',
+          createdAt: cTs is Timestamp ? cTs.toDate() : DateTime.now(),
+          expiresAt: eTs is Timestamp
+              ? eTs.toDate()
+              : DateTime.now().add(const Duration(days: 7)),
+          revoked: (m['revoked'] as bool?) ?? false,
+        ),
+      );
+    }
+
     final createdTs = d['createdAt'];
     return FamilyEntity(
-      id: (d['id'] as String?) ?? doc.id,
-      name: (d['name'] as String?) ?? 'Gia đình',
+      id: famId,
+      name: famName,
       spaceType: spaceType,
       createdBy: (d['createdBy'] as String?) ?? '',
       memberIds: rawMemberIds,
       members: members,
+      pendingInvites: List.unmodifiable(pendingInvites),
       createdAt: createdTs is Timestamp ? createdTs.toDate() : DateTime.now(),
     );
   }
@@ -225,6 +259,10 @@ class FamilyRemoteDataSource {
     required String userId,
     required String familyId,
     required String familyName,
+    CollaborationSpaceType spaceType = CollaborationSpaceType.family,
+    String? invitedByName,
+    String? inviteeName,
+    String? inviteeContact,
   }) async {
     final rand = Random.secure();
     final suffix = List.generate(
@@ -234,17 +272,147 @@ class FamilyRemoteDataSource {
     final code = 'FAM-$suffix';
     final now = DateTime.now();
     final expiresAt = now.add(const Duration(days: 7));
+    final cleanInviteeName = inviteeName?.trim();
+    final cleanContact = inviteeContact?.trim();
+    final cleanInviter =
+        (invitedByName != null && invitedByName.trim().isNotEmpty)
+        ? invitedByName.trim()
+        : 'Trưởng nhóm';
 
-    await _firestore.collection('family_invites').doc(code).set({
+    final invitePayload = <String, dynamic>{
       'inviteCode': code,
       'familyId': familyId,
       'familyName': familyName,
+      'spaceType': spaceType.name,
       'createdBy': userId,
+      'invitedByName': cleanInviter,
+      if (cleanInviteeName != null && cleanInviteeName.isNotEmpty)
+        'inviteeName': cleanInviteeName,
+      if (cleanContact != null && cleanContact.isNotEmpty)
+        'inviteeContact': cleanContact,
+      'revoked': false,
       'expiresAt': Timestamp.fromDate(expiresAt),
       'createdAt': Timestamp.fromDate(now),
+    };
+
+    await _firestore.collection('family_invites').doc(code).set(invitePayload);
+
+    final familyRef = _firestore.collection('families').doc(familyId);
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(familyRef);
+      if (!snap.exists) {
+        return;
+      }
+      final d = snap.data()!;
+      final pending = Map<String, dynamic>.from(
+        (d['pendingInvites'] as Map?) ?? const <String, dynamic>{},
+      );
+      pending[code] = invitePayload;
+      tx.update(familyRef, {
+        'pendingInvites': pending,
+        'updatedAt': Timestamp.fromDate(now),
+      });
     });
 
     return code;
+  }
+
+  Future<FamilyPendingInviteEntity> previewInviteCode({
+    required String inviteCode,
+  }) async {
+    final cleanCode = FamilyInviteCodeExtractor.extractCode(inviteCode);
+    if (cleanCode.length < 4) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Vui lòng nhập mã mời hợp lệ (ví dụ: FAM-8K2P9Q).',
+      );
+    }
+    final invSnap = await _firestore
+        .collection('family_invites')
+        .doc(cleanCode)
+        .get();
+    if (!invSnap.exists) {
+      throw const AppException(
+        code: 'NOT_FOUND',
+        message: 'Không tìm thấy lời mời nào khớp với mã này.',
+      );
+    }
+    final d = invSnap.data()!;
+    if ((d['revoked'] as bool?) == true) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Lời mời này đã bị quản trị viên thu hồi.',
+      );
+    }
+    final expTs = d['expiresAt'];
+    final expiresAt = expTs is Timestamp
+        ? expTs.toDate()
+        : DateTime.now().add(const Duration(days: 7));
+    if (expiresAt.isBefore(DateTime.now())) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message:
+            'Mã mời này đã hết hạn 7 ngày. Hãy nhờ trưởng nhóm cấp mã mới.',
+      );
+    }
+    final cTs = d['createdAt'];
+    final spaceType = switch (d['spaceType'] as String?) {
+      'roommates' => CollaborationSpaceType.roommates,
+      'group' => CollaborationSpaceType.group,
+      _ => CollaborationSpaceType.family,
+    };
+    return FamilyPendingInviteEntity(
+      inviteCode: (d['inviteCode'] as String?) ?? cleanCode,
+      familyId: (d['familyId'] as String?) ?? '',
+      familyName: (d['familyName'] as String?) ?? 'Không gian chung',
+      spaceType: spaceType,
+      inviteeName: d['inviteeName'] as String?,
+      inviteeContact: d['inviteeContact'] as String?,
+      invitedByUserId: (d['createdBy'] as String?) ?? '',
+      invitedByName: (d['invitedByName'] as String?) ?? 'Trưởng nhóm',
+      createdAt: cTs is Timestamp ? cTs.toDate() : DateTime.now(),
+      expiresAt: expiresAt,
+      revoked: false,
+    );
+  }
+
+  Future<void> revokeInviteCode({
+    required String actorUserId,
+    required String familyId,
+    required String inviteCode,
+  }) async {
+    final now = DateTime.now();
+    final invRef = _firestore.collection('family_invites').doc(inviteCode);
+    final invSnap = await invRef.get();
+    if (invSnap.exists) {
+      await invRef.update({
+        'revoked': true,
+        'revokedBy': actorUserId,
+        'revokedAt': Timestamp.fromDate(now),
+      });
+    }
+
+    final familyRef = _firestore.collection('families').doc(familyId);
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(familyRef);
+      if (!snap.exists) {
+        return;
+      }
+      final d = snap.data()!;
+      final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {});
+      final actorRole = roles[actorUserId]?.toString();
+      if (actorRole != 'owner' && actorRole != 'admin') {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message:
+              'Chỉ trưởng nhóm hoặc quản trị mới có quyền thu hồi lời mời.',
+        );
+      }
+      tx.update(familyRef, {
+        'pendingInvites.$inviteCode': FieldValue.delete(),
+        'updatedAt': Timestamp.fromDate(now),
+      });
+    });
   }
 
   Future<FamilyEntity> joinFamilyByInvite({
@@ -252,9 +420,10 @@ class FamilyRemoteDataSource {
     required String userName,
     required String inviteCode,
   }) async {
+    final cleanCode = FamilyInviteCodeExtractor.extractCode(inviteCode);
     final invSnap = await _firestore
         .collection('family_invites')
-        .doc(inviteCode)
+        .doc(cleanCode)
         .get();
     if (!invSnap.exists) {
       throw const AppException(
@@ -263,6 +432,12 @@ class FamilyRemoteDataSource {
       );
     }
     final invData = invSnap.data()!;
+    if ((invData['revoked'] as bool?) == true) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Lời mời này đã bị thu hồi.',
+      );
+    }
     final expTs = invData['expiresAt'];
     if (expTs is Timestamp && expTs.toDate().isBefore(DateTime.now())) {
       throw const AppException(
@@ -272,6 +447,8 @@ class FamilyRemoteDataSource {
     }
 
     final familyId = invData['familyId'] as String;
+    final isTargetedInvite =
+        (invData['inviteeName'] as String?)?.trim().isNotEmpty ?? false;
     final familyRef = _firestore.collection('families').doc(familyId);
 
     await _firestore.runTransaction((tx) async {
@@ -301,7 +478,8 @@ class FamilyRemoteDataSource {
         'memberIds': memberIds,
         'memberRoles': roles,
         'memberNames': names,
-        'lastJoinedInviteCode': inviteCode,
+        if (isTargetedInvite) 'pendingInvites.$cleanCode': FieldValue.delete(),
+        'lastJoinedInviteCode': cleanCode,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
     });
@@ -313,6 +491,96 @@ class FamilyRemoteDataSource {
 
     final updated = await familyRef.get();
     return _mapFamily(updated);
+  }
+
+  Future<void> updateMemberRole({
+    required String actorUserId,
+    required String familyId,
+    required String targetUserId,
+    required HouseholdRole newRole,
+  }) async {
+    if (newRole == HouseholdRole.owner) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Không thể cấp trùng vai trò Trưởng nhóm.',
+      );
+    }
+    final familyRef = _firestore.collection('families').doc(familyId);
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(familyRef);
+      if (!snap.exists) {
+        return;
+      }
+      final d = snap.data()!;
+      final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {});
+      if (roles[actorUserId]?.toString() != 'owner') {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Chỉ Trưởng nhóm mới có quyền thay đổi vai trò thành viên.',
+        );
+      }
+      if (roles[targetUserId]?.toString() == 'owner') {
+        throw const AppException(
+          code: 'CONFLICT_FAILURE',
+          message: 'Không thể hạ quyền của Trưởng nhóm.',
+        );
+      }
+      roles[targetUserId] = newRole.name;
+      tx.update(familyRef, {
+        'memberRoles': roles,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    });
+  }
+
+  Future<void> removeMember({
+    required String actorUserId,
+    required String familyId,
+    required String targetUserId,
+  }) async {
+    if (actorUserId == targetUserId) {
+      return leaveFamily(userId: actorUserId, familyId: familyId);
+    }
+    final familyRef = _firestore.collection('families').doc(familyId);
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(familyRef);
+      if (!snap.exists) {
+        return;
+      }
+      final d = snap.data()!;
+      final memberIds = (d['memberIds'] as List<dynamic>? ?? const <dynamic>[])
+          .map((e) => e.toString())
+          .toList();
+      final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {});
+      final names = Map<String, dynamic>.from((d['memberNames'] as Map?) ?? {});
+
+      final actorRole = roles[actorUserId]?.toString();
+      final targetRole = roles[targetUserId]?.toString();
+      if (actorRole != 'owner' && actorRole != 'admin') {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Bạn không có quyền xóa thành viên khỏi nhóm.',
+        );
+      }
+      if (targetRole == 'owner' ||
+          (actorRole == 'admin' && targetRole == 'admin')) {
+        throw const AppException(
+          code: 'CONFLICT_FAILURE',
+          message: 'Không thể xóa Trưởng nhóm hoặc Quản trị viên đồng cấp.',
+        );
+      }
+
+      memberIds.remove(targetUserId);
+      roles.remove(targetUserId);
+      names.remove(targetUserId);
+
+      tx.update(familyRef, {
+        'memberIds': memberIds,
+        'memberRoles': roles,
+        'memberNames': names,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    });
   }
 
   Future<void> leaveFamily({
@@ -583,14 +851,54 @@ class FamilyRepositoryImpl implements FamilyRepository {
     required String userId,
     required String familyId,
     required String familyName,
+    CollaborationSpaceType spaceType = CollaborationSpaceType.family,
+    String? invitedByName,
+    String? inviteeName,
+    String? inviteeContact,
   }) async {
     try {
       final code = await _remoteDataSource.createInviteCode(
         userId: userId,
         familyId: familyId,
         familyName: familyName,
+        spaceType: spaceType,
+        invitedByName: invitedByName,
+        inviteeName: inviteeName,
+        inviteeContact: inviteeContact,
       );
       return Success(code);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<FamilyPendingInviteEntity>> previewInviteCode({
+    required String inviteCode,
+  }) async {
+    try {
+      final preview = await _remoteDataSource.previewInviteCode(
+        inviteCode: inviteCode,
+      );
+      return Success(preview);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> revokeInviteCode({
+    required String actorUserId,
+    required String familyId,
+    required String inviteCode,
+  }) async {
+    try {
+      await _remoteDataSource.revokeInviteCode(
+        actorUserId: actorUserId,
+        familyId: familyId,
+        inviteCode: inviteCode,
+      );
+      return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }
@@ -609,6 +917,44 @@ class FamilyRepositoryImpl implements FamilyRepository {
         inviteCode: inviteCode,
       );
       return Success(f);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> updateMemberRole({
+    required String actorUserId,
+    required String familyId,
+    required String targetUserId,
+    required HouseholdRole newRole,
+  }) async {
+    try {
+      await _remoteDataSource.updateMemberRole(
+        actorUserId: actorUserId,
+        familyId: familyId,
+        targetUserId: targetUserId,
+        newRole: newRole,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> removeMember({
+    required String actorUserId,
+    required String familyId,
+    required String targetUserId,
+  }) async {
+    try {
+      await _remoteDataSource.removeMember(
+        actorUserId: actorUserId,
+        familyId: familyId,
+        targetUserId: targetUserId,
+      );
+      return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }

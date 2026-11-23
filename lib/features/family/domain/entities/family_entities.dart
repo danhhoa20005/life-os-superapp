@@ -85,6 +85,83 @@ class FamilyMemberInfo extends Equatable {
   List<Object?> get props => [userId, fullName, role];
 }
 
+/// Represents a pending or previewed invitation to join a Family / Roommates / Group space.
+class FamilyPendingInviteEntity extends Equatable {
+  final String inviteCode;
+  final String familyId;
+  final String familyName;
+  final CollaborationSpaceType spaceType;
+  final String? inviteeName;
+  final String? inviteeContact;
+  final String invitedByUserId;
+  final String invitedByName;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final bool revoked;
+
+  const FamilyPendingInviteEntity({
+    required this.inviteCode,
+    required this.familyId,
+    required this.familyName,
+    this.spaceType = CollaborationSpaceType.family,
+    this.inviteeName,
+    this.inviteeContact,
+    required this.invitedByUserId,
+    required this.invitedByName,
+    required this.createdAt,
+    required this.expiresAt,
+    this.revoked = false,
+  });
+
+  bool get isTargetedInvite =>
+      inviteeName != null && inviteeName!.trim().isNotEmpty;
+
+  String get displayInviteeTitle =>
+      isTargetedInvite ? inviteeName!.trim() : 'Mã mời chung cho nhóm';
+
+  bool isExpiredAt(DateTime now) => expiresAt.isBefore(now);
+
+  bool isActiveAt(DateTime now) => !revoked && !isExpiredAt(now);
+
+  int remainingDaysFrom(DateTime now) {
+    final diff = expiresAt.difference(now);
+    if (diff.isNegative) {
+      return 0;
+    }
+    return (diff.inHours / 24.0).ceil().clamp(1, 30);
+  }
+
+  @override
+  List<Object?> get props => [
+    inviteCode,
+    familyId,
+    familyName,
+    spaceType,
+    inviteeName,
+    inviteeContact,
+    invitedByUserId,
+    invitedByName,
+    createdAt,
+    expiresAt,
+    revoked,
+  ];
+}
+
+/// Pure Domain helper extracting a clean `FAM-XXXXXX` code even if the user pastes
+/// a full Zalo / Messenger / SMS invitation paragraph.
+abstract final class FamilyInviteCodeExtractor {
+  static final RegExp _famPattern = RegExp(r'FAM-[A-Z0-9]{4,12}');
+
+  static String extractCode(String rawInput) {
+    final upper = rawInput.trim().toUpperCase();
+    final match = _famPattern.firstMatch(upper);
+    if (match != null) {
+      return match.group(0)!;
+    }
+    return upper.replaceAll(RegExp(r'\s+'), '');
+  }
+}
+
 class FamilyEntity extends Equatable {
   final String id;
   final String name;
@@ -92,6 +169,7 @@ class FamilyEntity extends Equatable {
   final String createdBy;
   final List<String> memberIds;
   final List<FamilyMemberInfo> members;
+  final List<FamilyPendingInviteEntity> pendingInvites;
   final DateTime createdAt;
 
   const FamilyEntity({
@@ -101,6 +179,7 @@ class FamilyEntity extends Equatable {
     required this.createdBy,
     required this.memberIds,
     required this.members,
+    this.pendingInvites = const [],
     required this.createdAt,
   });
 
@@ -114,6 +193,15 @@ class FamilyEntity extends Equatable {
     return r == HouseholdRole.owner || r == HouseholdRole.admin;
   }
 
+  bool isOwnerUser(String userId) => roleOf(userId) == HouseholdRole.owner;
+
+  List<FamilyPendingInviteEntity> activePendingInvites([DateTime? now]) {
+    final refNow = now ?? DateTime.now();
+    final active = pendingInvites.where((i) => i.isActiveAt(refNow)).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return active;
+  }
+
   @override
   List<Object?> get props => [
     id,
@@ -122,6 +210,7 @@ class FamilyEntity extends Equatable {
     createdBy,
     memberIds,
     members,
+    pendingInvites,
     createdAt,
   ];
 }

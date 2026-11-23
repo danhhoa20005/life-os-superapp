@@ -15,6 +15,7 @@ import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
+import '../constants/app_assets.dart';
 import '../utils/vnd_amount.dart';
 import 'liquid_glass.dart';
 import 'quick_create_hub_sheet.dart';
@@ -1025,13 +1026,15 @@ class LifeOsMintHeroCard extends StatelessWidget {
   }
 }
 
-/// Unified `42×42` rounded Liquid Glass squircle icon container with specular inner border.
+/// Unified `42×42` rounded Apple Liquid Glass squircle icon container.
+/// Automatically renders its cohesive Nano Banana Pro 3D Liquid Glass icon asset when available.
 class LifeOsIconSquircle extends StatelessWidget {
   final IconData icon;
   final LifeOsAccentTone tone;
   final double size;
   final double iconSize;
   final bool solidFill;
+  final String? bananaAsset;
 
   const LifeOsIconSquircle({
     super.key,
@@ -1040,6 +1043,7 @@ class LifeOsIconSquircle extends StatelessWidget {
     this.size = 42,
     this.iconSize = 21,
     this.solidFill = false,
+    this.bananaAsset,
   });
 
   @override
@@ -1047,6 +1051,21 @@ class LifeOsIconSquircle extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final (bg, fg) = tone.resolve(context);
     final radius = size * 0.32;
+
+    if (!solidFill) {
+      final resolvedAsset =
+          bananaAsset ?? AppAssets.resolveBananaIconForGlyph(icon);
+      if (resolvedAsset != null) {
+        return BananaGlassIcon(
+          assetPath: resolvedAsset,
+          fallbackIcon: icon,
+          fallbackColor: fg,
+          size: size,
+          borderRadius: radius,
+        );
+      }
+    }
+
     return Container(
       width: size,
       height: size,
@@ -1186,15 +1205,17 @@ class LifeOsPrimaryCtaButton extends StatelessWidget {
   }
 }
 
-/// Overlapping circular member avatar stack + optional `+` invite circle.
+/// Overlapping circular member avatar stack + optional pending-invite badges + `+` invite button.
 class LifeOsAvatarStack extends StatelessWidget {
   final List<String> names;
+  final List<String> pendingNames;
   final VoidCallback? onAddTap;
   final double radius;
 
   const LifeOsAvatarStack({
     super.key,
     required this.names,
+    this.pendingNames = const [],
     this.onAddTap,
     this.radius = 16,
   });
@@ -1210,11 +1231,13 @@ class LifeOsAvatarStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final display = names.isEmpty
-        ? const ['Bố', 'Mẹ', 'Bạn']
-        : names.take(4).toList();
+    final display = names.isEmpty ? const ['Tôi'] : names.take(4).toList();
+    final pendingDisplay = pendingNames
+        .take((5 - display.length).clamp(0, 2))
+        .toList();
     final step = radius * 1.45;
-    final count = display.length + (onAddTap != null ? 1 : 0);
+    final count =
+        display.length + pendingDisplay.length + (onAddTap != null ? 1 : 0);
     final totalWidth = count == 0 ? 0.0 : (count - 1) * step + radius * 2;
 
     return SizedBox(
@@ -1246,9 +1269,40 @@ class LifeOsAvatarStack extends StatelessWidget {
                 ),
               ),
             ),
+          for (var j = 0; j < pendingDisplay.length; j++)
+            Positioned(
+              left: (display.length + j) * step,
+              child: Tooltip(
+                message: 'Đang chờ tham gia: ${pendingDisplay[j]}',
+                child: Container(
+                  width: radius * 2,
+                  height: radius * 2,
+                  decoration: BoxDecoration(
+                    color: c.warningSubtle,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.warning, width: 1.6),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    pendingDisplay[j].trim().isEmpty
+                        ? '?'
+                        : pendingDisplay[j]
+                              .trim()
+                              .characters
+                              .first
+                              .toUpperCase(),
+                    style: TextStyle(
+                      color: c.warning,
+                      fontSize: radius * 0.68,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (onAddTap != null)
             Positioned(
-              left: display.length * step,
+              left: (display.length + pendingDisplay.length) * step,
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onAddTap,
@@ -1256,14 +1310,17 @@ class LifeOsAvatarStack extends StatelessWidget {
                   width: radius * 2,
                   height: radius * 2,
                   decoration: BoxDecoration(
-                    color: c.surfaceRaised,
+                    color: c.primarySubtle,
                     shape: BoxShape.circle,
-                    border: Border.all(color: c.separator, width: 1.5),
+                    border: Border.all(
+                      color: c.primary.withValues(alpha: 0.45),
+                      width: 1.5,
+                    ),
                   ),
                   child: Icon(
-                    Icons.add_rounded,
-                    size: radius * 1.05,
-                    color: c.textSecondary,
+                    Icons.person_add_alt_1_rounded,
+                    size: radius * 0.95,
+                    color: c.primary,
                   ),
                 ),
               ),

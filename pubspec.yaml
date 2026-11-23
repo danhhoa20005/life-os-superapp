@@ -1,7 +1,7 @@
 name: life_os
 description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Real-Time Banking Webhook + FCM Push + Clean Architecture BLoC v3.8)"
 publish_to: 'none'
-version: 3.12.0+27
+version: 3.13.0+28
 
 environment:
   sdk: ^3.10.0
@@ -55,19 +55,5 @@ flutter:
     - assets/images/finance_illustration.png
     - assets/images/family_split_illustration.png
     - assets/images/planning_assets_illustration.png
-    - assets/icons/ic_nav_today.png
-    - assets/icons/ic_nav_finance.png
-    - assets/icons/ic_nav_calendar.png
-    - assets/icons/ic_nav_family.png
-    - assets/icons/ic_nav_assets.png
-    - assets/icons/ic_cat_food.png
-    - assets/icons/ic_cat_housework.png
-    - assets/icons/ic_cat_housing.png
-    - assets/icons/ic_cat_utilities.png
-    - assets/icons/ic_cat_shopping.png
-    - assets/icons/ic_cat_income.png
-    - assets/icons/ic_cat_vehicle.png
-    - assets/icons/ic_cat_health.png
-    - assets/icons/ic_sys_shield.png
-    - assets/icons/ic_sys_vietqr.png
-    - assets/icons/ic_sys_ota_update.png
+    - assets/icons/
+    - assets/bank_cards/

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../widgets/liquid_glass.dart';
 
-/// Centralized Nano Banana generated visual & 3D Glass Icon asset registry for Life OS (Tammy × Apple Design System).
+/// Centralized Nano Banana Pro 3D Apple Liquid Glass Icon & Bank Card Skin registry for LifeOS.
 abstract final class AppAssets {
   // Brand Logo & Hero Illustrations (Official LifeOS BrandKit 1.0)
   static const String logo = 'assets/images/logo_life_os.png';
@@ -29,14 +31,15 @@ abstract final class AppAssets {
   static const String planningAssetsIllustration =
       'assets/images/planning_assets_illustration.png';
 
-  // Nano Banana 3D Frosted Liquid Glass Navigation Icons (5 Tabs)
+  // 1. Core Navigation & Quick Actions (Nano Banana Pro iOS 26 Liquid Glass 3D)
   static const String icNavToday = 'assets/icons/ic_nav_today.png';
   static const String icNavFinance = 'assets/icons/ic_nav_finance.png';
   static const String icNavCalendar = 'assets/icons/ic_nav_calendar.png';
   static const String icNavFamily = 'assets/icons/ic_nav_family.png';
   static const String icNavAssets = 'assets/icons/ic_nav_assets.png';
+  static const String icQuickSplit = 'assets/icons/ic_quick_split.png';
 
-  // Nano Banana 3D Frosted Liquid Glass Category Icons
+  // 2. Finance, Wealth & Transaction Categories (Nano Banana Pro iOS 26 Liquid Glass 3D)
   static const String icCatFood = 'assets/icons/ic_cat_food.png';
   static const String icCatHousework = 'assets/icons/ic_cat_housework.png';
   static const String icCatHousing = 'assets/icons/ic_cat_housing.png';
@@ -45,11 +48,33 @@ abstract final class AppAssets {
   static const String icCatIncome = 'assets/icons/ic_cat_income.png';
   static const String icCatVehicle = 'assets/icons/ic_cat_vehicle.png';
   static const String icCatHealth = 'assets/icons/ic_cat_health.png';
+  static const String icToolReceiptAi = 'assets/icons/ic_tool_receipt_ai.png';
+  static const String icToolAnalytics = 'assets/icons/ic_tool_analytics.png';
+  static const String icToolSubscription =
+      'assets/icons/ic_tool_subscription.png';
 
-  // Nano Banana 3D Frosted Liquid Glass System Icons
+  // 3. Daily Life, Productivity & System (Nano Banana Pro iOS 26 Liquid Glass 3D)
+  static const String icLifeDocuments = 'assets/icons/ic_life_documents.png';
+  static const String icLifeTasks = 'assets/icons/ic_life_tasks.png';
+  static const String icLifeHabits = 'assets/icons/ic_life_habits.png';
+  static const String icLifeNotes = 'assets/icons/ic_life_notes.png';
+  static const String icLifeSocialTravel =
+      'assets/icons/ic_life_social_travel.png';
   static const String icSysShield = 'assets/icons/ic_sys_shield.png';
   static const String icSysVietQr = 'assets/icons/ic_sys_vietqr.png';
   static const String icSysOtaUpdate = 'assets/icons/ic_sys_ota_update.png';
+  static const String icSysAllServices = 'assets/icons/ic_sys_all_services.png';
+
+  // 4. Clean Luxury Bank & Wallet Card Skins (16:10 Apple Wallet / Revolut Metal & Liquid Glass)
+  static const String cardVcbEmerald = 'assets/bank_cards/card_vcb_emerald.png';
+  static const String cardTcbCrimson = 'assets/bank_cards/card_tcb_crimson.png';
+  static const String cardMbbRoyal = 'assets/bank_cards/card_mbb_royal.png';
+  static const String cardBidvTeal = 'assets/bank_cards/card_bidv_teal.png';
+  static const String cardTpbViolet = 'assets/bank_cards/card_tpb_violet.png';
+  static const String cardBlackTitanium =
+      'assets/bank_cards/card_black_titanium.png';
+  static const String cardSavingsGold =
+      'assets/bank_cards/card_savings_gold.png';
 
   static const List<String> allBananaIcons = <String>[
     icNavToday,
@@ -57,6 +82,7 @@ abstract final class AppAssets {
     icNavCalendar,
     icNavFamily,
     icNavAssets,
+    icQuickSplit,
     icCatFood,
     icCatHousework,
     icCatHousing,
@@ -65,13 +91,255 @@ abstract final class AppAssets {
     icCatIncome,
     icCatVehicle,
     icCatHealth,
+    icToolReceiptAi,
+    icToolAnalytics,
+    icToolSubscription,
+    icLifeDocuments,
+    icLifeTasks,
+    icLifeHabits,
+    icLifeNotes,
+    icLifeSocialTravel,
     icSysShield,
     icSysVietQr,
     icSysOtaUpdate,
+    icSysAllServices,
   ];
+
+  static const List<String> allBankCardSkins = <String>[
+    cardVcbEmerald,
+    cardTcbCrimson,
+    cardMbbRoyal,
+    cardBidvTeal,
+    cardTpbViolet,
+    cardBlackTitanium,
+    cardSavingsGold,
+  ];
+
+  /// Maps a bank code / wallet name / wallet type to its clean Nano Banana Pro Bank Card Skin.
+  static String resolveBankCardSkin({
+    required String walletTypeKey,
+    String? bankCode,
+    String? walletName,
+  }) {
+    final token = '${bankCode ?? ""} ${walletName ?? ""}'.toUpperCase();
+
+    if (walletTypeKey == 'savings') {
+      return cardSavingsGold;
+    }
+    if (token.contains('TCB') ||
+        token.contains('TECHCOM') ||
+        token.contains('CTG') ||
+        token.contains('VIETIN') ||
+        token.contains('HSBC') ||
+        token.contains('AGRIBANK')) {
+      return cardTcbCrimson;
+    }
+    if (token.contains('TPB') ||
+        token.contains('TPBANK') ||
+        token.contains('TIMO') ||
+        token.contains('CAKE') ||
+        token.contains('MOMO')) {
+      return cardTpbViolet;
+    }
+    if (token.contains('BIDV') ||
+        token.contains('MSB') ||
+        token.contains('OCB') ||
+        token.contains('VIB')) {
+      return cardBidvTeal;
+    }
+    if (token.contains('MB') ||
+        token.contains('ACB') ||
+        token.contains('STB') ||
+        token.contains('SACOM') ||
+        token.contains('SHB') ||
+        token.contains('HDB')) {
+      return cardMbbRoyal;
+    }
+    if (walletTypeKey == 'creditCard') {
+      return cardBlackTitanium;
+    }
+    if (walletTypeKey == 'bank') {
+      if (token.contains('VCB') ||
+          token.contains('VIETCOM') ||
+          token.contains('VPB')) {
+        return cardVcbEmerald;
+      }
+      return cardMbbRoyal;
+    }
+    return cardVcbEmerald;
+  }
+
+  /// Resolves any feature Material `IconData` used across LifeOS into its cohesive
+  /// Nano Banana Pro 3D Apple Liquid Glass icon asset.
+  static String? resolveBananaIconForGlyph(IconData icon) {
+    final code = icon.codePoint;
+
+    if (code == Icons.home_rounded.codePoint ||
+        code == Icons.home_outlined.codePoint) {
+      return icNavToday;
+    }
+    if (code == Icons.account_balance_wallet_outlined.codePoint ||
+        code == Icons.payments_outlined.codePoint ||
+        code == Icons.payments_rounded.codePoint ||
+        code == Icons.account_balance_outlined.codePoint ||
+        code == Icons.account_balance_rounded.codePoint ||
+        code == Icons.credit_card_rounded.codePoint ||
+        code == Icons.add_card_rounded.codePoint) {
+      return icNavFinance;
+    }
+    if (code == Icons.savings_outlined.codePoint ||
+        code == Icons.savings_rounded.codePoint ||
+        code == Icons.south_west_rounded.codePoint) {
+      return icCatIncome;
+    }
+    if (code == Icons.groups_outlined.codePoint ||
+        code == Icons.groups_rounded.codePoint ||
+        code == Icons.family_restroom_rounded.codePoint ||
+        code == Icons.group_add_outlined.codePoint ||
+        code == Icons.child_care_rounded.codePoint) {
+      return icNavFamily;
+    }
+    if (code == Icons.swap_horiz_rounded.codePoint ||
+        code == Icons.volunteer_activism_outlined.codePoint) {
+      return icQuickSplit;
+    }
+    if (code == Icons.qr_code_2_rounded.codePoint) {
+      return icSysVietQr;
+    }
+    if (code == Icons.calendar_month_rounded.codePoint ||
+        code == Icons.calendar_month_outlined.codePoint ||
+        code == Icons.calendar_today_rounded.codePoint ||
+        code == Icons.calendar_today_outlined.codePoint ||
+        code == Icons.event_available_rounded.codePoint ||
+        code == Icons.event_rounded.codePoint ||
+        code == Icons.event_outlined.codePoint ||
+        code == Icons.event_busy_rounded.codePoint ||
+        code == Icons.event_busy_outlined.codePoint ||
+        code == Icons.edit_calendar_rounded.codePoint ||
+        code == Icons.alarm_on_rounded.codePoint ||
+        code == Icons.alarm_add_rounded.codePoint) {
+      return icNavCalendar;
+    }
+    if (code == Icons.task_alt_rounded.codePoint ||
+        code == Icons.fact_check_outlined.codePoint ||
+        code == Icons.check_box_outlined.codePoint ||
+        code == Icons.playlist_add_check_circle_outlined.codePoint) {
+      return icLifeTasks;
+    }
+    if (code == Icons.restaurant_rounded.codePoint ||
+        code == Icons.soup_kitchen_outlined.codePoint) {
+      return icCatFood;
+    }
+    if (code == Icons.shopping_basket_outlined.codePoint ||
+        code == Icons.shopping_basket_rounded.codePoint ||
+        code == Icons.kitchen_outlined.codePoint ||
+        code == Icons.kitchen_rounded.codePoint ||
+        code == Icons.cleaning_services_rounded.codePoint) {
+      return icCatHousework;
+    }
+    if (code == Icons.shopping_bag_rounded.codePoint ||
+        code == Icons.shopping_cart_outlined.codePoint ||
+        code == Icons.inventory_2_outlined.codePoint) {
+      return icCatShopping;
+    }
+    if (code == Icons.directions_car_outlined.codePoint ||
+        code == Icons.directions_car_filled_outlined.codePoint ||
+        code == Icons.car_repair_rounded.codePoint ||
+        code == Icons.two_wheeler_rounded.codePoint ||
+        code == Icons.handyman_rounded.codePoint ||
+        code == Icons.build_circle_outlined.codePoint ||
+        code == Icons.oil_barrel_outlined.codePoint ||
+        code == Icons.tire_repair_outlined.codePoint) {
+      return icCatVehicle;
+    }
+    if (code == Icons.electric_bolt_rounded.codePoint ||
+        code == Icons.bolt_rounded.codePoint ||
+        code == Icons.electric_meter_outlined.codePoint ||
+        code == Icons.water_drop_outlined.codePoint ||
+        code == Icons.wifi_rounded.codePoint) {
+      return icCatUtilities;
+    }
+    if (code == Icons.home_work_rounded.codePoint ||
+        code == Icons.home_work_outlined.codePoint ||
+        code == Icons.apartment_rounded.codePoint) {
+      return icCatHousing;
+    }
+    if (code == Icons.favorite_outline_rounded.codePoint ||
+        code == Icons.favorite_rounded.codePoint ||
+        code == Icons.favorite_border_rounded.codePoint ||
+        code == Icons.medical_services_rounded.codePoint ||
+        code == Icons.medication_outlined.codePoint ||
+        code == Icons.medication_liquid_rounded.codePoint ||
+        code == Icons.local_hospital_rounded.codePoint ||
+        code == Icons.emergency_rounded.codePoint ||
+        code == Icons.monitor_weight_outlined.codePoint) {
+      return icCatHealth;
+    }
+    if (code == Icons.folder_open_rounded.codePoint ||
+        code == Icons.folder_copy_outlined.codePoint ||
+        code == Icons.folder_rounded.codePoint ||
+        code == Icons.rule_folder_outlined.codePoint ||
+        code == Icons.description_outlined.codePoint ||
+        code == Icons.badge_outlined.codePoint) {
+      return icLifeDocuments;
+    }
+    if (code == Icons.request_quote_outlined.codePoint ||
+        code == Icons.receipt_long_rounded.codePoint ||
+        code == Icons.receipt_long_outlined.codePoint ||
+        code == Icons.calculate_outlined.codePoint ||
+        code == Icons.auto_awesome_rounded.codePoint) {
+      return icToolReceiptAi;
+    }
+    if (code == Icons.bar_chart_rounded.codePoint ||
+        code == Icons.candlestick_chart_rounded.codePoint) {
+      return icToolAnalytics;
+    }
+    if (code == Icons.radar_rounded.codePoint ||
+        code == Icons.autorenew_rounded.codePoint ||
+        code == Icons.sync_rounded.codePoint ||
+        code == Icons.workspace_premium_rounded.codePoint ||
+        code == Icons.movie_filter_rounded.codePoint) {
+      return icToolSubscription;
+    }
+    if (code == Icons.local_fire_department_outlined.codePoint ||
+        code == Icons.local_fire_department_rounded.codePoint ||
+        code == Icons.schedule_rounded.codePoint ||
+        code == Icons.access_time_rounded.codePoint) {
+      return icLifeHabits;
+    }
+    if (code == Icons.sticky_note_2_outlined.codePoint ||
+        code == Icons.edit_note_rounded.codePoint ||
+        code == Icons.note_add_outlined.codePoint ||
+        code == Icons.notes_rounded.codePoint) {
+      return icLifeNotes;
+    }
+    if (code == Icons.card_giftcard_rounded.codePoint ||
+        code == Icons.luggage_outlined.codePoint ||
+        code == Icons.casino_outlined.codePoint) {
+      return icLifeSocialTravel;
+    }
+    if (code == Icons.apps_rounded.codePoint ||
+        code == Icons.widgets_outlined.codePoint ||
+        code == Icons.inbox_rounded.codePoint) {
+      return icSysAllServices;
+    }
+    if (code == Icons.settings_outlined.codePoint ||
+        code == Icons.shield_outlined.codePoint ||
+        code == Icons.shield_moon_rounded.codePoint ||
+        code == Icons.verified_user_outlined.codePoint ||
+        code == Icons.fingerprint_rounded.codePoint ||
+        code == Icons.password_rounded.codePoint ||
+        code == Icons.palette_outlined.codePoint) {
+      return icSysShield;
+    }
+    if (code == Icons.system_update_rounded.codePoint) {
+      return icSysOtaUpdate;
+    }
+    return null;
+  }
 }
 
-/// Tactile squircle wrapper for Nano Banana 3D Frosted Liquid Glass icons (60/120 FPS GPU mipmapped).
+/// Tactile Apple Liquid Glass squircle wrapper for Nano Banana Pro 3D icons (60/120 FPS GPU mipmapped).
 class BananaGlassIcon extends StatelessWidget {
   final String assetPath;
   final IconData fallbackIcon;
@@ -95,45 +363,62 @@ class BananaGlassIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
-    final decodePx = (size * dpr).round().clamp(48, 512);
+    final decodePx = (size * dpr).round().clamp(64, 512);
     final effectiveColor = fallbackColor ?? c.primary;
 
-    final badge = Container(
-      width: size,
-      height: size,
+    final badge = DecoratedBox(
       decoration: BoxDecoration(
-        color: effectiveColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: isSelected
-              ? c.primary.withValues(alpha: 0.65)
-              : Colors.white.withValues(alpha: 0.35),
-          width: isSelected ? 1.4 : 0.8,
-        ),
         boxShadow: [
           BoxShadow(
-            color: effectiveColor.withValues(alpha: isSelected ? 0.22 : 0.08),
-            blurRadius: isSelected ? 10 : 6,
+            color: effectiveColor.withValues(
+              alpha: isSelected ? 0.24 : (isDark ? 0.18 : 0.08),
+            ),
+            blurRadius: isSelected ? 12 : 8,
             offset: const Offset(0, 3),
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.asset(
-        assetPath,
-        width: size,
-        height: size,
-        cacheWidth: decodePx,
-        cacheHeight: decodePx,
-        filterQuality: FilterQuality.medium,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-            Icon(fallbackIcon, color: effectiveColor, size: size * 0.54),
+      child: CustomPaint(
+        foregroundPainter: LiquidGlassRimPainter(
+          borderRadius: borderRadius,
+          isDark: isDark,
+          accentRimColor: isSelected ? c.primary : null,
+          strokeWidth: isSelected ? 1.4 : 1.0,
+          intensity: isSelected ? 1.25 : 1.0,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Image.asset(
+              assetPath,
+              width: size,
+              height: size,
+              cacheWidth: decodePx,
+              cacheHeight: decodePx,
+              filterQuality: FilterQuality.medium,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => ColoredBox(
+                color: effectiveColor.withValues(alpha: 0.14),
+                child: Icon(
+                  fallbackIcon,
+                  color: effectiveColor,
+                  size: size * 0.54,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
 
-    if (semanticLabel == null || semanticLabel!.isEmpty) return badge;
+    if (semanticLabel == null || semanticLabel!.isEmpty) {
+      return badge;
+    }
     return Semantics(label: semanticLabel, image: true, child: badge);
   }
 }
