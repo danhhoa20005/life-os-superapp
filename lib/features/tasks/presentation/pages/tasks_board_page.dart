@@ -367,10 +367,11 @@ class _TaskStatColumn extends StatelessWidget {
           ),
           Text(
             label,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 12,
+              height: 1.2,
               fontWeight: FontWeight.w600,
               color: c.textSecondary,
             ),
@@ -487,10 +488,11 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                 children: [
                   Text(
                     task.title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15,
+                      height: 1.22,
                       fontWeight: FontWeight.w800,
                       color: isDone ? c.textSecondary : c.textPrimary,
                       decoration: isDone ? TextDecoration.lineThrough : null,
@@ -506,9 +508,9 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                           task.dueAt != null
                               ? timeFmt.format(task.dueAt!)
                               : 'Linh hoạt trong ngày',
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          style: TextStyle(fontSize: 12.2, color: c.textSecondary),
                         ),
                       ),
                     ],

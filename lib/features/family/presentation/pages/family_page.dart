@@ -353,10 +353,11 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                           Expanded(
                             child: Text(
                               family.name,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 17,
+                                height: 1.2,
                                 fontWeight: FontWeight.w800,
                                 color: c.textPrimary,
                               ),
@@ -473,17 +474,19 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                                         color: c.textSecondary,
                                       ),
                                     ),
-                                    Text(
-                                      VndAmount.format(displayFund),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.textPrimary,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        VndAmount.format(displayFund),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                     Text(

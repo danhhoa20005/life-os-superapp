@@ -160,11 +160,12 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                                           Expanded(
                                             child: Text(
                                               'Thông báo ngân hàng (đã nhận diện)',
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w800,
-                                                fontSize: 13.5,
+                                                fontSize: 13.8,
+                                                height: 1.22,
                                                 color: c.textPrimary,
                                               ),
                                             ),
@@ -287,10 +288,11 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                                           children: [
                                             Text(
                                               _merchantCtrl.text,
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontSize: 17,
+                                                height: 1.2,
                                                 fontWeight: FontWeight.w800,
                                                 color: c.textPrimary,
                                               ),
@@ -615,7 +617,8 @@ class _TxMetaLine extends StatelessWidget {
         Flexible(
           child: Text(
             value,
-            maxLines: 1,
+            maxLines: 2,
+            textAlign: TextAlign.right,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 14,

@@ -51,8 +51,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'finance',
       domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
-      shortLabel: 'Sổ cái Ví',
-      keywords: 'chi tiêu ngân sách ví tiền',
+      shortLabel: 'Sổ thu chi',
+      keywords: 'chi tiêu ngân sách ví tiền sổ cái',
       icon: Icons.account_balance_wallet_outlined,
       tone: LifeOsAccentTone.emerald,
       route: '/finance',
@@ -70,8 +70,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'finance',
       domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
-      shortLabel: 'Bill AI & FIRE',
-      keywords: 'quét hóa đơn lãi vay tự do tài chính 6 chiếc lọ',
+      shortLabel: 'Tách hóa đơn',
+      keywords: 'quét hóa đơn lãi vay tự do tài chính 6 chiếc lọ bill ai fire',
       icon: Icons.calculate_outlined,
       tone: LifeOsAccentTone.blue,
       route: '/wealth-tools',
@@ -88,8 +88,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'finance',
       domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
-      shortLabel: 'Báo cáo W1–W4',
-      keywords: 'thống kê biểu đồ xuất csv',
+      shortLabel: 'Báo cáo thu chi',
+      keywords: 'thống kê biểu đồ xuất csv w1 w4',
       icon: Icons.bar_chart_rounded,
       tone: LifeOsAccentTone.emerald,
       route: '/finance-report',
@@ -97,8 +97,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'finance',
       domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
-      shortLabel: 'Gói ĐK & BH',
-      keywords: 'netflix youtube bảo hành điện máy',
+      shortLabel: 'Thuê bao & BH',
+      keywords: 'netflix youtube bảo hành điện máy gói đăng ký',
       icon: Icons.radar_rounded,
       tone: LifeOsAccentTone.amber,
       route: '/subscriptions-warranty',
@@ -144,8 +144,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'health_food',
       domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
-      shortLabel: 'Pomodoro & Nước',
-      keywords: 'thói quen tập trung uống nước 2000ml',
+      shortLabel: 'Tập trung & Nước',
+      keywords: 'thói quen tập trung uống nước 2000ml pomodoro',
       icon: Icons.local_fire_department_outlined,
       tone: LifeOsAccentTone.amber,
       route: '/habits-focus',
@@ -153,8 +153,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'health_food',
       domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
-      shortLabel: 'Ghi chú & Mood',
-      keywords: 'sổ tay ghim nhật ký cảm xúc tâm trạng',
+      shortLabel: 'Sổ tay & Cảm xúc',
+      keywords: 'sổ tay ghim nhật ký cảm xúc tâm trạng mood',
       icon: Icons.sticky_note_2_outlined,
       tone: LifeOsAccentTone.purple,
       route: '/smart-notes-hub',
@@ -165,7 +165,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       domainKey: 'home_assets',
       domainTitle: 'Nhà cửa · Điện EVN · Xe cộ & Giấy tờ',
       shortLabel: 'Điện nước EVN',
-      keywords: '6 bậc thang công tơ phòng trọ hợp đồng thuê nhà',
+      keywords: '5 bậc thang công tơ phòng trọ hợp đồng thuê nhà',
       icon: Icons.electric_bolt_rounded,
       tone: LifeOsAccentTone.amber,
       route: '/home-living',
@@ -222,8 +222,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'family_life',
       domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
-      shortLabel: 'Việc làm Kanban',
-      keywords: 'phân công việc nhà tiến độ',
+      shortLabel: 'Việc cần làm',
+      keywords: 'phân công việc nhà tiến độ kanban',
       icon: Icons.task_alt_rounded,
       tone: LifeOsAccentTone.emerald,
       route: '/tasks-board',
@@ -318,7 +318,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                               LifeOsStatusPill(
                                 icon: Icons.radar_rounded,
                                 label:
-                                    'Gói ĐK: ${proSnap.subscriptionsAndWarranties.length}',
+                                    'Thuê bao: ${proSnap.subscriptionsAndWarranties.length}',
                                 tone: LifeOsAccentTone.purple,
                               ),
                             ],
@@ -364,12 +364,12 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                         ),
                         const SizedBox(height: 10),
 
-                        // Grouped 4-Column Super App Icon Cards (Zero vertical bloat!)
+                        // Grouped 4-Column Super App Icon Cards (Zero vertical bloat & zero truncation!)
                         for (final entry in grouped.entries) ...[
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: LifeOsSoftCard(
-                              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                              padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -378,20 +378,15 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                                     child: Text(
                                       entry.key,
                                       style: TextStyle(
-                                        fontSize: 13.2,
+                                        fontSize: 13.5,
                                         fontWeight: FontWeight.w800,
                                         color: c.textPrimary,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  GridView.count(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    crossAxisCount: 4,
-                                    mainAxisSpacing: 4,
-                                    crossAxisSpacing: 4,
-                                    childAspectRatio: 1.02,
+                                  const SizedBox(height: 8),
+                                  LifeOsResponsiveIconGrid(
+                                    columns: 4,
                                     children: entry.value.map((svc) {
                                       return LifeOsCompactDockItem(
                                         icon: svc.icon,

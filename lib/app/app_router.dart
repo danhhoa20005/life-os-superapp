@@ -816,14 +816,16 @@ class _BottomNavTabButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.3,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: color,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 11.2,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: color,
+                  ),
                 ),
               ),
             ],

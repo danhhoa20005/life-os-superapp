@@ -172,18 +172,20 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     children: [
                       Text(
                         'Đã đi mừng',
-                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        VndAmount.format(state.totalGiftGaveMinor),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: c.error,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          VndAmount.format(state.totalGiftGaveMinor),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: c.error,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                     ],
@@ -196,18 +198,20 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     children: [
                       Text(
                         'Đã nhận mừng',
-                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        VndAmount.format(state.totalGiftReceivedMinor),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: c.primary,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          VndAmount.format(state.totalGiftReceivedMinor),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: c.primary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                     ],
@@ -219,19 +223,21 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Đối ứng ròng',
-                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                        'Chênh lệch',
+                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        VndAmount.format(netReciprocity, showPlus: true),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          VndAmount.format(netReciprocity, showPlus: true),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                     ],

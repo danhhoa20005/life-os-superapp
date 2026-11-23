@@ -198,20 +198,22 @@ class _MiniHubMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, color: c.textSecondary),
+          style: TextStyle(fontSize: 11.5, color: c.textSecondary),
         ),
         const SizedBox(height: 3),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
-            color: color,
-            fontFeatures: const [FontFeature.tabularFigures()],
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13.8,
+              fontWeight: FontWeight.w800,
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ),
       ],
@@ -293,10 +295,11 @@ class _ProSuiteModuleCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     metricLine,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12.2,
+                      fontSize: 12.5,
+                      height: 1.25,
                       fontWeight: FontWeight.w700,
                       color: c.textPrimary,
                     ),

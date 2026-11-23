@@ -128,19 +128,21 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                   ),
                                                 ),
                                                 const SizedBox(height: 3),
-                                                Text(
-                                                  VndAmount.format(
-                                                    state.totalMonthlySubBurnMinor,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 19,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: c.textPrimary,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
+                                                FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment: Alignment.centerLeft,
+                                                  child: Text(
+                                                    VndAmount.format(
+                                                      state.totalMonthlySubBurnMinor,
+                                                    ),
+                                                    style: TextStyle(
+                                                      fontSize: 19,
+                                                      fontWeight: FontWeight.w800,
+                                                      color: c.textPrimary,
+                                                      fontFeatures: const [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ],
@@ -152,26 +154,28 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  'Tổng đốt / năm',
+                                                  'Tổng phí / năm',
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: c.textSecondary,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 3),
-                                                Text(
-                                                  VndAmount.format(
-                                                    state.totalAnnualSubBurnMinor,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 19,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: c.error,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
+                                                FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment: Alignment.centerLeft,
+                                                  child: Text(
+                                                    VndAmount.format(
+                                                      state.totalAnnualSubBurnMinor,
+                                                    ),
+                                                    style: TextStyle(
+                                                      fontSize: 19,
+                                                      fontWeight: FontWeight.w800,
+                                                      color: c.error,
+                                                      fontFeatures: const [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ],

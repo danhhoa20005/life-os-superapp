@@ -1354,14 +1354,21 @@ class _LifeOsInteractiveCalendarDeckState
                           DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
                     }),
                   ),
-                  Text(
-                    'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   LifeOsHeaderCircleButton(
                     icon: Icons.chevron_right_rounded,
                     tooltip: 'Tháng sau',
@@ -1472,10 +1479,11 @@ class _LifeOsInteractiveCalendarDeckState
                   Expanded(
                     child: Text(
                       selectedDayHeader,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15.5,
+                        height: 1.2,
                         fontWeight: FontWeight.w800,
                         color: c.textPrimary,
                       ),
@@ -1596,10 +1604,11 @@ class _DayTimelineRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14.5,
+                        height: 1.22,
                         fontWeight: FontWeight.w800,
                         color: c.textPrimary,
                       ),
@@ -1613,9 +1622,15 @@ class _DayTimelineRow extends StatelessWidget {
                           color: c.textSecondary,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          timeRange,
-                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              timeRange,
+                              style: TextStyle(fontSize: 12, color: c.textSecondary),
+                            ),
+                          ),
                         ),
                       ],
                     ),

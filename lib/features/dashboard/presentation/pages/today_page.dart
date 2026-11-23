@@ -111,7 +111,7 @@ class _TodayPageState extends State<TodayPage> {
     ),
     _ShortcutSpec(
       id: 'kitchen',
-      label: 'Bếp & Chợ',
+      label: 'Bếp & Đi chợ',
       icon: Icons.shopping_basket_outlined,
       tone: LifeOsAccentTone.emerald,
       route: '/kitchen-groceries',
@@ -119,7 +119,7 @@ class _TodayPageState extends State<TodayPage> {
     ),
     _ShortcutSpec(
       id: 'evn',
-      label: 'Điện EVN',
+      label: 'Điện nước',
       icon: Icons.electric_bolt_rounded,
       tone: LifeOsAccentTone.amber,
       route: '/home-living',
@@ -156,7 +156,7 @@ class _TodayPageState extends State<TodayPage> {
     ),
     _ShortcutSpec(
       id: 'widgets',
-      label: 'Widget M3',
+      label: 'Widget màn hình',
       icon: Icons.widgets_outlined,
       tone: LifeOsAccentTone.purple,
       route: '/home-widgets',
@@ -546,16 +546,18 @@ class _TodayPageState extends State<TodayPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    _fmtMoney(d.netWorthMinor),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 27,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.6,
-                                      color: Colors.white,
-                                      fontFeatures: [FontFeature.tabularFigures()],
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      _fmtMoney(d.netWorthMinor),
+                                      style: const TextStyle(
+                                        fontSize: 27.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.6,
+                                        color: Colors.white,
+                                        fontFeatures: [FontFeature.tabularFigures()],
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 10),
@@ -591,33 +593,35 @@ class _TodayPageState extends State<TodayPage> {
                                             key: const Key('home_quick_expense_btn'),
                                             borderRadius: BorderRadius.circular(14),
                                             onTap: () => showVoiceSmartCaptureSheet(context),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 10,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.mic_rounded,
-                                                    size: 17,
-                                                    color: LifeOSBrandColors.primary,
-                                                  ),
-                                                  SizedBox(width: 6),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'Ghi chi tiêu',
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontSize: 12.8,
-                                                        fontWeight: FontWeight.w800,
-                                                        color: LifeOSBrandColors.forest,
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(minHeight: 44),
+                                              child: const Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 10,
+                                                ),
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.mic_rounded,
+                                                        size: 17,
+                                                        color: LifeOSBrandColors.primary,
                                                       ),
-                                                    ),
+                                                      SizedBox(width: 6),
+                                                      Text(
+                                                        'Ghi chi tiêu',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w800,
+                                                          color: LifeOSBrandColors.forest,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -637,33 +641,35 @@ class _TodayPageState extends State<TodayPage> {
                                             key: const Key('home_quick_schedule_btn'),
                                             borderRadius: BorderRadius.circular(14),
                                             onTap: () => showLifeOsQuickCreateHub(context),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 10,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.event_note_rounded,
-                                                    size: 17,
-                                                    color: Colors.white,
-                                                  ),
-                                                  SizedBox(width: 6),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'Thêm lịch / việc',
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontSize: 12.8,
-                                                        fontWeight: FontWeight.w700,
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(minHeight: 44),
+                                              child: const Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 10,
+                                                ),
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.event_note_rounded,
+                                                        size: 17,
                                                         color: Colors.white,
                                                       ),
-                                                    ),
+                                                      SizedBox(width: 6),
+                                                      Text(
+                                                        'Thêm lịch / việc',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -808,20 +814,23 @@ class _TodayPageState extends State<TodayPage> {
                                                       children: [
                                                         Text(
                                                           item.title,
-                                                          maxLines: 1,
+                                                          maxLines: 2,
                                                           overflow: TextOverflow.ellipsis,
                                                           style: TextStyle(
-                                                            fontSize: 12.8,
+                                                            fontSize: 13.4,
+                                                            height: 1.24,
                                                             fontWeight: FontWeight.w700,
                                                             color: c.textPrimary,
                                                           ),
                                                         ),
+                                                        const SizedBox(height: 2),
                                                         Text(
                                                           item.subtitle,
-                                                          maxLines: 1,
+                                                          maxLines: 2,
                                                           overflow: TextOverflow.ellipsis,
                                                           style: TextStyle(
-                                                            fontSize: 11.3,
+                                                            fontSize: 12,
+                                                            height: 1.28,
                                                             color: c.textSecondary,
                                                           ),
                                                         ),
@@ -868,10 +877,10 @@ class _TodayPageState extends State<TodayPage> {
                                               Expanded(
                                                 child: Text(
                                                   'Ngân sách tháng',
-                                                  maxLines: 1,
+                                                  maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 12.8,
+                                                    fontSize: 13,
                                                     fontWeight: FontWeight.w800,
                                                     color: c.textPrimary,
                                                   ),
@@ -881,26 +890,29 @@ class _TodayPageState extends State<TodayPage> {
                                           ),
                                           const SizedBox(height: 8),
                                           if (hasConfiguredBudget) ...[
-                                            Text(
-                                              '$spentPct% đã dùng',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 16.5,
-                                                fontWeight: FontWeight.w800,
-                                                color: spentPct >= 85 ? c.error : c.textPrimary,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                '$spentPct% đã dùng',
+                                                style: TextStyle(
+                                                  fontSize: 16.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: spentPct >= 85 ? c.error : c.textPrimary,
+                                                  fontFeatures: const [
+                                                    FontFeature.tabularFigures(),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(height: 3),
                                             Text(
                                               'Hạn mức: ${_fmtMoney(totalBudgetLimit)}',
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                fontSize: 11.2,
+                                                fontSize: 11.8,
+                                                height: 1.25,
                                                 color: c.textSecondary,
                                               ),
                                             ),
@@ -919,7 +931,7 @@ class _TodayPageState extends State<TodayPage> {
                                           ] else ...[
                                             Text(
                                               'Chưa đặt hạn mức',
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontSize: 14.5,
@@ -933,7 +945,8 @@ class _TodayPageState extends State<TodayPage> {
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                fontSize: 11.2,
+                                                fontSize: 11.8,
+                                                height: 1.25,
                                                 color: c.textSecondary,
                                               ),
                                             ),
@@ -961,10 +974,10 @@ class _TodayPageState extends State<TodayPage> {
                                               Expanded(
                                                 child: Text(
                                                   'Quỹ mục tiêu',
-                                                  maxLines: 1,
+                                                  maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 12.8,
+                                                    fontSize: 13,
                                                     fontWeight: FontWeight.w800,
                                                     color: c.textPrimary,
                                                   ),
@@ -973,19 +986,21 @@ class _TodayPageState extends State<TodayPage> {
                                             ],
                                           ),
                                           const SizedBox(height: 8),
-                                          Text(
-                                            hasFamilyFunds
-                                                ? _fmtMoney(totalFundsBalance)
-                                                : 'Chưa tạo quỹ',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: hasFamilyFunds ? 16.5 : 14.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: c.textPrimary,
-                                              fontFeatures: const [
-                                                FontFeature.tabularFigures(),
-                                              ],
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              hasFamilyFunds
+                                                  ? _fmtMoney(totalFundsBalance)
+                                                  : 'Chưa tạo quỹ',
+                                              style: TextStyle(
+                                                fontSize: hasFamilyFunds ? 16.5 : 14.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(height: 3),
@@ -996,7 +1011,8 @@ class _TodayPageState extends State<TodayPage> {
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 11.2,
+                                              fontSize: 11.8,
+                                              height: 1.25,
                                               color: c.textSecondary,
                                             ),
                                           ),
@@ -1073,13 +1089,8 @@ class _TodayPageState extends State<TodayPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 6),
-                                  GridView.count(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    crossAxisCount: 4,
-                                    mainAxisSpacing: 4,
-                                    crossAxisSpacing: 4,
-                                    childAspectRatio: 1.05,
+                                  LifeOsResponsiveIconGrid(
+                                    columns: 4,
                                     children: pinnedSpecs.map((spec) {
                                       return LifeOsCompactDockItem(
                                         key: spec.tileKey,
@@ -1109,17 +1120,17 @@ class _TodayPageState extends State<TodayPage> {
                                   Expanded(
                                     child: LifeOsSoftCard(
                                       key: const Key('open_pro_utilities_hub_card'),
-                                      padding: const EdgeInsets.all(11),
+                                      padding: const EdgeInsets.all(12),
                                       onTap: () => context.push('/pro-utilities'),
                                       child: Row(
                                         children: [
                                           const LifeOsIconSquircle(
                                             icon: Icons.calculate_outlined,
                                             tone: LifeOsAccentTone.blue,
-                                            size: 34,
+                                            size: 36,
                                             iconSize: 18,
                                           ),
-                                          const SizedBox(width: 8),
+                                          const SizedBox(width: 9),
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1127,20 +1138,23 @@ class _TodayPageState extends State<TodayPage> {
                                               children: [
                                                 Text(
                                                   'Công cụ nâng cao',
-                                                  maxLines: 1,
+                                                  maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w800,
-                                                    fontSize: 12.5,
+                                                    fontSize: 13,
+                                                    height: 1.2,
                                                     color: c.textPrimary,
                                                   ),
                                                 ),
+                                                const SizedBox(height: 2),
                                                 Text(
-                                                  'Lãi vay · FIRE · Bảo hành',
-                                                  maxLines: 1,
+                                                  'Lãi vay · Tiết kiệm',
+                                                  maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 11,
+                                                    fontSize: 11.8,
+                                                    height: 1.22,
                                                     color: c.textSecondary,
                                                   ),
                                                 ),
@@ -1155,7 +1169,7 @@ class _TodayPageState extends State<TodayPage> {
                                   Expanded(
                                     child: LifeOsMintHeroCard(
                                       key: const Key('home_tile_all_services'),
-                                      padding: const EdgeInsets.all(11),
+                                      padding: const EdgeInsets.all(12),
                                       onTap: () => context.push('/super-app-hub'),
                                       child: Row(
                                         children: [
@@ -1163,10 +1177,10 @@ class _TodayPageState extends State<TodayPage> {
                                             icon: Icons.apps_rounded,
                                             tone: LifeOsAccentTone.emerald,
                                             solidFill: true,
-                                            size: 34,
+                                            size: 36,
                                             iconSize: 18,
                                           ),
-                                          const SizedBox(width: 8),
+                                          const SizedBox(width: 9),
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1174,20 +1188,23 @@ class _TodayPageState extends State<TodayPage> {
                                               children: [
                                                 Text(
                                                   'Tất cả danh mục',
-                                                  maxLines: 1,
+                                                  maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w800,
-                                                    fontSize: 12.5,
+                                                    fontSize: 13,
+                                                    height: 1.2,
                                                     color: c.textPrimary,
                                                   ),
                                                 ),
+                                                const SizedBox(height: 2),
                                                 Text(
-                                                  'Tài chính · Tổ ấm · Xe',
-                                                  maxLines: 1,
+                                                  'Đầy đủ 20+ tiện ích',
+                                                  maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 11,
+                                                    fontSize: 11.8,
+                                                    height: 1.22,
                                                     color: c.textSecondary,
                                                   ),
                                                 ),
@@ -1232,53 +1249,57 @@ class _HeroGlassCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: Colors.white.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 0.8,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 15, color: iconColor),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(icon, size: 14, color: iconColor),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: Colors.white.withValues(alpha: 0.86),
                   ),
                 ),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.8,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],
@@ -1336,10 +1357,11 @@ class _PulseMiniBentoCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 12.2,
+              height: 1.2,
               fontWeight: FontWeight.w700,
               color: c.textPrimary,
             ),

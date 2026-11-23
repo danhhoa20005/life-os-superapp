@@ -132,16 +132,20 @@ class FamilyFundsPage extends StatelessWidget {
                                                 ],
                                               ),
                                               const SizedBox(height: 6),
-                                              Text(
-                                                VndAmount.format(totalBalance),
-                                                style: TextStyle(
-                                                  fontSize: 28,
-                                                  fontWeight: FontWeight.w800,
-                                                  letterSpacing: -0.6,
-                                                  color: c.textPrimary,
-                                                  fontFeatures: const [
-                                                    FontFeature.tabularFigures(),
-                                                  ],
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  VndAmount.format(totalBalance),
+                                                  style: TextStyle(
+                                                    fontSize: 28,
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: -0.6,
+                                                    color: c.textPrimary,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -155,7 +159,7 @@ class FamilyFundsPage extends StatelessWidget {
                                             Text(
                                               '${memberNames.length} thành viên',
                                               style: TextStyle(
-                                                fontSize: 11.5,
+                                                fontSize: 11.8,
                                                 color: c.textSecondary,
                                               ),
                                             ),
@@ -184,27 +188,29 @@ class FamilyFundsPage extends StatelessWidget {
                                                       Text(
                                                         'Tiền vào (Thu)',
                                                         style: TextStyle(
-                                                          fontSize: 11.5,
+                                                          fontSize: 11.8,
                                                           color: c.textSecondary,
                                                         ),
                                                       ),
-                                                      Text(
-                                                        '+${VndAmount.format(totalIn)}',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight: FontWeight.w800,
-                                                          color: c.primary,
-                                                          fontFeatures: const [
-                                                            FontFeature.tabularFigures(),
-                                                          ],
+                                                      FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment.centerLeft,
+                                                        child: Text(
+                                                          '+${VndAmount.format(totalIn)}',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            fontWeight: FontWeight.w800,
+                                                            color: c.primary,
+                                                            fontFeatures: const [
+                                                              FontFeature.tabularFigures(),
+                                                            ],
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         'Tháng này',
                                                         style: TextStyle(
-                                                          fontSize: 11,
+                                                          fontSize: 11.2,
                                                           color: c.textSecondary,
                                                         ),
                                                       ),
@@ -232,21 +238,23 @@ class FamilyFundsPage extends StatelessWidget {
                                                       Text(
                                                         'Tiền ra (Chi)',
                                                         style: TextStyle(
-                                                          fontSize: 11.5,
+                                                          fontSize: 11.8,
                                                           color: c.textSecondary,
                                                         ),
                                                       ),
-                                                      Text(
-                                                        '-${VndAmount.format(totalOut)}',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight: FontWeight.w800,
-                                                          color: c.error,
-                                                          fontFeatures: const [
-                                                            FontFeature.tabularFigures(),
-                                                          ],
+                                                      FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment.centerLeft,
+                                                        child: Text(
+                                                          '-${VndAmount.format(totalOut)}',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            fontWeight: FontWeight.w800,
+                                                            color: c.error,
+                                                            fontFeatures: const [
+                                                              FontFeature.tabularFigures(),
+                                                            ],
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(

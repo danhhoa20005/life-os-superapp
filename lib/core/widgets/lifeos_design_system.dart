@@ -693,26 +693,30 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: compact ? 18 : 19.5,
+                          fontSize: compact ? 17.5 : 19,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: -0.35,
+                          letterSpacing: -0.3,
+                          height: 1.18,
                           color: c.textPrimary,
                         ),
                       ),
-                      if (subtitle != null && subtitle!.isNotEmpty)
+                      if (subtitle != null && subtitle!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
                         Text(
                           subtitle!,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11.8,
+                            fontSize: 12.2,
                             fontWeight: FontWeight.w500,
+                            height: 1.25,
                             color: c.textSecondary,
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -722,7 +726,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     child: w,
                   ),
                 ),
-                if (themeBloc != null) ...[
+                if (themeBloc != null && trailingAction == null && extraBrandActions.isEmpty) ...[
                   const SizedBox(width: 6),
                   LifeOsHeaderCircleButton(
                     buttonKey: const Key('open_appearance_studio_button'),
@@ -759,17 +763,40 @@ class LifeOsTopBrandHeader extends StatelessWidget {
               // Row 1: Official Brand Wordmark + Unified Frosted Pill Capsule + Profile
               Row(
                 children: [
-                  LifeOsBrandWordmark(
-                    iconSize: compact ? 30 : 34,
-                    fontSize: compact ? 18.5 : 20,
-                  ),
-                  const Spacer(),
-                  ...extraBrandActions.map(
-                    (w) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: w,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: LifeOsBrandWordmark(
+                          iconSize: compact ? 30 : 34,
+                          fontSize: compact ? 18.5 : 20,
+                        ),
+                      ),
                     ),
                   ),
+                  if (extraBrandActions.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: extraBrandActions
+                              .map(
+                                (w) => Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: w,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
                     decoration: BoxDecoration(
@@ -828,13 +855,13 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: compact ? 20.5 : 23,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -0.45,
-                            height: 1.15,
+                            letterSpacing: -0.4,
+                            height: 1.18,
                             color: c.textPrimary,
                           ),
                         ),
@@ -842,11 +869,12 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             subtitle!,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: compact ? 12 : 12.8,
+                              fontSize: compact ? 12.2 : 13,
                               fontWeight: FontWeight.w500,
+                              height: 1.28,
                               color: c.textSecondary,
                             ),
                           ),
@@ -1100,11 +1128,13 @@ class LifeOsStatusPill extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              maxLines: 1,
+              maxLines: 2,
+              softWrap: true,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 12.2,
                 fontWeight: FontWeight.w700,
+                height: 1.2,
                 color: fg,
               ),
             ),
@@ -1146,30 +1176,30 @@ class LifeOsPrimaryCtaButton extends StatelessWidget {
           elevation: 0,
         ),
         onPressed: onPressed,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 20, color: Colors.white),
-              const SizedBox(width: 8),
-            ],
-            Flexible(
-              child: Text(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 20, color: Colors.white),
+                const SizedBox(width: 8),
+              ],
+              Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
               ),
-            ),
-            if (trailingIcon != null) ...[
-              const SizedBox(width: 8),
-              Icon(trailingIcon, size: 19, color: Colors.white),
+              if (trailingIcon != null) ...[
+                const SizedBox(width: 8),
+                Icon(trailingIcon, size: 19, color: Colors.white),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1288,12 +1318,13 @@ class LifeOsFeatureGridTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
+              height: 1.22,
               color: c.textPrimary,
             ),
           ),
@@ -1320,7 +1351,7 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     return Container(
-      height: 46,
+      height: 48,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: c.surface,
@@ -1341,31 +1372,30 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
                   borderRadius: BorderRadius.circular(21),
                 ),
                 alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (item.$3 != null) ...[
-                      Icon(
-                        item.$3,
-                        size: 16,
-                        color: isSelected ? Colors.white : c.textSecondary,
-                      ),
-                      const SizedBox(width: 5),
-                    ],
-                    Flexible(
-                      child: Text(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (item.$3 != null) ...[
+                        Icon(
+                          item.$3,
+                          size: 16,
+                          color: isSelected ? Colors.white : c.textSecondary,
+                        ),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
                         item.$2,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           color: isSelected ? Colors.white : c.textSecondary,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1609,7 +1639,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                     ),
                                     Text(
                                       item.subtitle,
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context).textTheme.bodySmall,
                                     ),
@@ -1787,9 +1817,13 @@ Future<void> showLifeOsQuickCreateHub(BuildContext context) async {
                                 ),
                                 Text(
                                   a.subtitle,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 12, color: c.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 12.2,
+                                    height: 1.3,
+                                    color: c.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1832,26 +1866,27 @@ class LifeOsCompactDockItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 7),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             LifeOsIconSquircle(
               icon: icon,
               tone: tone,
-              size: 40,
-              iconSize: 20,
+              size: 42,
+              iconSize: 21,
             ),
             const SizedBox(height: 6),
             Text(
               label,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11.8,
+                fontSize: 12.2,
                 fontWeight: FontWeight.w700,
+                height: 1.22,
                 letterSpacing: -0.1,
                 color: c.textPrimary,
               ),
@@ -1859,6 +1894,58 @@ class LifeOsCompactDockItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Auto-height responsive multi-column icon grid replacing fixed-aspect `GridView.count`
+/// so 2-line Vietnamese labels and 125% text scale never clip or truncate to `...`.
+class LifeOsResponsiveIconGrid extends StatelessWidget {
+  final List<Widget> children;
+  final int columns;
+  final double rowSpacing;
+  final double columnSpacing;
+
+  const LifeOsResponsiveIconGrid({
+    super.key,
+    required this.children,
+    this.columns = 4,
+    this.rowSpacing = 8,
+    this.columnSpacing = 4,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i += columns) {
+      final rowCells = <Widget>[];
+      for (var c = 0; c < columns; c++) {
+        if (c > 0) {
+          rowCells.add(SizedBox(width: columnSpacing));
+        }
+        final idx = i + c;
+        rowCells.add(
+          Expanded(
+            child: idx < children.length ? children[idx] : const SizedBox.shrink(),
+          ),
+        );
+      }
+      if (rows.isNotEmpty) {
+        rows.add(SizedBox(height: rowSpacing));
+      }
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: rowCells,
+          ),
+        ),
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: rows,
     );
   }
 }

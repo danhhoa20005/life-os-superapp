@@ -318,10 +318,11 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                                   children: [
                                     Text(
                                       user.fullName,
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 18,
+                                        height: 1.2,
                                         fontWeight: FontWeight.w800,
                                         color: c.textPrimary,
                                       ),
@@ -329,7 +330,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                                     const SizedBox(height: 2),
                                     Text(
                                       user.email,
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 13,

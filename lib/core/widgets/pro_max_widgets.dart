@@ -16,20 +16,56 @@ class ProPillTabContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final responsiveTabs = tabBar.tabs.map((w) {
+      if (w is Tab && w.text != null && w.child == null && w.icon == null) {
+        return Tab(
+          key: w.key,
+          height: w.height,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(w.text!),
+          ),
+        );
+      }
+      return w;
+    }).toList(growable: false);
+
+    final responsiveTabBar = TabBar(
+      key: tabBar.key,
+      controller: tabBar.controller,
+      isScrollable: tabBar.isScrollable,
+      padding: tabBar.padding,
+      indicatorColor: tabBar.indicatorColor,
+      automaticIndicatorColorAdjustment: tabBar.automaticIndicatorColorAdjustment,
+      indicatorWeight: tabBar.indicatorWeight,
+      indicatorPadding: tabBar.indicatorPadding,
+      indicator: tabBar.indicator,
+      indicatorSize: tabBar.indicatorSize,
+      dividerColor: tabBar.dividerColor,
+      dividerHeight: tabBar.dividerHeight,
+      labelColor: tabBar.labelColor,
+      labelStyle: tabBar.labelStyle,
+      labelPadding: tabBar.labelPadding ?? const EdgeInsets.symmetric(horizontal: 6),
+      unselectedLabelColor: tabBar.unselectedLabelColor,
+      unselectedLabelStyle: tabBar.unselectedLabelStyle,
+      onTap: tabBar.onTap,
+      tabs: responsiveTabs,
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 8, AppSpacing.md, 6),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
           child: Container(
-            height: 44,
+            height: 46,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: c.surfaceRaised,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(23),
               border: Border.all(color: c.separator, width: 0.9),
             ),
-            child: tabBar,
+            child: responsiveTabBar,
           ),
         ),
       ),
@@ -157,21 +193,26 @@ class ProGlassStatPill extends StatelessWidget {
               children: [
                 Text(
                   label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.78),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.84),
                   ),
                 ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -312,19 +353,21 @@ class ProBentoTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  metric,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    metric,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   title,
                   style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
@@ -370,27 +413,27 @@ class ProWalletCreditCard extends StatelessWidget {
     final (colors, typeLabel, typeIcon, badgeLabel) = switch (walletTypeKey) {
       'bank' => (
           const [Color(0xFF0A2240), Color(0xFF14427A), Color(0xFF0D2E59)],
-          'Tài khoản Thanh toán',
+          'Tài khoản ngân hàng',
           Icons.account_balance_rounded,
-          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'NAPAS247',
+          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'NGÂN HÀNG',
         ),
       'creditCard' => (
           const [Color(0xFF181A20), Color(0xFF2E323D), Color(0xFF121318)],
-          'Thẻ Tín dụng',
+          'Thẻ tín dụng',
           Icons.credit_card_rounded,
-          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'CREDIT',
+          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'THẺ TÍN DỤNG',
         ),
       'savings' => (
           const [Color(0xFF543405), Color(0xFF925A0C), Color(0xFF3E2604)],
-          'Sổ Tiết kiệm & Tích lũy',
+          'Tiết kiệm & tích lũy',
           Icons.savings_rounded,
-          'WEALTH VAULT',
+          'TIẾT KIỆM',
         ),
       _ => (
           const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF073B17)],
-          'Tiền mặt Sẵn có',
+          'Tiền mặt sẵn có',
           Icons.payments_rounded,
-          'LIQUID CASH',
+          'TIỀN MẶT',
         ),
     };
 
@@ -433,12 +476,14 @@ class ProWalletCreditCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14.5,
+                          height: 1.18,
                           fontWeight: FontWeight.w700,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -471,15 +516,19 @@ class ProWalletCreditCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            obscureBalance ? '•••••••• ₫' : VndAmount.format(balanceMinor),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              fontFeatures: [FontFeature.tabularFigures()],
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              obscureBalance ? '•••••••• ₫' : VndAmount.format(balanceMinor),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -487,12 +536,14 @@ class ProWalletCreditCard extends StatelessWidget {
             maskedAccount != null && maskedAccount!.isNotEmpty
                 ? '$typeLabel · $maskedAccount'
                 : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.76),
-              fontSize: 11.5,
+              color: Colors.white.withValues(alpha: 0.82),
+              fontSize: 11.8,
+              height: 1.24,
               fontWeight: FontWeight.w500,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 10),
           Row(
@@ -732,14 +783,15 @@ class ProDonutChart extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      VndAmount.format(totalExpenseMinor),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        VndAmount.format(totalExpenseMinor),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ],
                 ),
@@ -769,11 +821,12 @@ class ProDonutChart extends StatelessWidget {
                     Expanded(
                       child: Text(
                         s.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: c.textPrimary,
                               fontWeight: FontWeight.w600,
                             ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1002,12 +1055,13 @@ class ProHeroBankingDockItem extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   label,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 11.5,
+                    fontSize: 12,
+                    height: 1.2,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1108,22 +1162,23 @@ class ProCashflowPulseCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Nhịp Dòng Tiền 7 Ngày & Cấu Trúc Vốn',
+                            'Dòng tiền 7 ngày',
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
                                 ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'Đối chiếu Thu / Chi thực tế từ Sổ cái Cloud',
+                            'Thu chi thực tế trong tuần',
                             style: Theme.of(context).textTheme.labelSmall,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
@@ -1140,10 +1195,10 @@ class ProCashflowPulseCard extends StatelessWidget {
                           Icon(Icons.workspace_premium_rounded, size: 14, color: scoreColor),
                           const SizedBox(width: 4),
                           Text(
-                            '$financialHealthScore/100 · $scoreLabel',
+                            '$financialHealthScore điểm · $scoreLabel',
                             style: TextStyle(
                               color: scoreColor,
-                              fontSize: 11,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w800,
                               fontFeatures: const [FontFeature.tabularFigures()],
                             ),
@@ -1237,20 +1292,22 @@ class _CapitalColumn extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: valueColor,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12.8,
+                  fontWeight: FontWeight.w800,
+                  color: valueColor,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1448,30 +1505,32 @@ class ProFintechStatementTile extends StatelessWidget {
                     children: [
                       Text(
                         merchant,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
+                              height: 1.22,
                               decoration: isReversed ? TextDecoration.lineThrough : null,
                             ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         metaParts.join(' · '),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 11.5,
+                              fontSize: 12,
+                              height: 1.28,
                             ),
                       ),
                       if (splitSummary != null && splitSummary!.isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Text(
                           splitSummary!,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                             color: c.primary,
                           ),
@@ -1497,12 +1556,12 @@ class ProFintechStatementTile extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       isReversed
-                          ? 'Đã đảo bút toán'
+                          ? 'Đã hoàn tác'
                           : (balanceAfterMinor != null && !obscureAmounts
                               ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
-                              : (hasPendingWrites ? 'Chờ đồng bộ' : 'Đã lưu Cloud')),
+                              : (hasPendingWrites ? 'Chờ đồng bộ' : 'Đã lưu')),
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: c.textSecondary,
                         fontFeatures: const [FontFeature.tabularFigures()],

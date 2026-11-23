@@ -3,11 +3,13 @@ import 'dart:io';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:life_os/app/app.dart';
 import 'package:life_os/app/theme/app_theme.dart';
+import 'package:life_os/app/theme/theme_bloc.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 
@@ -168,6 +170,100 @@ void main() {
         await tester.pump(const Duration(seconds: 2));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+      },
+    );
+
+    test('UI/UX Pro Max v3.4: Home & Directory use LifeOsResponsiveIconGrid and Vietnamese wallet badges', () {
+      final todaySrc = File('lib/features/dashboard/presentation/pages/today_page.dart').readAsStringSync();
+      final dirSrc = File('lib/features/daily_life/presentation/pages/super_app_directory_page.dart').readAsStringSync();
+      final proMaxSrc = File('lib/core/widgets/pro_max_widgets.dart').readAsStringSync();
+
+      expect(todaySrc.contains('GridView.count'), isFalse);
+      expect(todaySrc.contains('LifeOsResponsiveIconGrid'), isTrue);
+      expect(dirSrc.contains('GridView.count'), isFalse);
+      expect(dirSrc.contains('LifeOsResponsiveIconGrid'), isTrue);
+
+      for (final englishBadge in const ['LIQUID CASH', 'WEALTH VAULT', 'NAPAS247']) {
+        expect(proMaxSrc.contains(englishBadge), isFalse);
+      }
+    });
+
+    testWidgets(
+      'UI/UX Pro Max v3.4: Narrow 360x800 phone + 112% Large Font Scale renders all 5 tabs & All Services with ZERO overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final fakeFirestore = FakeFirebaseFirestore();
+        const uid = 'uid_pro_max_v34';
+        await fakeFirestore.collection('users').doc(uid).set({
+          'id': uid,
+          'email': 'hoa@lifeos.vn',
+          'fullName': 'Nguyễn Danh Hòa',
+          'onboardingCompleted': true,
+          'availabilityOptIn': false,
+        });
+        await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('wallets')
+            .doc('wallet_bank_default')
+            .set({
+          'id': 'wallet_bank_default',
+          'ownerId': uid,
+          'name': 'Tài khoản Vietcombank Gia đình',
+          'type': 'bank',
+          'balanceMinor': 128500000,
+          'isEstimatedBalance': false,
+        });
+
+        final mockAuth = MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(uid: uid, email: 'hoa@lifeos.vn', displayName: 'Nguyễn Danh Hòa'),
+        );
+
+        await sl.reset();
+        await configureDependencies(
+          authOverride: mockAuth,
+          firestoreOverride: fakeFirestore,
+          httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+        );
+
+        await tester.pumpWidget(const LifeOsApp());
+        await tester.pumpAndSettle();
+
+        // Switch app-wide font scale to Large (112%)
+        final scaffoldCtx = tester.element(find.byType(Scaffold).first);
+        scaffoldCtx.read<ThemeBloc>().add(const TextScaleChanged(1.12));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        // Open All Services 360° Directory and verify crisp labels & zero overflow
+        final allServicesCard = find.byKey(const Key('home_tile_all_services'));
+        await tester.scrollUntilVisible(
+          allServicesCard,
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(allServicesCard);
+        await tester.pumpAndSettle();
+        expect(find.text('Sổ thu chi'), findsOneWidget);
+        expect(find.text('Lương Gross–Net'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        // Pop back to Home and traverse Finance, Planning, Family, and Assets tabs at 360px + 112% font
+        await tester.tap(find.byTooltip('Quay lại'));
+        await tester.pumpAndSettle();
+
+        for (final tabLabel in const ['Tài chính', 'Lịch & Việc', 'Gia đình', 'Tài sản']) {
+          await tester.tap(find.text(tabLabel).last);
+          await tester.pumpAndSettle();
+        }
       },
     );
   });

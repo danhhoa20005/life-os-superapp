@@ -2121,52 +2121,66 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
-                    Icon(Icons.calendar_today_rounded, size: 16, color: c.primary),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Kỳ ${state.monthKey} · Đã chi $pctUsed%',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => context.push('/auto-tx-review'),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        child: Text(
-                          '✨ Tự động AI',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: c.primary,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today_rounded, size: 16, color: c.primary),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Kỳ ${state.monthKey} · Đã chi $pctUsed%',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: c.textPrimary,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => context.push('/finance-report'),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        child: Text(
-                          '📊 Báo cáo',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: c.primary,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => context.push('/auto-tx-review'),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              '✨ Tự động',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: c.primary,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 4),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => context.push('/finance-report'),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              '📊 Báo cáo',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: c.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -2174,18 +2188,19 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                 IntrinsicHeight(
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Đã chi',
-                              style: TextStyle(fontSize: 11, color: c.textSecondary),
-                            ),
-                            Text(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đã chi',
+                            style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
                               VndAmount.format(spentMinor),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w800,
@@ -2193,22 +2208,24 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                                 fontFeatures: const [FontFeature.tabularFigures()],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      VerticalDivider(width: 12, color: c.separator),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hạn mức',
-                              style: TextStyle(fontSize: 11, color: c.textSecondary),
-                            ),
-                            Text(
+                    ),
+                    VerticalDivider(width: 12, color: c.separator),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hạn mức',
+                            style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
                               VndAmount.format(limitMinor),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w800,
@@ -2216,22 +2233,24 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                                 fontFeatures: const [FontFeature.tabularFigures()],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      VerticalDivider(width: 12, color: c.separator),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Còn lại',
-                              style: TextStyle(fontSize: 11, color: c.textSecondary),
-                            ),
-                            Text(
+                    ),
+                    VerticalDivider(width: 12, color: c.separator),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Còn lại',
+                            style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
                               VndAmount.format(remainingMinor),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w800,
@@ -2239,9 +2258,10 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                                 fontFeatures: const [FontFeature.tabularFigures()],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                    ),
                     ],
                   ),
                 ),
@@ -2446,24 +2466,27 @@ class _MiniCategoryCard extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             title,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 11.8,
+              height: 1.2,
               fontWeight: FontWeight.w700,
               color: c.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            amount,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: c.textPrimary,
-              fontFeatures: const [FontFeature.tabularFigures()],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              amount,
+              style: TextStyle(
+                fontSize: 11.8,
+                fontWeight: FontWeight.w800,
+                color: c.textPrimary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
           Text(

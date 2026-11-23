@@ -44,12 +44,14 @@ class SemanticStatusBadge extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
+                maxLines: 2,
+                softWrap: true,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                  fontWeight: FontWeight.w700,
                   color: fg,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -69,7 +71,7 @@ class CloudSyncIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return SemanticStatusBadge(
       kind: hasPendingWrites ? SemanticStatusKind.warning : SemanticStatusKind.success,
-      label: hasPendingWrites ? 'Chờ đồng bộ Offline' : 'Đã lưu Cloud',
+      label: hasPendingWrites ? 'Đang đồng bộ' : 'Đã đồng bộ',
     );
   }
 }

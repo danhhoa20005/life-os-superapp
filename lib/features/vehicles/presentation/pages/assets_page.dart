@@ -382,22 +382,24 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    activeVehicle.displayPlateForViewer(widget.userId),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 21,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.3,
-                                      color: c.textPrimary,
-                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      activeVehicle.displayPlateForViewer(widget.userId),
+                                      style: TextStyle(
+                                        fontSize: 21,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
+                                        color: c.textPrimary,
+                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     activeVehicle.name,
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 13.5,
@@ -434,19 +436,21 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       style: TextStyle(fontSize: 11.5, color: c.textSecondary),
                                     ),
                                     const SizedBox(height: 2),
-                                    Text(
-                                      dateFmt.format(nextServiceDate),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.textPrimary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        dateFmt.format(nextServiceDate),
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                        ),
                                       ),
                                     ),
                                     Text(
                                       'Còn $remDays ngày',
-                                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                                      style: TextStyle(fontSize: 11.8, color: c.textSecondary),
                                     ),
                                   ],
                                 ),
@@ -463,28 +467,30 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       Text(
                                         'Số ODO (chạm sửa)',
                                         style: TextStyle(
-                                          fontSize: 11.5,
+                                          fontSize: 11.8,
                                           color: c.textSecondary,
                                         ),
                                       ),
                                       const SizedBox(height: 2),
-                                      Text(
-                                        '${numFmt.format(activeVehicle.currentOdometerKm)} km',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w800,
-                                          color: c.textPrimary,
-                                          fontFeatures: const [FontFeature.tabularFigures()],
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          '${numFmt.format(activeVehicle.currentOdometerKm)} km',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.textPrimary,
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                          ),
                                         ),
                                       ),
                                       Text(
                                         'Mốc kế: ${numFmt.format(activeVehicle.nextDueKm)} km',
-                                        maxLines: 1,
+                                        maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          fontSize: 11.5,
+                                          fontSize: 11.8,
                                           color: c.textSecondary,
                                         ),
                                       ),
@@ -507,19 +513,21 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       const SizedBox(height: 6),
                                       Text(
                                         'Bảo hiểm TNDS',
-                                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
                                       ),
                                       const SizedBox(height: 2),
-                                      Text(
-                                        insuranceDate != null
-                                            ? dateFmt.format(insuranceDate)
-                                            : 'Chưa cập nhật',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                          color: c.textPrimary,
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          insuranceDate != null
+                                              ? dateFmt.format(insuranceDate)
+                                              : 'Chưa cập nhật',
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.textPrimary,
+                                          ),
                                         ),
                                       ),
                                       Text(
