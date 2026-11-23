@@ -1,11 +1,11 @@
 {
-    "name": "Life OS — Tài chính & Gia đình",
-    "short_name": "Life OS",
+    "name": "LifeOS — Một ứng dụng. Cả cuộc sống.",
+    "short_name": "LifeOS",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#F2F7F4",
+    "background_color": "#F7F8F9",
     "theme_color": "#0B7A2A",
-    "description": "Super App Quản lý Tài chính Cá nhân, Hội nhóm & Gia đình theo kiến trúc Privacy-by-Default.",
+    "description": "Một ứng dụng. Cả cuộc sống. Hệ nhận diện tối giản, linh hoạt cho sản phẩm quản lý tài chính, lịch trình, công việc và gia đình.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,7 +1,7 @@
 name: life_os
-description: "Life OS — Super App Quản lý Cuộc sống & Gia đình (Clean Architecture + BLoC, Tammy x Apple Design System)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Clean Architecture + BLoC + Official BrandKit 1.0)"
 publish_to: 'none'
-version: 2.3.0+13
+version: 2.4.0+14
 
 environment:
   sdk: ^3.10.0
@@ -40,6 +40,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo_life_os.png
+    - assets/branding/logo_horizontal_primary.png
+    - assets/branding/logo_horizontal_white.png
+    - assets/branding/logo_stacked_primary.png
+    - assets/branding/logo_symbol_color.png
+    - assets/branding/logo_symbol_white.png
+    - assets/branding/app_icon_512.png
     - assets/images/splash_hero.png
     - assets/images/auth_hero.png
     - assets/images/onboarding_privacy.png

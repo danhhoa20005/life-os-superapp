@@ -4,8 +4,19 @@ import '../../app/theme/app_spacing.dart';
 
 /// Centralized Nano Banana generated visual & 3D Glass Icon asset registry for Life OS (Tammy × Apple Design System).
 abstract final class AppAssets {
-  // Brand Logo & Hero Illustrations
+  // Brand Logo & Hero Illustrations (Official LifeOS BrandKit 1.0)
   static const String logo = 'assets/images/logo_life_os.png';
+  static const String brandLogoHorizontalPrimary =
+      'assets/branding/logo_horizontal_primary.png';
+  static const String brandLogoHorizontalWhite =
+      'assets/branding/logo_horizontal_white.png';
+  static const String brandLogoStackedPrimary =
+      'assets/branding/logo_stacked_primary.png';
+  static const String brandSymbolColor =
+      'assets/branding/logo_symbol_color.png';
+  static const String brandSymbolWhite =
+      'assets/branding/logo_symbol_white.png';
+  static const String brandAppIcon512 = 'assets/branding/app_icon_512.png';
   static const String splashHero = 'assets/images/splash_hero.png';
   static const String authHero = 'assets/images/auth_hero.png';
   static const String onboardingPrivacy = 'assets/images/onboarding_privacy.png';

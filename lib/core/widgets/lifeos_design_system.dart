@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/lifeos_brand_colors.dart';
 import '../../app/theme/theme_bloc.dart';
 import 'voice_smart_capture_sheet.dart';
 
@@ -44,7 +47,194 @@ extension LifeOsAccentToneColors on LifeOsAccentTone {
   }
 }
 
-/// Signature LifeOS Leaf Squircle Logo rendered with crisp vector geometry.
+/// Official BrandKit 1.0 Symbol color variants (`01_Vector_SVG/LifeOS_Logo_Symbol_*.svg`).
+enum LifeOsSymbolVariant { color, white, forest, black }
+
+/// Official BrandKit 1.0 Wordmark color modes (`01_Vector_SVG/LifeOS_Logo_Horizontal_*.svg`).
+enum LifeOsWordmarkStyle { auto, primary, white, black }
+
+Path _lifeOsHousePath(double s) {
+  return Path()
+    ..moveTo(34 * s, 112 * s)
+    ..cubicTo(34 * s, 103 * s, 38 * s, 98 * s, 46 * s, 92 * s)
+    ..lineTo(111 * s, 41 * s)
+    ..cubicTo(122 * s, 32 * s, 134 * s, 32 * s, 145 * s, 41 * s)
+    ..lineTo(210 * s, 92 * s)
+    ..cubicTo(218 * s, 98 * s, 222 * s, 103 * s, 222 * s, 112 * s)
+    ..lineTo(222 * s, 158 * s)
+    ..cubicTo(180 * s, 161 * s, 150 * s, 176 * s, 128 * s, 204 * s)
+    ..cubicTo(106 * s, 176 * s, 76 * s, 161 * s, 34 * s, 158 * s)
+    ..close();
+}
+
+Path _lifeOsLeftLeafPath(double s) {
+  return Path()
+    ..moveTo(27 * s, 168 * s)
+    ..cubicTo(71 * s, 165 * s, 105 * s, 183 * s, 123 * s, 231 * s)
+    ..cubicTo(78 * s, 230 * s, 43 * s, 208 * s, 27 * s, 168 * s)
+    ..close();
+}
+
+Path _lifeOsRightLeafPath(double s) {
+  return Path()
+    ..moveTo(229 * s, 168 * s)
+    ..cubicTo(185 * s, 165 * s, 151 * s, 183 * s, 133 * s, 231 * s)
+    ..cubicTo(178 * s, 230 * s, 213 * s, 208 * s, 229 * s, 168 * s)
+    ..close();
+}
+
+void _paintLifeOsFamilySilhouettes(
+  Canvas canvas,
+  double s, {
+  required Color color,
+  BlendMode blendMode = BlendMode.srcOver,
+}) {
+  final headPaint = Paint()
+    ..color = color
+    ..blendMode = blendMode
+    ..style = PaintingStyle.fill
+    ..isAntiAlias = true;
+
+  canvas.drawCircle(Offset(91 * s, 107 * s), 14.5 * s, headPaint);
+  canvas.drawCircle(Offset(165 * s, 107 * s), 14.5 * s, headPaint);
+  canvas.drawCircle(Offset(128 * s, 135 * s), 10.8 * s, headPaint);
+
+  final parentStroke = Paint()
+    ..color = color
+    ..blendMode = blendMode
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 14 * s
+    ..strokeCap = StrokeCap.round
+    ..isAntiAlias = true;
+
+  final leftShoulder = Path()
+    ..moveTo(57 * s, 158 * s)
+    ..cubicTo(61 * s, 141 * s, 74 * s, 132 * s, 91 * s, 132 * s)
+    ..cubicTo(101 * s, 132 * s, 108 * s, 137 * s, 112 * s, 144 * s);
+  canvas.drawPath(leftShoulder, parentStroke);
+
+  final rightShoulder = Path()
+    ..moveTo(144 * s, 144 * s)
+    ..cubicTo(148 * s, 137 * s, 155 * s, 132 * s, 165 * s, 132 * s)
+    ..cubicTo(182 * s, 132 * s, 195 * s, 141 * s, 199 * s, 158 * s);
+  canvas.drawPath(rightShoulder, parentStroke);
+
+  final childStroke = Paint()
+    ..color = color
+    ..blendMode = blendMode
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 10 * s
+    ..strokeCap = StrokeCap.round
+    ..isAntiAlias = true;
+
+  final childShoulder = Path()
+    ..moveTo(111 * s, 170 * s)
+    ..cubicTo(114 * s, 157 * s, 120 * s, 151 * s, 128 * s, 151 * s)
+    ..cubicTo(137 * s, 151 * s, 143 * s, 157 * s, 146 * s, 170 * s);
+  canvas.drawPath(childShoulder, childStroke);
+}
+
+/// Official frameless LifeOS Symbol (`LifeOS_Logo_Symbol_Color/White/Dark/Black.svg`):
+/// Gradient/solid House roof with true negative-space knockout of 3 family members + 2 cradling leaves.
+class LifeOsSymbolMark extends StatelessWidget {
+  final double size;
+  final LifeOsSymbolVariant variant;
+
+  const LifeOsSymbolMark({
+    super.key,
+    this.size = 34,
+    this.variant = LifeOsSymbolVariant.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _LifeOsSymbolPainter(variant: variant),
+      ),
+    );
+  }
+}
+
+class _LifeOsSymbolPainter extends CustomPainter {
+  final LifeOsSymbolVariant variant;
+
+  const _LifeOsSymbolPainter({required this.variant});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = math.min(size.width, size.height) / 256.0;
+    final rect = Offset.zero & size;
+
+    final Color? monoColor = switch (variant) {
+      LifeOsSymbolVariant.color => null,
+      LifeOsSymbolVariant.white => Colors.white,
+      LifeOsSymbolVariant.forest => LifeOSBrandColors.forest,
+      LifeOsSymbolVariant.black => const Color(0xFF111111),
+    };
+
+    // 1. House with true transparent people-knockout mask (`BlendMode.dstOut`)
+    canvas.saveLayer(rect, Paint());
+    final housePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    if (monoColor != null) {
+      housePaint.color = monoColor;
+    } else {
+      housePaint.shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: LifeOSBrandColors.houseGradient,
+        stops: LifeOSBrandColors.houseStops,
+      ).createShader(Rect.fromLTWH(34 * s, 32 * s, 188 * s, 172 * s));
+    }
+    canvas.drawPath(_lifeOsHousePath(s), housePaint);
+    _paintLifeOsFamilySilhouettes(
+      canvas,
+      s,
+      color: Colors.black,
+      blendMode: BlendMode.dstOut,
+    );
+    canvas.restore();
+
+    // 2. Left & Right cradling leaves
+    final leftLeafPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    final rightLeafPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    if (monoColor != null) {
+      leftLeafPaint.color = monoColor;
+      rightLeafPaint.color = monoColor;
+    } else {
+      leftLeafPaint.shader = const LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: LifeOSBrandColors.leftLeafGradient,
+      ).createShader(Rect.fromLTWH(27 * s, 165 * s, 96 * s, 66 * s));
+
+      rightLeafPaint.shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: LifeOSBrandColors.rightLeafGradient,
+      ).createShader(Rect.fromLTWH(133 * s, 165 * s, 96 * s, 66 * s));
+    }
+
+    canvas.drawPath(_lifeOsLeftLeafPath(s), leftLeafPaint);
+    canvas.drawPath(_lifeOsRightLeafPath(s), rightLeafPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LifeOsSymbolPainter oldDelegate) =>
+      oldDelegate.variant != variant;
+}
+
+/// Official LifeOS App Icon Squircle Badge (`LifeOS_AppIcon_Master_FullBleed.svg`):
+/// Emerald-Lime to Deep Green gradient squircle with white stroked house, 3 family members, and 2 leaves.
 class LifeOsLeafMark extends StatelessWidget {
   final double size;
   final double borderRadius;
@@ -65,87 +255,214 @@ class LifeOsLeafMark extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF22C55E), Color(0xFF0EA53E)],
+          colors: LifeOSBrandColors.appIconBgGradient,
+          stops: LifeOSBrandColors.appIconBgStops,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF12B847).withValues(alpha: 0.25),
+            color: LifeOSBrandColors.primary.withValues(alpha: 0.24),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: CustomPaint(
-        painter: _LifeOsLeafPainter(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: const CustomPaint(
+          painter: _LifeOsAppIconForegroundPainter(),
+        ),
       ),
     );
   }
 }
 
-class _LifeOsLeafPainter extends CustomPainter {
+class _LifeOsAppIconForegroundPainter extends CustomPainter {
+  const _LifeOsAppIconForegroundPainter();
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    final leafPaint = Paint()
+    // Subtle top sheen from `LifeOS_AppIcon_Gloss_Optional.svg`
+    final glossPath = Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, h * 0.185)
+      ..quadraticBezierTo(w * 0.48, h * 0.36, 0, h * 0.195)
+      ..close();
+    canvas.drawPath(
+      glossPath,
+      Paint()..color = Colors.white.withValues(alpha: 0.075),
+    );
+
+    // Exact BrandKit Master AppIcon transform: translate(160, 146) scale(2.75) on 1024x1024
+    canvas.save();
+    canvas.translate(w * (160.0 / 1024.0), h * (146.0 / 1024.0));
+    final s = math.min(w, h) * (2.75 / 1024.0);
+
+    final houseStroke = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 12 * s
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    canvas.drawPath(_lifeOsHousePath(s), houseStroke);
+
+    _paintLifeOsFamilySilhouettes(canvas, s, color: Colors.white);
+
+    final leafFill = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
-
-    final path = Path()
-      ..moveTo(w * 0.26, h * 0.72)
-      ..cubicTo(w * 0.24, h * 0.40, w * 0.44, h * 0.24, w * 0.76, h * 0.26)
-      ..cubicTo(w * 0.76, h * 0.56, w * 0.58, h * 0.76, w * 0.26, h * 0.72)
-      ..close();
-
-    canvas.drawPath(path, leafPaint);
-
-    final stemPaint = Paint()
-      ..color = const Color(0xFF12B847)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.065
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
-
-    final vein = Path()
-      ..moveTo(w * 0.28, h * 0.70)
-      ..quadraticBezierTo(w * 0.48, h * 0.50, w * 0.64, h * 0.36);
-    canvas.drawPath(vein, stemPaint);
+    canvas.drawPath(_lifeOsLeftLeafPath(s), leafFill);
+    canvas.drawPath(_lifeOsRightLeafPath(s), leafFill);
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Brand row `🌿 LifeOS` used across Auth, Onboarding, and Main App headers.
+/// Official Horizontal Brand Logo (`[House-Family-Leaves Symbol] LifeOS`) following BrandKit 1.0:
+/// - Light Mode (`primary`): Color Symbol + `Life` (`#113824` Forest) + `OS` (`#0B7A2A` Primary).
+/// - Dark Mode (`white`): White Symbol + `LifeOS` (`#FFFFFF`).
 class LifeOsBrandWordmark extends StatelessWidget {
   final double iconSize;
   final double fontSize;
+  final LifeOsWordmarkStyle style;
 
   const LifeOsBrandWordmark({
     super.key,
     this.iconSize = 34,
     this.fontSize = 21,
+    this.style = LifeOsWordmarkStyle.auto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveStyle = style == LifeOsWordmarkStyle.auto
+        ? (isDark ? LifeOsWordmarkStyle.white : LifeOsWordmarkStyle.primary)
+        : style;
+
+    final (symbolVariant, lifeColor, osColor) = switch (effectiveStyle) {
+      LifeOsWordmarkStyle.primary => (
+          LifeOsSymbolVariant.color,
+          LifeOSBrandColors.forest,
+          LifeOSBrandColors.primary,
+        ),
+      LifeOsWordmarkStyle.white => (
+          LifeOsSymbolVariant.white,
+          Colors.white,
+          Colors.white,
+        ),
+      LifeOsWordmarkStyle.black => (
+          LifeOsSymbolVariant.black,
+          const Color(0xFF111111),
+          const Color(0xFF111111),
+        ),
+      LifeOsWordmarkStyle.auto => (
+          LifeOsSymbolVariant.color,
+          LifeOSBrandColors.forest,
+          LifeOSBrandColors.primary,
+        ),
+    };
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LifeOsSymbolMark(size: iconSize, variant: symbolVariant),
+        SizedBox(width: iconSize * 0.22),
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              height: 1.05,
+            ),
+            children: [
+              TextSpan(
+                text: 'Life',
+                style: TextStyle(color: lifeColor),
+              ),
+              TextSpan(
+                text: 'OS',
+                style: TextStyle(color: osColor),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Official Stacked Brand Logo (`LifeOS_Logo_Stacked_Primary.svg`) for Hero / Welcome / About cards.
+class LifeOsStackedBrandLogo extends StatelessWidget {
+  final double symbolSize;
+  final double fontSize;
+  final bool showTagline;
+
+  const LifeOsStackedBrandLogo({
+    super.key,
+    this.symbolSize = 76,
+    this.fontSize = 28,
+    this.showTagline = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return Row(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        LifeOsLeafMark(size: iconSize, borderRadius: iconSize * 0.31),
-        const SizedBox(width: 9),
-        Text(
-          'LifeOS',
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            color: c.textPrimary,
+        LifeOsSymbolMark(
+          size: symbolSize,
+          variant: isDark ? LifeOsSymbolVariant.white : LifeOsSymbolVariant.color,
+        ),
+        const SizedBox(height: 8),
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.7,
+              height: 1.08,
+            ),
+            children: [
+              TextSpan(
+                text: 'Life',
+                style: TextStyle(
+                  color: isDark ? Colors.white : LifeOSBrandColors.forest,
+                ),
+              ),
+              TextSpan(
+                text: 'OS',
+                style: TextStyle(
+                  color: isDark
+                      ? LifeOSBrandColors.primaryLight
+                      : LifeOSBrandColors.primary,
+                ),
+              ),
+            ],
           ),
         ),
+        if (showTagline) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Một ứng dụng. Cả cuộc sống.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: c.textSecondary,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1581,6 +1898,325 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
               ),
             );
           },
+        ),
+      );
+    },
+  );
+}
+
+/// Interactive BrandKit 1.0 Showcase Sheet ("Một ứng dụng. Cả cuộc sống.").
+Future<void> showLifeOsBrandIdentitySheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetCtx) {
+      final c = TammySemanticColors.of(sheetCtx);
+      final swatches = <(String, String, Color)>[
+        ('Primary', '#0B7A2A', LifeOSBrandColors.primary),
+        ('Light', '#55D52F', LifeOSBrandColors.primaryLight),
+        ('Dark', '#03602B', LifeOSBrandColors.primaryDark),
+        ('Forest', '#113824', LifeOSBrandColors.forest),
+        ('Mint', '#E7F7EB', LifeOSBrandColors.mint),
+        ('Ink', '#1D1D1F', LifeOSBrandColors.ink),
+      ];
+
+      return Container(
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: c.border,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'LIFEOS / BRAND IDENTITY 1.0',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: LifeOSBrandColors.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Một ứng dụng. Cả cuộc sống.',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: c.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Biểu tượng kết hợp mái nhà, 3 thành viên gia đình và 2 chiếc lá nâng đỡ — đồng bộ trên toàn bộ ứng dụng, Android Adaptive Icon, iOS & Widget.',
+                style: TextStyle(fontSize: 12.5, color: c.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+
+              // Row 1: Primary Horizontal on White + App Icon on Mint
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      height: 112,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE4E7EC)),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'LOGO CHÍNH',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: LifeOSBrandColors.primary,
+                            ),
+                          ),
+                          Spacer(),
+                          Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: LifeOsBrandWordmark(
+                                iconSize: 44,
+                                fontSize: 28,
+                                style: LifeOsWordmarkStyle.primary,
+                              ),
+                            ),
+                          ),
+                          Spacer(),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      height: 112,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: LifeOSBrandColors.mint,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'APP ICON',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: LifeOSBrandColors.primary,
+                            ),
+                          ),
+                          Spacer(),
+                          Center(
+                            child: LifeOsLeafMark(size: 58, borderRadius: 15),
+                          ),
+                          Spacer(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Forest Reversed Horizontal Banner (`#113824`)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: LifeOSBrandColors.forest,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'DÙNG TRÊN NỀN TỐI (#113824)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFA7F3D0),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Center(
+                      child: LifeOsBrandWordmark(
+                        iconSize: 42,
+                        fontSize: 27,
+                        style: LifeOsWordmarkStyle.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // 3 Symbol Variants Row (Color, Forest, Monochrome Black)
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE4E7EC)),
+                      ),
+                      child: const Column(
+                        children: [
+                          LifeOsSymbolMark(
+                            size: 40,
+                            variant: LifeOsSymbolVariant.color,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Bản màu',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1D1D1F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: LifeOSBrandColors.mint,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Column(
+                        children: [
+                          LifeOsSymbolMark(
+                            size: 40,
+                            variant: LifeOsSymbolVariant.forest,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Forest',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: LifeOSBrandColors.forest,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE4E7EC)),
+                      ),
+                      child: const Column(
+                        children: [
+                          LifeOsSymbolMark(
+                            size: 40,
+                            variant: LifeOsSymbolVariant.black,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Đơn sắc',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1D1D1F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Official Color Tokens
+              Text(
+                'Bảng màu thương hiệu chuẩn',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: swatches.map((item) {
+                  final (label, hex, color) = item;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: c.surfaceRaised,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: c.border.withValues(alpha: 0.6)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$label $hex',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       );
     },

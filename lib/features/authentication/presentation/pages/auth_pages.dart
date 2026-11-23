@@ -259,7 +259,7 @@ class WelcomePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Quản lý chi tiêu, lịch trình, công việc và gia đình trong một ứng dụng.',
+                      'Một ứng dụng. Cả cuộc sống. Quản lý tài chính, lịch trình, công việc và gia đình trọn vẹn.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -268,7 +268,7 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    // Mint Family Home Circle Illustration
+                    // Official BrandKit 1.0 House-Family-Leaves Hero Circle
                     Container(
                       width: 216,
                       height: 216,
@@ -276,40 +276,36 @@ class WelcomePage extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            c.primary.withValues(alpha: 0.20),
-                            c.primarySubtle.withValues(alpha: 0.65),
+                            c.primary.withValues(alpha: 0.18),
+                            c.primarySubtle.withValues(alpha: 0.72),
                           ],
                         ),
                       ),
-                      child: Stack(
+                      child: const Stack(
                         alignment: Alignment.center,
                         children: [
-                          Icon(
-                            Icons.family_restroom_rounded,
-                            size: 92,
-                            color: c.primary,
-                          ),
-                          const Positioned(
-                            left: 16,
-                            top: 26,
+                          LifeOsSymbolMark(size: 118),
+                          Positioned(
+                            left: 14,
+                            top: 24,
                             child: LifeOsIconSquircle(
                               icon: Icons.calendar_today_rounded,
                               size: 34,
                               iconSize: 17,
                             ),
                           ),
-                          const Positioned(
-                            right: 16,
-                            top: 32,
+                          Positioned(
+                            right: 14,
+                            top: 30,
                             child: LifeOsIconSquircle(
                               icon: Icons.account_balance_wallet_outlined,
                               size: 34,
                               iconSize: 17,
                             ),
                           ),
-                          const Positioned(
-                            right: 20,
-                            bottom: 26,
+                          Positioned(
+                            right: 18,
+                            bottom: 24,
                             child: LifeOsIconSquircle(
                               icon: Icons.check_circle_outline_rounded,
                               size: 34,

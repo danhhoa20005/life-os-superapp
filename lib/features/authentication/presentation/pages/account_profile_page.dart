@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
@@ -535,12 +536,26 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                     const AppUpdateSettingsCard(),
                     const SizedBox(height: AppSpacing.md),
 
-                    // 7. Privacy Center & Sign Out
+                    // 7. Brand Identity & Privacy Center & Sign Out
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Column(
                           children: [
+                            ListTile(
+                              key: const Key('open_brand_identity_tile'),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                              leading: const LifeOsLeafMark(size: 40, borderRadius: 12),
+                              title: const Text(
+                                'Bộ nhận diện thương hiệu LifeOS (BrandKit 1.0)',
+                              ),
+                              subtitle: const Text(
+                                'Một ứng dụng. Cả cuộc sống. · Xem chuẩn Logo, App Icon & Bảng màu',
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => showLifeOsBrandIdentitySheet(context),
+                            ),
+                            const Divider(height: 16),
                             ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                               leading: Container(

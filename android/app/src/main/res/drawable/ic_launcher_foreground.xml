@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="432"
+    android:viewportHeight="432">
+    <group
+        android:translateX="97"
+        android:translateY="101"
+        android:scaleX="0.93"
+        android:scaleY="0.93">
+        <!-- House roof & walls -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="12"
+            android:strokeLineJoin="round"
+            android:pathData="M34,112 C34,103 38,98 46,92 L111,41 C122,32 134,32 145,41 L210,92 C218,98 222,103 222,112 L222,158 C180,161 150,176 128,204 C106,176 76,161 34,158 Z" />
+        <!-- 3 Family heads -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M76.5,107a14.5,14.5 0 1,0 29,0a14.5,14.5 0 1,0 -29,0Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M150.5,107a14.5,14.5 0 1,0 29,0a14.5,14.5 0 1,0 -29,0Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M117.2,135a10.8,10.8 0 1,0 21.6,0a10.8,10.8 0 1,0 -21.6,0Z" />
+        <!-- 3 Family shoulder arcs -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M57,158 C61,141 74,132 91,132 C101,132 108,137 112,144" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M144,144 C148,137 155,132 165,132 C182,132 195,141 199,158" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="10"
+            android:strokeLineCap="round"
+            android:pathData="M111,170 C114,157 120,151 128,151 C137,151 143,157 146,170" />
+        <!-- Cradling leaves -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,168 C71,165 105,183 123,231 C78,230 43,208 27,168 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M229,168 C185,165 151,183 133,231 C178,230 213,208 229,168 Z" />
+    </group>
+</vector>

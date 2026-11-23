@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 432 432"><defs>
+<linearGradient id="house" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#56D831"/><stop offset="0.47" stop-color="#20B72E"/><stop offset="1" stop-color="#007E30"/></linearGradient>
+<linearGradient id="leafLeft" x1="0%" y1="100%" x2="100%" y2="0%"><stop stop-color="#84DE24"/><stop offset="1" stop-color="#23B834"/></linearGradient>
+<linearGradient id="leafRight" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#0AAA37"/><stop offset="1" stop-color="#006B2D"/></linearGradient>
+<linearGradient id="appBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#65DD30"/><stop offset="0.45" stop-color="#22B72D"/><stop offset="1" stop-color="#006D2D"/></linearGradient>
+</defs><rect width="432" height="432" fill="url(#appBg)"/></svg>

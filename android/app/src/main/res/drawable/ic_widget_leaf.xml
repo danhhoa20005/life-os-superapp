@@ -2,15 +2,52 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <!-- Squircle brand container -->
     <path
         android:fillColor="@color/widget_primary"
-        android:pathData="M6,2h12c2.21,0 4,1.79 4,4v12c0,2.21 -1.79,4 -4,4H6c-2.21,0 -4,-1.79 -4,-4V6c0,-2.21 1.79,-4 4,-4z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M6.5,17.2C6,10 10.5,6.2 17.8,6.5C17.8,13.5 13.8,18 6.5,17.2z" />
-    <path
-        android:fillColor="@color/widget_primary"
-        android:pathData="M7.2,16.5L14.5,9.2L15.6,10.3L8.3,17.6z" />
+        android:pathData="M60,0h136c33.1,0 60,26.9 60,60v136c0,33.1 -26.9,60 -60,60H60C26.9,256 0,229.1 0,196V60C0,26.9 26.9,0 60,0z" />
+    <!-- Official LifeOS BrandKit Emblem (House + 3 Family Members + 2 Leaves) -->
+    <group
+        android:translateX="28"
+        android:translateY="24"
+        android:scaleX="0.78"
+        android:scaleY="0.78">
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="13"
+            android:strokeLineJoin="round"
+            android:pathData="M34,112 C34,103 38,98 46,92 L111,41 C122,32 134,32 145,41 L210,92 C218,98 222,103 222,112 L222,158 C180,161 150,176 128,204 C106,176 76,161 34,158 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M76.5,107a14.5,14.5 0 1,0 29,0a14.5,14.5 0 1,0 -29,0Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M150.5,107a14.5,14.5 0 1,0 29,0a14.5,14.5 0 1,0 -29,0Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M117.2,135a10.8,10.8 0 1,0 21.6,0a10.8,10.8 0 1,0 -21.6,0Z" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M57,158 C61,141 74,132 91,132 C101,132 108,137 112,144" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="14"
+            android:strokeLineCap="round"
+            android:pathData="M144,144 C148,137 155,132 165,132 C182,132 195,141 199,158" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="10"
+            android:strokeLineCap="round"
+            android:pathData="M111,170 C114,157 120,151 128,151 C137,151 143,157 146,170" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,168 C71,165 105,183 123,231 C78,230 43,208 27,168 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M229,168 C185,165 151,183 133,231 C178,230 213,208 229,168 Z" />
+    </group>
 </vector>
