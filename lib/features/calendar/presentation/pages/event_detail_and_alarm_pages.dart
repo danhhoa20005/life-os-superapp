@@ -46,27 +46,88 @@ class _EventDetailPageState extends State<EventDetailPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final calEvents = context.watch<CalendarBloc>().state.events;
-    final family = context.watch<FamilyBloc>().state.activeFamily;
+    CalendarBloc? maybeCalBloc;
+    try {
+      maybeCalBloc = context.watch<CalendarBloc>();
+    } catch (_) {
+      maybeCalBloc = null;
+    }
+    FamilyBloc? maybeFamilyBloc;
+    try {
+      maybeFamilyBloc = context.watch<FamilyBloc>();
+    } catch (_) {
+      maybeFamilyBloc = null;
+    }
 
-    final now = DateTime.now();
-    final event = widget.initialEvent ??
-        (calEvents.isNotEmpty
-            ? calEvents.first
-            : CalendarEventEntity(
-                id: 'preview_parent_meeting',
-                ownerId: 'preview',
-                ownerName: 'Gia đình',
-                familyId: family?.id,
-                calendarId: 'primary',
-                visibility: CalendarEventVisibility.sharedEvent,
-                title: 'Họp phụ huynh',
-                description:
-                    'Họp phụ huynh học kỳ: cập nhật tình hình học tập, rèn luyện và kế hoạch học kỳ tiếp theo.',
-                location: 'Trường Tiểu học Hòa Bình',
-                startsAt: DateTime(now.year, now.month, now.day, 18, 30),
-                endsAt: DateTime(now.year, now.month, now.day, 20, 0),
-              ));
+    final calEvents = maybeCalBloc?.state.events ?? const <CalendarEventEntity>[];
+    final family = maybeFamilyBloc?.state.activeFamily;
+
+    final event = widget.initialEvent ?? (calEvents.isNotEmpty ? calEvents.first : null);
+    if (event == null) {
+      return Scaffold(
+        body: LifeOsMintWaveCanvas(
+          child: SafeArea(
+            child: Column(
+              children: [
+                const LifeOsTopBrandHeader(
+                  title: 'Chi tiết sự kiện',
+                  showBackButton: true,
+                ),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: LifeOsSoftCard(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const LifeOsIconSquircle(
+                                icon: Icons.event_busy_rounded,
+                                tone: LifeOsAccentTone.emerald,
+                                size: 54,
+                                iconSize: 26,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chưa có sự kiện được chọn',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Hãy đồng bộ Lịch của bạn và chọn một sự kiện thật từ tab Lịch trình để xem chi tiết hoặc đặt báo thức.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.38,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              LifeOsPrimaryCtaButton(
+                                icon: Icons.calendar_month_rounded,
+                                label: 'Mở Lịch trình & Đồng bộ',
+                                onPressed: () => context.go('/planning'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     final weekdayNames = const <int, String>{
       DateTime.monday: 'Thứ Hai',
@@ -80,8 +141,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
     _loadExistingAlarm(event.id);
     final dateLabel =
         '${weekdayNames[event.startsAt.weekday]}, ${DateFormat('dd \'tháng\' MM, yyyy').format(event.startsAt)}';
-    final timeLabel =
-        '${DateFormat('HH:mm').format(event.startsAt)} – ${DateFormat('HH:mm').format(event.endsAt)}';
+    final timeLabel = event.isAllDay
+        ? 'Cả ngày'
+        : '${DateFormat('HH:mm').format(event.startsAt)} – ${DateFormat('HH:mm').format(event.endsAt)}';
 
     String reminderClock(int minsBefore) {
       final t = event.startsAt.subtract(Duration(minutes: minsBefore));
@@ -95,9 +157,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
       (30, 'Trước 30 phút', 'Nhắc vào lúc ${reminderClock(30)}'),
     ];
 
-    final memberNames = family != null && family.members.isNotEmpty
+    final memberNames = (event.visibility == CalendarEventVisibility.sharedEvent &&
+            family != null &&
+            family.members.isNotEmpty)
         ? family.members.map((m) => m.fullName).take(4).toList()
-        : const <String>['Bố', 'Mẹ'];
+        : const <String>[];
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -189,16 +253,15 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 icon: Icons.location_on_outlined,
                                 label: 'Địa điểm',
                                 value: (event.location ?? '').trim().isEmpty
-                                    ? 'Không gian chung Gia đình'
+                                    ? 'Chưa thêm địa điểm'
                                     : event.location!,
-                                showChevron: true,
                               ),
                               const Divider(height: 22),
                               _EventInfoRow(
                                 icon: Icons.notes_rounded,
                                 label: 'Ghi chú',
                                 value: (event.description ?? '').trim().isEmpty
-                                    ? 'Đồng bộ hai chiều với Google Calendar & chuông nhắc sự kiện.'
+                                    ? 'Chưa có ghi chú'
                                     : event.description!,
                                 multiLine: true,
                               ),
@@ -207,84 +270,75 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         ),
                         const SizedBox(height: 12),
 
-                        // 3. Invited Family Members Card ("Thành viên được mời")
-                        LifeOsSoftCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.groups_outlined, size: 20, color: c.primary),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Thành viên được mời',
-                                      style: TextStyle(
-                                        fontSize: 15.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    '${memberNames.length} thành viên >',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 16,
-                                runSpacing: 10,
-                                children: memberNames.map((name) {
-                                  return Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor: c.primarySubtle,
-                                        child: Text(
-                                          name.trim().isEmpty
-                                              ? 'U'
-                                              : name.trim().characters.first.toUpperCase(),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            color: c.primary,
-                                          ),
+                        // 3. Invited Family Members Card (Only shown for real Shared Family Events)
+                        if (memberNames.isNotEmpty) ...[
+                          LifeOsSoftCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.groups_outlined, size: 20, color: c.primary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Thành viên gia đình',
+                                        style: TextStyle(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            name,
+                                    ),
+                                    Text(
+                                      '${memberNames.length} thành viên',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 16,
+                                  runSpacing: 10,
+                                  children: memberNames.map((name) {
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: c.primarySubtle,
+                                          child: Text(
+                                            name.trim().isEmpty
+                                                ? 'U'
+                                                : name.trim().characters.first.toUpperCase(),
                                             style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 13.5,
-                                              color: c.textPrimary,
+                                              fontWeight: FontWeight.w800,
+                                              color: c.primary,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
-                                          const LifeOsStatusPill(
-                                            icon: Icons.check_rounded,
-                                            label: 'Đã mời',
-                                            tone: LifeOsAccentTone.emerald,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13.5,
+                                            color: c.textPrimary,
                                           ),
-                                        ],
-                                      ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ],
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 12),
+                        ],
 
                         // 4. Reminder Selector Card ("Nhắc nhở")
                         LifeOsSoftCard(
@@ -496,14 +550,12 @@ class _EventInfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final bool showChevron;
   final bool multiLine;
 
   const _EventInfoRow({
     required this.icon,
     required this.label,
     required this.value,
-    this.showChevron = false,
     this.multiLine = false,
   });
 
@@ -537,7 +589,6 @@ class _EventInfoRow extends StatelessWidget {
             ],
           ),
         ),
-        if (showChevron) Icon(Icons.chevron_right_rounded, color: c.textSecondary),
       ],
     );
   }
@@ -574,17 +625,35 @@ class _EventAlarmPageState extends State<EventAlarmPage>
 
   @override
   Widget build(BuildContext context) {
-    final ev = widget.event;
+    CalendarEventEntity? ev = widget.event;
+    if (ev == null) {
+      try {
+        final upcoming = context
+            .watch<CalendarBloc>()
+            .state
+            .events
+            .where((e) => e.endsAt.isAfter(DateTime.now()))
+            .toList()
+          ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+        if (upcoming.isNotEmpty) {
+          ev = upcoming.first;
+        }
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
     final alarmTime = ev != null
-        ? DateFormat('HH:mm').format(ev.startsAt.subtract(const Duration(minutes: 15)))
-        : '07:30';
-    final eventTitle = ev?.title ?? 'Họp phụ huynh';
+        ? DateFormat('HH:mm').format(
+            ev.startsAt.subtract(Duration(minutes: ev.reminderMinutesBefore)),
+          )
+        : DateFormat('HH:mm').format(now);
+    final eventTitle = ev?.title ?? 'Chưa có sự kiện đặt báo thức';
     final eventTimeLine = ev != null
-        ? '${DateFormat('dd/MM').format(ev.startsAt)} • ${DateFormat('HH:mm').format(ev.startsAt)}'
-        : 'Thứ Hai, 23/11 • 08:00';
+        ? '${DateFormat('dd/MM/yyyy').format(ev.startsAt)} • ${DateFormat('HH:mm').format(ev.startsAt)}'
+        : 'Đồng bộ Lịch trình để hẹn chuông nhắc tự động';
     final eventLocation = (ev != null && (ev.location ?? '').trim().isNotEmpty)
         ? ev.location!
-        : 'Trường Tiểu học Hòa Bình';
+        : (ev != null ? 'Lịch trình đã đồng bộ' : 'Chưa chọn sự kiện');
 
     return Scaffold(
       body: Container(
@@ -714,7 +783,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                               children: [
                                 Text(
                                   eventTitle,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Color(0xFF101828),
@@ -725,6 +794,8 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                                 const SizedBox(height: 2),
                                 Text(
                                   eventTimeLine,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Color(0xFF475467),
                                     fontSize: 13,
@@ -733,7 +804,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                                 ),
                                 Text(
                                   eventLocation,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Color(0xFF667085),
@@ -761,8 +832,22 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                             borderRadius: BorderRadius.circular(25),
                           ),
                         ),
-                        onPressed: () {
-                          LifeOsTopToast.fromSnackBar(context, 
+                        onPressed: () async {
+                          final activeEv = ev;
+                          if (activeEv != null) {
+                            final snoozeAt = DateTime.now().add(const Duration(minutes: 5));
+                            await NativeAlarmSchedulerBridge.instance.scheduleEventAlarm(
+                              eventId: activeEv.id,
+                              title: activeEv.title,
+                              subtitle: activeEv.location ?? 'Nhắc lại sau 5 phút',
+                              eventStartsAt: snoozeAt,
+                              minutesBefore: 0,
+                              fullScreen: true,
+                            );
+                          }
+                          if (!context.mounted) return;
+                          LifeOsTopToast.fromSnackBar(
+                            context,
                             const SnackBar(
                               content: Text('⏰ Đã hoãn báo thức thêm 5 phút.'),
                             ),

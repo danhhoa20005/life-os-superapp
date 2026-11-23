@@ -10,6 +10,7 @@ import 'package:life_os/app/app.dart';
 import 'package:life_os/app/theme/app_theme.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/features/authentication/presentation/pages/auth_pages.dart';
+import 'package:life_os/features/calendar/domain/entities/calendar_entities.dart';
 import 'package:life_os/features/calendar/presentation/pages/event_detail_and_alarm_pages.dart';
 
 void main() {
@@ -46,15 +47,29 @@ void main() {
     expect(find.text('Bắt đầu'), findsOneWidget);
     expect(find.text('Tôi đã có tài khoản'), findsOneWidget);
 
+    final syncedEvent = CalendarEventEntity(
+      id: 'gcal_real_standup',
+      ownerId: 'uid_unified_test',
+      ownerName: 'Nguyễn Hòa',
+      visibility: CalendarEventVisibility.privateEvent,
+      title: 'Họp dự án sáng thứ Hai',
+      location: 'Google Meet',
+      startsAt: DateTime(2026, 11, 23, 7, 45),
+      endsAt: DateTime(2026, 11, 23, 8, 30),
+      reminderMinutesBefore: 15,
+      syncStatus: CalendarSyncStatus.synced,
+    );
+
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
-        home: const EventAlarmPage(),
+        home: EventAlarmPage(event: syncedEvent),
       ),
     );
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('Báo thức sự kiện'), findsOneWidget);
     expect(find.text('07:30'), findsOneWidget);
+    expect(find.text('Họp dự án sáng thứ Hai'), findsOneWidget);
     expect(find.text('Hoãn 5 phút'), findsOneWidget);
     expect(find.text('Tắt báo thức'), findsOneWidget);
   });

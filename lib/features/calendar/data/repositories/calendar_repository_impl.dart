@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
+import '../../../../core/services/native_device_calendar_bridge.dart';
 import '../../../../core/utils/stream_combiner.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../../domain/repositories/calendar_repository.dart';
@@ -14,12 +15,15 @@ import '../datasources/google_calendar_api_datasource.dart';
 class CalendarRemoteDataSource {
   final FirebaseFirestore _firestore;
   final GoogleCalendarApiDataSource? _googleApi;
+  final NativeDeviceCalendarBridge _deviceCalendar;
   static const Uuid _uuid = Uuid();
 
-  const CalendarRemoteDataSource(
+  CalendarRemoteDataSource(
     this._firestore, {
     GoogleCalendarApiDataSource? googleApi,
-  }) : _googleApi = googleApi;
+    NativeDeviceCalendarBridge? deviceCalendar,
+  })  : _googleApi = googleApi,
+        _deviceCalendar = deviceCalendar ?? NativeDeviceCalendarBridge.instance;
 
   bool get isGoogleAuthorized => _googleApi?.hasAuthorizedToken ?? false;
 
@@ -47,6 +51,7 @@ class CalendarRemoteDataSource {
       source: source,
       googleCalendarId: d['googleCalendarId'] as String?,
       googleSyncToken: d['googleSyncToken'] as String?,
+      deviceCalendarId: (d['deviceCalendarId'] as num?)?.toInt(),
       lastSyncedAt: syncedTs is Timestamp ? syncedTs.toDate() : null,
     );
   }
@@ -65,6 +70,7 @@ class CalendarRemoteDataSource {
       'source': cal.source.name,
       'googleCalendarId': cal.googleCalendarId,
       'googleSyncToken': cal.googleSyncToken,
+      if (cal.deviceCalendarId != null) 'deviceCalendarId': cal.deviceCalendarId,
       if (cal.lastSyncedAt != null) 'lastSyncedAt': Timestamp.fromDate(cal.lastSyncedAt!),
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     };
@@ -226,6 +232,8 @@ class CalendarRemoteDataSource {
       googleEventId: d['googleEventId'] as String?,
       googleCalendarId: d['googleCalendarId'] as String?,
       googleEtag: d['googleEtag'] as String?,
+      deviceEventId: (d['deviceEventId'] as num?)?.toInt(),
+      deviceCalendarId: (d['deviceCalendarId'] as num?)?.toInt(),
       syncStatus: syncStatus,
       updatedAt: uTs is Timestamp ? uTs.toDate() : null,
     );
@@ -253,6 +261,8 @@ class CalendarRemoteDataSource {
       'googleEventId': ev.googleEventId,
       'googleCalendarId': ev.googleCalendarId,
       'googleEtag': ev.googleEtag,
+      if (ev.deviceEventId != null) 'deviceEventId': ev.deviceEventId,
+      if (ev.deviceCalendarId != null) 'deviceCalendarId': ev.deviceCalendarId,
       'syncStatus': ev.syncStatus.name,
       if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(ev.updatedAt ?? now),
@@ -335,6 +345,20 @@ class CalendarRemoteDataSource {
     return (gId != null && gId.isNotEmpty) ? gId : 'primary';
   }
 
+  Future<int?> _resolveTargetDeviceCalendarId(String userId, String calendarId) async {
+    if (calendarId.startsWith('devcal_')) {
+      return int.tryParse(calendarId.substring(7));
+    }
+    if (calendarId.isEmpty) return null;
+    final snap = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('calendars')
+        .doc(calendarId)
+        .get();
+    return (snap.data()?['deviceCalendarId'] as num?)?.toInt();
+  }
+
   Future<CalendarEventEntity> createEvent({
     required String userId,
     required String userName,
@@ -376,24 +400,54 @@ class CalendarRemoteDataSource {
       updatedAt: now,
     );
 
-    if (syncToGoogle && visibility == CalendarEventVisibility.privateEvent && _googleApi != null) {
-      try {
-        final token = await _googleApi.acquireAccessToken(interactive: false);
-        final targetGCalId = await _resolveTargetGoogleCalendarId(userId, calendarId);
-        final remote = await _googleApi.insertEvent(
-          accessToken: token,
-          googleCalendarId: targetGCalId,
-          event: draft,
+    if (syncToGoogle && visibility == CalendarEventVisibility.privateEvent) {
+      var syncedExternally = false;
+
+      // 1. Write directly to Android / OS System Calendar (`CalendarContract`) if permitted
+      if (await _deviceCalendar.hasPermission()) {
+        final preferredDevCalId = await _resolveTargetDeviceCalendarId(userId, calendarId);
+        final savedDevEvId = await _deviceCalendar.upsertEvent(
+          deviceCalendarId: preferredDevCalId,
+          title: draft.title,
+          description: draft.description,
+          location: draft.location,
+          startsAt: draft.startsAt,
+          endsAt: draft.endsAt,
+          isAllDay: draft.isAllDay,
+          timeZone: draft.timeZone,
+          rrule: draft.recurrence.toRruleString(),
+          reminderMinutesBefore: draft.reminderMinutesBefore,
         );
-        draft = draft.copyWith(
-          googleCalendarId: targetGCalId,
-          googleEventId: remote.googleEventId,
-          googleEtag: remote.etag,
-          syncStatus: CalendarSyncStatus.synced,
-        );
-      } catch (_) {
-        // Queued as pendingUpload; next syncWithGoogleCalendar pushes automatically!
-        draft = draft.copyWith(syncStatus: CalendarSyncStatus.pendingUpload);
+        if (savedDevEvId != null && savedDevEvId > 0) {
+          draft = draft.copyWith(
+            deviceEventId: savedDevEvId,
+            deviceCalendarId: preferredDevCalId,
+            syncStatus: CalendarSyncStatus.synced,
+          );
+          syncedExternally = true;
+        }
+      }
+
+      // 2. Also push to Google Calendar REST API v3 if authorized (and not already synced via device Google account)
+      if (!syncedExternally && _googleApi != null) {
+        try {
+          final token = await _googleApi.acquireAccessToken(interactive: false);
+          final targetGCalId = await _resolveTargetGoogleCalendarId(userId, calendarId);
+          final remote = await _googleApi.insertEvent(
+            accessToken: token,
+            googleCalendarId: targetGCalId,
+            event: draft,
+          );
+          draft = draft.copyWith(
+            googleCalendarId: targetGCalId,
+            googleEventId: remote.googleEventId,
+            googleEtag: remote.etag,
+            syncStatus: CalendarSyncStatus.synced,
+          );
+          syncedExternally = true;
+        } catch (_) {
+          draft = draft.copyWith(syncStatus: CalendarSyncStatus.pendingUpload);
+        }
       }
     }
 
@@ -443,7 +497,9 @@ class CalendarRemoteDataSource {
     bool syncToGoogle = false,
   }) async {
     final now = DateTime.now();
-    final shouldSyncGoogle = syncToGoogle || existingEvent.isLinkedWithGoogle;
+    final shouldSyncExternal = syncToGoogle ||
+        existingEvent.isLinkedWithGoogle ||
+        existingEvent.isLinkedWithDeviceCalendar;
 
     var updated = existingEvent.copyWith(
       calendarId: calendarId ?? existingEvent.calendarId,
@@ -457,37 +513,65 @@ class CalendarRemoteDataSource {
       reminderMinutesBefore: reminderMinutesBefore ?? existingEvent.reminderMinutesBefore,
       recurrence: recurrence ?? existingEvent.recurrence,
       syncStatus:
-          shouldSyncGoogle ? CalendarSyncStatus.pendingUpload : existingEvent.syncStatus,
+          shouldSyncExternal ? CalendarSyncStatus.pendingUpload : existingEvent.syncStatus,
       updatedAt: now,
     );
 
-    if (shouldSyncGoogle &&
-        updated.visibility == CalendarEventVisibility.privateEvent &&
-        _googleApi != null) {
-      try {
-        final token = await _googleApi.acquireAccessToken(interactive: false);
-        final targetGCalId = updated.googleCalendarId ??
-            await _resolveTargetGoogleCalendarId(userId, updated.calendarId);
-        final remote = updated.isLinkedWithGoogle
-            ? await _googleApi.patchEvent(
-                accessToken: token,
-                googleCalendarId: targetGCalId,
-                googleEventId: updated.googleEventId!,
-                event: updated,
-              )
-            : await _googleApi.insertEvent(
-                accessToken: token,
-                googleCalendarId: targetGCalId,
-                event: updated,
-              );
-        updated = updated.copyWith(
-          googleCalendarId: targetGCalId,
-          googleEventId: remote.googleEventId,
-          googleEtag: remote.etag,
-          syncStatus: CalendarSyncStatus.synced,
+    if (shouldSyncExternal && updated.visibility == CalendarEventVisibility.privateEvent) {
+      var syncedExternally = false;
+
+      if (await _deviceCalendar.hasPermission()) {
+        final preferredDevCalId = updated.deviceCalendarId ??
+            await _resolveTargetDeviceCalendarId(userId, updated.calendarId);
+        final savedDevEvId = await _deviceCalendar.upsertEvent(
+          deviceEventId: updated.deviceEventId,
+          deviceCalendarId: preferredDevCalId,
+          title: updated.title,
+          description: updated.description,
+          location: updated.location,
+          startsAt: updated.startsAt,
+          endsAt: updated.endsAt,
+          isAllDay: updated.isAllDay,
+          timeZone: updated.timeZone,
+          rrule: updated.recurrence.toRruleString(),
+          reminderMinutesBefore: updated.reminderMinutesBefore,
         );
-      } catch (_) {
-        updated = updated.copyWith(syncStatus: CalendarSyncStatus.pendingUpload);
+        if (savedDevEvId != null && savedDevEvId > 0) {
+          updated = updated.copyWith(
+            deviceEventId: savedDevEvId,
+            deviceCalendarId: preferredDevCalId,
+            syncStatus: CalendarSyncStatus.synced,
+          );
+          syncedExternally = true;
+        }
+      }
+
+      if (!syncedExternally && _googleApi != null) {
+        try {
+          final token = await _googleApi.acquireAccessToken(interactive: false);
+          final targetGCalId = updated.googleCalendarId ??
+              await _resolveTargetGoogleCalendarId(userId, updated.calendarId);
+          final remote = updated.isLinkedWithGoogle
+              ? await _googleApi.patchEvent(
+                  accessToken: token,
+                  googleCalendarId: targetGCalId,
+                  googleEventId: updated.googleEventId!,
+                  event: updated,
+                )
+              : await _googleApi.insertEvent(
+                  accessToken: token,
+                  googleCalendarId: targetGCalId,
+                  event: updated,
+                );
+          updated = updated.copyWith(
+            googleCalendarId: targetGCalId,
+            googleEventId: remote.googleEventId,
+            googleEtag: remote.etag,
+            syncStatus: CalendarSyncStatus.synced,
+          );
+        } catch (_) {
+          updated = updated.copyWith(syncStatus: CalendarSyncStatus.pendingUpload);
+        }
       }
     }
 
@@ -546,6 +630,11 @@ class CalendarRemoteDataSource {
       final docRef =
           _firestore.collection('users').doc(userId).collection('private_events').doc(eventId);
       final snap = await docRef.get();
+      final devEvId = (snap.data()?['deviceEventId'] as num?)?.toInt();
+      if (devEvId != null && devEvId > 0 && await _deviceCalendar.hasPermission()) {
+        await _deviceCalendar.deleteEvent(devEvId);
+      }
+
       final gEvId = googleEventId ?? (snap.data()?['googleEventId'] as String?);
       final gCalId = googleCalendarId ?? (snap.data()?['googleCalendarId'] as String?) ?? 'primary';
 
@@ -591,195 +680,443 @@ class CalendarRemoteDataSource {
     }
   }
 
-  /// Two-way incremental synchronization with Google Calendar REST API v3:
-  /// 1. Synchronizes user's `CalendarList`
-  /// 2. Pushes local `pendingDelete` & `pendingUpload` / unsynced private events to Google Calendar
-  /// 3. Pulls remote changes (`confirmed`, `tentative`, `cancelled`, `RRULE`) via `syncToken` delta!
+  /// Real Two-Way Calendar Synchronization:
+  /// - Engine A: Native OS System Calendar (`CalendarContract` — Google Calendar app, Samsung Calendar,
+  ///   Outlook, iCloud/CalDAV, Holidays on phone) with zero OAuth SHA-1 friction!
+  /// - Engine B: Official Google Calendar REST API v3 (`CalendarList` + `syncToken` incremental delta)
+  ///   when OAuth / manual access token is available, automatically deduplicating by `googleEventId` / `syncId`.
   Future<GoogleCalendarSyncReport> syncWithGoogleCalendar({
     required String userId,
     required String userName,
     bool interactivePromptIfNeeded = true,
     String? manualAccessTokenOverride,
   }) async {
-    final api = _googleApi;
-    if (api == null) {
-      throw const AppException(
-        code: 'GCAL_UNAVAILABLE',
-        message: 'Chưa cấu hình GoogleCalendarApiDataSource.',
-      );
-    }
-
-    final accessToken = await api.acquireAccessToken(
-      interactive: interactivePromptIfNeeded,
-      manualTokenOverride: manualAccessTokenOverride,
-    );
-
     final userRef = _firestore.collection('users').doc(userId);
     final calendarsCol = userRef.collection('calendars');
     final eventsCol = userRef.collection('private_events');
+    final now = DateTime.now();
 
-    // 1. Sync CalendarList metadata while preserving existing local syncTokens & selection flags
-    final existingCalDocs = await calendarsCol.get();
-    final existingCalById = <String, ManagedCalendarEntity>{
-      for (final doc in existingCalDocs.docs) doc.id: _mapCalendarDoc(doc, userId),
-    };
-
-    final remoteCalendars = await api.listCalendars(
-      accessToken: accessToken,
-      ownerId: userId,
-    );
-
-    final calBatch = _firestore.batch();
-    final syncedCalendars = <ManagedCalendarEntity>[];
-    for (final rc in remoteCalendars) {
-      final prev = existingCalById[rc.id];
-      final merged = rc.copyWith(
-        isSelected: prev?.isSelected ?? rc.isSelected,
-        googleSyncToken: prev?.googleSyncToken,
-        lastSyncedAt: prev?.lastSyncedAt,
-      );
-      syncedCalendars.add(merged);
-      calBatch.set(calendarsCol.doc(merged.id), _calendarToFirestore(merged), SetOptions(merge: true));
-    }
-    await calBatch.commit();
-
+    var totalCalendarsSynced = 0;
     var pushedUpserted = 0;
     var pushedDeleted = 0;
     var pulledUpserted = 0;
     var pulledDeleted = 0;
     var usedIncremental = false;
+    var deviceSyncedOk = false;
+    var googleSyncedOk = false;
 
-    // 2. Push local pending deletes & pending uploads / localOnly private events
-    final localDocsSnap = await eventsCol.get();
-    final localByGoogleEventId = <String, CalendarEventEntity>{};
+    // =========================================================================
+    // ENGINE A: Native OS Device Calendar (`CalendarContract`) 2-Way Sync
+    // =========================================================================
+    final forceManualGoogleOnly =
+        manualAccessTokenOverride != null && manualAccessTokenOverride.trim().isNotEmpty;
 
-    for (final doc in localDocsSnap.docs) {
-      final ev = _mapEvent(doc, CalendarEventVisibility.privateEvent);
-      if (ev.syncStatus == CalendarSyncStatus.pendingDelete) {
-        if (ev.isLinkedWithGoogle) {
-          await api.deleteEvent(
-            accessToken: accessToken,
-            googleCalendarId: ev.googleCalendarId ?? 'primary',
-            googleEventId: ev.googleEventId!,
+    if (!forceManualGoogleOnly && _deviceCalendar.isSupportedPlatform) {
+      var hasPerm = await _deviceCalendar.hasPermission();
+      if (!hasPerm && interactivePromptIfNeeded) {
+        hasPerm = await _deviceCalendar.requestPermission();
+      }
+
+      if (hasPerm) {
+        final existingCalDocs = await calendarsCol.get();
+        final existingCalById = <String, ManagedCalendarEntity>{
+          for (final doc in existingCalDocs.docs) doc.id: _mapCalendarDoc(doc, userId),
+        };
+
+        final devCalendars = await _deviceCalendar.listCalendars();
+        final calBatch = _firestore.batch();
+        final activeDevCalIds = <int, String>{};
+        final devCalColorById = <int, String>{};
+
+        for (final dc in devCalendars) {
+          final calDocId = dc.isPrimary ? 'primary' : 'devcal_${dc.deviceCalendarId}';
+          final prev = existingCalById[calDocId];
+          final merged = ManagedCalendarEntity(
+            id: calDocId,
+            ownerId: userId,
+            summary: dc.summary,
+            description: dc.accountName.isNotEmpty ? dc.accountName : prev?.description,
+            timeZone: dc.timeZone,
+            colorHex: dc.colorHex,
+            isPrimary: dc.isPrimary || calDocId == 'primary',
+            isSelected: prev?.isSelected ?? true,
+            isReadOnly: dc.isReadOnly,
+            source: CalendarProviderSource.deviceCalendar,
+            googleCalendarId: prev?.googleCalendarId,
+            googleSyncToken: prev?.googleSyncToken,
+            deviceCalendarId: dc.deviceCalendarId,
+            lastSyncedAt: now,
           );
-          pushedDeleted++;
-        }
-        await doc.reference.delete();
-        continue;
-      }
-
-      if (ev.syncStatus == CalendarSyncStatus.pendingUpload ||
-          ev.syncStatus == CalendarSyncStatus.localOnly) {
-        final targetGCalId =
-            ev.googleCalendarId ?? await _resolveTargetGoogleCalendarId(userId, ev.calendarId);
-        final remoteRes = ev.isLinkedWithGoogle
-            ? await api.patchEvent(
-                accessToken: accessToken,
-                googleCalendarId: targetGCalId,
-                googleEventId: ev.googleEventId!,
-                event: ev,
-              )
-            : await api.insertEvent(
-                accessToken: accessToken,
-                googleCalendarId: targetGCalId,
-                event: ev,
-              );
-        final syncedEv = ev.copyWith(
-          googleCalendarId: targetGCalId,
-          googleEventId: remoteRes.googleEventId,
-          googleEtag: remoteRes.etag,
-          syncStatus: CalendarSyncStatus.synced,
-          updatedAt: DateTime.now(),
-        );
-        await doc.reference.set(_eventToFirestore(syncedEv), SetOptions(merge: true));
-        localByGoogleEventId[remoteRes.googleEventId] = syncedEv;
-        pushedUpserted++;
-      } else if (ev.isLinkedWithGoogle) {
-        localByGoogleEventId[ev.googleEventId!] = ev;
-      }
-    }
-
-    // 3. Pull delta changes for each selected Google Calendar (Primary + selected secondary calendars)
-    final activeGoogleCals = syncedCalendars.where((c) => c.isSelected && c.isGoogleSynced).toList();
-    final now = DateTime.now();
-
-    for (final gCal in activeGoogleCals) {
-      final gCalId = gCal.googleCalendarId ?? 'primary';
-      final deltaPage = await api.listEventsDelta(
-        accessToken: accessToken,
-        googleCalendarId: gCalId,
-        syncToken: gCal.googleSyncToken,
-      );
-      if (deltaPage.usedIncrementalSyncToken) {
-        usedIncremental = true;
-      }
-
-      final pullBatch = _firestore.batch();
-      for (final remoteEv in deltaPage.items) {
-        final matchedLocal = localByGoogleEventId[remoteEv.googleEventId];
-        if (remoteEv.isCancelled) {
-          if (matchedLocal != null) {
-            pullBatch.delete(eventsCol.doc(matchedLocal.id));
-            pulledDeleted++;
+          calBatch.set(
+            calendarsCol.doc(calDocId),
+            _calendarToFirestore(merged),
+            SetOptions(merge: true),
+          );
+          if (merged.isSelected) {
+            activeDevCalIds[dc.deviceCalendarId] = calDocId;
           }
-          continue;
+          devCalColorById[dc.deviceCalendarId] = dc.colorHex;
+        }
+        await calBatch.commit();
+
+        // Push local pending deletes & localOnly / pendingUpload private events to Device Calendar
+        final localDocsSnap = await eventsCol.get();
+        final localByDocId = <String, CalendarEventEntity>{};
+        final localBySyncId = <String, CalendarEventEntity>{};
+        final localByDeviceEventId = <int, CalendarEventEntity>{};
+
+        for (final doc in localDocsSnap.docs) {
+          final ev = _mapEvent(doc, CalendarEventVisibility.privateEvent);
+          if (ev.syncStatus == CalendarSyncStatus.pendingDelete) {
+            if (ev.deviceEventId != null && ev.deviceEventId! > 0) {
+              await _deviceCalendar.deleteEvent(ev.deviceEventId!);
+              pushedDeleted++;
+            }
+            if (!ev.isLinkedWithGoogle) {
+              await doc.reference.delete();
+            }
+            continue;
+          }
+
+          if (!ev.isLinkedWithDeviceCalendar &&
+              !ev.isLinkedWithGoogle &&
+              (ev.syncStatus == CalendarSyncStatus.pendingUpload ||
+                  ev.syncStatus == CalendarSyncStatus.localOnly)) {
+            final targetDevCal = await _resolveTargetDeviceCalendarId(userId, ev.calendarId);
+            final savedId = await _deviceCalendar.upsertEvent(
+              deviceCalendarId: targetDevCal,
+              title: ev.title,
+              description: ev.description,
+              location: ev.location,
+              startsAt: ev.startsAt,
+              endsAt: ev.endsAt,
+              isAllDay: ev.isAllDay,
+              timeZone: ev.timeZone,
+              rrule: ev.recurrence.toRruleString(),
+              reminderMinutesBefore: ev.reminderMinutesBefore,
+            );
+            if (savedId != null && savedId > 0) {
+              final syncedEv = ev.copyWith(
+                deviceEventId: savedId,
+                deviceCalendarId: targetDevCal,
+                syncStatus: CalendarSyncStatus.synced,
+                updatedAt: now,
+              );
+              await doc.reference.set(_eventToFirestore(syncedEv), SetOptions(merge: true));
+              localByDocId[syncedEv.id] = syncedEv;
+              localByDeviceEventId[savedId] = syncedEv;
+              pushedUpserted++;
+              continue;
+            }
+          }
+
+          localByDocId[ev.id] = ev;
+          if (ev.googleEventId != null && ev.googleEventId!.isNotEmpty) {
+            localBySyncId[ev.googleEventId!] = ev;
+          }
+          if (ev.deviceEventId != null && ev.deviceEventId! > 0) {
+            localByDeviceEventId[ev.deviceEventId!] = ev;
+          }
         }
 
-        // Skip overwriting if we JUST pushed this exact version in Step 2
-        if (matchedLocal != null &&
-            matchedLocal.googleEtag != null &&
-            matchedLocal.googleEtag == remoteEv.etag) {
-          continue;
+        // Pull all real events in [-90 days, +365 days] from Device Calendar
+        final windowStart = now.subtract(const Duration(days: 90));
+        final windowEnd = now.add(const Duration(days: 365));
+        final devEvents = await _deviceCalendar.listEvents(
+          windowStart: windowStart,
+          windowEnd: windowEnd,
+        );
+
+        final seenDocIds = <String>{};
+        var pullBatch = _firestore.batch();
+        var opsInBatch = 0;
+
+        Future<void> commitIfNeeded({bool force = false}) async {
+          if (opsInBatch >= 400 || (force && opsInBatch > 0)) {
+            await pullBatch.commit();
+            pullBatch = _firestore.batch();
+            opsInBatch = 0;
+          }
         }
 
-        final docId = matchedLocal?.id ?? 'gcal_${remoteEv.googleEventId}';
-        final upsertedEntity = CalendarEventEntity(
-          id: docId,
-          calendarId: gCal.id,
-          ownerId: userId,
-          ownerName: userName,
-          visibility: CalendarEventVisibility.privateEvent,
-          title: remoteEv.summary,
-          description: remoteEv.description,
-          location: remoteEv.location,
-          startsAt: remoteEv.startsAt,
-          endsAt: remoteEv.endsAt,
-          isAllDay: remoteEv.isAllDay,
-          timeZone: remoteEv.timeZone,
-          colorHex: gCal.colorHex,
-          reminderMinutesBefore: remoteEv.reminderMinutesBefore,
-          recurrence: remoteEv.recurrence,
-          googleEventId: remoteEv.googleEventId,
-          googleCalendarId: gCalId,
-          googleEtag: remoteEv.etag,
-          syncStatus: CalendarSyncStatus.synced,
-          updatedAt: remoteEv.updatedAt,
-        );
+        for (final item in devEvents) {
+          if (activeDevCalIds.isNotEmpty && !activeDevCalIds.containsKey(item.deviceCalendarId)) {
+            continue;
+          }
+          final mappedCalId = activeDevCalIds[item.deviceCalendarId] ?? 'primary';
 
-        pullBatch.set(
-          eventsCol.doc(docId),
-          _eventToFirestore(upsertedEntity),
-          SetOptions(merge: true),
-        );
-        pulledUpserted++;
+          // Deduplicate with Google-synced events or previously pushed LifeOS events
+          final existingBySync =
+              (item.syncId != null && item.syncId!.isNotEmpty) ? localBySyncId[item.syncId!] : null;
+          final existingByDevId = !item.instanceKey.contains('_')
+              ? localByDeviceEventId[item.deviceEventId]
+              : null;
+          final fallbackDocId = 'devcal_${item.instanceKey}';
+          final matchedLocal =
+              existingBySync ?? existingByDevId ?? localByDocId[fallbackDocId];
+
+          final docId = matchedLocal?.id ?? fallbackDocId;
+          seenDocIds.add(docId);
+
+          final upserted = CalendarEventEntity(
+            id: docId,
+            calendarId: mappedCalId,
+            ownerId: userId,
+            ownerName: userName,
+            visibility: CalendarEventVisibility.privateEvent,
+            title: item.title,
+            description: item.description,
+            location: item.location,
+            startsAt: item.startsAt,
+            endsAt: item.endsAt,
+            isAllDay: item.isAllDay,
+            timeZone: item.timeZone,
+            colorHex: devCalColorById[item.deviceCalendarId] ?? item.colorHex,
+            reminderMinutesBefore: matchedLocal?.reminderMinutesBefore ?? 15,
+            recurrence: CalendarRecurrenceRule.fromRruleString(item.rrule),
+            googleEventId: item.syncId ?? matchedLocal?.googleEventId,
+            googleCalendarId: matchedLocal?.googleCalendarId,
+            googleEtag: matchedLocal?.googleEtag,
+            deviceEventId: item.deviceEventId,
+            deviceCalendarId: item.deviceCalendarId,
+            syncStatus: CalendarSyncStatus.synced,
+            updatedAt: now,
+          );
+
+          pullBatch.set(
+            eventsCol.doc(docId),
+            _eventToFirestore(upserted),
+            SetOptions(merge: true),
+          );
+          opsInBatch++;
+          pulledUpserted++;
+          await commitIfNeeded();
+        }
+
+        // Prune stale `devcal_*` events inside the sync window that were deleted on the phone!
+        for (final entry in localByDocId.entries) {
+          final existing = entry.value;
+          if ((existing.id.startsWith('devcal_') || existing.isLinkedWithDeviceCalendar) &&
+              !seenDocIds.contains(existing.id) &&
+              !existing.startsAt.isBefore(windowStart) &&
+              !existing.startsAt.isAfter(windowEnd)) {
+            pullBatch.delete(eventsCol.doc(existing.id));
+            opsInBatch++;
+            pulledDeleted++;
+            await commitIfNeeded();
+          }
+        }
+        await commitIfNeeded(force: true);
+
+        totalCalendarsSynced = activeDevCalIds.isNotEmpty
+            ? activeDevCalIds.length
+            : devCalendars.length;
+        deviceSyncedOk = true;
       }
-
-      final updatedCal = gCal.copyWith(
-        googleSyncToken: deltaPage.nextSyncToken ?? gCal.googleSyncToken,
-        lastSyncedAt: now,
-      );
-      pullBatch.set(calendarsCol.doc(gCal.id), _calendarToFirestore(updatedCal), SetOptions(merge: true));
-      await pullBatch.commit();
     }
+
+    // =========================================================================
+    // ENGINE B: Official Google Calendar REST API v3 (`CalendarList` + `syncToken`)
+    // =========================================================================
+    final api = _googleApi;
+    if (api != null) {
+      // If Device Calendar already succeeded, try Google REST API silently (`interactive: false`)
+      // so we never block or throw OAuth SHA-1 errors when Device Calendar already synced everything!
+      final shouldTryGoogle = forceManualGoogleOnly || !deviceSyncedOk || api.hasAuthorizedToken;
+      if (shouldTryGoogle) {
+        try {
+          final accessToken = await api.acquireAccessToken(
+            interactive: deviceSyncedOk ? false : interactivePromptIfNeeded,
+            manualTokenOverride: manualAccessTokenOverride,
+          );
+
+          final existingCalDocs = await calendarsCol.get();
+          final existingCalById = <String, ManagedCalendarEntity>{
+            for (final doc in existingCalDocs.docs) doc.id: _mapCalendarDoc(doc, userId),
+          };
+
+          final remoteCalendars = await api.listCalendars(
+            accessToken: accessToken,
+            ownerId: userId,
+          );
+
+          final calBatch = _firestore.batch();
+          final syncedCalendars = <ManagedCalendarEntity>[];
+          for (final rc in remoteCalendars) {
+            final prev = existingCalById[rc.id];
+            final merged = rc.copyWith(
+              isSelected: prev?.isSelected ?? rc.isSelected,
+              googleSyncToken: prev?.googleSyncToken,
+              deviceCalendarId: prev?.deviceCalendarId,
+              lastSyncedAt: prev?.lastSyncedAt,
+            );
+            syncedCalendars.add(merged);
+            calBatch.set(
+              calendarsCol.doc(merged.id),
+              _calendarToFirestore(merged),
+              SetOptions(merge: true),
+            );
+          }
+          await calBatch.commit();
+
+          final localDocsSnap = await eventsCol.get();
+          final localByGoogleEventId = <String, CalendarEventEntity>{};
+
+          for (final doc in localDocsSnap.docs) {
+            final ev = _mapEvent(doc, CalendarEventVisibility.privateEvent);
+            if (ev.syncStatus == CalendarSyncStatus.pendingDelete) {
+              if (ev.isLinkedWithGoogle) {
+                await api.deleteEvent(
+                  accessToken: accessToken,
+                  googleCalendarId: ev.googleCalendarId ?? 'primary',
+                  googleEventId: ev.googleEventId!,
+                );
+                pushedDeleted++;
+              }
+              await doc.reference.delete();
+              continue;
+            }
+
+            if (ev.syncStatus == CalendarSyncStatus.pendingUpload ||
+                ev.syncStatus == CalendarSyncStatus.localOnly) {
+              final targetGCalId = ev.googleCalendarId ??
+                  await _resolveTargetGoogleCalendarId(userId, ev.calendarId);
+              final remoteRes = ev.isLinkedWithGoogle
+                  ? await api.patchEvent(
+                      accessToken: accessToken,
+                      googleCalendarId: targetGCalId,
+                      googleEventId: ev.googleEventId!,
+                      event: ev,
+                    )
+                  : await api.insertEvent(
+                      accessToken: accessToken,
+                      googleCalendarId: targetGCalId,
+                      event: ev,
+                    );
+              final syncedEv = ev.copyWith(
+                googleCalendarId: targetGCalId,
+                googleEventId: remoteRes.googleEventId,
+                googleEtag: remoteRes.etag,
+                syncStatus: CalendarSyncStatus.synced,
+                updatedAt: DateTime.now(),
+              );
+              await doc.reference.set(_eventToFirestore(syncedEv), SetOptions(merge: true));
+              localByGoogleEventId[remoteRes.googleEventId] = syncedEv;
+              pushedUpserted++;
+            } else if (ev.isLinkedWithGoogle) {
+              localByGoogleEventId[ev.googleEventId!] = ev;
+            }
+          }
+
+          final activeGoogleCals =
+              syncedCalendars.where((c) => c.isSelected && c.isGoogleSynced).toList();
+
+          for (final gCal in activeGoogleCals) {
+            final gCalId = gCal.googleCalendarId ?? 'primary';
+            final deltaPage = await api.listEventsDelta(
+              accessToken: accessToken,
+              googleCalendarId: gCalId,
+              syncToken: gCal.googleSyncToken,
+            );
+            if (deltaPage.usedIncrementalSyncToken) {
+              usedIncremental = true;
+            }
+
+            final pullBatch = _firestore.batch();
+            for (final remoteEv in deltaPage.items) {
+              final matchedLocal = localByGoogleEventId[remoteEv.googleEventId];
+              if (remoteEv.isCancelled) {
+                if (matchedLocal != null) {
+                  pullBatch.delete(eventsCol.doc(matchedLocal.id));
+                  pulledDeleted++;
+                }
+                continue;
+              }
+
+              if (matchedLocal != null &&
+                  matchedLocal.googleEtag != null &&
+                  matchedLocal.googleEtag == remoteEv.etag) {
+                continue;
+              }
+
+              final docId = matchedLocal?.id ?? 'gcal_${remoteEv.googleEventId}';
+              final upsertedEntity = CalendarEventEntity(
+                id: docId,
+                calendarId: gCal.id,
+                ownerId: userId,
+                ownerName: userName,
+                visibility: CalendarEventVisibility.privateEvent,
+                title: remoteEv.summary,
+                description: remoteEv.description,
+                location: remoteEv.location,
+                startsAt: remoteEv.startsAt,
+                endsAt: remoteEv.endsAt,
+                isAllDay: remoteEv.isAllDay,
+                timeZone: remoteEv.timeZone,
+                colorHex: gCal.colorHex,
+                reminderMinutesBefore: remoteEv.reminderMinutesBefore,
+                recurrence: remoteEv.recurrence,
+                googleEventId: remoteEv.googleEventId,
+                googleCalendarId: gCalId,
+                googleEtag: remoteEv.etag,
+                deviceEventId: matchedLocal?.deviceEventId,
+                deviceCalendarId: matchedLocal?.deviceCalendarId,
+                syncStatus: CalendarSyncStatus.synced,
+                updatedAt: remoteEv.updatedAt,
+              );
+
+              pullBatch.set(
+                eventsCol.doc(docId),
+                _eventToFirestore(upsertedEntity),
+                SetOptions(merge: true),
+              );
+              pulledUpserted++;
+            }
+
+            final updatedCal = gCal.copyWith(
+              googleSyncToken: deltaPage.nextSyncToken ?? gCal.googleSyncToken,
+              lastSyncedAt: now,
+            );
+            pullBatch.set(
+              calendarsCol.doc(gCal.id),
+              _calendarToFirestore(updatedCal),
+              SetOptions(merge: true),
+            );
+            await pullBatch.commit();
+          }
+
+          if (activeGoogleCals.length > totalCalendarsSynced) {
+            totalCalendarsSynced = activeGoogleCals.length;
+          }
+          googleSyncedOk = true;
+        } catch (e) {
+          if (!deviceSyncedOk) {
+            rethrow;
+          }
+        }
+      }
+    }
+
+    if (!deviceSyncedOk && !googleSyncedOk) {
+      throw const AppException(
+        code: 'CALENDAR_PERMISSION_REQUIRED',
+        message: 'Vui lòng cấp quyền truy cập Lịch để đồng bộ các sự kiện thật trên thiết bị của bạn.',
+      );
+    }
+
+    final sourceLabel = (deviceSyncedOk && googleSyncedOk)
+        ? 'Lịch Thiết bị & Google Calendar'
+        : (deviceSyncedOk ? 'Lịch trên Thiết bị' : 'Google Calendar');
 
     return GoogleCalendarSyncReport(
-      calendarsSynced: activeGoogleCals.length,
+      calendarsSynced: totalCalendarsSynced,
       pulledUpserted: pulledUpserted,
       pulledDeleted: pulledDeleted,
       pushedUpserted: pushedUpserted,
       pushedDeleted: pushedDeleted,
       usedIncrementalSyncToken: usedIncremental,
       syncedAt: now,
+      sourceLabel: sourceLabel,
     );
   }
 }

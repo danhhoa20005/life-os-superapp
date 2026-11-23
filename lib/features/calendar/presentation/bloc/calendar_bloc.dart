@@ -395,7 +395,7 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
         state.copyWith(
           isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
           message: ev.syncStatus == CalendarSyncStatus.synced
-              ? 'Đã lưu & đồng bộ sự kiện lên Google Calendar!'
+              ? 'Đã lưu & đồng bộ sự kiện vào Lịch!'
               : ev.visibility == CalendarEventVisibility.privateEvent
                   ? 'Đã lưu sự kiện riêng tư${ev.isRecurring ? " (${ev.recurrence.humanReadableVi})" : ""}.'
                   : 'Đã chia sẻ sự kiện lên lịch gia đình.',
@@ -416,7 +416,7 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
         state.copyWith(
           isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
           message: ev.syncStatus == CalendarSyncStatus.synced
-              ? 'Đã cập nhật sự kiện & đồng bộ lên Google Calendar!'
+              ? 'Đã cập nhật & đồng bộ sự kiện vào Lịch!'
               : 'Đã cập nhật sự kiện "${ev.title}".',
         ),
       ),
@@ -460,7 +460,8 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
         state.copyWith(
           isSyncingGoogle: false,
           isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
-          failure: f,
+          failure: event.interactive ? f : null,
+          clearFailure: !event.interactive,
         ),
       ),
       (report) => emit(
@@ -468,7 +469,8 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
           isSyncingGoogle: false,
           isGoogleAuthorized: true,
           lastSyncReport: report,
-          message: report.summaryVi,
+          message: event.interactive ? report.summaryVi : null,
+          clearMessage: !event.interactive,
         ),
       ),
     );

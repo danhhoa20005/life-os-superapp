@@ -33,11 +33,13 @@ class MainActivity : FlutterActivity() {
     private val voiceEventChannelName = "vn.lifeos.app/voice_events"
     private val secureVaultChannelName = "vn.lifeos.app/secure_vault"
     private val alarmSchedulerChannelName = "vn.lifeos.app/alarm_scheduler"
+    private val deviceCalendarChannelName = "vn.lifeos.app/device_calendar"
 
     private var pendingWidgetAction: String? = null
     private var pendingAlarmPayload: Map<String, String>? = null
     private var homeWidgetsMethodChannel: MethodChannel? = null
     private var alarmMethodChannel: MethodChannel? = null
+    private var pendingCalendarPermissionResult: MethodChannel.Result? = null
     private var speechRecognizer: SpeechRecognizer? = null
     private var voiceEventSink: EventChannel.EventSink? = null
 
@@ -45,6 +47,7 @@ class MainActivity : FlutterActivity() {
         private const val REQ_RECORD_AUDIO = 7201
         private const val REQ_SPEECH_INTENT = 7202
         private const val REQ_POST_NOTIFICATIONS = 7203
+        private const val REQ_CALENDAR_PERMISSIONS = 7204
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -520,6 +523,117 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // 7. Native Android System Calendar Bridge (`CalendarContract` 2-Way Sync)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceCalendarChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "hasPermission" -> {
+                        result.success(LifeOsDeviceCalendar.hasPermission(applicationContext))
+                    }
+                    "requestPermission" -> {
+                        if (LifeOsDeviceCalendar.hasPermission(applicationContext)) {
+                            result.success(true)
+                        } else {
+                            pendingCalendarPermissionResult?.success(false)
+                            pendingCalendarPermissionResult = result
+                            ActivityCompat.requestPermissions(
+                                this,
+                                arrayOf(
+                                    Manifest.permission.READ_CALENDAR,
+                                    Manifest.permission.WRITE_CALENDAR
+                                ),
+                                REQ_CALENDAR_PERMISSIONS
+                            )
+                        }
+                    }
+                    "listCalendars" -> {
+                        Thread {
+                            try {
+                                val cals = LifeOsDeviceCalendar.listCalendars(applicationContext)
+                                runOnUiThread { result.success(cals) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("CALENDAR_LIST_ERR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                    "listEvents" -> {
+                        val startMs = call.argument<Number>("windowStartMs")?.toLong()
+                            ?: (System.currentTimeMillis() - 90L * 86_400_000L)
+                        val endMs = call.argument<Number>("windowEndMs")?.toLong()
+                            ?: (System.currentTimeMillis() + 365L * 86_400_000L)
+                        Thread {
+                            try {
+                                val events = LifeOsDeviceCalendar.listEvents(
+                                    applicationContext,
+                                    startMs,
+                                    endMs
+                                )
+                                runOnUiThread { result.success(events) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("CALENDAR_EVENTS_ERR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                    "upsertEvent" -> {
+                        val existingId = call.argument<Number>("deviceEventId")?.toLong()
+                        val preferredCalId = call.argument<Number>("deviceCalendarId")?.toLong()
+                        val title = call.argument<String>("title") ?: "Sự kiện"
+                        val description = call.argument<String>("description")
+                        val location = call.argument<String>("location")
+                        val startsAtMs = call.argument<Number>("startsAtMs")?.toLong()
+                            ?: System.currentTimeMillis()
+                        val endsAtMs = call.argument<Number>("endsAtMs")?.toLong()
+                            ?: (startsAtMs + 3_600_000L)
+                        val isAllDay = call.argument<Boolean>("isAllDay") ?: false
+                        val timeZone = call.argument<String>("timeZone")
+                        val rrule = call.argument<String>("rrule")
+                        val reminderMinutesBefore = call.argument<Int>("reminderMinutesBefore") ?: 15
+
+                        Thread {
+                            try {
+                                val savedId = LifeOsDeviceCalendar.upsertEvent(
+                                    context = applicationContext,
+                                    existingDeviceEventId = existingId,
+                                    preferredDeviceCalendarId = preferredCalId,
+                                    title = title,
+                                    description = description,
+                                    location = location,
+                                    startsAtMs = startsAtMs,
+                                    endsAtMs = endsAtMs,
+                                    isAllDay = isAllDay,
+                                    timeZone = timeZone,
+                                    rrule = rrule,
+                                    reminderMinutesBefore = reminderMinutesBefore
+                                )
+                                runOnUiThread { result.success(savedId) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("CALENDAR_UPSERT_ERR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                    "deleteEvent" -> {
+                        val devEvId = call.argument<Number>("deviceEventId")?.toLong() ?: 0L
+                        Thread {
+                            try {
+                                val ok = LifeOsDeviceCalendar.deleteEvent(applicationContext, devEvId)
+                                runOnUiThread { result.success(ok) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("CALENDAR_DELETE_ERR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     private fun startVietnameseVoiceCapture() {
@@ -607,6 +721,12 @@ class MainActivity : FlutterActivity() {
             grantResults[0] == PackageManager.PERMISSION_GRANTED
         ) {
             startVietnameseVoiceCapture()
+        } else if (requestCode == REQ_CALENDAR_PERMISSIONS) {
+            val cb = pendingCalendarPermissionResult
+            pendingCalendarPermissionResult = null
+            val granted = grantResults.isNotEmpty() &&
+                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            cb?.success(granted || LifeOsDeviceCalendar.hasPermission(applicationContext))
         }
     }
 

@@ -232,7 +232,7 @@ class PlanningPage extends StatelessWidget {
   }
 }
 
-class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
+class _GoogleAndLifeOsCalendarTab extends StatefulWidget {
   final String userId;
   final String userName;
   final String? familyId;
@@ -244,6 +244,42 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
     required this.familyId,
     required this.availabilityOptIn,
   });
+
+  @override
+  State<_GoogleAndLifeOsCalendarTab> createState() => _GoogleAndLifeOsCalendarTabState();
+}
+
+class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab>
+    with WidgetsBindingObserver {
+  String get userId => widget.userId;
+  String get userName => widget.userName;
+  String? get familyId => widget.familyId;
+  bool get availabilityOptIn => widget.availabilityOptIn;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<CalendarBloc>().add(
+            GoogleCalendarSyncRequested(
+              userId: userId,
+              userName: userName,
+              interactive: false,
+            ),
+          );
+    }
+  }
 
   static Color _parseHexColor(String? hex, Color fallback) {
     if (hex == null || hex.isEmpty) return fallback;
@@ -443,11 +479,28 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                 AppSpacing.xxl,
               ),
               children: [
-                // 0. Unified LifeOS Month Grid + Day Timeline (`02_Lich.png`)
-                _LifeOsInteractiveCalendarDeck(events: state.events),
+                // 0. Unified LifeOS Month Grid + Day/Week/Month Real Timeline (Zero Mock Data)
+                _LifeOsInteractiveCalendarDeck(
+                  events: state.filteredEvents,
+                  isSyncing: state.isSyncingGoogle,
+                  onSyncRequested: () => context.read<CalendarBloc>().add(
+                        GoogleCalendarSyncRequested(
+                          userId: userId,
+                          userName: userName,
+                        ),
+                      ),
+                  onAddEventForDate: (selectedDate) => showUpsertCalendarEventDialog(
+                    context,
+                    userId: userId,
+                    userName: userName,
+                    familyId: familyId,
+                    availabilityOptIn: availabilityOptIn,
+                    initialDate: selectedDate,
+                  ),
+                ),
                 const SizedBox(height: 14),
 
-                // 1. Google Calendar Sync Card
+                // 1. Device & Google Calendar 2-Way Sync Card
                 LifeOsMintHeroCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,7 +524,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Đồng bộ Google Calendar',
+                                  'Đồng bộ Lịch thiết bị & Google Calendar',
                                   style: TextStyle(
                                     color: c.textPrimary,
                                     fontWeight: FontWeight.w800,
@@ -480,7 +533,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                                 ),
                                 Text(
                                   state.lastSyncReport != null
-                                      ? 'Cập nhật lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · ${state.calendars.length} bộ lịch'
+                                      ? 'Cập nhật lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · ${state.calendars.length} bộ lịch · ${state.events.length} sự kiện'
                                       : '${state.calendars.length} bộ lịch · $syncedCount sự kiện đã đồng bộ',
                                   style: TextStyle(
                                     color: c.textSecondary,
@@ -524,8 +577,8 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                                 : const Icon(Icons.sync_rounded, size: 18),
                             label: Text(
                               state.isSyncingGoogle
-                                  ? 'Đang đồng bộ Google...'
-                                  : 'Đồng bộ Google Calendar',
+                                  ? 'Đang đồng bộ Lịch...'
+                                  : 'Đồng bộ Lịch ngay',
                             ),
                           ),
                           OutlinedButton.icon(
@@ -610,7 +663,9 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                               ),
                             ),
                             label: Text(
-                              cal.isGoogleSynced ? '${cal.summary} · GCal' : cal.summary,
+                              cal.isGoogleSynced
+                                  ? '${cal.summary} · GCal'
+                                  : (cal.isDeviceSynced ? '${cal.summary} · Máy' : cal.summary),
                             ),
                             selected: isFiltered,
                             onSelected: (_) => context.read<CalendarBloc>().add(
@@ -650,18 +705,18 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                 // 4. Events & Recurring Series List
                 if (state.filteredEvents.isEmpty)
                   EmptyStateView(
-                    icon: Icons.event_available_rounded,
+                    icon: Icons.sync_rounded,
                     imageAsset: AppAssets.planningAssetsIllustration,
-                    title: 'Chưa có sự kiện nào',
-                    subtitle: 'Nhấn nút bên dưới để thêm lịch hẹn mới.',
-                    actionLabel: 'Tạo sự kiện mới',
-                    onAction: () => showUpsertCalendarEventDialog(
-                      context,
-                      userId: userId,
-                      userName: userName,
-                      familyId: familyId,
-                      availabilityOptIn: availabilityOptIn,
-                    ),
+                    title: 'Chưa có sự kiện nào trong danh sách',
+                    subtitle:
+                        'Nhấn "Đồng bộ Lịch ngay" để tải lịch trình thật từ điện thoại & Google Calendar, hoặc tạo sự kiện mới.',
+                    actionLabel: 'Đồng bộ Lịch ngay',
+                    onAction: () => context.read<CalendarBloc>().add(
+                          GoogleCalendarSyncRequested(
+                            userId: userId,
+                            userName: userName,
+                          ),
+                        ),
                   )
                 else
                   ...state.filteredEvents.map((ev) {
@@ -806,9 +861,9 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                                       _ => SemanticStatusKind.info,
                                     },
                                     label: switch (ev.syncStatus) {
-                                      CalendarSyncStatus.synced => '☁ Đã đồng bộ Google',
-                                      CalendarSyncStatus.pendingUpload => '⏳ Chờ đẩy lên GCal',
-                                      _ => 'Lưu trên Life OS Cloud',
+                                      CalendarSyncStatus.synced => '☁ Đã đồng bộ Lịch',
+                                      CalendarSyncStatus.pendingUpload => '⏳ Chờ đồng bộ',
+                                      _ => 'Lưu nội bộ',
                                     },
                                   ),
                                 ],
@@ -846,6 +901,7 @@ Future<void> showUpsertCalendarEventDialog(
   String? familyId,
   required bool availabilityOptIn,
   CalendarEventEntity? existingEvent,
+  DateTime? initialDate,
 }) async {
   final isEditing = existingEvent != null;
   final calBloc = context.read<CalendarBloc>();
@@ -868,12 +924,17 @@ Future<void> showUpsertCalendarEventDialog(
     selectedCalendarId = calendars.first.id;
   }
 
+  final now = DateTime.now();
+  final baseStart = initialDate != null
+      ? DateTime(initialDate.year, initialDate.month, initialDate.day, now.hour + 1, 0)
+      : now.add(const Duration(hours: 1));
   var isAllDay = existingEvent?.isAllDay ?? false;
-  var startsAt = existingEvent?.startsAt ?? DateTime.now().add(const Duration(hours: 1));
+  var startsAt = existingEvent?.startsAt ?? baseStart;
   var endsAt = existingEvent?.endsAt ?? startsAt.add(const Duration(hours: 1));
   var reminderMinutes = existingEvent?.reminderMinutesBefore ?? 30;
   var syncToGoogle = existingEvent != null
       ? (existingEvent.isLinkedWithGoogle ||
+          existingEvent.isLinkedWithDeviceCalendar ||
           existingEvent.syncStatus == CalendarSyncStatus.pendingUpload)
       : true;
 
@@ -1183,8 +1244,8 @@ Future<void> showUpsertCalendarEventDialog(
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: const Text('Đồng bộ lên Google Calendar'),
-                    subtitle: const Text('Tự động tạo/cập nhật sự kiện trên Google Calendar'),
+                    title: const Text('Đồng bộ vào Lịch thiết bị & Google Calendar'),
+                    subtitle: const Text('Tự động tạo và cập nhật hai chiều trên ứng dụng Lịch'),
                     value: syncToGoogle,
                     onChanged: (v) => setDialogState(() => syncToGoogle = v),
                   ),
@@ -1269,11 +1330,19 @@ Future<void> showUpsertCalendarEventDialog(
   countCtrl.dispose();
 }
 
-/// Interactive Month Grid + Day Timeline matching `02_Lich.png` in Unified LifeOS Style.
+/// Interactive Month Grid + Day/Week/Month Real Timeline (100% Real Synced Events — Zero Mock Data).
 class _LifeOsInteractiveCalendarDeck extends StatefulWidget {
   final List<CalendarEventEntity> events;
+  final bool isSyncing;
+  final VoidCallback onSyncRequested;
+  final ValueChanged<DateTime> onAddEventForDate;
 
-  const _LifeOsInteractiveCalendarDeck({required this.events});
+  const _LifeOsInteractiveCalendarDeck({
+    required this.events,
+    required this.isSyncing,
+    required this.onSyncRequested,
+    required this.onAddEventForDate,
+  });
 
   @override
   State<_LifeOsInteractiveCalendarDeck> createState() =>
@@ -1297,19 +1366,52 @@ class _LifeOsInteractiveCalendarDeckState
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// Expands single, multi-day, and RRULE-recurring events that actually fall inside `[winStart, winEnd]`.
+  List<CalendarEventEntity> _eventsInWindow(DateTime winStart, DateTime winEnd) {
+    final matches = <CalendarEventEntity>[];
+    for (final ev in widget.events) {
+      final duration = ev.endsAt.isAfter(ev.startsAt)
+          ? ev.endsAt.difference(ev.startsAt)
+          : const Duration(hours: 1);
+
+      if (ev.isRecurring) {
+        final occs = ev.recurrence.expandOccurrences(
+          firstStart: ev.startsAt,
+          windowStart: winStart.subtract(duration),
+          windowEnd: winEnd,
+          maxInstances: 40,
+        );
+        for (final occStart in occs) {
+          final occEnd = occStart.add(duration);
+          if (!occStart.isAfter(winEnd) && !occEnd.isBefore(winStart)) {
+            matches.add(ev.copyWith(startsAt: occStart, endsAt: occEnd));
+          }
+        }
+      } else {
+        if (!ev.startsAt.isAfter(winEnd) && !ev.endsAt.isBefore(winStart)) {
+          matches.add(ev);
+        }
+      }
+    }
+    matches.sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    return matches;
+  }
+
+  bool _dateHasRealEvent(DateTime day) {
+    final dayStart = DateTime(day.year, day.month, day.day);
+    final dayEnd = DateTime(day.year, day.month, day.day, 23, 59, 59, 999);
+    return _eventsInWindow(dayStart, dayEnd).isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final timeFmt = DateFormat('HH:mm');
+    final shortDateFmt = DateFormat('dd/MM');
 
     final firstOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final startOffset = firstOfMonth.weekday - 1; // Monday = 0
     final gridStart = firstOfMonth.subtract(Duration(days: startOffset));
-
-    final dayEvents = widget.events
-        .where((e) => _sameDay(e.startsAt, _selectedDate))
-        .toList()
-      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
     const weekdaysVi = <int, String>{
       DateTime.monday: 'Thứ Hai',
@@ -1320,8 +1422,37 @@ class _LifeOsInteractiveCalendarDeckState
       DateTime.saturday: 'Thứ Bảy',
       DateTime.sunday: 'Chủ Nhật',
     };
-    final selectedDayHeader =
-        '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day} tháng ${_selectedDate.month}';
+
+    final (DateTime winStart, DateTime winEnd, String periodHeader) = switch (_viewMode) {
+      'week' => () {
+          final monday = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+          final start = DateTime(monday.year, monday.month, monday.day);
+          final sunday = start.add(const Duration(days: 6));
+          final end = DateTime(sunday.year, sunday.month, sunday.day, 23, 59, 59, 999);
+          return (
+            start,
+            end,
+            'Tuần ${shortDateFmt.format(start)} – ${shortDateFmt.format(sunday)}',
+          );
+        }(),
+      'month' => () {
+          final start = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+          final nextM = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+          final end = nextM.subtract(const Duration(milliseconds: 1));
+          return (
+            start,
+            end,
+            'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}',
+          );
+        }(),
+      _ => (
+          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day),
+          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59, 999),
+          '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day} tháng ${_selectedDate.month}',
+        ),
+    };
+
+    final periodEvents = _eventsInWindow(winStart, winEnd);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1338,7 +1469,7 @@ class _LifeOsInteractiveCalendarDeckState
         ),
         const SizedBox(height: 12),
 
-        // 2. Interactive Month Calendar Card (`02_Lich.png`)
+        // 2. Interactive Month Calendar Card
         LifeOsSoftCard(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
           child: Column(
@@ -1399,7 +1530,7 @@ class _LifeOsInteractiveCalendarDeckState
                     .toList(),
               ),
               const SizedBox(height: 8),
-              for (var week = 0; week < 5; week++)
+              for (var week = 0; week < 6; week++)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
@@ -1408,13 +1539,18 @@ class _LifeOsInteractiveCalendarDeckState
                           gridStart.add(Duration(days: week * 7 + dow));
                       final inMonth = cellDate.month == _focusedMonth.month;
                       final isSelected = _sameDay(cellDate, _selectedDate);
-                      final hasEvent = widget.events
-                          .any((ev) => _sameDay(ev.startsAt, cellDate));
+                      final hasEvent = _dateHasRealEvent(cellDate);
 
                       return Expanded(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _selectedDate = cellDate),
+                          onTap: () => setState(() {
+                            _selectedDate = cellDate;
+                            if (cellDate.month != _focusedMonth.month ||
+                                cellDate.year != _focusedMonth.year) {
+                              _focusedMonth = DateTime(cellDate.year, cellDate.month, 1);
+                            }
+                          }),
                           child: Container(
                             height: 40,
                             margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -1443,7 +1579,7 @@ class _LifeOsInteractiveCalendarDeckState
                                     ],
                                   ),
                                 ),
-                                if (hasEvent || isSelected) ...[
+                                if (hasEvent) ...[
                                   const SizedBox(height: 2),
                                   Container(
                                     width: 5,
@@ -1467,7 +1603,7 @@ class _LifeOsInteractiveCalendarDeckState
         ),
         const SizedBox(height: 12),
 
-        // 3. Selected Day Timeline Card (`02_Lich.png` -> tap opens `/event-detail`)
+        // 3. Real Synced Events Card (Zero Mock Fallbacks)
         LifeOsSoftCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1478,7 +1614,7 @@ class _LifeOsInteractiveCalendarDeckState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      selectedDayHeader,
+                      periodHeader,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1490,42 +1626,106 @@ class _LifeOsInteractiveCalendarDeckState
                     ),
                   ),
                   LifeOsStatusPill(
-                    label: '${dayEvents.isEmpty ? widget.events.length : dayEvents.length} sự kiện',
+                    label: '${periodEvents.length} sự kiện',
                     tone: LifeOsAccentTone.emerald,
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              if (dayEvents.isEmpty && widget.events.isEmpty) ...[
-                _DayTimelineRow(
-                  barColor: c.primary,
-                  icon: Icons.groups_outlined,
-                  tone: LifeOsAccentTone.emerald,
-                  title: 'Họp phụ huynh & Gia đình',
-                  timeRange: '18:30 – 20:00',
-                  tagLabel: 'Gia đình',
-                  onTap: () => context.push('/event-detail'),
-                ),
-                const SizedBox(height: 10),
-                _DayTimelineRow(
-                  barColor: const Color(0xFF2563EB),
-                  icon: Icons.alarm_on_rounded,
-                  tone: LifeOsAccentTone.blue,
-                  title: 'Xem thử Báo thức sự kiện 07:30',
-                  timeRange: '07:30 – 08:00',
-                  tagLabel: 'Báo thức',
-                  onTap: () => context.push('/event-alarm'),
-                ),
-              ] else
-                ...(dayEvents.isNotEmpty ? dayEvents : widget.events.take(4))
-                    .toList()
-                    .asMap()
-                    .entries
-                    .map((entry) {
+              if (widget.events.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: c.surfaceRaised,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: c.separator),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chưa đồng bộ sự kiện nào',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Đồng bộ trực tiếp với Lịch trên điện thoại & Google Calendar để hiển thị đúng lịch trình thật của bạn.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          color: c.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            key: const Key('deck_sync_calendar_btn'),
+                            onPressed: widget.isSyncing ? null : widget.onSyncRequested,
+                            icon: const Icon(Icons.sync_rounded, size: 17),
+                            label: Text(
+                              widget.isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Lịch ngay',
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => widget.onAddEventForDate(_selectedDate),
+                            icon: const Icon(Icons.add_rounded, size: 17),
+                            label: const Text('Thêm sự kiện'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                )
+              else if (periodEvents.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: c.surfaceRaised,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Text(
+                        _viewMode == 'day'
+                            ? 'Không có sự kiện nào trong ngày này.'
+                            : 'Không có sự kiện nào trong khoảng thời gian này.',
+                        style: TextStyle(fontSize: 13, color: c.textSecondary),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                        onPressed: () => widget.onAddEventForDate(_selectedDate),
+                        icon: const Icon(Icons.add_rounded, size: 17),
+                        label: const Text('Thêm sự kiện'),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ...periodEvents.take(25).toList().asMap().entries.map((entry) {
                   final idx = entry.key;
                   final ev = entry.value;
                   final isShared =
                       ev.visibility == CalendarEventVisibility.sharedEvent;
+                  final datePrefix = _viewMode == 'day'
+                      ? ''
+                      : '${shortDateFmt.format(ev.startsAt)} · ';
+                  final timeLabel = ev.isAllDay
+                      ? '${datePrefix}Cả ngày'
+                      : '$datePrefix${timeFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}';
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _DayTimelineRow(
@@ -1538,8 +1738,7 @@ class _LifeOsInteractiveCalendarDeckState
                           ? LifeOsAccentTone.emerald
                           : LifeOsAccentTone.blue,
                       title: ev.title,
-                      timeRange:
-                          '${timeFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}',
+                      timeRange: timeLabel,
                       tagLabel: isShared ? 'Gia đình' : 'Cá nhân',
                       onTap: () => context.push('/event-detail', extra: ev),
                     ),

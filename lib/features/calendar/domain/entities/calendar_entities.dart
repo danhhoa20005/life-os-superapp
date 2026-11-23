@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 enum CalendarEventVisibility { privateEvent, sharedEvent }
 
-enum CalendarProviderSource { lifeOsPrivate, lifeOsFamily, googleCalendar }
+enum CalendarProviderSource { lifeOsPrivate, lifeOsFamily, googleCalendar, deviceCalendar }
 
 enum CalendarSyncStatus { localOnly, synced, pendingUpload, pendingDelete, syncConflict }
 
@@ -252,6 +252,7 @@ class ManagedCalendarEntity extends Equatable {
   final CalendarProviderSource source;
   final String? googleCalendarId;
   final String? googleSyncToken;
+  final int? deviceCalendarId;
   final DateTime? lastSyncedAt;
 
   const ManagedCalendarEntity({
@@ -267,12 +268,18 @@ class ManagedCalendarEntity extends Equatable {
     this.source = CalendarProviderSource.lifeOsPrivate,
     this.googleCalendarId,
     this.googleSyncToken,
+    this.deviceCalendarId,
     this.lastSyncedAt,
   });
 
   bool get isGoogleSynced =>
       source == CalendarProviderSource.googleCalendar ||
       (googleCalendarId != null && googleCalendarId!.isNotEmpty);
+
+  bool get isDeviceSynced =>
+      source == CalendarProviderSource.deviceCalendar || deviceCalendarId != null;
+
+  bool get isExternalSynced => isGoogleSynced || isDeviceSynced;
 
   ManagedCalendarEntity copyWith({
     String? summary,
@@ -286,6 +293,7 @@ class ManagedCalendarEntity extends Equatable {
     String? googleCalendarId,
     String? googleSyncToken,
     bool clearSyncToken = false,
+    int? deviceCalendarId,
     DateTime? lastSyncedAt,
   }) {
     return ManagedCalendarEntity(
@@ -301,6 +309,7 @@ class ManagedCalendarEntity extends Equatable {
       source: source ?? this.source,
       googleCalendarId: googleCalendarId ?? this.googleCalendarId,
       googleSyncToken: clearSyncToken ? null : (googleSyncToken ?? this.googleSyncToken),
+      deviceCalendarId: deviceCalendarId ?? this.deviceCalendarId,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     );
   }
@@ -315,9 +324,11 @@ class ManagedCalendarEntity extends Equatable {
         colorHex,
         isPrimary,
         isSelected,
+        isReadOnly,
         source,
         googleCalendarId,
         googleSyncToken,
+        deviceCalendarId,
         lastSyncedAt,
       ];
 }
@@ -342,6 +353,8 @@ class CalendarEventEntity extends Equatable {
   final String? googleEventId;
   final String? googleCalendarId;
   final String? googleEtag;
+  final int? deviceEventId;
+  final int? deviceCalendarId;
   final CalendarSyncStatus syncStatus;
   final DateTime? updatedAt;
 
@@ -365,6 +378,8 @@ class CalendarEventEntity extends Equatable {
     this.googleEventId,
     this.googleCalendarId,
     this.googleEtag,
+    this.deviceEventId,
+    this.deviceCalendarId,
     this.syncStatus = CalendarSyncStatus.localOnly,
     this.updatedAt,
   });
@@ -372,6 +387,8 @@ class CalendarEventEntity extends Equatable {
   bool get isRecurring => recurrence.isRecurring;
 
   bool get isLinkedWithGoogle => googleEventId != null && googleEventId!.isNotEmpty;
+
+  bool get isLinkedWithDeviceCalendar => deviceEventId != null && deviceEventId! > 0;
 
   CalendarEventEntity copyWith({
     String? calendarId,
@@ -389,6 +406,8 @@ class CalendarEventEntity extends Equatable {
     String? googleEventId,
     String? googleCalendarId,
     String? googleEtag,
+    int? deviceEventId,
+    int? deviceCalendarId,
     CalendarSyncStatus? syncStatus,
     DateTime? updatedAt,
   }) {
@@ -412,6 +431,8 @@ class CalendarEventEntity extends Equatable {
       googleEventId: googleEventId ?? this.googleEventId,
       googleCalendarId: googleCalendarId ?? this.googleCalendarId,
       googleEtag: googleEtag ?? this.googleEtag,
+      deviceEventId: deviceEventId ?? this.deviceEventId,
+      deviceCalendarId: deviceCalendarId ?? this.deviceCalendarId,
       syncStatus: syncStatus ?? this.syncStatus,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -438,6 +459,8 @@ class CalendarEventEntity extends Equatable {
         googleEventId,
         googleCalendarId,
         googleEtag,
+        deviceEventId,
+        deviceCalendarId,
         syncStatus,
         updatedAt,
       ];
@@ -451,6 +474,7 @@ class GoogleCalendarSyncReport extends Equatable {
   final int pushedDeleted;
   final bool usedIncrementalSyncToken;
   final DateTime syncedAt;
+  final String sourceLabel;
 
   const GoogleCalendarSyncReport({
     required this.calendarsSynced,
@@ -460,12 +484,12 @@ class GoogleCalendarSyncReport extends Equatable {
     required this.pushedDeleted,
     required this.usedIncrementalSyncToken,
     required this.syncedAt,
+    this.sourceLabel = 'Google Calendar',
   });
 
   String get summaryVi {
-    final mode = usedIncrementalSyncToken ? 'Delta SyncToken' : 'Full Sync';
-    return 'Đồng bộ Google Calendar ($mode): $calendarsSynced lịch · '
-        'tải về $pulledUpserted, đẩy lên $pushedUpserted, xóa $pulledDeleted/$pushedDeleted sự kiện.';
+    return 'Đã đồng bộ $sourceLabel: $calendarsSynced bộ lịch · '
+        'cập nhật $pulledUpserted sự kiện, gửi lên $pushedUpserted sự kiện.';
   }
 
   @override
@@ -477,6 +501,7 @@ class GoogleCalendarSyncReport extends Equatable {
         pushedDeleted,
         usedIncrementalSyncToken,
         syncedAt,
+        sourceLabel,
       ];
 }
 

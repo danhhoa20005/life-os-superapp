@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
@@ -7,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/core/error/app_exception.dart';
+import 'package:life_os/core/services/native_device_calendar_bridge.dart';
 import 'package:life_os/features/calendar/domain/entities/calendar_entities.dart';
 import 'package:life_os/features/calendar/domain/repositories/calendar_repository.dart';
 import 'package:life_os/features/calendar/presentation/bloc/calendar_bloc.dart';
@@ -309,5 +311,203 @@ void main() {
 
       await bloc.close();
     });
+
+    test('Zero mocked event placeholders remain anywhere in lib/', () {
+      const bannedMockEventStrings = <String>[
+        'preview_parent_meeting',
+        'Trường Tiểu học Hòa Bình',
+        'Xem thử Báo thức sự kiện 07:30',
+        'Họp phụ huynh & Gia đình',
+      ];
+      final dartFiles = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList();
+
+      final violations = <String>[];
+      for (final f in dartFiles) {
+        final src = f.readAsStringSync();
+        for (final banned in bannedMockEventStrings) {
+          if (src.contains(banned)) {
+            violations.add('${f.path}: "$banned"');
+          }
+        }
+      }
+      expect(violations, isEmpty, reason: 'Found mocked calendar event data: $violations');
+    });
+
+    test('Native Device Calendar (CalendarContract) 2-way sync pulls phone events, pushes LifeOS events & prunes deletions', () async {
+      final driver = _InMemoryDeviceCalendarDriver(
+        calendars: [
+          const DeviceCalendarInfo(
+            deviceCalendarId: 1,
+            summary: 'Lịch cá nhân trên điện thoại',
+            accountName: 'hoa@gmail.com',
+            accountType: 'com.google',
+            colorHex: '#0B7A2A',
+            isPrimary: true,
+          ),
+        ],
+        initialEvents: [
+          DeviceCalendarEventItem(
+            instanceKey: '101',
+            deviceEventId: 101,
+            deviceCalendarId: 1,
+            title: 'Khám sức khỏe định kỳ',
+            location: 'Bệnh viện Đại học Y Dược',
+            startsAt: DateTime.now().add(const Duration(hours: 3)),
+            endsAt: DateTime.now().add(const Duration(hours: 4)),
+          ),
+        ],
+        permissionGranted: false,
+      );
+      NativeDeviceCalendarBridge.setDriverOverride(driver);
+      addTearDown(() => NativeDeviceCalendarBridge.setDriverOverride(null));
+
+      final fakeFirestore = FakeFirebaseFirestore();
+      final mockAuth = MockFirebaseAuth(
+        signedIn: true,
+        mockUser: MockUser(uid: 'u_dev_cal', email: 'hoa@gmail.com', displayName: 'Danh Hòa'),
+      );
+
+      await sl.reset();
+      await configureDependencies(
+        authOverride: mockAuth,
+        firestoreOverride: fakeFirestore,
+        httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+      );
+
+      final repo = sl<CalendarRepository>();
+      final bloc = sl<CalendarBloc>()..add(const CalendarWatchStarted(userId: 'u_dev_cal'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // 1. Sync pulls real event from Device Calendar without needing Google web OAuth token
+      final sync1 = await repo.syncWithGoogleCalendar(
+        userId: 'u_dev_cal',
+        userName: 'Danh Hòa',
+      );
+      expect(sync1.isSuccess, isTrue);
+      final report1 = (sync1 as Success<GoogleCalendarSyncReport>).value;
+      expect(report1.sourceLabel, contains('Lịch'));
+      expect(report1.pulledUpserted, 1);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(bloc.state.events.any((e) => e.title == 'Khám sức khỏe định kỳ'), isTrue);
+
+      // 2. Creating a private event in LifeOS writes directly into Device Calendar (`deviceEventId` assigned)
+      final createdRes = await repo.createEvent(
+        userId: 'u_dev_cal',
+        userName: 'Danh Hòa',
+        visibility: CalendarEventVisibility.privateEvent,
+        title: 'Đóng tiền điện tháng 11',
+        startsAt: DateTime.now().add(const Duration(days: 1)),
+        endsAt: DateTime.now().add(const Duration(days: 1, hours: 1)),
+        publishBusySlot: false,
+        syncToGoogle: true,
+      );
+      expect(createdRes.isSuccess, isTrue);
+      final savedEv = (createdRes as Success<CalendarEventEntity>).value;
+      expect(savedEv.isLinkedWithDeviceCalendar, isTrue);
+      expect(driver.events.any((e) => e.title == 'Đóng tiền điện tháng 11'), isTrue);
+
+      // 3. Deleting an event in phone's Calendar app prunes it from LifeOS on next sync
+      driver.events.removeWhere((e) => e.deviceEventId == 101);
+      final sync2 = await repo.syncWithGoogleCalendar(
+        userId: 'u_dev_cal',
+        userName: 'Danh Hòa',
+      );
+      expect((sync2 as Success<GoogleCalendarSyncReport>).value.pulledDeleted, 1);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(bloc.state.events.any((e) => e.title == 'Khám sức khỏe định kỳ'), isFalse);
+
+      // 4. Deleting LifeOS event also deletes it from Device Calendar
+      await repo.deleteEvent(
+        userId: 'u_dev_cal',
+        visibility: CalendarEventVisibility.privateEvent,
+        eventId: savedEv.id,
+      );
+      expect(driver.events.any((e) => e.title == 'Đóng tiền điện tháng 11'), isFalse);
+
+      await bloc.close();
+    });
   });
+}
+
+class _InMemoryDeviceCalendarDriver implements DeviceCalendarDriver {
+  final List<DeviceCalendarInfo> calendars;
+  final List<DeviceCalendarEventItem> events;
+  bool permissionGranted;
+  int _nextId = 500;
+
+  _InMemoryDeviceCalendarDriver({
+    required this.calendars,
+    required List<DeviceCalendarEventItem> initialEvents,
+    this.permissionGranted = true,
+  }) : events = List<DeviceCalendarEventItem>.from(initialEvents);
+
+  @override
+  bool get isSupportedPlatform => true;
+
+  @override
+  Future<bool> hasPermission() async => permissionGranted;
+
+  @override
+  Future<bool> requestPermission() async {
+    permissionGranted = true;
+    return true;
+  }
+
+  @override
+  Future<List<DeviceCalendarInfo>> listCalendars() async => calendars;
+
+  @override
+  Future<List<DeviceCalendarEventItem>> listEvents({
+    required DateTime windowStart,
+    required DateTime windowEnd,
+  }) async {
+    return events
+        .where((e) => !e.startsAt.isAfter(windowEnd) && !e.endsAt.isBefore(windowStart))
+        .toList();
+  }
+
+  @override
+  Future<int?> upsertEvent({
+    int? deviceEventId,
+    int? deviceCalendarId,
+    required String title,
+    String? description,
+    String? location,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    bool isAllDay = false,
+    String timeZone = 'Asia/Ho_Chi_Minh',
+    String? rrule,
+    int reminderMinutesBefore = 15,
+  }) async {
+    final id = (deviceEventId != null && deviceEventId > 0) ? deviceEventId : (_nextId++);
+    events.removeWhere((e) => e.deviceEventId == id);
+    events.add(
+      DeviceCalendarEventItem(
+        instanceKey: '$id',
+        deviceEventId: id,
+        deviceCalendarId: deviceCalendarId ?? 1,
+        title: title,
+        description: description,
+        location: location,
+        startsAt: startsAt,
+        endsAt: endsAt,
+        isAllDay: isAllDay,
+        timeZone: timeZone,
+        rrule: rrule,
+      ),
+    );
+    return id;
+  }
+
+  @override
+  Future<bool> deleteEvent(int deviceEventId) async {
+    final before = events.length;
+    events.removeWhere((e) => e.deviceEventId == deviceEventId);
+    return events.length < before;
+  }
 }

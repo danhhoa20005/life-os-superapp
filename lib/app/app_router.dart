@@ -501,8 +501,18 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
             ),
         ),
         BlocProvider<CalendarBloc>(
-          create: (_) => sl<CalendarBloc>()
-            ..add(CalendarWatchStarted(userId: userId, familyId: familyId)),
+          create: (ctx) {
+            final userName = ctx.read<AuthBloc>().state.user?.fullName ?? 'Cá nhân';
+            return sl<CalendarBloc>()
+              ..add(CalendarWatchStarted(userId: userId, familyId: familyId))
+              ..add(
+                GoogleCalendarSyncRequested(
+                  userId: userId,
+                  userName: userName,
+                  interactive: false,
+                ),
+              );
+          },
         ),
         BlocProvider<TaskBloc>(
           create: (_) => sl<TaskBloc>()
