@@ -20,37 +20,104 @@ class FirebaseAuthRemoteDataSource {
     required FirebaseAuth firebaseAuth,
     required FirebaseFirestore firestore,
     GoogleAuthHandler? googleAuthOverride,
-  })  : _firebaseAuth = firebaseAuth,
-        _firestore = firestore,
-        _googleAuthOverride = googleAuthOverride;
+  }) : _firebaseAuth = firebaseAuth,
+       _firestore = firestore,
+       _googleAuthOverride = googleAuthOverride;
 
-  static const List<({String id, String name, String direction, String iconKey})>
-      _defaultCategories = [
-    (id: 'cat_food', name: 'Ăn uống', direction: 'debit', iconKey: 'restaurant'),
+  static const List<
+    ({String id, String name, String direction, String iconKey})
+  >
+  _defaultCategories = [
+    (
+      id: 'cat_food',
+      name: 'Ăn uống',
+      direction: 'debit',
+      iconKey: 'restaurant',
+    ),
     (
       id: 'cat_housework',
       name: 'Việc nhà & Gia dụng',
       direction: 'debit',
-      iconKey: 'cleaning_services'
+      iconKey: 'cleaning_services',
     ),
-    (id: 'cat_housing', name: 'Nhà cửa & Thuê nhà', direction: 'debit', iconKey: 'home'),
-    (id: 'cat_utilities', name: 'Điện/Nước/Internet', direction: 'debit', iconKey: 'bolt'),
-    (id: 'cat_shopping', name: 'Chợ & Mua sắm', direction: 'debit', iconKey: 'shopping_bag'),
-    (id: 'cat_vehicle', name: 'Xe cộ & Di chuyển', direction: 'debit', iconKey: 'two_wheeler'),
-    (id: 'cat_vehicle_maint', name: 'Bảo dưỡng & Sửa xe', direction: 'debit', iconKey: 'build'),
-    (id: 'cat_health', name: 'Sức khỏe & Giáo dục', direction: 'debit', iconKey: 'favorite'),
+    (
+      id: 'cat_housing',
+      name: 'Nhà cửa & Thuê nhà',
+      direction: 'debit',
+      iconKey: 'home',
+    ),
+    (
+      id: 'cat_utilities',
+      name: 'Điện/Nước/Internet',
+      direction: 'debit',
+      iconKey: 'bolt',
+    ),
+    (
+      id: 'cat_shopping',
+      name: 'Chợ & Mua sắm',
+      direction: 'debit',
+      iconKey: 'shopping_bag',
+    ),
+    (
+      id: 'cat_vehicle',
+      name: 'Xe cộ & Di chuyển',
+      direction: 'debit',
+      iconKey: 'two_wheeler',
+    ),
+    (
+      id: 'cat_vehicle_maint',
+      name: 'Bảo dưỡng & Sửa xe',
+      direction: 'debit',
+      iconKey: 'build',
+    ),
+    (
+      id: 'cat_health',
+      name: 'Sức khỏe & Giáo dục',
+      direction: 'debit',
+      iconKey: 'favorite',
+    ),
     (
       id: 'cat_entertainment',
       name: 'Giải trí & Đăng ký',
       direction: 'debit',
-      iconKey: 'subscriptions'
+      iconKey: 'subscriptions',
     ),
-    (id: 'cat_family_social', name: 'Hiếu hỉ & Đối ngoại', direction: 'debit', iconKey: 'redeem'),
-    (id: 'cat_debt', name: 'Trả nợ & Cho vay', direction: 'debit', iconKey: 'RequestQuote'),
-    (id: 'cat_bank_fee', name: 'Phí ngân hàng', direction: 'debit', iconKey: 'account_balance'),
-    (id: 'cat_other_exp', name: 'Chi tiêu khác', direction: 'debit', iconKey: 'category'),
-    (id: 'cat_salary', name: 'Lương & Thu nhập', direction: 'credit', iconKey: 'payments'),
-    (id: 'cat_other_inc', name: 'Thu nhập khác', direction: 'credit', iconKey: 'savings'),
+    (
+      id: 'cat_family_social',
+      name: 'Hiếu hỉ & Đối ngoại',
+      direction: 'debit',
+      iconKey: 'redeem',
+    ),
+    (
+      id: 'cat_debt',
+      name: 'Trả nợ & Cho vay',
+      direction: 'debit',
+      iconKey: 'RequestQuote',
+    ),
+    (
+      id: 'cat_bank_fee',
+      name: 'Phí ngân hàng',
+      direction: 'debit',
+      iconKey: 'account_balance',
+    ),
+    (
+      id: 'cat_other_exp',
+      name: 'Chi tiêu khác',
+      direction: 'debit',
+      iconKey: 'category',
+    ),
+    (
+      id: 'cat_salary',
+      name: 'Lương & Thu nhập',
+      direction: 'credit',
+      iconKey: 'payments',
+    ),
+    (
+      id: 'cat_other_inc',
+      name: 'Thu nhập khác',
+      direction: 'credit',
+      iconKey: 'savings',
+    ),
   ];
 
   static List<String> _extractProviders(User fbUser, {String? ensureIncluded}) {
@@ -82,10 +149,10 @@ class FirebaseAuthRemoteDataSource {
     final initialAndChanges = Stream<User?>.multi((controller) {
       controller.addSync(_firebaseAuth.currentUser);
       final sub = _firebaseAuth.authStateChanges().listen(
-            controller.addSync,
-            onError: controller.addErrorSync,
-            onDone: controller.closeSync,
-          );
+        controller.addSync,
+        onError: controller.addErrorSync,
+        onDone: controller.closeSync,
+      );
       controller.onCancel = sub.cancel;
     });
 
@@ -141,7 +208,9 @@ class FirebaseAuthRemoteDataSource {
       uid: fbUser.uid,
       email: email,
       fullName: fullName,
-      phoneNumber: phoneNumber?.trim().isNotEmpty == true ? phoneNumber!.trim() : null,
+      phoneNumber: phoneNumber?.trim().isNotEmpty == true
+          ? phoneNumber!.trim()
+          : null,
       photoUrl: fbUser.photoURL,
       emailVerified: fbUser.emailVerified,
       authProviders: _extractProviders(fbUser, ensureIncluded: 'password'),
@@ -169,7 +238,10 @@ class FirebaseAuthRemoteDataSource {
       return _ensurePersonalSpaceInitialized(
         uid: fbUser.uid,
         email: fbUser.email ?? email,
-        fullName: _deriveDisplayName(displayName: fbUser.displayName, email: email),
+        fullName: _deriveDisplayName(
+          displayName: fbUser.displayName,
+          email: email,
+        ),
         photoUrl: fbUser.photoURL,
         phoneNumber: fbUser.phoneNumber,
         emailVerified: fbUser.emailVerified,
@@ -292,14 +364,20 @@ class FirebaseAuthRemoteDataSource {
       ...providers,
     }.toList();
     final resolvedName =
-        existing.fullName.trim().isEmpty || existing.fullName == 'Người dùng Life OS'
-            ? _deriveDisplayName(displayName: fbUser.displayName, email: fbUser.email)
-            : existing.fullName;
+        existing.fullName.trim().isEmpty ||
+            existing.fullName == 'Người dùng Life OS'
+        ? _deriveDisplayName(
+            displayName: fbUser.displayName,
+            email: fbUser.email,
+          )
+        : existing.fullName;
 
     await userRef.update({
       'fullName': resolvedName,
-      if (fbUser.email != null && fbUser.email!.isNotEmpty) 'email': fbUser.email,
-      if (fbUser.photoURL != null && fbUser.photoURL!.isNotEmpty) 'photoUrl': fbUser.photoURL,
+      if (fbUser.email != null && fbUser.email!.isNotEmpty)
+        'email': fbUser.email,
+      if (fbUser.photoURL != null && fbUser.photoURL!.isNotEmpty)
+        'photoUrl': fbUser.photoURL,
       'emailVerified': true,
       'authProviders': mergedProviders,
       'updatedAt': Timestamp.fromDate(DateTime.now()),
@@ -351,22 +429,20 @@ class FirebaseAuthRemoteDataSource {
     final updatedFbUser = linkedCred.user ?? currentUser;
     final userRef = _firestore.collection('users').doc(updatedFbUser.uid);
     final snap = await userRef.get();
-    final existingProviders =
-        snap.exists ? UserModel.fromFirestore(snap).authProviders : const <String>[];
+    final existingProviders = snap.exists
+        ? UserModel.fromFirestore(snap).authProviders
+        : const <String>[];
     final mergedProviders = <String>{
       ...existingProviders,
       ..._extractProviders(updatedFbUser, ensureIncluded: 'google.com'),
     }.toList();
 
-    await userRef.set(
-      {
-        'photoUrl': updatedFbUser.photoURL,
-        'emailVerified': true,
-        'authProviders': mergedProviders,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      },
-      SetOptions(merge: true),
-    );
+    await userRef.set({
+      'photoUrl': updatedFbUser.photoURL,
+      'emailVerified': true,
+      'authProviders': mergedProviders,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    }, SetOptions(merge: true));
     final refreshed = await userRef.get();
     return UserModel.fromFirestore(refreshed);
   }
@@ -400,98 +476,82 @@ class FirebaseAuthRemoteDataSource {
     final userDoc = _firestore.collection('users').doc(uid);
     batch.set(userDoc, userModel.toFirestore(), SetOptions(merge: true));
 
-    final cashWalletDoc = userDoc.collection('wallets').doc('wallet_cash_default');
-    batch.set(
-      cashWalletDoc,
-      {
-        'id': 'wallet_cash_default',
-        'ownerId': uid,
-        'name': 'Ví tiền mặt',
-        'type': 'cash',
-        'balanceMinor': 0,
-        'isEstimatedBalance': true,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    final cashWalletDoc = userDoc
+        .collection('wallets')
+        .doc('wallet_cash_default');
+    batch.set(cashWalletDoc, {
+      'id': 'wallet_cash_default',
+      'ownerId': uid,
+      'name': 'Ví tiền mặt',
+      'type': 'cash',
+      'balanceMinor': 0,
+      'isEstimatedBalance': true,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
 
-    final bankWalletDoc = userDoc.collection('wallets').doc('wallet_bank_default');
-    batch.set(
-      bankWalletDoc,
-      {
-        'id': 'wallet_bank_default',
-        'ownerId': uid,
-        'name': 'Ngân hàng Thanh toán',
-        'type': 'bank',
-        'bankCode': 'NAPAS247',
-        'maskedAccount': 'Tự động nhận diện',
-        'balanceMinor': 0,
-        'isEstimatedBalance': false,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    final bankWalletDoc = userDoc
+        .collection('wallets')
+        .doc('wallet_bank_default');
+    batch.set(bankWalletDoc, {
+      'id': 'wallet_bank_default',
+      'ownerId': uid,
+      'name': 'Ngân hàng Thanh toán',
+      'type': 'bank',
+      'bankCode': 'NAPAS247',
+      'maskedAccount': 'Tự động nhận diện',
+      'balanceMinor': 0,
+      'isEstimatedBalance': false,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
 
-    final savingsWalletDoc = userDoc.collection('wallets').doc('wallet_savings_default');
-    batch.set(
-      savingsWalletDoc,
-      {
-        'id': 'wallet_savings_default',
-        'ownerId': uid,
-        'name': 'Sổ Tiết kiệm Tích lũy',
-        'type': 'savings',
-        'maskedAccount': 'Lãi kép mục tiêu',
-        'balanceMinor': 0,
-        'isEstimatedBalance': false,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    final savingsWalletDoc = userDoc
+        .collection('wallets')
+        .doc('wallet_savings_default');
+    batch.set(savingsWalletDoc, {
+      'id': 'wallet_savings_default',
+      'ownerId': uid,
+      'name': 'Sổ Tiết kiệm Tích lũy',
+      'type': 'savings',
+      'maskedAccount': 'Lãi kép mục tiêu',
+      'balanceMinor': 0,
+      'isEstimatedBalance': false,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
 
-    final emergencyFundDoc = userDoc.collection('personal_funds').doc('fund_emergency_default');
-    batch.set(
-      emergencyFundDoc,
-      {
-        'id': 'fund_emergency_default',
-        'ownerId': uid,
-        'name': 'Quỹ Dự phòng Khẩn cấp (6 Tháng)',
-        'targetAmountMinor': 60000000,
-        'balanceMinor': 0,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    final emergencyFundDoc = userDoc
+        .collection('personal_funds')
+        .doc('fund_emergency_default');
+    batch.set(emergencyFundDoc, {
+      'id': 'fund_emergency_default',
+      'ownerId': uid,
+      'name': 'Quỹ Dự phòng Khẩn cấp (6 Tháng)',
+      'targetAmountMinor': 60000000,
+      'balanceMinor': 0,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
 
     for (final cat in _defaultCategories) {
-      batch.set(
-        userDoc.collection('categories').doc(cat.id),
-        {
-          'id': cat.id,
-          'ownerId': uid,
-          'name': cat.name,
-          'direction': cat.direction,
-          'iconKey': cat.iconKey,
-          'isSystem': true,
-        },
-        SetOptions(merge: true),
-      );
+      batch.set(userDoc.collection('categories').doc(cat.id), {
+        'id': cat.id,
+        'ownerId': uid,
+        'name': cat.name,
+        'direction': cat.direction,
+        'iconKey': cat.iconKey,
+        'isSystem': true,
+      }, SetOptions(merge: true));
     }
 
-    batch.set(
-      userDoc.collection('consents').doc('android_notification'),
-      {
-        'sourceId': 'android_notification',
-        'ownerId': uid,
-        'enabled': false,
-        'allowedPackages': <String>[],
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(userDoc.collection('consents').doc('android_notification'), {
+      'sourceId': 'android_notification',
+      'ownerId': uid,
+      'enabled': false,
+      'allowedPackages': <String>[],
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
 
     await batch.commit();
     return userModel;
@@ -574,7 +634,9 @@ class FirebaseAuthRemoteDataSource {
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     };
     if (phoneNumber != null) {
-      updates['phoneNumber'] = phoneNumber.trim().isEmpty ? null : phoneNumber.trim();
+      updates['phoneNumber'] = phoneNumber.trim().isEmpty
+          ? null
+          : phoneNumber.trim();
     }
     if (timezone != null && timezone.trim().isNotEmpty) {
       updates['timezone'] = timezone.trim();
@@ -600,11 +662,14 @@ class FirebaseAuthRemoteDataSource {
     final ref = _firestore.collection('users').doc(userId);
     final snap = await ref.get();
     final existing = snap.exists ? UserModel.fromFirestore(snap) : null;
-    final hasPassword = existing?.authProviders.contains('password') ??
+    final hasPassword =
+        existing?.authProviders.contains('password') ??
         currentUser.providerData.any((p) => p.providerId == 'password');
 
     if (hasPassword) {
-      if (email.isNotEmpty && currentPassword != null && currentPassword.isNotEmpty) {
+      if (email.isNotEmpty &&
+          currentPassword != null &&
+          currentPassword.isNotEmpty) {
         final cred = EmailAuthProvider.credential(
           email: email,
           password: currentPassword,
@@ -619,7 +684,10 @@ class FirebaseAuthRemoteDataSource {
           message: 'Tài khoản chưa có email để thiết lập mật khẩu.',
         );
       }
-      final cred = EmailAuthProvider.credential(email: email, password: newPassword);
+      final cred = EmailAuthProvider.credential(
+        email: email,
+        password: newPassword,
+      );
       await currentUser.linkWithCredential(cred);
     }
 
@@ -658,7 +726,9 @@ class FirebaseAuthRemoteDataSource {
       updates['availabilityOptIn'] = availabilityOptIn;
     }
     if (activeFamilyId != null) {
-      updates['activeFamilyId'] = activeFamilyId.isEmpty ? null : activeFamilyId;
+      updates['activeFamilyId'] = activeFamilyId.isEmpty
+          ? null
+          : activeFamilyId;
     }
     await ref.update(updates);
     final snap = await ref.get();

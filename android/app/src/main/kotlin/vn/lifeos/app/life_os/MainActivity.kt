@@ -2,6 +2,9 @@ package vn.lifeos.app.life_os
 
 import android.Manifest
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
@@ -10,6 +13,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -52,8 +56,25 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ensureBankingNotificationChannel()
         captureWidgetIntent(intent)
         captureAlarmIntent(intent)
+    }
+
+    private fun ensureBankingNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val channel = NotificationChannel(
+                "lifeos_banking_realtime",
+                "Biến động số dư Ngân hàng",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Thông báo tiền vào / tiền ra theo thời gian thực trên Life OS"
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                enableVibration(true)
+            }
+            mgr.createNotificationChannel(channel)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -160,6 +181,36 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {
                         }
                         result.success(list)
+                    }
+                    "isPostNotificationsGranted" -> {
+                        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            ContextCompat.checkSelfPermission(
+                                this,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) == PackageManager.PERMISSION_GRANTED
+                        } else {
+                            true
+                        }
+                        result.success(granted)
+                    }
+                    "requestPostNotificationsPermission" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            ActivityCompat.requestPermissions(
+                                this,
+                                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                REQ_POST_NOTIFICATIONS
+                            )
+                        }
+                        result.success(true)
+                    }
+                    "isBatteryOptimizationIgnored" -> {
+                        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+                        val ignored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && pm != null) {
+                            pm.isIgnoringBatteryOptimizations(packageName)
+                        } else {
+                            true
+                        }
+                        result.success(ignored)
                     }
                     else -> result.notImplemented()
                 }

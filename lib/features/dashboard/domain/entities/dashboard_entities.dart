@@ -17,7 +17,8 @@ class DashboardCategorySlice extends Equatable {
 
 class DashboardAlertItem extends Equatable {
   final String id;
-  final String category; // 'provisional_tx' | 'vehicle_due' | 'bill_due' | 'smart_rule'
+  final String
+  category; // 'provisional_tx' | 'vehicle_due' | 'bill_due' | 'smart_rule'
   final String title;
   final String subtitle;
   final bool isUrgent;
@@ -95,25 +96,25 @@ class TodayDashboardEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        netWorthMinor,
-        liquidAssetsMinor,
-        savingsAssetsMinor,
-        creditDebtMinor,
-        walletCount,
-        todayExpenseMinor,
-        monthlyExpenseMinor,
-        monthlyIncomeMinor,
-        dailySafeToSpendMinor,
-        financialHealthScore,
-        savingsRatePct,
-        provisionalPendingCount,
-        openTasksCount,
-        proposedTasksForMeCount,
-        upcomingEventsCount,
-        dueVehiclesCount,
-        recent7DayExpensesMinor,
-        recent7DayIncomesMinor,
-        topCategories,
-        highlights,
-      ];
+    netWorthMinor,
+    liquidAssetsMinor,
+    savingsAssetsMinor,
+    creditDebtMinor,
+    walletCount,
+    todayExpenseMinor,
+    monthlyExpenseMinor,
+    monthlyIncomeMinor,
+    dailySafeToSpendMinor,
+    financialHealthScore,
+    savingsRatePct,
+    provisionalPendingCount,
+    openTasksCount,
+    proposedTasksForMeCount,
+    upcomingEventsCount,
+    dueVehiclesCount,
+    recent7DayExpensesMinor,
+    recent7DayIncomesMinor,
+    topCategories,
+    highlights,
+  ];
 }

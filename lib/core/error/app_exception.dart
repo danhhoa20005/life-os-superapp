@@ -16,7 +16,10 @@ sealed class Result<T> {
   bool get isSuccess => this is Success<T>;
   bool get isFailure => this is Err<T>;
 
-  R fold<R>(R Function(Failure failure) onFailure, R Function(T value) onSuccess) {
+  R fold<R>(
+    R Function(Failure failure) onFailure,
+    R Function(T value) onSuccess,
+  ) {
     final self = this;
     if (self is Success<T>) {
       return onSuccess(self.value);

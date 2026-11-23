@@ -109,10 +109,14 @@ class CreateManagedCalendarUseCase
   const CreateManagedCalendarUseCase(this._repository);
 
   @override
-  Future<Result<ManagedCalendarEntity>> call(CreateManagedCalendarParams params) async {
+  Future<Result<ManagedCalendarEntity>> call(
+    CreateManagedCalendarParams params,
+  ) async {
     final clean = params.summary.trim();
     if (clean.length < 2) {
-      return const Err(ValidationFailure(message: 'Tên bộ lịch phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Tên bộ lịch phải có ít nhất 2 ký tự.'),
+      );
     }
     return _repository.createCalendar(
       userId: params.userId,
@@ -168,13 +172,19 @@ class CreateCalendarEventUseCase
   const CreateCalendarEventUseCase(this._repository);
 
   @override
-  Future<Result<CalendarEventEntity>> call(CreateCalendarEventParams params) async {
+  Future<Result<CalendarEventEntity>> call(
+    CreateCalendarEventParams params,
+  ) async {
     if (params.title.trim().length < 2) {
-      return const Err(ValidationFailure(message: 'Tiêu đề sự kiện phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Tiêu đề sự kiện phải có ít nhất 2 ký tự.'),
+      );
     }
     if (params.endsAt.isBefore(params.startsAt)) {
       return const Err(
-        ValidationFailure(message: 'Thời gian kết thúc không được trước thời gian bắt đầu.'),
+        ValidationFailure(
+          message: 'Thời gian kết thúc không được trước thời gian bắt đầu.',
+        ),
       );
     }
     if (params.visibility == CalendarEventVisibility.sharedEvent &&
@@ -246,13 +256,19 @@ class UpdateCalendarEventUseCase
   const UpdateCalendarEventUseCase(this._repository);
 
   @override
-  Future<Result<CalendarEventEntity>> call(UpdateCalendarEventParams params) async {
+  Future<Result<CalendarEventEntity>> call(
+    UpdateCalendarEventParams params,
+  ) async {
     if (params.title.trim().length < 2) {
-      return const Err(ValidationFailure(message: 'Tiêu đề sự kiện phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Tiêu đề sự kiện phải có ít nhất 2 ký tự.'),
+      );
     }
     if (params.endsAt.isBefore(params.startsAt)) {
       return const Err(
-        ValidationFailure(message: 'Thời gian kết thúc không được trước thời gian bắt đầu.'),
+        ValidationFailure(
+          message: 'Thời gian kết thúc không được trước thời gian bắt đầu.',
+        ),
       );
     }
     return _repository.updateEvent(
@@ -295,7 +311,9 @@ class SyncGoogleCalendarUseCase
   const SyncGoogleCalendarUseCase(this._repository);
 
   @override
-  Future<Result<GoogleCalendarSyncReport>> call(SyncGoogleCalendarParams params) {
+  Future<Result<GoogleCalendarSyncReport>> call(
+    SyncGoogleCalendarParams params,
+  ) {
     return _repository.syncWithGoogleCalendar(
       userId: params.userId,
       userName: params.userName,

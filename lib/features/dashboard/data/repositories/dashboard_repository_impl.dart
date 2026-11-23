@@ -25,10 +25,10 @@ class DashboardRepositoryImpl implements DashboardRepository {
     required TaskRepository taskRepo,
     required CalendarRepository calendarRepo,
     required VehicleRepository vehicleRepo,
-  })  : _transactionRepo = transactionRepo,
-        _taskRepo = taskRepo,
-        _calendarRepo = calendarRepo,
-        _vehicleRepo = vehicleRepo;
+  }) : _transactionRepo = transactionRepo,
+       _taskRepo = taskRepo,
+       _calendarRepo = calendarRepo,
+       _vehicleRepo = vehicleRepo;
 
   @override
   Stream<Result<TodayDashboardEntity>> watchTodayDashboard({
@@ -69,8 +69,12 @@ class DashboardRepositoryImpl implements DashboardRepository {
             ? vehiclesRes.value
             : const <VehicleEntity>[];
 
-        final summary = FinanceOverviewSummary.compute(wallets: wallets, transactions: txs);
-        if (wallets.isNotEmpty && summary.netWorthMinor != lastPersistedNetWorth) {
+        final summary = FinanceOverviewSummary.compute(
+          wallets: wallets,
+          transactions: txs,
+        );
+        if (wallets.isNotEmpty &&
+            summary.netWorthMinor != lastPersistedNetWorth) {
           lastPersistedNetWorth = summary.netWorthMinor;
           unawaited(
             _transactionRepo.saveNetWorthSnapshot(
@@ -93,13 +97,18 @@ class DashboardRepositoryImpl implements DashboardRepository {
               DashboardAlertItem(
                 id: 'prov_${tx.id}',
                 category: 'provisional_tx',
-                title: 'Giao dịch chờ duyệt: ${VndAmount.format(tx.amountMinor)}',
+                title:
+                    'Giao dịch chờ duyệt: ${VndAmount.format(tx.amountMinor)}',
                 subtitle: '${tx.merchant} · Nhấn vào tab Tài chính để xác nhận',
                 isUrgent: true,
               ),
             );
           } else if (tx.isConfirmedInLedger && !tx.isReversed) {
-            final txDay = DateTime(tx.occurredAt.year, tx.occurredAt.month, tx.occurredAt.day);
+            final txDay = DateTime(
+              tx.occurredAt.year,
+              tx.occurredAt.month,
+              tx.occurredAt.day,
+            );
             final daysAgo = todayStart.difference(txDay).inDays;
             if (tx.kind == TransactionKind.expense) {
               if (!tx.occurredAt.isBefore(todayStart)) {
@@ -113,13 +122,16 @@ class DashboardRepositoryImpl implements DashboardRepository {
                   DashboardAlertItem(
                     id: 'smart_${tx.id}',
                     category: 'smart_rule',
-                    title: 'Gợi ý thông minh: Cập nhật bảo dưỡng cho ${vehicles.first.name}',
+                    title:
+                        'Gợi ý thông minh: Cập nhật bảo dưỡng cho ${vehicles.first.name}',
                     subtitle:
                         'Từ khoản chi "${tx.merchant}" (${VndAmount.format(tx.amountMinor)})',
                   ),
                 );
               }
-            } else if (tx.kind == TransactionKind.income && daysAgo >= 0 && daysAgo < 7) {
+            } else if (tx.kind == TransactionKind.income &&
+                daysAgo >= 0 &&
+                daysAgo < 7) {
               dailyInc[6 - daysAgo] += tx.amountMinor;
             }
           }
@@ -137,7 +149,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
                 title: state == VehicleDueState.overdue
                     ? 'Quá hạn bảo dưỡng: ${v.name}'
                     : 'Sắp đến hạn bảo dưỡng: ${v.name}',
-                subtitle: 'Còn ${v.remainingKm} km · Hạn tiếp theo tại ${v.nextDueKm} km',
+                subtitle:
+                    'Còn ${v.remainingKm} km · Hạn tiếp theo tại ${v.nextDueKm} km',
                 isUrgent: state == VehicleDueState.overdue,
               ),
             );
@@ -150,18 +163,31 @@ class DashboardRepositoryImpl implements DashboardRepository {
         // Target 80% of monthly income (20% pay-yourself-first savings), or fallback to 25% of liquid assets
         final spendEnvelope = summary.monthlyIncomeMinor > 0
             ? (summary.monthlyIncomeMinor * 80) ~/ 100
-            : (summary.liquidAssetsMinor > 0 ? summary.liquidAssetsMinor ~/ 4 : 0);
+            : (summary.liquidAssetsMinor > 0
+                  ? summary.liquidAssetsMinor ~/ 4
+                  : 0);
         final remainingBudget = spendEnvelope - summary.monthlyExpenseMinor;
-        final safeToSpendDaily = remainingBudget > 0 ? remainingBudget ~/ remainingDays : 0;
+        final safeToSpendDaily = remainingBudget > 0
+            ? remainingBudget ~/ remainingDays
+            : 0;
 
         final openTasks = tasks
-            .where((t) =>
-                t.status != TaskWorkflowStatus.done && t.status != TaskWorkflowStatus.declined)
+            .where(
+              (t) =>
+                  t.status != TaskWorkflowStatus.done &&
+                  t.status != TaskWorkflowStatus.declined,
+            )
             .length;
         final proposedForMe = tasks
-            .where((t) => t.assigneeId == userId && t.status == TaskWorkflowStatus.proposed)
+            .where(
+              (t) =>
+                  t.assigneeId == userId &&
+                  t.status == TaskWorkflowStatus.proposed,
+            )
             .length;
-        final upcomingEvents = events.where((e) => !e.endsAt.isBefore(now)).length;
+        final upcomingEvents = events
+            .where((e) => !e.endsAt.isBefore(now))
+            .length;
 
         final topCats = summary.sortedCategoryShares
             .take(3)
@@ -203,9 +229,14 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
     return combined.transform(
       StreamTransformer.fromHandlers(
-        handleError: (Object e, StackTrace _, EventSink<Result<TodayDashboardEntity>> sink) {
-          sink.add(Err(ErrorMapper.map(e)));
-        },
+        handleError:
+            (
+              Object e,
+              StackTrace _,
+              EventSink<Result<TodayDashboardEntity>> sink,
+            ) {
+              sink.add(Err(ErrorMapper.map(e)));
+            },
       ),
     );
   }

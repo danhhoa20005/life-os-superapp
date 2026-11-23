@@ -36,22 +36,28 @@ final class TransactionListState extends Equatable {
 
   List<TransactionEntity> get filteredTransactions {
     final q = searchQuery.trim().toLowerCase();
-    return allTransactions.where((tx) {
-      if (tx.verification == TransactionVerification.rejected) return false;
-      if (kindFilter != null && tx.kind != kindFilter) return false;
-      if (q.isNotEmpty) {
-        final matchMerchant = tx.merchant.toLowerCase().contains(q);
-        final matchCategory = tx.categoryName.toLowerCase().contains(q);
-        final matchNote = (tx.note ?? '').toLowerCase().contains(q);
-        if (!matchMerchant && !matchCategory && !matchNote) return false;
-      }
-      return true;
-    }).toList(growable: false);
+    return allTransactions
+        .where((tx) {
+          if (tx.verification == TransactionVerification.rejected) return false;
+          if (kindFilter != null && tx.kind != kindFilter) return false;
+          if (q.isNotEmpty) {
+            final matchMerchant = tx.merchant.toLowerCase().contains(q);
+            final matchCategory = tx.categoryName.toLowerCase().contains(q);
+            final matchNote = (tx.note ?? '').toLowerCase().contains(q);
+            if (!matchMerchant && !matchCategory && !matchNote) return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
   }
 
   List<TransactionEntity> get provisionalTransactions {
     return allTransactions
-        .where((tx) => tx.verification == TransactionVerification.provisional)
+        .where(
+          (tx) =>
+              tx.verification == TransactionVerification.provisional ||
+              tx.verification == TransactionVerification.needsReview,
+        )
         .toList(growable: false);
   }
 
@@ -72,9 +78,12 @@ final class TransactionListState extends Equatable {
       status: status ?? this.status,
       monthKey: monthKey ?? this.monthKey,
       wallets: wallets != null ? List.unmodifiable(wallets) : this.wallets,
-      categories: categories != null ? List.unmodifiable(categories) : this.categories,
-      allTransactions:
-          allTransactions != null ? List.unmodifiable(allTransactions) : this.allTransactions,
+      categories: categories != null
+          ? List.unmodifiable(categories)
+          : this.categories,
+      allTransactions: allTransactions != null
+          ? List.unmodifiable(allTransactions)
+          : this.allTransactions,
       searchQuery: searchQuery ?? this.searchQuery,
       kindFilter: clearKindFilter ? null : (kindFilter ?? this.kindFilter),
       summary: summary ?? this.summary,
@@ -84,16 +93,16 @@ final class TransactionListState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        monthKey,
-        wallets,
-        categories,
-        allTransactions,
-        searchQuery,
-        kindFilter,
-        summary,
-        failure,
-      ];
+    status,
+    monthKey,
+    wallets,
+    categories,
+    allTransactions,
+    searchQuery,
+    kindFilter,
+    summary,
+    failure,
+  ];
 }
 
 enum ActionStatus { idle, submitting, success, failure }
@@ -112,5 +121,10 @@ final class TransactionActionState extends Equatable {
   });
 
   @override
-  List<Object?> get props => [status, successMessage, failure, lastCreatedTransaction];
+  List<Object?> get props => [
+    status,
+    successMessage,
+    failure,
+    lastCreatedTransaction,
+  ];
 }

@@ -57,13 +57,14 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
           _remainingSeconds = _selectedPresetMinutes * 60;
         });
         context.read<ProUtilitiesBloc>().add(
-              WellnessMetricsIncremented(
-                userId: userId,
-                addFocusMinutes: _selectedPresetMinutes,
-                addPomodoros: 1,
-              ),
-            );
-        LifeOsTopToast.fromSnackBar(context, 
+          WellnessMetricsIncremented(
+            userId: userId,
+            addFocusMinutes: _selectedPresetMinutes,
+            addPomodoros: 1,
+          ),
+        );
+        LifeOsTopToast.fromSnackBar(
+          context,
           SnackBar(
             content: Text(
               '🎉 Hoàn thành phiên tập trung $_selectedPresetMinutes phút! Đã lưu vào nhật ký.',
@@ -88,7 +89,9 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
     final mm = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
     final ss = (_remainingSeconds % 60).toString().padLeft(2, '0');
     final totalSecs = _selectedPresetMinutes * 60;
-    final progress = totalSecs > 0 ? 1.0 - (_remainingSeconds / totalSecs) : 0.0;
+    final progress = totalSecs > 0
+        ? 1.0 - (_remainingSeconds / totalSecs)
+        : 0.0;
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -110,7 +113,9 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                     final w = state.todayWellness;
                     return Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSpacing.maxContentWidth,
+                        ),
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.md,
@@ -125,7 +130,11 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(Icons.timer_outlined, size: 20, color: c.primary),
+                                      Icon(
+                                        Icons.timer_outlined,
+                                        size: 20,
+                                        color: c.primary,
+                                      ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
@@ -169,7 +178,9 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                             strokeWidth: 9,
                                             backgroundColor: c.surface,
                                             valueColor:
-                                                AlwaysStoppedAnimation<Color>(c.primary),
+                                                AlwaysStoppedAnimation<Color>(
+                                                  c.primary,
+                                                ),
                                           ),
                                         ),
                                         Text(
@@ -197,12 +208,17 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                               ? Icons.pause_rounded
                                               : Icons.play_arrow_rounded,
                                         ),
-                                        label: Text(_isRunning ? 'Tạm dừng' : 'Bắt đầu tập trung'),
+                                        label: Text(
+                                          _isRunning
+                                              ? 'Tạm dừng'
+                                              : 'Bắt đầu tập trung',
+                                        ),
                                       ),
                                       const SizedBox(width: 10),
                                       OutlinedButton(
-                                        onPressed: () =>
-                                            _selectPreset(_selectedPresetMinutes),
+                                        onPressed: () => _selectPreset(
+                                          _selectedPresetMinutes,
+                                        ),
                                         child: const Text('Đặt lại'),
                                       ),
                                     ],
@@ -227,7 +243,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'Nước uống hôm nay',
@@ -249,13 +266,18 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                       ),
                                       FilledButton.tonalIcon(
                                         key: const Key('add_water_250_button'),
-                                        onPressed: () => context.read<ProUtilitiesBloc>().add(
+                                        onPressed: () => context
+                                            .read<ProUtilitiesBloc>()
+                                            .add(
                                               WellnessMetricsIncremented(
                                                 userId: user.id,
                                                 addWaterMl: 250,
                                               ),
                                             ),
-                                        icon: const Icon(Icons.add_rounded, size: 17),
+                                        icon: const Icon(
+                                          Icons.add_rounded,
+                                          size: 17,
+                                        ),
                                         label: const Text('+250ml'),
                                       ),
                                     ],
@@ -265,11 +287,15 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                     borderRadius: BorderRadius.circular(8),
                                     child: LinearProgressIndicator(
                                       minHeight: 8,
-                                      value: (w.waterProgressPct / 100).clamp(0.03, 1.0),
-                                      backgroundColor: c.surfaceRaised,
-                                      valueColor: const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF2563EB),
+                                      value: (w.waterProgressPct / 100).clamp(
+                                        0.03,
+                                        1.0,
                                       ),
+                                      backgroundColor: c.surfaceRaised,
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                            Color(0xFF2563EB),
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -290,7 +316,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                   ),
                                 ),
                                 TextButton(
-                                  onPressed: () => _showAddHabitDialog(context, user.id),
+                                  onPressed: () =>
+                                      _showAddHabitDialog(context, user.id),
                                   child: const Text('+ Thói quen mới'),
                                 ),
                               ],
@@ -298,29 +325,39 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
-                                children: const [
-                                  ('Ngày không chi tiêu thừa', 'Tài chính'),
-                                  ('Đọc sách 20 phút', 'Học tập'),
-                                  ('Vận động / Đi bộ 30 phút', 'Sức khỏe'),
-                                ]
-                                    .map(
-                                      (preset) => Padding(
-                                        padding: const EdgeInsets.only(right: 8, bottom: 8),
-                                        child: ActionChip(
-                                          label: Text('+ ${preset.$1}'),
-                                          onPressed: () => context
-                                              .read<ProUtilitiesBloc>()
-                                              .add(
-                                                HabitAdded(
-                                                  userId: user.id,
-                                                  title: preset.$1,
-                                                  categoryTag: preset.$2,
-                                                ),
-                                              ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
+                                children:
+                                    const [
+                                          (
+                                            'Ngày không chi tiêu thừa',
+                                            'Tài chính',
+                                          ),
+                                          ('Đọc sách 20 phút', 'Học tập'),
+                                          (
+                                            'Vận động / Đi bộ 30 phút',
+                                            'Sức khỏe',
+                                          ),
+                                        ]
+                                        .map(
+                                          (preset) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 8,
+                                              bottom: 8,
+                                            ),
+                                            child: ActionChip(
+                                              label: Text('+ ${preset.$1}'),
+                                              onPressed: () => context
+                                                  .read<ProUtilitiesBloc>()
+                                                  .add(
+                                                    HabitAdded(
+                                                      userId: user.id,
+                                                      title: preset.$1,
+                                                      categoryTag: preset.$2,
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
                               ),
                             ),
 
@@ -328,7 +365,10 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                               LifeOsSoftCard(
                                 child: Text(
                                   'Chạm một gợi ý phía trên (như "Ngày không chi tiêu thừa") để bắt đầu xây dựng chuỗi kỷ luật mỗi ngày.',
-                                  style: TextStyle(fontSize: 13, color: c.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: c.textSecondary,
+                                  ),
                                 ),
                               )
                             else
@@ -338,8 +378,12 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: LifeOsSoftCard(
-                                    onTap: () => context.read<ProUtilitiesBloc>().add(
-                                          HabitToggledToday(userId: user.id, habit: h),
+                                    onTap: () =>
+                                        context.read<ProUtilitiesBloc>().add(
+                                          HabitToggledToday(
+                                            userId: user.id,
+                                            habit: h,
+                                          ),
                                         ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14,
@@ -351,9 +395,16 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                           width: 26,
                                           height: 26,
                                           decoration: BoxDecoration(
-                                            color: doneToday ? c.primary : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: c.primary, width: 2),
+                                            color: doneToday
+                                                ? c.primary
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: c.primary,
+                                              width: 2,
+                                            ),
                                           ),
                                           child: doneToday
                                               ? const Icon(
@@ -366,7 +417,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 h.title,
@@ -387,7 +439,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                           ),
                                         ),
                                         LifeOsStatusPill(
-                                          icon: Icons.local_fire_department_rounded,
+                                          icon: Icons
+                                              .local_fire_department_rounded,
                                           label: '$streak ngày',
                                           tone: streak > 0
                                               ? LifeOsAccentTone.amber
@@ -438,9 +491,18 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                 initialValue: category,
                 decoration: const InputDecoration(labelText: 'Nhóm mục tiêu'),
                 items: const [
-                  DropdownMenuItem(value: 'Tài chính', child: Text('Tài chính thông minh')),
-                  DropdownMenuItem(value: 'Sức khỏe', child: Text('Sức khỏe & Năng lượng')),
-                  DropdownMenuItem(value: 'Học tập', child: Text('Học tập & Sự nghiệp')),
+                  DropdownMenuItem(
+                    value: 'Tài chính',
+                    child: Text('Tài chính thông minh'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Sức khỏe',
+                    child: Text('Sức khỏe & Năng lượng'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Học tập',
+                    child: Text('Học tập & Sự nghiệp'),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) setDialogState(() => category = v);
@@ -449,7 +511,10 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () {
                 bloc.add(

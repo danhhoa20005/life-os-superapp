@@ -59,7 +59,9 @@ abstract final class UserBehaviorPrefs {
   }
 
   static Future<List<String>?> loadPinnedShortcuts() async {
-    final raw = await NativeSecureVaultBridge.instance.readSecret(_keyPinnedShortcuts);
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _keyPinnedShortcuts,
+    );
     if (raw == null || raw.trim().isEmpty) return null;
     final items = raw
         .split(',')
@@ -78,7 +80,9 @@ abstract final class UserBehaviorPrefs {
   }
 
   static Future<bool> loadHideBalances() async {
-    final raw = await NativeSecureVaultBridge.instance.readSecret(_keyHideBalances);
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _keyHideBalances,
+    );
     if (raw != null) {
       _cachedHideBalances = raw == '1';
     }
@@ -87,7 +91,9 @@ abstract final class UserBehaviorPrefs {
 
   /// Generates instant `.000` / `.0000` / `.000.000` Vietnamese VND completions when a user
   /// types short digits (e.g. `"45"` -> `[45.000, 450.000, 4.500.000]`).
-  static List<(int amountMinor, String label)> vndZeroPadSuggestions(String rawInput) {
+  static List<(int amountMinor, String label)> vndZeroPadSuggestions(
+    String rawInput,
+  ) {
     final digitsOnly = rawInput.replaceAll(RegExp(r'[^0-9]'), '');
     if (digitsOnly.isEmpty) return const [];
     final base = int.tryParse(digitsOnly);

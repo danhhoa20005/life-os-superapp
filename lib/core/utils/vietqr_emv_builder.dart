@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 
 /// Official Vietnamese NAPAS 247 Bank Directory for Native VietQR Generation & Account Linking.
-const List<({String bin, String shortName, String fullName})> kLifeOsVietQrBanks = [
+const List<({String bin, String shortName, String fullName})>
+kLifeOsVietQrBanks = [
   (bin: '970436', shortName: 'VCB', fullName: 'Vietcombank'),
   (bin: '970422', shortName: 'MB', fullName: 'MB Bank'),
   (bin: '970407', shortName: 'TCB', fullName: 'Techcombank'),
@@ -25,18 +26,72 @@ const List<({String bin, String shortName, String fullName})> kLifeOsVietQrBanks
 /// Zero external API dependency — generates bank-grade EMVCo payloads locally on device.
 abstract final class VietQrEmvBuilder {
   static const Map<String, String> _viDiacritics = {
-    'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a',
-    'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a',
-    'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ặ': 'a', 'ẳ': 'a', 'ẵ': 'a',
-    'è': 'e', 'é': 'e', 'ẹ': 'e', 'ẻ': 'e', 'ẽ': 'e',
-    'ê': 'e', 'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ể': 'e', 'ễ': 'e',
-    'ì': 'i', 'í': 'i', 'ị': 'i', 'ỉ': 'i', 'ĩ': 'i',
-    'ò': 'o', 'ó': 'o', 'ọ': 'o', 'ỏ': 'o', 'õ': 'o',
-    'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ộ': 'o', 'ổ': 'o', 'ỗ': 'o',
-    'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ợ': 'o', 'ở': 'o', 'ỡ': 'o',
-    'ù': 'u', 'ú': 'u', 'ụ': 'u', 'ủ': 'u', 'ũ': 'u',
-    'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ự': 'u', 'ử': 'u', 'ữ': 'u',
-    'ỳ': 'y', 'ý': 'y', 'ỵ': 'y', 'ỷ': 'y', 'ỹ': 'y',
+    'à': 'a',
+    'á': 'a',
+    'ạ': 'a',
+    'ả': 'a',
+    'ã': 'a',
+    'â': 'a',
+    'ầ': 'a',
+    'ấ': 'a',
+    'ậ': 'a',
+    'ẩ': 'a',
+    'ẫ': 'a',
+    'ă': 'a',
+    'ằ': 'a',
+    'ắ': 'a',
+    'ặ': 'a',
+    'ẳ': 'a',
+    'ẵ': 'a',
+    'è': 'e',
+    'é': 'e',
+    'ẹ': 'e',
+    'ẻ': 'e',
+    'ẽ': 'e',
+    'ê': 'e',
+    'ề': 'e',
+    'ế': 'e',
+    'ệ': 'e',
+    'ể': 'e',
+    'ễ': 'e',
+    'ì': 'i',
+    'í': 'i',
+    'ị': 'i',
+    'ỉ': 'i',
+    'ĩ': 'i',
+    'ò': 'o',
+    'ó': 'o',
+    'ọ': 'o',
+    'ỏ': 'o',
+    'õ': 'o',
+    'ô': 'o',
+    'ồ': 'o',
+    'ố': 'o',
+    'ộ': 'o',
+    'ổ': 'o',
+    'ỗ': 'o',
+    'ơ': 'o',
+    'ờ': 'o',
+    'ớ': 'o',
+    'ợ': 'o',
+    'ở': 'o',
+    'ỡ': 'o',
+    'ù': 'u',
+    'ú': 'u',
+    'ụ': 'u',
+    'ủ': 'u',
+    'ũ': 'u',
+    'ư': 'u',
+    'ừ': 'u',
+    'ứ': 'u',
+    'ự': 'u',
+    'ử': 'u',
+    'ữ': 'u',
+    'ỳ': 'y',
+    'ý': 'y',
+    'ỵ': 'y',
+    'ỷ': 'y',
+    'ỹ': 'y',
     'đ': 'd',
   };
 
@@ -55,7 +110,9 @@ abstract final class VietQrEmvBuilder {
       }
     }
     final normalized = sb.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
-    return normalized.length <= maxLength ? normalized : normalized.substring(0, maxLength).trim();
+    return normalized.length <= maxLength
+        ? normalized
+        : normalized.substring(0, maxLength).trim();
   }
 
   /// Generates a short, collision-resistant alphanumeric payment reference code (e.g. `LO482910`)
@@ -101,14 +158,17 @@ abstract final class VietQrEmvBuilder {
     String? memo,
   }) {
     final cleanBin = bankBin.replaceAll(RegExp(r'[^0-9]'), '');
-    final cleanAcc = accountNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final cleanAcc = accountNumber
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .toUpperCase();
     final hasAmount = amountVnd != null && amountVnd > 0;
     final safeMemo = memo != null && memo.trim().isNotEmpty
         ? toBankSafeAscii(memo, maxLength: 50)
         : '';
 
     final beneficiaryOrg = _tlv('00', cleanBin) + _tlv('01', cleanAcc);
-    final merchantAccountInfo = _tlv('00', 'A000000727') +
+    final merchantAccountInfo =
+        _tlv('00', 'A000000727') +
         _tlv('01', beneficiaryOrg) +
         _tlv('02', 'QRIBFTTA');
 
@@ -151,7 +211,9 @@ abstract final class VietQrEmvBuilder {
       params.add('addInfo=${Uri.encodeComponent(toBankSafeAscii(memo))}');
     }
     if (accountHolderName != null && accountHolderName.trim().isNotEmpty) {
-      params.add('accountName=${Uri.encodeComponent(toBankSafeAscii(accountHolderName))}');
+      params.add(
+        'accountName=${Uri.encodeComponent(toBankSafeAscii(accountHolderName))}',
+      );
     }
     final query = params.isEmpty ? '' : '?${params.join("&")}';
     return 'https://img.vietqr.io/image/$cleanBin-$cleanAcc-compact2.png$query';

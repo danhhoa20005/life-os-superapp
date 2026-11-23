@@ -24,8 +24,10 @@ android/key.properties
 *.jks
 *.keystore
 
-# Node modules inside firebase/rules_tests
+# Node modules & compiled Functions artifacts
 node_modules/
+functions/node_modules/
+functions/lib/
 firebase/rules_tests/node_modules/
 
 # OS metadata

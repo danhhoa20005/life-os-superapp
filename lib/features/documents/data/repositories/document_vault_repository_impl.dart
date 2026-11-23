@@ -14,7 +14,10 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
 
   const DocumentVaultRepositoryImpl(this._firestore);
 
-  DocumentVaultEntity _fromDoc(DocumentSnapshot<Map<String, dynamic>> doc, {required bool shared}) {
+  DocumentVaultEntity _fromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    required bool shared,
+  }) {
     final d = doc.data() ?? const <String, dynamic>{};
     DateTime parseDt(dynamic raw, DateTime fallback) {
       if (raw is Timestamp) return raw.toDate();
@@ -58,8 +61,7 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         final merged = <String, DocumentVaultEntity>{
           for (final doc in personalDocs) doc.id: doc,
           for (final doc in familyDocs) doc.id: doc,
-        }.values.toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        }.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         controller.add(merged);
       }
 
@@ -68,13 +70,12 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
           .doc(userId)
           .collection('documents')
           .snapshots()
-          .listen(
-        (snap) {
-          personalDocs = snap.docs.map((d) => _fromDoc(d, shared: false)).toList();
-          emitMerged();
-        },
-        onError: (_) => emitMerged(),
-      );
+          .listen((snap) {
+            personalDocs = snap.docs
+                .map((d) => _fromDoc(d, shared: false))
+                .toList();
+            emitMerged();
+          }, onError: (_) => emitMerged());
 
       StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subFamily;
       if (familyId != null && familyId.isNotEmpty) {
@@ -83,13 +84,12 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
             .doc(familyId)
             .collection('documents')
             .snapshots()
-            .listen(
-          (snap) {
-            familyDocs = snap.docs.map((d) => _fromDoc(d, shared: true)).toList();
-            emitMerged();
-          },
-          onError: (_) => emitMerged(),
-        );
+            .listen((snap) {
+              familyDocs = snap.docs
+                  .map((d) => _fromDoc(d, shared: true))
+                  .toList();
+              emitMerged();
+            }, onError: (_) => emitMerged());
       }
 
       controller.onCancel = () async {
@@ -105,13 +105,16 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
   ) async {
     final title = params.title.trim();
     if (title.isEmpty) {
-      return const Err(ValidationFailure(message: 'Vui lòng nhập tên tài liệu hoặc hồ sơ.'));
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập tên tài liệu hoặc hồ sơ.'),
+      );
     }
 
     try {
       final id = 'doc_${_uuid.v4().substring(0, 8)}';
       final now = DateTime.now();
-      final isShared = params.shareWithFamily &&
+      final isShared =
+          params.shareWithFamily &&
           params.familyId != null &&
           params.familyId!.isNotEmpty;
 

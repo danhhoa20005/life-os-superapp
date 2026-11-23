@@ -26,7 +26,9 @@ class WalletModel {
     required this.hasPendingWrites,
   });
 
-  factory WalletModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory WalletModel.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     final rawType = (d['type'] as String?) ?? 'cash';
     final type = switch (rawType) {
@@ -80,7 +82,9 @@ class CategoryModel {
     required this.iconKey,
   });
 
-  factory CategoryModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory CategoryModel.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     return CategoryModel(
       id: (d['id'] as String?) ?? doc.id,
@@ -107,10 +111,14 @@ class TransactionModel {
 
   const TransactionModel(this.entity);
 
-  factory TransactionModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory TransactionModel.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     final occurredRaw = d['occurredAt'];
-    final occurredAt = occurredRaw is Timestamp ? occurredRaw.toDate() : DateTime.now();
+    final occurredAt = occurredRaw is Timestamp
+        ? occurredRaw.toDate()
+        : DateTime.now();
 
     final kind = switch (d['kind'] as String?) {
       'income' => TransactionKind.income,
@@ -124,6 +132,7 @@ class TransactionModel {
       'provisional' => TransactionVerification.provisional,
       'verified' => TransactionVerification.verified,
       'rejected' => TransactionVerification.rejected,
+      'needsReview' => TransactionVerification.needsReview,
       _ => TransactionVerification.userConfirmed,
     };
 
@@ -131,10 +140,21 @@ class TransactionModel {
       'androidNotification' => TransactionSourceKind.androidNotification,
       'csv' => TransactionSourceKind.csv,
       'bankApi' => TransactionSourceKind.bankApi,
+      'bankWebhook' => TransactionSourceKind.bankWebhook,
       _ => TransactionSourceKind.manual,
     };
 
-    final monthKey = (d['monthKey'] as String?) ??
+    final balanceType = switch (d['balanceType'] as String?) {
+      'observedBankBalance' => TransactionBalanceType.observedBankBalance,
+      'estimatedWalletBalance' => TransactionBalanceType.estimatedWalletBalance,
+      _ => TransactionBalanceType.unknownBalance,
+    };
+
+    final receivedRaw = d['receivedAt'];
+    final receivedAt = receivedRaw is Timestamp ? receivedRaw.toDate() : null;
+
+    final monthKey =
+        (d['monthKey'] as String?) ??
         '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}';
 
     final rawSplits = d['splitLines'] as List<dynamic>? ?? const <dynamic>[];
@@ -171,10 +191,24 @@ class TransactionModel {
         crossSourceFingerprint: (d['crossSourceFingerprint'] as String?) ?? '',
         reversalOfId: d['reversalOfId'] as String?,
         reversedById: d['reversedById'] as String?,
-        isVehicleMaintenanceHint: (d['isVehicleMaintenanceHint'] as bool?) ?? false,
+        isVehicleMaintenanceHint:
+            (d['isVehicleMaintenanceHint'] as bool?) ?? false,
         splitLines: splitLines,
         balanceAfterMinor: (d['balanceAfterMinor'] as num?)?.toInt(),
+        balanceType: balanceType,
+        ledgerApplied: d['ledgerApplied'] as bool?,
         walletName: d['walletName'] as String?,
+        connectionId: d['connectionId'] as String?,
+        sourceProvider: d['sourceProvider'] as String?,
+        externalTransactionId: d['externalTransactionId']?.toString(),
+        referenceCode: d['referenceCode'] as String?,
+        bankCode: d['bankCode'] as String?,
+        accountMasked: d['accountMasked'] as String?,
+        counterpartyDisplay: d['counterpartyDisplay'] as String?,
+        receivedAt: receivedAt,
+        reconciliationStatus: d['reconciliationStatus'] as String?,
+        sourceEventKey: d['sourceEventKey'] as String?,
+        isRecurringCandidate: (d['isRecurringCandidate'] as bool?) ?? false,
         hasPendingWrites: doc.metadata.hasPendingWrites,
       ),
     );
@@ -228,6 +262,12 @@ class TransactionModel {
       'reversedById': reversedById,
       'isVehicleMaintenanceHint': isVehicleMaintenanceHint,
       if (balanceAfterMinor != null) 'balanceAfterMinor': balanceAfterMinor,
+      'balanceType': balanceAfterMinor != null
+          ? 'estimatedWalletBalance'
+          : 'unknownBalance',
+      'ledgerApplied':
+          verification == TransactionVerification.userConfirmed ||
+          verification == TransactionVerification.verified,
       if (walletName != null && walletName.isNotEmpty) 'walletName': walletName,
       'splitLines': splitLines
           .map(

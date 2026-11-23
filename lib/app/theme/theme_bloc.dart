@@ -76,10 +76,10 @@ final class ThemeState extends Equatable {
   int get textScalePercent => (textScale * 100).round();
 
   String get themeModeLabel => switch (themeMode) {
-        ThemeMode.light => 'Sáng',
-        ThemeMode.dark => 'Tối',
-        ThemeMode.system => 'Theo hệ thống',
-      };
+    ThemeMode.light => 'Sáng',
+    ThemeMode.dark => 'Tối',
+    ThemeMode.system => 'Theo hệ thống',
+  };
 
   ThemeState copyWith({
     ThemeMode? themeMode,
@@ -96,30 +96,45 @@ final class ThemeState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [themeMode, textScale, compactDensity, highContrast];
+  List<Object?> get props => [
+    themeMode,
+    textScale,
+    compactDensity,
+    highContrast,
+  ];
 }
 
 class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   final bool _persistToDisk;
 
   ThemeBloc({bool? persistToDisk})
-      : _persistToDisk = persistToDisk ??
-            (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')),
-        super(const ThemeState()) {
+    : _persistToDisk =
+          persistToDisk ??
+          (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')),
+      super(const ThemeState()) {
     on<ThemeHydratedFromDisk>(_onHydrate, transformer: sequential());
     on<ThemeModeChanged>(_onThemeModeChanged, transformer: sequential());
     on<TextScaleChanged>(_onTextScaleChanged, transformer: sequential());
-    on<CompactDensityToggled>(_onCompactDensityToggled, transformer: sequential());
+    on<CompactDensityToggled>(
+      _onCompactDensityToggled,
+      transformer: sequential(),
+    );
     on<HighContrastToggled>(_onHighContrastToggled, transformer: sequential());
   }
 
   static File _resolvePrefsFile() {
     final tempParent = Directory.systemTemp.parent;
-    final filesDir = Directory('${tempParent.path}${Platform.pathSeparator}files');
+    final filesDir = Directory(
+      '${tempParent.path}${Platform.pathSeparator}files',
+    );
     if (filesDir.existsSync()) {
-      return File('${filesDir.path}${Platform.pathSeparator}lifeos_ui_prefs.json');
+      return File(
+        '${filesDir.path}${Platform.pathSeparator}lifeos_ui_prefs.json',
+      );
     }
-    return File('${Directory.systemTemp.path}${Platform.pathSeparator}lifeos_ui_prefs.json');
+    return File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}lifeos_ui_prefs.json',
+    );
   }
 
   Future<void> _saveState(ThemeState s) async {

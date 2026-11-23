@@ -35,26 +35,38 @@ class SignUpUseCase implements UseCase<UserEntity, SignUpParams> {
     if (!params.acceptedTerms) {
       return const Err(
         ValidationFailure(
-          message: 'Vui lòng đồng ý với Chính sách Quyền riêng tư & Điều khoản sử dụng.',
+          message:
+              'Vui lòng đồng ý với Chính sách Quyền riêng tư & Điều khoản sử dụng.',
         ),
       );
     }
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      return const Err(ValidationFailure(message: 'Vui lòng nhập địa chỉ email hợp lệ.'));
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập địa chỉ email hợp lệ.'),
+      );
     }
     if (name.length < 2) {
-      return const Err(ValidationFailure(message: 'Họ và tên phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Họ và tên phải có ít nhất 2 ký tự.'),
+      );
     }
     if (phone.isNotEmpty && !RegExp(r'^[0-9+\-\s]{9,15}$').hasMatch(phone)) {
       return const Err(
-        ValidationFailure(message: 'Số điện thoại không hợp lệ (nhập 9–15 chữ số).'),
+        ValidationFailure(
+          message: 'Số điện thoại không hợp lệ (nhập 9–15 chữ số).',
+        ),
       );
     }
     if (params.password.length < 8) {
-      return const Err(ValidationFailure(message: 'Mật khẩu phải có ít nhất 8 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Mật khẩu phải có ít nhất 8 ký tự.'),
+      );
     }
-    if (params.confirmPassword != null && params.confirmPassword != params.password) {
-      return const Err(ValidationFailure(message: 'Mật khẩu xác nhận không trùng khớp.'));
+    if (params.confirmPassword != null &&
+        params.confirmPassword != params.password) {
+      return const Err(
+        ValidationFailure(message: 'Mật khẩu xác nhận không trùng khớp.'),
+      );
     }
     return _repository.signUp(
       email: email,
@@ -80,7 +92,9 @@ class SignInUseCase implements UseCase<UserEntity, SignInParams> {
   Future<Result<UserEntity>> call(SignInParams params) async {
     final email = params.email.trim().toLowerCase();
     if (email.isEmpty || params.password.isEmpty) {
-      return const Err(ValidationFailure(message: 'Vui lòng nhập đầy đủ email và mật khẩu.'));
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập đầy đủ email và mật khẩu.'),
+      );
     }
     return _repository.signIn(email: email, password: params.password);
   }
@@ -115,7 +129,9 @@ class SendPasswordResetUseCase implements UseCase<void, String> {
     final clean = email.trim().toLowerCase();
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(clean)) {
       return const Err(
-        ValidationFailure(message: 'Email nhận liên kết đặt lại mật khẩu không hợp lệ.'),
+        ValidationFailure(
+          message: 'Email nhận liên kết đặt lại mật khẩu không hợp lệ.',
+        ),
       );
     }
     return _repository.sendPasswordReset(email: clean);
@@ -156,7 +172,8 @@ final class UpdateUserProfileParams {
   });
 }
 
-class UpdateUserProfileUseCase implements UseCase<UserEntity, UpdateUserProfileParams> {
+class UpdateUserProfileUseCase
+    implements UseCase<UserEntity, UpdateUserProfileParams> {
   final AuthRepository _repository;
   const UpdateUserProfileUseCase(this._repository);
 
@@ -165,11 +182,16 @@ class UpdateUserProfileUseCase implements UseCase<UserEntity, UpdateUserProfileP
     final cleanName = params.fullName.trim();
     final cleanPhone = params.phoneNumber?.trim() ?? '';
     if (cleanName.length < 2) {
-      return const Err(ValidationFailure(message: 'Họ và tên phải có ít nhất 2 ký tự.'));
-    }
-    if (cleanPhone.isNotEmpty && !RegExp(r'^[0-9+\-\s]{9,15}$').hasMatch(cleanPhone)) {
       return const Err(
-        ValidationFailure(message: 'Số điện thoại không hợp lệ (nhập 9–15 chữ số).'),
+        ValidationFailure(message: 'Họ và tên phải có ít nhất 2 ký tự.'),
+      );
+    }
+    if (cleanPhone.isNotEmpty &&
+        !RegExp(r'^[0-9+\-\s]{9,15}$').hasMatch(cleanPhone)) {
+      return const Err(
+        ValidationFailure(
+          message: 'Số điện thoại không hợp lệ (nhập 9–15 chữ số).',
+        ),
       );
     }
     return _repository.updateUserProfile(
@@ -197,22 +219,32 @@ final class ChangePasswordParams {
   });
 }
 
-class ChangePasswordUseCase implements UseCase<UserEntity, ChangePasswordParams> {
+class ChangePasswordUseCase
+    implements UseCase<UserEntity, ChangePasswordParams> {
   final AuthRepository _repository;
   const ChangePasswordUseCase(this._repository);
 
   @override
   Future<Result<UserEntity>> call(ChangePasswordParams params) async {
-    if (params.requireCurrentPassword && (params.currentPassword ?? '').isEmpty) {
+    if (params.requireCurrentPassword &&
+        (params.currentPassword ?? '').isEmpty) {
       return const Err(
-        ValidationFailure(message: 'Vui lòng nhập mật khẩu hiện tại để xác minh.'),
+        ValidationFailure(
+          message: 'Vui lòng nhập mật khẩu hiện tại để xác minh.',
+        ),
       );
     }
     if (params.newPassword.length < 8) {
-      return const Err(ValidationFailure(message: 'Mật khẩu mới phải có ít nhất 8 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Mật khẩu mới phải có ít nhất 8 ký tự.'),
+      );
     }
     if (params.newPassword != params.confirmPassword) {
-      return const Err(ValidationFailure(message: 'Mật khẩu mới và xác nhận không trùng khớp.'));
+      return const Err(
+        ValidationFailure(
+          message: 'Mật khẩu mới và xác nhận không trùng khớp.',
+        ),
+      );
     }
     return _repository.changePassword(
       userId: params.userId,
@@ -244,7 +276,8 @@ final class UpdatePrivacyParams {
   });
 }
 
-class UpdatePrivacySettingsUseCase implements UseCase<UserEntity, UpdatePrivacyParams> {
+class UpdatePrivacySettingsUseCase
+    implements UseCase<UserEntity, UpdatePrivacyParams> {
   final AuthRepository _repository;
   const UpdatePrivacySettingsUseCase(this._repository);
 

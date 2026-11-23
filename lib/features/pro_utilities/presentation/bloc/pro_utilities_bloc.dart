@@ -42,21 +42,24 @@ final class SubscriptionOrWarrantyAdded extends ProUtilitiesEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        title,
-        providerOrStore,
-        cycle,
-        amountMinor,
-        nextBillingOrExpiryDate,
-        serialOrNote,
-      ];
+    userId,
+    title,
+    providerOrStore,
+    cycle,
+    amountMinor,
+    nextBillingOrExpiryDate,
+    serialOrNote,
+  ];
 }
 
 final class SubscriptionOrWarrantyDeleted extends ProUtilitiesEvent {
   final String userId;
   final String itemId;
 
-  const SubscriptionOrWarrantyDeleted({required this.userId, required this.itemId});
+  const SubscriptionOrWarrantyDeleted({
+    required this.userId,
+    required this.itemId,
+  });
 
   @override
   List<Object?> get props => [userId, itemId];
@@ -101,7 +104,12 @@ final class WellnessMetricsIncremented extends ProUtilitiesEvent {
   });
 
   @override
-  List<Object?> get props => [userId, addWaterMl, addFocusMinutes, addPomodoros];
+  List<Object?> get props => [
+    userId,
+    addWaterMl,
+    addFocusMinutes,
+    addPomodoros,
+  ];
 }
 
 final class GiftLedgerEntrySubmitted extends ProUtilitiesEvent {
@@ -125,14 +133,14 @@ final class GiftLedgerEntrySubmitted extends ProUtilitiesEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        contactName,
-        relationshipGroup,
-        direction,
-        occasion,
-        amountMinor,
-        note,
-      ];
+    userId,
+    contactName,
+    relationshipGroup,
+    direction,
+    occasion,
+    amountMinor,
+    note,
+  ];
 }
 
 final class PackingTemplateSeeded extends ProUtilitiesEvent {
@@ -187,15 +195,11 @@ final class ProUtilitiesState extends Equatable {
   List<SubscriptionWarrantyEntity> get warrantiesOnly =>
       subscriptionsAndWarranties.where((e) => e.isWarranty).toList();
 
-  int get totalMonthlySubBurnMinor => subscriptionsOnly.fold<int>(
-        0,
-        (s, e) => s + e.monthlyEquivalentMinor,
-      );
+  int get totalMonthlySubBurnMinor =>
+      subscriptionsOnly.fold<int>(0, (s, e) => s + e.monthlyEquivalentMinor);
 
-  int get totalAnnualSubBurnMinor => subscriptionsOnly.fold<int>(
-        0,
-        (s, e) => s + e.annualBurnMinor,
-      );
+  int get totalAnnualSubBurnMinor =>
+      subscriptionsOnly.fold<int>(0, (s, e) => s + e.annualBurnMinor);
 
   int get totalGiftGaveMinor => giftEntries
       .where((g) => g.direction == GiftDirection.gave)
@@ -232,29 +236,32 @@ final class ProUtilitiesState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        subscriptionsAndWarranties,
-        habits,
-        todayWellness,
-        giftEntries,
-        packingItems,
-        failure,
-        message,
-      ];
+    isLoading,
+    subscriptionsAndWarranties,
+    habits,
+    todayWellness,
+    giftEntries,
+    packingItems,
+    failure,
+    message,
+  ];
 }
 
 class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
   final ProUtilitiesRepository _repository;
 
   ProUtilitiesBloc({required ProUtilitiesRepository repository})
-      : _repository = repository,
-        super(const ProUtilitiesState()) {
+    : _repository = repository,
+      super(const ProUtilitiesState()) {
     on<ProUtilitiesWatchStarted>(_onWatchStarted, transformer: restartable());
     on<SubscriptionOrWarrantyAdded>(_onSubAdded, transformer: droppable());
     on<SubscriptionOrWarrantyDeleted>(_onSubDeleted, transformer: sequential());
     on<HabitAdded>(_onHabitAdded, transformer: droppable());
     on<HabitToggledToday>(_onHabitToggled, transformer: sequential());
-    on<WellnessMetricsIncremented>(_onWellnessIncremented, transformer: sequential());
+    on<WellnessMetricsIncremented>(
+      _onWellnessIncremented,
+      transformer: sequential(),
+    );
     on<GiftLedgerEntrySubmitted>(_onGiftSubmitted, transformer: droppable());
     on<PackingTemplateSeeded>(_onPackingSeeded, transformer: restartable());
     on<PackingItemToggled>(_onPackingToggled, transformer: sequential());
@@ -264,7 +271,9 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     ProUtilitiesWatchStarted event,
     Emitter<ProUtilitiesState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isLoading: true, clearFailure: true, clearMessage: true),
+    );
     await emit.forEach<ProUtilitiesSnapshot>(
       _repository.watchAll(userId: event.userId),
       onData: (snap) => state.copyWith(
@@ -299,7 +308,9 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã lưu "${event.title}" vào Radar theo dõi.')),
+      (_) => emit(
+        state.copyWith(message: 'Đã lưu "${event.title}" vào Radar theo dõi.'),
+      ),
     );
   }
 
@@ -329,7 +340,8 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã thêm thói quen "${event.title}".')),
+      (_) =>
+          emit(state.copyWith(message: 'Đã thêm thói quen "${event.title}".')),
     );
   }
 
@@ -376,7 +388,9 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã ghi sổ Hiếu Hỷ với ${event.contactName}.')),
+      (_) => emit(
+        state.copyWith(message: 'Đã ghi sổ Hiếu Hỷ với ${event.contactName}.'),
+      ),
     );
   }
 
@@ -391,7 +405,9 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã nạp mẫu hành lý "${event.tripName}".')),
+      (_) => emit(
+        state.copyWith(message: 'Đã nạp mẫu hành lý "${event.tripName}".'),
+      ),
     );
   }
 

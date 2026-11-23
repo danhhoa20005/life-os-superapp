@@ -97,10 +97,10 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     required TaskRepository repository,
     required CreateTaskUseCase createTask,
     required RespondToTaskUseCase respondToTask,
-  })  : _repository = repository,
-        _createTask = createTask,
-        _respondToTask = respondToTask,
-        super(const TaskState()) {
+  }) : _repository = repository,
+       _createTask = createTask,
+       _respondToTask = respondToTask,
+       super(const TaskState()) {
     on<TasksWatchStarted>(_onWatchStarted, transformer: restartable());
     on<TaskCreateSubmitted>(_onCreateTask, transformer: sequential());
     on<TaskResponseSubmitted>(_onRespondTask, transformer: sequential());
@@ -116,7 +116,8 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
       _repository.watchTasks(userId: event.userId, familyId: event.familyId),
       onData: (res) => res.fold(
         (f) => state.copyWith(isLoading: false, failure: f),
-        (items) => state.copyWith(isLoading: false, tasks: items, clearFailure: true),
+        (items) =>
+            state.copyWith(isLoading: false, tasks: items, clearFailure: true),
       ),
     );
   }
@@ -141,7 +142,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(
         state.copyWith(
-          message: event.params.accept ? 'Đã nhận nhiệm vụ.' : 'Đã từ chối nhiệm vụ.',
+          message: event.params.accept
+              ? 'Đã nhận nhiệm vụ.'
+              : 'Đã từ chối nhiệm vụ.',
         ),
       ),
     );
@@ -160,7 +163,8 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(
         state.copyWith(
-          message: event.nextStatus == TaskWorkflowStatus.done &&
+          message:
+              event.nextStatus == TaskWorkflowStatus.done &&
                   event.task.recurrence != TaskRecurrence.none
               ? 'Đã hoàn thành và tự động tạo kỳ lặp tiếp theo.'
               : 'Đã cập nhật tiến độ công việc.',

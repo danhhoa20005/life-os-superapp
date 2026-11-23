@@ -29,7 +29,9 @@ class UpsertBudgetUseCase implements UseCase<void, UpsertBudgetParams> {
   @override
   Future<Result<void>> call(UpsertBudgetParams params) async {
     if (params.limitMinor <= 0) {
-      return const Err(ValidationFailure(message: 'Hạn mức ngân sách phải lớn hơn 0 ₫.'));
+      return const Err(
+        ValidationFailure(message: 'Hạn mức ngân sách phải lớn hơn 0 ₫.'),
+      );
     }
     return _repository.upsertBudget(
       userId: params.userId,
@@ -65,17 +67,24 @@ class CreateFundUseCase implements UseCase<void, CreateFundParams> {
   @override
   Future<Result<void>> call(CreateFundParams params) async {
     if (params.name.trim().length < 2) {
-      return const Err(ValidationFailure(message: 'Tên quỹ phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Tên quỹ phải có ít nhất 2 ký tự.'),
+      );
     }
-    if (params.scope == FundScope.family && (params.familyId == null || params.familyId!.isEmpty)) {
-      return const Err(ValidationFailure(message: 'Quỹ chung bắt buộc chọn hộ gia đình.'));
+    if (params.scope == FundScope.family &&
+        (params.familyId == null || params.familyId!.isEmpty)) {
+      return const Err(
+        ValidationFailure(message: 'Quỹ chung bắt buộc chọn hộ gia đình.'),
+      );
     }
     return _repository.createFund(
       userId: params.userId,
       familyId: params.familyId,
       scope: params.scope,
       name: params.name.trim(),
-      targetAmountMinor: params.targetAmountMinor < 0 ? 0 : params.targetAmountMinor,
+      targetAmountMinor: params.targetAmountMinor < 0
+          ? 0
+          : params.targetAmountMinor,
     );
   }
 }
@@ -107,7 +116,9 @@ class ContributeToFundUseCase implements UseCase<void, ContributeFundParams> {
   @override
   Future<Result<void>> call(ContributeFundParams params) async {
     if (params.amountMinor <= 0) {
-      return const Err(ValidationFailure(message: 'Số tiền đóng góp quỹ phải lớn hơn 0 ₫.'));
+      return const Err(
+        ValidationFailure(message: 'Số tiền đóng góp quỹ phải lớn hơn 0 ₫.'),
+      );
     }
     return _repository.contributeToFund(
       userId: params.userId,
@@ -143,17 +154,22 @@ final class RequestFundExpenseParams {
   });
 }
 
-class RequestFundExpenseUseCase implements UseCase<void, RequestFundExpenseParams> {
+class RequestFundExpenseUseCase
+    implements UseCase<void, RequestFundExpenseParams> {
   final BudgetRepository _repository;
   const RequestFundExpenseUseCase(this._repository);
 
   @override
   Future<Result<void>> call(RequestFundExpenseParams params) async {
     if (params.title.trim().length < 2) {
-      return const Err(ValidationFailure(message: 'Mục đích chi quỹ phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Mục đích chi quỹ phải có ít nhất 2 ký tự.'),
+      );
     }
     if (params.amountMinor <= 0) {
-      return const Err(ValidationFailure(message: 'Số tiền đề xuất chi phải lớn hơn 0 ₫.'));
+      return const Err(
+        ValidationFailure(message: 'Số tiền đề xuất chi phải lớn hơn 0 ₫.'),
+      );
     }
     return _repository.requestFundExpense(
       userId: params.userId,
@@ -182,7 +198,8 @@ final class DecideFundExpenseParams {
   });
 }
 
-class DecideFundExpenseUseCase implements UseCase<void, DecideFundExpenseParams> {
+class DecideFundExpenseUseCase
+    implements UseCase<void, DecideFundExpenseParams> {
   final BudgetRepository _repository;
   const DecideFundExpenseUseCase(this._repository);
 

@@ -37,13 +37,22 @@ class FamilyPage extends StatelessWidget {
           p.message != c.message ||
           p.selectedFamilyId != c.selectedFamilyId,
       listener: (context, state) {
-        if (state.selectedFamilyId != null && state.selectedFamilyId != user.activeFamilyId) {
-          context.read<AuthBloc>().add(AuthActiveFamilyChanged(state.selectedFamilyId!));
+        if (state.selectedFamilyId != null &&
+            state.selectedFamilyId != user.activeFamilyId) {
+          context.read<AuthBloc>().add(
+            AuthActiveFamilyChanged(state.selectedFamilyId!),
+          );
         }
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+          );
         } else if (state.message != null) {
-          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.message!}')));
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text('✓ ${state.message!}')),
+          );
         }
       },
       child: DefaultTabController(
@@ -67,12 +76,20 @@ class FamilyPage extends StatelessWidget {
                       LifeOsHeaderCircleButton(
                         icon: Icons.group_add_outlined,
                         tooltip: 'Nhập mã mời',
-                        onTap: () => _showJoinFamilyDialog(context, user.id, user.fullName),
+                        onTap: () => _showJoinFamilyDialog(
+                          context,
+                          user.id,
+                          user.fullName,
+                        ),
                       ),
                     ],
                     trailingAction: FilledButton.icon(
                       key: const Key('open_create_space_button'),
-                      onPressed: () => _showCreateFamilyDialog(context, user.id, user.fullName),
+                      onPressed: () => _showCreateFamilyDialog(
+                        context,
+                        user.id,
+                        user.fullName,
+                      ),
                       icon: const Icon(Icons.add_home_outlined, size: 18),
                       label: const Text('Tạo nhóm'),
                     ),
@@ -86,10 +103,14 @@ class FamilyPage extends StatelessWidget {
                             icon: Icons.family_restroom_rounded,
                             imageAsset: AppAssets.familySplitIllustration,
                             title: 'Chưa tham gia nhóm nào',
-                            subtitle: 'Tạo không gian gia đình, nhà trọ hoặc nhóm bạn để chia chi phí chung.',
+                            subtitle:
+                                'Tạo không gian gia đình, nhà trọ hoặc nhóm bạn để chia chi phí chung.',
                             actionLabel: 'Tạo nhóm đầu tiên',
-                            onAction: () =>
-                                _showCreateFamilyDialog(context, user.id, user.fullName),
+                            onAction: () => _showCreateFamilyDialog(
+                              context,
+                              user.id,
+                              user.fullName,
+                            ),
                           );
                         }
 
@@ -104,13 +125,15 @@ class FamilyPage extends StatelessWidget {
                                   0,
                                 ),
                                 child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: AppSpacing.maxContentWidth,
+                                  ),
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
                                     initialValue: family.id,
                                     decoration: const InputDecoration(
-                                      labelText: 'Chuyển không gian cộng tác đang xem',
+                                      labelText:
+                                          'Chuyển không gian cộng tác đang xem',
                                       isDense: true,
                                     ),
                                     items: state.families
@@ -126,9 +149,9 @@ class FamilyPage extends StatelessWidget {
                                         .toList(),
                                     onChanged: (nextId) {
                                       if (nextId != null) {
-                                        context
-                                            .read<FamilyBloc>()
-                                            .add(FamilyShoppingWatchRequested(nextId));
+                                        context.read<FamilyBloc>().add(
+                                          FamilyShoppingWatchRequested(nextId),
+                                        );
                                       }
                                     },
                                   ),
@@ -216,7 +239,10 @@ class FamilyPage extends StatelessWidget {
                       .map(
                         (t) => DropdownMenuItem(
                           value: t,
-                          child: Text(t.displayLabel, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            t.displayLabel,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(),
@@ -235,14 +261,18 @@ class FamilyPage extends StatelessWidget {
                 TextField(
                   controller: ctrl,
                   decoration: const InputDecoration(
-                    hintText: 'VD: Tổ ấm Minh & Lan / Căn hộ P.802 / Team Đà Lạt',
+                    hintText:
+                        'VD: Tổ ấm Minh & Lan / Căn hộ P.802 / Team Đà Lạt',
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () {
                 bloc.add(
@@ -284,7 +314,10 @@ class FamilyPage extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               bloc.add(
@@ -333,14 +366,19 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
             Builder(
               builder: (context) {
                 final taskCount = context.watch<TaskBloc>().state.tasks.length;
-                final eventCount = context.watch<CalendarBloc>().state.events.length;
+                final eventCount = context
+                    .watch<CalendarBloc>()
+                    .state
+                    .events
+                    .length;
                 final totalFunds = context
                     .watch<BudgetBloc>()
                     .state
                     .funds
                     .fold<int>(0, (s, f) => s + f.balanceMinor);
-                final displayFund =
-                    totalFunds > 0 ? totalFunds : ledger.totalSharedSpendMinor;
+                final displayFund = totalFunds > 0
+                    ? totalFunds
+                    : ledger.totalSharedSpendMinor;
 
                 return LifeOsMintHeroCard(
                   child: Column(
@@ -348,7 +386,11 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.groups_outlined, size: 20, color: c.primary),
+                          Icon(
+                            Icons.groups_outlined,
+                            size: 20,
+                            color: c.primary,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -374,7 +416,9 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                       Row(
                         children: [
                           LifeOsAvatarStack(
-                            names: family.members.map((m) => m.fullName).toList(),
+                            names: family.members
+                                .map((m) => m.fullName)
+                                .toList(),
                             radius: 16,
                           ),
                           const SizedBox(width: 10),
@@ -511,8 +555,12 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         children: [
                           FilledButton.icon(
                             key: const Key('open_add_split_bill_button'),
-                            onPressed: () => _showCreateSplitBillDialog(context),
-                            icon: const Icon(Icons.call_split_rounded, size: 18),
+                            onPressed: () =>
+                                _showCreateSplitBillDialog(context),
+                            icon: const Icon(
+                              Icons.call_split_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Chia khoản mới'),
                           ),
                           OutlinedButton.icon(
@@ -522,7 +570,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                           ),
                           OutlinedButton.icon(
                             onPressed: () => context.push('/family-documents'),
-                            icon: const Icon(Icons.folder_open_rounded, size: 17),
+                            icon: const Icon(
+                              Icons.folder_open_rounded,
+                              size: 17,
+                            ),
                             label: const Text('Tài liệu'),
                           ),
                           OutlinedButton.icon(
@@ -551,19 +602,22 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                   children: ledger.memberBalances.map((mb) {
                     final isPositive = mb.netBalanceMinor > 0;
                     final isNegative = mb.netBalanceMinor < 0;
-                    final statusColor =
-                        isPositive ? c.success : (isNegative ? c.error : c.textSecondary);
+                    final statusColor = isPositive
+                        ? c.success
+                        : (isNegative ? c.error : c.textSecondary);
                     final statusLabel = isPositive
                         ? 'Nhận lại ${VndAmount.format(mb.netBalanceMinor)}'
                         : isNegative
-                            ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
-                            : 'Đã cân bằng';
+                        ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
+                        : 'Đã cân bằng';
 
                     return ListTile(
                       dense: true,
                       leading: CircleAvatar(
                         child: Text(
-                          mb.fullName.isNotEmpty ? mb.fullName[0].toUpperCase() : '?',
+                          mb.fullName.isNotEmpty
+                              ? mb.fullName[0].toUpperCase()
+                              : '?',
                         ),
                       ),
                       title: Text(mb.fullName),
@@ -572,7 +626,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                       ),
                       trailing: Text(
                         statusLabel,
-                        style: TextStyle(fontWeight: FontWeight.w700, color: statusColor),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
+                        ),
                       ),
                     );
                   }).toList(),
@@ -590,9 +647,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(AppSpacing.md),
-                  child: Text(
-                    'Mọi khoản chi chung đã cân bằng.',
-                  ),
+                  child: Text('Mọi khoản chi chung đã cân bằng.'),
                 ),
               )
             else
@@ -644,39 +699,6 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                                     sePayCode: tr.sePayTransferCode,
                                     onConfirmSettled: () {
                                       context.read<FamilyBloc>().add(
-                                            DebtSettlementRecorded(
-                                              RecordDebtSettlementParams(
-                                                familyId: family.id,
-                                                fromUserId: tr.fromUserId,
-                                                fromUserName: tr.fromUserName,
-                                                toUserId: tr.toUserId,
-                                                toUserName: tr.toUserName,
-                                                amountMinor: tr.amountMinor,
-                                                paymentCode: tr.sePayTransferCode,
-                                              ),
-                                            ),
-                                          );
-                                    },
-                                  );
-                                },
-                                icon: const Icon(Icons.qr_code_2_rounded, size: 16),
-                                label: const Text('Mã QR'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: tr.sePayTransferCode));
-                                  LifeOsTopToast.fromSnackBar(context, 
-                                    const SnackBar(
-                                      content: Text('✓ Đã sao chép mã chuyển khoản.'),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.copy_rounded, size: 15),
-                                label: const Text('Copy mã'),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: () {
-                                  context.read<FamilyBloc>().add(
                                         DebtSettlementRecorded(
                                           RecordDebtSettlementParams(
                                             familyId: family.id,
@@ -689,8 +711,52 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                                           ),
                                         ),
                                       );
+                                    },
+                                  );
                                 },
-                                icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                                icon: const Icon(
+                                  Icons.qr_code_2_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Mã QR'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: tr.sePayTransferCode),
+                                  );
+                                  LifeOsTopToast.fromSnackBar(
+                                    context,
+                                    const SnackBar(
+                                      content: Text(
+                                        '✓ Đã sao chép mã chuyển khoản.',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.copy_rounded, size: 15),
+                                label: const Text('Copy mã'),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: () {
+                                  context.read<FamilyBloc>().add(
+                                    DebtSettlementRecorded(
+                                      RecordDebtSettlementParams(
+                                        familyId: family.id,
+                                        fromUserId: tr.fromUserId,
+                                        fromUserName: tr.fromUserName,
+                                        toUserId: tr.toUserId,
+                                        toUserName: tr.toUserName,
+                                        amountMinor: tr.amountMinor,
+                                        paymentCode: tr.sePayTransferCode,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 16,
+                                ),
                                 label: const Text('Ghi nhận đã tất toán'),
                               ),
                             ],
@@ -723,15 +789,20 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: Card(
                     child: ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.receipt_long_rounded)),
-                      title: Text('${bill.title} · ${VndAmount.format(bill.totalAmountMinor)}'),
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.receipt_long_rounded),
+                      ),
+                      title: Text(
+                        '${bill.title} · ${VndAmount.format(bill.totalAmountMinor)}',
+                      ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             '${bill.topic.displayLabel} · Trả trước bởi ${bill.paidByName} · ${bill.splitMethod.displayLabel}',
                           ),
-                          if (bill.choreOrTaskNote != null && bill.choreOrTaskNote!.isNotEmpty)
+                          if (bill.choreOrTaskNote != null &&
+                              bill.choreOrTaskNote!.isNotEmpty)
                             Text(
                               'Gắn việc nhà / ghi chú: ${bill.choreOrTaskNote}',
                               style: Theme.of(context).textTheme.labelSmall,
@@ -754,7 +825,9 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: AppSpacing.xs),
-              ...state.settlements.take(10).map(
+              ...state.settlements
+                  .take(10)
+                  .map(
                     (st) => Card(
                       child: ListTile(
                         dense: true,
@@ -785,7 +858,8 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
 
     final selectedIds = <String>{for (final m in family.members) m.userId};
     final perMemberCtrls = <String, TextEditingController>{
-      for (final m in family.members) m.userId: TextEditingController(text: '1'),
+      for (final m in family.members)
+        m.userId: TextEditingController(text: '1'),
     };
     final bloc = context.read<FamilyBloc>();
 
@@ -809,7 +883,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (t) => DropdownMenuItem(
                             value: t,
-                            child: Text(t.displayLabel, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              t.displayLabel,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -824,7 +901,8 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                     key: const Key('split_bill_title_input'),
                     controller: titleCtrl,
                     decoration: const InputDecoration(
-                      hintText: 'VD: Lẩu cuối tuần / Mua nước lau sàn & giặt ủi',
+                      hintText:
+                          'VD: Lẩu cuối tuần / Mua nước lau sàn & giặt ủi',
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -846,7 +924,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (m) => DropdownMenuItem(
                             value: m.userId,
-                            child: Text(m.fullName, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              m.fullName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -864,7 +945,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (m) => DropdownMenuItem(
                             value: m,
-                            child: Text(m.displayLabel, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              m.displayLabel,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -872,7 +956,8 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                       if (v != null) {
                         setDialogState(() {
                           method = v;
-                          if (method == SplitMethod.percentage && selectedIds.isNotEmpty) {
+                          if (method == SplitMethod.percentage &&
+                              selectedIds.isNotEmpty) {
                             final basePct = 100 ~/ selectedIds.length;
                             var rem = 100 % selectedIds.length;
                             for (final uid in selectedIds) {
@@ -919,9 +1004,12 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                               decoration: InputDecoration(
                                 isDense: true,
                                 labelText: switch (method) {
-                                  SplitMethod.percentage => 'Tỷ lệ % của ${m.fullName}',
-                                  SplitMethod.shares => 'Số phần / hệ số của ${m.fullName}',
-                                  SplitMethod.exact => 'Số tiền VND của ${m.fullName}',
+                                  SplitMethod.percentage =>
+                                    'Tỷ lệ % của ${m.fullName}',
+                                  SplitMethod.shares =>
+                                    'Số phần / hệ số của ${m.fullName}',
+                                  SplitMethod.exact =>
+                                    'Số tiền VND của ${m.fullName}',
                                   SplitMethod.equal => '',
                                 },
                               ),
@@ -943,7 +1031,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Hủy'),
+              ),
               FilledButton(
                 key: const Key('submit_split_bill_button'),
                 onPressed: () {
@@ -1052,12 +1143,12 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                         if (family.isManager(currentUserId))
                           OutlinedButton.icon(
                             onPressed: () => context.read<FamilyBloc>().add(
-                                  FamilyInviteGenerated(
-                                    userId: currentUserId,
-                                    familyId: family.id,
-                                    familyName: family.name,
-                                  ),
-                                ),
+                              FamilyInviteGenerated(
+                                userId: currentUserId,
+                                familyId: family.id,
+                                familyName: family.name,
+                              ),
+                            ),
                             icon: const Icon(Icons.qr_code_rounded, size: 18),
                             label: const Text('Tạo mã mời 7 ngày'),
                           ),
@@ -1072,11 +1163,11 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                             );
                             if (ok && context.mounted) {
                               context.read<FamilyBloc>().add(
-                                    FamilyLeaveConfirmed(
-                                      userId: currentUserId,
-                                      familyId: family.id,
-                                    ),
-                                  );
+                                FamilyLeaveConfirmed(
+                                  userId: currentUserId,
+                                  familyId: family.id,
+                                ),
+                              );
                             }
                           },
                           icon: const Icon(Icons.exit_to_app_rounded, size: 18),
@@ -1097,8 +1188,11 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                               Clipboard.setData(
                                 ClipboardData(text: state.latestInviteCode!),
                               );
-                              LifeOsTopToast.fromSnackBar(context, 
-                                const SnackBar(content: Text('✓ Đã sao chép mã mời.')),
+                              LifeOsTopToast.fromSnackBar(
+                                context,
+                                const SnackBar(
+                                  content: Text('✓ Đã sao chép mã mời.'),
+                                ),
                               );
                             },
                             icon: const Icon(Icons.copy_rounded, size: 18),
@@ -1116,7 +1210,9 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                       (m) => ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.person_outline),
+                        ),
                         title: Text(m.fullName),
                         trailing: SemanticStatusBadge(
                           kind: m.role == HouseholdRole.owner
@@ -1195,17 +1291,19 @@ class _SharedShoppingTabView extends StatelessWidget {
                       value: item.isPurchased,
                       onChanged: (checked) {
                         context.read<FamilyBloc>().add(
-                              ShoppingItemToggled(
-                                familyId: family.id,
-                                itemId: item.id,
-                                isPurchased: checked ?? false,
-                              ),
-                            );
+                          ShoppingItemToggled(
+                            familyId: family.id,
+                            itemId: item.id,
+                            isPurchased: checked ?? false,
+                          ),
+                        );
                       },
                       title: Text(
                         '${item.title} (${item.quantityLabel})',
                         style: TextStyle(
-                          decoration: item.isPurchased ? TextDecoration.lineThrough : null,
+                          decoration: item.isPurchased
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       subtitle: Text(
@@ -1249,11 +1347,17 @@ class _SharedShoppingTabView extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             const Text('Giá dự kiến (VND)'),
             const SizedBox(height: 6),
-            TextField(controller: priceCtrl, keyboardType: TextInputType.number),
+            TextField(
+              controller: priceCtrl,
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               final est = VndAmount.tryParseInput(priceCtrl.text) ?? 0;

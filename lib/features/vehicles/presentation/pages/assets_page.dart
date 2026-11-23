@@ -29,9 +29,15 @@ class AssetsPage extends StatelessWidget {
       listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+          );
         } else if (state.message != null) {
-          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.message!}')));
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text('✓ ${state.message!}')),
+          );
         }
       },
       child: DefaultTabController(
@@ -47,12 +53,19 @@ class AssetsPage extends StatelessWidget {
                       LifeOsHeaderCircleButton(
                         icon: Icons.receipt_long_outlined,
                         tooltip: 'Thêm hóa đơn định kỳ',
-                        onTap: () => _showAddBillDialog(context, user.id, user.activeFamilyId),
+                        onTap: () => _showAddBillDialog(
+                          context,
+                          user.id,
+                          user.activeFamilyId,
+                        ),
                       ),
                     ],
                     trailingAction: FilledButton.icon(
-                      onPressed: () =>
-                          _showAddVehicleDialog(context, user.id, user.activeFamilyId),
+                      onPressed: () => _showAddVehicleDialog(
+                        context,
+                        user.id,
+                        user.activeFamilyId,
+                      ),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Thêm xe'),
                     ),
@@ -74,7 +87,9 @@ class AssetsPage extends StatelessWidget {
                               userId: user.id,
                               familyId: user.activeFamilyId,
                               vehicles: state.vehicles,
-                              defaultWalletId: wallets.isNotEmpty ? wallets.first.id : null,
+                              defaultWalletId: wallets.isNotEmpty
+                                  ? wallets.first.id
+                                  : null,
                               onAddVehicle: () => _showAddVehicleDialog(
                                 context,
                                 user.id,
@@ -84,7 +99,9 @@ class AssetsPage extends StatelessWidget {
                             _UnifiedRecurringBillsTab(
                               userId: user.id,
                               bills: state.bills,
-                              defaultWalletId: wallets.isNotEmpty ? wallets.first.id : null,
+                              defaultWalletId: wallets.isNotEmpty
+                                  ? wallets.first.id
+                                  : null,
                               onAddBill: () => _showAddBillDialog(
                                 context,
                                 user.id,
@@ -161,7 +178,10 @@ class AssetsPage extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () {
                 bloc.add(
@@ -229,7 +249,10 @@ class AssetsPage extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               final amt = VndAmount.tryParseInput(amountCtrl.text) ?? 0;
@@ -356,15 +379,28 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
               Builder(
                 builder: (context) {
                   final due = activeVehicle.dueStateAt(now);
-                  final remDays = activeVehicle.remainingDaysFrom(now).clamp(0, 999);
+                  final remDays = activeVehicle
+                      .remainingDaysFrom(now)
+                      .clamp(0, 999);
                   final nextServiceDate = now.add(Duration(days: remDays));
                   final insuranceDate = activeVehicle.insuranceExpiryDate;
-                  final insuranceRemDays = insuranceDate?.difference(now).inDays;
+                  final insuranceRemDays = insuranceDate
+                      ?.difference(now)
+                      .inDays;
 
                   final (pillTone, pillLabel) = switch (due) {
-                    VehicleDueState.overdue => (LifeOsAccentTone.coral, 'Quá hạn'),
-                    VehicleDueState.dueSoon => (LifeOsAccentTone.amber, 'Sắp đến hạn'),
-                    VehicleDueState.healthy => (LifeOsAccentTone.emerald, 'Đang tốt'),
+                    VehicleDueState.overdue => (
+                      LifeOsAccentTone.coral,
+                      'Quá hạn',
+                    ),
+                    VehicleDueState.dueSoon => (
+                      LifeOsAccentTone.amber,
+                      'Sắp đến hạn',
+                    ),
+                    VehicleDueState.healthy => (
+                      LifeOsAccentTone.emerald,
+                      'Đang tốt',
+                    ),
                   };
 
                   return LifeOsSoftCard(
@@ -395,13 +431,17 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                     fit: BoxFit.scaleDown,
                                     alignment: Alignment.centerLeft,
                                     child: Text(
-                                      activeVehicle.displayPlateForViewer(widget.userId),
+                                      activeVehicle.displayPlateForViewer(
+                                        widget.userId,
+                                      ),
                                       style: TextStyle(
                                         fontSize: 21,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: -0.3,
                                         color: c.textPrimary,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -442,7 +482,10 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                     const SizedBox(height: 6),
                                     Text(
                                       'Bảo dưỡng tiếp theo',
-                                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: c.textSecondary,
+                                      ),
                                     ),
                                     const SizedBox(height: 2),
                                     FittedBox(
@@ -459,7 +502,10 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                     ),
                                     Text(
                                       'Còn $remDays ngày',
-                                      style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                                      style: TextStyle(
+                                        fontSize: 11.8,
+                                        color: c.textSecondary,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -467,11 +513,19 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                               VerticalDivider(width: 16, color: c.separator),
                               Expanded(
                                 child: InkWell(
-                                  onTap: () => _showOdometerDialog(context, activeVehicle),
+                                  onTap: () => _showOdometerDialog(
+                                    context,
+                                    activeVehicle,
+                                  ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(Icons.speed_rounded, size: 20, color: c.primary),
+                                      Icon(
+                                        Icons.speed_rounded,
+                                        size: 20,
+                                        color: c.primary,
+                                      ),
                                       const SizedBox(height: 6),
                                       Text(
                                         'Số ODO (chạm sửa)',
@@ -490,7 +544,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800,
                                             color: c.textPrimary,
-                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -510,9 +566,11 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                               VerticalDivider(width: 16, color: c.separator),
                               Expanded(
                                 child: InkWell(
-                                  onTap: () => context.push('/family-documents'),
+                                  onTap: () =>
+                                      context.push('/family-documents'),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Icon(
                                         Icons.verified_user_outlined,
@@ -522,7 +580,10 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       const SizedBox(height: 6),
                                       Text(
                                         'Bảo hiểm TNDS',
-                                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 11.8,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                       const SizedBox(height: 2),
                                       FittedBox(
@@ -542,10 +603,13 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       Text(
                                         insuranceRemDays != null
                                             ? (insuranceRemDays >= 0
-                                                ? 'Còn $insuranceRemDays ngày'
-                                                : 'Quá hạn ${-insuranceRemDays} ngày')
+                                                  ? 'Còn $insuranceRemDays ngày'
+                                                  : 'Quá hạn ${-insuranceRemDays} ngày')
                                             : 'Chạm lưu giấy tờ',
-                                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -599,7 +663,8 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                     _ServiceChecklistTile(
                       icon: Icons.tire_repair_outlined,
                       title: 'Kiểm tra lốp & phanh',
-                      subtitle: 'Mỗi 10.000 km · Còn ${activeVehicle.remainingKm} km',
+                      subtitle:
+                          'Mỗi 10.000 km · Còn ${activeVehicle.remainingKm} km',
                       pillLabel: 'Sắp đến hạn',
                       pillIcon: Icons.schedule_rounded,
                       pillTone: LifeOsAccentTone.amber,
@@ -681,8 +746,13 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
     );
   }
 
-  Future<void> _showOdometerDialog(BuildContext context, VehicleEntity vehicle) async {
-    final ctrl = TextEditingController(text: (vehicle.currentOdometerKm + 250).toString());
+  Future<void> _showOdometerDialog(
+    BuildContext context,
+    VehicleEntity vehicle,
+  ) async {
+    final ctrl = TextEditingController(
+      text: (vehicle.currentOdometerKm + 250).toString(),
+    );
     final bloc = context.read<VehicleBloc>();
     await showDialog<void>(
       context: context,
@@ -694,13 +764,17 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
           decoration: const InputDecoration(labelText: 'Số km hiện tại'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               bloc.add(
                 VehicleOdometerLogged(
                   vehicle: vehicle,
-                  newOdometerKm: int.tryParse(ctrl.text) ?? vehicle.currentOdometerKm,
+                  newOdometerKm:
+                      int.tryParse(ctrl.text) ?? vehicle.currentOdometerKm,
                 ),
               );
               Navigator.of(ctx).pop();
@@ -731,7 +805,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
           children: [
             TextField(
               controller: titleCtrl,
-              decoration: const InputDecoration(labelText: 'Hạng mục bảo dưỡng'),
+              decoration: const InputDecoration(
+                labelText: 'Hạng mục bảo dưỡng',
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
@@ -744,7 +820,10 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               final cost = VndAmount.tryParseInput(costCtrl.text) ?? 0;
@@ -794,7 +873,11 @@ class _ServiceChecklistTile extends StatelessWidget {
       onTap: onTap,
       child: Row(
         children: [
-          LifeOsIconSquircle(icon: icon, tone: LifeOsAccentTone.emerald, size: 42),
+          LifeOsIconSquircle(
+            icon: icon,
+            tone: LifeOsAccentTone.emerald,
+            size: 42,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -908,7 +991,10 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                               ),
                               Text(
                                 'Kỳ hạn kế tiếp: ${fmt.format(b.nextDueDate)}',
-                                style: TextStyle(fontSize: 12, color: c.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: c.textSecondary,
+                                ),
                               ),
                               if (b.hasAbnormalSpike) ...[
                                 const SizedBox(height: 4),
@@ -925,13 +1011,13 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                           FilledButton.tonal(
                             onPressed: () {
                               context.read<VehicleBloc>().add(
-                                    RecurringBillPaid(
-                                      userId: userId,
-                                      bill: b,
-                                      paidAmountMinor: b.estimatedAmountMinor,
-                                      walletId: defaultWalletId!,
-                                    ),
-                                  );
+                                RecurringBillPaid(
+                                  userId: userId,
+                                  bill: b,
+                                  paidAmountMinor: b.estimatedAmountMinor,
+                                  walletId: defaultWalletId!,
+                                ),
+                              );
                             },
                             child: const Text('Thanh toán'),
                           ),

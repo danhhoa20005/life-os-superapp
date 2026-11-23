@@ -42,7 +42,8 @@ class BudgetRemoteDataSource {
         if (kind == 'expense' &&
             (ver == 'userConfirmed' || ver == 'verified') &&
             (reversedBy == null || reversedBy.isEmpty)) {
-          final rawSplits = d['splitLines'] as List<dynamic>? ?? const <dynamic>[];
+          final rawSplits =
+              d['splitLines'] as List<dynamic>? ?? const <dynamic>[];
           if (rawSplits.isNotEmpty) {
             for (final rawLine in rawSplits) {
               if (rawLine is Map) {
@@ -148,7 +149,11 @@ class BudgetRemoteDataSource {
         .doc(userId)
         .collection('personal_funds')
         .snapshots()
-        .asyncMap((snap) => Future.wait(snap.docs.map((d) => _hydrateFund(d, FundScope.personal))));
+        .asyncMap(
+          (snap) => Future.wait(
+            snap.docs.map((d) => _hydrateFund(d, FundScope.personal)),
+          ),
+        );
 
     if (familyId == null || familyId.isEmpty) {
       return personalStream;
@@ -159,7 +164,11 @@ class BudgetRemoteDataSource {
         .doc(familyId)
         .collection('funds')
         .snapshots()
-        .asyncMap((snap) => Future.wait(snap.docs.map((d) => _hydrateFund(d, FundScope.family))));
+        .asyncMap(
+          (snap) => Future.wait(
+            snap.docs.map((d) => _hydrateFund(d, FundScope.family)),
+          ),
+        );
 
     return StreamCombiner.combine2(
       personalStream,
@@ -183,15 +192,15 @@ class BudgetRemoteDataSource {
         .collection('budgets')
         .doc(id)
         .set({
-      'id': id,
-      'ownerId': userId,
-      'categoryId': categoryId,
-      'categoryName': categoryName,
-      'monthKey': monthKey,
-      'limitMinor': limitMinor,
-      'alertThresholdPct': alertThresholdPct,
-      'updatedAt': Timestamp.fromDate(DateTime.now()),
-    });
+          'id': id,
+          'ownerId': userId,
+          'categoryId': categoryId,
+          'categoryName': categoryName,
+          'monthKey': monthKey,
+          'limitMinor': limitMinor,
+          'alertThresholdPct': alertThresholdPct,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
   }
 
   DocumentReference<Map<String, dynamic>> _fundDocRef({
@@ -201,9 +210,17 @@ class BudgetRemoteDataSource {
     required String fundId,
   }) {
     if (scope == FundScope.personal) {
-      return _firestore.collection('users').doc(userId).collection('personal_funds').doc(fundId);
+      return _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('personal_funds')
+          .doc(fundId);
     }
-    return _firestore.collection('families').doc(familyId).collection('funds').doc(fundId);
+    return _firestore
+        .collection('families')
+        .doc(familyId)
+        .collection('funds')
+        .doc(fundId);
   }
 
   Future<void> createFund({
@@ -215,7 +232,12 @@ class BudgetRemoteDataSource {
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
-    final ref = _fundDocRef(scope: scope, userId: userId, familyId: familyId, fundId: id);
+    final ref = _fundDocRef(
+      scope: scope,
+      userId: userId,
+      familyId: familyId,
+      fundId: id,
+    );
     await ref.set({
       'id': id,
       'ownerId': userId,
@@ -238,14 +260,22 @@ class BudgetRemoteDataSource {
     required int amountMinor,
     String? note,
   }) async {
-    final fundRef = _fundDocRef(scope: scope, userId: userId, familyId: familyId, fundId: fundId);
+    final fundRef = _fundDocRef(
+      scope: scope,
+      userId: userId,
+      familyId: familyId,
+      fundId: fundId,
+    );
     final contribId = _uuid.v4();
     final contribRef = fundRef.collection('contributions').doc(contribId);
 
     await _firestore.runTransaction((tx) async {
       final snap = await tx.get(fundRef);
       if (!snap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy quỹ.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy quỹ.',
+        );
       }
       final currentBal = (snap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
       final now = DateTime.now();
@@ -276,14 +306,22 @@ class BudgetRemoteDataSource {
     required int amountMinor,
     required bool canAutoApprove,
   }) async {
-    final fundRef = _fundDocRef(scope: scope, userId: userId, familyId: familyId, fundId: fundId);
+    final fundRef = _fundDocRef(
+      scope: scope,
+      userId: userId,
+      familyId: familyId,
+      fundId: fundId,
+    );
     final expId = _uuid.v4();
     final expRef = fundRef.collection('expenses').doc(expId);
 
     await _firestore.runTransaction((tx) async {
       final snap = await tx.get(fundRef);
       if (!snap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy quỹ.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy quỹ.',
+        );
       }
       final currentBal = (snap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
       final autoApprove = scope == FundScope.personal || canAutoApprove;
@@ -322,14 +360,21 @@ class BudgetRemoteDataSource {
     required String expenseId,
     required bool approve,
   }) async {
-    final fundRef = _firestore.collection('families').doc(familyId).collection('funds').doc(fundId);
+    final fundRef = _firestore
+        .collection('families')
+        .doc(familyId)
+        .collection('funds')
+        .doc(fundId);
     final expRef = fundRef.collection('expenses').doc(expenseId);
 
     await _firestore.runTransaction((tx) async {
       final fundSnap = await tx.get(fundRef);
       final expSnap = await tx.get(expRef);
       if (!fundSnap.exists || !expSnap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy đề xuất chi quỹ.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy đề xuất chi quỹ.',
+        );
       }
       final status = expSnap.data()?['status'] as String?;
       if (status != 'pending') {
@@ -338,8 +383,10 @@ class BudgetRemoteDataSource {
           message: 'Đề xuất chi này đã được xử lý.',
         );
       }
-      final amountMinor = (expSnap.data()?['amountMinor'] as num?)?.toInt() ?? 0;
-      final currentBal = (fundSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final amountMinor =
+          (expSnap.data()?['amountMinor'] as num?)?.toInt() ?? 0;
+      final currentBal =
+          (fundSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
       if (approve && currentBal < amountMinor) {
         throw const AppException(
           code: 'VALIDATION_FAILURE',
@@ -377,9 +424,14 @@ class BudgetRepositoryImpl implements BudgetRepository {
         .map<Result<List<BudgetEntity>>>((items) => Success(items))
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object e, StackTrace _, EventSink<Result<List<BudgetEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<BudgetEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -394,9 +446,14 @@ class BudgetRepositoryImpl implements BudgetRepository {
         .map<Result<List<FundEntity>>>((items) => Success(items))
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object e, StackTrace _, EventSink<Result<List<FundEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<FundEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }

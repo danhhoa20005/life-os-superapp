@@ -50,7 +50,10 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
     }
   }
 
-  Future<void> _showChangePasswordDialog(BuildContext context, UserEntity user) async {
+  Future<void> _showChangePasswordDialog(
+    BuildContext context,
+    UserEntity user,
+  ) async {
     final currentPwdCtrl = TextEditingController();
     final newPwdCtrl = TextEditingController();
     final confirmPwdCtrl = TextEditingController();
@@ -65,7 +68,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
           builder: (ctx, setModalState) {
             return AlertDialog(
               title: Text(
-                hasPassword ? 'Đổi mật khẩu đăng nhập' : 'Thiết lập mật khẩu Email',
+                hasPassword
+                    ? 'Đổi mật khẩu đăng nhập'
+                    : 'Thiết lập mật khẩu Email',
               ),
               content: SingleChildScrollView(
                 child: Column(
@@ -80,8 +85,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                           labelText: 'Mật khẩu hiện tại',
                           prefixIcon: const Icon(Icons.lock_clock_outlined),
                           suffixIcon: IconButton(
-                            onPressed: () =>
-                                setModalState(() => obscureCurrent = !obscureCurrent),
+                            onPressed: () => setModalState(
+                              () => obscureCurrent = !obscureCurrent,
+                            ),
                             icon: Icon(
                               obscureCurrent
                                   ? Icons.visibility_outlined
@@ -100,7 +106,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                         labelText: 'Mật khẩu mới (tối thiểu 8 ký tự)',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          onPressed: () => setModalState(() => obscureNew = !obscureNew),
+                          onPressed: () =>
+                              setModalState(() => obscureNew = !obscureNew),
                           icon: Icon(
                             obscureNew
                                 ? Icons.visibility_outlined
@@ -135,15 +142,17 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                     final confirm = confirmPwdCtrl.text;
                     Navigator.of(dialogCtx).pop();
                     context.read<AuthBloc>().add(
-                          AuthPasswordChangeSubmitted(
-                            currentPassword: hasPassword ? curr : null,
-                            newPassword: next,
-                            confirmPassword: confirm,
-                          ),
-                        );
+                      AuthPasswordChangeSubmitted(
+                        currentPassword: hasPassword ? curr : null,
+                        newPassword: next,
+                        confirmPassword: confirm,
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.check_rounded, size: 18),
-                  label: Text(hasPassword ? 'Cập nhật mật khẩu' : 'Tạo mật khẩu'),
+                  label: Text(
+                    hasPassword ? 'Cập nhật mật khẩu' : 'Tạo mật khẩu',
+                  ),
                 ),
               ],
             );
@@ -172,11 +181,13 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
           return;
         }
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.infoMessage != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('✓ ${state.infoMessage!}')),
           );
         }
@@ -184,22 +195,28 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
       builder: (context, state) {
         final user = state.user;
         if (user == null) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
         _syncControllersIfUserChanged(user);
 
         final providerSummary = user.isGoogleLinked && user.hasPasswordProvider
             ? 'Google + Email'
             : user.isGoogleLinked
-                ? 'Google OAuth'
-                : 'Email & Mật khẩu';
+            ? 'Google OAuth'
+            : 'Email & Mật khẩu';
 
         return Scaffold(
-          appBar: const LiquidGlassBar(title: Text('Hồ sơ & Bảo mật Tài khoản')),
+          appBar: const LiquidGlassBar(
+            title: Text('Hồ sơ & Bảo mật Tài khoản'),
+          ),
           body: SafeArea(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.maxContentWidth,
+                ),
                 child: ListView(
                   key: const Key('account_profile_list_view'),
                   padding: const EdgeInsets.fromLTRB(
@@ -236,7 +253,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                       user.email,
                                       style: TextStyle(
                                         fontSize: 13.5,
-                                        color: Colors.white.withValues(alpha: 0.86),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.86,
+                                        ),
                                       ),
                                     ),
                                     if (user.phoneNumber != null &&
@@ -246,8 +265,12 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                         user.phoneNumber!,
                                         style: TextStyle(
                                           fontSize: 12.5,
-                                          color: Colors.white.withValues(alpha: 0.78),
-                                          fontFeatures: const [FontFeature.tabularFigures()],
+                                          color: Colors.white.withValues(
+                                            alpha: 0.78,
+                                          ),
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -280,7 +303,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                     ? Icons.mark_email_read_rounded
                                     : Icons.mark_email_unread_rounded,
                                 label: 'Xác thực Email',
-                                value: user.emailVerified ? 'Đã xác minh' : 'Chờ xác minh',
+                                value: user.emailVerified
+                                    ? 'Đã xác minh'
+                                    : 'Chờ xác minh',
                                 iconColor: user.emailVerified
                                     ? const Color(0xFF86EFAC)
                                     : const Color(0xFFFDE047),
@@ -315,23 +340,33 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                 runSpacing: 8,
                                 children: [
                                   FilledButton.tonalIcon(
-                                    key: const Key('resend_verification_email_button'),
+                                    key: const Key(
+                                      'resend_verification_email_button',
+                                    ),
                                     onPressed: state.isSubmitting
                                         ? null
-                                        : () => context
-                                            .read<AuthBloc>()
-                                            .add(const AuthEmailVerificationRequested()),
-                                    icon: const Icon(Icons.outgoing_mail, size: 18),
+                                        : () => context.read<AuthBloc>().add(
+                                            const AuthEmailVerificationRequested(),
+                                          ),
+                                    icon: const Icon(
+                                      Icons.outgoing_mail,
+                                      size: 18,
+                                    ),
                                     label: const Text('Gửi lại email xác thực'),
                                   ),
                                   OutlinedButton.icon(
-                                    key: const Key('refresh_verification_status_button'),
+                                    key: const Key(
+                                      'refresh_verification_status_button',
+                                    ),
                                     onPressed: state.isSubmitting
                                         ? null
-                                        : () => context
-                                            .read<AuthBloc>()
-                                            .add(const AuthUserReloadRequested()),
-                                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                                        : () => context.read<AuthBloc>().add(
+                                            const AuthUserReloadRequested(),
+                                          ),
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 18,
+                                    ),
                                     label: const Text('Tôi đã xác nhận'),
                                   ),
                                 ],
@@ -354,7 +389,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                             metric: providerSummary,
                             badgeText: 'Đa thiết bị',
                             statusKind: SemanticStatusKind.success,
-                            onTap: () => _showChangePasswordDialog(context, user),
+                            onTap: () =>
+                                _showChangePasswordDialog(context, user),
                           ),
                         ),
                         const SizedBox(width: AppSpacing.sm),
@@ -416,11 +452,11 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                   ? null
                                   : () {
                                       context.read<AuthBloc>().add(
-                                            AuthProfileUpdateSubmitted(
-                                              fullName: _nameController.text,
-                                              phoneNumber: _phoneController.text,
-                                            ),
-                                          );
+                                        AuthProfileUpdateSubmitted(
+                                          fullName: _nameController.text,
+                                          phoneNumber: _phoneController.text,
+                                        ),
+                                      );
                                     },
                               icon: const Icon(Icons.save_outlined, size: 18),
                               label: const Text('Lưu cập nhật hồ sơ'),
@@ -465,20 +501,28 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'Tài khoản Google đã được liên kết',
-                                            style: Theme.of(context).textTheme.titleMedium,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
                                           ),
                                           Text(
                                             'Đăng nhập nhanh 1 chạm bằng ${user.email}',
-                                            style: Theme.of(context).textTheme.bodySmall,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
                                           ),
                                         ],
                                       ),
                                     ),
-                                    Icon(Icons.check_circle_rounded, color: c.success),
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      color: c.success,
+                                    ),
                                   ],
                                 ),
                               )
@@ -492,9 +536,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                 key: const Key('link_google_account_button'),
                                 label: 'Liên kết tài khoản Google',
                                 isLoading: state.isSubmitting,
-                                onPressed: () => context
-                                    .read<AuthBloc>()
-                                    .add(const AuthGoogleLinkRequested()),
+                                onPressed: () => context.read<AuthBloc>().add(
+                                  const AuthGoogleLinkRequested(),
+                                ),
                               ),
                             ],
                             const SizedBox(height: AppSpacing.md),
@@ -506,7 +550,10 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                   key: const Key('open_change_password_button'),
                                   onPressed: state.isSubmitting
                                       ? null
-                                      : () => _showChangePasswordDialog(context, user),
+                                      : () => _showChangePasswordDialog(
+                                          context,
+                                          user,
+                                        ),
                                   icon: const Icon(Icons.lock_reset_rounded),
                                   label: Text(
                                     user.hasPasswordProvider
@@ -518,11 +565,18 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                   TextButton.icon(
                                     onPressed: state.isSubmitting
                                         ? null
-                                        : () => context
-                                            .read<AuthBloc>()
-                                            .add(AuthPasswordResetRequested(user.email)),
-                                    icon: const Icon(Icons.mail_lock_outlined, size: 18),
-                                    label: const Text('Gửi link đặt lại qua Email'),
+                                        : () => context.read<AuthBloc>().add(
+                                            AuthPasswordResetRequested(
+                                              user.email,
+                                            ),
+                                          ),
+                                    icon: const Icon(
+                                      Icons.mail_lock_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text(
+                                      'Gửi link đặt lại qua Email',
+                                    ),
                                   ),
                               ],
                             ),
@@ -544,16 +598,28 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                           children: [
                             ListTile(
                               key: const Key('open_brand_identity_tile'),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                              leading: const LifeOsLeafMark(size: 40, borderRadius: 12),
-                              title: const Text('Bộ nhận diện thương hiệu LifeOS'),
-                              subtitle: const Text('Logo, biểu tượng & bảng màu'),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              leading: const LifeOsLeafMark(
+                                size: 40,
+                                borderRadius: 12,
+                              ),
+                              title: const Text(
+                                'Bộ nhận diện thương hiệu LifeOS',
+                              ),
+                              subtitle: const Text(
+                                'Logo, biểu tượng & bảng màu',
+                              ),
                               trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => showLifeOsBrandIdentitySheet(context),
+                              onTap: () =>
+                                  showLifeOsBrandIdentitySheet(context),
                             ),
                             const Divider(height: 16),
                             ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               leading: Container(
                                 width: 40,
                                 height: 40,
@@ -561,26 +627,34 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                   color: c.primarySubtle,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Icon(Icons.shield_outlined, color: c.primary),
+                                child: Icon(
+                                  Icons.shield_outlined,
+                                  color: c.primary,
+                                ),
                               ),
                               title: const Text('Ngân hàng & Quyền riêng tư'),
                               subtitle: const Text(
                                 'Quyền thông báo, sao lưu & xóa tài khoản',
                               ),
                               trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => context.push('/notifications-privacy'),
+                              onTap: () =>
+                                  context.push('/notifications-privacy'),
                             ),
                             const Divider(height: 16),
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 key: const Key('profile_sign_out_button'),
-                                style: OutlinedButton.styleFrom(foregroundColor: c.error),
-                                onPressed: () => context
-                                    .read<AuthBloc>()
-                                    .add(const AuthSignOutRequested()),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: c.error,
+                                ),
+                                onPressed: () => context.read<AuthBloc>().add(
+                                  const AuthSignOutRequested(),
+                                ),
                                 icon: const Icon(Icons.logout_rounded),
-                                label: const Text('Đăng xuất khỏi thiết bị này'),
+                                label: const Text(
+                                  'Đăng xuất khỏi thiết bị này',
+                                ),
                               ),
                             ),
                           ],
@@ -603,11 +677,7 @@ class UserAvatarBadge extends StatelessWidget {
   final UserEntity user;
   final double radius;
 
-  const UserAvatarBadge({
-    super.key,
-    required this.user,
-    this.radius = 18,
-  });
+  const UserAvatarBadge({super.key, required this.user, this.radius = 18});
 
   @override
   Widget build(BuildContext context) {
@@ -624,7 +694,10 @@ class UserAvatarBadge extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [c.primary, c.secondary],
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.55), width: 1.5),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.55),
+          width: 1.5,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: photo != null && photo.isNotEmpty
@@ -636,10 +709,7 @@ class UserAvatarBadge extends StatelessWidget {
                 fontSize: radius * 0.78,
               ),
             )
-          : _InitialsCenter(
-              initials: user.initials,
-              fontSize: radius * 0.78,
-            ),
+          : _InitialsCenter(initials: user.initials, fontSize: radius * 0.78),
     );
   }
 }

@@ -14,7 +14,10 @@ class TaskRemoteDataSource {
 
   const TaskRemoteDataSource(this._firestore);
 
-  TaskEntity _mapTask(DocumentSnapshot<Map<String, dynamic>> doc, String? familyId) {
+  TaskEntity _mapTask(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+    String? familyId,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     final dueRaw = d['dueAt'];
     final status = switch (d['status'] as String?) {
@@ -84,11 +87,23 @@ class TaskRemoteDataSource {
     );
   }
 
-  DocumentReference<Map<String, dynamic>> _taskRef(String userId, String? familyId, String taskId) {
+  DocumentReference<Map<String, dynamic>> _taskRef(
+    String userId,
+    String? familyId,
+    String taskId,
+  ) {
     if (familyId == null || familyId.isEmpty) {
-      return _firestore.collection('users').doc(userId).collection('personal_tasks').doc(taskId);
+      return _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('personal_tasks')
+          .doc(taskId);
     }
-    return _firestore.collection('families').doc(familyId).collection('tasks').doc(taskId);
+    return _firestore
+        .collection('families')
+        .doc(familyId)
+        .collection('tasks')
+        .doc(taskId);
   }
 
   Future<TaskEntity> createTask({
@@ -106,8 +121,9 @@ class TaskRemoteDataSource {
     final id = _uuid.v4();
     final now = DateTime.now();
     // Self-assigned task auto-accepts; task assigned to another family member starts as `proposed`!
-    final initialStatus =
-        createdBy == assigneeId ? TaskWorkflowStatus.accepted : TaskWorkflowStatus.proposed;
+    final initialStatus = createdBy == assigneeId
+        ? TaskWorkflowStatus.accepted
+        : TaskWorkflowStatus.proposed;
 
     final docRef = _taskRef(createdBy, familyId, id);
     await docRef.set({
@@ -139,7 +155,9 @@ class TaskRemoteDataSource {
   }) async {
     final ref = _taskRef(actorUserId, task.familyId, task.id);
     await ref.update({
-      'status': accept ? TaskWorkflowStatus.accepted.name : TaskWorkflowStatus.declined.name,
+      'status': accept
+          ? TaskWorkflowStatus.accepted.name
+          : TaskWorkflowStatus.declined.name,
       if (responseNote != null) 'responseNote': responseNote,
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     });
@@ -159,8 +177,12 @@ class TaskRemoteDataSource {
       'updatedAt': Timestamp.fromDate(now),
     });
 
-    if (nextStatus == TaskWorkflowStatus.done && task.recurrence != TaskRecurrence.none) {
-      final nextDue = TaskEntity.computeNextOccurrence(task.dueAt, task.recurrence);
+    if (nextStatus == TaskWorkflowStatus.done &&
+        task.recurrence != TaskRecurrence.none) {
+      final nextDue = TaskEntity.computeNextOccurrence(
+        task.dueAt,
+        task.recurrence,
+      );
       final nextId = _uuid.v4();
       final nextRef = _taskRef(actorUserId, task.familyId, nextId);
       batch.set(nextRef, {
@@ -199,9 +221,14 @@ class TaskRepositoryImpl implements TaskRepository {
         .map<Result<List<TaskEntity>>>((items) => Success(items))
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object e, StackTrace _, EventSink<Result<List<TaskEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<TaskEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }

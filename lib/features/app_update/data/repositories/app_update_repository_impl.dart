@@ -36,7 +36,8 @@ class AppUpdateRepositoryImpl implements AppUpdateRepository {
       final minSemVer = SemanticAppVersion.parse(manifest.minSupportedVersion);
 
       final hasUpdate = latestSemVer.isNewerThan(currentSemVer);
-      final isForceUpdate = hasUpdate && currentSemVer.isOlderThanCore(minSemVer);
+      final isForceUpdate =
+          hasUpdate && currentSemVer.isOlderThanCore(minSemVer);
 
       return Success(
         AppUpdateCheckResult(
@@ -58,7 +59,9 @@ class AppUpdateRepositoryImpl implements AppUpdateRepository {
     AppReleaseManifest manifest,
   ) async* {
     try {
-      await for (final progress in _remoteDataSource.downloadAndInstall(manifest)) {
+      await for (final progress in _remoteDataSource.downloadAndInstall(
+        manifest,
+      )) {
         yield Success(progress);
       }
     } catch (e) {

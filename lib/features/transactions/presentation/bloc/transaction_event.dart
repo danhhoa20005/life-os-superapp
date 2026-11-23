@@ -12,7 +12,10 @@ final class TransactionsSubscriptionRequested extends TransactionListEvent {
   final String userId;
   final String? monthKey;
 
-  const TransactionsSubscriptionRequested({required this.userId, this.monthKey});
+  const TransactionsSubscriptionRequested({
+    required this.userId,
+    this.monthKey,
+  });
 
   @override
   List<Object?> get props => [userId, monthKey];
@@ -59,7 +62,14 @@ final class WalletCreateSubmitted extends TransactionActionEvent {
   });
 
   @override
-  List<Object?> get props => [userId, name, type, openingBalanceMinor, bankCode, maskedAccount];
+  List<Object?> get props => [
+    userId,
+    name,
+    type,
+    openingBalanceMinor,
+    bankCode,
+    maskedAccount,
+  ];
 }
 
 final class TransactionCreateSubmitted extends TransactionActionEvent {
@@ -93,19 +103,19 @@ final class TransactionCreateSubmitted extends TransactionActionEvent {
 
   @override
   List<Object?> get props => [
-        operationId,
-        userId,
-        walletId,
-        targetWalletId,
-        categoryId,
-        categoryName,
-        kind,
-        amountMinor,
-        merchant,
-        note,
-        occurredAt,
-        splitLines,
-      ];
+    operationId,
+    userId,
+    walletId,
+    targetWalletId,
+    categoryId,
+    categoryName,
+    kind,
+    amountMinor,
+    merchant,
+    note,
+    occurredAt,
+    splitLines,
+  ];
 }
 
 final class TransactionReverseRequested extends TransactionActionEvent {
@@ -123,7 +133,8 @@ final class TransactionReverseRequested extends TransactionActionEvent {
   List<Object?> get props => [userId, transactionId, reason];
 }
 
-final class ProvisionalTransactionDecisionSubmitted extends TransactionActionEvent {
+final class ProvisionalTransactionDecisionSubmitted
+    extends TransactionActionEvent {
   final String userId;
   final String transactionId;
   final bool approve;
@@ -139,5 +150,11 @@ final class ProvisionalTransactionDecisionSubmitted extends TransactionActionEve
   });
 
   @override
-  List<Object?> get props => [userId, transactionId, approve, updatedCategoryName, updatedMerchant];
+  List<Object?> get props => [
+    userId,
+    transactionId,
+    approve,
+    updatedCategoryName,
+    updatedMerchant,
+  ];
 }

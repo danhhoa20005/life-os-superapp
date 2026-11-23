@@ -12,11 +12,11 @@ extension SubscriptionCycleX on SubscriptionCycle {
   String get key => name;
 
   String get labelVi => switch (this) {
-        SubscriptionCycle.monthly => 'Hằng tháng',
-        SubscriptionCycle.quarterly => 'Mỗi 3 tháng',
-        SubscriptionCycle.yearly => 'Hằng năm',
-        SubscriptionCycle.warrantyOnly => 'Phiếu bảo hành',
-      };
+    SubscriptionCycle.monthly => 'Hằng tháng',
+    SubscriptionCycle.quarterly => 'Mỗi 3 tháng',
+    SubscriptionCycle.yearly => 'Hằng năm',
+    SubscriptionCycle.warrantyOnly => 'Phiếu bảo hành',
+  };
 
   static SubscriptionCycle fromKey(String? raw) {
     return SubscriptionCycle.values.firstWhere(
@@ -54,18 +54,18 @@ class SubscriptionWarrantyEntity extends Equatable {
   bool get isWarranty => cycle == SubscriptionCycle.warrantyOnly;
 
   int get monthlyEquivalentMinor => switch (cycle) {
-        SubscriptionCycle.monthly => amountMinor,
-        SubscriptionCycle.quarterly => amountMinor ~/ 3,
-        SubscriptionCycle.yearly => amountMinor ~/ 12,
-        SubscriptionCycle.warrantyOnly => 0,
-      };
+    SubscriptionCycle.monthly => amountMinor,
+    SubscriptionCycle.quarterly => amountMinor ~/ 3,
+    SubscriptionCycle.yearly => amountMinor ~/ 12,
+    SubscriptionCycle.warrantyOnly => 0,
+  };
 
   int get annualBurnMinor => switch (cycle) {
-        SubscriptionCycle.monthly => amountMinor * 12,
-        SubscriptionCycle.quarterly => amountMinor * 4,
-        SubscriptionCycle.yearly => amountMinor,
-        SubscriptionCycle.warrantyOnly => 0,
-      };
+    SubscriptionCycle.monthly => amountMinor * 12,
+    SubscriptionCycle.quarterly => amountMinor * 4,
+    SubscriptionCycle.yearly => amountMinor,
+    SubscriptionCycle.warrantyOnly => 0,
+  };
 
   int daysRemainingFrom(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
@@ -85,17 +85,17 @@ class SubscriptionWarrantyEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        title,
-        providerOrStore,
-        cycle,
-        amountMinor,
-        nextBillingOrExpiryDate,
-        remindDaysBefore,
-        serialOrNote,
-        autoRenew,
-      ];
+    id,
+    ownerId,
+    title,
+    providerOrStore,
+    cycle,
+    amountMinor,
+    nextBillingOrExpiryDate,
+    remindDaysBefore,
+    serialOrNote,
+    autoRenew,
+  ];
 }
 
 // ============================================================================
@@ -140,7 +140,13 @@ class LifeHabitEntity extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, ownerId, title, categoryTag, completedDateKeys];
+  List<Object?> get props => [
+    id,
+    ownerId,
+    title,
+    categoryTag,
+    completedDateKeys,
+  ];
 }
 
 class DailyWellnessEntity extends Equatable {
@@ -158,17 +164,18 @@ class DailyWellnessEntity extends Equatable {
     this.completedPomodoros = 0,
   });
 
-  int get waterProgressPct =>
-      targetWaterMl > 0 ? ((waterMl * 100) / targetWaterMl).clamp(0, 100).round() : 0;
+  int get waterProgressPct => targetWaterMl > 0
+      ? ((waterMl * 100) / targetWaterMl).clamp(0, 100).round()
+      : 0;
 
   @override
   List<Object?> get props => [
-        dateKey,
-        waterMl,
-        targetWaterMl,
-        focusMinutes,
-        completedPomodoros,
-      ];
+    dateKey,
+    waterMl,
+    targetWaterMl,
+    focusMinutes,
+    completedPomodoros,
+  ];
 }
 
 // ============================================================================
@@ -181,12 +188,12 @@ enum GiftOccasion { wedding, housewarming, fullMonth, tetHoliday, visitHealth }
 
 extension GiftOccasionX on GiftOccasion {
   String get labelVi => switch (this) {
-        GiftOccasion.wedding => 'Đám cưới',
-        GiftOccasion.housewarming => 'Tân gia',
-        GiftOccasion.fullMonth => 'Đầy tháng / Thôi nôi',
-        GiftOccasion.tetHoliday => 'Mừng tuổi / Lễ Tết',
-        GiftOccasion.visitHealth => 'Thăm hỏi / Hiếu hỷ',
-      };
+    GiftOccasion.wedding => 'Đám cưới',
+    GiftOccasion.housewarming => 'Tân gia',
+    GiftOccasion.fullMonth => 'Đầy tháng / Thôi nôi',
+    GiftOccasion.tetHoliday => 'Mừng tuổi / Lễ Tết',
+    GiftOccasion.visitHealth => 'Thăm hỏi / Hiếu hỷ',
+  };
 
   static GiftOccasion fromKey(String? raw) {
     return GiftOccasion.values.firstWhere(
@@ -200,7 +207,8 @@ class GiftLedgerEntryEntity extends Equatable {
   final String id;
   final String ownerId;
   final String contactName;
-  final String relationshipGroup; // 'Đồng nghiệp' | 'Bạn học' | 'Họ hàng' | 'Đối tác'
+  final String
+  relationshipGroup; // 'Đồng nghiệp' | 'Bạn học' | 'Họ hàng' | 'Đối tác'
   final GiftDirection direction;
   final GiftOccasion occasion;
   final int amountMinor;
@@ -221,16 +229,16 @@ class GiftLedgerEntryEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        contactName,
-        relationshipGroup,
-        direction,
-        occasion,
-        amountMinor,
-        note,
-        eventDate,
-      ];
+    id,
+    ownerId,
+    contactName,
+    relationshipGroup,
+    direction,
+    occasion,
+    amountMinor,
+    note,
+    eventDate,
+  ];
 }
 
 class PackingChecklistItemEntity extends Equatable {
@@ -356,30 +364,31 @@ abstract final class SmartReceiptParserEngine {
     final total = explicitTotal > 0 ? explicitTotal : sumItems;
 
     final lowerAll = rawText.toLowerCase();
-    final category = (lowerAll.contains('tiền điện') ||
+    final category =
+        (lowerAll.contains('tiền điện') ||
             lowerAll.contains('tiền nước') ||
             lowerAll.contains('hóa đơn điện') ||
             lowerAll.contains('internet') ||
             lowerAll.contains('evn'))
         ? 'Điện/Nước/Internet'
         : (lowerAll.contains('siêu thị') ||
-                lowerAll.contains('co.opmart') ||
-                lowerAll.contains('winmart') ||
-                lowerAll.contains('rửa chén') ||
-                lowerAll.contains('bột giặt'))
-            ? 'Việc nhà & Gia dụng'
-            : (lowerAll.contains('phở') ||
-                    lowerAll.contains('cà phê') ||
-                    lowerAll.contains('trà') ||
-                    lowerAll.contains('cơm') ||
-                    lowerAll.contains('bún') ||
-                    lowerAll.contains('lẩu') ||
-                    lowerAll.contains('grabfood') ||
-                    lowerAll.contains('highlands'))
-                ? 'Ăn uống'
-                : (lowerAll.contains('xăng') || lowerAll.contains('grab'))
-                    ? 'Xe cộ & Di chuyển'
-                    : 'Việc nhà & Gia dụng';
+              lowerAll.contains('co.opmart') ||
+              lowerAll.contains('winmart') ||
+              lowerAll.contains('rửa chén') ||
+              lowerAll.contains('bột giặt'))
+        ? 'Việc nhà & Gia dụng'
+        : (lowerAll.contains('phở') ||
+              lowerAll.contains('cà phê') ||
+              lowerAll.contains('trà') ||
+              lowerAll.contains('cơm') ||
+              lowerAll.contains('bún') ||
+              lowerAll.contains('lẩu') ||
+              lowerAll.contains('grabfood') ||
+              lowerAll.contains('highlands'))
+        ? 'Ăn uống'
+        : (lowerAll.contains('xăng') || lowerAll.contains('grab'))
+        ? 'Xe cộ & Di chuyển'
+        : 'Việc nhà & Gia dụng';
 
     return ParsedReceiptResult(
       merchant: merchant,
@@ -407,12 +416,12 @@ class LoanSchedulePreview extends Equatable {
 
   @override
   List<Object?> get props => [
-        firstMonthPaymentMinor,
-        lastMonthPaymentMinor,
-        averageMonthlyPaymentMinor,
-        totalInterestMinor,
-        totalPayableMinor,
-      ];
+    firstMonthPaymentMinor,
+    lastMonthPaymentMinor,
+    averageMonthlyPaymentMinor,
+    totalInterestMinor,
+    totalPayableMinor,
+  ];
 }
 
 /// Pure-Dart Loan & Mortgage Amortization Calculator (Declining Balance & Annuity EMI).
@@ -463,7 +472,8 @@ abstract final class LoanAmortizationEngine {
     } else {
       // Trả góp đều hằng tháng (Annuity / EMI)
       final factor = math.pow(1 + monthlyRate, termMonths);
-      final emi = (principalMinor * monthlyRate * factor / (factor - 1)).round();
+      final emi = (principalMinor * monthlyRate * factor / (factor - 1))
+          .round();
       final totalPayable = emi * termMonths;
       final totalInterest = math.max(0, totalPayable - principalMinor);
       return LoanSchedulePreview(
@@ -492,11 +502,11 @@ class FireSimulationResult extends Equatable {
 
   @override
   List<Object?> get props => [
-        fireNumberMinor,
-        yearsToFire,
-        projected10YearNetWorthMinor,
-        sixJarsMonthlyAllocation,
-      ];
+    fireNumberMinor,
+    yearsToFire,
+    projected10YearNetWorthMinor,
+    sixJarsMonthlyAllocation,
+  ];
 }
 
 /// Pure-Dart Financial Independence (FIRE 4% Rule) & 6-Jars Wealth Allocator.
@@ -509,7 +519,10 @@ abstract final class FireWealthSimulatorEngine {
   }) {
     final safeExpense = math.max(1000000, monthlyExpenseMinor);
     final fireTarget = safeExpense * 12 * 25; // 4% safe withdrawal rule
-    final monthlySavings = math.max(0, monthlyIncomeMinor - monthlyExpenseMinor);
+    final monthlySavings = math.max(
+      0,
+      monthlyIncomeMinor - monthlyExpenseMinor,
+    );
     final rMonthly = (expectedAnnualReturnPct / 100.0) / 12.0;
 
     var balance = math.max(0, currentNetWorthMinor).toDouble();

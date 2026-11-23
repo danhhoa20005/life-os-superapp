@@ -45,14 +45,19 @@ class VehicleEntity extends Equatable {
 
   int get nextDueKm => lastServiceOdometerKm + serviceIntervalKm;
 
-  DateTime get nextDueDate => lastServiceDate.add(Duration(days: serviceIntervalDays));
+  DateTime get nextDueDate =>
+      lastServiceDate.add(Duration(days: serviceIntervalDays));
 
   int get remainingKm => nextDueKm - currentOdometerKm;
 
   int remainingDaysFrom(DateTime now) => nextDueDate.difference(now).inDays;
 
   /// Evaluates `min(km due, date due)` per Section 8.2 & Section 17 of Life OS specification.
-  VehicleDueState dueStateAt(DateTime now, {int warnKm = 300, int warnDays = 7}) {
+  VehicleDueState dueStateAt(
+    DateTime now, {
+    int warnKm = 300,
+    int warnDays = 7,
+  }) {
     final remDays = remainingDaysFrom(now);
     if (remainingKm <= 0 || remDays <= 0) {
       return VehicleDueState.overdue;
@@ -65,21 +70,21 @@ class VehicleEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        familyId,
-        isFamilyShared,
-        name,
-        plateNumber,
-        maskPlateWhenShared,
-        currentOdometerKm,
-        lastServiceOdometerKm,
-        lastServiceDate,
-        serviceIntervalKm,
-        serviceIntervalDays,
-        insuranceExpiryDate,
-        inspectionExpiryDate,
-      ];
+    id,
+    ownerId,
+    familyId,
+    isFamilyShared,
+    name,
+    plateNumber,
+    maskPlateWhenShared,
+    currentOdometerKm,
+    lastServiceOdometerKm,
+    lastServiceDate,
+    serviceIntervalKm,
+    serviceIntervalDays,
+    insuranceExpiryDate,
+    inspectionExpiryDate,
+  ];
 }
 
 class RecurringBillEntity extends Equatable {
@@ -109,7 +114,10 @@ class RecurringBillEntity extends Equatable {
 
   /// Detects abnormal bill spike (>= 25% higher than historical average) when history exists.
   bool get hasAbnormalSpike {
-    if (paymentCount < 2 || averagePaidMinor == null || averagePaidMinor! <= 0 || lastPaidAmountMinor == null) {
+    if (paymentCount < 2 ||
+        averagePaidMinor == null ||
+        averagePaidMinor! <= 0 ||
+        lastPaidAmountMinor == null) {
       return false;
     }
     return lastPaidAmountMinor! >= (averagePaidMinor! * 1.25).round();
@@ -117,15 +125,15 @@ class RecurringBillEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        familyId,
-        title,
-        providerName,
-        estimatedAmountMinor,
-        nextDueDate,
-        lastPaidAmountMinor,
-        averagePaidMinor,
-        paymentCount,
-      ];
+    id,
+    ownerId,
+    familyId,
+    title,
+    providerName,
+    estimatedAmountMinor,
+    nextDueDate,
+    lastPaidAmountMinor,
+    averagePaidMinor,
+    paymentCount,
+  ];
 }

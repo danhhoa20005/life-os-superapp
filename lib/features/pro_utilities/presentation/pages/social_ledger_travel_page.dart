@@ -62,11 +62,13 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
       listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.message != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('✓ ${state.message!}')),
           );
         }
@@ -85,17 +87,22 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                           onPressed: () => _showAddGiftDialog(
                             context,
                             userId: user.id,
-                            defaultWalletId:
-                                wallets.isNotEmpty ? wallets.first.id : null,
+                            defaultWalletId: wallets.isNotEmpty
+                                ? wallets.first.id
+                                : null,
                           ),
                           icon: const Icon(Icons.add_rounded),
                         )
                       : null,
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: LifeOsSegmentedPills<bool>(
                       selected: _showPackingTab,
                       options: const [
@@ -112,7 +119,9 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     builder: (context, state) {
                       return Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                          constraints: const BoxConstraints(
+                            maxWidth: AppSpacing.maxContentWidth,
+                          ),
                           child: _showPackingTab
                               ? _buildPackingTab(context, c, user.id, state)
                               : _buildGiftLedgerTab(
@@ -148,18 +157,24 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
     final filtered = q.isEmpty
         ? state.giftEntries
         : state.giftEntries
-            .where(
-              (g) =>
-                  g.contactName.toLowerCase().contains(q) ||
-                  g.relationshipGroup.toLowerCase().contains(q) ||
-                  g.occasion.labelVi.toLowerCase().contains(q),
-            )
-            .toList();
+              .where(
+                (g) =>
+                    g.contactName.toLowerCase().contains(q) ||
+                    g.relationshipGroup.toLowerCase().contains(q) ||
+                    g.occasion.labelVi.toLowerCase().contains(q),
+              )
+              .toList();
 
-    final netReciprocity = state.totalGiftReceivedMinor - state.totalGiftGaveMinor;
+    final netReciprocity =
+        state.totalGiftReceivedMinor - state.totalGiftGaveMinor;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.md, AppSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        2,
+        AppSpacing.md,
+        AppSpacing.xxl,
+      ),
       children: [
         // 1. Reciprocity Summary Hero Card ("Có đi có lại")
         LifeOsMintHeroCard(
@@ -172,7 +187,10 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     children: [
                       Text(
                         'Đã đi mừng',
-                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11.8,
+                          color: c.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       FittedBox(
@@ -198,7 +216,10 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     children: [
                       Text(
                         'Đã nhận mừng',
-                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11.8,
+                          color: c.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       FittedBox(
@@ -224,7 +245,10 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     children: [
                       Text(
                         'Chênh lệch',
-                        style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11.8,
+                          color: c.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       FittedBox(
@@ -319,12 +343,18 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                           ),
                           Text(
                             '${g.occasion.labelVi} · ${g.relationshipGroup} · ${dateFmt.format(g.eventDate)}',
-                            style: TextStyle(fontSize: 12, color: c.textSecondary),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: c.textSecondary,
+                            ),
                           ),
                           if (g.note.isNotEmpty)
                             Text(
                               g.note,
-                              style: TextStyle(fontSize: 12, color: c.textPrimary),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: c.textPrimary,
+                              ),
                             ),
                         ],
                       ),
@@ -377,11 +407,20 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
   ) {
     final items = state.packingItems;
     final checkedCount = items.where((e) => e.checked).length;
-    final pct = items.isEmpty ? 0 : ((checkedCount * 100) / items.length).round();
-    final activeTrip = items.isNotEmpty ? items.first.tripName : 'Chưa chọn mẫu chuyến đi';
+    final pct = items.isEmpty
+        ? 0
+        : ((checkedCount * 100) / items.length).round();
+    final activeTrip = items.isNotEmpty
+        ? items.first.tripName
+        : 'Chưa chọn mẫu chuyến đi';
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.md, AppSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        2,
+        AppSpacing.md,
+        AppSpacing.xxl,
+      ),
       children: [
         LifeOsMintHeroCard(
           child: Column(
@@ -406,15 +445,19 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                 runSpacing: 8,
                 children: _tripTemplates.entries.map((entry) {
                   return ActionChip(
-                    avatar: Icon(Icons.flight_takeoff_rounded, size: 16, color: c.primary),
+                    avatar: Icon(
+                      Icons.flight_takeoff_rounded,
+                      size: 16,
+                      color: c.primary,
+                    ),
                     label: Text(entry.key),
                     onPressed: () => context.read<ProUtilitiesBloc>().add(
-                          PackingTemplateSeeded(
-                            userId: userId,
-                            tripName: entry.key,
-                            itemTitles: entry.value,
-                          ),
-                        ),
+                      PackingTemplateSeeded(
+                        userId: userId,
+                        tripName: entry.key,
+                        itemTitles: entry.value,
+                      ),
+                    ),
                   );
                 }).toList(),
               ),
@@ -441,13 +484,15 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                     it.title,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      decoration: it.checked ? TextDecoration.lineThrough : null,
+                      decoration: it.checked
+                          ? TextDecoration.lineThrough
+                          : null,
                       color: it.checked ? c.textSecondary : c.textPrimary,
                     ),
                   ),
                   onChanged: (_) => context.read<ProUtilitiesBloc>().add(
-                        PackingItemToggled(userId: userId, item: it),
-                      ),
+                    PackingItemToggled(userId: userId, item: it),
+                  ),
                 );
               }).toList(),
             ),
@@ -485,7 +530,11 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                   selected: direction,
                   options: const [
                     (GiftDirection.gave, 'Đi mừng', Icons.call_made_rounded),
-                    (GiftDirection.received, 'Nhận mừng', Icons.call_received_rounded),
+                    (
+                      GiftDirection.received,
+                      'Nhận mừng',
+                      Icons.call_received_rounded,
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => direction = v),
                 ),
@@ -502,9 +551,14 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                 DropdownButtonFormField<GiftOccasion>(
                   isExpanded: true,
                   initialValue: occasion,
-                  decoration: const InputDecoration(labelText: 'Dịp lễ / Sự kiện'),
+                  decoration: const InputDecoration(
+                    labelText: 'Dịp lễ / Sự kiện',
+                  ),
                   items: GiftOccasion.values
-                      .map((o) => DropdownMenuItem(value: o, child: Text(o.labelVi)))
+                      .map(
+                        (o) =>
+                            DropdownMenuItem(value: o, child: Text(o.labelVi)),
+                      )
                       .toList(),
                   onChanged: (v) {
                     if (v != null) setDialogState(() => occasion = v);
@@ -516,10 +570,19 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                   initialValue: group,
                   decoration: const InputDecoration(labelText: 'Nhóm quan hệ'),
                   items: const [
-                    DropdownMenuItem(value: 'Đồng nghiệp', child: Text('Đồng nghiệp')),
+                    DropdownMenuItem(
+                      value: 'Đồng nghiệp',
+                      child: Text('Đồng nghiệp'),
+                    ),
                     DropdownMenuItem(value: 'Bạn học', child: Text('Bạn học')),
-                    DropdownMenuItem(value: 'Họ hàng', child: Text('Họ hàng Nội Ngoại')),
-                    DropdownMenuItem(value: 'Hàng xóm / Đối tác', child: Text('Hàng xóm / Đối tác')),
+                    DropdownMenuItem(
+                      value: 'Họ hàng',
+                      child: Text('Họ hàng Nội Ngoại'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Hàng xóm / Đối tác',
+                      child: Text('Hàng xóm / Đối tác'),
+                    ),
                   ],
                   onChanged: (v) {
                     if (v != null) setDialogState(() => group = v);
@@ -530,7 +593,9 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                   key: const Key('gift_amount_input'),
                   controller: amtCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Số tiền mừng (VND)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Số tiền mừng (VND)',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -550,7 +615,10 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               key: const Key('submit_gift_button'),
               onPressed: () {

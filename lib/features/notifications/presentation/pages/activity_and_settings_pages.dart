@@ -22,98 +22,137 @@ class ActivityNotificationsPage extends StatefulWidget {
   const ActivityNotificationsPage({super.key});
 
   @override
-  State<ActivityNotificationsPage> createState() => _ActivityNotificationsPageState();
+  State<ActivityNotificationsPage> createState() =>
+      _ActivityNotificationsPageState();
 }
 
 class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
   String _selectedFilter = 'all';
-  bool _reminderEnabled = true;
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final notifState = context.watch<NotificationIngestionBloc>().state;
     final txState = context.watch<TransactionListBloc>().state;
     final calState = context.watch<CalendarBloc>().state;
     final taskState = context.watch<TaskBloc>().state;
     final vehicleState = context.watch<VehicleBloc>().state;
-    final timeFmt = DateFormat('HH:mm');
+    final timeFmt = DateFormat('dd/MM · HH:mm');
 
-    final items = <({
-      String category,
-      String title,
-      String subtitle,
-      String timeLabel,
-      IconData icon,
-      LifeOsAccentTone tone,
-      VoidCallback onTap,
-    })>[
-      for (final tx in txState.filteredTransactions.take(5))
-        (
-          category: 'bank',
-          title: 'Giao dịch sổ quỹ mới',
-          subtitle:
-              '${tx.direction == "credit" ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.merchant}',
-          timeLabel: timeFmt.format(tx.occurredAt),
-          icon: Icons.account_balance_wallet_outlined,
-          tone: tx.direction == 'credit'
-              ? LifeOsAccentTone.emerald
-              : LifeOsAccentTone.coral,
-          onTap: () => context.push('/auto-tx-review', extra: tx),
-        ),
-      for (final ev in calState.events.take(4))
-        (
-          category: 'calendar',
-          title: 'Sắp đến sự kiện lịch',
-          subtitle: '${ev.title} (${timeFmt.format(ev.startsAt)})',
-          timeLabel: timeFmt.format(ev.startsAt),
-          icon: Icons.calendar_today_rounded,
-          tone: LifeOsAccentTone.blue,
-          onTap: () => context.push('/event-detail', extra: ev),
-        ),
-      for (final t in taskState.tasks.take(4))
-        (
-          category: 'task',
-          title: 'Công việc gia đình',
-          subtitle: '${t.title} · Giao cho ${t.assigneeName}',
-          timeLabel: t.dueAt != null ? timeFmt.format(t.dueAt!) : 'Hôm nay',
-          icon: Icons.task_alt_rounded,
-          tone: LifeOsAccentTone.amber,
-          onTap: () => context.push('/tasks-board'),
-        ),
-      for (final v in vehicleState.vehicles.take(2))
-        (
-          category: 'task',
-          title: 'Bảo dưỡng xe ${v.name}',
-          subtitle: 'Còn ${v.remainingKm} km đến mốc bảo dưỡng định kỳ',
-          timeLabel: 'Định kỳ',
-          icon: Icons.directions_car_outlined,
-          tone: LifeOsAccentTone.emerald,
-          onTap: () => context.go('/assets'),
-        ),
-    ];
+    final seenTxIds = <String>{};
+    final items =
+        <
+          ({
+            String category, // 'credit' | 'debit' | 'other'
+            String title,
+            String subtitle,
+            String? metaBadge,
+            String timeLabel,
+            IconData icon,
+            LifeOsAccentTone tone,
+            VoidCallback onTap,
+          })
+        >[];
 
-    // Provide realistic starter preview items if user's feed is brand-new
-    if (items.isEmpty) {
-      items.addAll([
-        (
-          category: 'bank',
-          title: 'Giao dịch ngân hàng (Tự động)',
-          subtitle: 'Tự động nhận diện tiền ra vào & gạch nợ mã QR',
-          timeLabel: 'Mới đây',
-          icon: Icons.account_balance_rounded,
-          tone: LifeOsAccentTone.emerald,
-          onTap: () => context.push('/auto-tx-review'),
-        ),
-        (
-          category: 'calendar',
-          title: 'Nhắc hẹn & Báo thức sự kiện',
-          subtitle: 'Nhấn để xem thử màn hình Báo thức sự kiện 07:30 toàn màn hình',
-          timeLabel: '07:30',
-          icon: Icons.alarm_on_rounded,
-          tone: LifeOsAccentTone.blue,
-          onTap: () => context.push('/event-alarm'),
-        ),
-      ]);
+    // 1. Real-time Financial Notifications (SePay Webhook, SePay API, Android Listener, Test)
+    for (final fn in notifState.financialNotifications.take(30)) {
+      if (fn.transactionId.isNotEmpty) {
+        seenTxIds.add(fn.transactionId);
+      }
+      final sign = fn.direction == 'credit' ? '+' : '-';
+      final amountText = fn.isTestNotification
+          ? '[Thông báo kiểm thử — Không tạo giao dịch thật]'
+          : '$sign${VndAmount.format(fn.amountMinor)} · ${fn.bankName} ${fn.accountMasked}';
+      items.add((
+        category: fn.direction == 'credit' ? 'credit' : 'debit',
+        title: fn.title,
+        subtitle: '$amountText\n${fn.content}',
+        metaBadge: '${fn.statusLabel} · ${fn.sourceLabel}',
+        timeLabel: timeFmt.format(fn.occurredAt),
+        icon: fn.isTestNotification
+            ? Icons.science_outlined
+            : (fn.direction == 'credit'
+                  ? Icons.south_west_rounded
+                  : Icons.north_east_rounded),
+        tone: fn.isTestNotification
+            ? LifeOsAccentTone.blue
+            : (fn.direction == 'credit'
+                  ? LifeOsAccentTone.emerald
+                  : LifeOsAccentTone.coral),
+        onTap: () {
+          if (fn.transactionId.isNotEmpty) {
+            context.push(
+              '/auto-tx-review?txId=${Uri.encodeQueryComponent(fn.transactionId)}',
+            );
+          } else {
+            context.push('/notifications-privacy');
+          }
+        },
+      ));
+    }
+
+    // 2. Remaining Ledger Transactions not yet represented in financialNotifications
+    for (final tx in txState.filteredTransactions.take(15)) {
+      if (seenTxIds.contains(tx.id)) continue;
+      final isCredit = tx.direction == 'credit';
+      final srcLabel = switch (tx.sourceKind) {
+        _ when tx.sourceKind.name == 'bankWebhook' => 'SePay Webhook',
+        _ when tx.sourceKind.name == 'bankApi' => 'SePay API',
+        _ when tx.sourceKind.name == 'androidNotification' =>
+          'Thông báo Android',
+        _ when tx.sourceKind.name == 'csv' => 'Sao kê CSV',
+        _ => 'Sổ cái',
+      };
+      items.add((
+        category: isCredit ? 'credit' : 'debit',
+        title: isCredit ? 'Tiền vào sổ quỹ' : 'Giao dịch chi tiêu',
+        subtitle:
+            '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.merchant}',
+        metaBadge:
+            '${tx.isConfirmedInLedger ? "Đã xác nhận" : "Chờ đối soát"} · $srcLabel',
+        timeLabel: timeFmt.format(tx.occurredAt),
+        icon: Icons.account_balance_wallet_outlined,
+        tone: isCredit ? LifeOsAccentTone.emerald : LifeOsAccentTone.coral,
+        onTap: () => context.push('/auto-tx-review', extra: tx),
+      ));
+    }
+
+    // 3. Calendar, Tasks & Vehicle Reminders
+    for (final ev in calState.events.take(4)) {
+      items.add((
+        category: 'other',
+        title: 'Sự kiện lịch: ${ev.title}',
+        subtitle: ev.location ?? 'Lịch hẹn đã đồng bộ',
+        metaBadge: 'Lịch trình',
+        timeLabel: timeFmt.format(ev.startsAt),
+        icon: Icons.calendar_today_rounded,
+        tone: LifeOsAccentTone.blue,
+        onTap: () => context.push('/event-detail', extra: ev),
+      ));
+    }
+    for (final t in taskState.tasks.take(4)) {
+      items.add((
+        category: 'other',
+        title: 'Công việc: ${t.title}',
+        subtitle: 'Giao cho ${t.assigneeName}',
+        metaBadge: 'Việc cần làm',
+        timeLabel: t.dueAt != null ? timeFmt.format(t.dueAt!) : 'Hôm nay',
+        icon: Icons.task_alt_rounded,
+        tone: LifeOsAccentTone.amber,
+        onTap: () => context.push('/tasks-board'),
+      ));
+    }
+    for (final v in vehicleState.vehicles.take(2)) {
+      items.add((
+        category: 'other',
+        title: 'Bảo dưỡng xe ${v.name}',
+        subtitle: 'Còn ${v.remainingKm} km đến mốc bảo dưỡng định kỳ',
+        metaBadge: 'Phương tiện',
+        timeLabel: 'Định kỳ',
+        icon: Icons.directions_car_outlined,
+        tone: LifeOsAccentTone.emerald,
+        onTap: () => context.go('/assets'),
+      ));
     }
 
     final visible = _selectedFilter == 'all'
@@ -122,9 +161,9 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
 
     final filters = const <(String key, String label)>[
       ('all', 'Tất cả'),
-      ('bank', 'Ngân hàng'),
-      ('calendar', 'Lịch'),
-      ('task', 'Công việc'),
+      ('credit', 'Tiền vào'),
+      ('debit', 'Tiền ra'),
+      ('other', 'Lịch & Việc'),
     ];
 
     return Scaffold(
@@ -133,18 +172,21 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
           child: Column(
             children: [
               LifeOsTopBrandHeader(
-                title: 'Thông báo',
+                title: 'Thông báo & Biến động',
                 showBackButton: true,
                 showUnreadNotificationDot: false,
-                trailingAction: Switch.adaptive(
-                  value: _reminderEnabled,
-                  onChanged: (v) => setState(() => _reminderEnabled = v),
+                trailingAction: TextButton.icon(
+                  onPressed: () => context.push('/notifications-privacy'),
+                  icon: const Icon(Icons.tune_rounded, size: 17),
+                  label: const Text('Cài đặt'),
                 ),
               ),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -153,7 +195,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                         AppSpacing.xxl,
                       ),
                       children: [
-                        // Filter Pills: Tất cả | Ngân hàng | Lịch | Công việc
+                        // Filter Pills: Tất cả | Tiền vào | Tiền ra | Lịch & Việc
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -163,7 +205,8 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                                 padding: const EdgeInsets.only(right: 8),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(20),
-                                  onTap: () => setState(() => _selectedFilter = f.$1),
+                                  onTap: () =>
+                                      setState(() => _selectedFilter = f.$1),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -181,7 +224,9 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: active ? Colors.white : c.textSecondary,
+                                        color: active
+                                            ? Colors.white
+                                            : c.textSecondary,
                                       ),
                                     ),
                                   ),
@@ -191,62 +236,116 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        ...visible.map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: LifeOsSoftCard(
-                              onTap: item.onTap,
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  LifeOsIconSquircle(
-                                    icon: item.icon,
-                                    tone: item.tone,
-                                    size: 42,
+                        if (visible.isEmpty)
+                          LifeOsMintHeroCard(
+                            child: Column(
+                              children: [
+                                const LifeOsIconSquircle(
+                                  icon: Icons.notifications_none_rounded,
+                                  tone: LifeOsAccentTone.emerald,
+                                  size: 52,
+                                  iconSize: 26,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Chưa có thông báo biến động nào trong mục này',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15.5,
+                                    color: c.textPrimary,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                item.title,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 14.5,
-                                                  color: c.textPrimary,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Khi tài khoản ngân hàng đã kết nối phát sinh tiền vào/tiền ra qua SePay Webhook hoặc Thông báo Android, giao dịch sẽ hiển thị tức thì tại đây.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12.8,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      context.push('/notifications-privacy'),
+                                  icon: const Icon(
+                                    Icons.account_balance_rounded,
+                                    size: 17,
+                                  ),
+                                  label: const Text(
+                                    'Mở Ngân hàng & Đồng bộ giao dịch',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          ...visible.map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: LifeOsSoftCard(
+                                onTap: item.onTap,
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    LifeOsIconSquircle(
+                                      icon: item.icon,
+                                      tone: item.tone,
+                                      size: 42,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item.title,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 14.5,
+                                                    color: c.textPrimary,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Text(
-                                              item.timeLabel,
-                                              style: TextStyle(
-                                                fontSize: 11.5,
-                                                color: c.textSecondary,
+                                              Text(
+                                                item.timeLabel,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: c.textSecondary,
+                                                ),
                                               ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            item.subtitle,
+                                            style: TextStyle(
+                                              fontSize: 12.8,
+                                              height: 1.35,
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
+                                          if (item.metaBadge != null) ...[
+                                            const SizedBox(height: 6),
+                                            LifeOsStatusPill(
+                                              label: item.metaBadge!,
+                                              tone: item.tone,
                                             ),
                                           ],
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          item.subtitle,
-                                          style: TextStyle(
-                                            fontSize: 12.8,
-                                            color: c.textSecondary,
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -296,7 +395,9 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -353,7 +454,11 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.edit_outlined, size: 14, color: c.primary),
+                                    Icon(
+                                      Icons.edit_outlined,
+                                      size: 14,
+                                      color: c.primary,
+                                    ),
                                     const SizedBox(width: 5),
                                     Text(
                                       'Chỉnh sửa hồ sơ',
@@ -387,7 +492,9 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           tone: LifeOsAccentTone.blue,
                           title: 'Đồng bộ Google Calendar',
                           subtitle: 'Đồng bộ lịch hẹn & nhắc nhở',
-                          statusPillLabel: _calendarSyncEnabled ? 'Đã kết nối' : 'Đang tắt',
+                          statusPillLabel: _calendarSyncEnabled
+                              ? 'Đã kết nối'
+                              : 'Đang tắt',
                           statusPillTone: _calendarSyncEnabled
                               ? LifeOsAccentTone.emerald
                               : LifeOsAccentTone.neutral,
@@ -397,12 +504,12 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                               setState(() => _calendarSyncEnabled = v);
                               if (v) {
                                 context.read<CalendarBloc>().add(
-                                      GoogleCalendarSyncRequested(
-                                        userId: user.id,
-                                        userName: user.fullName,
-                                        interactive: false,
-                                      ),
-                                    );
+                                  GoogleCalendarSyncRequested(
+                                    userId: user.id,
+                                    userName: user.fullName,
+                                    interactive: false,
+                                  ),
+                                );
                               }
                             },
                           ),
@@ -416,24 +523,33 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           tone: LifeOsAccentTone.emerald,
                           title: 'Nhận diện thông báo ngân hàng',
                           subtitle: 'Tự động ghi nhận biến động số dư',
-                          statusPillLabel: bankConsentEnabled ? 'Đang nhận diện' : 'Chưa bật',
+                          statusPillLabel: bankConsentEnabled
+                              ? 'Đang nhận diện'
+                              : 'Chưa bật',
                           statusPillTone: bankConsentEnabled
                               ? LifeOsAccentTone.emerald
                               : LifeOsAccentTone.neutral,
                           trailing: Switch(
                             value: bankConsentEnabled,
                             onChanged: (v) {
-                              final pkgs = notifState.consent?.allowedPackages.isNotEmpty == true
+                              final pkgs =
+                                  notifState
+                                          .consent
+                                          ?.allowedPackages
+                                          .isNotEmpty ==
+                                      true
                                   ? notifState.consent!.allowedPackages
-                                  : kSupportedVnBanks.map((b) => b.packageName).toList();
+                                  : kSupportedVnBanks
+                                        .map((b) => b.packageName)
+                                        .toList();
                               context.read<NotificationIngestionBloc>().add(
-                                    ConsentConfigUpdated(
-                                      userId: user.id,
-                                      enabled: v,
-                                      allowedPackages: pkgs,
-                                      autoConfirmSignals: v,
-                                    ),
-                                  );
+                                ConsentConfigUpdated(
+                                  userId: user.id,
+                                  enabled: v,
+                                  allowedPackages: pkgs,
+                                  autoConfirmSignals: v,
+                                ),
+                              );
                             },
                           ),
                           onTap: () => context.push('/notifications-privacy'),
@@ -446,8 +562,9 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           tone: LifeOsAccentTone.emerald,
                           title: 'Quyền nhắc nhở',
                           subtitle: 'Chuông báo sự kiện & việc cần làm',
-                          statusPillLabel:
-                              _reminderPermissionEnabled ? 'Bật nhắc sự kiện' : 'Tạm tắt',
+                          statusPillLabel: _reminderPermissionEnabled
+                              ? 'Bật nhắc sự kiện'
+                              : 'Tạm tắt',
                           statusPillTone: _reminderPermissionEnabled
                               ? LifeOsAccentTone.emerald
                               : LifeOsAccentTone.neutral,
@@ -467,15 +584,18 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           title: 'Chế độ tối',
                           subtitle: 'Chuyển nhanh giao diện Sáng / Tối',
                           statusPillLabel: isDark ? 'Đang bật' : 'Đang tắt',
-                          statusPillTone:
-                              isDark ? LifeOsAccentTone.emerald : LifeOsAccentTone.neutral,
+                          statusPillTone: isDark
+                              ? LifeOsAccentTone.emerald
+                              : LifeOsAccentTone.neutral,
                           trailing: Switch(
                             key: const Key('settings_dark_mode_switch'),
                             value: isDark,
                             onChanged: (v) {
                               context.read<ThemeBloc>().add(
-                                    ThemeModeChanged(v ? ThemeMode.dark : ThemeMode.light),
-                                  );
+                                ThemeModeChanged(
+                                  v ? ThemeMode.dark : ThemeMode.light,
+                                ),
+                              );
                             },
                           ),
                         ),
@@ -529,7 +649,8 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.link_rounded,
                           trailingIcon: Icons.arrow_forward_rounded,
                           label: 'Quản lý kết nối ngân hàng & quyền riêng tư',
-                          onPressed: () => context.push('/notifications-privacy'),
+                          onPressed: () =>
+                              context.push('/notifications-privacy'),
                         ),
                       ],
                     ),

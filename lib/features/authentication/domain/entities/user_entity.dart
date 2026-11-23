@@ -36,7 +36,10 @@ class UserEntity extends Equatable {
   String get initials {
     final trimmed = fullName.trim();
     if (trimmed.isNotEmpty) {
-      final parts = trimmed.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+      final parts = trimmed
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .toList();
       if (parts.length >= 2) {
         return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
       }
@@ -73,24 +76,26 @@ class UserEntity extends Equatable {
       timezone: timezone ?? this.timezone,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       availabilityOptIn: availabilityOptIn ?? this.availabilityOptIn,
-      activeFamilyId: clearActiveFamily ? null : (activeFamilyId ?? this.activeFamilyId),
+      activeFamilyId: clearActiveFamily
+          ? null
+          : (activeFamilyId ?? this.activeFamilyId),
       createdAt: createdAt,
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        email,
-        fullName,
-        photoUrl,
-        phoneNumber,
-        emailVerified,
-        authProviders,
-        timezone,
-        onboardingCompleted,
-        availabilityOptIn,
-        activeFamilyId,
-        createdAt,
-      ];
+    id,
+    email,
+    fullName,
+    photoUrl,
+    phoneNumber,
+    emailVerified,
+    authProviders,
+    timezone,
+    onboardingCompleted,
+    availabilityOptIn,
+    activeFamilyId,
+    createdAt,
+  ];
 }

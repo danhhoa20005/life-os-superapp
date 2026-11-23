@@ -133,7 +133,10 @@ class TammySemanticColors extends ThemeExtension<TammySemanticColors> {
   }
 
   @override
-  TammySemanticColors lerp(ThemeExtension<TammySemanticColors>? other, double t) {
+  TammySemanticColors lerp(
+    ThemeExtension<TammySemanticColors>? other,
+    double t,
+  ) {
     if (other is! TammySemanticColors) return this;
     return TammySemanticColors(
       primary: Color.lerp(primary, other.primary, t)!,

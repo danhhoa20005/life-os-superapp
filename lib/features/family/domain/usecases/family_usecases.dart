@@ -29,7 +29,9 @@ class CreateFamilyUseCase implements UseCase<FamilyEntity, CreateFamilyParams> {
     final name = params.familyName.trim();
     if (name.length < 2) {
       return const Err(
-        ValidationFailure(message: 'Tên nhóm / hộ gia đình phải có ít nhất 2 ký tự.'),
+        ValidationFailure(
+          message: 'Tên nhóm / hộ gia đình phải có ít nhất 2 ký tự.',
+        ),
       );
     }
     return _repository.createFamily(
@@ -53,7 +55,8 @@ final class JoinFamilyParams {
   });
 }
 
-class JoinFamilyByCodeUseCase implements UseCase<FamilyEntity, JoinFamilyParams> {
+class JoinFamilyByCodeUseCase
+    implements UseCase<FamilyEntity, JoinFamilyParams> {
   final FamilyRepository _repository;
   const JoinFamilyByCodeUseCase(this._repository);
 
@@ -111,22 +114,32 @@ class CreateSharedBillSplitUseCase
   const CreateSharedBillSplitUseCase(this._repository);
 
   @override
-  Future<Result<SharedBillSplitEntity>> call(CreateSharedBillSplitParams params) async {
+  Future<Result<SharedBillSplitEntity>> call(
+    CreateSharedBillSplitParams params,
+  ) async {
     final cleanTitle = params.title.trim();
     if (cleanTitle.length < 2) {
       return const Err(
-        ValidationFailure(message: 'Vui lòng nhập nội dung khoản chi chung (tối thiểu 2 ký tự).'),
+        ValidationFailure(
+          message:
+              'Vui lòng nhập nội dung khoản chi chung (tối thiểu 2 ký tự).',
+        ),
       );
     }
-    if (params.totalAmountMinor <= 0 || params.totalAmountMinor > VndAmount.maxAllowedMinor) {
+    if (params.totalAmountMinor <= 0 ||
+        params.totalAmountMinor > VndAmount.maxAllowedMinor) {
       return const Err(
-        ValidationFailure(message: 'Tổng tiền chia phải là số nguyên dương (VND).'),
+        ValidationFailure(
+          message: 'Tổng tiền chia phải là số nguyên dương (VND).',
+        ),
       );
     }
     final uniqueParticipants = params.participantIds.toSet().toList();
     if (uniqueParticipants.isEmpty) {
       return const Err(
-        ValidationFailure(message: 'Phải có ít nhất 1 thành viên tham gia chia khoản này.'),
+        ValidationFailure(
+          message: 'Phải có ít nhất 1 thành viên tham gia chia khoản này.',
+        ),
       );
     }
 
@@ -140,13 +153,15 @@ class CreateSharedBillSplitUseCase
         );
       case SplitMethod.percentage:
         final filtered = <String, int>{
-          for (final uid in uniqueParticipants) uid: params.rawInputValuesByUserId[uid] ?? 0,
+          for (final uid in uniqueParticipants)
+            uid: params.rawInputValuesByUserId[uid] ?? 0,
         };
         final pctSum = filtered.values.fold<int>(0, (s, v) => s + v);
         if (pctSum != 100 || filtered.values.any((v) => v < 0)) {
           return Err(
             ValidationFailure(
-              message: 'Tổng tỷ lệ phần trăm phải bằng đúng 100% (hiện tại: $pctSum%).',
+              message:
+                  'Tổng tỷ lệ phần trăm phải bằng đúng 100% (hiện tại: $pctSum%).',
             ),
           );
         }
@@ -156,12 +171,15 @@ class CreateSharedBillSplitUseCase
         );
       case SplitMethod.shares:
         final filtered = <String, int>{
-          for (final uid in uniqueParticipants) uid: params.rawInputValuesByUserId[uid] ?? 0,
+          for (final uid in uniqueParticipants)
+            uid: params.rawInputValuesByUserId[uid] ?? 0,
         };
         final weightSum = filtered.values.fold<int>(0, (s, v) => s + v);
         if (weightSum <= 0 || filtered.values.any((v) => v < 0)) {
           return const Err(
-            ValidationFailure(message: 'Tổng số phần chia phải lớn hơn 0 và không được âm.'),
+            ValidationFailure(
+              message: 'Tổng số phần chia phải lớn hơn 0 và không được âm.',
+            ),
           );
         }
         resolvedShares = SplitBillCalculator.computeWeightedSplit(
@@ -174,7 +192,9 @@ class CreateSharedBillSplitUseCase
         for (final uid in uniqueParticipants) {
           final v = params.rawInputValuesByUserId[uid] ?? 0;
           if (v < 0) {
-            return const Err(ValidationFailure(message: 'Số tiền từng người không được âm.'));
+            return const Err(
+              ValidationFailure(message: 'Số tiền từng người không được âm.'),
+            );
           }
           if (v > 0) {
             exactMap[uid] = v;
@@ -235,22 +255,31 @@ class RecordDebtSettlementUseCase
   const RecordDebtSettlementUseCase(this._repository);
 
   @override
-  Future<Result<DebtSettlementEntity>> call(RecordDebtSettlementParams params) async {
+  Future<Result<DebtSettlementEntity>> call(
+    RecordDebtSettlementParams params,
+  ) async {
     if (params.fromUserId == params.toUserId) {
       return const Err(
-        ValidationFailure(message: 'Người trả nợ và người nhận không được là cùng một người.'),
+        ValidationFailure(
+          message: 'Người trả nợ và người nhận không được là cùng một người.',
+        ),
       );
     }
-    if (params.amountMinor <= 0 || params.amountMinor > VndAmount.maxAllowedMinor) {
+    if (params.amountMinor <= 0 ||
+        params.amountMinor > VndAmount.maxAllowedMinor) {
       return const Err(
-        ValidationFailure(message: 'Số tiền tất toán phải là số nguyên dương (VND).'),
+        ValidationFailure(
+          message: 'Số tiền tất toán phải là số nguyên dương (VND).',
+        ),
       );
     }
-    final resolvedCode = (params.paymentCode != null && params.paymentCode!.trim().isNotEmpty)
+    final resolvedCode =
+        (params.paymentCode != null && params.paymentCode!.trim().isNotEmpty)
         ? params.paymentCode!.trim()
         : BankNotificationParser.buildSePayTransferCode(
             scopePrefix: 'SPLIT',
-            seed: '${params.familyId}:${params.fromUserId}:${params.toUserId}:${params.amountMinor}',
+            seed:
+                '${params.familyId}:${params.fromUserId}:${params.toUserId}:${params.amountMinor}',
           );
 
     return _repository.recordDebtSettlement(

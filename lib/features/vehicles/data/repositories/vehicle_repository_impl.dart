@@ -34,7 +34,9 @@ class VehicleRemoteDataSource {
       maskPlateWhenShared: (d['maskPlateWhenShared'] as bool?) ?? true,
       currentOdometerKm: (d['currentOdometerKm'] as num?)?.toInt() ?? 0,
       lastServiceOdometerKm: (d['lastServiceOdometerKm'] as num?)?.toInt() ?? 0,
-      lastServiceDate: lastDateRaw is Timestamp ? lastDateRaw.toDate() : DateTime.now(),
+      lastServiceDate: lastDateRaw is Timestamp
+          ? lastDateRaw.toDate()
+          : DateTime.now(),
       serviceIntervalKm: (d['serviceIntervalKm'] as num?)?.toInt() ?? 3000,
       serviceIntervalDays: (d['serviceIntervalDays'] as num?)?.toInt() ?? 90,
       insuranceExpiryDate: insRaw is Timestamp ? insRaw.toDate() : null,
@@ -82,7 +84,11 @@ class VehicleRemoteDataSource {
         .snapshots()
         .map((s) => s.docs.map((d) => _mapVehicle(d, true, familyId)).toList());
 
-    return StreamCombiner.combine2(privStream, famStream, (p, f) => <VehicleEntity>[...p, ...f]);
+    return StreamCombiner.combine2(
+      privStream,
+      famStream,
+      (p, f) => <VehicleEntity>[...p, ...f],
+    );
   }
 
   Stream<List<RecurringBillEntity>> watchBills({
@@ -107,14 +113,26 @@ class VehicleRemoteDataSource {
         .snapshots()
         .map((s) => s.docs.map((d) => _mapBill(d, familyId)).toList());
 
-    return StreamCombiner.combine2(privStream, famStream, (p, f) => <RecurringBillEntity>[...p, ...f]);
+    return StreamCombiner.combine2(
+      privStream,
+      famStream,
+      (p, f) => <RecurringBillEntity>[...p, ...f],
+    );
   }
 
   DocumentReference<Map<String, dynamic>> _vehicleRef(VehicleEntity v) {
     if (v.isFamilyShared && v.familyId != null && v.familyId!.isNotEmpty) {
-      return _firestore.collection('families').doc(v.familyId).collection('vehicles').doc(v.id);
+      return _firestore
+          .collection('families')
+          .doc(v.familyId)
+          .collection('vehicles')
+          .doc(v.id);
     }
-    return _firestore.collection('users').doc(v.ownerId).collection('vehicles').doc(v.id);
+    return _firestore
+        .collection('users')
+        .doc(v.ownerId)
+        .collection('vehicles')
+        .doc(v.id);
   }
 
   Future<void> createVehicle({
@@ -130,8 +148,16 @@ class VehicleRemoteDataSource {
     final id = _uuid.v4();
     final now = DateTime.now();
     final ref = isFamilyShared && familyId != null && familyId.isNotEmpty
-        ? _firestore.collection('families').doc(familyId).collection('vehicles').doc(id)
-        : _firestore.collection('users').doc(userId).collection('vehicles').doc(id);
+        ? _firestore
+              .collection('families')
+              .doc(familyId)
+              .collection('vehicles')
+              .doc(id)
+        : _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('vehicles')
+              .doc(id);
 
     await ref.set({
       'id': id,
@@ -172,7 +198,9 @@ class VehicleRemoteDataSource {
     await _firestore.runTransaction((tx) async {
       DocumentSnapshot<Map<String, dynamic>>? walletSnap;
       DocumentReference<Map<String, dynamic>>? walletRef;
-      if (costMinor > 0 && walletIdForExpense != null && walletIdForExpense.isNotEmpty) {
+      if (costMinor > 0 &&
+          walletIdForExpense != null &&
+          walletIdForExpense.isNotEmpty) {
         walletRef = _firestore
             .collection('users')
             .doc(vehicle.ownerId)
@@ -181,8 +209,9 @@ class VehicleRemoteDataSource {
         walletSnap = await tx.get(walletRef);
       }
 
-      final updatedKm =
-          odometerKm > vehicle.currentOdometerKm ? odometerKm : vehicle.currentOdometerKm;
+      final updatedKm = odometerKm > vehicle.currentOdometerKm
+          ? odometerKm
+          : vehicle.currentOdometerKm;
 
       tx.set(vRef.collection('maintenances').doc(mId), {
         'id': mId,
@@ -198,7 +227,10 @@ class VehicleRemoteDataSource {
         'lastServiceDate': Timestamp.fromDate(now),
       });
 
-      if (walletRef != null && walletSnap != null && walletSnap.exists && costMinor > 0) {
+      if (walletRef != null &&
+          walletSnap != null &&
+          walletSnap.exists &&
+          costMinor > 0) {
         final bal = (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
         final txId = 'maint_$mId';
         final txRef = _firestore
@@ -206,7 +238,8 @@ class VehicleRemoteDataSource {
             .doc(vehicle.ownerId)
             .collection('transactions')
             .doc(txId);
-        final monthKey = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+        final monthKey =
+            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
         tx.update(walletRef, {
           'balanceMinor': bal - costMinor,
@@ -226,12 +259,13 @@ class VehicleRemoteDataSource {
           'monthKey': monthKey,
           'sourceKind': 'manual',
           'verification': 'userConfirmed',
-          'crossSourceFingerprint': BankNotificationParser.computeCrossSourceFingerprint(
-            ownerId: vehicle.ownerId,
-            direction: 'debit',
-            amountMinor: costMinor,
-            occurredAt: now,
-          ),
+          'crossSourceFingerprint':
+              BankNotificationParser.computeCrossSourceFingerprint(
+                ownerId: vehicle.ownerId,
+                direction: 'debit',
+                amountMinor: costMinor,
+                occurredAt: now,
+              ),
           'isVehicleMaintenanceHint': false,
           'schemaVersion': 1,
           'createdAt': Timestamp.fromDate(now),
@@ -251,8 +285,16 @@ class VehicleRemoteDataSource {
   }) async {
     final id = _uuid.v4();
     final ref = familyId != null && familyId.isNotEmpty
-        ? _firestore.collection('families').doc(familyId).collection('bills').doc(id)
-        : _firestore.collection('users').doc(userId).collection('bills').doc(id);
+        ? _firestore
+              .collection('families')
+              .doc(familyId)
+              .collection('bills')
+              .doc(id)
+        : _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('bills')
+              .doc(id);
 
     await ref.set({
       'id': id,
@@ -273,26 +315,42 @@ class VehicleRemoteDataSource {
     required String walletId,
   }) async {
     final billRef = bill.familyId != null && bill.familyId!.isNotEmpty
-        ? _firestore.collection('families').doc(bill.familyId).collection('bills').doc(bill.id)
-        : _firestore.collection('users').doc(userId).collection('bills').doc(bill.id);
-    final walletRef =
-        _firestore.collection('users').doc(userId).collection('wallets').doc(walletId);
+        ? _firestore
+              .collection('families')
+              .doc(bill.familyId)
+              .collection('bills')
+              .doc(bill.id)
+        : _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('bills')
+              .doc(bill.id);
+    final walletRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('wallets')
+        .doc(walletId);
     var spikeDetected = false;
 
     await _firestore.runTransaction((tx) async {
       final wSnap = await tx.get(walletRef);
       if (!wSnap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy ví thanh toán.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy ví thanh toán.',
+        );
       }
       final prevAvg = bill.averagePaidMinor ?? bill.estimatedAmountMinor;
-      if (bill.paymentCount >= 1 && paidAmountMinor >= (prevAvg * 1.25).round()) {
+      if (bill.paymentCount >= 1 &&
+          paidAmountMinor >= (prevAvg * 1.25).round()) {
         spikeDetected = true;
       }
 
       final newCount = bill.paymentCount + 1;
       final newAvg =
-          (((bill.averagePaidMinor ?? paidAmountMinor) * bill.paymentCount) + paidAmountMinor) ~/
-              newCount;
+          (((bill.averagePaidMinor ?? paidAmountMinor) * bill.paymentCount) +
+              paidAmountMinor) ~/
+          newCount;
       final nextDue = DateTime(
         bill.nextDueDate.year,
         bill.nextDueDate.month + 1,
@@ -314,9 +372,13 @@ class VehicleRemoteDataSource {
       });
 
       final txId = 'bill_${bill.id}_${now.millisecondsSinceEpoch}';
-      final txRef =
-          _firestore.collection('users').doc(userId).collection('transactions').doc(txId);
-      final monthKey = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+      final txRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('transactions')
+          .doc(txId);
+      final monthKey =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
       tx.set(txRef, {
         'id': txId,
@@ -332,12 +394,13 @@ class VehicleRemoteDataSource {
         'monthKey': monthKey,
         'sourceKind': 'manual',
         'verification': 'userConfirmed',
-        'crossSourceFingerprint': BankNotificationParser.computeCrossSourceFingerprint(
-          ownerId: userId,
-          direction: 'debit',
-          amountMinor: paidAmountMinor,
-          occurredAt: now,
-        ),
+        'crossSourceFingerprint':
+            BankNotificationParser.computeCrossSourceFingerprint(
+              ownerId: userId,
+              direction: 'debit',
+              amountMinor: paidAmountMinor,
+              occurredAt: now,
+            ),
         'schemaVersion': 1,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
@@ -362,9 +425,14 @@ class VehicleRepositoryImpl implements VehicleRepository {
         .map<Result<List<VehicleEntity>>>((v) => Success(v))
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object e, StackTrace _, EventSink<Result<List<VehicleEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<VehicleEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -380,9 +448,13 @@ class VehicleRepositoryImpl implements VehicleRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<RecurringBillEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<RecurringBillEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -421,7 +493,10 @@ class VehicleRepositoryImpl implements VehicleRepository {
     required int newOdometerKm,
   }) async {
     try {
-      await _remoteDataSource.updateOdometer(vehicle: vehicle, newOdometerKm: newOdometerKm);
+      await _remoteDataSource.updateOdometer(
+        vehicle: vehicle,
+        newOdometerKm: newOdometerKm,
+      );
       return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));

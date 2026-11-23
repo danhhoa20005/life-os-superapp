@@ -36,8 +36,9 @@ abstract final class FirebaseConfig {
     defaultValue: defaultGoogleWebClientId,
   );
 
-  static String get googleWebClientId =>
-      _envGoogleWebClientId.isNotEmpty ? _envGoogleWebClientId : defaultGoogleWebClientId;
+  static String get googleWebClientId => _envGoogleWebClientId.isNotEmpty
+      ? _envGoogleWebClientId
+      : defaultGoogleWebClientId;
 
   static Future<void>? _googleSignInInitFuture;
 
@@ -89,7 +90,8 @@ abstract final class FirebaseConfig {
             }),
           )
           .timeout(const Duration(milliseconds: 1100));
-      if (res.statusCode == 400 && res.body.contains('CONFIGURATION_NOT_FOUND')) {
+      if (res.statusCode == 400 &&
+          res.body.contains('CONFIGURATION_NOT_FOUND')) {
         return false;
       }
       return true;

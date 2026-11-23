@@ -6,7 +6,10 @@ import '../utils/vnd_amount.dart';
 /// Zero Flutter/Firebase imports so Domain and Tests can invoke directly.
 abstract final class OtpRedactor {
   static final List<RegExp> _otpPatterns = [
-    RegExp(r'\b(otp|smart\s*otp|digital\s*otp|s-otp|m-otp)\b', caseSensitive: false),
+    RegExp(
+      r'\b(otp|smart\s*otp|digital\s*otp|s-otp|m-otp)\b',
+      caseSensitive: false,
+    ),
     RegExp(
       r'\bm[aã]\s*(x[aá]c\s*th[uự]c|x[aá]c\s*nh[aậ]n|b[aả]o\s*m[aậ]t|k[ií]ch\s*ho[aạ]t|giao\s*d[iị]ch)\b',
       caseSensitive: false,
@@ -30,7 +33,10 @@ abstract final class OtpRedactor {
   static String redact(String text) {
     if (text.isEmpty) return '';
     var out = text;
-    out = out.replaceAll(RegExp(r'Bearer\s+[A-Za-z0-9._~+/=-]+', caseSensitive: false), 'Bearer [REDACTED]');
+    out = out.replaceAll(
+      RegExp(r'Bearer\s+[A-Za-z0-9._~+/=-]+', caseSensitive: false),
+      'Bearer [REDACTED]',
+    );
     out = out.replaceAll(RegExp(r'\b(?:\d[ -]*?){13,19}\b'), '[REDACTED_CARD]');
     if (containsOtpOrSecret(out)) {
       out = out.replaceAll(RegExp(r'\b\d{4,8}\b'), '[REDACTED_OTP]');
@@ -260,8 +266,10 @@ final class BankSignalParseOutcome {
   final BankSignalDropReason? dropReason;
 
   const BankSignalParseOutcome._({this.signal, this.dropReason});
-  const BankSignalParseOutcome.accepted(ParsedBankSignal signal) : this._(signal: signal);
-  const BankSignalParseOutcome.dropped(BankSignalDropReason reason) : this._(dropReason: reason);
+  const BankSignalParseOutcome.accepted(ParsedBankSignal signal)
+    : this._(signal: signal);
+  const BankSignalParseOutcome.dropped(BankSignalDropReason reason)
+    : this._(dropReason: reason);
 }
 
 abstract final class BankNotificationParser {
@@ -280,7 +288,8 @@ abstract final class BankNotificationParser {
     final bucket15m = occurredAt.millisecondsSinceEpoch ~/ (15 * 60 * 1000);
     // If distinct official reference code exists (Scenario T06), two same-amount payments stay distinct;
     // when reference code is absent across notification vs bank feed, match by 15m bucket!
-    final refSegment = (referenceCode != null && referenceCode.trim().isNotEmpty)
+    final refSegment =
+        (referenceCode != null && referenceCode.trim().isNotEmpty)
         ? referenceCode.trim().toUpperCase()
         : 'BUCKET_$bucket15m';
     final raw = '$ownerId|$direction|$amountMinor|$refSegment';
@@ -330,7 +339,10 @@ abstract final class BankNotificationParser {
   }
 
   static String computeSourceEventKey(String source, String uniqueHint) {
-    return sha256.convert(utf8.encode('$source:$uniqueHint')).toString().substring(0, 36);
+    return sha256
+        .convert(utf8.encode('$source:$uniqueHint'))
+        .toString()
+        .substring(0, 36);
   }
 
   /// Generates a deterministic native LifeOS / VietQR transfer reference code (e.g. `LIFEOS SPLIT8A1F20`).
@@ -338,8 +350,13 @@ abstract final class BankNotificationParser {
     required String scopePrefix,
     required String seed,
   }) {
-    final cleanPrefix = scopePrefix.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
-    final digest = sha256.convert(utf8.encode('$cleanPrefix:$seed')).toString().toUpperCase();
+    final cleanPrefix = scopePrefix
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .toUpperCase();
+    final digest = sha256
+        .convert(utf8.encode('$cleanPrefix:$seed'))
+        .toString()
+        .toUpperCase();
     return 'LIFEOS $cleanPrefix${digest.substring(0, 6)}';
   }
 
@@ -347,8 +364,7 @@ abstract final class BankNotificationParser {
   static String buildSePayTransferCode({
     required String scopePrefix,
     required String seed,
-  }) =>
-      buildLifeOsPaymentCode(scopePrefix: scopePrefix, seed: seed);
+  }) => buildLifeOsPaymentCode(scopePrefix: scopePrefix, seed: seed);
 
   static ({String category, bool isVehicleMaintenance}) inferCategory(
     String text,
@@ -356,16 +372,20 @@ abstract final class BankNotificationParser {
   ) {
     final isVeh = _vehicleRegex.hasMatch(text);
     if (direction == 'credit') {
-      if (RegExp(r'\b(l[uư][oơ]ng|salary|th[uư][oở]ng)\b', caseSensitive: false).hasMatch(text)) {
+      if (RegExp(
+        r'\b(l[uư][oơ]ng|salary|th[uư][oở]ng)\b',
+        caseSensitive: false,
+      ).hasMatch(text)) {
         return (category: 'Lương & Thu nhập', isVehicleMaintenance: false);
       }
       return (category: 'Thu nhập khác', isVehicleMaintenance: false);
     }
 
     if (isVeh ||
-        RegExp(r'\b(x[aă]ng|petrolimex|pvoil|grab|xanh\s*sm|g[uử]i\s*xe|epass|vetc)\b',
-                caseSensitive: false)
-            .hasMatch(text)) {
+        RegExp(
+          r'\b(x[aă]ng|petrolimex|pvoil|grab|xanh\s*sm|g[uử]i\s*xe|epass|vetc)\b',
+          caseSensitive: false,
+        ).hasMatch(text)) {
       return (category: 'Xe cộ & Di chuyển', isVehicleMaintenance: isVeh);
     }
     if (RegExp(
@@ -398,23 +418,28 @@ abstract final class BankNotificationParser {
     ).hasMatch(text)) {
       return (category: 'Sức khỏe & Giáo dục', isVehicleMaintenance: false);
     }
-    if (RegExp(r'\b(netflix|spotify|youtube|icloud|google\s*one)\b', caseSensitive: false)
-        .hasMatch(text)) {
+    if (RegExp(
+      r'\b(netflix|spotify|youtube|icloud|google\s*one)\b',
+      caseSensitive: false,
+    ).hasMatch(text)) {
       return (category: 'Giải trí & Đăng ký', isVehicleMaintenance: false);
     }
-    if (RegExp(r'\b(si[eê]u\s*th[iị]|coopmart|winmart|aeon|b[aá]ch\s*h[oó]a\s*xanh|shopee|lazada|mua\s*s[aắ]m)\b',
-            caseSensitive: false)
-        .hasMatch(text)) {
+    if (RegExp(
+      r'\b(si[eê]u\s*th[iị]|coopmart|winmart|aeon|b[aá]ch\s*h[oó]a\s*xanh|shopee|lazada|mua\s*s[aắ]m)\b',
+      caseSensitive: false,
+    ).hasMatch(text)) {
       return (category: 'Chợ & Mua sắm', isVehicleMaintenance: false);
     }
-    if (RegExp(r'\b(tr[aả]\s*g[oó]p|kho[aả]n\s*vay|fe\s*credit|home\s*credit|tr[aả]\s*n[oợ])\b',
-            caseSensitive: false)
-        .hasMatch(text)) {
+    if (RegExp(
+      r'\b(tr[aả]\s*g[oó]p|kho[aả]n\s*vay|fe\s*credit|home\s*credit|tr[aả]\s*n[oợ])\b',
+      caseSensitive: false,
+    ).hasMatch(text)) {
       return (category: 'Trả nợ & Cho vay', isVehicleMaintenance: false);
     }
-    if (RegExp(r'\b(ph[ií]\s*th[uư][oờ]ng\s*ni[eê]n|ph[ií]\s*sms|ph[ií]\s*duy\s*tr[iì]|ph[ií]\s*chuy[eể]n\s*kho[aả]n)\b',
-            caseSensitive: false)
-        .hasMatch(text)) {
+    if (RegExp(
+      r'\b(ph[ií]\s*th[uư][oờ]ng\s*ni[eê]n|ph[ií]\s*sms|ph[ií]\s*duy\s*tr[iì]|ph[ií]\s*chuy[eể]n\s*kho[aả]n)\b',
+      caseSensitive: false,
+    ).hasMatch(text)) {
       return (category: 'Phí ngân hàng', isVehicleMaintenance: false);
     }
     return (category: 'Chi tiêu khác', isVehicleMaintenance: false);
@@ -441,14 +466,18 @@ abstract final class BankNotificationParser {
   }) {
     final combined = '$title $body'.trim();
     if (OtpRedactor.containsOtpOrSecret(combined)) {
-      return const BankSignalParseOutcome.dropped(BankSignalDropReason.otpOrSecret);
+      return const BankSignalParseOutcome.dropped(
+        BankSignalDropReason.otpOrSecret,
+      );
     }
 
     if (RegExp(
       r'\b(khuy[eế]n\s*m[aã]i|[uư]u\s*đ[aã]i|vay\s*nhanh|m[oở]\s*th[eẻ])\b',
       caseSensitive: false,
     ).hasMatch(combined)) {
-      return const BankSignalParseOutcome.dropped(BankSignalDropReason.nonFinancial);
+      return const BankSignalParseOutcome.dropped(
+        BankSignalDropReason.nonFinancial,
+      );
     }
 
     final signedMatch = RegExp(
@@ -469,19 +498,27 @@ abstract final class BankNotificationParser {
       ).firstMatch(combined);
       if (verbMatch != null) {
         final verb = (verbMatch.group(1) ?? '').toLowerCase();
-        direction = RegExp(r'(nh[aậ]n|c[oộ]ng)').hasMatch(verb) ? 'credit' : 'debit';
+        direction = RegExp(r'(nh[aậ]n|c[oộ]ng)').hasMatch(verb)
+            ? 'credit'
+            : 'debit';
         amountMinor = VndAmount.tryParseInput(verbMatch.group(2) ?? '');
       }
     }
 
     if (direction == null) {
-      return const BankSignalParseOutcome.dropped(BankSignalDropReason.nonFinancial);
+      return const BankSignalParseOutcome.dropped(
+        BankSignalDropReason.nonFinancial,
+      );
     }
     if (amountMinor == null || amountMinor <= 0) {
-      return const BankSignalParseOutcome.dropped(BankSignalDropReason.invalidAmount);
+      return const BankSignalParseOutcome.dropped(
+        BankSignalDropReason.invalidAmount,
+      );
     }
 
-    final bankMeta = kSupportedVnBanks.where((b) => b.packageName == packageName).firstOrNull;
+    final bankMeta = kSupportedVnBanks
+        .where((b) => b.packageName == packageName)
+        .firstOrNull;
     final occurred = (postedAt ?? DateTime.now()).toUtc();
 
     var merchant = combined;
@@ -492,13 +529,17 @@ abstract final class BankNotificationParser {
     if (contentMatch != null) {
       merchant = contentMatch.group(1)!.trim();
     }
-    merchant = merchant.replaceFirst(RegExp(r'\bSD[:\s].*$', caseSensitive: false), '').trim();
+    merchant = merchant
+        .replaceFirst(RegExp(r'\bSD[:\s].*$', caseSensitive: false), '')
+        .trim();
     if (merchant.length > 72) {
       merchant = merchant.substring(0, 72);
     }
 
-    final refMatch = RegExp(r'\b(FT[A-Z0-9_]{5,24}|REF[:\s]*([A-Z0-9_-]{5,24}))\b', caseSensitive: false)
-        .firstMatch(combined);
+    final refMatch = RegExp(
+      r'\b(FT[A-Z0-9_]{5,24}|REF[:\s]*([A-Z0-9_-]{5,24}))\b',
+      caseSensitive: false,
+    ).firstMatch(combined);
     final refCode = refMatch?.group(2) ?? refMatch?.group(1);
 
     // Extract observed post-transaction account balance from `SD:` / `Số dư:` (`> 0` only)
@@ -558,7 +599,10 @@ abstract final class BankNotificationParser {
         categorySuggestion: inferred.category,
         isVehicleMaintenanceHint: inferred.isVehicleMaintenance,
         confidence: bankMeta != null && signedMatch != null ? 0.92 : 0.76,
-        sourceEventKey: computeSourceEventKey('android_notification', uniqueHint),
+        sourceEventKey: computeSourceEventKey(
+          'android_notification',
+          uniqueHint,
+        ),
         crossSourceFingerprint: computeCrossSourceFingerprint(
           ownerId: ownerId,
           direction: direction,

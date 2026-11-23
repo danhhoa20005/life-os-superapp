@@ -17,7 +17,8 @@ class HomeLivingUtilitiesPage extends StatefulWidget {
   const HomeLivingUtilitiesPage({super.key});
 
   @override
-  State<HomeLivingUtilitiesPage> createState() => _HomeLivingUtilitiesPageState();
+  State<HomeLivingUtilitiesPage> createState() =>
+      _HomeLivingUtilitiesPageState();
 }
 
 class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
@@ -42,7 +43,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
     final user = context.watch<AuthBloc>().state.user;
     final userId = user?.id ?? '';
     final wallets = context.watch<TransactionListBloc>().state.wallets;
-    final primaryWalletId = wallets.isNotEmpty ? wallets.first.id : 'wallet_bank_default';
+    final primaryWalletId = wallets.isNotEmpty
+        ? wallets.first.id
+        : 'wallet_bank_default';
     final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
 
     final calc = VietnamEvnUtilityEngine.calculate(
@@ -64,19 +67,22 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
           p.successBanner != n.successBanner || p.failure != n.failure,
       listener: (context, state) {
         if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text(state.successBanner!)),
           );
         } else if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text(state.failure!.message)),
           );
         }
       },
       builder: (context, state) {
         final snap = state.snapshot;
-        final contract =
-            snap.homeContracts.isNotEmpty ? snap.homeContracts.first : null;
+        final contract = snap.homeContracts.isNotEmpty
+            ? snap.homeContracts.first
+            : null;
 
         return Scaffold(
           body: LifeOsMintWaveCanvas(
@@ -90,8 +96,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   Expanded(
                     child: Center(
                       child: ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSpacing.maxContentWidth,
+                        ),
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.md,
@@ -115,7 +122,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'Tổng Hóa Đơn Sinh Hoạt Kỳ $monthKey',
@@ -146,7 +154,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                       fontSize: 26,
                                       fontWeight: FontWeight.w900,
                                       color: c.primary,
-                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -161,7 +171,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                       ),
                                       LifeOsStatusPill(
                                         icon: Icons.water_drop_outlined,
-                                        label: '${calc.waterM3Consumed} m³ nước',
+                                        label:
+                                            '${calc.waterM3Consumed} m³ nước',
                                         tone: LifeOsAccentTone.blue,
                                       ),
                                       if (_splitMembers > 1)
@@ -182,8 +193,16 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                               selected: _tab,
                               onChanged: (v) => setState(() => _tab = v),
                               options: const [
-                                ('evn', 'Công tơ Điện · Nước', Icons.electric_bolt_rounded),
-                                ('lease', 'Thuê nhà & Bảo trì', Icons.home_work_outlined),
+                                (
+                                  'evn',
+                                  'Công tơ Điện · Nước',
+                                  Icons.electric_bolt_rounded,
+                                ),
+                                (
+                                  'lease',
+                                  'Thuê nhà & Bảo trì',
+                                  Icons.home_work_outlined,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 14),
@@ -254,7 +273,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                       ButtonSegment(value: false, label: Text('Phòng trọ')),
                     ],
                     selected: {_useEvnTiered},
-                    onSelectionChanged: (s) => setState(() => _useEvnTiered = s.first),
+                    onSelectionChanged: (s) =>
+                        setState(() => _useEvnTiered = s.first),
                   ),
                 ],
               ),
@@ -268,7 +288,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                     isDense: true,
                   ),
                   items: EvnTariffPolicy.values
-                      .map((p) => DropdownMenuItem(value: p, child: Text(p.title)))
+                      .map(
+                        (p) => DropdownMenuItem(value: p, child: Text(p.title)),
+                      )
                       .toList(),
                   onChanged: (v) {
                     if (v != null) setState(() => _evnPolicy = v);
@@ -280,7 +302,10 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                     Expanded(
                       child: Text(
                         'Thuế suất GTGT (VAT) áp dụng theo kỳ',
-                        style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: c.textSecondary,
+                        ),
                       ),
                     ),
                     ChoiceChip(
@@ -301,12 +326,12 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
 
               _MeterSliderControl(
                 title: 'Sản lượng Điện tiêu thụ trong tháng',
-                trailing:
-                    '$_prevKwh → $_currKwh (${calc.kwhConsumed} kWh)',
+                trailing: '$_prevKwh → $_currKwh (${calc.kwhConsumed} kWh)',
                 value: calc.kwhConsumed.toDouble().clamp(20, 900),
                 min: 20,
                 max: 900,
-                onChanged: (v) => setState(() => _currKwh = _prevKwh + v.round()),
+                onChanged: (v) =>
+                    setState(() => _currKwh = _prevKwh + v.round()),
               ),
               _MeterSliderControl(
                 title: 'Khối lượng Nước sạch tiêu thụ',
@@ -315,7 +340,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                 value: calc.waterM3Consumed.toDouble(),
                 min: 1,
                 max: 50,
-                onChanged: (v) => setState(() => _currWater = _prevWater + v.round()),
+                onChanged: (v) =>
+                    setState(() => _currWater = _prevWater + v.round()),
               ),
               _MeterSliderControl(
                 title: 'Internet cáp quang + Rác / Phí quản lý',
@@ -323,8 +349,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                 value: (_fixedInternetTrashMinor / 10000).clamp(0, 150),
                 min: 0,
                 max: 150,
-                onChanged: (v) =>
-                    setState(() => _fixedInternetTrashMinor = v.round() * 10000),
+                onChanged: (v) => setState(
+                  () => _fixedInternetTrashMinor = v.round() * 10000,
+                ),
               ),
               _MeterSliderControl(
                 title: 'Chia đều hóa đơn cho số thành viên',
@@ -361,7 +388,10 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                       Expanded(
                         child: Text(
                           '${t.rangeLabel} · ${t.kwhUsed} kWh × ${VndAmount.format(t.unitPriceVnd)}',
-                          style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ),
                       Text(
@@ -385,7 +415,10 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                       Expanded(
                         child: Text(
                           'Thuế GTGT Điện (VAT 8%)',
-                          style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ),
                       Text(
@@ -449,18 +482,18 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                           ? null
                           : () {
                               context.read<DailyLifeBloc>().add(
-                                    UtilityReadingSaved(
-                                      userId: userId,
-                                      monthKey: monthKey,
-                                      prevElectricKwh: _prevKwh,
-                                      currElectricKwh: _currKwh,
-                                      prevWaterM3: _prevWater,
-                                      currWaterM3: _currWater,
-                                      useEvnTieredTariff: _useEvnTiered,
-                                      fixedServicesMinor: _fixedInternetTrashMinor,
-                                      totalAmountMinor: calc.grandTotalMinor,
-                                    ),
-                                  );
+                                UtilityReadingSaved(
+                                  userId: userId,
+                                  monthKey: monthKey,
+                                  prevElectricKwh: _prevKwh,
+                                  currElectricKwh: _currKwh,
+                                  prevWaterM3: _prevWater,
+                                  currWaterM3: _currWater,
+                                  useEvnTieredTariff: _useEvnTiered,
+                                  fixedServicesMinor: _fixedInternetTrashMinor,
+                                  totalAmountMinor: calc.grandTotalMinor,
+                                ),
+                              );
                             },
                       icon: const Icon(Icons.bookmark_add_outlined, size: 18),
                       label: const Text('Lưu chỉ số tháng'),
@@ -474,24 +507,25 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                           ? null
                           : () {
                               context.read<TransactionActionBloc>().add(
-                                    TransactionCreateSubmitted(
-                                      operationId:
-                                          'evn_${DateTime.now().millisecondsSinceEpoch}',
-                                      userId: userId,
-                                      walletId: primaryWalletId,
-                                      categoryId: 'cat_bills',
-                                      categoryName: 'Điện nước',
-                                      kind: TransactionKind.expense,
-                                      amountMinor: _splitMembers > 1
-                                          ? calc.perPersonShareMinor
-                                          : calc.grandTotalMinor,
-                                      merchant: 'Điện nước & Internet kỳ $monthKey',
-                                      note:
-                                          '${calc.kwhConsumed} kWh điện · ${calc.waterM3Consumed} m³ nước',
-                                      occurredAt: DateTime.now(),
-                                    ),
-                                  );
-                              LifeOsTopToast.fromSnackBar(context, 
+                                TransactionCreateSubmitted(
+                                  operationId:
+                                      'evn_${DateTime.now().millisecondsSinceEpoch}',
+                                  userId: userId,
+                                  walletId: primaryWalletId,
+                                  categoryId: 'cat_bills',
+                                  categoryName: 'Điện nước',
+                                  kind: TransactionKind.expense,
+                                  amountMinor: _splitMembers > 1
+                                      ? calc.perPersonShareMinor
+                                      : calc.grandTotalMinor,
+                                  merchant: 'Điện nước & Internet kỳ $monthKey',
+                                  note:
+                                      '${calc.kwhConsumed} kWh điện · ${calc.waterM3Consumed} m³ nước',
+                                  occurredAt: DateTime.now(),
+                                ),
+                              );
+                              LifeOsTopToast.fromSnackBar(
+                                context,
                                 const SnackBar(
                                   content: Text(
                                     '✓ Đã ghi hóa đơn Điện Nước vào Sổ cái Ví!',
@@ -520,7 +554,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
             ),
           ),
           const SizedBox(height: 8),
-          ...readings.take(4).map(
+          ...readings
+              .take(4)
+              .map(
                 (r) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: LifeOsSoftCard(
@@ -547,12 +583,17 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13.8,
                                   color: c.textPrimary,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                               Text(
                                 'Điện: ${r.kwhUsed} kWh · Nước: ${r.waterM3Used} m³',
-                                style: TextStyle(fontSize: 12, color: c.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: c.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -560,11 +601,11 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                         if (!r.isPaid)
                           TextButton(
                             onPressed: () => context.read<DailyLifeBloc>().add(
-                                  UtilityReadingMarkedPaid(
-                                    userId: userId,
-                                    readingId: r.id,
-                                  ),
-                                ),
+                              UtilityReadingMarkedPaid(
+                                userId: userId,
+                                readingId: r.id,
+                              ),
+                            ),
                             child: const Text('Đã đóng'),
                           )
                         else
@@ -590,7 +631,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
     HomeContractMaintenanceEntity? contract,
   ) {
     final dateFmt = DateFormat('dd/MM/yyyy');
-    final display = contract ??
+    final display =
+        contract ??
         HomeContractMaintenanceEntity(
           id: 'preview',
           ownerId: userId,
@@ -633,7 +675,10 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                         ),
                         Text(
                           'Đóng tiền ngày ${display.paymentDayOfMonth} hằng tháng · Hết hạn HĐ: ${dateFmt.format(display.leaseEndDate)}',
-                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -647,8 +692,13 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tiền thuê / tháng',
-                            style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                        Text(
+                          'Tiền thuê / tháng',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
+                        ),
                         Text(
                           VndAmount.format(display.monthlyRentMinor),
                           style: TextStyle(
@@ -665,8 +715,13 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tiền đặt cọc đang giữ',
-                            style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                        Text(
+                          'Tiền đặt cọc đang giữ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
+                        ),
                         Text(
                           VndAmount.format(display.depositMinor),
                           style: TextStyle(
@@ -701,7 +756,11 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                     child: OutlinedButton.icon(
                       onPressed: userId.isEmpty
                           ? null
-                          : () => _showEditContractSheet(context, userId, display),
+                          : () => _showEditContractSheet(
+                              context,
+                              userId,
+                              display,
+                            ),
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: const Text('Cập nhật HĐ'),
                     ),
@@ -713,27 +772,33 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                           ? null
                           : () {
                               context.read<TransactionActionBloc>().add(
-                                    TransactionCreateSubmitted(
-                                      operationId:
-                                          'rent_${DateTime.now().millisecondsSinceEpoch}',
-                                      userId: userId,
-                                      walletId: primaryWalletId,
-                                      categoryId: 'cat_housing',
-                                      categoryName: 'Nhà cửa',
-                                      kind: TransactionKind.expense,
-                                      amountMinor: display.monthlyRentMinor,
-                                      merchant: 'Tiền thuê ${display.homeName}',
-                                      note: 'Thanh toán tiền nhà định kỳ',
-                                      occurredAt: DateTime.now(),
-                                    ),
-                                  );
-                              LifeOsTopToast.fromSnackBar(context, 
+                                TransactionCreateSubmitted(
+                                  operationId:
+                                      'rent_${DateTime.now().millisecondsSinceEpoch}',
+                                  userId: userId,
+                                  walletId: primaryWalletId,
+                                  categoryId: 'cat_housing',
+                                  categoryName: 'Nhà cửa',
+                                  kind: TransactionKind.expense,
+                                  amountMinor: display.monthlyRentMinor,
+                                  merchant: 'Tiền thuê ${display.homeName}',
+                                  note: 'Thanh toán tiền nhà định kỳ',
+                                  occurredAt: DateTime.now(),
+                                ),
+                              );
+                              LifeOsTopToast.fromSnackBar(
+                                context,
                                 const SnackBar(
-                                  content: Text('✓ Đã ghi khoản Tiền nhà vào Sổ cái Ví!'),
+                                  content: Text(
+                                    '✓ Đã ghi khoản Tiền nhà vào Sổ cái Ví!',
+                                  ),
                                 ),
                               );
                             },
-                      icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                      icon: const Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 18,
+                      ),
                       label: const Text('Đóng tiền nhà'),
                     ),
                   ),
@@ -755,7 +820,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
     final rentCtrl = TextEditingController(text: '${current.monthlyRentMinor}');
     final depCtrl = TextEditingController(text: '${current.depositMinor}');
     final wifiCtrl = TextEditingController(text: current.wifiCredentials);
-    final maintCtrl = TextEditingController(text: current.nextApplianceMaintenanceNote);
+    final maintCtrl = TextEditingController(
+      text: current.nextApplianceMaintenanceNote,
+    );
 
     await showModalBottomSheet<void>(
       context: context,
@@ -780,7 +847,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Tên căn hộ / Phòng trọ'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tên căn hộ / Phòng trọ',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -789,7 +858,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                       child: TextField(
                         controller: rentCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Tiền thuê/tháng (₫)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Tiền thuê/tháng (₫)',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -797,7 +868,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                       child: TextField(
                         controller: depCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Tiền đặt cọc (₫)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Tiền đặt cọc (₫)',
+                        ),
                       ),
                     ),
                   ],
@@ -822,17 +895,18 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   icon: Icons.check_rounded,
                   onPressed: () {
                     context.read<DailyLifeBloc>().add(
-                          HomeContractSaved(
-                            userId: userId,
-                            homeName: nameCtrl.text.trim(),
-                            monthlyRentMinor: int.tryParse(rentCtrl.text.trim()) ?? 0,
-                            depositMinor: int.tryParse(depCtrl.text.trim()) ?? 0,
-                            paymentDayOfMonth: current.paymentDayOfMonth,
-                            leaseEndDate: current.leaseEndDate,
-                            wifiCredentials: wifiCtrl.text.trim(),
-                            nextApplianceMaintenanceNote: maintCtrl.text.trim(),
-                          ),
-                        );
+                      HomeContractSaved(
+                        userId: userId,
+                        homeName: nameCtrl.text.trim(),
+                        monthlyRentMinor:
+                            int.tryParse(rentCtrl.text.trim()) ?? 0,
+                        depositMinor: int.tryParse(depCtrl.text.trim()) ?? 0,
+                        paymentDayOfMonth: current.paymentDayOfMonth,
+                        leaseEndDate: current.leaseEndDate,
+                        wifiCredentials: wifiCtrl.text.trim(),
+                        nextApplianceMaintenanceNote: maintCtrl.text.trim(),
+                      ),
+                    );
                     Navigator.of(sheetCtx).pop();
                   },
                 ),

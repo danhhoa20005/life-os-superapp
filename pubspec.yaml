@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Clean Architecture + BLoC + Tối ưu Hành vi Người dùng v3.7)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Real-Time Banking Webhook + FCM Push + Clean Architecture BLoC v3.8)"
 publish_to: 'none'
-version: 3.7.0+22
+version: 3.8.0+23
 
 environment:
   sdk: ^3.10.0
@@ -26,6 +26,8 @@ dependencies:
   uuid: ^4.6.0
   crypto: ^3.0.8
   google_sign_in: ^7.2.0
+  firebase_messaging: ^17.1.0
+  cloud_functions: ^7.1.0
 
 dev_dependencies:
   flutter_test:

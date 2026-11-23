@@ -56,16 +56,16 @@ class MedicationCabinetItemEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        name,
-        dosage,
-        slot,
-        remainingPills,
-        expiryDate,
-        lastTakenDayKey,
-        memberName,
-      ];
+    id,
+    ownerId,
+    name,
+    dosage,
+    slot,
+    remainingPills,
+    expiryDate,
+    lastTakenDayKey,
+    memberName,
+  ];
 }
 
 class HealthVitalLogEntity extends Equatable {
@@ -95,17 +95,17 @@ class HealthVitalLogEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        weightKg,
-        heightCm,
-        systolicMmHg,
-        diastolicMmHg,
-        heartRateBpm,
-        sleepHours,
-        recordedAt,
-        note,
-      ];
+    id,
+    ownerId,
+    weightKg,
+    heightCm,
+    systolicMmHg,
+    diastolicMmHg,
+    heartRateBpm,
+    sleepHours,
+    recordedAt,
+    note,
+  ];
 }
 
 class EmergencyMedicalCardEntity extends Equatable {
@@ -142,15 +142,15 @@ class EmergencyMedicalCardEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        ownerId,
-        bloodType,
-        allergies,
-        chronicConditions,
-        insuranceCode,
-        emergencyContactName,
-        emergencyContactPhone,
-        preferredHospital,
-      ];
+    ownerId,
+    bloodType,
+    allergies,
+    chronicConditions,
+    insuranceCode,
+    emergencyContactName,
+    emergencyContactPhone,
+    preferredHospital,
+  ];
 }
 
 class AsianHealthAssessment extends Equatable {
@@ -176,15 +176,15 @@ class AsianHealthAssessment extends Equatable {
 
   @override
   List<Object?> get props => [
-        bmi,
-        bmiCategory,
-        idealMinWeightKg,
-        idealMaxWeightKg,
-        bmrKcal,
-        tdeeKcal,
-        recommendedWaterMl,
-        bloodPressureStatus,
-      ];
+    bmi,
+    bmiCategory,
+    idealMinWeightKg,
+    idealMaxWeightKg,
+    bmrKcal,
+    tdeeKcal,
+    recommendedWaterMl,
+    bloodPressureStatus,
+  ];
 }
 
 class AsianHealthBmiTdeeEngine {
@@ -220,7 +220,9 @@ class AsianHealthBmiTdeeEngine {
     final maxIdeal = 22.9 * safeHeightM * safeHeightM;
 
     final baseBmr =
-        (10 * safeWeight) + (6.25 * (safeHeightM * 100)) - (5 * ageYears.clamp(12, 100));
+        (10 * safeWeight) +
+        (6.25 * (safeHeightM * 100)) -
+        (5 * ageYears.clamp(12, 100));
     final bmr = (isMale ? baseBmr + 5 : baseBmr - 161).round();
     final tdee = (bmr * activityMultiplier.clamp(1.2, 1.9)).round();
     final waterMl = ((safeWeight * 35) / 50).round() * 50;
@@ -302,16 +304,16 @@ class SmartGroceryItemEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        name,
-        quantityLabel,
-        aisle,
-        estimatedMinor,
-        isBought,
-        inFridgeStorage,
-        expiryDate,
-      ];
+    id,
+    ownerId,
+    name,
+    quantityLabel,
+    aisle,
+    estimatedMinor,
+    isBought,
+    inFridgeStorage,
+    expiryDate,
+  ];
 }
 
 class DailyMealPlanEntity extends Equatable {
@@ -335,14 +337,14 @@ class DailyMealPlanEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        dayKey,
-        ownerId,
-        breakfast,
-        lunch,
-        dinner,
-        estimatedDailyCostMinor,
-        estimatedKcal,
-      ];
+    dayKey,
+    ownerId,
+    breakfast,
+    lunch,
+    dinner,
+    estimatedDailyCostMinor,
+    estimatedKcal,
+  ];
 }
 
 class MealComboPreset {
@@ -353,7 +355,8 @@ class MealComboPreset {
   final String dinner;
   final int estimatedCostMinor;
   final int estimatedKcal;
-  final List<({String name, String qty, GroceryAisle aisle, int priceMinor})> ingredients;
+  final List<({String name, String qty, GroceryAisle aisle, int priceMinor})>
+  ingredients;
 
   const MealComboPreset({
     required this.title,
@@ -378,10 +381,30 @@ class VietnameseMealSuggestionCatalog {
       estimatedCostMinor: 165000,
       estimatedKcal: 1850,
       ingredients: [
-        (name: 'Cá lóc & cá hú tươi', qty: '600g', aisle: GroceryAisle.meatSeafood, priceMinor: 75000),
-        (name: 'Bạc hà, đậu bắp, giá, thơm', qty: '1 set canh chua', aisle: GroceryAisle.produce, priceMinor: 25000),
-        (name: 'Thịt ba rọi & thịt bằm', qty: '400g', aisle: GroceryAisle.meatSeafood, priceMinor: 50000),
-        (name: 'Rau muống & bí đỏ hồ lô', qty: '1 bó + 1 trái', aisle: GroceryAisle.produce, priceMinor: 15000),
+        (
+          name: 'Cá lóc & cá hú tươi',
+          qty: '600g',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 75000,
+        ),
+        (
+          name: 'Bạc hà, đậu bắp, giá, thơm',
+          qty: '1 set canh chua',
+          aisle: GroceryAisle.produce,
+          priceMinor: 25000,
+        ),
+        (
+          name: 'Thịt ba rọi & thịt bằm',
+          qty: '400g',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 50000,
+        ),
+        (
+          name: 'Rau muống & bí đỏ hồ lô',
+          qty: '1 bó + 1 trái',
+          aisle: GroceryAisle.produce,
+          priceMinor: 15000,
+        ),
       ],
     ),
     MealComboPreset(
@@ -393,10 +416,30 @@ class VietnameseMealSuggestionCatalog {
       estimatedCostMinor: 155000,
       estimatedKcal: 1790,
       ingredients: [
-        (name: 'Thịt nạc vai & sườn non', qty: '500g', aisle: GroceryAisle.meatSeafood, priceMinor: 70000),
-        (name: 'Cua đồng xay sẵn', qty: '250g', aisle: GroceryAisle.meatSeafood, priceMinor: 40000),
-        (name: 'Rau mồng tơi, mướp hương, cà chua', qty: '1 rổ', aisle: GroceryAisle.produce, priceMinor: 25000),
-        (name: 'Đậu phụ mơ & trứng gà ta', qty: '4 bìa + 4 quả', aisle: GroceryAisle.meatSeafood, priceMinor: 20000),
+        (
+          name: 'Thịt nạc vai & sườn non',
+          qty: '500g',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 70000,
+        ),
+        (
+          name: 'Cua đồng xay sẵn',
+          qty: '250g',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 40000,
+        ),
+        (
+          name: 'Rau mồng tơi, mướp hương, cà chua',
+          qty: '1 rổ',
+          aisle: GroceryAisle.produce,
+          priceMinor: 25000,
+        ),
+        (
+          name: 'Đậu phụ mơ & trứng gà ta',
+          qty: '4 bìa + 4 quả',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 20000,
+        ),
       ],
     ),
     MealComboPreset(
@@ -408,9 +451,24 @@ class VietnameseMealSuggestionCatalog {
       estimatedCostMinor: 195000,
       estimatedKcal: 1520,
       ingredients: [
-        (name: 'Phi lê cá hồi & ức gà tươi', qty: '450g', aisle: GroceryAisle.meatSeafood, priceMinor: 115000),
-        (name: 'Bông cải xanh, xà lách Romaine, bơ sáp', qty: '1 túi', aisle: GroceryAisle.produce, priceMinor: 45000),
-        (name: 'Khoai lang mật Đà Lạt', qty: '1kg', aisle: GroceryAisle.produce, priceMinor: 35000),
+        (
+          name: 'Phi lê cá hồi & ức gà tươi',
+          qty: '450g',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 115000,
+        ),
+        (
+          name: 'Bông cải xanh, xà lách Romaine, bơ sáp',
+          qty: '1 túi',
+          aisle: GroceryAisle.produce,
+          priceMinor: 45000,
+        ),
+        (
+          name: 'Khoai lang mật Đà Lạt',
+          qty: '1kg',
+          aisle: GroceryAisle.produce,
+          priceMinor: 35000,
+        ),
       ],
     ),
     MealComboPreset(
@@ -422,9 +480,24 @@ class VietnameseMealSuggestionCatalog {
       estimatedCostMinor: 320000,
       estimatedKcal: 2150,
       ingredients: [
-        (name: 'Ba chỉ bò Mỹ & tôm sú tươi', qty: '800g', aisle: GroceryAisle.meatSeafood, priceMinor: 195000),
-        (name: 'Set nấm kim châm, đùi gà, bào ngư & rau lẩu', qty: '1 khay lớn', aisle: GroceryAisle.produce, priceMinor: 75000),
-        (name: 'Bánh tráng, bún tươi & cốt lẩu', qty: '1 phần', aisle: GroceryAisle.pantry, priceMinor: 50000),
+        (
+          name: 'Ba chỉ bò Mỹ & tôm sú tươi',
+          qty: '800g',
+          aisle: GroceryAisle.meatSeafood,
+          priceMinor: 195000,
+        ),
+        (
+          name: 'Set nấm kim châm, đùi gà, bào ngư & rau lẩu',
+          qty: '1 khay lớn',
+          aisle: GroceryAisle.produce,
+          priceMinor: 75000,
+        ),
+        (
+          name: 'Bánh tráng, bún tươi & cốt lẩu',
+          qty: '1 phần',
+          aisle: GroceryAisle.pantry,
+          priceMinor: 50000,
+        ),
       ],
     ),
   ];
@@ -450,7 +523,13 @@ class EvnTierSlice extends Equatable {
   });
 
   @override
-  List<Object?> get props => [tierIndex, rangeLabel, kwhUsed, unitPriceVnd, subtotalMinor];
+  List<Object?> get props => [
+    tierIndex,
+    rangeLabel,
+    kwhUsed,
+    unitPriceVnd,
+    subtotalMinor,
+  ];
 }
 
 class UtilityBillCalculation extends Equatable {
@@ -480,17 +559,17 @@ class UtilityBillCalculation extends Equatable {
 
   @override
   List<Object?> get props => [
-        kwhConsumed,
-        waterM3Consumed,
-        electricityPreVatMinor,
-        electricityVatMinor,
-        electricityTotalMinor,
-        waterTotalMinor,
-        fixedServicesMinor,
-        grandTotalMinor,
-        perPersonShareMinor,
-        evnTiers,
-      ];
+    kwhConsumed,
+    waterM3Consumed,
+    electricityPreVatMinor,
+    electricityVatMinor,
+    electricityTotalMinor,
+    waterTotalMinor,
+    fixedServicesMinor,
+    grandTotalMinor,
+    perPersonShareMinor,
+    evnTiers,
+  ];
 }
 
 /// Versioned EVN Retail Residential Electricity Tariff Policy.
@@ -523,7 +602,7 @@ enum EvnTariffPolicy {
 class VietnamEvnUtilityEngine {
   /// Official 5-tier residential retail electricity tariff from 01/11/2026 (`Quyết định 2892/QĐ-BCT`).
   static const List<({int tier, String label, int capKwh, int priceVnd})>
-      evn5TiersQd2892Nov2026 = [
+  evn5TiersQd2892Nov2026 = [
     (tier: 1, label: 'Bậc 1 (0 – 100 kWh)', capKwh: 100, priceVnd: 1901),
     (tier: 2, label: 'Bậc 2 (101 – 200 kWh)', capKwh: 100, priceVnd: 2289),
     (tier: 3, label: 'Bậc 3 (201 – 400 kWh)', capKwh: 200, priceVnd: 2894),
@@ -533,7 +612,7 @@ class VietnamEvnUtilityEngine {
 
   /// Historical 6-tier residential tariff prior to 01/11/2026 for auditing older bills.
   static const List<({int tier, String label, int capKwh, int priceVnd})>
-      evnLegacy6Tiers = [
+  evnLegacy6Tiers = [
     (tier: 1, label: 'Bậc 1 (0 – 50 kWh)', capKwh: 50, priceVnd: 1893),
     (tier: 2, label: 'Bậc 2 (51 – 100 kWh)', capKwh: 50, priceVnd: 1956),
     (tier: 3, label: 'Bậc 3 (101 – 200 kWh)', capKwh: 100, priceVnd: 2271),
@@ -655,19 +734,19 @@ class UtilityMeterReadingEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        monthKey,
-        prevElectricKwh,
-        currElectricKwh,
-        prevWaterM3,
-        currWaterM3,
-        useEvnTieredTariff,
-        fixedServicesMinor,
-        totalAmountMinor,
-        isPaid,
-        recordedAt,
-      ];
+    id,
+    ownerId,
+    monthKey,
+    prevElectricKwh,
+    currElectricKwh,
+    prevWaterM3,
+    currWaterM3,
+    useEvnTieredTariff,
+    fixedServicesMinor,
+    totalAmountMinor,
+    isPaid,
+    recordedAt,
+  ];
 }
 
 class HomeContractMaintenanceEntity extends Equatable {
@@ -690,27 +769,32 @@ class HomeContractMaintenanceEntity extends Equatable {
     required this.paymentDayOfMonth,
     required this.leaseEndDate,
     this.wifiCredentials = '',
-    this.nextApplianceMaintenanceNote = 'Vệ sinh điều hòa & thay lõi lọc nước RO sau 90 ngày',
+    this.nextApplianceMaintenanceNote =
+        'Vệ sinh điều hòa & thay lõi lọc nước RO sau 90 ngày',
   });
 
   int daysUntilLeaseExpiry(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
-    final end = DateTime(leaseEndDate.year, leaseEndDate.month, leaseEndDate.day);
+    final end = DateTime(
+      leaseEndDate.year,
+      leaseEndDate.month,
+      leaseEndDate.day,
+    );
     return end.difference(today).inDays;
   }
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        homeName,
-        monthlyRentMinor,
-        depositMinor,
-        paymentDayOfMonth,
-        leaseEndDate,
-        wifiCredentials,
-        nextApplianceMaintenanceNote,
-      ];
+    id,
+    ownerId,
+    homeName,
+    monthlyRentMinor,
+    depositMinor,
+    paymentDayOfMonth,
+    leaseEndDate,
+    wifiCredentials,
+    nextApplianceMaintenanceNote,
+  ];
 }
 
 // =============================================================================
@@ -759,15 +843,15 @@ class SmartLifeNoteEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        title,
-        content,
-        categoryTag,
-        mood,
-        isPinned,
-        updatedAt,
-      ];
+    id,
+    ownerId,
+    title,
+    content,
+    categoryTag,
+    mood,
+    isPinned,
+    updatedAt,
+  ];
 }
 
 class PitBracketBreakdown extends Equatable {
@@ -786,7 +870,13 @@ class PitBracketBreakdown extends Equatable {
   });
 
   @override
-  List<Object?> get props => [level, label, ratePercent, taxableSliceMinor, taxMinor];
+  List<Object?> get props => [
+    level,
+    label,
+    ratePercent,
+    taxableSliceMinor,
+    taxMinor,
+  ];
 }
 
 class VietnamSalaryTaxResult extends Equatable {
@@ -820,27 +910,43 @@ class VietnamSalaryTaxResult extends Equatable {
 
   @override
   List<Object?> get props => [
-        grossSalaryMinor,
-        bhxhMinor,
-        bhytMinor,
-        bhtnMinor,
-        totalEmployeeInsuranceMinor,
-        personalDeductionMinor,
-        dependentDeductionMinor,
-        taxableIncomeMinor,
-        personalIncomeTaxMinor,
-        netSalaryMinor,
-        totalEmployerCostMinor,
-        brackets,
-      ];
+    grossSalaryMinor,
+    bhxhMinor,
+    bhytMinor,
+    bhtnMinor,
+    totalEmployeeInsuranceMinor,
+    personalDeductionMinor,
+    dependentDeductionMinor,
+    taxableIncomeMinor,
+    personalIncomeTaxMinor,
+    netSalaryMinor,
+    totalEmployerCostMinor,
+    brackets,
+  ];
 }
 
 /// Regional Minimum Wage Zones (`Nghị định 293/2025/NĐ-CP`, hiệu lực từ 01/01/2026).
 enum VietnamWageRegion {
-  region1(label: 'Vùng I (TP.HCM, Hà Nội...)', minWage2026Vnd: 5310000, minWage2025Vnd: 4960000),
-  region2(label: 'Vùng II (Đà Nẵng, Cần Thơ...)', minWage2026Vnd: 4730000, minWage2025Vnd: 4410000),
-  region3(label: 'Vùng III (Thành phố tỉnh)', minWage2026Vnd: 4140000, minWage2025Vnd: 3860000),
-  region4(label: 'Vùng IV (Khu vực khác)', minWage2026Vnd: 3700000, minWage2025Vnd: 3450000);
+  region1(
+    label: 'Vùng I (TP.HCM, Hà Nội...)',
+    minWage2026Vnd: 5310000,
+    minWage2025Vnd: 4960000,
+  ),
+  region2(
+    label: 'Vùng II (Đà Nẵng, Cần Thơ...)',
+    minWage2026Vnd: 4730000,
+    minWage2025Vnd: 4410000,
+  ),
+  region3(
+    label: 'Vùng III (Thành phố tỉnh)',
+    minWage2026Vnd: 4140000,
+    minWage2025Vnd: 3860000,
+  ),
+  region4(
+    label: 'Vùng IV (Khu vực khác)',
+    minWage2026Vnd: 3700000,
+    minWage2025Vnd: 3450000,
+  );
 
   final String label;
   final int minWage2026Vnd;
@@ -853,7 +959,9 @@ enum VietnamWageRegion {
   });
 
   int bhtnSalaryCapForPolicy(VietnamTaxPolicy policy) {
-    final base = policy == VietnamTaxPolicy.law109Year2026 ? minWage2026Vnd : minWage2025Vnd;
+    final base = policy == VietnamTaxPolicy.law109Year2026
+        ? minWage2026Vnd
+        : minWage2025Vnd;
     return base * 20;
   }
 }
@@ -895,24 +1003,74 @@ class VietnamGrossNetTaxEngine {
 
   /// Official 5-bracket progressive PIT schedule from tax year 2026 (`Luật Thuế TNCN 109/2025/QH15`).
   static const List<({int level, String label, int capVnd, int ratePct})>
-      pit5Brackets2026 = [
+  pit5Brackets2026 = [
     (level: 1, label: 'Bậc 1 (Đến 10 triệu)', capVnd: 10000000, ratePct: 5),
-    (level: 2, label: 'Bậc 2 (Trên 10 – 30 triệu)', capVnd: 20000000, ratePct: 10),
-    (level: 3, label: 'Bậc 3 (Trên 30 – 60 triệu)', capVnd: 30000000, ratePct: 20),
-    (level: 4, label: 'Bậc 4 (Trên 60 – 100 triệu)', capVnd: 40000000, ratePct: 30),
-    (level: 5, label: 'Bậc 5 (Trên 100 triệu)', capVnd: 999999999999, ratePct: 35),
+    (
+      level: 2,
+      label: 'Bậc 2 (Trên 10 – 30 triệu)',
+      capVnd: 20000000,
+      ratePct: 10,
+    ),
+    (
+      level: 3,
+      label: 'Bậc 3 (Trên 30 – 60 triệu)',
+      capVnd: 30000000,
+      ratePct: 20,
+    ),
+    (
+      level: 4,
+      label: 'Bậc 4 (Trên 60 – 100 triệu)',
+      capVnd: 40000000,
+      ratePct: 30,
+    ),
+    (
+      level: 5,
+      label: 'Bậc 5 (Trên 100 triệu)',
+      capVnd: 999999999999,
+      ratePct: 35,
+    ),
   ];
 
   /// Legacy 7-bracket progressive PIT schedule (for historical 2025 comparison).
   static const List<({int level, String label, int capVnd, int ratePct})>
-      pitLegacy7Brackets2025 = [
+  pitLegacy7Brackets2025 = [
     (level: 1, label: 'Bậc 1 (Đến 5 triệu)', capVnd: 5000000, ratePct: 5),
-    (level: 2, label: 'Bậc 2 (Trên 5 – 10 triệu)', capVnd: 5000000, ratePct: 10),
-    (level: 3, label: 'Bậc 3 (Trên 10 – 18 triệu)', capVnd: 8000000, ratePct: 15),
-    (level: 4, label: 'Bậc 4 (Trên 18 – 32 triệu)', capVnd: 14000000, ratePct: 20),
-    (level: 5, label: 'Bậc 5 (Trên 32 – 52 triệu)', capVnd: 20000000, ratePct: 25),
-    (level: 6, label: 'Bậc 6 (Trên 52 – 80 triệu)', capVnd: 28000000, ratePct: 30),
-    (level: 7, label: 'Bậc 7 (Trên 80 triệu)', capVnd: 999999999999, ratePct: 35),
+    (
+      level: 2,
+      label: 'Bậc 2 (Trên 5 – 10 triệu)',
+      capVnd: 5000000,
+      ratePct: 10,
+    ),
+    (
+      level: 3,
+      label: 'Bậc 3 (Trên 10 – 18 triệu)',
+      capVnd: 8000000,
+      ratePct: 15,
+    ),
+    (
+      level: 4,
+      label: 'Bậc 4 (Trên 18 – 32 triệu)',
+      capVnd: 14000000,
+      ratePct: 20,
+    ),
+    (
+      level: 5,
+      label: 'Bậc 5 (Trên 32 – 52 triệu)',
+      capVnd: 20000000,
+      ratePct: 25,
+    ),
+    (
+      level: 6,
+      label: 'Bậc 6 (Trên 52 – 80 triệu)',
+      capVnd: 28000000,
+      ratePct: 30,
+    ),
+    (
+      level: 7,
+      label: 'Bậc 7 (Trên 80 triệu)',
+      capVnd: 999999999999,
+      ratePct: 35,
+    ),
   ];
 
   static VietnamSalaryTaxResult fromGross({
@@ -925,7 +1083,9 @@ class VietnamGrossNetTaxEngine {
     final deps = dependentsCount.clamp(0, 20);
     final bhtnCap = region.bhtnSalaryCapForPolicy(policy);
 
-    final bhxhBase = gross > bhxhBhytSalaryCapVnd ? bhxhBhytSalaryCapVnd : gross;
+    final bhxhBase = gross > bhxhBhytSalaryCapVnd
+        ? bhxhBhytSalaryCapVnd
+        : gross;
     final bhtnBase = gross > bhtnCap ? bhtnCap : gross;
 
     final bhxh = (bhxhBase * 0.08).round();
@@ -936,8 +1096,10 @@ class VietnamGrossNetTaxEngine {
     final incomeBeforeTax = gross - totalEmpIns;
     final personalDeduct = policy.personalDeductionVnd;
     final depDeduct = deps * policy.dependentDeductionVnd;
-    final taxable =
-        (incomeBeforeTax - personalDeduct - depDeduct).clamp(0, 5000000000);
+    final taxable = (incomeBeforeTax - personalDeduct - depDeduct).clamp(
+      0,
+      5000000000,
+    );
 
     final activeBrackets = policy == VietnamTaxPolicy.law109Year2026
         ? pit5Brackets2026
@@ -966,7 +1128,9 @@ class VietnamGrossNetTaxEngine {
 
     final net = (gross - totalEmpIns - totalPit).clamp(0, 5000000000);
     final employerIns =
-        (bhxhBase * 0.175).round() + (bhxhBase * 0.03).round() + (bhtnBase * 0.01).round();
+        (bhxhBase * 0.175).round() +
+        (bhxhBase * 0.03).round() +
+        (bhtnBase * 0.01).round();
 
     return VietnamSalaryTaxResult(
       grossSalaryMinor: gross,
@@ -1064,20 +1228,21 @@ class DailyLifeSnapshot extends Equatable {
       .where((g) => !g.inFridgeStorage && g.isBought)
       .fold<int>(0, (sum, g) => sum + g.estimatedMinor);
 
-  int get fridgeItemsCount => groceryItems.where((g) => g.inFridgeStorage).length;
+  int get fridgeItemsCount =>
+      groceryItems.where((g) => g.inFridgeStorage).length;
 
   int medicationsTakenCount(String dayKey) =>
       medications.where((m) => m.isTakenOn(dayKey)).length;
 
   @override
   List<Object?> get props => [
-        medications,
-        healthLogs,
-        emergencyCard,
-        groceryItems,
-        mealPlans,
-        utilityReadings,
-        homeContracts,
-        notes,
-      ];
+    medications,
+    healthLogs,
+    emergencyCard,
+    groceryItems,
+    mealPlans,
+    utilityReadings,
+    homeContracts,
+    notes,
+  ];
 }

@@ -58,7 +58,8 @@ class _LifeOsAppState extends State<LifeOsApp> {
       ],
       child: BlocListener<AuthBloc, AuthState>(
         listenWhen: (prev, curr) =>
-            prev.status != curr.status && curr.status == AuthStatus.authenticated,
+            prev.status != curr.status &&
+            curr.status == AuthStatus.authenticated,
         listener: (_, __) {
           _appUpdateBloc.add(const AppUpdateCheckRequested(silent: true));
         },
@@ -92,10 +93,7 @@ class _LifeOsAppState extends State<LifeOsApp> {
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
               ],
-              supportedLocales: const [
-                Locale('vi', 'VN'),
-                Locale('en', 'US'),
-              ],
+              supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
               routerConfig: _router,
             );
           },

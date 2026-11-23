@@ -174,6 +174,57 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // REAL-TIME BANKING CONNECTIONS, FINANCIAL NOTIFICATIONS, FCM DEVICES & PRIVACY PREFERENCES
+      // Client can read own bank_connections or disconnect, NEVER forge `status == 'connected'` for `sepay`!
+      match /bank_connections/{connectionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && !(request.resource.data.provider == 'sepay' && request.resource.data.status == 'connected')
+          && !('accountNumber' in request.resource.data)
+          && !('apiToken' in request.resource.data);
+        allow update: if isOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && !(request.resource.data.provider == 'sepay' && request.resource.data.status == 'connected' && resource.data.status != 'connected')
+          && !('accountNumber' in request.resource.data)
+          && !('apiToken' in request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // Real-time financial notifications: server Admin SDK writes verified pushes;
+      // owner can read, mark `isRead`, delete during erasure, or create explicit `isTestNotification == true`.
+      match /financial_notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && (request.resource.data.isTestNotification == true || request.resource.data.sourceKind == 'androidNotification');
+        allow update: if isOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.amountMinor == resource.data.amountMinor;
+        allow delete: if isOwner(userId);
+      }
+
+      // Multi-device FCM registration strictly isolated per ownerId (T16, T20)
+      match /devices/{deviceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.ownerId == userId
+          && request.resource.data.deviceId == deviceId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /notification_preferences/{prefId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.ownerId == userId;
+        allow delete: if isOwner(userId);
+      }
+
+      // User-taught explainable merchant -> category mapping rules (Section 17)
+      match /merchant_rules/{ruleId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // PERSONAL DOCUMENT VAULT (Contracts, Vehicle Papers, Insurance, IDs)
       match /documents/{docId} {
         allow read: if isOwner(userId);
@@ -294,7 +345,7 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode))
           && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.familyId == familyId
           && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.expiresAt > request.time
-          && !(get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.revoked == true)
+          && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.get('revoked', false) != true
         )
       );
 
@@ -415,6 +466,25 @@ service cloud.firestore {
     match /app_config/{configId} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    // =========================================================================
+    // 5. SERVER-ONLY BANKING COLLECTIONS (ADMIN SDK ONLY — ZERO CLIENT ACCESS)
+    // =========================================================================
+    match /server_bank_connections/{connectionId} {
+      allow read, write: if false;
+    }
+
+    match /sepay_webhook_inbox/{providerEventKey} {
+      allow read, write: if false;
+    }
+
+    match /notification_outbox/{notificationId} {
+      allow read, write: if false;
+    }
+
+    match /bank_reconciliation_jobs/{jobId} {
+      allow read, write: if false;
     }
 
     // DEFAULT DENY ALL OTHER PATHS

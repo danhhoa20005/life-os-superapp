@@ -24,8 +24,16 @@ class SplashPage extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isDark
-                ? const [Color(0xFF05180B), Color(0xFF000000), Color(0xFF071F10)]
-                : const [Color(0xFFEAF6EE), Color(0xFFF7F9F8), Color(0xFFE8F1FB)],
+                ? const [
+                    Color(0xFF05180B),
+                    Color(0xFF000000),
+                    Color(0xFF071F10),
+                  ]
+                : const [
+                    Color(0xFFEAF6EE),
+                    Color(0xFFF7F9F8),
+                    Color(0xFFE8F1FB),
+                  ],
           ),
         ),
         child: SafeArea(
@@ -38,10 +46,8 @@ class SplashPage extends StatelessWidget {
                   tween: Tween<double>(begin: 0.96, end: 1.0),
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
-                  builder: (context, scale, child) => Transform.scale(
-                    scale: scale,
-                    child: child,
-                  ),
+                  builder: (context, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -86,7 +92,8 @@ class SplashPage extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xl),
                       Text(
                         'Life OS',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.6,
                             ),
@@ -95,9 +102,8 @@ class SplashPage extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         'Tài chính Cá nhân · Hội nhóm · Gia đình',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: c.textSecondary,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: c.textSecondary),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: AppSpacing.md),

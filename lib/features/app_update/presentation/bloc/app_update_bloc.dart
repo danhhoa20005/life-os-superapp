@@ -101,7 +101,9 @@ final class AppUpdateState extends Equatable {
       hasUpdate: hasUpdate ?? this.hasUpdate,
       isForceUpdate: isForceUpdate ?? this.isForceUpdate,
       isBannerDismissed: isBannerDismissed ?? this.isBannerDismissed,
-      downloadProgress: clearProgress ? null : (downloadProgress ?? this.downloadProgress),
+      downloadProgress: clearProgress
+          ? null
+          : (downloadProgress ?? this.downloadProgress),
       failure: clearFailure ? null : (failure ?? this.failure),
       infoMessage: clearInfo ? null : (infoMessage ?? this.infoMessage),
     );
@@ -109,17 +111,17 @@ final class AppUpdateState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        installedVersion,
-        installedBuildNumber,
-        manifest,
-        hasUpdate,
-        isForceUpdate,
-        isBannerDismissed,
-        downloadProgress,
-        failure,
-        infoMessage,
-      ];
+    status,
+    installedVersion,
+    installedBuildNumber,
+    manifest,
+    hasUpdate,
+    isForceUpdate,
+    isBannerDismissed,
+    downloadProgress,
+    failure,
+    infoMessage,
+  ];
 }
 
 class AppUpdateBloc extends Bloc<AppUpdateEvent, AppUpdateState> {
@@ -131,14 +133,20 @@ class AppUpdateBloc extends Bloc<AppUpdateEvent, AppUpdateState> {
     required CheckForAppUpdateUseCase checkForUpdate,
     required DownloadAndInstallUpdateUseCase downloadAndInstall,
     required OpenReleasePageUseCase openReleasePage,
-  })  : _checkForUpdate = checkForUpdate,
-        _downloadAndInstall = downloadAndInstall,
-        _openReleasePage = openReleasePage,
-        super(const AppUpdateState()) {
+  }) : _checkForUpdate = checkForUpdate,
+       _downloadAndInstall = downloadAndInstall,
+       _openReleasePage = openReleasePage,
+       super(const AppUpdateState()) {
     on<AppUpdateCheckRequested>(_onCheckRequested, transformer: droppable());
-    on<AppUpdateDownloadRequested>(_onDownloadRequested, transformer: droppable());
+    on<AppUpdateDownloadRequested>(
+      _onDownloadRequested,
+      transformer: droppable(),
+    );
     on<AppUpdateBannerDismissed>(_onBannerDismissed);
-    on<AppUpdateOpenReleasePageRequested>(_onOpenReleasePageRequested, transformer: droppable());
+    on<AppUpdateOpenReleasePageRequested>(
+      _onOpenReleasePageRequested,
+      transformer: droppable(),
+    );
   }
 
   Future<void> _onCheckRequested(
@@ -162,7 +170,9 @@ class AppUpdateBloc extends Bloc<AppUpdateEvent, AppUpdateState> {
       ),
       (check) => emit(
         state.copyWith(
-          status: check.hasUpdate ? AppUpdateStatus.updateAvailable : AppUpdateStatus.upToDate,
+          status: check.hasUpdate
+              ? AppUpdateStatus.updateAvailable
+              : AppUpdateStatus.upToDate,
           installedVersion: check.installedVersion,
           installedBuildNumber: check.installedBuildNumber,
           manifest: check.manifest,
@@ -171,8 +181,8 @@ class AppUpdateBloc extends Bloc<AppUpdateEvent, AppUpdateState> {
           isBannerDismissed: check.hasUpdate ? false : state.isBannerDismissed,
           infoMessage: !event.silent
               ? (check.hasUpdate
-                  ? 'Phát hiện phiên bản mới v${check.manifest?.latestVersion}!'
-                  : 'Bạn đang sử dụng phiên bản mới nhất (${check.installedVersion}+${check.installedBuildNumber}).')
+                    ? 'Phát hiện phiên bản mới v${check.manifest?.latestVersion}!'
+                    : 'Bạn đang sử dụng phiên bản mới nhất (${check.installedVersion}+${check.installedBuildNumber}).')
               : null,
         ),
       ),
@@ -197,33 +207,34 @@ class AppUpdateBloc extends Bloc<AppUpdateEvent, AppUpdateState> {
     await emit.forEach(
       _downloadAndInstall(targetManifest),
       onData: (res) => res.fold(
-        (failure) => state.copyWith(
-          status: AppUpdateStatus.failure,
-          failure: failure,
-        ),
+        (failure) =>
+            state.copyWith(status: AppUpdateStatus.failure, failure: failure),
         (progress) {
           return switch (progress.stage) {
-            OtaInstallStage.downloading || OtaInstallStage.verifyingHash || OtaInstallStage.launchingInstaller =>
-              state.copyWith(
-                status: AppUpdateStatus.downloading,
-                downloadProgress: progress,
-              ),
+            OtaInstallStage.downloading ||
+            OtaInstallStage.verifyingHash ||
+            OtaInstallStage.launchingInstaller => state.copyWith(
+              status: AppUpdateStatus.downloading,
+              downloadProgress: progress,
+            ),
             OtaInstallStage.permissionRequired => state.copyWith(
-                status: AppUpdateStatus.permissionRequired,
-                downloadProgress: progress,
-                infoMessage:
-                    'Hãy bật "Cho phép cài đặt ứng dụng từ nguồn này" rồi bấm Cài đặt lại.',
-              ),
+              status: AppUpdateStatus.permissionRequired,
+              downloadProgress: progress,
+              infoMessage:
+                  'Hãy bật "Cho phép cài đặt ứng dụng từ nguồn này" rồi bấm Cài đặt lại.',
+            ),
             OtaInstallStage.installerLaunched => state.copyWith(
-                status: AppUpdateStatus.readyToInstall,
-                downloadProgress: progress,
-                infoMessage: 'Đã mở trình cài đặt hệ thống Android cho bản cập nhật mới!',
-              ),
+              status: AppUpdateStatus.readyToInstall,
+              downloadProgress: progress,
+              infoMessage:
+                  'Đã mở trình cài đặt hệ thống Android cho bản cập nhật mới!',
+            ),
             OtaInstallStage.openedExternalReleasePage => state.copyWith(
-                status: AppUpdateStatus.updateAvailable,
-                downloadProgress: progress,
-                infoMessage: 'Đã mở trang tải bản phát hành chính thức trên trình duyệt.',
-              ),
+              status: AppUpdateStatus.updateAvailable,
+              downloadProgress: progress,
+              infoMessage:
+                  'Đã mở trang tải bản phát hành chính thức trên trình duyệt.',
+            ),
           };
         },
       ),

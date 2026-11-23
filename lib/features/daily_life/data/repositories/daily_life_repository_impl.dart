@@ -50,187 +50,204 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           .limit(60)
           .snapshots()
           .listen((snap) {
-        meds = snap.docs.map((doc) {
-          final d = doc.data();
-          return MedicationCabinetItemEntity(
-            id: doc.id,
-            ownerId: userId,
-            name: (d['name'] ?? 'Thuốc / Vitamin') as String,
-            dosage: (d['dosage'] ?? '1 viên') as String,
-            slot: MedicationScheduleSlot.fromName(d['slot'] as String?),
-            remainingPills: (d['remainingPills'] as num?)?.toInt() ?? 0,
-            expiryDate: DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
-                DateTime.now().add(const Duration(days: 180)),
-            lastTakenDayKey: d['lastTakenDayKey'] as String?,
-            memberName: (d['memberName'] ?? 'Cả gia đình') as String,
-          );
-        }).toList()
-          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-        emitNow();
-      });
+            meds = snap.docs.map((doc) {
+              final d = doc.data();
+              return MedicationCabinetItemEntity(
+                id: doc.id,
+                ownerId: userId,
+                name: (d['name'] ?? 'Thuốc / Vitamin') as String,
+                dosage: (d['dosage'] ?? '1 viên') as String,
+                slot: MedicationScheduleSlot.fromName(d['slot'] as String?),
+                remainingPills: (d['remainingPills'] as num?)?.toInt() ?? 0,
+                expiryDate:
+                    DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
+                    DateTime.now().add(const Duration(days: 180)),
+                lastTakenDayKey: d['lastTakenDayKey'] as String?,
+                memberName: (d['memberName'] ?? 'Cả gia đình') as String,
+              );
+            }).toList()..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+            emitNow();
+          });
 
       final s2 = _userRef(userId)
           .collection('health_logs')
           .limit(45)
           .snapshots()
           .listen((snap) {
-        healthLogs = snap.docs.map((doc) {
-          final d = doc.data();
-          return HealthVitalLogEntity(
-            id: doc.id,
-            ownerId: userId,
-            weightKg: (d['weightKg'] as num?)?.toDouble() ?? 62.0,
-            heightCm: (d['heightCm'] as num?)?.toDouble() ?? 168.0,
-            systolicMmHg: (d['systolicMmHg'] as num?)?.toInt() ?? 118,
-            diastolicMmHg: (d['diastolicMmHg'] as num?)?.toInt() ?? 76,
-            heartRateBpm: (d['heartRateBpm'] as num?)?.toInt() ?? 72,
-            sleepHours: (d['sleepHours'] as num?)?.toDouble() ?? 7.5,
-            recordedAt: DateTime.tryParse((d['recordedAt'] ?? '') as String) ?? DateTime.now(),
-            note: (d['note'] ?? '') as String,
-          );
-        }).toList()
-          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
-        emitNow();
-      });
+            healthLogs = snap.docs.map((doc) {
+              final d = doc.data();
+              return HealthVitalLogEntity(
+                id: doc.id,
+                ownerId: userId,
+                weightKg: (d['weightKg'] as num?)?.toDouble() ?? 62.0,
+                heightCm: (d['heightCm'] as num?)?.toDouble() ?? 168.0,
+                systolicMmHg: (d['systolicMmHg'] as num?)?.toInt() ?? 118,
+                diastolicMmHg: (d['diastolicMmHg'] as num?)?.toInt() ?? 76,
+                heartRateBpm: (d['heartRateBpm'] as num?)?.toInt() ?? 72,
+                sleepHours: (d['sleepHours'] as num?)?.toDouble() ?? 7.5,
+                recordedAt:
+                    DateTime.tryParse((d['recordedAt'] ?? '') as String) ??
+                    DateTime.now(),
+                note: (d['note'] ?? '') as String,
+              );
+            }).toList()..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+            emitNow();
+          });
 
       final s3 = _userRef(userId)
           .collection('medical_profiles')
           .doc('emergency_card')
           .snapshots()
           .listen((doc) {
-        if (doc.exists && doc.data() != null) {
-          final d = doc.data()!;
-          emergencyCard = EmergencyMedicalCardEntity(
-            ownerId: userId,
-            bloodType: ((d['bloodType'] ?? '') as String).trim(),
-            allergies: ((d['allergies'] ?? '') as String).trim(),
-            chronicConditions: ((d['chronicConditions'] ?? '') as String).trim(),
-            insuranceCode: ((d['insuranceCode'] ?? '') as String).trim(),
-            emergencyContactName: ((d['emergencyContactName'] ?? '') as String).trim(),
-            emergencyContactPhone: ((d['emergencyContactPhone'] ?? '') as String).trim(),
-            preferredHospital: ((d['preferredHospital'] ?? '') as String).trim(),
-          );
-        } else {
-          emergencyCard = EmergencyMedicalCardEntity(ownerId: userId);
-        }
-        emitNow();
-      });
+            if (doc.exists && doc.data() != null) {
+              final d = doc.data()!;
+              emergencyCard = EmergencyMedicalCardEntity(
+                ownerId: userId,
+                bloodType: ((d['bloodType'] ?? '') as String).trim(),
+                allergies: ((d['allergies'] ?? '') as String).trim(),
+                chronicConditions: ((d['chronicConditions'] ?? '') as String)
+                    .trim(),
+                insuranceCode: ((d['insuranceCode'] ?? '') as String).trim(),
+                emergencyContactName:
+                    ((d['emergencyContactName'] ?? '') as String).trim(),
+                emergencyContactPhone:
+                    ((d['emergencyContactPhone'] ?? '') as String).trim(),
+                preferredHospital: ((d['preferredHospital'] ?? '') as String)
+                    .trim(),
+              );
+            } else {
+              emergencyCard = EmergencyMedicalCardEntity(ownerId: userId);
+            }
+            emitNow();
+          });
 
       final s4 = _userRef(userId)
           .collection('grocery_items')
           .limit(100)
           .snapshots()
           .listen((snap) {
-        groceries = snap.docs.map((doc) {
-          final d = doc.data();
-          return SmartGroceryItemEntity(
-            id: doc.id,
-            ownerId: userId,
-            name: (d['name'] ?? 'Thực phẩm') as String,
-            quantityLabel: (d['quantityLabel'] ?? '1 phần') as String,
-            aisle: GroceryAisle.fromName(d['aisle'] as String?),
-            estimatedMinor: (d['estimatedMinor'] as num?)?.toInt() ?? 0,
-            isBought: d['isBought'] == true,
-            inFridgeStorage: d['inFridgeStorage'] == true,
-            expiryDate: d['expiryDate'] != null
-                ? DateTime.tryParse(d['expiryDate'].toString())
-                : null,
-          );
-        }).toList();
-        emitNow();
-      });
+            groceries = snap.docs.map((doc) {
+              final d = doc.data();
+              return SmartGroceryItemEntity(
+                id: doc.id,
+                ownerId: userId,
+                name: (d['name'] ?? 'Thực phẩm') as String,
+                quantityLabel: (d['quantityLabel'] ?? '1 phần') as String,
+                aisle: GroceryAisle.fromName(d['aisle'] as String?),
+                estimatedMinor: (d['estimatedMinor'] as num?)?.toInt() ?? 0,
+                isBought: d['isBought'] == true,
+                inFridgeStorage: d['inFridgeStorage'] == true,
+                expiryDate: d['expiryDate'] != null
+                    ? DateTime.tryParse(d['expiryDate'].toString())
+                    : null,
+              );
+            }).toList();
+            emitNow();
+          });
 
       final s5 = _userRef(userId)
           .collection('meal_plans')
           .limit(31)
           .snapshots()
           .listen((snap) {
-        mealPlans = snap.docs.map((doc) {
-          final d = doc.data();
-          return DailyMealPlanEntity(
-            dayKey: doc.id,
-            ownerId: userId,
-            breakfast: (d['breakfast'] ?? '') as String,
-            lunch: (d['lunch'] ?? '') as String,
-            dinner: (d['dinner'] ?? '') as String,
-            estimatedDailyCostMinor: (d['estimatedDailyCostMinor'] as num?)?.toInt() ?? 0,
-            estimatedKcal: (d['estimatedKcal'] as num?)?.toInt() ?? 0,
-          );
-        }).toList()
-          ..sort((a, b) => b.dayKey.compareTo(a.dayKey));
-        emitNow();
-      });
+            mealPlans = snap.docs.map((doc) {
+              final d = doc.data();
+              return DailyMealPlanEntity(
+                dayKey: doc.id,
+                ownerId: userId,
+                breakfast: (d['breakfast'] ?? '') as String,
+                lunch: (d['lunch'] ?? '') as String,
+                dinner: (d['dinner'] ?? '') as String,
+                estimatedDailyCostMinor:
+                    (d['estimatedDailyCostMinor'] as num?)?.toInt() ?? 0,
+                estimatedKcal: (d['estimatedKcal'] as num?)?.toInt() ?? 0,
+              );
+            }).toList()..sort((a, b) => b.dayKey.compareTo(a.dayKey));
+            emitNow();
+          });
 
       final s6 = _userRef(userId)
           .collection('utility_readings')
           .limit(36)
           .snapshots()
           .listen((snap) {
-        readings = snap.docs.map((doc) {
-          final d = doc.data();
-          return UtilityMeterReadingEntity(
-            id: doc.id,
-            ownerId: userId,
-            monthKey: (d['monthKey'] ?? '') as String,
-            prevElectricKwh: (d['prevElectricKwh'] as num?)?.toInt() ?? 0,
-            currElectricKwh: (d['currElectricKwh'] as num?)?.toInt() ?? 0,
-            prevWaterM3: (d['prevWaterM3'] as num?)?.toInt() ?? 0,
-            currWaterM3: (d['currWaterM3'] as num?)?.toInt() ?? 0,
-            useEvnTieredTariff: d['useEvnTieredTariff'] != false,
-            fixedServicesMinor: (d['fixedServicesMinor'] as num?)?.toInt() ?? 0,
-            totalAmountMinor: (d['totalAmountMinor'] as num?)?.toInt() ?? 0,
-            isPaid: d['isPaid'] == true,
-            recordedAt: DateTime.tryParse((d['recordedAt'] ?? '') as String) ?? DateTime.now(),
-          );
-        }).toList()
-          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
-        emitNow();
-      });
+            readings = snap.docs.map((doc) {
+              final d = doc.data();
+              return UtilityMeterReadingEntity(
+                id: doc.id,
+                ownerId: userId,
+                monthKey: (d['monthKey'] ?? '') as String,
+                prevElectricKwh: (d['prevElectricKwh'] as num?)?.toInt() ?? 0,
+                currElectricKwh: (d['currElectricKwh'] as num?)?.toInt() ?? 0,
+                prevWaterM3: (d['prevWaterM3'] as num?)?.toInt() ?? 0,
+                currWaterM3: (d['currWaterM3'] as num?)?.toInt() ?? 0,
+                useEvnTieredTariff: d['useEvnTieredTariff'] != false,
+                fixedServicesMinor:
+                    (d['fixedServicesMinor'] as num?)?.toInt() ?? 0,
+                totalAmountMinor: (d['totalAmountMinor'] as num?)?.toInt() ?? 0,
+                isPaid: d['isPaid'] == true,
+                recordedAt:
+                    DateTime.tryParse((d['recordedAt'] ?? '') as String) ??
+                    DateTime.now(),
+              );
+            }).toList()..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+            emitNow();
+          });
 
-      final s7 = _userRef(userId).collection('home_contracts').snapshots().listen((snap) {
-        contracts = snap.docs.map((doc) {
-          final d = doc.data();
-          return HomeContractMaintenanceEntity(
-            id: doc.id,
-            ownerId: userId,
-            homeName: (d['homeName'] ?? 'Tổ ấm của tôi') as String,
-            monthlyRentMinor: (d['monthlyRentMinor'] as num?)?.toInt() ?? 0,
-            depositMinor: (d['depositMinor'] as num?)?.toInt() ?? 0,
-            paymentDayOfMonth: (d['paymentDayOfMonth'] as num?)?.toInt() ?? 5,
-            leaseEndDate: DateTime.tryParse((d['leaseEndDate'] ?? '') as String) ??
-                DateTime.now().add(const Duration(days: 365)),
-            wifiCredentials: (d['wifiCredentials'] ?? '') as String,
-            nextApplianceMaintenanceNote:
-                (d['nextApplianceMaintenanceNote'] ?? '') as String,
-          );
-        }).toList();
-        emitNow();
-      });
+      final s7 = _userRef(userId)
+          .collection('home_contracts')
+          .snapshots()
+          .listen((snap) {
+            contracts = snap.docs.map((doc) {
+              final d = doc.data();
+              return HomeContractMaintenanceEntity(
+                id: doc.id,
+                ownerId: userId,
+                homeName: (d['homeName'] ?? 'Tổ ấm của tôi') as String,
+                monthlyRentMinor: (d['monthlyRentMinor'] as num?)?.toInt() ?? 0,
+                depositMinor: (d['depositMinor'] as num?)?.toInt() ?? 0,
+                paymentDayOfMonth:
+                    (d['paymentDayOfMonth'] as num?)?.toInt() ?? 5,
+                leaseEndDate:
+                    DateTime.tryParse((d['leaseEndDate'] ?? '') as String) ??
+                    DateTime.now().add(const Duration(days: 365)),
+                wifiCredentials: (d['wifiCredentials'] ?? '') as String,
+                nextApplianceMaintenanceNote:
+                    (d['nextApplianceMaintenanceNote'] ?? '') as String,
+              );
+            }).toList();
+            emitNow();
+          });
 
       final s8 = _userRef(userId)
           .collection('life_notes')
           .limit(80)
           .snapshots()
           .listen((snap) {
-        notes = snap.docs.map((doc) {
-          final d = doc.data();
-          return SmartLifeNoteEntity(
-            id: doc.id,
-            ownerId: userId,
-            title: (d['title'] ?? 'Ghi chú') as String,
-            content: (d['content'] ?? '') as String,
-            categoryTag: (d['categoryTag'] ?? 'Ghi chú nhanh') as String,
-            mood: d['mood'] != null ? LifeMoodLevel.fromName(d['mood'] as String?) : null,
-            isPinned: d['isPinned'] == true,
-            updatedAt: DateTime.tryParse((d['updatedAt'] ?? '') as String) ?? DateTime.now(),
-          );
-        }).toList()
-          ..sort((a, b) {
-            if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
-            return b.updatedAt.compareTo(a.updatedAt);
+            notes =
+                snap.docs.map((doc) {
+                  final d = doc.data();
+                  return SmartLifeNoteEntity(
+                    id: doc.id,
+                    ownerId: userId,
+                    title: (d['title'] ?? 'Ghi chú') as String,
+                    content: (d['content'] ?? '') as String,
+                    categoryTag:
+                        (d['categoryTag'] ?? 'Ghi chú nhanh') as String,
+                    mood: d['mood'] != null
+                        ? LifeMoodLevel.fromName(d['mood'] as String?)
+                        : null,
+                    isPinned: d['isPinned'] == true,
+                    updatedAt:
+                        DateTime.tryParse((d['updatedAt'] ?? '') as String) ??
+                        DateTime.now(),
+                  );
+                }).toList()..sort((a, b) {
+                  if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+                  return b.updatedAt.compareTo(a.updatedAt);
+                });
+            emitNow();
           });
-        emitNow();
-      });
 
       controller.onCancel = () async {
         await Future.wait([
@@ -293,7 +310,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể cập nhật lịch uống thuốc: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể cập nhật lịch uống thuốc: $e'),
+      );
     }
   }
 
@@ -337,7 +356,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'),
+      );
     }
   }
 
@@ -346,7 +367,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     required EmergencyMedicalCardEntity card,
   }) async {
     try {
-      await _userRef(card.ownerId).collection('medical_profiles').doc('emergency_card').set({
+      await _userRef(
+        card.ownerId,
+      ).collection('medical_profiles').doc('emergency_card').set({
         'ownerId': card.ownerId,
         'bloodType': card.bloodType.trim(),
         'allergies': card.allergies.trim(),
@@ -358,7 +381,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu thẻ y tế khẩn cấp: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu thẻ y tế khẩn cấp: $e'),
+      );
     }
   }
 
@@ -387,7 +412,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể thêm món vào giỏ chợ: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể thêm món vào giỏ chợ: $e'),
+      );
     }
   }
 
@@ -450,10 +477,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
   @override
   Future<Result<void>> clearBoughtGroceries({required String userId}) async {
     try {
-      final snap = await _userRef(userId)
-          .collection('grocery_items')
-          .where('isBought', isEqualTo: true)
-          .get();
+      final snap = await _userRef(
+        userId,
+      ).collection('grocery_items').where('isBought', isEqualTo: true).get();
       final batch = _firestore.batch();
       for (final doc in snap.docs) {
         batch.delete(doc.reference);
@@ -461,7 +487,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       await batch.commit();
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể dọn giỏ chợ đã mua: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể dọn giỏ chợ đã mua: $e'),
+      );
     }
   }
 
@@ -508,7 +536,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu chỉ số điện nước: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu chỉ số điện nước: $e'),
+      );
     }
   }
 
@@ -518,12 +548,14 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     required String readingId,
   }) async {
     try {
-      await _userRef(userId).collection('utility_readings').doc(readingId).update({
-        'isPaid': true,
-      });
+      await _userRef(
+        userId,
+      ).collection('utility_readings').doc(readingId).update({'isPaid': true});
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể cập nhật hóa đơn điện nước: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể cập nhật hóa đơn điện nước: $e'),
+      );
     }
   }
 
@@ -553,7 +585,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu thông tin nhà cửa: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu thông tin nhà cửa: $e'),
+      );
     }
   }
 

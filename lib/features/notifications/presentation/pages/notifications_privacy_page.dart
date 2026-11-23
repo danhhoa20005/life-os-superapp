@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -9,6 +10,7 @@ import '../../../../app/theme/theme_bloc.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/security/bank_notification_parser.dart';
+import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -26,7 +28,8 @@ class NotificationsPrivacyPage extends StatefulWidget {
   const NotificationsPrivacyPage({super.key});
 
   @override
-  State<NotificationsPrivacyPage> createState() => _NotificationsPrivacyPageState();
+  State<NotificationsPrivacyPage> createState() =>
+      _NotificationsPrivacyPageState();
 }
 
 class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
@@ -36,13 +39,15 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
         'TK 1029***88 GD: +250.000VND 23/11/2026 12:15. ND: Nguyen Van B chuyen khoan. SD: 9.450.000VND',
   );
   final TextEditingController _csvCtrl = TextEditingController(
-    text: 'date,direction,amount,description\n'
+    text:
+        'date,direction,amount,description\n'
         '2026-11-22,debit,125000,Siêu thị Co.opmart\n'
         '2026-11-22,credit,2500000,Thưởng dự án tháng 11',
   );
   String _selectedPkg = kSupportedVnBanks.first.packageName;
   String? _selectedWalletId;
   String? _lastShownOrderId;
+  String _historyFilter = 'all'; // 'all' | 'credit' | 'debit'
 
   @override
   void initState() {
@@ -53,9 +58,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      context
-          .read<NotificationIngestionBloc>()
-          .add(const NativePermissionStatusRefreshed());
+      context.read<NotificationIngestionBloc>().add(
+        const NativePermissionStatusRefreshed(),
+      );
     }
   }
 
@@ -115,7 +120,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: selectedBin,
-                        decoration: const InputDecoration(labelText: 'Ngân hàng'),
+                        decoration: const InputDecoration(
+                          labelText: 'Ngân hàng',
+                        ),
                         items: kLifeOsVietQrBanks
                             .map(
                               (b) => DropdownMenuItem(
@@ -155,17 +162,24 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                         DropdownButtonFormField<String>(
                           isExpanded: true,
                           initialValue: pickedWalletId,
-                          decoration: const InputDecoration(labelText: 'Cộng tiền vào ví'),
+                          decoration: const InputDecoration(
+                            labelText: 'Cộng tiền vào ví',
+                          ),
                           items: wallets
                               .map(
                                 (w) => DropdownMenuItem(
                                   value: w.id,
-                                  child: Text(w.name, overflow: TextOverflow.ellipsis),
+                                  child: Text(
+                                    w.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               )
                               .toList(),
                           onChanged: (v) {
-                            if (v != null) setModalState(() => pickedWalletId = v);
+                            if (v != null) {
+                              setModalState(() => pickedWalletId = v);
+                            }
                           },
                         ),
                       ],
@@ -204,6 +218,182 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
     );
     accNumberCtrl.dispose();
     holderCtrl.dispose();
+  }
+
+  Future<void> _showConnectSePayServerSheet({
+    required BuildContext context,
+    required String userId,
+    required List<WalletEntity> wallets,
+    required String defaultWalletId,
+  }) async {
+    final sepayBanks = BankIntegrationCapability.catalog
+        .where((b) => b.supportsWebhookCredit)
+        .toList();
+    var selectedBankCode = sepayBanks.first.bankCode;
+    var pickedWalletId = defaultWalletId;
+    final accCtrl = TextEditingController();
+    final subAccCtrl = TextEditingController();
+    final tokenCtrl = TextEditingController();
+    final bloc = context.read<NotificationIngestionBloc>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final selectedCap = BankIntegrationCapability.forBankCode(
+              selectedBankCode,
+            );
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Kết nối tài khoản SePay Webhook',
+                        style: Theme.of(ctx).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Xác minh quyền sở hữu trên máy chủ Cloud Functions — Token không bao giờ lưu dạng rõ trong Firestore người dùng.',
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: selectedBankCode,
+                        decoration: const InputDecoration(
+                          labelText: 'Ngân hàng hỗ trợ SePay',
+                        ),
+                        items: sepayBanks
+                            .map(
+                              (b) => DropdownMenuItem(
+                                value: b.bankCode,
+                                child: Text('${b.bankCode} · ${b.bankName}'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setModalState(() => selectedBankCode = v);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            ctx,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '• Tiền vào: ${selectedCap.creditSupportSummary}\n'
+                          '• Tiền ra: ${selectedCap.debitSupportSummary}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        key: const Key('sepay_connect_account_input'),
+                        controller: accCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Số tài khoản ngân hàng',
+                          hintText: 'VD: 1017588888',
+                        ),
+                      ),
+                      if (selectedCap.supportsWebhookDebit) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        TextField(
+                          key: const Key('sepay_connect_subaccount_input'),
+                          controller: subAccCtrl,
+                          decoration: const InputDecoration(
+                            labelText:
+                                'Mã TKP (Tài khoản phụ — bắt buộc nếu nhận tiền ra)',
+                            hintText: 'VD: TKP8899',
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        key: const Key('sepay_connect_token_input'),
+                        controller: tokenCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText:
+                              'SePay API Token của bạn (để máy chủ xác minh sở hữu)',
+                          hintText: 'Nhập API Token từ cổng quản trị SePay',
+                        ),
+                      ),
+                      if (wallets.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: pickedWalletId,
+                          decoration: const InputDecoration(
+                            labelText: 'Ánh xạ vào Ví',
+                          ),
+                          items: wallets
+                              .map(
+                                (w) => DropdownMenuItem(
+                                  value: w.id,
+                                  child: Text(
+                                    w.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setModalState(() => pickedWalletId = v);
+                            }
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      FilledButton.icon(
+                        key: const Key('submit_sepay_verified_link_button'),
+                        onPressed: () {
+                          bloc.add(
+                            VerifiedSePayBankLinkSubmitted(
+                              userId: userId,
+                              bankCode: selectedBankCode,
+                              accountNumber: accCtrl.text,
+                              subAccount: subAccCtrl.text,
+                              linkedWalletId: pickedWalletId,
+                              sepayApiToken: tokenCtrl.text,
+                            ),
+                          );
+                          Navigator.of(sheetCtx).pop();
+                        },
+                        icon: const Icon(Icons.verified_user_rounded),
+                        label: const Text('Xác minh & Kết nối'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    accCtrl.dispose();
+    subAccCtrl.dispose();
+    tokenCtrl.dispose();
   }
 
   Future<void> _showCreateQrOrderSheet({
@@ -328,7 +518,12 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
         final c = TammySemanticColors.of(sheetCtx);
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -345,7 +540,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               style: Theme.of(sheetCtx).textTheme.titleLarge,
                             ),
                             Text(
-                              '${order.bankName} · ${order.accountNumber} (${order.accountHolderName})',
+                              '${order.bankName} · ${order.maskedAccountLabel} (${order.accountHolderName})',
                               style: Theme.of(sheetCtx).textTheme.bodySmall,
                             ),
                           ],
@@ -371,17 +566,22 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       children: [
                         Text(
                           VndAmount.format(order.amountMinor),
-                          style: Theme.of(sheetCtx).textTheme.headlineMedium?.copyWith(
+                          style: Theme.of(sheetCtx).textTheme.headlineMedium
+                              ?.copyWith(
                                 color: c.primary,
                                 fontWeight: FontWeight.w800,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                         ),
                         const SizedBox(height: 6),
                         InkWell(
                           borderRadius: BorderRadius.circular(10),
                           onTap: () {
-                            Clipboard.setData(ClipboardData(text: order.paymentCode));
+                            Clipboard.setData(
+                              ClipboardData(text: order.paymentCode),
+                            );
                             LifeOsTopToast.show(
                               sheetCtx,
                               'Đã sao chép mã nội dung ${order.paymentCode}',
@@ -389,11 +589,18 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             );
                           },
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.copy_rounded, size: 14, color: c.secondary),
+                                Icon(
+                                  Icons.copy_rounded,
+                                  size: 14,
+                                  color: c.secondary,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Mã đối soát: ${order.paymentCode}',
@@ -441,7 +648,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                   const SizedBox(height: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: order.emvQrPayload));
+                      Clipboard.setData(
+                        ClipboardData(text: order.emvQrPayload),
+                      );
                       LifeOsTopToast.show(
                         sheetCtx,
                         'Đã sao chép chuỗi VietQR chuẩn NAPAS 247.',
@@ -469,13 +678,16 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             ),
                           );
                         }
-                        final bankPkg = kSupportedVnBanks
+                        final bankPkg =
+                            kSupportedVnBanks
                                 .where((b) => b.bankCode == order.bankCode)
                                 .firstOrNull
                                 ?.packageName ??
                             kSupportedVnBanks.first.packageName;
                         Navigator.of(sheetCtx).pop();
-                        Future<void>.delayed(const Duration(milliseconds: 60), () {
+                        Future<
+                          void
+                        >.delayed(const Duration(milliseconds: 60), () {
                           bloc.add(
                             BankNotificationSignalReceived(
                               userId: userId,
@@ -503,7 +715,10 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                         );
                         Navigator.of(sheetCtx).pop();
                       },
-                      icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      icon: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 18,
+                      ),
                       label: const Text('Đánh dấu đã nhận tiền'),
                     ),
                   ],
@@ -526,12 +741,15 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final preferredBankWallet = wallets.where((w) => w.type == WalletType.bank).firstOrNull;
-    final activeWalletId = _selectedWalletId != null &&
+    final preferredBankWallet = wallets
+        .where((w) => w.type == WalletType.bank)
+        .firstOrNull;
+    final activeWalletId =
+        _selectedWalletId != null &&
             wallets.any((w) => w.id == _selectedWalletId)
         ? _selectedWalletId!
         : (preferredBankWallet?.id ??
-            (wallets.isNotEmpty ? wallets.first.id : 'wallet_cash_default'));
+              (wallets.isNotEmpty ? wallets.first.id : 'wallet_cash_default'));
 
     return BlocListener<NotificationIngestionBloc, NotificationIngestionState>(
       listenWhen: (p, n) =>
@@ -573,7 +791,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
       },
       child: Scaffold(
         appBar: const LiquidGlassBar(
-          title: Text('Ngân hàng Tự động & Cổng QR'),
+          title: Text('Ngân hàng & Đồng bộ giao dịch'),
         ),
         body: SafeArea(
           child: BlocBuilder<NotificationIngestionBloc, NotificationIngestionState>(
@@ -582,12 +800,38 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
               final enabled = consent?.enabled ?? false;
               final autoConfirm = consent?.autoConfirmSignals ?? false;
               final soundboxEnabled = consent?.voiceSoundboxEnabled ?? false;
-              final allowedSet = (consent?.allowedPackages ?? const <String>[]).toSet();
+              final allowedSet = (consent?.allowedPackages ?? const <String>[])
+                  .toSet();
               final defaultAccount = state.defaultBankAccount;
+              final prefs =
+                  state.notificationPreferences ??
+                  BankingNotificationPreferencesEntity(ownerId: user.id);
+              final allTx = context
+                  .watch<TransactionListBloc>()
+                  .state
+                  .allTransactions;
+              final bankMovements = allTx
+                  .where(
+                    (t) =>
+                        t.sourceKind == TransactionSourceKind.bankWebhook ||
+                        t.sourceKind == TransactionSourceKind.bankApi ||
+                        t.sourceKind ==
+                            TransactionSourceKind.androidNotification,
+                  )
+                  .where(
+                    (t) =>
+                        _historyFilter == 'all' ||
+                        t.direction == _historyFilter,
+                  )
+                  .take(8)
+                  .toList(growable: false);
+              final timeFmt = DateFormat('dd/MM · HH:mm');
 
               return Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                  constraints: const BoxConstraints(
+                    maxWidth: AppSpacing.maxContentWidth,
+                  ),
                   child: ListView(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
@@ -613,7 +857,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Cổng QR Thu Tiền & Tự Động Gạch Nợ',
@@ -628,7 +873,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                             ? '${defaultAccount.bankName} · ${defaultAccount.maskedAccount} · ${defaultAccount.accountHolderName}'
                                             : 'Tích hợp trực tiếp trong ứng dụng — không cần tài khoản bên thứ ba',
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.85),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.85,
+                                          ),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -654,7 +901,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   defaultWalletId: activeWalletId,
                                 ),
                                 icon: const Icon(Icons.add_card_rounded),
-                                label: const Text('Thêm tài khoản ngân hàng nhận tiền'),
+                                label: const Text(
+                                  'Thêm tài khoản ngân hàng nhận tiền',
+                                ),
                               )
                             else
                               Row(
@@ -662,10 +911,14 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   Expanded(
                                     flex: 3,
                                     child: FilledButton.icon(
-                                      key: const Key('open_create_qr_order_button'),
+                                      key: const Key(
+                                        'open_create_qr_order_button',
+                                      ),
                                       style: FilledButton.styleFrom(
                                         backgroundColor: Colors.white,
-                                        foregroundColor: const Color(0xFF0B3B24),
+                                        foregroundColor: const Color(
+                                          0xFF0B3B24,
+                                        ),
                                         minimumSize: const Size.fromHeight(46),
                                       ),
                                       onPressed: () => _showCreateQrOrderSheet(
@@ -673,7 +926,10 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                         userId: user.id,
                                         account: defaultAccount,
                                       ),
-                                      icon: const Icon(Icons.qr_code_2_rounded, size: 19),
+                                      icon: const Icon(
+                                        Icons.qr_code_2_rounded,
+                                        size: 19,
+                                      ),
                                       label: const Text('Tạo mã QR thu tiền'),
                                     ),
                                   ),
@@ -684,18 +940,25 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Colors.white,
                                         side: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.4),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.4,
+                                          ),
                                         ),
                                         minimumSize: const Size.fromHeight(46),
                                       ),
-                                      onPressed: () => _showLinkBankAccountSheet(
-                                        context: context,
-                                        userId: user.id,
-                                        userFullName: user.fullName,
-                                        wallets: wallets,
-                                        defaultWalletId: defaultAccount.walletId,
+                                      onPressed: () =>
+                                          _showLinkBankAccountSheet(
+                                            context: context,
+                                            userId: user.id,
+                                            userFullName: user.fullName,
+                                            wallets: wallets,
+                                            defaultWalletId:
+                                                defaultAccount.walletId,
+                                          ),
+                                      icon: const Icon(
+                                        Icons.swap_horiz_rounded,
+                                        size: 17,
                                       ),
-                                      icon: const Icon(Icons.swap_horiz_rounded, size: 17),
                                       label: const Text('Đổi TK'),
                                     ),
                                   ),
@@ -716,7 +979,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               children: [
                                 Text(
                                   'Mã QR thu tiền gần đây (${state.paymentOrders.length})',
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 8),
                                 ...state.paymentOrders.take(6).map((order) {
@@ -730,12 +995,16 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                         order.isPaid
                                             ? Icons.check_circle_rounded
                                             : Icons.qr_code_2_rounded,
-                                        color: order.isPaid ? c.success : c.warning,
+                                        color: order.isPaid
+                                            ? c.success
+                                            : c.warning,
                                       ),
                                     ),
                                     title: Text(
                                       '${order.description} · ${VndAmount.format(order.amountMinor)}',
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                     subtitle: Text(
                                       'Mã: ${order.paymentCode} · ${order.bankName} ${order.maskedAccountLabel}',
@@ -759,6 +1028,519 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                         ),
                         const SizedBox(height: AppSpacing.md),
                       ],
+
+                      // 2B. NGÂN HÀNG ĐÃ KẾT NỐI (SePay Server Webhook + Local Routing)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'NGÂN HÀNG ĐÃ KẾT NỐI',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.4,
+                                          ),
+                                    ),
+                                  ),
+                                  SemanticStatusBadge(
+                                    kind:
+                                        state.bankConnections.any(
+                                          (b) => b.isVerifiedConnected,
+                                        )
+                                        ? SemanticStatusKind.success
+                                        : SemanticStatusKind.info,
+                                    label:
+                                        state.bankConnections.any(
+                                          (b) => b.isVerifiedConnected,
+                                        )
+                                        ? 'SePay đã xác minh'
+                                        : 'Chế độ Android / QR',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (state.bankConnections.isEmpty &&
+                                  state.linkedBankAccounts.isEmpty)
+                                Text(
+                                  'Chưa có tài khoản ngân hàng nào được kết nối. Liên kết SePay Webhook để nhận thông báo server-side cả khi đóng app, hoặc bật Thông báo Android bên dưới.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ...state.bankConnections.map((conn) {
+                                final walletLabel =
+                                    wallets
+                                        .where(
+                                          (w) => w.id == conn.linkedWalletId,
+                                        )
+                                        .firstOrNull
+                                        ?.name ??
+                                    conn.linkedWalletId;
+                                return Container(
+                                  margin: const EdgeInsets.only(top: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: c.surfaceRaised,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: c.separator),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${conn.bankName}  ${conn.accountMasked}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 14.5,
+                                              ),
+                                            ),
+                                          ),
+                                          SemanticStatusBadge(
+                                            kind: conn.isVerifiedConnected
+                                                ? SemanticStatusKind.success
+                                                : SemanticStatusKind.warning,
+                                            label: conn.status.displayLabel,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Ví liên kết: $walletLabel\n'
+                                        'Tiền vào: ${conn.capabilities.creditSupportSummary}\n'
+                                        'Tiền ra: ${conn.capabilities.debitSupportSummary}'
+                                        '${conn.lastSyncedAt != null ? "\nĐồng bộ gần nhất: ${timeFmt.format(conn.lastSyncedAt!)}" : ""}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      if (conn
+                                          .capabilities
+                                          .limitations
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '⚠ ${conn.capabilities.limitations.first}',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: c.warning,
+                                          ),
+                                        ),
+                                      ],
+                                      if (conn.isVerifiedConnected)
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed: () => context
+                                                .read<
+                                                  NotificationIngestionBloc
+                                                >()
+                                                .add(
+                                                  BankConnectionDisconnected(
+                                                    userId: user.id,
+                                                    connectionId: conn.id,
+                                                  ),
+                                                ),
+                                            child: const Text('Ngắt kết nối'),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              ...state.linkedBankAccounts.map((acc) {
+                                final cap =
+                                    BankIntegrationCapability.forBankCode(
+                                      acc.bankCode,
+                                      fallbackName: acc.bankName,
+                                    );
+                                // Never display "Đã kết nối" for unverified manual input (Section 12 & T23)!
+                                return Container(
+                                  margin: const EdgeInsets.only(top: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: c.surfaceRaised,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: c.separator),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${acc.bankName}  ${acc.maskedAccount}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                          SemanticStatusBadge(
+                                            kind:
+                                                enabled &&
+                                                    state
+                                                        .isNativePermissionGranted
+                                                ? SemanticStatusKind.info
+                                                : SemanticStatusKind.warning,
+                                            label:
+                                                enabled &&
+                                                    state
+                                                        .isNativePermissionGranted
+                                                ? 'Qua Android & QR'
+                                                : 'Chỉ tạo mã QR',
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Tiền vào: ${enabled ? "Thông báo Android & Đối soát QR" : "Chưa bật đọc thông báo"}\n'
+                                        'Tiền ra: ${cap.supportsAndroidDebit && enabled ? "Tự động qua Android" : "Cần bật quyền đọc thông báo Android"}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                key: const Key(
+                                  'open_sepay_server_connect_button',
+                                ),
+                                onPressed: () => _showConnectSePayServerSheet(
+                                  context: context,
+                                  userId: user.id,
+                                  wallets: wallets,
+                                  defaultWalletId: activeWalletId,
+                                ),
+                                icon: const Icon(Icons.add_link_rounded),
+                                label: const Text(
+                                  '+ Kết nối tài khoản qua SePay Webhook',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // 2C. LỊCH SỬ BIẾN ĐỘNG NGÂN HÀNG (Tất cả | Tiền vào | Tiền ra)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Lịch sử biến động ngân hàng',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  for (final tab in const [
+                                    ('all', 'Tất cả'),
+                                    ('credit', 'Tiền vào'),
+                                    ('debit', 'Tiền ra'),
+                                  ])
+                                    ChoiceChip(
+                                      label: Text(tab.$2),
+                                      selected: _historyFilter == tab.$1,
+                                      onSelected: (_) => setState(
+                                        () => _historyFilter = tab.$1,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (bankMovements.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    'Chưa có biến động ngân hàng nào trong bộ lọc này.',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                )
+                              else
+                                ...bankMovements.map((tx) {
+                                  final isCredit = tx.direction == 'credit';
+                                  final wName =
+                                      tx.walletName ??
+                                      wallets
+                                          .where((w) => w.id == tx.walletId)
+                                          .firstOrNull
+                                          ?.name ??
+                                      'Ví liên kết';
+                                  final srcText = switch (tx.sourceKind) {
+                                    TransactionSourceKind.bankWebhook =>
+                                      'SePay Webhook',
+                                    TransactionSourceKind.bankApi =>
+                                      'SePay API',
+                                    TransactionSourceKind.androidNotification =>
+                                      'Thông báo Android',
+                                    _ => 'Sổ cái',
+                                  };
+                                  final verText = switch (tx.verification) {
+                                    TransactionVerification.verified =>
+                                      'Đã xác minh',
+                                    TransactionVerification.userConfirmed =>
+                                      'Đã xác nhận',
+                                    TransactionVerification.needsReview =>
+                                      'Cần kiểm tra',
+                                    _ => 'Chờ đối soát',
+                                  };
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    onTap: () => context.push(
+                                      '/auto-tx-review',
+                                      extra: tx,
+                                    ),
+                                    leading: CircleAvatar(
+                                      backgroundColor: isCredit
+                                          ? c.successSubtle
+                                          : c.warningSubtle,
+                                      child: Icon(
+                                        isCredit
+                                            ? Icons.south_west_rounded
+                                            : Icons.north_east_rounded,
+                                        color: isCredit ? c.success : c.error,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.bankCode ?? ""} ${tx.accountMasked ?? ""}'
+                                          .trim(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: isCredit
+                                            ? c.success
+                                            : c.textPrimary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${tx.merchant}\nVí: $wName · ${timeFmt.format(tx.occurredAt)} · $verText · $srcText',
+                                    ),
+                                    isThreeLine: true,
+                                  );
+                                }),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // 2D. CÀI ĐẶT THÔNG BÁO ĐẨY (FCM) & TÙY CHỌN RIÊNG TƯ MÀN HÌNH KHÓA
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Thông báo đẩy (FCM) & Riêng tư màn hình khóa',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                  ),
+                                  SemanticStatusBadge(
+                                    kind: state.isPushPermissionGranted
+                                        ? SemanticStatusKind.success
+                                        : SemanticStatusKind.info,
+                                    label: state.isPushPermissionGranted
+                                        ? 'Push Đã bật'
+                                        : 'Push Chờ cấp quyền',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Thông báo khi có tiền vào'),
+                                value: prefs.notifyCredit,
+                                onChanged: (v) => context
+                                    .read<NotificationIngestionBloc>()
+                                    .add(
+                                      BankingPrivacyPreferencesUpdated(
+                                        prefs.copyWith(notifyCredit: v),
+                                      ),
+                                    ),
+                              ),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Thông báo khi có tiền ra'),
+                                value: prefs.notifyDebit,
+                                onChanged: (v) => context
+                                    .read<NotificationIngestionBloc>()
+                                    .add(
+                                      BankingPrivacyPreferencesUpdated(
+                                        prefs.copyWith(notifyDebit: v),
+                                      ),
+                                    ),
+                              ),
+                              SwitchListTile.adaptive(
+                                key: const Key('hide_lockscreen_amount_switch'),
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Ẩn số tiền trên màn hình khóa (Khuyên dùng)',
+                                ),
+                                subtitle: const Text(
+                                  'Mặc định bật để bảo vệ số tiền nhạy cảm khi điện thoại đang khóa',
+                                ),
+                                value: prefs.hideAmountOnLockscreen,
+                                onChanged: (v) => context
+                                    .read<NotificationIngestionBloc>()
+                                    .add(
+                                      BankingPrivacyPreferencesUpdated(
+                                        prefs.copyWith(
+                                          hideAmountOnLockscreen: v,
+                                        ),
+                                      ),
+                                    ),
+                              ),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Ẩn tên người chuyển & nội dung giao dịch',
+                                ),
+                                value: prefs.hideCounterpartyAndContent,
+                                onChanged: (v) => context
+                                    .read<NotificationIngestionBloc>()
+                                    .add(
+                                      BankingPrivacyPreferencesUpdated(
+                                        prefs.copyWith(
+                                          hideCounterpartyAndContent: v,
+                                        ),
+                                      ),
+                                    ),
+                              ),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Bật âm thanh thông báo'),
+                                value: prefs.soundEnabled,
+                                onChanged: (v) => context
+                                    .read<NotificationIngestionBloc>()
+                                    .add(
+                                      BankingPrivacyPreferencesUpdated(
+                                        prefs.copyWith(soundEnabled: v),
+                                      ),
+                                    ),
+                              ),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Nhận thông báo cho giao dịch chưa xác minh',
+                                ),
+                                subtitle: const Text(
+                                  'Giao dịch tạm thời từ Thông báo Android',
+                                ),
+                                value: prefs.notifyUnverified,
+                                onChanged: (v) => context
+                                    .read<NotificationIngestionBloc>()
+                                    .add(
+                                      BankingPrivacyPreferencesUpdated(
+                                        prefs.copyWith(notifyUnverified: v),
+                                      ),
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Chỉ thông báo giao dịch từ mức tiền:',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                children: [
+                                  for (final minOpt in const [
+                                    (0, 'Mọi mức tiền'),
+                                    (50000, '≥ 50.000 ₫'),
+                                    (200000, '≥ 200.000 ₫'),
+                                    (1000000, '≥ 1.000.000 ₫'),
+                                  ])
+                                    ChoiceChip(
+                                      label: Text(minOpt.$2),
+                                      selected:
+                                          prefs.minAmountMinor == minOpt.$1,
+                                      onSelected: (_) => context
+                                          .read<NotificationIngestionBloc>()
+                                          .add(
+                                            BankingPrivacyPreferencesUpdated(
+                                              prefs.copyWith(
+                                                minAmountMinor: minOpt.$1,
+                                              ),
+                                            ),
+                                          ),
+                                    ),
+                                ],
+                              ),
+                              const Divider(height: 22),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton.icon(
+                                    key: const Key(
+                                      'send_test_banking_notification_button',
+                                    ),
+                                    onPressed: () => context
+                                        .read<NotificationIngestionBloc>()
+                                        .add(
+                                          SendTestBankingNotificationRequested(
+                                            user.id,
+                                          ),
+                                        ),
+                                    icon: const Icon(
+                                      Icons.science_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text(
+                                      'Kiểm tra thông báo (Không tạo giao dịch thật)',
+                                    ),
+                                  ),
+                                  if (!state.isPushPermissionGranted)
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          sl<AndroidNotificationBridge>()
+                                              .requestPostNotificationsPermission(),
+                                      icon: const Icon(
+                                        Icons.notifications_active_outlined,
+                                        size: 18,
+                                      ),
+                                      label: const Text(
+                                        'Cấp quyền Push Android 13+',
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
 
                       // 3. NATIVE BANK NOTIFICATION RECOGNITION & VOICE SOUNDBOX CARD
                       Card(
@@ -787,10 +1569,14 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               ),
                               const SizedBox(height: 12),
                               OutlinedButton.icon(
-                                key: const Key('open_android_notif_settings_button'),
+                                key: const Key(
+                                  'open_android_notif_settings_button',
+                                ),
                                 onPressed: () => context
                                     .read<NotificationIngestionBloc>()
-                                    .add(const OpenNativePermissionSettingsRequested()),
+                                    .add(
+                                      const OpenNativePermissionSettingsRequested(),
+                                    ),
                                 icon: Icon(
                                   state.isNativePermissionGranted
                                       ? Icons.verified_user_rounded
@@ -805,63 +1591,81 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               const Divider(height: 22),
                               SwitchListTile.adaptive(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Bật nhận diện giao dịch ngân hàng'),
-                                subtitle: Text(enabled ? 'Đang hoạt động' : 'Đang tắt'),
+                                title: const Text(
+                                  'Bật nhận diện giao dịch ngân hàng',
+                                ),
+                                subtitle: Text(
+                                  enabled ? 'Đang hoạt động' : 'Đang tắt',
+                                ),
                                 value: enabled,
                                 onChanged: (next) {
                                   final pkgs = next && allowedSet.isEmpty
-                                      ? kSupportedVnBanks.map((b) => b.packageName).toList()
+                                      ? kSupportedVnBanks
+                                            .map((b) => b.packageName)
+                                            .toList()
                                       : allowedSet.toList();
                                   context.read<NotificationIngestionBloc>().add(
-                                        ConsentConfigUpdated(
-                                          userId: user.id,
-                                          enabled: next,
-                                          allowedPackages: pkgs,
-                                          autoConfirmSignals: autoConfirm,
-                                          voiceSoundboxEnabled: soundboxEnabled,
-                                        ),
-                                      );
+                                    ConsentConfigUpdated(
+                                      userId: user.id,
+                                      enabled: next,
+                                      allowedPackages: pkgs,
+                                      autoConfirmSignals: autoConfirm,
+                                      voiceSoundboxEnabled: soundboxEnabled,
+                                    ),
+                                  );
                                 },
                               ),
                               SwitchListTile.adaptive(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Tự động cộng/trừ thẳng vào số dư ví'),
-                                subtitle: const Text('Tự đồng bộ cả số dư thực tế sau giao dịch'),
+                                title: const Text(
+                                  'Tự động cộng/trừ thẳng vào số dư ví',
+                                ),
+                                subtitle: const Text(
+                                  'Tự đồng bộ cả số dư thực tế sau giao dịch',
+                                ),
                                 value: autoConfirm,
                                 onChanged: (next) {
                                   final pkgs = allowedSet.isEmpty
-                                      ? kSupportedVnBanks.map((b) => b.packageName).toList()
+                                      ? kSupportedVnBanks
+                                            .map((b) => b.packageName)
+                                            .toList()
                                       : allowedSet.toList();
                                   context.read<NotificationIngestionBloc>().add(
-                                        ConsentConfigUpdated(
-                                          userId: user.id,
-                                          enabled: next ? true : enabled,
-                                          allowedPackages: pkgs,
-                                          autoConfirmSignals: next,
-                                          voiceSoundboxEnabled: soundboxEnabled,
-                                        ),
-                                      );
+                                    ConsentConfigUpdated(
+                                      userId: user.id,
+                                      enabled: next ? true : enabled,
+                                      allowedPackages: pkgs,
+                                      autoConfirmSignals: next,
+                                      voiceSoundboxEnabled: soundboxEnabled,
+                                    ),
+                                  );
                                 },
                               ),
                               SwitchListTile.adaptive(
                                 key: const Key('voice_soundbox_switch'),
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Loa đọc số tiền khi nhận chuyển khoản'),
-                                subtitle: const Text('Phát giọng đọc Tiếng Việt ngay cả khi tắt màn hình'),
+                                title: const Text(
+                                  'Loa đọc số tiền khi nhận chuyển khoản',
+                                ),
+                                subtitle: const Text(
+                                  'Phát giọng đọc Tiếng Việt ngay cả khi tắt màn hình',
+                                ),
                                 value: soundboxEnabled,
                                 onChanged: (next) {
                                   final pkgs = allowedSet.isEmpty
-                                      ? kSupportedVnBanks.map((b) => b.packageName).toList()
+                                      ? kSupportedVnBanks
+                                            .map((b) => b.packageName)
+                                            .toList()
                                       : allowedSet.toList();
                                   context.read<NotificationIngestionBloc>().add(
-                                        ConsentConfigUpdated(
-                                          userId: user.id,
-                                          enabled: next ? true : enabled,
-                                          allowedPackages: pkgs,
-                                          autoConfirmSignals: autoConfirm,
-                                          voiceSoundboxEnabled: next,
-                                        ),
-                                      );
+                                    ConsentConfigUpdated(
+                                      userId: user.id,
+                                      enabled: next ? true : enabled,
+                                      allowedPackages: pkgs,
+                                      autoConfirmSignals: autoConfirm,
+                                      voiceSoundboxEnabled: next,
+                                    ),
+                                  );
                                 },
                               ),
                               Align(
@@ -871,7 +1675,10 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   onPressed: () => context
                                       .read<NotificationIngestionBloc>()
                                       .add(const SoundboxTestRequested()),
-                                  icon: const Icon(Icons.volume_up_rounded, size: 18),
+                                  icon: const Icon(
+                                    Icons.volume_up_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text('Nghe thử loa báo tiền về'),
                                 ),
                               ),
@@ -880,26 +1687,37 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: kSupportedVnBanks.map((bank) {
-                                  final selected = allowedSet.contains(bank.packageName);
+                                  final selected = allowedSet.contains(
+                                    bank.packageName,
+                                  );
                                   return FilterChip(
                                     label: Text(bank.displayName),
                                     selected: selected,
                                     onSelected: !enabled
                                         ? null
                                         : (val) {
-                                            final updated = Set<String>.from(allowedSet);
+                                            final updated = Set<String>.from(
+                                              allowedSet,
+                                            );
                                             if (val) {
                                               updated.add(bank.packageName);
                                             } else {
                                               updated.remove(bank.packageName);
                                             }
-                                            context.read<NotificationIngestionBloc>().add(
+                                            context
+                                                .read<
+                                                  NotificationIngestionBloc
+                                                >()
+                                                .add(
                                                   ConsentConfigUpdated(
                                                     userId: user.id,
                                                     enabled: enabled,
-                                                    allowedPackages: updated.toList(),
-                                                    autoConfirmSignals: autoConfirm,
-                                                    voiceSoundboxEnabled: soundboxEnabled,
+                                                    allowedPackages: updated
+                                                        .toList(),
+                                                    autoConfirmSignals:
+                                                        autoConfirm,
+                                                    voiceSoundboxEnabled:
+                                                        soundboxEnabled,
                                                   ),
                                                 );
                                           },
@@ -918,8 +1736,12 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                           shape: const Border(),
                           collapsedShape: const Border(),
                           leading: Icon(Icons.tune_rounded, color: c.primary),
-                          title: const Text('Nhập sao kê CSV & Thử nghiệm nâng cao'),
-                          subtitle: const Text('Nhập tệp sao kê ngân hàng hoặc thử mẫu tin nhắn'),
+                          title: const Text(
+                            'Nhập sao kê CSV & Thử nghiệm nâng cao',
+                          ),
+                          subtitle: const Text(
+                            'Nhập tệp sao kê ngân hàng hoặc thử mẫu tin nhắn',
+                          ),
                           childrenPadding: const EdgeInsets.fromLTRB(
                             AppSpacing.lg,
                             0,
@@ -943,12 +1765,12 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             OutlinedButton.icon(
                               onPressed: () {
                                 context.read<NotificationIngestionBloc>().add(
-                                      CsvStatementImportSubmitted(
-                                        userId: user.id,
-                                        walletId: activeWalletId,
-                                        csvContent: _csvCtrl.text,
-                                      ),
-                                    );
+                                  CsvStatementImportSubmitted(
+                                    userId: user.id,
+                                    walletId: activeWalletId,
+                                    csvContent: _csvCtrl.text,
+                                  ),
+                                );
                               },
                               icon: const Icon(Icons.upload_file_rounded),
                               label: const Text('Nhập sao kê'),
@@ -963,13 +1785,15 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               isExpanded: true,
                               initialValue: _selectedPkg,
                               items: kSupportedVnBanks
-                                  .map((b) => DropdownMenuItem(
-                                        value: b.packageName,
-                                        child: Text(
-                                          b.displayName,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ))
+                                  .map(
+                                    (b) => DropdownMenuItem(
+                                      value: b.packageName,
+                                      child: Text(
+                                        b.displayName,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (v) {
                                 if (v != null) setState(() => _selectedPkg = v);
@@ -987,14 +1811,14 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             FilledButton.tonalIcon(
                               onPressed: () {
                                 context.read<NotificationIngestionBloc>().add(
-                                      BankNotificationSignalReceived(
-                                        userId: user.id,
-                                        defaultWalletId: activeWalletId,
-                                        packageName: _selectedPkg,
-                                        title: 'Biến động số dư',
-                                        body: _sampleBodyCtrl.text,
-                                      ),
-                                    );
+                                  BankNotificationSignalReceived(
+                                    userId: user.id,
+                                    defaultWalletId: activeWalletId,
+                                    packageName: _selectedPkg,
+                                    title: 'Biến động số dư',
+                                    body: _sampleBodyCtrl.text,
+                                  ),
+                                );
                               },
                               icon: const Icon(Icons.bolt_rounded),
                               label: const Text('Kiểm tra thử'),
@@ -1002,7 +1826,10 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             if (state.lastOutcome != null) ...[
                               const SizedBox(height: AppSpacing.sm),
                               SemanticStatusBadge(
-                                kind: state.lastOutcome!.kind.name.contains('blocked')
+                                kind:
+                                    state.lastOutcome!.kind.name.contains(
+                                      'blocked',
+                                    )
                                     ? SemanticStatusKind.error
                                     : SemanticStatusKind.success,
                                 label: state.lastOutcome!.message,
@@ -1031,9 +1858,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   'Gia đình chỉ thấy giờ bận, không thấy tên sự kiện riêng.',
                                 ),
                                 value: user.availabilityOptIn,
-                                onChanged: (v) => context
-                                    .read<AuthBloc>()
-                                    .add(AuthAvailabilitySharingToggled(v)),
+                                onChanged: (v) => context.read<AuthBloc>().add(
+                                  AuthAvailabilitySharingToggled(v),
+                                ),
                               ),
                               BlocBuilder<ThemeBloc, ThemeState>(
                                 builder: (context, themeState) {
@@ -1041,8 +1868,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                     contentPadding: EdgeInsets.zero,
                                     title: const Text('Tăng độ tương phản chữ'),
                                     value: themeState.highContrast,
-                                    onChanged: (v) =>
-                                        context.read<ThemeBloc>().add(HighContrastToggled(v)),
+                                    onChanged: (v) => context
+                                        .read<ThemeBloc>()
+                                        .add(HighContrastToggled(v)),
                                   );
                                 },
                               ),
@@ -1055,7 +1883,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                     onPressed: () async {
                                       context
                                           .read<NotificationIngestionBloc>()
-                                          .add(PersonalDataExportRequested(user.id));
+                                          .add(
+                                            PersonalDataExportRequested(
+                                              user.id,
+                                            ),
+                                          );
                                     },
                                     icon: const Icon(Icons.download_rounded),
                                     label: const Text('Sao lưu dữ liệu'),
@@ -1064,17 +1896,23 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                     FilledButton.tonalIcon(
                                       onPressed: () {
                                         sl<NativeAppUpdaterBridge>().shareTextFile(
-                                          fileName: 'LifeOS_Data_${user.id.substring(0, 6)}.json',
+                                          fileName:
+                                              'LifeOS_Data_${user.id.substring(0, 6)}.json',
                                           content: state.exportedJson!,
                                           mimeType: 'application/json',
                                           title: 'Sao lưu dữ liệu LifeOS',
                                         );
                                       },
-                                      icon: const Icon(Icons.share_rounded, size: 18),
+                                      icon: const Icon(
+                                        Icons.share_rounded,
+                                        size: 18,
+                                      ),
                                       label: const Text('Lưu tệp sao lưu'),
                                     ),
                                   OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(foregroundColor: c.error),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: c.error,
+                                    ),
                                     onPressed: () async {
                                       final ok = await showDestructiveConfirmDialog(
                                         context: context,
@@ -1086,10 +1924,14 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                       if (ok && context.mounted) {
                                         context
                                             .read<NotificationIngestionBloc>()
-                                            .add(AccountDeletionConfirmed(user.id));
+                                            .add(
+                                              AccountDeletionConfirmed(user.id),
+                                            );
                                       }
                                     },
-                                    icon: const Icon(Icons.delete_forever_outlined),
+                                    icon: const Icon(
+                                      Icons.delete_forever_outlined,
+                                    ),
                                     label: const Text('Xóa tài khoản'),
                                   ),
                                 ],
@@ -1099,13 +1941,20 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 Container(
                                   padding: const EdgeInsets.all(AppSpacing.sm),
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                                    border: Border.all(color: Colors.grey.shade400),
+                                    borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusSm,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.grey.shade400,
+                                    ),
                                   ),
                                   child: SelectableText(
                                     state.exportedJson!,
                                     maxLines: 8,
-                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ],

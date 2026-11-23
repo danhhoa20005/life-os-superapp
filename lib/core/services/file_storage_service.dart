@@ -58,7 +58,8 @@ abstract interface class FileStorageService {
 /// - Stores attached images/PDFs inside the app's private on-device sandbox directory with SHA-256 verification.
 class SparkSafeFileStorageService implements FileStorageService {
   static const int maxAttachmentBytes = 15 * 1024 * 1024; // 15 MB safety cap
-  static final Map<String, Uint8List> _ephemeralWebVault = <String, Uint8List>{};
+  static final Map<String, Uint8List> _ephemeralWebVault =
+      <String, Uint8List>{};
 
   final String? customVaultRootPath;
 
@@ -73,7 +74,8 @@ class SparkSafeFileStorageService implements FileStorageService {
   Future<Directory?> _resolveVaultDir(String userId) async {
     if (kIsWeb) return null;
     final safeUid = userId.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
-    final base = customVaultRootPath ??
+    final base =
+        customVaultRootPath ??
         await NativeSecureVaultBridge.instance.getVaultDirectoryPath() ??
         '${Directory.systemTemp.path}${Platform.pathSeparator}lifeos_local_vault';
     final dir = Directory('$base${Platform.pathSeparator}$safeUid');
@@ -103,7 +105,8 @@ class SparkSafeFileStorageService implements FileStorageService {
       return const Err(
         ValidationFailure(
           code: 'ATTACHMENT_TOO_LARGE',
-          message: 'Tệp vượt quá giới hạn an toàn 15 MB cho kho lưu trữ cục bộ.',
+          message:
+              'Tệp vượt quá giới hạn an toàn 15 MB cho kho lưu trữ cục bộ.',
         ),
       );
     }
@@ -111,7 +114,7 @@ class SparkSafeFileStorageService implements FileStorageService {
     final safeFolder = folder.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
     final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._\-]'), '_');
     final digest = sha256.convert(bytes).toString();
-    final key = '${safeFolder}_${ digest.substring(0, 12) }_$safeName';
+    final key = '${safeFolder}_${digest.substring(0, 12)}_$safeName';
 
     if (kIsWeb) {
       _ephemeralWebVault['$userId/$key'] = bytes;

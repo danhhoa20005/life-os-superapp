@@ -16,7 +16,9 @@ void main() {
 
     test('ZERO Cubit classes or Cubit usages exist anywhere in lib/', () {
       final violations = <String>[];
-      final cubitPattern = RegExp(r'\b(extends\s+Cubit|Cubit<|CubitProvider)\b');
+      final cubitPattern = RegExp(
+        r'\b(extends\s+Cubit|Cubit<|CubitProvider)\b',
+      );
 
       for (final file in dartFiles) {
         final lines = file.readAsLinesSync();
@@ -32,55 +34,64 @@ void main() {
       expect(
         violations,
         isEmpty,
-        reason: 'Cubit is strictly forbidden! Violations:\n${violations.join('\n')}',
+        reason:
+            'Cubit is strictly forbidden! Violations:\n${violations.join('\n')}',
       );
     });
 
-    test('Domain layer is 100% pure Dart (zero Flutter, Firebase, or BLoC imports)', () {
-      final violations = <String>[];
-      final forbiddenImport = RegExp(
-        r'''import\s+['"]package:(flutter|flutter_bloc|bloc|cloud_firestore|firebase_auth|firebase_core|google_sign_in|go_router)/''',
-      );
+    test(
+      'Domain layer is 100% pure Dart (zero Flutter, Firebase, or BLoC imports)',
+      () {
+        final violations = <String>[];
+        final forbiddenImport = RegExp(
+          r'''import\s+['"]package:(flutter|flutter_bloc|bloc|cloud_firestore|cloud_functions|firebase_auth|firebase_core|firebase_messaging|google_sign_in|go_router)/''',
+        );
 
-      for (final file in dartFiles) {
-        final normalizedPath = file.path.replaceAll('\\', '/');
-        if (!normalizedPath.contains('/domain/')) continue;
+        for (final file in dartFiles) {
+          final normalizedPath = file.path.replaceAll('\\', '/');
+          if (!normalizedPath.contains('/domain/')) continue;
 
-        final content = file.readAsStringSync();
-        if (forbiddenImport.hasMatch(content)) {
-          violations.add(normalizedPath);
+          final content = file.readAsStringSync();
+          if (forbiddenImport.hasMatch(content)) {
+            violations.add(normalizedPath);
+          }
         }
-      }
 
-      expect(
-        violations,
-        isEmpty,
-        reason: 'Domain layer must not depend on Flutter/Firebase/BLoC:\n${violations.join('\n')}',
-      );
-    });
+        expect(
+          violations,
+          isEmpty,
+          reason:
+              'Domain layer must not depend on Flutter/Firebase/BLoC:\n${violations.join('\n')}',
+        );
+      },
+    );
 
-    test('Presentation layer (BLoCs & Pages) never imports Cloud Firestore or FirebaseAuth SDKs', () {
-      final violations = <String>[];
-      final forbiddenFirebaseImport = RegExp(
-        r'''import\s+['"]package:(cloud_firestore|firebase_auth|google_sign_in)/''',
-      );
+    test(
+      'Presentation layer (BLoCs & Pages) never imports Cloud Firestore or FirebaseAuth SDKs',
+      () {
+        final violations = <String>[];
+        final forbiddenFirebaseImport = RegExp(
+          r'''import\s+['"]package:(cloud_firestore|cloud_functions|firebase_auth|firebase_messaging|google_sign_in)/''',
+        );
 
-      for (final file in dartFiles) {
-        final normalizedPath = file.path.replaceAll('\\', '/');
-        if (!normalizedPath.contains('/presentation/')) continue;
+        for (final file in dartFiles) {
+          final normalizedPath = file.path.replaceAll('\\', '/');
+          if (!normalizedPath.contains('/presentation/')) continue;
 
-        final content = file.readAsStringSync();
-        if (forbiddenFirebaseImport.hasMatch(content)) {
-          violations.add(normalizedPath);
+          final content = file.readAsStringSync();
+          if (forbiddenFirebaseImport.hasMatch(content)) {
+            violations.add(normalizedPath);
+          }
         }
-      }
 
-      expect(
-        violations,
-        isEmpty,
-        reason: 'Presentation must never access Firebase SDK directly:\n${violations.join('\n')}',
-      );
-    });
+        expect(
+          violations,
+          isEmpty,
+          reason:
+              'Presentation must never access Firebase SDK directly:\n${violations.join('\n')}',
+        );
+      },
+    );
 
     test('Feature BLoCs never import another feature BLoC directly', () {
       final violations = <String>[];
@@ -92,22 +103,30 @@ void main() {
             !normalizedPath.contains('/presentation/bloc/')) {
           continue;
         }
-        final parts = normalizedPath.substring(featuresPrefix.length).split('/');
+        final parts = normalizedPath
+            .substring(featuresPrefix.length)
+            .split('/');
         final ownFeature = parts.first;
 
         for (final line in file.readAsLinesSync()) {
           final trimmed = line.trim();
           if (!trimmed.startsWith('import ')) continue;
-          if (trimmed.contains('/presentation/bloc/') && !trimmed.contains('/$ownFeature/')) {
+          if (trimmed.contains('/presentation/bloc/') &&
+              !trimmed.contains('/$ownFeature/')) {
             // Check relative parent imports crossing feature boundaries into another bloc
-            if (trimmed.contains('../../../') && trimmed.contains('_bloc.dart')) {
+            if (trimmed.contains('../../../') &&
+                trimmed.contains('_bloc.dart')) {
               violations.add('$normalizedPath -> $trimmed');
             }
           }
         }
       }
 
-      expect(violations, isEmpty, reason: 'Cross-feature BLoC coupling detected: $violations');
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Cross-feature BLoC coupling detected: $violations',
+      );
     });
   });
 }

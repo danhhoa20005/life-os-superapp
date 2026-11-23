@@ -22,8 +22,8 @@ class CalendarRemoteDataSource {
     this._firestore, {
     GoogleCalendarApiDataSource? googleApi,
     NativeDeviceCalendarBridge? deviceCalendar,
-  })  : _googleApi = googleApi,
-        _deviceCalendar = deviceCalendar ?? NativeDeviceCalendarBridge.instance;
+  }) : _googleApi = googleApi,
+       _deviceCalendar = deviceCalendar ?? NativeDeviceCalendarBridge.instance;
 
   bool get isGoogleAuthorized => _googleApi?.hasAuthorizedToken ?? false;
 
@@ -33,7 +33,8 @@ class CalendarRemoteDataSource {
   ) {
     final d = doc.data() ?? const <String, dynamic>{};
     final syncedTs = d['lastSyncedAt'];
-    final sourceStr = (d['source'] as String?) ?? CalendarProviderSource.lifeOsPrivate.name;
+    final sourceStr =
+        (d['source'] as String?) ?? CalendarProviderSource.lifeOsPrivate.name;
     final source = CalendarProviderSource.values.firstWhere(
       (e) => e.name == sourceStr,
       orElse: () => CalendarProviderSource.lifeOsPrivate,
@@ -70,8 +71,10 @@ class CalendarRemoteDataSource {
       'source': cal.source.name,
       'googleCalendarId': cal.googleCalendarId,
       'googleSyncToken': cal.googleSyncToken,
-      if (cal.deviceCalendarId != null) 'deviceCalendarId': cal.deviceCalendarId,
-      if (cal.lastSyncedAt != null) 'lastSyncedAt': Timestamp.fromDate(cal.lastSyncedAt!),
+      if (cal.deviceCalendarId != null)
+        'deviceCalendarId': cal.deviceCalendarId,
+      if (cal.lastSyncedAt != null)
+        'lastSyncedAt': Timestamp.fromDate(cal.lastSyncedAt!),
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     };
   }
@@ -83,29 +86,31 @@ class CalendarRemoteDataSource {
         .collection('calendars')
         .snapshots()
         .map((snap) {
-      final list = snap.docs.map((d) => _mapCalendarDoc(d, userId)).toList();
-      final hasPrimary = list.any((c) => c.id == 'primary' || c.isPrimary);
-      if (!hasPrimary) {
-        list.insert(
-          0,
-          ManagedCalendarEntity(
-            id: 'primary',
-            ownerId: userId,
-            summary: 'Lịch Cá nhân Chính',
-            colorHex: '#0B7A2A',
-            isPrimary: true,
-            isSelected: true,
-            source: CalendarProviderSource.lifeOsPrivate,
-            googleCalendarId: 'primary',
-          ),
-        );
-      }
-      list.sort((a, b) {
-        if (a.isPrimary != b.isPrimary) return a.isPrimary ? -1 : 1;
-        return a.summary.compareTo(b.summary);
-      });
-      return list;
-    });
+          final list = snap.docs
+              .map((d) => _mapCalendarDoc(d, userId))
+              .toList();
+          final hasPrimary = list.any((c) => c.id == 'primary' || c.isPrimary);
+          if (!hasPrimary) {
+            list.insert(
+              0,
+              ManagedCalendarEntity(
+                id: 'primary',
+                ownerId: userId,
+                summary: 'Lịch Cá nhân Chính',
+                colorHex: '#0B7A2A',
+                isPrimary: true,
+                isSelected: true,
+                source: CalendarProviderSource.lifeOsPrivate,
+                googleCalendarId: 'primary',
+              ),
+            );
+          }
+          list.sort((a, b) {
+            if (a.isPrimary != b.isPrimary) return a.isPrimary ? -1 : 1;
+            return a.summary.compareTo(b.summary);
+          });
+          return list;
+        });
   }
 
   Future<ManagedCalendarEntity> createCalendar({
@@ -206,7 +211,8 @@ class CalendarRemoteDataSource {
     final sTs = d['startsAt'];
     final eTs = d['endsAt'];
     final uTs = d['updatedAt'];
-    final syncStr = (d['syncStatus'] as String?) ?? CalendarSyncStatus.localOnly.name;
+    final syncStr =
+        (d['syncStatus'] as String?) ?? CalendarSyncStatus.localOnly.name;
     final syncStatus = CalendarSyncStatus.values.firstWhere(
       (s) => s.name == syncStr,
       orElse: () => CalendarSyncStatus.localOnly,
@@ -227,7 +233,8 @@ class CalendarRemoteDataSource {
       isAllDay: (d['isAllDay'] as bool?) ?? false,
       timeZone: (d['timeZone'] as String?) ?? 'Asia/Ho_Chi_Minh',
       colorHex: d['colorHex'] as String?,
-      reminderMinutesBefore: (d['reminderMinutesBefore'] as num?)?.toInt() ?? 30,
+      reminderMinutesBefore:
+          (d['reminderMinutesBefore'] as num?)?.toInt() ?? 30,
       recurrence: CalendarRecurrenceRule.fromRruleString(d['rrule'] as String?),
       googleEventId: d['googleEventId'] as String?,
       googleCalendarId: d['googleCalendarId'] as String?,
@@ -239,7 +246,10 @@ class CalendarRemoteDataSource {
     );
   }
 
-  Map<String, dynamic> _eventToFirestore(CalendarEventEntity ev, {DateTime? createdAt}) {
+  Map<String, dynamic> _eventToFirestore(
+    CalendarEventEntity ev, {
+    DateTime? createdAt,
+  }) {
     final now = DateTime.now();
     return <String, dynamic>{
       'id': ev.id,
@@ -318,22 +328,25 @@ class CalendarRemoteDataSource {
         .orderBy('startsAt')
         .snapshots()
         .map((snap) {
-      return snap.docs.map((doc) {
-        final d = doc.data();
-        final sTs = d['startsAt'];
-        final eTs = d['endsAt'];
-        return BusySlotEntity(
-          id: doc.id,
-          ownerId: (d['ownerId'] as String?) ?? '',
-          ownerName: (d['ownerName'] as String?) ?? 'Thành viên',
-          startsAt: sTs is Timestamp ? sTs.toDate() : DateTime.now(),
-          endsAt: eTs is Timestamp ? eTs.toDate() : DateTime.now(),
-        );
-      }).toList();
-    });
+          return snap.docs.map((doc) {
+            final d = doc.data();
+            final sTs = d['startsAt'];
+            final eTs = d['endsAt'];
+            return BusySlotEntity(
+              id: doc.id,
+              ownerId: (d['ownerId'] as String?) ?? '',
+              ownerName: (d['ownerName'] as String?) ?? 'Thành viên',
+              startsAt: sTs is Timestamp ? sTs.toDate() : DateTime.now(),
+              endsAt: eTs is Timestamp ? eTs.toDate() : DateTime.now(),
+            );
+          }).toList();
+        });
   }
 
-  Future<String> _resolveTargetGoogleCalendarId(String userId, String calendarId) async {
+  Future<String> _resolveTargetGoogleCalendarId(
+    String userId,
+    String calendarId,
+  ) async {
     if (calendarId == 'primary' || calendarId.isEmpty) return 'primary';
     final snap = await _firestore
         .collection('users')
@@ -345,7 +358,10 @@ class CalendarRemoteDataSource {
     return (gId != null && gId.isNotEmpty) ? gId : 'primary';
   }
 
-  Future<int?> _resolveTargetDeviceCalendarId(String userId, String calendarId) async {
+  Future<int?> _resolveTargetDeviceCalendarId(
+    String userId,
+    String calendarId,
+  ) async {
     if (calendarId.startsWith('devcal_')) {
       return int.tryParse(calendarId.substring(7));
     }
@@ -396,7 +412,9 @@ class CalendarRemoteDataSource {
       colorHex: colorHex,
       reminderMinutesBefore: reminderMinutesBefore,
       recurrence: recurrence,
-      syncStatus: syncToGoogle ? CalendarSyncStatus.pendingUpload : CalendarSyncStatus.localOnly,
+      syncStatus: syncToGoogle
+          ? CalendarSyncStatus.pendingUpload
+          : CalendarSyncStatus.localOnly,
       updatedAt: now,
     );
 
@@ -405,7 +423,10 @@ class CalendarRemoteDataSource {
 
       // 1. Write directly to Android / OS System Calendar (`CalendarContract`) if permitted
       if (await _deviceCalendar.hasPermission()) {
-        final preferredDevCalId = await _resolveTargetDeviceCalendarId(userId, calendarId);
+        final preferredDevCalId = await _resolveTargetDeviceCalendarId(
+          userId,
+          calendarId,
+        );
         final savedDevEvId = await _deviceCalendar.upsertEvent(
           deviceCalendarId: preferredDevCalId,
           title: draft.title,
@@ -432,7 +453,10 @@ class CalendarRemoteDataSource {
       if (!syncedExternally && _googleApi != null) {
         try {
           final token = await _googleApi.acquireAccessToken(interactive: false);
-          final targetGCalId = await _resolveTargetGoogleCalendarId(userId, calendarId);
+          final targetGCalId = await _resolveTargetGoogleCalendarId(
+            userId,
+            calendarId,
+          );
           final remote = await _googleApi.insertEvent(
             accessToken: token,
             googleCalendarId: targetGCalId,
@@ -453,8 +477,16 @@ class CalendarRemoteDataSource {
 
     final batch = _firestore.batch();
     final docRef = visibility == CalendarEventVisibility.privateEvent
-        ? _firestore.collection('users').doc(userId).collection('private_events').doc(id)
-        : _firestore.collection('families').doc(familyId).collection('shared_events').doc(id);
+        ? _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('private_events')
+              .doc(id)
+        : _firestore
+              .collection('families')
+              .doc(familyId)
+              .collection('shared_events')
+              .doc(id);
 
     batch.set(docRef, _eventToFirestore(draft, createdAt: now));
 
@@ -463,8 +495,11 @@ class CalendarRemoteDataSource {
         publishBusySlot &&
         familyId != null &&
         familyId.isNotEmpty) {
-      final slotRef =
-          _firestore.collection('families').doc(familyId).collection('availability').doc(id);
+      final slotRef = _firestore
+          .collection('families')
+          .doc(familyId)
+          .collection('availability')
+          .doc(id);
       batch.set(slotRef, {
         'id': id,
         'ownerId': userId,
@@ -497,7 +532,8 @@ class CalendarRemoteDataSource {
     bool syncToGoogle = false,
   }) async {
     final now = DateTime.now();
-    final shouldSyncExternal = syncToGoogle ||
+    final shouldSyncExternal =
+        syncToGoogle ||
         existingEvent.isLinkedWithGoogle ||
         existingEvent.isLinkedWithDeviceCalendar;
 
@@ -510,18 +546,22 @@ class CalendarRemoteDataSource {
       endsAt: endsAt,
       isAllDay: isAllDay ?? existingEvent.isAllDay,
       colorHex: colorHex ?? existingEvent.colorHex,
-      reminderMinutesBefore: reminderMinutesBefore ?? existingEvent.reminderMinutesBefore,
+      reminderMinutesBefore:
+          reminderMinutesBefore ?? existingEvent.reminderMinutesBefore,
       recurrence: recurrence ?? existingEvent.recurrence,
-      syncStatus:
-          shouldSyncExternal ? CalendarSyncStatus.pendingUpload : existingEvent.syncStatus,
+      syncStatus: shouldSyncExternal
+          ? CalendarSyncStatus.pendingUpload
+          : existingEvent.syncStatus,
       updatedAt: now,
     );
 
-    if (shouldSyncExternal && updated.visibility == CalendarEventVisibility.privateEvent) {
+    if (shouldSyncExternal &&
+        updated.visibility == CalendarEventVisibility.privateEvent) {
       var syncedExternally = false;
 
       if (await _deviceCalendar.hasPermission()) {
-        final preferredDevCalId = updated.deviceCalendarId ??
+        final preferredDevCalId =
+            updated.deviceCalendarId ??
             await _resolveTargetDeviceCalendarId(userId, updated.calendarId);
         final savedDevEvId = await _deviceCalendar.upsertEvent(
           deviceEventId: updated.deviceEventId,
@@ -549,7 +589,8 @@ class CalendarRemoteDataSource {
       if (!syncedExternally && _googleApi != null) {
         try {
           final token = await _googleApi.acquireAccessToken(interactive: false);
-          final targetGCalId = updated.googleCalendarId ??
+          final targetGCalId =
+              updated.googleCalendarId ??
               await _resolveTargetGoogleCalendarId(userId, updated.calendarId);
           final remote = updated.isLinkedWithGoogle
               ? await _googleApi.patchEvent(
@@ -570,7 +611,9 @@ class CalendarRemoteDataSource {
             syncStatus: CalendarSyncStatus.synced,
           );
         } catch (_) {
-          updated = updated.copyWith(syncStatus: CalendarSyncStatus.pendingUpload);
+          updated = updated.copyWith(
+            syncStatus: CalendarSyncStatus.pendingUpload,
+          );
         }
       }
     }
@@ -578,15 +621,15 @@ class CalendarRemoteDataSource {
     final batch = _firestore.batch();
     final docRef = updated.visibility == CalendarEventVisibility.privateEvent
         ? _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('private_events')
-            .doc(updated.id)
+              .collection('users')
+              .doc(userId)
+              .collection('private_events')
+              .doc(updated.id)
         : _firestore
-            .collection('families')
-            .doc(updated.familyId)
-            .collection('shared_events')
-            .doc(updated.id);
+              .collection('families')
+              .doc(updated.familyId)
+              .collection('shared_events')
+              .doc(updated.id);
 
     batch.set(docRef, _eventToFirestore(updated), SetOptions(merge: true));
 
@@ -627,16 +670,24 @@ class CalendarRemoteDataSource {
   }) async {
     await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(eventId);
     if (visibility == CalendarEventVisibility.privateEvent) {
-      final docRef =
-          _firestore.collection('users').doc(userId).collection('private_events').doc(eventId);
+      final docRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('private_events')
+          .doc(eventId);
       final snap = await docRef.get();
       final devEvId = (snap.data()?['deviceEventId'] as num?)?.toInt();
-      if (devEvId != null && devEvId > 0 && await _deviceCalendar.hasPermission()) {
+      if (devEvId != null &&
+          devEvId > 0 &&
+          await _deviceCalendar.hasPermission()) {
         await _deviceCalendar.deleteEvent(devEvId);
       }
 
       final gEvId = googleEventId ?? (snap.data()?['googleEventId'] as String?);
-      final gCalId = googleCalendarId ?? (snap.data()?['googleCalendarId'] as String?) ?? 'primary';
+      final gCalId =
+          googleCalendarId ??
+          (snap.data()?['googleCalendarId'] as String?) ??
+          'primary';
 
       if (gEvId != null && gEvId.isNotEmpty && _googleApi != null) {
         try {
@@ -648,13 +699,10 @@ class CalendarRemoteDataSource {
           );
         } catch (_) {
           // Offline safety: mark tombstone so next sync deletes remotely on Google Calendar!
-          await docRef.set(
-            {
-              'syncStatus': CalendarSyncStatus.pendingDelete.name,
-              'updatedAt': Timestamp.fromDate(DateTime.now()),
-            },
-            SetOptions(merge: true),
-          );
+          await docRef.set({
+            'syncStatus': CalendarSyncStatus.pendingDelete.name,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          }, SetOptions(merge: true));
           return;
         }
       }
@@ -663,7 +711,11 @@ class CalendarRemoteDataSource {
       batch.delete(docRef);
       if (familyId != null && familyId.isNotEmpty) {
         batch.delete(
-          _firestore.collection('families').doc(familyId).collection('availability').doc(eventId),
+          _firestore
+              .collection('families')
+              .doc(familyId)
+              .collection('availability')
+              .doc(eventId),
         );
       }
       await batch.commit();
@@ -709,7 +761,8 @@ class CalendarRemoteDataSource {
     // ENGINE A: Native OS Device Calendar (`CalendarContract`) 2-Way Sync
     // =========================================================================
     final forceManualGoogleOnly =
-        manualAccessTokenOverride != null && manualAccessTokenOverride.trim().isNotEmpty;
+        manualAccessTokenOverride != null &&
+        manualAccessTokenOverride.trim().isNotEmpty;
 
     if (!forceManualGoogleOnly && _deviceCalendar.isSupportedPlatform) {
       var hasPerm = await _deviceCalendar.hasPermission();
@@ -720,7 +773,8 @@ class CalendarRemoteDataSource {
       if (hasPerm) {
         final existingCalDocs = await calendarsCol.get();
         final existingCalById = <String, ManagedCalendarEntity>{
-          for (final doc in existingCalDocs.docs) doc.id: _mapCalendarDoc(doc, userId),
+          for (final doc in existingCalDocs.docs)
+            doc.id: _mapCalendarDoc(doc, userId),
         };
 
         final devCalendars = await _deviceCalendar.listCalendars();
@@ -729,13 +783,17 @@ class CalendarRemoteDataSource {
         final devCalColorById = <int, String>{};
 
         for (final dc in devCalendars) {
-          final calDocId = dc.isPrimary ? 'primary' : 'devcal_${dc.deviceCalendarId}';
+          final calDocId = dc.isPrimary
+              ? 'primary'
+              : 'devcal_${dc.deviceCalendarId}';
           final prev = existingCalById[calDocId];
           final merged = ManagedCalendarEntity(
             id: calDocId,
             ownerId: userId,
             summary: dc.summary,
-            description: dc.accountName.isNotEmpty ? dc.accountName : prev?.description,
+            description: dc.accountName.isNotEmpty
+                ? dc.accountName
+                : prev?.description,
             timeZone: dc.timeZone,
             colorHex: dc.colorHex,
             isPrimary: dc.isPrimary || calDocId == 'primary',
@@ -782,7 +840,10 @@ class CalendarRemoteDataSource {
               !ev.isLinkedWithGoogle &&
               (ev.syncStatus == CalendarSyncStatus.pendingUpload ||
                   ev.syncStatus == CalendarSyncStatus.localOnly)) {
-            final targetDevCal = await _resolveTargetDeviceCalendarId(userId, ev.calendarId);
+            final targetDevCal = await _resolveTargetDeviceCalendarId(
+              userId,
+              ev.calendarId,
+            );
             final savedId = await _deviceCalendar.upsertEvent(
               deviceCalendarId: targetDevCal,
               title: ev.title,
@@ -802,7 +863,10 @@ class CalendarRemoteDataSource {
                 syncStatus: CalendarSyncStatus.synced,
                 updatedAt: now,
               );
-              await doc.reference.set(_eventToFirestore(syncedEv), SetOptions(merge: true));
+              await doc.reference.set(
+                _eventToFirestore(syncedEv),
+                SetOptions(merge: true),
+              );
               localByDocId[syncedEv.id] = syncedEv;
               localByDeviceEventId[savedId] = syncedEv;
               pushedUpserted++;
@@ -840,14 +904,18 @@ class CalendarRemoteDataSource {
         }
 
         for (final item in devEvents) {
-          if (activeDevCalIds.isNotEmpty && !activeDevCalIds.containsKey(item.deviceCalendarId)) {
+          if (activeDevCalIds.isNotEmpty &&
+              !activeDevCalIds.containsKey(item.deviceCalendarId)) {
             continue;
           }
-          final mappedCalId = activeDevCalIds[item.deviceCalendarId] ?? 'primary';
+          final mappedCalId =
+              activeDevCalIds[item.deviceCalendarId] ?? 'primary';
 
           // Deduplicate with Google-synced events or previously pushed LifeOS events
           final existingBySync =
-              (item.syncId != null && item.syncId!.isNotEmpty) ? localBySyncId[item.syncId!] : null;
+              (item.syncId != null && item.syncId!.isNotEmpty)
+              ? localBySyncId[item.syncId!]
+              : null;
           final existingByDevId = !item.instanceKey.contains('_')
               ? localByDeviceEventId[item.deviceEventId]
               : null;
@@ -896,7 +964,8 @@ class CalendarRemoteDataSource {
         // Prune stale `devcal_*` events inside the sync window that were deleted on the phone!
         for (final entry in localByDocId.entries) {
           final existing = entry.value;
-          if ((existing.id.startsWith('devcal_') || existing.isLinkedWithDeviceCalendar) &&
+          if ((existing.id.startsWith('devcal_') ||
+                  existing.isLinkedWithDeviceCalendar) &&
               !seenDocIds.contains(existing.id) &&
               !existing.startsAt.isBefore(windowStart) &&
               !existing.startsAt.isAfter(windowEnd)) {
@@ -922,7 +991,8 @@ class CalendarRemoteDataSource {
     if (api != null) {
       // If Device Calendar already succeeded, try Google REST API silently (`interactive: false`)
       // so we never block or throw OAuth SHA-1 errors when Device Calendar already synced everything!
-      final shouldTryGoogle = forceManualGoogleOnly || !deviceSyncedOk || api.hasAuthorizedToken;
+      final shouldTryGoogle =
+          forceManualGoogleOnly || !deviceSyncedOk || api.hasAuthorizedToken;
       if (shouldTryGoogle) {
         try {
           final accessToken = await api.acquireAccessToken(
@@ -932,7 +1002,8 @@ class CalendarRemoteDataSource {
 
           final existingCalDocs = await calendarsCol.get();
           final existingCalById = <String, ManagedCalendarEntity>{
-            for (final doc in existingCalDocs.docs) doc.id: _mapCalendarDoc(doc, userId),
+            for (final doc in existingCalDocs.docs)
+              doc.id: _mapCalendarDoc(doc, userId),
           };
 
           final remoteCalendars = await api.listCalendars(
@@ -979,7 +1050,8 @@ class CalendarRemoteDataSource {
 
             if (ev.syncStatus == CalendarSyncStatus.pendingUpload ||
                 ev.syncStatus == CalendarSyncStatus.localOnly) {
-              final targetGCalId = ev.googleCalendarId ??
+              final targetGCalId =
+                  ev.googleCalendarId ??
                   await _resolveTargetGoogleCalendarId(userId, ev.calendarId);
               final remoteRes = ev.isLinkedWithGoogle
                   ? await api.patchEvent(
@@ -1000,7 +1072,10 @@ class CalendarRemoteDataSource {
                 syncStatus: CalendarSyncStatus.synced,
                 updatedAt: DateTime.now(),
               );
-              await doc.reference.set(_eventToFirestore(syncedEv), SetOptions(merge: true));
+              await doc.reference.set(
+                _eventToFirestore(syncedEv),
+                SetOptions(merge: true),
+              );
               localByGoogleEventId[remoteRes.googleEventId] = syncedEv;
               pushedUpserted++;
             } else if (ev.isLinkedWithGoogle) {
@@ -1008,8 +1083,9 @@ class CalendarRemoteDataSource {
             }
           }
 
-          final activeGoogleCals =
-              syncedCalendars.where((c) => c.isSelected && c.isGoogleSynced).toList();
+          final activeGoogleCals = syncedCalendars
+              .where((c) => c.isSelected && c.isGoogleSynced)
+              .toList();
 
           for (final gCal in activeGoogleCals) {
             final gCalId = gCal.googleCalendarId ?? 'primary';
@@ -1039,7 +1115,8 @@ class CalendarRemoteDataSource {
                 continue;
               }
 
-              final docId = matchedLocal?.id ?? 'gcal_${remoteEv.googleEventId}';
+              final docId =
+                  matchedLocal?.id ?? 'gcal_${remoteEv.googleEventId}';
               final upsertedEntity = CalendarEventEntity(
                 id: docId,
                 calendarId: gCal.id,
@@ -1100,7 +1177,8 @@ class CalendarRemoteDataSource {
     if (!deviceSyncedOk && !googleSyncedOk) {
       throw const AppException(
         code: 'CALENDAR_PERMISSION_REQUIRED',
-        message: 'Vui lòng cấp quyền truy cập Lịch để đồng bộ các sự kiện thật trên thiết bị của bạn.',
+        message:
+            'Vui lòng cấp quyền truy cập Lịch để đồng bộ các sự kiện thật trên thiết bị của bạn.',
       );
     }
 
@@ -1136,9 +1214,13 @@ class CalendarRepositoryImpl implements CalendarRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<ManagedCalendarEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<ManagedCalendarEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -1187,7 +1269,10 @@ class CalendarRepositoryImpl implements CalendarRepository {
     required ManagedCalendarEntity calendar,
   }) async {
     try {
-      await _remoteDataSource.deleteCalendar(userId: userId, calendar: calendar);
+      await _remoteDataSource.deleteCalendar(
+        userId: userId,
+        calendar: calendar,
+      );
       return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));
@@ -1205,9 +1290,13 @@ class CalendarRepositoryImpl implements CalendarRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<CalendarEventEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<CalendarEventEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -1220,9 +1309,13 @@ class CalendarRepositoryImpl implements CalendarRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<BusySlotEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<BusySlotEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }

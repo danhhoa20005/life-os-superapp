@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
-class SemanticAppVersion extends Equatable implements Comparable<SemanticAppVersion> {
+class SemanticAppVersion extends Equatable
+    implements Comparable<SemanticAppVersion> {
   final int major;
   final int minor;
   final int patch;
@@ -17,8 +18,9 @@ class SemanticAppVersion extends Equatable implements Comparable<SemanticAppVers
     final cleaned = raw.trim().replaceFirst(RegExp(r'^[vV]'), '');
     final buildSplit = cleaned.split('+');
     final corePart = buildSplit.first.split('-').first;
-    final parsedBuild =
-        buildSplit.length > 1 ? (int.tryParse(buildSplit[1].trim()) ?? fallbackBuild) : fallbackBuild;
+    final parsedBuild = buildSplit.length > 1
+        ? (int.tryParse(buildSplit[1].trim()) ?? fallbackBuild)
+        : fallbackBuild;
 
     final nums = corePart.split('.');
     final major = nums.isNotEmpty ? (int.tryParse(nums[0]) ?? 1) : 1;
@@ -49,7 +51,8 @@ class SemanticAppVersion extends Equatable implements Comparable<SemanticAppVers
     return patch < minSupported.patch;
   }
 
-  String get formatted => build > 0 ? '$major.$minor.$patch+$build' : '$major.$minor.$patch';
+  String get formatted =>
+      build > 0 ? '$major.$minor.$patch+$build' : '$major.$minor.$patch';
 
   @override
   List<Object?> get props => [major, minor, patch, build];
@@ -94,18 +97,18 @@ class AppReleaseManifest extends Equatable {
 
   @override
   List<Object?> get props => [
-        latestVersion,
-        latestBuildNumber,
-        minSupportedVersion,
-        releaseTitle,
-        changelog,
-        apkDownloadUrl,
-        htmlReleaseUrl,
-        apkSizeBytes,
-        apkSha256,
-        publishedAt,
-        sourceName,
-      ];
+    latestVersion,
+    latestBuildNumber,
+    minSupportedVersion,
+    releaseTitle,
+    changelog,
+    apkDownloadUrl,
+    htmlReleaseUrl,
+    apkSizeBytes,
+    apkSha256,
+    publishedAt,
+    sourceName,
+  ];
 }
 
 class AppUpdateCheckResult extends Equatable {
@@ -127,13 +130,13 @@ class AppUpdateCheckResult extends Equatable {
 
   @override
   List<Object?> get props => [
-        installedVersion,
-        installedBuildNumber,
-        manifest,
-        hasUpdate,
-        isForceUpdate,
-        checkedAt,
-      ];
+    installedVersion,
+    installedBuildNumber,
+    manifest,
+    hasUpdate,
+    isForceUpdate,
+    checkedAt,
+  ];
 }
 
 enum OtaInstallStage {

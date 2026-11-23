@@ -3,7 +3,8 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/app_update_entities.dart';
 import '../repositories/app_update_repository.dart';
 
-class CheckForAppUpdateUseCase implements UseCase<AppUpdateCheckResult, NoParams> {
+class CheckForAppUpdateUseCase
+    implements UseCase<AppUpdateCheckResult, NoParams> {
   final AppUpdateRepository _repository;
   const CheckForAppUpdateUseCase(this._repository);
 

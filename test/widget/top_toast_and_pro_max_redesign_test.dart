@@ -29,37 +29,51 @@ void main() {
           violations.add(f.path);
         }
       }
-      expect(violations, isEmpty, reason: 'Found legacy bottom showSnackBar in: $violations');
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Found legacy bottom showSnackBar in: $violations',
+      );
     });
 
-    test('Zero confusing developer/accounting jargon remains in UI presentation pages', () {
-      const bannedUiJargon = <String>[
-        'BankNotificationListenerService',
-        'BIÊN LAI SỔ CÁI ĐÃ ĐỐI SOÁT',
-        'BÚT TOÁN ĐÃ ĐẢO NGƯỢC',
-        'Chuẩn RFC 5545 RRULE',
-        'Hạ tầng Firebase Cloud (life-os-vn-2026)',
-        'Thay thế Rocket Money',
-        'Zero-OTP',
-        'Khử trùng lặp SHA-256',
-      ];
-      final uiFiles = Directory('lib/features')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((f) => f.path.contains('presentation') && f.path.endsWith('.dart'))
-          .toList();
+    test(
+      'Zero confusing developer/accounting jargon remains in UI presentation pages',
+      () {
+        const bannedUiJargon = <String>[
+          'BankNotificationListenerService',
+          'BIÊN LAI SỔ CÁI ĐÃ ĐỐI SOÁT',
+          'BÚT TOÁN ĐÃ ĐẢO NGƯỢC',
+          'Chuẩn RFC 5545 RRULE',
+          'Hạ tầng Firebase Cloud (life-os-vn-2026)',
+          'Thay thế Rocket Money',
+          'Zero-OTP',
+          'Khử trùng lặp SHA-256',
+        ];
+        final uiFiles = Directory('lib/features')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where(
+              (f) =>
+                  f.path.contains('presentation') && f.path.endsWith('.dart'),
+            )
+            .toList();
 
-      final violations = <String>[];
-      for (final f in uiFiles) {
-        final content = f.readAsStringSync();
-        for (final term in bannedUiJargon) {
-          if (content.contains(term)) {
-            violations.add('${f.path}: "$term"');
+        final violations = <String>[];
+        for (final f in uiFiles) {
+          final content = f.readAsStringSync();
+          for (final term in bannedUiJargon) {
+            if (content.contains(term)) {
+              violations.add('${f.path}: "$term"');
+            }
           }
         }
-      }
-      expect(violations, isEmpty, reason: 'Found wordy/technical UI jargon: $violations');
-    });
+        expect(
+          violations,
+          isEmpty,
+          reason: 'Found wordy/technical UI jargon: $violations',
+        );
+      },
+    );
 
     testWidgets(
       'LifeOsTopToast renders strictly at the TOP of the screen, triggers actions & auto-dismisses cleanly',
@@ -130,17 +144,21 @@ void main() {
             .collection('wallets')
             .doc('wallet_bank_default')
             .set({
-          'id': 'wallet_bank_default',
-          'ownerId': uid,
-          'name': 'Vietcombank',
-          'type': 'bank',
-          'balanceMinor': 18500000,
-          'isEstimatedBalance': false,
-        });
+              'id': 'wallet_bank_default',
+              'ownerId': uid,
+              'name': 'Vietcombank',
+              'type': 'bank',
+              'balanceMinor': 18500000,
+              'isEstimatedBalance': false,
+            });
 
         final mockAuth = MockFirebaseAuth(
           signedIn: true,
-          mockUser: MockUser(uid: uid, email: 'minh@lifeos.vn', displayName: 'Nguyễn Minh'),
+          mockUser: MockUser(
+            uid: uid,
+            email: 'minh@lifeos.vn',
+            displayName: 'Nguyễn Minh',
+          ),
         );
 
         await sl.reset();
@@ -173,20 +191,33 @@ void main() {
       },
     );
 
-    test('UI/UX Pro Max v3.4: Home & Directory use LifeOsResponsiveIconGrid and Vietnamese wallet badges', () {
-      final todaySrc = File('lib/features/dashboard/presentation/pages/today_page.dart').readAsStringSync();
-      final dirSrc = File('lib/features/daily_life/presentation/pages/super_app_directory_page.dart').readAsStringSync();
-      final proMaxSrc = File('lib/core/widgets/pro_max_widgets.dart').readAsStringSync();
+    test(
+      'UI/UX Pro Max v3.4: Home & Directory use LifeOsResponsiveIconGrid and Vietnamese wallet badges',
+      () {
+        final todaySrc = File(
+          'lib/features/dashboard/presentation/pages/today_page.dart',
+        ).readAsStringSync();
+        final dirSrc = File(
+          'lib/features/daily_life/presentation/pages/super_app_directory_page.dart',
+        ).readAsStringSync();
+        final proMaxSrc = File(
+          'lib/core/widgets/pro_max_widgets.dart',
+        ).readAsStringSync();
 
-      expect(todaySrc.contains('GridView.count'), isFalse);
-      expect(todaySrc.contains('LifeOsResponsiveIconGrid'), isTrue);
-      expect(dirSrc.contains('GridView.count'), isFalse);
-      expect(dirSrc.contains('LifeOsResponsiveIconGrid'), isTrue);
+        expect(todaySrc.contains('GridView.count'), isFalse);
+        expect(todaySrc.contains('LifeOsResponsiveIconGrid'), isTrue);
+        expect(dirSrc.contains('GridView.count'), isFalse);
+        expect(dirSrc.contains('LifeOsResponsiveIconGrid'), isTrue);
 
-      for (final englishBadge in const ['LIQUID CASH', 'WEALTH VAULT', 'NAPAS247']) {
-        expect(proMaxSrc.contains(englishBadge), isFalse);
-      }
-    });
+        for (final englishBadge in const [
+          'LIQUID CASH',
+          'WEALTH VAULT',
+          'NAPAS247',
+        ]) {
+          expect(proMaxSrc.contains(englishBadge), isFalse);
+        }
+      },
+    );
 
     testWidgets(
       'UI/UX Pro Max v3.4: Narrow 360x800 phone + 112% Large Font Scale renders all 5 tabs & All Services with ZERO overflow',
@@ -213,17 +244,21 @@ void main() {
             .collection('wallets')
             .doc('wallet_bank_default')
             .set({
-          'id': 'wallet_bank_default',
-          'ownerId': uid,
-          'name': 'Tài khoản Vietcombank Gia đình',
-          'type': 'bank',
-          'balanceMinor': 128500000,
-          'isEstimatedBalance': false,
-        });
+              'id': 'wallet_bank_default',
+              'ownerId': uid,
+              'name': 'Tài khoản Vietcombank Gia đình',
+              'type': 'bank',
+              'balanceMinor': 128500000,
+              'isEstimatedBalance': false,
+            });
 
         final mockAuth = MockFirebaseAuth(
           signedIn: true,
-          mockUser: MockUser(uid: uid, email: 'hoa@lifeos.vn', displayName: 'Nguyễn Danh Hòa'),
+          mockUser: MockUser(
+            uid: uid,
+            email: 'hoa@lifeos.vn',
+            displayName: 'Nguyễn Danh Hòa',
+          ),
         );
 
         await sl.reset();
@@ -260,7 +295,12 @@ void main() {
         await tester.tap(find.byTooltip('Quay lại'));
         await tester.pumpAndSettle();
 
-        for (final tabLabel in const ['Tài chính', 'Lịch & Việc', 'Gia đình', 'Tài sản']) {
+        for (final tabLabel in const [
+          'Tài chính',
+          'Lịch & Việc',
+          'Gia đình',
+          'Tài sản',
+        ]) {
           await tester.tap(find.text(tabLabel).last);
           await tester.pumpAndSettle();
         }

@@ -25,19 +25,22 @@ class TransactionRemoteDataSource {
       _firestore.collection('users').doc(userId).collection('ledger_audits');
 
   CollectionReference<Map<String, dynamic>> _snapshotCol(String userId) =>
-      _firestore.collection('users').doc(userId).collection('net_worth_snapshots');
+      _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('net_worth_snapshots');
 
   static int _walletTypeRank(WalletType type) => switch (type) {
-        WalletType.cash => 0,
-        WalletType.bank => 1,
-        WalletType.savings => 2,
-        WalletType.creditCard => 3,
-      };
+    WalletType.cash => 0,
+    WalletType.bank => 1,
+    WalletType.savings => 2,
+    WalletType.creditCard => 3,
+  };
 
   Stream<List<WalletModel>> watchWallets(String userId) {
-    return _walletsCol(userId)
-        .snapshots(includeMetadataChanges: true)
-        .map((snap) {
+    return _walletsCol(userId).snapshots(includeMetadataChanges: true).map((
+      snap,
+    ) {
       final list = snap.docs.map(WalletModel.fromFirestore).toList();
       list.sort((a, b) {
         if (a.id == 'wallet_cash_default') return -1;
@@ -50,9 +53,9 @@ class TransactionRemoteDataSource {
   }
 
   Stream<List<CategoryModel>> watchCategories(String userId) {
-    return _categoriesCol(userId)
-        .snapshots()
-        .map((snap) => snap.docs.map(CategoryModel.fromFirestore).toList());
+    return _categoriesCol(userId).snapshots().map(
+      (snap) => snap.docs.map(CategoryModel.fromFirestore).toList(),
+    );
   }
 
   Stream<List<TransactionModel>> watchTransactions({
@@ -111,8 +114,9 @@ class TransactionRemoteDataSource {
   }) async {
     final txRef = _txCol(userId).doc(operationId);
     final sourceWalletRef = _walletsCol(userId).doc(walletId);
-    final targetWalletRef =
-        targetWalletId != null ? _walletsCol(userId).doc(targetWalletId) : null;
+    final targetWalletRef = targetWalletId != null
+        ? _walletsCol(userId).doc(targetWalletId)
+        : null;
 
     await _firestore.runTransaction((tx) async {
       // Idempotency guard: if operationId already exists, return without double-applying!
@@ -123,21 +127,30 @@ class TransactionRemoteDataSource {
 
       final sourceSnap = await tx.get(sourceWalletRef);
       final autoCreateDefaultCash =
-          !sourceSnap.exists && walletId == 'wallet_cash_default' && targetWalletRef == null;
+          !sourceSnap.exists &&
+          walletId == 'wallet_cash_default' &&
+          targetWalletRef == null;
       if (!sourceSnap.exists && !autoCreateDefaultCash) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy ví nguồn.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy ví nguồn.',
+        );
       }
       final sourceData = sourceSnap.data() ?? const <String, dynamic>{};
       final sourceBal = (sourceData['balanceMinor'] as num?)?.toInt() ?? 0;
-      final sourceName =
-          autoCreateDefaultCash ? 'Ví tiền mặt' : ((sourceData['name'] as String?) ?? 'Ví nguồn');
+      final sourceName = autoCreateDefaultCash
+          ? 'Ví tiền mặt'
+          : ((sourceData['name'] as String?) ?? 'Ví nguồn');
 
       int? targetBal;
       String? targetName;
       if (targetWalletRef != null) {
         final targetSnap = await tx.get(targetWalletRef);
         if (!targetSnap.exists) {
-          throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy ví đích.');
+          throw const AppException(
+            code: 'NOT_FOUND',
+            message: 'Không tìm thấy ví đích.',
+          );
         }
         final targetData = targetSnap.data() ?? const <String, dynamic>{};
         targetBal = (targetData['balanceMinor'] as num?)?.toInt() ?? 0;
@@ -146,7 +159,10 @@ class TransactionRemoteDataSource {
 
       final now = DateTime.now();
       final direction = kind == TransactionKind.income ? 'credit' : 'debit';
-      final inferred = BankNotificationParser.inferCategory('$merchant ${note ?? ''}', direction);
+      final inferred = BankNotificationParser.inferCategory(
+        '$merchant ${note ?? ''}',
+        direction,
+      );
       final fingerprint = BankNotificationParser.computeCrossSourceFingerprint(
         ownerId: userId,
         direction: direction,
@@ -155,7 +171,8 @@ class TransactionRemoteDataSource {
       );
 
       late final int newSourceBal;
-      if (kind == TransactionKind.transfer || kind == TransactionKind.creditCardPayment) {
+      if (kind == TransactionKind.transfer ||
+          kind == TransactionKind.creditCardPayment) {
         newSourceBal = sourceBal - amountMinor;
         final newTargetBal = targetBal! + amountMinor;
         tx.update(sourceWalletRef, {
@@ -244,7 +261,8 @@ class TransactionRemoteDataSource {
           sourceKind: TransactionSourceKind.manual,
           verification: TransactionVerification.userConfirmed,
           crossSourceFingerprint: fingerprint,
-          isVehicleMaintenanceHint: inferred.isVehicleMaintenance ||
+          isVehicleMaintenanceHint:
+              inferred.isVehicleMaintenance ||
               splitLines.any((l) => l.categoryName.contains('Bảo dưỡng')),
           splitLines: splitLines,
           balanceAfterMinor: newSourceBal,
@@ -270,7 +288,10 @@ class TransactionRemoteDataSource {
     await _firestore.runTransaction((tx) async {
       final origSnap = await tx.get(origRef);
       if (!origSnap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy giao dịch gốc.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy giao dịch gốc.',
+        );
       }
       final orig = TransactionModel.fromFirestore(origSnap).entity;
       if (orig.isReversed || orig.kind == TransactionKind.reversal) {
@@ -288,7 +309,8 @@ class TransactionRemoteDataSource {
 
       final sourceRef = _walletsCol(userId).doc(orig.walletId);
       final sourceSnap = await tx.get(sourceRef);
-      final sourceBal = (sourceSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final sourceBal =
+          (sourceSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
 
       DocumentReference<Map<String, dynamic>>? targetRef;
       int? targetBal;
@@ -312,7 +334,9 @@ class TransactionRemoteDataSource {
           });
         }
       } else {
-        final inverseDelta = orig.direction == 'credit' ? -orig.amountMinor : orig.amountMinor;
+        final inverseDelta = orig.direction == 'credit'
+            ? -orig.amountMinor
+            : orig.amountMinor;
         tx.update(sourceRef, {
           'balanceMinor': sourceBal + inverseDelta,
           'updatedAt': Timestamp.fromDate(now),
@@ -363,10 +387,14 @@ class TransactionRemoteDataSource {
     await _firestore.runTransaction((tx) async {
       final snap = await tx.get(txRef);
       if (!snap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy giao dịch chờ duyệt.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy giao dịch chờ duyệt.',
+        );
       }
       final current = TransactionModel.fromFirestore(snap).entity;
-      if (current.verification != TransactionVerification.provisional) {
+      if (current.verification != TransactionVerification.provisional &&
+          current.verification != TransactionVerification.needsReview) {
         return;
       }
 
@@ -374,27 +402,37 @@ class TransactionRemoteDataSource {
       if (!approve) {
         tx.update(txRef, {
           'verification': TransactionVerification.rejected.name,
+          'verificationStatus': 'REJECTED',
           'updatedAt': Timestamp.fromDate(now),
         });
         return;
       }
 
-      final walletRef = _walletsCol(userId).doc(current.walletId);
-      final walletSnap = await tx.get(walletRef);
-      if (walletSnap.exists) {
-        final bal = (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
-        final delta = current.direction == 'credit' ? current.amountMinor : -current.amountMinor;
-        tx.update(walletRef, {
-          'balanceMinor': bal + delta,
-          'updatedAt': Timestamp.fromDate(now),
-        });
+      // Single-balance-effect guard: ONLY apply delta if ledgerApplied was false!
+      if (!current.ledgerApplied) {
+        final walletRef = _walletsCol(userId).doc(current.walletId);
+        final walletSnap = await tx.get(walletRef);
+        if (walletSnap.exists) {
+          final bal =
+              (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+          final delta = current.direction == 'credit'
+              ? current.amountMinor
+              : -current.amountMinor;
+          tx.update(walletRef, {
+            'balanceMinor': bal + delta,
+            'updatedAt': Timestamp.fromDate(now),
+          });
+        }
       }
 
       tx.update(txRef, {
         'verification': TransactionVerification.userConfirmed.name,
+        'verificationStatus': 'USER_CONFIRMED',
+        'ledgerApplied': true,
         if (updatedCategoryName != null && updatedCategoryName.isNotEmpty)
           'categoryName': updatedCategoryName,
-        if (updatedMerchant != null && updatedMerchant.isNotEmpty) 'merchant': updatedMerchant,
+        if (updatedMerchant != null && updatedMerchant.isNotEmpty)
+          'merchant': updatedMerchant,
         'updatedAt': Timestamp.fromDate(now),
       });
     });
@@ -406,21 +444,18 @@ class TransactionRemoteDataSource {
     required FinanceOverviewSummary summary,
   }) async {
     final now = DateTime.now();
-    await _snapshotCol(userId).doc(monthKey).set(
-      {
-        'id': monthKey,
-        'ownerId': userId,
-        'monthKey': monthKey,
-        'netWorthMinor': summary.netWorthMinor,
-        'liquidAssetsMinor': summary.liquidAssetsMinor,
-        'savingsAssetsMinor': summary.savingsAssetsMinor,
-        'creditLiabilityMinor': summary.creditLiabilityMinor,
-        'monthlyIncomeMinor': summary.monthlyIncomeMinor,
-        'monthlyExpenseMinor': summary.monthlyExpenseMinor,
-        'financialHealthScore': summary.financialHealthScore,
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    await _snapshotCol(userId).doc(monthKey).set({
+      'id': monthKey,
+      'ownerId': userId,
+      'monthKey': monthKey,
+      'netWorthMinor': summary.netWorthMinor,
+      'liquidAssetsMinor': summary.liquidAssetsMinor,
+      'savingsAssetsMinor': summary.savingsAssetsMinor,
+      'creditLiabilityMinor': summary.creditLiabilityMinor,
+      'monthlyIncomeMinor': summary.monthlyIncomeMinor,
+      'monthlyExpenseMinor': summary.monthlyExpenseMinor,
+      'financialHealthScore': summary.financialHealthScore,
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
   }
 }

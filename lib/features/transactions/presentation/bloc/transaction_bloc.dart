@@ -9,7 +9,8 @@ import '../../domain/usecases/transaction_usecases.dart';
 import 'transaction_event.dart';
 import 'transaction_state.dart';
 
-class TransactionListBloc extends Bloc<TransactionListEvent, TransactionListState> {
+class TransactionListBloc
+    extends Bloc<TransactionListEvent, TransactionListState> {
   final TransactionRepository _repository;
 
   static String currentMonthKey() {
@@ -18,16 +19,13 @@ class TransactionListBloc extends Bloc<TransactionListEvent, TransactionListStat
   }
 
   TransactionListBloc({required TransactionRepository repository})
-      : _repository = repository,
-        super(TransactionListState(monthKey: currentMonthKey())) {
+    : _repository = repository,
+      super(TransactionListState(monthKey: currentMonthKey())) {
     on<TransactionsSubscriptionRequested>(
       _onSubscriptionRequested,
       transformer: restartable(),
     );
-    on<TransactionsSearchChanged>(
-      _onSearchChanged,
-      transformer: restartable(),
-    );
+    on<TransactionsSearchChanged>(_onSearchChanged, transformer: restartable());
     on<TransactionsKindFilterChanged>(
       _onKindFilterChanged,
       transformer: restartable(),
@@ -39,44 +37,64 @@ class TransactionListBloc extends Bloc<TransactionListEvent, TransactionListStat
     Emitter<TransactionListState> emit,
   ) async {
     final targetMonth = event.monthKey ?? state.monthKey;
-    emit(state.copyWith(status: LoadStatus.loading, monthKey: targetMonth, clearFailure: true));
-
-    final combinedStream = StreamCombiner.combine3<
-        Result<List<WalletEntity>>,
-        Result<List<CategoryEntity>>,
-        Result<List<TransactionEntity>>,
-        TransactionListState>(
-      _repository.watchWallets(event.userId),
-      _repository.watchCategories(event.userId),
-      _repository.watchTransactions(userId: event.userId, monthKey: targetMonth),
-      (walletsRes, catsRes, txsRes) {
-        if (walletsRes is Err<List<WalletEntity>>) {
-          return state.copyWith(status: LoadStatus.failure, failure: walletsRes.failure);
-        }
-        if (catsRes is Err<List<CategoryEntity>>) {
-          return state.copyWith(status: LoadStatus.failure, failure: catsRes.failure);
-        }
-        if (txsRes is Err<List<TransactionEntity>>) {
-          return state.copyWith(status: LoadStatus.failure, failure: txsRes.failure);
-        }
-        final wallets = (walletsRes as Success<List<WalletEntity>>).value;
-        final categories = (catsRes as Success<List<CategoryEntity>>).value;
-        final txs = (txsRes as Success<List<TransactionEntity>>).value;
-        final summary = FinanceOverviewSummary.compute(
-          wallets: wallets,
-          transactions: txs,
-        );
-        return state.copyWith(
-          status: LoadStatus.loaded,
-          monthKey: targetMonth,
-          wallets: wallets,
-          categories: categories,
-          allTransactions: txs,
-          summary: summary,
-          clearFailure: true,
-        );
-      },
+    emit(
+      state.copyWith(
+        status: LoadStatus.loading,
+        monthKey: targetMonth,
+        clearFailure: true,
+      ),
     );
+
+    final combinedStream =
+        StreamCombiner.combine3<
+          Result<List<WalletEntity>>,
+          Result<List<CategoryEntity>>,
+          Result<List<TransactionEntity>>,
+          TransactionListState
+        >(
+          _repository.watchWallets(event.userId),
+          _repository.watchCategories(event.userId),
+          _repository.watchTransactions(
+            userId: event.userId,
+            monthKey: targetMonth,
+          ),
+          (walletsRes, catsRes, txsRes) {
+            if (walletsRes is Err<List<WalletEntity>>) {
+              return state.copyWith(
+                status: LoadStatus.failure,
+                failure: walletsRes.failure,
+              );
+            }
+            if (catsRes is Err<List<CategoryEntity>>) {
+              return state.copyWith(
+                status: LoadStatus.failure,
+                failure: catsRes.failure,
+              );
+            }
+            if (txsRes is Err<List<TransactionEntity>>) {
+              return state.copyWith(
+                status: LoadStatus.failure,
+                failure: txsRes.failure,
+              );
+            }
+            final wallets = (walletsRes as Success<List<WalletEntity>>).value;
+            final categories = (catsRes as Success<List<CategoryEntity>>).value;
+            final txs = (txsRes as Success<List<TransactionEntity>>).value;
+            final summary = FinanceOverviewSummary.compute(
+              wallets: wallets,
+              transactions: txs,
+            );
+            return state.copyWith(
+              status: LoadStatus.loaded,
+              monthKey: targetMonth,
+              wallets: wallets,
+              categories: categories,
+              allTransactions: txs,
+              summary: summary,
+              clearFailure: true,
+            );
+          },
+        );
 
     await emit.forEach<TransactionListState>(
       combinedStream,
@@ -105,7 +123,8 @@ class TransactionListBloc extends Bloc<TransactionListEvent, TransactionListStat
 
 /// Dedicated write BLoC using `sequential()` event concurrency so financial mutations
 /// never overlap or drop user actions, paired with `operationId` idempotency.
-class TransactionActionBloc extends Bloc<TransactionActionEvent, TransactionActionState> {
+class TransactionActionBloc
+    extends Bloc<TransactionActionEvent, TransactionActionState> {
   final CreateWalletUseCase _createWallet;
   final CreateTransactionUseCase _createTransaction;
   final ReverseTransactionUseCase _reverseTransaction;
@@ -118,14 +137,20 @@ class TransactionActionBloc extends Bloc<TransactionActionEvent, TransactionActi
     required CreateTransactionUseCase createTransaction,
     required ReverseTransactionUseCase reverseTransaction,
     required DecideProvisionalTransactionUseCase decideProvisional,
-  })  : _createWallet = createWallet,
-        _createTransaction = createTransaction,
-        _reverseTransaction = reverseTransaction,
-        _decideProvisional = decideProvisional,
-        super(const TransactionActionState()) {
+  }) : _createWallet = createWallet,
+       _createTransaction = createTransaction,
+       _reverseTransaction = reverseTransaction,
+       _decideProvisional = decideProvisional,
+       super(const TransactionActionState()) {
     on<WalletCreateSubmitted>(_onWalletCreate, transformer: sequential());
-    on<TransactionCreateSubmitted>(_onTransactionCreate, transformer: sequential());
-    on<TransactionReverseRequested>(_onTransactionReverse, transformer: sequential());
+    on<TransactionCreateSubmitted>(
+      _onTransactionCreate,
+      transformer: sequential(),
+    );
+    on<TransactionReverseRequested>(
+      _onTransactionReverse,
+      transformer: sequential(),
+    );
     on<ProvisionalTransactionDecisionSubmitted>(
       _onProvisionalDecision,
       transformer: sequential(),
@@ -148,7 +173,9 @@ class TransactionActionBloc extends Bloc<TransactionActionEvent, TransactionActi
       ),
     );
     res.fold(
-      (failure) => emit(TransactionActionState(status: ActionStatus.failure, failure: failure)),
+      (failure) => emit(
+        TransactionActionState(status: ActionStatus.failure, failure: failure),
+      ),
       (wallet) => emit(
         TransactionActionState(
           status: ActionStatus.success,
@@ -185,7 +212,12 @@ class TransactionActionBloc extends Bloc<TransactionActionEvent, TransactionActi
         ),
       );
       res.fold(
-        (failure) => emit(TransactionActionState(status: ActionStatus.failure, failure: failure)),
+        (failure) => emit(
+          TransactionActionState(
+            status: ActionStatus.failure,
+            failure: failure,
+          ),
+        ),
         (tx) => emit(
           TransactionActionState(
             status: ActionStatus.success,
@@ -212,7 +244,9 @@ class TransactionActionBloc extends Bloc<TransactionActionEvent, TransactionActi
       ),
     );
     res.fold(
-      (failure) => emit(TransactionActionState(status: ActionStatus.failure, failure: failure)),
+      (failure) => emit(
+        TransactionActionState(status: ActionStatus.failure, failure: failure),
+      ),
       (_) => emit(
         const TransactionActionState(
           status: ActionStatus.success,
@@ -237,7 +271,9 @@ class TransactionActionBloc extends Bloc<TransactionActionEvent, TransactionActi
       ),
     );
     res.fold(
-      (failure) => emit(TransactionActionState(status: ActionStatus.failure, failure: failure)),
+      (failure) => emit(
+        TransactionActionState(status: ActionStatus.failure, failure: failure),
+      ),
       (_) => emit(
         TransactionActionState(
           status: ActionStatus.success,

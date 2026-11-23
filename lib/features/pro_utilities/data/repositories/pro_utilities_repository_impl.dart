@@ -44,31 +44,38 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
           .collection('subscriptions_warranties')
           .snapshots()
           .listen((snap) {
-        subs = snap.docs.map((doc) {
-          final d = doc.data();
-          return SubscriptionWarrantyEntity(
-            id: doc.id,
-            ownerId: userId,
-            title: (d['title'] ?? 'Gói dịch vụ') as String,
-            providerOrStore: (d['providerOrStore'] ?? '') as String,
-            cycle: SubscriptionCycleX.fromKey(d['cycle'] as String?),
-            amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
-            nextBillingOrExpiryDate:
-                DateTime.tryParse((d['nextBillingOrExpiryDate'] ?? '') as String) ??
-                    DateTime.now().add(const Duration(days: 30)),
-            serialOrNote: (d['serialOrNote'] ?? '') as String,
-          );
-        }).toList()
-          ..sort(
-            (a, b) => a.nextBillingOrExpiryDate.compareTo(b.nextBillingOrExpiryDate),
-          );
-        emitNow();
-      }, onError: (_) => emitNow());
+            subs =
+                snap.docs.map((doc) {
+                  final d = doc.data();
+                  return SubscriptionWarrantyEntity(
+                    id: doc.id,
+                    ownerId: userId,
+                    title: (d['title'] ?? 'Gói dịch vụ') as String,
+                    providerOrStore: (d['providerOrStore'] ?? '') as String,
+                    cycle: SubscriptionCycleX.fromKey(d['cycle'] as String?),
+                    amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
+                    nextBillingOrExpiryDate:
+                        DateTime.tryParse(
+                          (d['nextBillingOrExpiryDate'] ?? '') as String,
+                        ) ??
+                        DateTime.now().add(const Duration(days: 30)),
+                    serialOrNote: (d['serialOrNote'] ?? '') as String,
+                  );
+                }).toList()..sort(
+                  (a, b) => a.nextBillingOrExpiryDate.compareTo(
+                    b.nextBillingOrExpiryDate,
+                  ),
+                );
+            emitNow();
+          }, onError: (_) => emitNow());
 
-      final s2 = _userRef(userId).collection('habits').snapshots().listen((snap) {
+      final s2 = _userRef(userId).collection('habits').snapshots().listen((
+        snap,
+      ) {
         habits = snap.docs.map((doc) {
           final d = doc.data();
-          final rawList = (d['completedDateKeys'] as List<dynamic>?) ?? const [];
+          final rawList =
+              (d['completedDateKeys'] as List<dynamic>?) ?? const [];
           return LifeHabitEntity(
             id: doc.id,
             ownerId: userId,
@@ -85,18 +92,21 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
           .doc(todayKey)
           .snapshots()
           .listen((doc) {
-        final d = doc.data() ?? const <String, dynamic>{};
-        wellness = DailyWellnessEntity(
-          dateKey: todayKey,
-          waterMl: (d['waterMl'] as num?)?.toInt() ?? 0,
-          targetWaterMl: (d['targetWaterMl'] as num?)?.toInt() ?? 2000,
-          focusMinutes: (d['focusMinutes'] as num?)?.toInt() ?? 0,
-          completedPomodoros: (d['completedPomodoros'] as num?)?.toInt() ?? 0,
-        );
-        emitNow();
-      }, onError: (_) => emitNow());
+            final d = doc.data() ?? const <String, dynamic>{};
+            wellness = DailyWellnessEntity(
+              dateKey: todayKey,
+              waterMl: (d['waterMl'] as num?)?.toInt() ?? 0,
+              targetWaterMl: (d['targetWaterMl'] as num?)?.toInt() ?? 2000,
+              focusMinutes: (d['focusMinutes'] as num?)?.toInt() ?? 0,
+              completedPomodoros:
+                  (d['completedPomodoros'] as num?)?.toInt() ?? 0,
+            );
+            emitNow();
+          }, onError: (_) => emitNow());
 
-      final s4 = _userRef(userId).collection('gift_ledger').snapshots().listen((snap) {
+      final s4 = _userRef(userId).collection('gift_ledger').snapshots().listen((
+        snap,
+      ) {
         gifts = snap.docs.map((doc) {
           final d = doc.data();
           return GiftLedgerEntryEntity(
@@ -111,27 +121,29 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
             amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
             note: (d['note'] ?? '') as String,
             eventDate:
-                DateTime.tryParse((d['eventDate'] ?? '') as String) ?? DateTime.now(),
+                DateTime.tryParse((d['eventDate'] ?? '') as String) ??
+                DateTime.now(),
           );
-        }).toList()
-          ..sort((a, b) => b.eventDate.compareTo(a.eventDate));
+        }).toList()..sort((a, b) => b.eventDate.compareTo(a.eventDate));
         emitNow();
       }, onError: (_) => emitNow());
 
-      final s5 =
-          _userRef(userId).collection('packing_items').snapshots().listen((snap) {
-        packing = snap.docs.map((doc) {
-          final d = doc.data();
-          return PackingChecklistItemEntity(
-            id: doc.id,
-            ownerId: userId,
-            tripName: (d['tripName'] ?? 'Chuyến đi') as String,
-            title: (d['title'] ?? '') as String,
-            checked: d['checked'] == true,
-          );
-        }).toList();
-        emitNow();
-      }, onError: (_) => emitNow());
+      final s5 = _userRef(userId)
+          .collection('packing_items')
+          .snapshots()
+          .listen((snap) {
+            packing = snap.docs.map((doc) {
+              final d = doc.data();
+              return PackingChecklistItemEntity(
+                id: doc.id,
+                ownerId: userId,
+                tripName: (d['tripName'] ?? 'Chuyến đi') as String,
+                title: (d['title'] ?? '') as String,
+                checked: d['checked'] == true,
+              );
+            }).toList();
+            emitNow();
+          }, onError: (_) => emitNow());
 
       controller.onCancel = () async {
         await s1.cancel();
@@ -155,12 +167,16 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
   }) async {
     if (title.trim().isEmpty) {
       return const Err(
-        ValidationFailure(message: 'Vui lòng nhập tên gói dịch vụ hoặc thiết bị bảo hành.'),
+        ValidationFailure(
+          message: 'Vui lòng nhập tên gói dịch vụ hoặc thiết bị bảo hành.',
+        ),
       );
     }
     try {
       final id = 'sub_${_uuid.v4().substring(0, 8)}';
-      await _userRef(userId).collection('subscriptions_warranties').doc(id).set({
+      await _userRef(
+        userId,
+      ).collection('subscriptions_warranties').doc(id).set({
         'id': id,
         'ownerId': userId,
         'title': title.trim(),
@@ -182,7 +198,9 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     required String itemId,
   }) async {
     try {
-      await _userRef(userId).collection('subscriptions_warranties').doc(itemId).delete();
+      await _userRef(
+        userId,
+      ).collection('subscriptions_warranties').doc(itemId).delete();
       return const Success(null);
     } catch (e) {
       return Err(UnexpectedFailure(message: 'Không thể xóa mục: $e'));
@@ -196,7 +214,9 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     required String categoryTag,
   }) async {
     if (title.trim().isEmpty) {
-      return const Err(ValidationFailure(message: 'Vui lòng nhập tên thói quen.'));
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập tên thói quen.'),
+      );
     }
     try {
       final id = 'hab_${_uuid.v4().substring(0, 8)}';
@@ -232,7 +252,9 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể cập nhật thói quen: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể cập nhật thói quen: $e'),
+      );
     }
   }
 
@@ -248,11 +270,14 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       final docRef = _userRef(userId).collection('wellness_daily').doc(dateKey);
       final snap = await docRef.get();
       final curr = snap.data() ?? const <String, dynamic>{};
-      final nextWater = (((curr['waterMl'] as num?)?.toInt() ?? 0) + addWaterMl).clamp(0, 6000);
-      final nextFocus = (((curr['focusMinutes'] as num?)?.toInt() ?? 0) + addFocusMinutes)
-          .clamp(0, 1440);
+      final nextWater = (((curr['waterMl'] as num?)?.toInt() ?? 0) + addWaterMl)
+          .clamp(0, 6000);
+      final nextFocus =
+          (((curr['focusMinutes'] as num?)?.toInt() ?? 0) + addFocusMinutes)
+              .clamp(0, 1440);
       final nextPomo =
-          (((curr['completedPomodoros'] as num?)?.toInt() ?? 0) + addPomodoros).clamp(0, 50);
+          (((curr['completedPomodoros'] as num?)?.toInt() ?? 0) + addPomodoros)
+              .clamp(0, 50);
 
       await docRef.set({
         'dateKey': dateKey,
@@ -264,7 +289,9 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       });
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'),
+      );
     }
   }
 
@@ -280,7 +307,9 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
   }) async {
     if (contactName.trim().isEmpty || amountMinor <= 0) {
       return const Err(
-        ValidationFailure(message: 'Vui lòng nhập tên người mừng và số tiền hợp lệ.'),
+        ValidationFailure(
+          message: 'Vui lòng nhập tên người mừng và số tiền hợp lệ.',
+        ),
       );
     }
     try {
@@ -328,7 +357,9 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       await batch.commit();
       return const Success(null);
     } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể tạo checklist hành lý: $e'));
+      return Err(
+        UnexpectedFailure(message: 'Không thể tạo checklist hành lý: $e'),
+      );
     }
   }
 

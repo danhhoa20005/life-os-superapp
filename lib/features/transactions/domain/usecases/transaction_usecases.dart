@@ -31,10 +31,14 @@ class CreateWalletUseCase implements UseCase<WalletEntity, CreateWalletParams> {
   Future<Result<WalletEntity>> call(CreateWalletParams params) async {
     final cleanName = params.name.trim();
     if (cleanName.length < 2) {
-      return const Err(ValidationFailure(message: 'Tên ví/tài khoản phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Tên ví/tài khoản phải có ít nhất 2 ký tự.'),
+      );
     }
     if (params.openingBalanceMinor.abs() > VndAmount.maxAllowedMinor) {
-      return const Err(ValidationFailure(message: 'Số dư đầu kỳ vượt ngoài phạm vi cho phép.'));
+      return const Err(
+        ValidationFailure(message: 'Số dư đầu kỳ vượt ngoài phạm vi cho phép.'),
+      );
     }
     return _repository.createWallet(
       userId: params.userId,
@@ -77,29 +81,45 @@ final class CreateTransactionParams {
   });
 }
 
-class CreateTransactionUseCase implements UseCase<TransactionEntity, CreateTransactionParams> {
+class CreateTransactionUseCase
+    implements UseCase<TransactionEntity, CreateTransactionParams> {
   final TransactionRepository _repository;
   const CreateTransactionUseCase(this._repository);
 
   @override
   Future<Result<TransactionEntity>> call(CreateTransactionParams params) async {
     if (params.operationId.trim().isEmpty) {
-      return const Err(ValidationFailure(message: 'Thiếu mã định danh thao tác (operationId).'));
+      return const Err(
+        ValidationFailure(
+          message: 'Thiếu mã định danh thao tác (operationId).',
+        ),
+      );
     }
-    if (params.amountMinor <= 0 || params.amountMinor > VndAmount.maxAllowedMinor) {
-      return const Err(ValidationFailure(message: 'Số tiền giao dịch phải là số nguyên dương (VND).'));
+    if (params.amountMinor <= 0 ||
+        params.amountMinor > VndAmount.maxAllowedMinor) {
+      return const Err(
+        ValidationFailure(
+          message: 'Số tiền giao dịch phải là số nguyên dương (VND).',
+        ),
+      );
     }
     if (params.splitLines.isNotEmpty) {
       if (params.kind != TransactionKind.expense) {
         return const Err(
-          ValidationFailure(message: 'Tách khoản đa danh mục chỉ áp dụng cho bút toán chi tiêu.'),
+          ValidationFailure(
+            message:
+                'Tách khoản đa danh mục chỉ áp dụng cho bút toán chi tiêu.',
+          ),
         );
       }
       var splitSum = 0;
       for (final line in params.splitLines) {
         if (line.categoryName.trim().isEmpty || line.amountMinor <= 0) {
           return const Err(
-            ValidationFailure(message: 'Mỗi dòng tách khoản phải có danh mục và số tiền nguyên dương.'),
+            ValidationFailure(
+              message:
+                  'Mỗi dòng tách khoản phải có danh mục và số tiền nguyên dương.',
+            ),
           );
         }
         splitSum += line.amountMinor;
@@ -116,11 +136,15 @@ class CreateTransactionUseCase implements UseCase<TransactionEntity, CreateTrans
     if (params.kind == TransactionKind.transfer ||
         params.kind == TransactionKind.creditCardPayment) {
       if (params.targetWalletId == null || params.targetWalletId!.isEmpty) {
-        return const Err(ValidationFailure(message: 'Vui lòng chọn ví/tài khoản đích.'));
+        return const Err(
+          ValidationFailure(message: 'Vui lòng chọn ví/tài khoản đích.'),
+        );
       }
       if (params.targetWalletId == params.walletId) {
         return const Err(
-          ValidationFailure(message: 'Ví nguồn và ví đích không được trùng nhau.'),
+          ValidationFailure(
+            message: 'Ví nguồn và ví đích không được trùng nhau.',
+          ),
         );
       }
     }
@@ -130,10 +154,10 @@ class CreateTransactionUseCase implements UseCase<TransactionEntity, CreateTrans
 
     final cleanMerchant = params.merchant.trim().isEmpty
         ? (params.kind == TransactionKind.transfer
-            ? 'Chuyển tiền nội bộ'
-            : params.kind == TransactionKind.creditCardPayment
-                ? 'Thanh toán dư nợ thẻ tín dụng'
-                : primaryCategory)
+              ? 'Chuyển tiền nội bộ'
+              : params.kind == TransactionKind.creditCardPayment
+              ? 'Thanh toán dư nợ thẻ tín dụng'
+              : primaryCategory)
         : params.merchant.trim();
 
     return _repository.createTransaction(
@@ -165,7 +189,8 @@ final class ReverseTransactionParams {
   });
 }
 
-class ReverseTransactionUseCase implements UseCase<TransactionEntity, ReverseTransactionParams> {
+class ReverseTransactionUseCase
+    implements UseCase<TransactionEntity, ReverseTransactionParams> {
   final TransactionRepository _repository;
   const ReverseTransactionUseCase(this._repository);
 
@@ -174,7 +199,9 @@ class ReverseTransactionUseCase implements UseCase<TransactionEntity, ReverseTra
     return _repository.reverseTransaction(
       userId: params.userId,
       transactionId: params.transactionId,
-      reason: params.reason.trim().isEmpty ? 'Hoàn tiền / Đảo bút toán' : params.reason.trim(),
+      reason: params.reason.trim().isEmpty
+          ? 'Hoàn tiền / Đảo bút toán'
+          : params.reason.trim(),
     );
   }
 }
@@ -195,7 +222,8 @@ final class DecideProvisionalParams {
   });
 }
 
-class DecideProvisionalTransactionUseCase implements UseCase<void, DecideProvisionalParams> {
+class DecideProvisionalTransactionUseCase
+    implements UseCase<void, DecideProvisionalParams> {
   final TransactionRepository _repository;
   const DecideProvisionalTransactionUseCase(this._repository);
 

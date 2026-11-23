@@ -10,25 +10,29 @@ enum DocumentFolderCategory {
 
 extension DocumentFolderCategoryX on DocumentFolderCategory {
   String get key => switch (this) {
-        DocumentFolderCategory.billsAndContracts => 'bills_contracts',
-        DocumentFolderCategory.vehiclePapers => 'vehicle_papers',
-        DocumentFolderCategory.insuranceAndHealth => 'insurance_health',
-        DocumentFolderCategory.importantDocs => 'important_docs',
-      };
+    DocumentFolderCategory.billsAndContracts => 'bills_contracts',
+    DocumentFolderCategory.vehiclePapers => 'vehicle_papers',
+    DocumentFolderCategory.insuranceAndHealth => 'insurance_health',
+    DocumentFolderCategory.importantDocs => 'important_docs',
+  };
 
   String get displayTitle => switch (this) {
-        DocumentFolderCategory.billsAndContracts => 'Hóa đơn & Hợp đồng',
-        DocumentFolderCategory.vehiclePapers => 'Giấy tờ xe',
-        DocumentFolderCategory.insuranceAndHealth => 'Bảo hiểm & Sức khỏe',
-        DocumentFolderCategory.importantDocs => 'Tài liệu quan trọng',
-      };
+    DocumentFolderCategory.billsAndContracts => 'Hóa đơn & Hợp đồng',
+    DocumentFolderCategory.vehiclePapers => 'Giấy tờ xe',
+    DocumentFolderCategory.insuranceAndHealth => 'Bảo hiểm & Sức khỏe',
+    DocumentFolderCategory.importantDocs => 'Tài liệu quan trọng',
+  };
 
   String get subtitleHint => switch (this) {
-        DocumentFolderCategory.billsAndContracts => 'Hợp đồng thuê nhà, điện nước, hóa đơn bảo hành',
-        DocumentFolderCategory.vehiclePapers => 'Đăng ký xe, đăng kiểm, giấy phép lái xe',
-        DocumentFolderCategory.insuranceAndHealth => 'Bảo hiểm TNDS, BHYT, sổ khám sức khỏe',
-        DocumentFolderCategory.importantDocs => 'Căn cước, hộ chiếu, giấy khai sinh, học bạ',
-      };
+    DocumentFolderCategory.billsAndContracts =>
+      'Hợp đồng thuê nhà, điện nước, hóa đơn bảo hành',
+    DocumentFolderCategory.vehiclePapers =>
+      'Đăng ký xe, đăng kiểm, giấy phép lái xe',
+    DocumentFolderCategory.insuranceAndHealth =>
+      'Bảo hiểm TNDS, BHYT, sổ khám sức khỏe',
+    DocumentFolderCategory.importantDocs =>
+      'Căn cước, hộ chiếu, giấy khai sinh, học bạ',
+  };
 
   static DocumentFolderCategory fromKey(String? raw) {
     return switch (raw) {
@@ -80,16 +84,16 @@ class DocumentVaultEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        familyId,
-        isFamilyShared,
-        folder,
-        title,
-        referenceCode,
-        note,
-        uploadedByName,
-        expiryDate,
-        createdAt,
-      ];
+    id,
+    ownerId,
+    familyId,
+    isFamilyShared,
+    folder,
+    title,
+    referenceCode,
+    note,
+    uploadedByName,
+    expiryDate,
+    createdAt,
+  ];
 }

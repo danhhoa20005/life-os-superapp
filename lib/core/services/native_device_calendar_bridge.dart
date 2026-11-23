@@ -68,7 +68,9 @@ class DeviceCalendarEventItem {
   });
 
   factory DeviceCalendarEventItem.fromMap(Map<dynamic, dynamic> map) {
-    final startMs = (map['startsAtMs'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch;
+    final startMs =
+        (map['startsAtMs'] as num?)?.toInt() ??
+        DateTime.now().millisecondsSinceEpoch;
     final endMs = (map['endsAtMs'] as num?)?.toInt() ?? (startMs + 3600000);
     final devEvId = (map['deviceEventId'] as num?)?.toInt() ?? 0;
     return DeviceCalendarEventItem(
@@ -115,12 +117,15 @@ abstract interface class DeviceCalendarDriver {
 }
 
 class MethodChannelDeviceCalendarDriver implements DeviceCalendarDriver {
-  static const MethodChannel _channel = MethodChannel('vn.lifeos.app/device_calendar');
+  static const MethodChannel _channel = MethodChannel(
+    'vn.lifeos.app/device_calendar',
+  );
 
   const MethodChannelDeviceCalendarDriver();
 
   @override
-  bool get isSupportedPlatform => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get isSupportedPlatform =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   Future<bool> hasPermission() async {
@@ -167,10 +172,11 @@ class MethodChannelDeviceCalendarDriver implements DeviceCalendarDriver {
   }) async {
     if (!isSupportedPlatform) return const <DeviceCalendarEventItem>[];
     try {
-      final raw = await _channel.invokeMethod<List<dynamic>>('listEvents', <String, dynamic>{
-        'windowStartMs': windowStart.millisecondsSinceEpoch,
-        'windowEndMs': windowEnd.millisecondsSinceEpoch,
-      });
+      final raw = await _channel
+          .invokeMethod<List<dynamic>>('listEvents', <String, dynamic>{
+            'windowStartMs': windowStart.millisecondsSinceEpoch,
+            'windowEndMs': windowEnd.millisecondsSinceEpoch,
+          });
       if (raw == null) return const <DeviceCalendarEventItem>[];
       return raw
           .whereType<Map<dynamic, dynamic>>()
@@ -198,19 +204,20 @@ class MethodChannelDeviceCalendarDriver implements DeviceCalendarDriver {
   }) async {
     if (!isSupportedPlatform) return null;
     try {
-      final res = await _channel.invokeMethod<num>('upsertEvent', <String, dynamic>{
-        if (deviceEventId != null) 'deviceEventId': deviceEventId,
-        if (deviceCalendarId != null) 'deviceCalendarId': deviceCalendarId,
-        'title': title,
-        'description': description,
-        'location': location,
-        'startsAtMs': startsAt.millisecondsSinceEpoch,
-        'endsAtMs': endsAt.millisecondsSinceEpoch,
-        'isAllDay': isAllDay,
-        'timeZone': timeZone,
-        'rrule': rrule,
-        'reminderMinutesBefore': reminderMinutesBefore,
-      });
+      final res = await _channel
+          .invokeMethod<num>('upsertEvent', <String, dynamic>{
+            if (deviceEventId != null) 'deviceEventId': deviceEventId,
+            if (deviceCalendarId != null) 'deviceCalendarId': deviceCalendarId,
+            'title': title,
+            'description': description,
+            'location': location,
+            'startsAtMs': startsAt.millisecondsSinceEpoch,
+            'endsAtMs': endsAt.millisecondsSinceEpoch,
+            'isAllDay': isAllDay,
+            'timeZone': timeZone,
+            'rrule': rrule,
+            'reminderMinutesBefore': reminderMinutesBefore,
+          });
       return res?.toInt();
     } catch (_) {
       return null;
@@ -221,9 +228,10 @@ class MethodChannelDeviceCalendarDriver implements DeviceCalendarDriver {
   Future<bool> deleteEvent(int deviceEventId) async {
     if (!isSupportedPlatform) return false;
     try {
-      final ok = await _channel.invokeMethod<bool>('deleteEvent', <String, dynamic>{
-        'deviceEventId': deviceEventId,
-      });
+      final ok = await _channel.invokeMethod<bool>(
+        'deleteEvent',
+        <String, dynamic>{'deviceEventId': deviceEventId},
+      );
       return ok ?? false;
     } catch (_) {
       return false;
@@ -233,9 +241,11 @@ class MethodChannelDeviceCalendarDriver implements DeviceCalendarDriver {
 
 /// Bridge for reading and writing real events in the user's phone Calendar (`CalendarContract`).
 class NativeDeviceCalendarBridge {
-  static DeviceCalendarDriver _driver = const MethodChannelDeviceCalendarDriver();
+  static DeviceCalendarDriver _driver =
+      const MethodChannelDeviceCalendarDriver();
 
-  static const NativeDeviceCalendarBridge instance = NativeDeviceCalendarBridge._();
+  static const NativeDeviceCalendarBridge instance =
+      NativeDeviceCalendarBridge._();
 
   const NativeDeviceCalendarBridge._();
 
@@ -255,8 +265,7 @@ class NativeDeviceCalendarBridge {
   Future<List<DeviceCalendarEventItem>> listEvents({
     required DateTime windowStart,
     required DateTime windowEnd,
-  }) =>
-      _driver.listEvents(windowStart: windowStart, windowEnd: windowEnd);
+  }) => _driver.listEvents(windowStart: windowStart, windowEnd: windowEnd);
 
   Future<int?> upsertEvent({
     int? deviceEventId,
@@ -270,20 +279,20 @@ class NativeDeviceCalendarBridge {
     String timeZone = 'Asia/Ho_Chi_Minh',
     String? rrule,
     int reminderMinutesBefore = 15,
-  }) =>
-      _driver.upsertEvent(
-        deviceEventId: deviceEventId,
-        deviceCalendarId: deviceCalendarId,
-        title: title,
-        description: description,
-        location: location,
-        startsAt: startsAt,
-        endsAt: endsAt,
-        isAllDay: isAllDay,
-        timeZone: timeZone,
-        rrule: rrule,
-        reminderMinutesBefore: reminderMinutesBefore,
-      );
+  }) => _driver.upsertEvent(
+    deviceEventId: deviceEventId,
+    deviceCalendarId: deviceCalendarId,
+    title: title,
+    description: description,
+    location: location,
+    startsAt: startsAt,
+    endsAt: endsAt,
+    isAllDay: isAllDay,
+    timeZone: timeZone,
+    rrule: rrule,
+    reminderMinutesBefore: reminderMinutesBefore,
+  );
 
-  Future<bool> deleteEvent(int deviceEventId) => _driver.deleteEvent(deviceEventId);
+  Future<bool> deleteEvent(int deviceEventId) =>
+      _driver.deleteEvent(deviceEventId);
 }

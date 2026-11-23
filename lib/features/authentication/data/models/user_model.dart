@@ -40,7 +40,10 @@ class UserModel {
     final updatedTs = data['updatedAt'];
     final rawProviders = data['authProviders'];
     final parsedProviders = rawProviders is Iterable
-        ? rawProviders.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+        ? rawProviders
+              .map((e) => e.toString())
+              .where((e) => e.isNotEmpty)
+              .toList()
         : const <String>['password'];
 
     return UserModel(
@@ -50,7 +53,9 @@ class UserModel {
       photoUrl: data['photoUrl'] as String?,
       phoneNumber: data['phoneNumber'] as String?,
       emailVerified: (data['emailVerified'] as bool?) ?? false,
-      authProviders: parsedProviders.isEmpty ? const <String>['password'] : parsedProviders,
+      authProviders: parsedProviders.isEmpty
+          ? const <String>['password']
+          : parsedProviders,
       timezone: (data['timezone'] as String?) ?? 'Asia/Ho_Chi_Minh',
       onboardingCompleted: (data['onboardingCompleted'] as bool?) ?? false,
       availabilityOptIn: (data['availabilityOptIn'] as bool?) ?? false,

@@ -22,23 +22,17 @@ abstract final class StreamCombiner {
         }
       }
 
-      subA = streamA.listen(
-        (a) {
-          lastA = a;
-          hasA = true;
-          tryEmit();
-        },
-        onError: controller.addErrorSync,
-      );
+      subA = streamA.listen((a) {
+        lastA = a;
+        hasA = true;
+        tryEmit();
+      }, onError: controller.addErrorSync);
 
-      subB = streamB.listen(
-        (b) {
-          lastB = b;
-          hasB = true;
-          tryEmit();
-        },
-        onError: controller.addErrorSync,
-      );
+      subB = streamB.listen((b) {
+        lastB = b;
+        hasB = true;
+        tryEmit();
+      }, onError: controller.addErrorSync);
 
       controller.onCancel = () async {
         await subA?.cancel();

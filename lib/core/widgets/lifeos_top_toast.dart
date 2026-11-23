@@ -106,7 +106,8 @@ class LifeOsTopToast {
 
     // Fallback for isolated widget tests mounting a bare MaterialApp without LifeOsTopToastHost
     _dismissFallbackOverlay();
-    final overlay = Overlay.maybeOf(context, rootOverlay: true) ?? Overlay.maybeOf(context);
+    final overlay =
+        Overlay.maybeOf(context, rootOverlay: true) ?? Overlay.maybeOf(context);
     if (overlay == null) return;
 
     late final OverlayEntry overlayEntry;
@@ -152,12 +153,7 @@ class LifeOsTopToast {
       msg = content.toString();
     }
     final act = snackBar.action;
-    show(
-      context,
-      msg,
-      actionLabel: act?.label,
-      onAction: act?.onPressed,
-    );
+    show(context, msg, actionLabel: act?.label, onAction: act?.onPressed);
   }
 
   static void dismiss() {
@@ -201,11 +197,14 @@ class _LifeOsTopToastHostState extends State<LifeOsTopToastHost>
       duration: const Duration(milliseconds: 240),
       reverseDuration: const Duration(milliseconds: 180),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
-    _fadeAnimation = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, -1.1), end: Offset.zero).animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOut,
+    );
   }
 
   void _present(_TopToastEntryData data) {
@@ -251,7 +250,8 @@ class _LifeOsTopToastHostState extends State<LifeOsTopToastHost>
   Widget build(BuildContext context) {
     final topInset = MediaQuery.maybePaddingOf(context)?.top ?? 0;
     final active = _current;
-    final isInteractive = active != null && active.actionLabel != null && active.onAction != null;
+    final isInteractive =
+        active != null && active.actionLabel != null && active.onAction != null;
 
     return Stack(
       children: [
@@ -313,31 +313,36 @@ class _TopToastBannerCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final c = TammySemanticColors.of(context);
 
-    final (IconData icon, Color accent, Color subtleBg, String badgeTitle) = switch (data.kind) {
+    final (
+      IconData icon,
+      Color accent,
+      Color subtleBg,
+      String badgeTitle,
+    ) = switch (data.kind) {
       LifeOsToastKind.success => (
-          Icons.check_circle_rounded,
-          isDark ? const Color(0xFF34D399) : LifeOSBrandColors.primary,
-          isDark ? const Color(0xFF113522) : const Color(0xFFE6F8EC),
-          'Thành công',
-        ),
+        Icons.check_circle_rounded,
+        isDark ? const Color(0xFF34D399) : LifeOSBrandColors.primary,
+        isDark ? const Color(0xFF113522) : const Color(0xFFE6F8EC),
+        'Thành công',
+      ),
       LifeOsToastKind.error => (
-          Icons.error_outline_rounded,
-          isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
-          isDark ? const Color(0xFF3B1619) : const Color(0xFFFEE2E2),
-          'Cần kiểm tra',
-        ),
+        Icons.error_outline_rounded,
+        isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+        isDark ? const Color(0xFF3B1619) : const Color(0xFFFEE2E2),
+        'Cần kiểm tra',
+      ),
       LifeOsToastKind.warning => (
-          Icons.warning_amber_rounded,
-          isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
-          isDark ? const Color(0xFF3A2A0D) : const Color(0xFFFEF3C7),
-          'Lưu ý',
-        ),
+        Icons.warning_amber_rounded,
+        isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+        isDark ? const Color(0xFF3A2A0D) : const Color(0xFFFEF3C7),
+        'Lưu ý',
+      ),
       LifeOsToastKind.info => (
-          Icons.notifications_active_outlined,
-          isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
-          isDark ? const Color(0xFF13294B) : const Color(0xFFEFF6FF),
-          'Thông báo',
-        ),
+        Icons.notifications_active_outlined,
+        isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+        isDark ? const Color(0xFF13294B) : const Color(0xFFEFF6FF),
+        'Thông báo',
+      ),
     };
 
     final hasAction = data.actionLabel != null && data.onAction != null;
@@ -360,7 +365,9 @@ class _TopToastBannerCard extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0A140E).withValues(alpha: isDark ? 0.42 : 0.12),
+                color: const Color(
+                  0xFF0A140E,
+                ).withValues(alpha: isDark ? 0.42 : 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -416,7 +423,10 @@ class _TopToastBannerCard extends StatelessWidget {
                     foregroundColor: accent,
                     backgroundColor: subtleBg,
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -428,7 +438,10 @@ class _TopToastBannerCard extends StatelessWidget {
                   },
                   child: Text(
                     data.actionLabel!,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 Semantics(

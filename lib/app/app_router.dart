@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_assets.dart';
 import '../core/di/dependency_injection.dart';
+import '../core/services/fcm_banking_messaging_service.dart';
 import '../core/services/native_alarm_scheduler_bridge.dart';
 import '../core/services/native_home_widget_bridge.dart';
 import '../core/utils/smart_quick_entry_parser.dart';
@@ -82,7 +83,10 @@ class BlocRouterRefreshStream implements Listenable {
   Future<void> dispose() => _subscription.cancel();
 }
 
-GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStream) {
+GoRouter createAppRouter(
+  AuthBloc authBloc,
+  BlocRouterRefreshStream refreshStream,
+) {
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: refreshStream,
@@ -94,7 +98,8 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
         return loc == '/splash' ? null : '/splash';
       }
 
-      final isPublicAuthRoute = loc == '/welcome' ||
+      final isPublicAuthRoute =
+          loc == '/welcome' ||
           loc == '/login' ||
           loc == '/register' ||
           loc == '/forgot-password' ||
@@ -116,22 +121,10 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/splash',
-        builder: (_, __) => const SplashPage(),
-      ),
-      GoRoute(
-        path: '/welcome',
-        builder: (_, __) => const WelcomePage(),
-      ),
-      GoRoute(
-        path: '/login',
-        builder: (_, __) => const LoginPage(),
-      ),
-      GoRoute(
-        path: '/register',
-        builder: (_, __) => const RegisterPage(),
-      ),
+      GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
+      GoRoute(path: '/welcome', builder: (_, __) => const WelcomePage()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
       GoRoute(
         path: '/forgot-password',
         builder: (_, state) => ForgotPasswordPage(
@@ -164,12 +157,18 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/finance', builder: (_, __) => const FinancePage()),
+              GoRoute(
+                path: '/finance',
+                builder: (_, __) => const FinancePage(),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/planning', builder: (_, __) => const PlanningPage()),
+              GoRoute(
+                path: '/planning',
+                builder: (_, __) => const PlanningPage(),
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -225,8 +224,9 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
             userId: user.id,
             familyId: user.activeFamilyId,
             child: EventDetailPage(
-              initialEvent:
-                  state.extra is CalendarEventEntity ? state.extra as CalendarEventEntity : null,
+              initialEvent: state.extra is CalendarEventEntity
+                  ? state.extra as CalendarEventEntity
+                  : null,
             ),
           );
         },
@@ -237,7 +237,9 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return EventAlarmPage(
-            event: state.extra is CalendarEventEntity ? state.extra as CalendarEventEntity : null,
+            event: state.extra is CalendarEventEntity
+                ? state.extra as CalendarEventEntity
+                : null,
           );
         },
       ),
@@ -262,8 +264,10 @@ GoRouter createAppRouter(AuthBloc authBloc, BlocRouterRefreshStream refreshStrea
             userId: user.id,
             familyId: user.activeFamilyId,
             child: AutoTransactionReviewPage(
-              initialTransaction:
-                  state.extra is TransactionEntity ? state.extra as TransactionEntity : null,
+              initialTransaction: state.extra is TransactionEntity
+                  ? state.extra as TransactionEntity
+                  : null,
+              initialTransactionId: state.uri.queryParameters['txId'],
             ),
           );
         },
@@ -476,7 +480,12 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
         ),
         BlocProvider<TransactionListBloc>(
           create: (_) => sl<TransactionListBloc>()
-            ..add(TransactionsSubscriptionRequested(userId: userId, monthKey: monthKey)),
+            ..add(
+              TransactionsSubscriptionRequested(
+                userId: userId,
+                monthKey: monthKey,
+              ),
+            ),
         ),
         BlocProvider<TransactionActionBloc>(
           create: (_) => sl<TransactionActionBloc>(),
@@ -502,7 +511,8 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
         ),
         BlocProvider<CalendarBloc>(
           create: (ctx) {
-            final userName = ctx.read<AuthBloc>().state.user?.fullName ?? 'Cá nhân';
+            final userName =
+                ctx.read<AuthBloc>().state.user?.fullName ?? 'Cá nhân';
             return sl<CalendarBloc>()
               ..add(CalendarWatchStarted(userId: userId, familyId: familyId))
               ..add(
@@ -515,12 +525,14 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
           },
         ),
         BlocProvider<TaskBloc>(
-          create: (_) => sl<TaskBloc>()
-            ..add(TasksWatchStarted(userId: userId, familyId: familyId)),
+          create: (_) =>
+              sl<TaskBloc>()
+                ..add(TasksWatchStarted(userId: userId, familyId: familyId)),
         ),
         BlocProvider<VehicleBloc>(
-          create: (_) => sl<VehicleBloc>()
-            ..add(VehiclesWatchStarted(userId: userId, familyId: familyId)),
+          create: (_) =>
+              sl<VehicleBloc>()
+                ..add(VehiclesWatchStarted(userId: userId, familyId: familyId)),
         ),
         BlocProvider<NotificationIngestionBloc>(
           create: (_) => sl<NotificationIngestionBloc>()
@@ -533,13 +545,17 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
         ),
         BlocProvider<DocumentVaultBloc>(
           create: (_) => sl<DocumentVaultBloc>()
-            ..add(DocumentVaultWatchStarted(userId: userId, familyId: familyId)),
+            ..add(
+              DocumentVaultWatchStarted(userId: userId, familyId: familyId),
+            ),
         ),
         BlocProvider<ProUtilitiesBloc>(
-          create: (_) => sl<ProUtilitiesBloc>()..add(ProUtilitiesWatchStarted(userId)),
+          create: (_) =>
+              sl<ProUtilitiesBloc>()..add(ProUtilitiesWatchStarted(userId)),
         ),
         BlocProvider<DailyLifeBloc>(
-          create: (_) => sl<DailyLifeBloc>()..add(DailyLifeWatchStarted(userId)),
+          create: (_) =>
+              sl<DailyLifeBloc>()..add(DailyLifeWatchStarted(userId)),
         ),
       ],
       child: child,
@@ -552,13 +568,16 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
 
   const _AuthenticatedAdaptiveShell({required this.navigationShell});
 
-  static const List<({
-    int branchIndex,
-    IconData icon,
-    IconData activeIcon,
-    String assetPath,
-    String label,
-  })> _tabs = [
+  static const List<
+    ({
+      int branchIndex,
+      IconData icon,
+      IconData activeIcon,
+      String assetPath,
+      String label,
+    })
+  >
+  _tabs = [
     (
       branchIndex: 0,
       icon: Icons.home_outlined,
@@ -603,7 +622,9 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final scopeKey = ValueKey('shell_${user.id}_${user.activeFamilyId ?? "none"}');
+    final scopeKey = ValueKey(
+      'shell_${user.id}_${user.activeFamilyId ?? "none"}',
+    );
 
     return _ScopedAuthenticatedProviders(
       key: scopeKey,
@@ -629,7 +650,8 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                             const SizedBox(height: 10),
                             IconButton.filled(
                               tooltip: 'Tạo nhanh LifeOS',
-                              onPressed: () => showLifeOsQuickCreateHub(context),
+                              onPressed: () =>
+                                  showLifeOsQuickCreateHub(context),
                               icon: const Icon(Icons.add_rounded),
                             ),
                           ],
@@ -659,7 +681,11 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                           )
                           .toList(),
                     ),
-                    VerticalDivider(width: 1, thickness: 0.8, color: c.separator),
+                    VerticalDivider(
+                      width: 1,
+                      thickness: 0.8,
+                      color: c.separator,
+                    ),
                     Expanded(child: navigationShell),
                   ],
                 ),
@@ -669,7 +695,11 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
             // Mobile Floating Frosted Liquid-Glass Dock with BrandKit Gradient `+` Squircle
             // Ordered by daily thumb-zone ergonomics: Hôm nay & Tài chính on left, Planning/Family/Assets on right.
             final leftTabs = [_tabs[0], _tabs[1]]; // Hôm nay | Tài chính
-            final rightTabs = [_tabs[2], _tabs[3], _tabs[4]]; // Lịch & Việc | Gia đình | Tài sản
+            final rightTabs = [
+              _tabs[2],
+              _tabs[3],
+              _tabs[4],
+            ]; // Lịch & Việc | Gia đình | Tài sản
             final isDark = Theme.of(context).brightness == Brightness.dark;
 
             return Scaffold(
@@ -688,13 +718,16 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                           height: 66,
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           decoration: BoxDecoration(
-                            color: c.surface.withValues(alpha: isDark ? 0.92 : 0.95),
+                            color: c.surface.withValues(
+                              alpha: isDark ? 0.92 : 0.95,
+                            ),
                             borderRadius: BorderRadius.circular(26),
                             border: Border.all(color: c.separator, width: 1),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF0A140E)
-                                    .withValues(alpha: isDark ? 0.36 : 0.08),
+                                color: const Color(
+                                  0xFF0A140E,
+                                ).withValues(alpha: isDark ? 0.36 : 0.08),
                                 blurRadius: 24,
                                 offset: const Offset(0, 8),
                               ),
@@ -707,44 +740,60 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                                   icon: tab.icon,
                                   activeIcon: tab.activeIcon,
                                   label: tab.label,
-                                  isSelected: navigationShell.currentIndex == tab.branchIndex,
+                                  isSelected:
+                                      navigationShell.currentIndex ==
+                                      tab.branchIndex,
                                   onTap: () => navigationShell.goBranch(
                                     tab.branchIndex,
                                     initialLocation:
-                                        tab.branchIndex == navigationShell.currentIndex,
+                                        tab.branchIndex ==
+                                        navigationShell.currentIndex,
                                   ),
                                 ),
 
                               // Signature Center BrandKit Gradient `+` Squircle Button (48×48 Tactile Target)
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: Tooltip(
                                   message: 'Thêm nhanh',
                                   child: Material(
                                     color: Colors.transparent,
                                     borderRadius: BorderRadius.circular(17),
                                     child: InkWell(
-                                      key: const Key('lifeos_center_quick_add_fab'),
+                                      key: const Key(
+                                        'lifeos_center_quick_add_fab',
+                                      ),
                                       borderRadius: BorderRadius.circular(17),
-                                      onTap: () => showLifeOsQuickCreateHub(context),
+                                      onTap: () =>
+                                          showLifeOsQuickCreateHub(context),
                                       child: Container(
                                         width: 48,
                                         height: 48,
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(17),
+                                          borderRadius: BorderRadius.circular(
+                                            17,
+                                          ),
                                           gradient: const LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
-                                            colors: LifeOSBrandColors.appIconBgGradient,
-                                            stops: LifeOSBrandColors.appIconBgStops,
+                                            colors: LifeOSBrandColors
+                                                .appIconBgGradient,
+                                            stops: LifeOSBrandColors
+                                                .appIconBgStops,
                                           ),
                                           border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.34),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.34,
+                                            ),
                                             width: 1.1,
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: c.primary.withValues(alpha: 0.34),
+                                              color: c.primary.withValues(
+                                                alpha: 0.34,
+                                              ),
                                               blurRadius: 14,
                                               offset: const Offset(0, 5),
                                             ),
@@ -766,11 +815,14 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                                   icon: tab.icon,
                                   activeIcon: tab.activeIcon,
                                   label: tab.label,
-                                  isSelected: navigationShell.currentIndex == tab.branchIndex,
+                                  isSelected:
+                                      navigationShell.currentIndex ==
+                                      tab.branchIndex,
                                   onTap: () => navigationShell.goBranch(
                                     tab.branchIndex,
                                     initialLocation:
-                                        tab.branchIndex == navigationShell.currentIndex,
+                                        tab.branchIndex ==
+                                        navigationShell.currentIndex,
                                   ),
                                 ),
                             ],
@@ -819,7 +871,10 @@ class _BottomNavTabButton extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? c.primarySubtle : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
@@ -861,29 +916,63 @@ class _HomeWidgetSyncAndIntentHost extends StatefulWidget {
   });
 
   @override
-  State<_HomeWidgetSyncAndIntentHost> createState() => _HomeWidgetSyncAndIntentHostState();
+  State<_HomeWidgetSyncAndIntentHost> createState() =>
+      _HomeWidgetSyncAndIntentHostState();
 }
 
-class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHost> {
+class _HomeWidgetSyncAndIntentHostState
+    extends State<_HomeWidgetSyncAndIntentHost> {
   StreamSubscription<String>? _widgetActionSub;
+  StreamSubscription<IncomingBankingPushPayload>? _fcmForegroundSub;
+  StreamSubscription<IncomingBankingPushPayload>? _fcmDeepLinkSub;
 
   @override
   void initState() {
     super.initState();
     final bridge = sl<NativeHomeWidgetBridge>();
+    final fcmService = sl<FcmBankingMessagingService>();
     _widgetActionSub = bridge.widgetActions.listen(_handleWidgetAction);
-    NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(_handleRingingAlarm);
+    _fcmForegroundSub = fcmService.foregroundNotifications.listen(
+      _handleForegroundBankingPush,
+    );
+    _fcmDeepLinkSub = fcmService.deepLinkRequests.listen(
+      _handleBankingPushDeepLink,
+    );
+    NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(
+      _handleRingingAlarm,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final pending = await bridge.consumePendingWidgetAction();
       if (pending != null && mounted) {
         _handleWidgetAction(pending);
       }
-      final pendingAlarm =
-          await NativeAlarmSchedulerBridge.instance.consumeInitialAlarmPayload();
+      final pendingAlarm = await NativeAlarmSchedulerBridge.instance
+          .consumeInitialAlarmPayload();
       if (pendingAlarm != null && mounted) {
         _handleRingingAlarm(pendingAlarm);
       }
+      final coldStartPush = fcmService.consumePendingColdStartDeepLink();
+      if (coldStartPush != null && mounted) {
+        _handleBankingPushDeepLink(coldStartPush);
+      }
     });
+  }
+
+  void _handleForegroundBankingPush(IncomingBankingPushPayload payload) {
+    if (!mounted) return;
+    LifeOsTopToast.show(
+      context,
+      '${payload.title}${payload.body.isNotEmpty ? " · ${payload.body.replaceAll("\n", " · ")}" : ""}',
+      kind: payload.direction == 'credit'
+          ? LifeOsToastKind.success
+          : LifeOsToastKind.info,
+    );
+  }
+
+  void _handleBankingPushDeepLink(IncomingBankingPushPayload payload) {
+    if (!mounted) return;
+    final txId = Uri.encodeQueryComponent(payload.transactionId);
+    context.push('/auto-tx-review?txId=$txId');
   }
 
   void _handleRingingAlarm(Map<String, String> payload) {
@@ -896,7 +985,8 @@ class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHo
         .events
         .where((e) => e.id == eventId)
         .firstOrNull;
-    final ev = existing ??
+    final ev =
+        existing ??
         CalendarEventEntity(
           id: eventId.isEmpty ? 'alarm_ringing' : eventId,
           ownerId: 'self',
@@ -935,13 +1025,21 @@ class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHo
     final dash = context.read<DashboardBloc>().state.data;
     final fam = context.read<FamilyBloc>().state.activeFamily;
     final autoConfirm =
-        context.read<NotificationIngestionBloc>().state.consent?.autoConfirmSignals ?? false;
+        context
+            .read<NotificationIngestionBloc>()
+            .state
+            .consent
+            ?.autoConfirmSignals ??
+        false;
     final runway = EmergencyRunwaySnapshot.compute(
       netLiquidMinor: dash.netWorthMinor,
       monthlyExpenseMinor: dash.monthlyExpenseMinor,
     );
     final usedPct = dash.dailySafeToSpendMinor > 0
-        ? ((dash.todayExpenseMinor * 100) ~/ dash.dailySafeToSpendMinor).clamp(5, 100)
+        ? ((dash.todayExpenseMinor * 100) ~/ dash.dailySafeToSpendMinor).clamp(
+            5,
+            100,
+          )
         : 15;
 
     sl<NativeHomeWidgetBridge>().syncWidgets(
@@ -965,6 +1063,8 @@ class _HomeWidgetSyncAndIntentHostState extends State<_HomeWidgetSyncAndIntentHo
   void dispose() {
     NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(null);
     _widgetActionSub?.cancel();
+    _fcmForegroundSub?.cancel();
+    _fcmDeepLinkSub?.cancel();
     super.dispose();
   }
 

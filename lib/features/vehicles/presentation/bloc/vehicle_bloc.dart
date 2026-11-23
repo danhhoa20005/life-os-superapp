@@ -48,22 +48,25 @@ final class VehicleCreated extends VehicleEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        familyId,
-        isFamilyShared,
-        name,
-        plateNumber,
-        currentOdometerKm,
-        serviceIntervalKm,
-        serviceIntervalDays,
-      ];
+    userId,
+    familyId,
+    isFamilyShared,
+    name,
+    plateNumber,
+    currentOdometerKm,
+    serviceIntervalKm,
+    serviceIntervalDays,
+  ];
 }
 
 final class VehicleOdometerLogged extends VehicleEvent {
   final VehicleEntity vehicle;
   final int newOdometerKm;
 
-  const VehicleOdometerLogged({required this.vehicle, required this.newOdometerKm});
+  const VehicleOdometerLogged({
+    required this.vehicle,
+    required this.newOdometerKm,
+  });
 
   @override
   List<Object?> get props => [vehicle, newOdometerKm];
@@ -85,7 +88,13 @@ final class VehicleMaintenanceLogged extends VehicleEvent {
   });
 
   @override
-  List<Object?> get props => [vehicle, serviceTitle, odometerKm, costMinor, walletIdForExpense];
+  List<Object?> get props => [
+    vehicle,
+    serviceTitle,
+    odometerKm,
+    costMinor,
+    walletIdForExpense,
+  ];
 }
 
 final class RecurringBillCreated extends VehicleEvent {
@@ -107,13 +116,13 @@ final class RecurringBillCreated extends VehicleEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        familyId,
-        title,
-        providerName,
-        estimatedAmountMinor,
-        nextDueDate,
-      ];
+    userId,
+    familyId,
+    title,
+    providerName,
+    estimatedAmountMinor,
+    nextDueDate,
+  ];
 }
 
 final class RecurringBillPaid extends VehicleEvent {
@@ -177,13 +186,16 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
   VehicleBloc({
     required VehicleRepository repository,
     required UpdateOdometerUseCase updateOdometer,
-  })  : _repository = repository,
-        _updateOdometer = updateOdometer,
-        super(const VehicleState()) {
+  }) : _repository = repository,
+       _updateOdometer = updateOdometer,
+       super(const VehicleState()) {
     on<VehiclesWatchStarted>(_onWatchStarted, transformer: restartable());
     on<VehicleCreated>(_onCreateVehicle, transformer: sequential());
     on<VehicleOdometerLogged>(_onOdometerLogged, transformer: sequential());
-    on<VehicleMaintenanceLogged>(_onMaintenanceLogged, transformer: sequential());
+    on<VehicleMaintenanceLogged>(
+      _onMaintenanceLogged,
+      transformer: sequential(),
+    );
     on<RecurringBillCreated>(_onCreateBill, transformer: sequential());
     on<RecurringBillPaid>(_onPayBill, transformer: sequential());
   }
@@ -193,27 +205,35 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     Emitter<VehicleState> emit,
   ) async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
-    final stream = StreamCombiner.combine2<
-        Result<List<VehicleEntity>>,
-        Result<List<RecurringBillEntity>>,
-        VehicleState>(
-      _repository.watchVehicles(userId: event.userId, familyId: event.familyId),
-      _repository.watchRecurringBills(userId: event.userId, familyId: event.familyId),
-      (vRes, bRes) {
-        if (vRes is Err<List<VehicleEntity>>) {
-          return state.copyWith(isLoading: false, failure: vRes.failure);
-        }
-        if (bRes is Err<List<RecurringBillEntity>>) {
-          return state.copyWith(isLoading: false, failure: bRes.failure);
-        }
-        return state.copyWith(
-          isLoading: false,
-          vehicles: (vRes as Success<List<VehicleEntity>>).value,
-          bills: (bRes as Success<List<RecurringBillEntity>>).value,
-          clearFailure: true,
+    final stream =
+        StreamCombiner.combine2<
+          Result<List<VehicleEntity>>,
+          Result<List<RecurringBillEntity>>,
+          VehicleState
+        >(
+          _repository.watchVehicles(
+            userId: event.userId,
+            familyId: event.familyId,
+          ),
+          _repository.watchRecurringBills(
+            userId: event.userId,
+            familyId: event.familyId,
+          ),
+          (vRes, bRes) {
+            if (vRes is Err<List<VehicleEntity>>) {
+              return state.copyWith(isLoading: false, failure: vRes.failure);
+            }
+            if (bRes is Err<List<RecurringBillEntity>>) {
+              return state.copyWith(isLoading: false, failure: bRes.failure);
+            }
+            return state.copyWith(
+              isLoading: false,
+              vehicles: (vRes as Success<List<VehicleEntity>>).value,
+              bills: (bRes as Success<List<RecurringBillEntity>>).value,
+              clearFailure: true,
+            );
+          },
         );
-      },
-    );
 
     await emit.forEach<VehicleState>(stream, onData: (s) => s);
   }
@@ -225,7 +245,9 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     if (event.name.trim().length < 2 || event.plateNumber.trim().length < 4) {
       emit(
         state.copyWith(
-          failure: const ValidationFailure(message: 'Vui lòng nhập tên xe và biển số hợp lệ.'),
+          failure: const ValidationFailure(
+            message: 'Vui lòng nhập tên xe và biển số hợp lệ.',
+          ),
         ),
       );
       return;
@@ -236,7 +258,9 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
       isFamilyShared: event.isFamilyShared,
       name: event.name.trim(),
       plateNumber: event.plateNumber.trim().toUpperCase(),
-      currentOdometerKm: event.currentOdometerKm < 0 ? 0 : event.currentOdometerKm,
+      currentOdometerKm: event.currentOdometerKm < 0
+          ? 0
+          : event.currentOdometerKm,
       serviceIntervalKm: event.serviceIntervalKm,
       serviceIntervalDays: event.serviceIntervalDays,
     );
@@ -251,11 +275,16 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     Emitter<VehicleState> emit,
   ) async {
     final res = await _updateOdometer(
-      UpdateOdometerParams(vehicle: event.vehicle, newOdometerKm: event.newOdometerKm),
+      UpdateOdometerParams(
+        vehicle: event.vehicle,
+        newOdometerKm: event.newOdometerKm,
+      ),
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã cập nhật Odometer và tính lại hạn nhắc.')),
+      (_) => emit(
+        state.copyWith(message: 'Đã cập nhật Odometer và tính lại hạn nhắc.'),
+      ),
     );
   }
 
@@ -265,8 +294,9 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
   ) async {
     final res = await _repository.recordMaintenance(
       vehicle: event.vehicle,
-      serviceTitle:
-          event.serviceTitle.trim().isEmpty ? 'Bảo dưỡng định kỳ' : event.serviceTitle.trim(),
+      serviceTitle: event.serviceTitle.trim().isEmpty
+          ? 'Bảo dưỡng định kỳ'
+          : event.serviceTitle.trim(),
       odometerKm: event.odometerKm,
       costMinor: event.costMinor < 0 ? 0 : event.costMinor,
       walletIdForExpense: event.walletIdForExpense,
@@ -284,7 +314,9 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     if (event.title.trim().length < 2 || event.estimatedAmountMinor <= 0) {
       emit(
         state.copyWith(
-          failure: const ValidationFailure(message: 'Tên hóa đơn và số tiền dự kiến phải hợp lệ.'),
+          failure: const ValidationFailure(
+            message: 'Tên hóa đơn và số tiền dự kiến phải hợp lệ.',
+          ),
         ),
       );
       return;
@@ -310,7 +342,9 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     if (event.paidAmountMinor <= 0) {
       emit(
         state.copyWith(
-          failure: const ValidationFailure(message: 'Số tiền thanh toán phải lớn hơn 0 ₫.'),
+          failure: const ValidationFailure(
+            message: 'Số tiền thanh toán phải lớn hơn 0 ₫.',
+          ),
         ),
       );
       return;

@@ -2,9 +2,20 @@ import 'package:equatable/equatable.dart';
 
 enum CalendarEventVisibility { privateEvent, sharedEvent }
 
-enum CalendarProviderSource { lifeOsPrivate, lifeOsFamily, googleCalendar, deviceCalendar }
+enum CalendarProviderSource {
+  lifeOsPrivate,
+  lifeOsFamily,
+  googleCalendar,
+  deviceCalendar,
+}
 
-enum CalendarSyncStatus { localOnly, synced, pendingUpload, pendingDelete, syncConflict }
+enum CalendarSyncStatus {
+  localOnly,
+  synced,
+  pendingUpload,
+  pendingDelete,
+  syncConflict,
+}
 
 enum RecurrenceFrequency { none, daily, weekly, monthly, yearly }
 
@@ -97,10 +108,10 @@ class CalendarRecurrenceRule extends Equatable {
     final byDayRaw = kv['BYDAY'];
     final byDays = byDayRaw != null && byDayRaw.isNotEmpty
         ? byDayRaw
-            .split(',')
-            .map((s) => s.replaceAll(RegExp(r'[^A-Za-z]'), '').toUpperCase())
-            .where(allWeekDayCodes.contains)
-            .toList()
+              .split(',')
+              .map((s) => s.replaceAll(RegExp(r'[^A-Za-z]'), '').toUpperCase())
+              .where(allWeekDayCodes.contains)
+              .toList()
         : const <String>[];
 
     DateTime? parsedUntil;
@@ -144,19 +155,24 @@ class CalendarRecurrenceRule extends Equatable {
     if (!isRecurring) return 'Không lặp';
     final base = switch (frequency) {
       RecurrenceFrequency.none => 'Không lặp',
-      RecurrenceFrequency.daily => interval == 1 ? 'Hằng ngày' : 'Mỗi $interval ngày',
-      RecurrenceFrequency.weekly => interval == 1 ? 'Hằng tuần' : 'Mỗi $interval tuần',
-      RecurrenceFrequency.monthly => interval == 1 ? 'Hằng tháng' : 'Mỗi $interval tháng',
-      RecurrenceFrequency.yearly => interval == 1 ? 'Hằng năm' : 'Mỗi $interval năm',
+      RecurrenceFrequency.daily =>
+        interval == 1 ? 'Hằng ngày' : 'Mỗi $interval ngày',
+      RecurrenceFrequency.weekly =>
+        interval == 1 ? 'Hằng tuần' : 'Mỗi $interval tuần',
+      RecurrenceFrequency.monthly =>
+        interval == 1 ? 'Hằng tháng' : 'Mỗi $interval tháng',
+      RecurrenceFrequency.yearly =>
+        interval == 1 ? 'Hằng năm' : 'Mỗi $interval năm',
     };
-    final daysSuffix = (frequency == RecurrenceFrequency.weekly && byWeekDays.isNotEmpty)
+    final daysSuffix =
+        (frequency == RecurrenceFrequency.weekly && byWeekDays.isNotEmpty)
         ? ' (${byWeekDays.map(weekDayLabelVi).join(', ')})'
         : '';
     final limitSuffix = count != null && count! > 0
         ? ' · $count lần'
         : until != null
-            ? ' · đến ${until!.day.toString().padLeft(2, '0')}/${until!.month.toString().padLeft(2, '0')}/${until!.year}'
-            : '';
+        ? ' · đến ${until!.day.toString().padLeft(2, '0')}/${until!.month.toString().padLeft(2, '0')}/${until!.year}'
+        : '';
     return '$base$daysSuffix$limitSuffix';
   }
 
@@ -200,7 +216,8 @@ class CalendarRecurrenceRule extends Equatable {
           final code = weekDayCodeForDate(dayCandidate);
           if (byWeekDays.contains(code)) {
             generatedTotal++;
-            if (!dayCandidate.isBefore(windowStart) && !dayCandidate.isAfter(windowEnd)) {
+            if (!dayCandidate.isBefore(windowStart) &&
+                !dayCandidate.isAfter(windowEnd)) {
               results.add(dayCandidate);
             }
           }
@@ -213,21 +230,23 @@ class CalendarRecurrenceRule extends Equatable {
         }
         cursor = switch (frequency) {
           RecurrenceFrequency.daily => cursor.add(Duration(days: safeInterval)),
-          RecurrenceFrequency.weekly => cursor.add(Duration(days: 7 * safeInterval)),
+          RecurrenceFrequency.weekly => cursor.add(
+            Duration(days: 7 * safeInterval),
+          ),
           RecurrenceFrequency.monthly => DateTime(
-              cursor.year,
-              cursor.month + safeInterval,
-              cursor.day,
-              cursor.hour,
-              cursor.minute,
-            ),
+            cursor.year,
+            cursor.month + safeInterval,
+            cursor.day,
+            cursor.hour,
+            cursor.minute,
+          ),
           RecurrenceFrequency.yearly => DateTime(
-              cursor.year + safeInterval,
-              cursor.month,
-              cursor.day,
-              cursor.hour,
-              cursor.minute,
-            ),
+            cursor.year + safeInterval,
+            cursor.month,
+            cursor.day,
+            cursor.hour,
+            cursor.minute,
+          ),
           RecurrenceFrequency.none => windowEnd.add(const Duration(days: 1)),
         };
       }
@@ -277,7 +296,8 @@ class ManagedCalendarEntity extends Equatable {
       (googleCalendarId != null && googleCalendarId!.isNotEmpty);
 
   bool get isDeviceSynced =>
-      source == CalendarProviderSource.deviceCalendar || deviceCalendarId != null;
+      source == CalendarProviderSource.deviceCalendar ||
+      deviceCalendarId != null;
 
   bool get isExternalSynced => isGoogleSynced || isDeviceSynced;
 
@@ -308,7 +328,9 @@ class ManagedCalendarEntity extends Equatable {
       isReadOnly: isReadOnly ?? this.isReadOnly,
       source: source ?? this.source,
       googleCalendarId: googleCalendarId ?? this.googleCalendarId,
-      googleSyncToken: clearSyncToken ? null : (googleSyncToken ?? this.googleSyncToken),
+      googleSyncToken: clearSyncToken
+          ? null
+          : (googleSyncToken ?? this.googleSyncToken),
       deviceCalendarId: deviceCalendarId ?? this.deviceCalendarId,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     );
@@ -316,21 +338,21 @@ class ManagedCalendarEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        summary,
-        description,
-        timeZone,
-        colorHex,
-        isPrimary,
-        isSelected,
-        isReadOnly,
-        source,
-        googleCalendarId,
-        googleSyncToken,
-        deviceCalendarId,
-        lastSyncedAt,
-      ];
+    id,
+    ownerId,
+    summary,
+    description,
+    timeZone,
+    colorHex,
+    isPrimary,
+    isSelected,
+    isReadOnly,
+    source,
+    googleCalendarId,
+    googleSyncToken,
+    deviceCalendarId,
+    lastSyncedAt,
+  ];
 }
 
 class CalendarEventEntity extends Equatable {
@@ -386,9 +408,11 @@ class CalendarEventEntity extends Equatable {
 
   bool get isRecurring => recurrence.isRecurring;
 
-  bool get isLinkedWithGoogle => googleEventId != null && googleEventId!.isNotEmpty;
+  bool get isLinkedWithGoogle =>
+      googleEventId != null && googleEventId!.isNotEmpty;
 
-  bool get isLinkedWithDeviceCalendar => deviceEventId != null && deviceEventId! > 0;
+  bool get isLinkedWithDeviceCalendar =>
+      deviceEventId != null && deviceEventId! > 0;
 
   CalendarEventEntity copyWith({
     String? calendarId,
@@ -426,7 +450,8 @@ class CalendarEventEntity extends Equatable {
       isAllDay: isAllDay ?? this.isAllDay,
       timeZone: timeZone ?? this.timeZone,
       colorHex: colorHex ?? this.colorHex,
-      reminderMinutesBefore: reminderMinutesBefore ?? this.reminderMinutesBefore,
+      reminderMinutesBefore:
+          reminderMinutesBefore ?? this.reminderMinutesBefore,
       recurrence: recurrence ?? this.recurrence,
       googleEventId: googleEventId ?? this.googleEventId,
       googleCalendarId: googleCalendarId ?? this.googleCalendarId,
@@ -440,30 +465,30 @@ class CalendarEventEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        calendarId,
-        ownerId,
-        ownerName,
-        familyId,
-        visibility,
-        title,
-        description,
-        location,
-        startsAt,
-        endsAt,
-        isAllDay,
-        timeZone,
-        colorHex,
-        reminderMinutesBefore,
-        recurrence,
-        googleEventId,
-        googleCalendarId,
-        googleEtag,
-        deviceEventId,
-        deviceCalendarId,
-        syncStatus,
-        updatedAt,
-      ];
+    id,
+    calendarId,
+    ownerId,
+    ownerName,
+    familyId,
+    visibility,
+    title,
+    description,
+    location,
+    startsAt,
+    endsAt,
+    isAllDay,
+    timeZone,
+    colorHex,
+    reminderMinutesBefore,
+    recurrence,
+    googleEventId,
+    googleCalendarId,
+    googleEtag,
+    deviceEventId,
+    deviceCalendarId,
+    syncStatus,
+    updatedAt,
+  ];
 }
 
 class GoogleCalendarSyncReport extends Equatable {
@@ -494,15 +519,15 @@ class GoogleCalendarSyncReport extends Equatable {
 
   @override
   List<Object?> get props => [
-        calendarsSynced,
-        pulledUpserted,
-        pulledDeleted,
-        pushedUpserted,
-        pushedDeleted,
-        usedIncrementalSyncToken,
-        syncedAt,
-        sourceLabel,
-      ];
+    calendarsSynced,
+    pulledUpserted,
+    pulledDeleted,
+    pushedUpserted,
+    pushedDeleted,
+    usedIncrementalSyncToken,
+    syncedAt,
+    sourceLabel,
+  ];
 }
 
 class BusySlotEntity extends Equatable {

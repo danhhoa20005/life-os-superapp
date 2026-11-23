@@ -104,12 +104,21 @@ final class BudgetState extends Equatable {
       budgets: budgets != null ? List.unmodifiable(budgets) : this.budgets,
       funds: funds != null ? List.unmodifiable(funds) : this.funds,
       failure: clearFailure ? null : (failure ?? this.failure),
-      actionMessage: clearMessage ? null : (actionMessage ?? this.actionMessage),
+      actionMessage: clearMessage
+          ? null
+          : (actionMessage ?? this.actionMessage),
     );
   }
 
   @override
-  List<Object?> get props => [isLoading, isSaving, budgets, funds, failure, actionMessage];
+  List<Object?> get props => [
+    isLoading,
+    isSaving,
+    budgets,
+    funds,
+    failure,
+    actionMessage,
+  ];
 }
 
 class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
@@ -127,19 +136,25 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     required ContributeToFundUseCase contributeToFund,
     required RequestFundExpenseUseCase requestFundExpense,
     required DecideFundExpenseUseCase decideFundExpense,
-  })  : _repository = repository,
-        _upsertBudget = upsertBudget,
-        _createFund = createFund,
-        _contributeToFund = contributeToFund,
-        _requestFundExpense = requestFundExpense,
-        _decideFundExpense = decideFundExpense,
-        super(const BudgetState()) {
-    on<BudgetsSubscriptionRequested>(_onSubscriptionRequested, transformer: restartable());
+  }) : _repository = repository,
+       _upsertBudget = upsertBudget,
+       _createFund = createFund,
+       _contributeToFund = contributeToFund,
+       _requestFundExpense = requestFundExpense,
+       _decideFundExpense = decideFundExpense,
+       super(const BudgetState()) {
+    on<BudgetsSubscriptionRequested>(
+      _onSubscriptionRequested,
+      transformer: restartable(),
+    );
     on<BudgetUpsertSubmitted>(_onUpsertBudget, transformer: sequential());
     on<FundCreateSubmitted>(_onCreateFund, transformer: sequential());
     on<FundContributionSubmitted>(_onContributeFund, transformer: sequential());
     on<FundExpenseRequested>(_onRequestExpense, transformer: sequential());
-    on<FundExpenseDecisionSubmitted>(_onDecideExpense, transformer: sequential());
+    on<FundExpenseDecisionSubmitted>(
+      _onDecideExpense,
+      transformer: sequential(),
+    );
   }
 
   Future<void> _onSubscriptionRequested(
@@ -147,27 +162,35 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     Emitter<BudgetState> emit,
   ) async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
-    final stream = StreamCombiner.combine2<
-        Result<List<BudgetEntity>>,
-        Result<List<FundEntity>>,
-        BudgetState>(
-      _repository.watchBudgets(userId: event.userId, monthKey: event.monthKey),
-      _repository.watchFunds(userId: event.userId, familyId: event.familyId),
-      (bRes, fRes) {
-        if (bRes is Err<List<BudgetEntity>>) {
-          return state.copyWith(isLoading: false, failure: bRes.failure);
-        }
-        if (fRes is Err<List<FundEntity>>) {
-          return state.copyWith(isLoading: false, failure: fRes.failure);
-        }
-        return state.copyWith(
-          isLoading: false,
-          budgets: (bRes as Success<List<BudgetEntity>>).value,
-          funds: (fRes as Success<List<FundEntity>>).value,
-          clearFailure: true,
+    final stream =
+        StreamCombiner.combine2<
+          Result<List<BudgetEntity>>,
+          Result<List<FundEntity>>,
+          BudgetState
+        >(
+          _repository.watchBudgets(
+            userId: event.userId,
+            monthKey: event.monthKey,
+          ),
+          _repository.watchFunds(
+            userId: event.userId,
+            familyId: event.familyId,
+          ),
+          (bRes, fRes) {
+            if (bRes is Err<List<BudgetEntity>>) {
+              return state.copyWith(isLoading: false, failure: bRes.failure);
+            }
+            if (fRes is Err<List<FundEntity>>) {
+              return state.copyWith(isLoading: false, failure: fRes.failure);
+            }
+            return state.copyWith(
+              isLoading: false,
+              budgets: (bRes as Success<List<BudgetEntity>>).value,
+              funds: (fRes as Success<List<FundEntity>>).value,
+              clearFailure: true,
+            );
+          },
         );
-      },
-    );
 
     await emit.forEach<BudgetState>(stream, onData: (s) => s);
   }
@@ -176,12 +199,17 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     BudgetUpsertSubmitted event,
     Emitter<BudgetState> emit,
   ) async {
-    emit(state.copyWith(isSaving: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isSaving: true, clearFailure: true, clearMessage: true),
+    );
     final res = await _upsertBudget(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSaving: false, failure: f)),
       (_) => emit(
-        state.copyWith(isSaving: false, actionMessage: 'Đã lưu ngân sách tháng.'),
+        state.copyWith(
+          isSaving: false,
+          actionMessage: 'Đã lưu ngân sách tháng.',
+        ),
       ),
     );
   }
@@ -190,7 +218,9 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     FundCreateSubmitted event,
     Emitter<BudgetState> emit,
   ) async {
-    emit(state.copyWith(isSaving: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isSaving: true, clearFailure: true, clearMessage: true),
+    );
     final res = await _createFund(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSaving: false, failure: f)),
@@ -204,12 +234,17 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     FundContributionSubmitted event,
     Emitter<BudgetState> emit,
   ) async {
-    emit(state.copyWith(isSaving: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isSaving: true, clearFailure: true, clearMessage: true),
+    );
     final res = await _contributeToFund(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSaving: false, failure: f)),
       (_) => emit(
-        state.copyWith(isSaving: false, actionMessage: 'Đã ghi nhận đóng góp vào quỹ.'),
+        state.copyWith(
+          isSaving: false,
+          actionMessage: 'Đã ghi nhận đóng góp vào quỹ.',
+        ),
       ),
     );
   }
@@ -218,12 +253,17 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     FundExpenseRequested event,
     Emitter<BudgetState> emit,
   ) async {
-    emit(state.copyWith(isSaving: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isSaving: true, clearFailure: true, clearMessage: true),
+    );
     final res = await _requestFundExpense(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSaving: false, failure: f)),
       (_) => emit(
-        state.copyWith(isSaving: false, actionMessage: 'Đã ghi nhận đề xuất chi quỹ.'),
+        state.copyWith(
+          isSaving: false,
+          actionMessage: 'Đã ghi nhận đề xuất chi quỹ.',
+        ),
       ),
     );
   }
@@ -232,14 +272,18 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     FundExpenseDecisionSubmitted event,
     Emitter<BudgetState> emit,
   ) async {
-    emit(state.copyWith(isSaving: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isSaving: true, clearFailure: true, clearMessage: true),
+    );
     final res = await _decideFundExpense(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSaving: false, failure: f)),
       (_) => emit(
         state.copyWith(
           isSaving: false,
-          actionMessage: event.params.approve ? 'Đã phê duyệt khoản chi quỹ.' : 'Đã từ chối khoản chi.',
+          actionMessage: event.params.approve
+              ? 'Đã phê duyệt khoản chi quỹ.'
+              : 'Đã từ chối khoản chi.',
         ),
       ),
     );

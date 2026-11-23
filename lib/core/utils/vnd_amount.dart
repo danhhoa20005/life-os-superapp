@@ -17,7 +17,10 @@ final class VndAmount extends Equatable {
     return VndAmount._(value);
   }
 
-  factory VndAmount.positiveFromMinor(int value, {String fieldLabel = 'Số tiền'}) {
+  factory VndAmount.positiveFromMinor(
+    int value, {
+    String fieldLabel = 'Số tiền',
+  }) {
     if (value <= 0 || value > maxAllowedMinor) {
       throw ValidationFailure(message: '$fieldLabel phải lớn hơn 0 ₫.');
     }
@@ -27,8 +30,14 @@ final class VndAmount extends Equatable {
   static int? tryParseInput(String raw) {
     var cleaned = raw
         .trim()
-        .replaceFirst(RegExp(r'^(GD:|PS:|So tien:?)\s*', caseSensitive: false), '')
-        .replaceFirst(RegExp(r'\s*(VND|VNĐ|₫|đ|d)\s*$', caseSensitive: false), '')
+        .replaceFirst(
+          RegExp(r'^(GD:|PS:|So tien:?)\s*', caseSensitive: false),
+          '',
+        )
+        .replaceFirst(
+          RegExp(r'\s*(VND|VNĐ|₫|đ|d)\s*$', caseSensitive: false),
+          '',
+        )
         .trim();
 
     cleaned = cleaned.replaceFirst(RegExp(r'^[+-]\s*'), '');
@@ -95,7 +104,9 @@ final class VndAmount extends Equatable {
     if (rawText.isEmpty) return 0;
 
     final isNegative = rawText.startsWith('-');
-    final cleaned = rawText.replaceAll(',', '').replaceAll(RegExp(r'[^0-9.]'), '');
+    final cleaned = rawText
+        .replaceAll(',', '')
+        .replaceAll(RegExp(r'[^0-9.]'), '');
     if (cleaned.isEmpty) return 0;
 
     final dotIndex = cleaned.indexOf('.');

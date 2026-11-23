@@ -21,10 +21,12 @@ class FamilyRemoteDataSource {
         .map((e) => e.toString())
         .toList();
     final rawRoles = Map<String, dynamic>.from(
-      (d['memberRoles'] as Map<dynamic, dynamic>?) ?? const <dynamic, dynamic>{},
+      (d['memberRoles'] as Map<dynamic, dynamic>?) ??
+          const <dynamic, dynamic>{},
     );
     final rawNames = Map<String, dynamic>.from(
-      (d['memberNames'] as Map<dynamic, dynamic>?) ?? const <dynamic, dynamic>{},
+      (d['memberNames'] as Map<dynamic, dynamic>?) ??
+          const <dynamic, dynamic>{},
     );
 
     final members = rawMemberIds.map((uid) {
@@ -80,16 +82,19 @@ class FamilyRemoteDataSource {
       _ => SplitMethod.equal,
     };
     final rawShares = Map<String, dynamic>.from(
-      (d['sharesByUserId'] as Map<dynamic, dynamic>?) ?? const <dynamic, dynamic>{},
+      (d['sharesByUserId'] as Map<dynamic, dynamic>?) ??
+          const <dynamic, dynamic>{},
     );
     final shares = <String, int>{
       for (final e in rawShares.entries) e.key: (e.value as num?)?.toInt() ?? 0,
     };
     final rawNames = Map<String, dynamic>.from(
-      (d['participantNames'] as Map<dynamic, dynamic>?) ?? const <dynamic, dynamic>{},
+      (d['participantNames'] as Map<dynamic, dynamic>?) ??
+          const <dynamic, dynamic>{},
     );
     final participantNames = <String, String>{
-      for (final e in rawNames.entries) e.key: e.value?.toString() ?? 'Thành viên',
+      for (final e in rawNames.entries)
+        e.key: e.value?.toString() ?? 'Thành viên',
     };
     final createdTs = d['createdAt'];
     return SharedBillSplitEntity(
@@ -144,19 +149,20 @@ class FamilyRemoteDataSource {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) {
-      return snap.docs.map((doc) {
-        final d = doc.data();
-        return ShoppingItemEntity(
-          id: (d['id'] as String?) ?? doc.id,
-          familyId: familyId,
-          title: (d['title'] as String?) ?? '',
-          quantityLabel: (d['quantityLabel'] as String?) ?? '1',
-          estimatedPriceMinor: (d['estimatedPriceMinor'] as num?)?.toInt() ?? 0,
-          isPurchased: (d['isPurchased'] as bool?) ?? false,
-          addedByName: (d['addedByName'] as String?) ?? 'Thành viên',
-        );
-      }).toList();
-    });
+          return snap.docs.map((doc) {
+            final d = doc.data();
+            return ShoppingItemEntity(
+              id: (d['id'] as String?) ?? doc.id,
+              familyId: familyId,
+              title: (d['title'] as String?) ?? '',
+              quantityLabel: (d['quantityLabel'] as String?) ?? '1',
+              estimatedPriceMinor:
+                  (d['estimatedPriceMinor'] as num?)?.toInt() ?? 0,
+              isPurchased: (d['isPurchased'] as bool?) ?? false,
+              addedByName: (d['addedByName'] as String?) ?? 'Thành viên',
+            );
+          }).toList();
+        });
   }
 
   Stream<List<SharedBillSplitEntity>> watchSharedBills(String familyId) {
@@ -166,7 +172,10 @@ class FamilyRemoteDataSource {
         .collection('split_bills')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((doc) => _mapSharedBill(familyId, doc)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((doc) => _mapSharedBill(familyId, doc)).toList(),
+        );
   }
 
   Stream<List<DebtSettlementEntity>> watchSettlements(String familyId) {
@@ -176,7 +185,10 @@ class FamilyRemoteDataSource {
         .collection('settlements')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((doc) => _mapSettlement(familyId, doc)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((doc) => _mapSettlement(familyId, doc)).toList(),
+        );
   }
 
   Future<FamilyEntity> createFamily({
@@ -215,7 +227,10 @@ class FamilyRemoteDataSource {
     required String familyName,
   }) async {
     final rand = Random.secure();
-    final suffix = List.generate(6, (_) => _inviteChars[rand.nextInt(_inviteChars.length)]).join();
+    final suffix = List.generate(
+      6,
+      (_) => _inviteChars[rand.nextInt(_inviteChars.length)],
+    ).join();
     final code = 'FAM-$suffix';
     final now = DateTime.now();
     final expiresAt = now.add(const Duration(days: 7));
@@ -237,14 +252,23 @@ class FamilyRemoteDataSource {
     required String userName,
     required String inviteCode,
   }) async {
-    final invSnap = await _firestore.collection('family_invites').doc(inviteCode).get();
+    final invSnap = await _firestore
+        .collection('family_invites')
+        .doc(inviteCode)
+        .get();
     if (!invSnap.exists) {
-      throw const AppException(code: 'NOT_FOUND', message: 'Mã mời gia đình không tồn tại.');
+      throw const AppException(
+        code: 'NOT_FOUND',
+        message: 'Mã mời gia đình không tồn tại.',
+      );
     }
     final invData = invSnap.data()!;
     final expTs = invData['expiresAt'];
     if (expTs is Timestamp && expTs.toDate().isBefore(DateTime.now())) {
-      throw const AppException(code: 'VALIDATION_FAILURE', message: 'Mã mời đã hết hạn.');
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Mã mời đã hết hạn.',
+      );
     }
 
     final familyId = invData['familyId'] as String;
@@ -253,7 +277,10 @@ class FamilyRemoteDataSource {
     await _firestore.runTransaction((tx) async {
       final famSnap = await tx.get(familyRef);
       if (!famSnap.exists) {
-        throw const AppException(code: 'NOT_FOUND', message: 'Nhóm không tồn tại.');
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Nhóm không tồn tại.',
+        );
       }
       final d = famSnap.data()!;
       final memberIds = (d['memberIds'] as List<dynamic>? ?? const <dynamic>[])
@@ -304,12 +331,14 @@ class FamilyRemoteDataSource {
       final names = Map<String, dynamic>.from((d['memberNames'] as Map?) ?? {});
 
       if (roles[userId] == 'owner' && memberIds.length > 1) {
-        final otherOwners =
-            memberIds.where((id) => id != userId && roles[id] == 'owner').toList();
+        final otherOwners = memberIds
+            .where((id) => id != userId && roles[id] == 'owner')
+            .toList();
         if (otherOwners.isEmpty) {
           throw const AppException(
             code: 'CONFLICT_FAILURE',
-            message: 'Chủ nhóm duy nhất không thể rời nhóm khi còn thành viên khác.',
+            message:
+                'Chủ nhóm duy nhất không thể rời nhóm khi còn thành viên khác.',
           );
         }
       }
@@ -346,14 +375,14 @@ class FamilyRemoteDataSource {
         .collection('shopping_items')
         .doc(id)
         .set({
-      'id': id,
-      'title': title,
-      'quantityLabel': quantityLabel,
-      'estimatedPriceMinor': estimatedPriceMinor,
-      'isPurchased': false,
-      'addedByName': userName,
-      'createdAt': Timestamp.fromDate(DateTime.now()),
-    });
+          'id': id,
+          'title': title,
+          'quantityLabel': quantityLabel,
+          'estimatedPriceMinor': estimatedPriceMinor,
+          'isPurchased': false,
+          'addedByName': userName,
+          'createdAt': Timestamp.fromDate(DateTime.now()),
+        });
   }
 
   Future<void> toggleShoppingItem({
@@ -458,9 +487,14 @@ class FamilyRepositoryImpl implements FamilyRepository {
         .map<Result<List<FamilyEntity>>>((f) => Success(f))
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object e, StackTrace _, EventSink<Result<List<FamilyEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<FamilyEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -473,24 +507,34 @@ class FamilyRepositoryImpl implements FamilyRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<ShoppingItemEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<ShoppingItemEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
 
   @override
-  Stream<Result<List<SharedBillSplitEntity>>> watchSharedBills(String familyId) {
+  Stream<Result<List<SharedBillSplitEntity>>> watchSharedBills(
+    String familyId,
+  ) {
     return _remoteDataSource
         .watchSharedBills(familyId)
         .map<Result<List<SharedBillSplitEntity>>>((items) => Success(items))
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<SharedBillSplitEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<SharedBillSplitEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -503,9 +547,13 @@ class FamilyRepositoryImpl implements FamilyRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<DebtSettlementEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<DebtSettlementEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }

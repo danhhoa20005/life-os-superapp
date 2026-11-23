@@ -53,6 +53,7 @@ import '../../features/vehicles/data/repositories/vehicle_repository_impl.dart';
 import '../../features/vehicles/domain/repositories/vehicle_repository.dart';
 import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../services/android_notification_bridge.dart';
+import '../services/fcm_banking_messaging_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/native_app_updater_bridge.dart';
 import '../services/native_home_widget_bridge.dart';
@@ -67,15 +68,25 @@ Future<void> configureDependencies({
   NativeAppUpdaterBridge? updaterBridgeOverride,
   GoogleAuthHandler? googleAuthOverride,
   GoogleCalendarTokenProvider? googleCalendarTokenOverride,
+  FcmPlatformDriver? fcmDriverOverride,
+  CloudFunctionsInvoker? functionsInvokerOverride,
   http.Client? httpClientOverride,
 }) async {
   await sl.reset();
 
   // 1. Infrastructure Singletons
   sl.registerSingleton<FirebaseAuth>(authOverride ?? FirebaseAuth.instance);
-  sl.registerSingleton<FirebaseFirestore>(firestoreOverride ?? FirebaseFirestore.instance);
+  sl.registerSingleton<FirebaseFirestore>(
+    firestoreOverride ?? FirebaseFirestore.instance,
+  );
   sl.registerSingleton<AndroidNotificationBridge>(
     bridgeOverride ?? AndroidNotificationBridge(),
+  );
+  sl.registerLazySingleton<FcmBankingMessagingService>(
+    () => FcmBankingMessagingService(
+      firestore: sl<FirebaseFirestore>(),
+      driver: fcmDriverOverride,
+    ),
   );
   sl.registerSingleton<NativeAppUpdaterBridge>(
     updaterBridgeOverride ?? const NativeAppUpdaterBridge(),
@@ -138,6 +149,7 @@ Future<void> configureDependencies({
       firestore: sl<FirebaseFirestore>(),
       firebaseAuth: sl<FirebaseAuth>(),
       bridge: sl<AndroidNotificationBridge>(),
+      functionsInvokerOverride: functionsInvokerOverride,
     ),
   );
 
@@ -188,51 +200,99 @@ Future<void> configureDependencies({
   );
 
   // 4. Use Cases
-  sl.registerLazySingleton(() => CheckForAppUpdateUseCase(sl<AppUpdateRepository>()));
-  sl.registerLazySingleton(() => DownloadAndInstallUpdateUseCase(sl<AppUpdateRepository>()));
-  sl.registerLazySingleton(() => OpenReleasePageUseCase(sl<AppUpdateRepository>()));
+  sl.registerLazySingleton(
+    () => CheckForAppUpdateUseCase(sl<AppUpdateRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => DownloadAndInstallUpdateUseCase(sl<AppUpdateRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => OpenReleasePageUseCase(sl<AppUpdateRepository>()),
+  );
 
   sl.registerLazySingleton(() => WatchCurrentUserUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => SignInUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => SignUpUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => SignInWithGoogleUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => LinkGoogleAccountUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => SendPasswordResetUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => SendEmailVerificationUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => ReloadCurrentUserUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => UpdateUserProfileUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+    () => LinkGoogleAccountUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => SendPasswordResetUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => SendEmailVerificationUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ReloadCurrentUserUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => UpdateUserProfileUseCase(sl<AuthRepository>()),
+  );
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => CompleteOnboardingUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => UpdatePrivacySettingsUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+    () => CompleteOnboardingUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => UpdatePrivacySettingsUseCase(sl<AuthRepository>()),
+  );
   sl.registerLazySingleton(() => SignOutUseCase(sl<AuthRepository>()));
 
-  sl.registerLazySingleton(() => CreateWalletUseCase(sl<TransactionRepository>()));
-  sl.registerLazySingleton(() => CreateTransactionUseCase(sl<TransactionRepository>()));
-  sl.registerLazySingleton(() => ReverseTransactionUseCase(sl<TransactionRepository>()));
+  sl.registerLazySingleton(
+    () => CreateWalletUseCase(sl<TransactionRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => CreateTransactionUseCase(sl<TransactionRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ReverseTransactionUseCase(sl<TransactionRepository>()),
+  );
   sl.registerLazySingleton(
     () => DecideProvisionalTransactionUseCase(sl<TransactionRepository>()),
   );
 
   sl.registerLazySingleton(() => UpsertBudgetUseCase(sl<BudgetRepository>()));
   sl.registerLazySingleton(() => CreateFundUseCase(sl<BudgetRepository>()));
-  sl.registerLazySingleton(() => ContributeToFundUseCase(sl<BudgetRepository>()));
-  sl.registerLazySingleton(() => RequestFundExpenseUseCase(sl<BudgetRepository>()));
-  sl.registerLazySingleton(() => DecideFundExpenseUseCase(sl<BudgetRepository>()));
+  sl.registerLazySingleton(
+    () => ContributeToFundUseCase(sl<BudgetRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => RequestFundExpenseUseCase(sl<BudgetRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => DecideFundExpenseUseCase(sl<BudgetRepository>()),
+  );
 
   sl.registerLazySingleton(() => CreateFamilyUseCase(sl<FamilyRepository>()));
-  sl.registerLazySingleton(() => JoinFamilyByCodeUseCase(sl<FamilyRepository>()));
-  sl.registerLazySingleton(() => CreateSharedBillSplitUseCase(sl<FamilyRepository>()));
-  sl.registerLazySingleton(() => RecordDebtSettlementUseCase(sl<FamilyRepository>()));
+  sl.registerLazySingleton(
+    () => JoinFamilyByCodeUseCase(sl<FamilyRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => CreateSharedBillSplitUseCase(sl<FamilyRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => RecordDebtSettlementUseCase(sl<FamilyRepository>()),
+  );
 
-  sl.registerLazySingleton(() => CreateManagedCalendarUseCase(sl<CalendarRepository>()));
-  sl.registerLazySingleton(() => CreateCalendarEventUseCase(sl<CalendarRepository>()));
-  sl.registerLazySingleton(() => UpdateCalendarEventUseCase(sl<CalendarRepository>()));
-  sl.registerLazySingleton(() => SyncGoogleCalendarUseCase(sl<CalendarRepository>()));
+  sl.registerLazySingleton(
+    () => CreateManagedCalendarUseCase(sl<CalendarRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => CreateCalendarEventUseCase(sl<CalendarRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => UpdateCalendarEventUseCase(sl<CalendarRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => SyncGoogleCalendarUseCase(sl<CalendarRepository>()),
+  );
 
   sl.registerLazySingleton(() => CreateTaskUseCase(sl<TaskRepository>()));
   sl.registerLazySingleton(() => RespondToTaskUseCase(sl<TaskRepository>()));
 
-  sl.registerLazySingleton(() => UpdateOdometerUseCase(sl<VehicleRepository>()));
+  sl.registerLazySingleton(
+    () => UpdateOdometerUseCase(sl<VehicleRepository>()),
+  );
 
   // 5. BLoC Factories (Scoped by presentation lifecycle — NEVER global business singletons)
   sl.registerFactory<ThemeBloc>(ThemeBloc.new);
@@ -316,7 +376,10 @@ Future<void> configureDependencies({
     ),
   );
   sl.registerFactory<NotificationIngestionBloc>(
-    () => NotificationIngestionBloc(repository: sl<NotificationsRepository>()),
+    () => NotificationIngestionBloc(
+      repository: sl<NotificationsRepository>(),
+      fcmService: sl<FcmBankingMessagingService>(),
+    ),
   );
   sl.registerFactory<DocumentVaultBloc>(
     () => DocumentVaultBloc(repository: sl<DocumentVaultRepository>()),

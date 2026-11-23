@@ -16,19 +16,18 @@ class ProPillTabContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final responsiveTabs = tabBar.tabs.map((w) {
-      if (w is Tab && w.text != null && w.child == null && w.icon == null) {
-        return Tab(
-          key: w.key,
-          height: w.height,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(w.text!),
-          ),
-        );
-      }
-      return w;
-    }).toList(growable: false);
+    final responsiveTabs = tabBar.tabs
+        .map((w) {
+          if (w is Tab && w.text != null && w.child == null && w.icon == null) {
+            return Tab(
+              key: w.key,
+              height: w.height,
+              child: FittedBox(fit: BoxFit.scaleDown, child: Text(w.text!)),
+            );
+          }
+          return w;
+        })
+        .toList(growable: false);
 
     final responsiveTabBar = TabBar(
       key: tabBar.key,
@@ -36,7 +35,8 @@ class ProPillTabContainer extends StatelessWidget {
       isScrollable: tabBar.isScrollable,
       padding: tabBar.padding,
       indicatorColor: tabBar.indicatorColor,
-      automaticIndicatorColorAdjustment: tabBar.automaticIndicatorColorAdjustment,
+      automaticIndicatorColorAdjustment:
+          tabBar.automaticIndicatorColorAdjustment,
       indicatorWeight: tabBar.indicatorWeight,
       indicatorPadding: tabBar.indicatorPadding,
       indicator: tabBar.indicator,
@@ -45,7 +45,8 @@ class ProPillTabContainer extends StatelessWidget {
       dividerHeight: tabBar.dividerHeight,
       labelColor: tabBar.labelColor,
       labelStyle: tabBar.labelStyle,
-      labelPadding: tabBar.labelPadding ?? const EdgeInsets.symmetric(horizontal: 6),
+      labelPadding:
+          tabBar.labelPadding ?? const EdgeInsets.symmetric(horizontal: 6),
       unselectedLabelColor: tabBar.unselectedLabelColor,
       unselectedLabelStyle: tabBar.unselectedLabelStyle,
       onTap: tabBar.onTap,
@@ -56,7 +57,9 @@ class ProPillTabContainer extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 8, AppSpacing.md, 6),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.maxContentWidth,
+          ),
           child: Container(
             height: 46,
             padding: const EdgeInsets.all(4),
@@ -87,7 +90,8 @@ class ProHeroGradientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = gradientColors ??
+    final colors =
+        gradientColors ??
         (isDark
             ? const [Color(0xFF073B1A), Color(0xFF0A5C28), Color(0xFF062914)]
             : const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF0E9447)]);
@@ -146,10 +150,7 @@ class ProHeroGradientCard extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: child,
-            ),
+            Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: child),
           ],
         ),
       ),
@@ -179,7 +180,10 @@ class ProGlassStatPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.18),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -340,7 +344,9 @@ class ProBentoTile extends StatelessWidget {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                          color: accentColor.withValues(
+                            alpha: isDark ? 0.22 : 0.12,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(icon, size: 20, color: accentColor),
@@ -359,8 +365,8 @@ class ProBentoTile extends StatelessWidget {
                   child: Text(
                     metric,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -412,29 +418,29 @@ class ProWalletCreditCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (colors, typeLabel, typeIcon, badgeLabel) = switch (walletTypeKey) {
       'bank' => (
-          const [Color(0xFF0A2240), Color(0xFF14427A), Color(0xFF0D2E59)],
-          'Tài khoản ngân hàng',
-          Icons.account_balance_rounded,
-          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'NGÂN HÀNG',
-        ),
+        const [Color(0xFF0A2240), Color(0xFF14427A), Color(0xFF0D2E59)],
+        'Tài khoản ngân hàng',
+        Icons.account_balance_rounded,
+        bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'NGÂN HÀNG',
+      ),
       'creditCard' => (
-          const [Color(0xFF181A20), Color(0xFF2E323D), Color(0xFF121318)],
-          'Thẻ tín dụng',
-          Icons.credit_card_rounded,
-          bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'THẺ TÍN DỤNG',
-        ),
+        const [Color(0xFF181A20), Color(0xFF2E323D), Color(0xFF121318)],
+        'Thẻ tín dụng',
+        Icons.credit_card_rounded,
+        bankCode != null && bankCode!.isNotEmpty ? bankCode! : 'THẺ TÍN DỤNG',
+      ),
       'savings' => (
-          const [Color(0xFF543405), Color(0xFF925A0C), Color(0xFF3E2604)],
-          'Tiết kiệm & tích lũy',
-          Icons.savings_rounded,
-          'TIẾT KIỆM',
-        ),
+        const [Color(0xFF543405), Color(0xFF925A0C), Color(0xFF3E2604)],
+        'Tiết kiệm & tích lũy',
+        Icons.savings_rounded,
+        'TIẾT KIỆM',
+      ),
       _ => (
-          const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF073B17)],
-          'Tiền mặt sẵn có',
-          Icons.payments_rounded,
-          'TIỀN MẶT',
-        ),
+        const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF073B17)],
+        'Tiền mặt sẵn có',
+        Icons.payments_rounded,
+        'TIỀN MẶT',
+      ),
     };
 
     final cardBody = AnimatedContainer(
@@ -471,7 +477,11 @@ class ProWalletCreditCard extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(typeIcon, size: 17, color: Colors.white.withValues(alpha: 0.92)),
+                    Icon(
+                      typeIcon,
+                      size: 17,
+                      color: Colors.white.withValues(alpha: 0.92),
+                    ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
@@ -554,9 +564,13 @@ class ProWalletCreditCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      hasPendingWrites ? Icons.cloud_upload_outlined : Icons.verified_user_rounded,
+                      hasPendingWrites
+                          ? Icons.cloud_upload_outlined
+                          : Icons.verified_user_rounded,
                       size: 13.5,
-                      color: hasPendingWrites ? const Color(0xFFFCD34D) : const Color(0xFF86EFAC),
+                      color: hasPendingWrites
+                          ? const Color(0xFFFCD34D)
+                          : const Color(0xFF86EFAC),
                     ),
                     const SizedBox(width: 5),
                     Flexible(
@@ -616,7 +630,9 @@ abstract final class ProCategoryStyle {
       );
     }
     final lower = categoryName.toLowerCase();
-    if (lower.contains('ăn') || lower.contains('cafe') || lower.contains('phở')) {
+    if (lower.contains('ăn') ||
+        lower.contains('cafe') ||
+        lower.contains('phở')) {
       return (
         icon: Icons.restaurant_rounded,
         color: const Color(0xFFE8590C),
@@ -630,14 +646,18 @@ abstract final class ProCategoryStyle {
         assetPath: AppAssets.icCatHousework,
       );
     }
-    if (lower.contains('nhà cửa') || lower.contains('thuê') || lower.contains('trọ')) {
+    if (lower.contains('nhà cửa') ||
+        lower.contains('thuê') ||
+        lower.contains('trọ')) {
       return (
         icon: Icons.home_work_rounded,
         color: const Color(0xFF5F3DC4),
         assetPath: AppAssets.icCatHousing,
       );
     }
-    if (lower.contains('điện') || lower.contains('nước') || lower.contains('internet')) {
+    if (lower.contains('điện') ||
+        lower.contains('nước') ||
+        lower.contains('internet')) {
       return (
         icon: Icons.bolt_rounded,
         color: const Color(0xFFD97706),
@@ -658,7 +678,9 @@ abstract final class ProCategoryStyle {
         assetPath: AppAssets.icCatVehicle,
       );
     }
-    if (lower.contains('xe') || lower.contains('di chuyển') || lower.contains('xăng')) {
+    if (lower.contains('xe') ||
+        lower.contains('di chuyển') ||
+        lower.contains('xăng')) {
       return (
         icon: Icons.two_wheeler_rounded,
         color: const Color(0xFF1971C2),
@@ -788,8 +810,8 @@ class ProDonutChart extends StatelessWidget {
                       child: Text(
                         VndAmount.format(totalExpenseMinor),
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                          fontWeight: FontWeight.w800,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -824,17 +846,17 @@ class ProDonutChart extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: c.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          color: c.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${s.pct.toStringAsFixed(1)}%',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -883,14 +905,21 @@ class _DonutRingPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.butt;
-      canvas.drawArc(rect, startAngle + (gapRadians / 2), effectiveSweep, false, paint);
+      canvas.drawArc(
+        rect,
+        startAngle + (gapRadians / 2),
+        effectiveSweep,
+        false,
+        paint,
+      );
       startAngle += sweep;
     }
   }
 
   @override
   bool shouldRepaint(covariant _DonutRingPainter oldDelegate) {
-    return oldDelegate.slices != slices || oldDelegate.emptyTrackColor != emptyTrackColor;
+    return oldDelegate.slices != slices ||
+        oldDelegate.emptyTrackColor != emptyTrackColor;
   }
 }
 
@@ -1154,7 +1183,11 @@ class ProCashflowPulseCard extends StatelessWidget {
                         color: c.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.candlestick_chart_rounded, size: 19, color: c.primary),
+                      child: Icon(
+                        Icons.candlestick_chart_rounded,
+                        size: 19,
+                        color: c.primary,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -1163,9 +1196,8 @@ class ProCashflowPulseCard extends StatelessWidget {
                         children: [
                           Text(
                             'Dòng tiền 7 ngày',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1180,10 +1212,15 @@ class ProCashflowPulseCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: scoreColor.withValues(alpha: 0.13),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
                         border: Border.all(
                           color: scoreColor.withValues(alpha: 0.3),
                           width: 0.8,
@@ -1192,7 +1229,11 @@ class ProCashflowPulseCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.workspace_premium_rounded, size: 14, color: scoreColor),
+                          Icon(
+                            Icons.workspace_premium_rounded,
+                            size: 14,
+                            color: scoreColor,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '$financialHealthScore điểm · $scoreLabel',
@@ -1200,7 +1241,9 @@ class ProCashflowPulseCard extends StatelessWidget {
                               color: scoreColor,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ],
@@ -1232,7 +1275,9 @@ class ProCashflowPulseCard extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 10.5,
-                          fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                          fontWeight: isToday
+                              ? FontWeight.w800
+                              : FontWeight.w500,
                           color: isToday ? c.primary : c.textSecondary,
                         ),
                       ),
@@ -1244,19 +1289,33 @@ class ProCashflowPulseCard extends StatelessWidget {
                   children: [
                     _CapitalColumn(
                       label: 'Thanh khoản',
-                      value: obscureAmounts ? '•••••• ₫' : VndAmount.format(liquidAssetsMinor),
+                      value: obscureAmounts
+                          ? '•••••• ₫'
+                          : VndAmount.format(liquidAssetsMinor),
                       valueColor: c.textPrimary,
                     ),
-                    Container(width: 1, height: 28, color: c.separator.withValues(alpha: 0.6)),
+                    Container(
+                      width: 1,
+                      height: 28,
+                      color: c.separator.withValues(alpha: 0.6),
+                    ),
                     _CapitalColumn(
                       label: 'Tích lũy',
-                      value: obscureAmounts ? '•••••• ₫' : VndAmount.format(savingsAssetsMinor),
+                      value: obscureAmounts
+                          ? '•••••• ₫'
+                          : VndAmount.format(savingsAssetsMinor),
                       valueColor: c.success,
                     ),
-                    Container(width: 1, height: 28, color: c.separator.withValues(alpha: 0.6)),
+                    Container(
+                      width: 1,
+                      height: 28,
+                      color: c.separator.withValues(alpha: 0.6),
+                    ),
                     _CapitalColumn(
                       label: 'Hạn mức / ngày',
-                      value: obscureAmounts ? '•••••• ₫' : VndAmount.format(dailySafeToSpendMinor),
+                      value: obscureAmounts
+                          ? '•••••• ₫'
+                          : VndAmount.format(dailySafeToSpendMinor),
                       valueColor: c.secondary,
                     ),
                   ],
@@ -1440,8 +1499,11 @@ class ProFintechStatementTile extends StatelessWidget {
     final formattedAmount = obscureAmounts
         ? '•••••• ₫'
         : (isTransfer
-            ? '⇄ ${VndAmount.format(amountMinor)}'
-            : VndAmount.format(isCredit ? amountMinor : -amountMinor, showPlus: true));
+              ? '⇄ ${VndAmount.format(amountMinor)}'
+              : VndAmount.format(
+                  isCredit ? amountMinor : -amountMinor,
+                  showPlus: true,
+                ));
 
     final metaParts = <String>[
       categoryName,
@@ -1490,7 +1552,9 @@ class ProFintechStatementTile extends StatelessWidget {
                         child: Icon(
                           hasPendingWrites
                               ? Icons.cloud_upload_rounded
-                              : (isVerified ? Icons.verified_rounded : Icons.check_circle_rounded),
+                              : (isVerified
+                                    ? Icons.verified_rounded
+                                    : Icons.check_circle_rounded),
                           size: 13,
                           color: hasPendingWrites ? c.warning : c.success,
                         ),
@@ -1508,10 +1572,12 @@ class ProFintechStatementTile extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              height: 1.22,
-                              decoration: isReversed ? TextDecoration.lineThrough : null,
-                            ),
+                          fontWeight: FontWeight.w700,
+                          height: 1.22,
+                          decoration: isReversed
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
@@ -1519,9 +1585,9 @@ class ProFintechStatementTile extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              height: 1.28,
-                            ),
+                          fontSize: 12,
+                          height: 1.28,
+                        ),
                       ),
                       if (splitSummary != null && splitSummary!.isNotEmpty) ...[
                         const SizedBox(height: 3),
@@ -1549,7 +1615,9 @@ class ProFintechStatementTile extends StatelessWidget {
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
                         color: amountColor,
-                        decoration: isReversed ? TextDecoration.lineThrough : null,
+                        decoration: isReversed
+                            ? TextDecoration.lineThrough
+                            : null,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -1558,8 +1626,10 @@ class ProFintechStatementTile extends StatelessWidget {
                       isReversed
                           ? 'Đã hoàn tác'
                           : (balanceAfterMinor != null && !obscureAmounts
-                              ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
-                              : (hasPendingWrites ? 'Chờ đồng bộ' : 'Đã lưu')),
+                                ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
+                                : (hasPendingWrites
+                                      ? 'Chờ đồng bộ'
+                                      : 'Đã lưu')),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,

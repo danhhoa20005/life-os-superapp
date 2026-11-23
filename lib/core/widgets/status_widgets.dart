@@ -20,11 +20,31 @@ class SemanticStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final (bg, fg, icon) = switch (kind) {
-      SemanticStatusKind.success => (c.successSubtle, c.success, Icons.check_circle_rounded),
-      SemanticStatusKind.warning => (c.warningSubtle, c.warning, Icons.warning_amber_rounded),
-      SemanticStatusKind.error => (c.errorSubtle, c.error, Icons.error_outline_rounded),
-      SemanticStatusKind.provisional => (c.warningSubtle, c.warning, Icons.hourglass_top_rounded),
-      SemanticStatusKind.info => (c.primarySubtle, c.primary, Icons.verified_user_outlined),
+      SemanticStatusKind.success => (
+        c.successSubtle,
+        c.success,
+        Icons.check_circle_rounded,
+      ),
+      SemanticStatusKind.warning => (
+        c.warningSubtle,
+        c.warning,
+        Icons.warning_amber_rounded,
+      ),
+      SemanticStatusKind.error => (
+        c.errorSubtle,
+        c.error,
+        Icons.error_outline_rounded,
+      ),
+      SemanticStatusKind.provisional => (
+        c.warningSubtle,
+        c.warning,
+        Icons.hourglass_top_rounded,
+      ),
+      SemanticStatusKind.info => (
+        c.primarySubtle,
+        c.primary,
+        Icons.verified_user_outlined,
+      ),
     };
 
     return Semantics(
@@ -70,7 +90,9 @@ class CloudSyncIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SemanticStatusBadge(
-      kind: hasPendingWrites ? SemanticStatusKind.warning : SemanticStatusKind.success,
+      kind: hasPendingWrites
+          ? SemanticStatusKind.warning
+          : SemanticStatusKind.success,
       label: hasPendingWrites ? 'Đang đồng bộ' : 'Đã đồng bộ',
     );
   }
@@ -155,7 +177,8 @@ class EmptyStateView extends StatelessWidget {
                   width: 128,
                   height: 128,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(icon, size: 40, color: c.primary),
+                  errorBuilder: (_, __, ___) =>
+                      Icon(icon, size: 40, color: c.primary),
                 ),
               )
             else

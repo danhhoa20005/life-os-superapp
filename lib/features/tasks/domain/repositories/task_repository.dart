@@ -69,7 +69,9 @@ class CreateTaskUseCase implements UseCase<TaskEntity, CreateTaskParams> {
   @override
   Future<Result<TaskEntity>> call(CreateTaskParams params) async {
     if (params.title.trim().length < 2) {
-      return const Err(ValidationFailure(message: 'Tên công việc phải có ít nhất 2 ký tự.'));
+      return const Err(
+        ValidationFailure(message: 'Tên công việc phải có ít nhất 2 ký tự.'),
+      );
     }
     return _repository.createTask(
       createdBy: params.createdBy,
@@ -110,7 +112,8 @@ class RespondToTaskUseCase implements UseCase<void, RespondToTaskParams> {
     if (params.actorUserId != params.task.assigneeId) {
       return const Err(
         PermissionDeniedFailure(
-          message: 'Chỉ người được giao việc mới có quyền chấp nhận hoặc từ chối nhiệm vụ.',
+          message:
+              'Chỉ người được giao việc mới có quyền chấp nhận hoặc từ chối nhiệm vụ.',
         ),
       );
     }

@@ -27,11 +27,12 @@ class AppUpdateRemoteDataSource {
     required FirebaseFirestore firestore,
     required NativeAppUpdaterBridge updaterBridge,
     http.Client? httpClient,
-  })  : _firestore = firestore,
-        _updaterBridge = updaterBridge,
-        _httpClient = httpClient ?? http.Client();
+  }) : _firestore = firestore,
+       _updaterBridge = updaterBridge,
+       _httpClient = httpClient ?? http.Client();
 
-  Future<InstalledAppMeta> getInstalledVersion() => _updaterBridge.getInstalledAppVersion();
+  Future<InstalledAppMeta> getInstalledVersion() =>
+      _updaterBridge.getInstalledAppVersion();
 
   Future<AppReleaseManifest?> fetchLatestManifest() async {
     final results = await Future.wait<AppReleaseManifest?>([
@@ -42,7 +43,8 @@ class AppUpdateRemoteDataSource {
     AppReleaseManifest? best;
     for (final candidate in results) {
       if (candidate == null) continue;
-      if (best == null || candidate.semanticVersion.isNewerThan(best.semanticVersion)) {
+      if (best == null ||
+          candidate.semanticVersion.isNewerThan(best.semanticVersion)) {
         best = candidate;
       }
     }
@@ -65,22 +67,28 @@ class AppUpdateRemoteDataSource {
 
       final rawChangelog = d['changelog'];
       final changelog = rawChangelog is Iterable
-          ? rawChangelog.map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
+          ? rawChangelog
+                .map((e) => e.toString())
+                .where((s) => s.isNotEmpty)
+                .toList()
           : <String>['Cải thiện hiệu năng, bảo mật và trải nghiệm người dùng.'];
 
       final pubTs = d['publishedAt'];
       final publishedAt = pubTs is Timestamp
           ? pubTs.toDate()
-          : DateTime.tryParse((d['publishedAt'] ?? '').toString()) ?? DateTime.now();
+          : DateTime.tryParse((d['publishedAt'] ?? '').toString()) ??
+                DateTime.now();
 
       return AppReleaseManifest(
         latestVersion: latestVersion,
         latestBuildNumber: (d['latestBuildNumber'] as num?)?.toInt() ?? 0,
         minSupportedVersion: (d['minSupportedVersion'] as String?) ?? '1.0.0',
-        releaseTitle: (d['releaseTitle'] as String?) ?? 'Life OS v$latestVersion',
+        releaseTitle:
+            (d['releaseTitle'] as String?) ?? 'Life OS v$latestVersion',
         changelog: changelog,
         apkDownloadUrl: d['apkDownloadUrl'] as String?,
-        htmlReleaseUrl: (d['htmlReleaseUrl'] as String?) ?? defaultGithubReleasesUrl,
+        htmlReleaseUrl:
+            (d['htmlReleaseUrl'] as String?) ?? defaultGithubReleasesUrl,
         apkSizeBytes: (d['apkSizeBytes'] as num?)?.toInt(),
         apkSha256: d['apkSha256'] as String?,
         publishedAt: publishedAt,
@@ -139,7 +147,8 @@ class AppUpdateRemoteDataSource {
           .toList();
 
       return AppReleaseManifest(
-        latestVersion: '${parsedSemVer.major}.${parsedSemVer.minor}.${parsedSemVer.patch}',
+        latestVersion:
+            '${parsedSemVer.major}.${parsedSemVer.minor}.${parsedSemVer.patch}',
         latestBuildNumber: parsedSemVer.build,
         minSupportedVersion: '1.0.0',
         releaseTitle: (data['name'] as String?)?.trim().isNotEmpty == true
@@ -147,11 +156,16 @@ class AppUpdateRemoteDataSource {
             : 'Life OS $tagName',
         changelog: parsedNotes.isNotEmpty
             ? parsedNotes
-            : const <String>['Bản phát hành chính thức mới trên GitHub Releases.'],
+            : const <String>[
+                'Bản phát hành chính thức mới trên GitHub Releases.',
+              ],
         apkDownloadUrl: apkUrl,
-        htmlReleaseUrl: (data['html_url'] as String?) ?? defaultGithubReleasesUrl,
+        htmlReleaseUrl:
+            (data['html_url'] as String?) ?? defaultGithubReleasesUrl,
         apkSizeBytes: apkSize,
-        publishedAt: DateTime.tryParse((data['published_at'] ?? '').toString()) ?? DateTime.now(),
+        publishedAt:
+            DateTime.tryParse((data['published_at'] ?? '').toString()) ??
+            DateTime.now(),
         sourceName: 'GitHub Releases',
       );
     } catch (_) {
@@ -159,7 +173,9 @@ class AppUpdateRemoteDataSource {
     }
   }
 
-  Stream<OtaDownloadProgress> downloadAndInstall(AppReleaseManifest manifest) async* {
+  Stream<OtaDownloadProgress> downloadAndInstall(
+    AppReleaseManifest manifest,
+  ) async* {
     final apkUrl = manifest.apkDownloadUrl;
     if (kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android ||
@@ -175,13 +191,17 @@ class AppUpdateRemoteDataSource {
     }
 
     final cacheDir = await _updaterBridge.getUpdateCacheDir();
-    final safeVer = manifest.latestVersion.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '_');
+    final safeVer = manifest.latestVersion.replaceAll(
+      RegExp(r'[^0-9A-Za-z._-]'),
+      '_',
+    );
     final targetFile = File('$cacheDir/life-os-$safeVer.apk');
 
     // If the exact APK is already downloaded and matches size/hash, skip re-downloading!
     if (targetFile.existsSync()) {
       final len = targetFile.lengthSync();
-      final matchesExpected = manifest.apkSizeBytes == null || len == manifest.apkSizeBytes;
+      final matchesExpected =
+          manifest.apkSizeBytes == null || len == manifest.apkSizeBytes;
       if (matchesExpected && len > 1024 * 100) {
         final status = await _updaterBridge.installApk(targetFile.path);
         yield OtaDownloadProgress(
@@ -202,7 +222,8 @@ class AppUpdateRemoteDataSource {
     if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
       throw AppException(
         code: 'OTA_DOWNLOAD_ERROR',
-        message: 'Không thể tải gói cập nhật APK (HTTP ${streamed.statusCode}).',
+        message:
+            'Không thể tải gói cập nhật APK (HTTP ${streamed.statusCode}).',
       );
     }
 
@@ -239,13 +260,15 @@ class AppUpdateRemoteDataSource {
         localApkPath: targetFile.path,
       );
       final digest = await sha256.bind(targetFile.openRead()).first;
-      if (digest.toString().toLowerCase() != manifest.apkSha256!.trim().toLowerCase()) {
+      if (digest.toString().toLowerCase() !=
+          manifest.apkSha256!.trim().toLowerCase()) {
         if (targetFile.existsSync()) {
           targetFile.deleteSync();
         }
         throw const AppException(
           code: 'OTA_CHECKSUM_MISMATCH',
-          message: 'Mã kiểm tra toàn vẹn SHA-256 của gói APK không khớp. Đã hủy cài đặt an toàn.',
+          message:
+              'Mã kiểm tra toàn vẹn SHA-256 của gói APK không khớp. Đã hủy cài đặt an toàn.',
         );
       }
     }
@@ -268,5 +291,6 @@ class AppUpdateRemoteDataSource {
     );
   }
 
-  Future<bool> openReleasePage(String url) => _updaterBridge.openExternalUrl(url);
+  Future<bool> openReleasePage(String url) =>
+      _updaterBridge.openExternalUrl(url);
 }

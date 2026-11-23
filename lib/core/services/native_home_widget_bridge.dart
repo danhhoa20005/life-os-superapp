@@ -4,20 +4,29 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class NativeHomeWidgetBridge {
-  static const MethodChannel _channel = MethodChannel('vn.lifeos.app/home_widgets');
+  static const MethodChannel _channel = MethodChannel(
+    'vn.lifeos.app/home_widgets',
+  );
 
-  static const String actionVoiceCapture = 'vn.lifeos.app.WIDGET_ACTION_VOICE_CAPTURE';
-  static const String actionVoiceSplit = 'vn.lifeos.app.WIDGET_ACTION_VOICE_SPLIT';
-  static const String actionOpenToday = 'vn.lifeos.app.WIDGET_ACTION_OPEN_TODAY';
-  static const String actionOpenFinance = 'vn.lifeos.app.WIDGET_ACTION_OPEN_FINANCE';
-  static const String actionOpenFamily = 'vn.lifeos.app.WIDGET_ACTION_OPEN_FAMILY';
+  static const String actionVoiceCapture =
+      'vn.lifeos.app.WIDGET_ACTION_VOICE_CAPTURE';
+  static const String actionVoiceSplit =
+      'vn.lifeos.app.WIDGET_ACTION_VOICE_SPLIT';
+  static const String actionOpenToday =
+      'vn.lifeos.app.WIDGET_ACTION_OPEN_TODAY';
+  static const String actionOpenFinance =
+      'vn.lifeos.app.WIDGET_ACTION_OPEN_FINANCE';
+  static const String actionOpenFamily =
+      'vn.lifeos.app.WIDGET_ACTION_OPEN_FAMILY';
 
-  final StreamController<String> _actionController = StreamController<String>.broadcast();
+  final StreamController<String> _actionController =
+      StreamController<String>.broadcast();
   bool _handlerBound = false;
 
   NativeHomeWidgetBridge();
 
-  bool get isSupportedPlatform => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get isSupportedPlatform =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   bool get _hasServicesBinding {
     try {

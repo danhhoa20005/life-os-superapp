@@ -18,55 +18,70 @@ void main() {
       expect(LifeOSBrandColors.background, const Color(0xFFF7F8F9));
     });
 
-    test('All cross-platform BrandKit assets, Adaptive Icons, iOS & Web icons exist', () {
-      final requiredPaths = <String>[
-        // Flutter branding assets
-        'assets/images/logo_life_os.png',
-        'assets/branding/logo_horizontal_primary.png',
-        'assets/branding/logo_horizontal_white.png',
-        'assets/branding/logo_stacked_primary.png',
-        'assets/branding/logo_symbol_color.png',
-        'assets/branding/logo_symbol_white.png',
-        'assets/branding/app_icon_512.png',
-        'assets/branding/LifeOS_Logo_Horizontal_Primary.svg',
-        'assets/branding/LifeOS_Logo_Horizontal_White.svg',
-        'assets/branding/LifeOS_Logo_Symbol_Color.svg',
-        'assets/branding/LifeOS_AppIcon_Master_FullBleed.svg',
-        // Android Adaptive + Legacy + Splash + Widget
-        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
-        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
-        'android/app/src/main/res/drawable/ic_launcher_foreground.xml',
-        'android/app/src/main/res/drawable/ic_launcher_background.xml',
-        'android/app/src/main/res/drawable-v24/ic_launcher_background.xml',
-        'android/app/src/main/res/drawable/ic_widget_leaf.xml',
-        'android/app/src/main/res/drawable/launch_logo.png',
-        'android/app/src/main/res/drawable-night/launch_background.xml',
-        'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
-        'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png',
-        // iOS AppIcons
-        'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png',
-        'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png',
-        'ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png',
-        // Web Favicons & PWA
-        'web/favicon.ico',
-        'web/favicon.png',
-        'web/icons/Icon-192.png',
-        'web/icons/Icon-512.png',
-        'web/manifest.json',
-      ];
+    test(
+      'All cross-platform BrandKit assets, Adaptive Icons, iOS & Web icons exist',
+      () {
+        final requiredPaths = <String>[
+          // Flutter branding assets
+          'assets/images/logo_life_os.png',
+          'assets/branding/logo_horizontal_primary.png',
+          'assets/branding/logo_horizontal_white.png',
+          'assets/branding/logo_stacked_primary.png',
+          'assets/branding/logo_symbol_color.png',
+          'assets/branding/logo_symbol_white.png',
+          'assets/branding/app_icon_512.png',
+          'assets/branding/LifeOS_Logo_Horizontal_Primary.svg',
+          'assets/branding/LifeOS_Logo_Horizontal_White.svg',
+          'assets/branding/LifeOS_Logo_Symbol_Color.svg',
+          'assets/branding/LifeOS_AppIcon_Master_FullBleed.svg',
+          // Android Adaptive + Legacy + Splash + Widget
+          'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+          'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+          'android/app/src/main/res/drawable/ic_launcher_foreground.xml',
+          'android/app/src/main/res/drawable/ic_launcher_background.xml',
+          'android/app/src/main/res/drawable-v24/ic_launcher_background.xml',
+          'android/app/src/main/res/drawable/ic_widget_leaf.xml',
+          'android/app/src/main/res/drawable/launch_logo.png',
+          'android/app/src/main/res/drawable-night/launch_background.xml',
+          'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+          'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png',
+          // iOS AppIcons
+          'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png',
+          'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png',
+          'ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png',
+          // Web Favicons & PWA
+          'web/favicon.ico',
+          'web/favicon.png',
+          'web/icons/Icon-192.png',
+          'web/icons/Icon-512.png',
+          'web/manifest.json',
+        ];
 
-      for (final rel in requiredPaths) {
-        final file = File(rel);
-        expect(file.existsSync(), isTrue, reason: 'Missing BrandKit asset: $rel');
-        expect(file.lengthSync(), greaterThan(100), reason: 'Empty file: $rel');
-      }
+        for (final rel in requiredPaths) {
+          final file = File(rel);
+          expect(
+            file.existsSync(),
+            isTrue,
+            reason: 'Missing BrandKit asset: $rel',
+          );
+          expect(
+            file.lengthSync(),
+            greaterThan(100),
+            reason: 'Empty file: $rel',
+          );
+        }
 
-      // Verify iOS 1024x1024 PNG has no alpha channel (color type byte at offset 25 == 2 for RGB)
-      final ios1024Bytes =
-          File('ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png')
-              .readAsBytesSync();
-      expect(ios1024Bytes[25], 2, reason: 'iOS AppIcon must be 24-bit opaque RGB (colorType=2)');
-    });
+        // Verify iOS 1024x1024 PNG has no alpha channel (color type byte at offset 25 == 2 for RGB)
+        final ios1024Bytes = File(
+          'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png',
+        ).readAsBytesSync();
+        expect(
+          ios1024Bytes[25],
+          2,
+          reason: 'iOS AppIcon must be 24-bit opaque RGB (colorType=2)',
+        );
+      },
+    );
 
     testWidgets(
       'LifeOsSymbolMark, LifeOsLeafMark, LifeOsBrandWordmark & Brand Identity Sheet render cleanly in Light & Dark modes',

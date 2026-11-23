@@ -35,33 +35,66 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required CompleteOnboardingUseCase completeOnboarding,
     required UpdatePrivacySettingsUseCase updatePrivacySettings,
     required SignOutUseCase signOut,
-  })  : _watchCurrentUser = watchCurrentUser,
-        _signIn = signIn,
-        _signUp = signUp,
-        _signInWithGoogle = signInWithGoogle,
-        _linkGoogleAccount = linkGoogleAccount,
-        _sendPasswordReset = sendPasswordReset,
-        _sendEmailVerification = sendEmailVerification,
-        _reloadCurrentUser = reloadCurrentUser,
-        _updateUserProfile = updateUserProfile,
-        _changePassword = changePassword,
-        _completeOnboarding = completeOnboarding,
-        _updatePrivacySettings = updatePrivacySettings,
-        _signOut = signOut,
-        super(const AuthState()) {
-    on<AuthSubscriptionRequested>(_onSubscriptionRequested, transformer: restartable());
+  }) : _watchCurrentUser = watchCurrentUser,
+       _signIn = signIn,
+       _signUp = signUp,
+       _signInWithGoogle = signInWithGoogle,
+       _linkGoogleAccount = linkGoogleAccount,
+       _sendPasswordReset = sendPasswordReset,
+       _sendEmailVerification = sendEmailVerification,
+       _reloadCurrentUser = reloadCurrentUser,
+       _updateUserProfile = updateUserProfile,
+       _changePassword = changePassword,
+       _completeOnboarding = completeOnboarding,
+       _updatePrivacySettings = updatePrivacySettings,
+       _signOut = signOut,
+       super(const AuthState()) {
+    on<AuthSubscriptionRequested>(
+      _onSubscriptionRequested,
+      transformer: restartable(),
+    );
     on<AuthSignInSubmitted>(_onSignInSubmitted, transformer: droppable());
     on<AuthSignUpSubmitted>(_onSignUpSubmitted, transformer: droppable());
-    on<AuthGoogleSignInRequested>(_onGoogleSignInRequested, transformer: droppable());
-    on<AuthGoogleLinkRequested>(_onGoogleLinkRequested, transformer: droppable());
-    on<AuthPasswordResetRequested>(_onPasswordResetRequested, transformer: droppable());
-    on<AuthEmailVerificationRequested>(_onEmailVerificationRequested, transformer: droppable());
-    on<AuthUserReloadRequested>(_onUserReloadRequested, transformer: droppable());
-    on<AuthProfileUpdateSubmitted>(_onProfileUpdateSubmitted, transformer: sequential());
-    on<AuthPasswordChangeSubmitted>(_onPasswordChangeSubmitted, transformer: sequential());
-    on<AuthOnboardingCompleted>(_onOnboardingCompleted, transformer: sequential());
-    on<AuthAvailabilitySharingToggled>(_onAvailabilityToggled, transformer: sequential());
-    on<AuthActiveFamilyChanged>(_onActiveFamilyChanged, transformer: sequential());
+    on<AuthGoogleSignInRequested>(
+      _onGoogleSignInRequested,
+      transformer: droppable(),
+    );
+    on<AuthGoogleLinkRequested>(
+      _onGoogleLinkRequested,
+      transformer: droppable(),
+    );
+    on<AuthPasswordResetRequested>(
+      _onPasswordResetRequested,
+      transformer: droppable(),
+    );
+    on<AuthEmailVerificationRequested>(
+      _onEmailVerificationRequested,
+      transformer: droppable(),
+    );
+    on<AuthUserReloadRequested>(
+      _onUserReloadRequested,
+      transformer: droppable(),
+    );
+    on<AuthProfileUpdateSubmitted>(
+      _onProfileUpdateSubmitted,
+      transformer: sequential(),
+    );
+    on<AuthPasswordChangeSubmitted>(
+      _onPasswordChangeSubmitted,
+      transformer: sequential(),
+    );
+    on<AuthOnboardingCompleted>(
+      _onOnboardingCompleted,
+      transformer: sequential(),
+    );
+    on<AuthAvailabilitySharingToggled>(
+      _onAvailabilityToggled,
+      transformer: sequential(),
+    );
+    on<AuthActiveFamilyChanged>(
+      _onActiveFamilyChanged,
+      transformer: sequential(),
+    );
     on<AuthSignOutRequested>(_onSignOutRequested, transformer: sequential());
   }
 
@@ -93,7 +126,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignInSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _signIn(
       SignInParams(email: event.email, password: event.password),
     );
@@ -114,7 +149,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignUpSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _signUp(
       SignUpParams(
         email: event.email,
@@ -142,7 +179,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthGoogleSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _signInWithGoogle(const NoParams());
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
@@ -161,7 +200,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthGoogleLinkRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _linkGoogleAccount(const NoParams());
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
@@ -170,7 +211,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           isSubmitting: false,
           user: updated,
           clearFailure: true,
-          infoMessage: 'Đã liên kết thành công tài khoản Google với hồ sơ Life OS.',
+          infoMessage:
+              'Đã liên kết thành công tài khoản Google với hồ sơ Life OS.',
         ),
       ),
     );
@@ -180,7 +222,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthPasswordResetRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _sendPasswordReset(event.email);
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
@@ -197,14 +241,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthEmailVerificationRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _sendEmailVerification(const NoParams());
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
       (_) => emit(
         state.copyWith(
           isSubmitting: false,
-          infoMessage: 'Đã gửi email xác thực. Hãy kiểm tra hộp thư và bấm Xác nhận.',
+          infoMessage:
+              'Đã gửi email xác thực. Hãy kiểm tra hộp thư và bấm Xác nhận.',
         ),
       ),
     );
@@ -214,7 +261,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthUserReloadRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _reloadCurrentUser(const NoParams());
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
@@ -236,7 +285,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     final currentUser = state.user;
     if (currentUser == null) return;
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _updateUserProfile(
       UpdateUserProfileParams(
         userId: currentUser.id,
@@ -264,7 +315,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     final currentUser = state.user;
     if (currentUser == null) return;
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true));
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
     final result = await _changePassword(
       ChangePasswordParams(
         userId: currentUser.id,

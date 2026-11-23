@@ -20,10 +20,15 @@ import '../bloc/dashboard_bloc.dart';
 class HomeWidgetsStudioPage extends StatelessWidget {
   const HomeWidgetsStudioPage({super.key});
 
-  Future<void> _pinWidget(BuildContext context, String kind, String title) async {
+  Future<void> _pinWidget(
+    BuildContext context,
+    String kind,
+    String title,
+  ) async {
     final ok = await sl<NativeHomeWidgetBridge>().requestPinWidget(kind);
     if (!context.mounted) return;
-    LifeOsTopToast.fromSnackBar(context, 
+    LifeOsTopToast.fromSnackBar(
+      context,
       SnackBar(
         content: Text(
           ok
@@ -55,9 +60,12 @@ class HomeWidgetsStudioPage extends StatelessWidget {
       dailyUsedPct: usedPct,
     );
     if (!context.mounted) return;
-    LifeOsTopToast.fromSnackBar(context, 
+    LifeOsTopToast.fromSnackBar(
+      context,
       const SnackBar(
-        content: Text('✓ Đã đồng bộ số liệu mới nhất ra cả 4 Widget Màn hình chính!'),
+        content: Text(
+          '✓ Đã đồng bộ số liệu mới nhất ra cả 4 Widget Màn hình chính!',
+        ),
       ),
     );
   }
@@ -78,7 +86,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
       monthlyExpenseMinor: dash.monthlyExpenseMinor,
     );
     final usedPct = dash.dailySafeToSpendMinor > 0
-        ? ((dash.todayExpenseMinor * 100) ~/ dash.dailySafeToSpendMinor).clamp(5, 100)
+        ? ((dash.todayExpenseMinor * 100) ~/ dash.dailySafeToSpendMinor).clamp(
+            5,
+            100,
+          )
         : 15;
     final groupTitle = family != null
         ? '${family.name} · ${family.members.length} thành viên'
@@ -88,11 +99,21 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
     // Exact Google Material 3 Widget Surface Tokens (matches res/values & res/values-night)
     final m3WidgetSurface = isDark ? const Color(0xFF191C1A) : Colors.white;
-    final m3TonalBox = isDark ? const Color(0xFF232A26) : const Color(0xFFF1F8F3);
-    final m3IncomeBox = isDark ? const Color(0xFF132B1D) : const Color(0xFFEAFBF0);
-    final m3ExpenseBox = isDark ? const Color(0xFF31181B) : const Color(0xFFFEF2F2);
-    final m3TonalPillBg = isDark ? const Color(0xFF183925) : const Color(0xFFDCFCE7);
-    final m3TonalPillFg = isDark ? const Color(0xFF86EFAC) : const Color(0xFF0F5132);
+    final m3TonalBox = isDark
+        ? const Color(0xFF232A26)
+        : const Color(0xFFF1F8F3);
+    final m3IncomeBox = isDark
+        ? const Color(0xFF132B1D)
+        : const Color(0xFFEAFBF0);
+    final m3ExpenseBox = isDark
+        ? const Color(0xFF31181B)
+        : const Color(0xFFFEF2F2);
+    final m3TonalPillBg = isDark
+        ? const Color(0xFF183925)
+        : const Color(0xFFDCFCE7);
+    final m3TonalPillFg = isDark
+        ? const Color(0xFF86EFAC)
+        : const Color(0xFF0F5132);
     final m3Stroke = isDark ? const Color(0xFF2C3731) : const Color(0xFFE4E7EC);
 
     return Scaffold(
@@ -116,13 +137,15 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                     final consent = notifState.consent;
                     final notifEnabled = consent?.enabled ?? false;
                     final autoConfirm = consent?.autoConfirmSignals ?? false;
-                    final allowedPkgs = consent?.allowedPackages ??
+                    final allowedPkgs =
+                        consent?.allowedPackages ??
                         kSupportedVnBanks.map((b) => b.packageName).toList();
 
                     return Center(
                       child: ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSpacing.maxContentWidth,
+                        ),
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.md,
@@ -148,7 +171,8 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'Tự Động Cập Nhật Số Liệu Ra Widget',
@@ -193,27 +217,38 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                     ),
                                     value: notifEnabled,
                                     onChanged: (next) {
-                                      context.read<NotificationIngestionBloc>().add(
+                                      context
+                                          .read<NotificationIngestionBloc>()
+                                          .add(
                                             ConsentConfigUpdated(
                                               userId: user.id,
                                               enabled: next,
-                                              allowedPackages: allowedPkgs.isEmpty
+                                              allowedPackages:
+                                                  allowedPkgs.isEmpty
                                                   ? kSupportedVnBanks
-                                                      .map((b) => b.packageName)
-                                                      .toList()
+                                                        .map(
+                                                          (b) => b.packageName,
+                                                        )
+                                                        .toList()
                                                   : allowedPkgs,
                                               autoConfirmSignals: autoConfirm,
                                             ),
                                           );
-                                      if (next && !notifState.isNativePermissionGranted) {
-                                        context.read<NotificationIngestionBloc>().add(
+                                      if (next &&
+                                          !notifState
+                                              .isNativePermissionGranted) {
+                                        context
+                                            .read<NotificationIngestionBloc>()
+                                            .add(
                                               const OpenNativePermissionSettingsRequested(),
                                             );
                                       }
                                     },
                                   ),
                                   SwitchListTile.adaptive(
-                                    key: const Key('zero_touch_auto_confirm_switch'),
+                                    key: const Key(
+                                      'zero_touch_auto_confirm_switch',
+                                    ),
                                     contentPadding: EdgeInsets.zero,
                                     dense: true,
                                     title: Text(
@@ -226,14 +261,21 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                     ),
                                     value: autoConfirm,
                                     onChanged: (next) {
-                                      context.read<NotificationIngestionBloc>().add(
+                                      context
+                                          .read<NotificationIngestionBloc>()
+                                          .add(
                                             ConsentConfigUpdated(
                                               userId: user.id,
-                                              enabled: next ? true : notifEnabled,
-                                              allowedPackages: allowedPkgs.isEmpty
+                                              enabled: next
+                                                  ? true
+                                                  : notifEnabled,
+                                              allowedPackages:
+                                                  allowedPkgs.isEmpty
                                                   ? kSupportedVnBanks
-                                                      .map((b) => b.packageName)
-                                                      .toList()
+                                                        .map(
+                                                          (b) => b.packageName,
+                                                        )
+                                                        .toList()
                                                   : allowedPkgs,
                                               autoConfirmSignals: next,
                                             ),
@@ -245,7 +287,9 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                     children: [
                                       Expanded(
                                         child: FilledButton.icon(
-                                          key: const Key('sync_widgets_now_button'),
+                                          key: const Key(
+                                            'sync_widgets_now_button',
+                                          ),
                                           onPressed: () => _forceSyncAllWidgets(
                                             context,
                                             autoConfirm: autoConfirm,
@@ -253,20 +297,26 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                             runwayLabel: runwayLabel,
                                             usedPct: usedPct,
                                           ),
-                                          icon: const Icon(Icons.refresh_rounded, size: 17),
+                                          icon: const Icon(
+                                            Icons.refresh_rounded,
+                                            size: 17,
+                                          ),
                                           label: const Text('Đồng bộ Widget'),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: OutlinedButton.icon(
-                                          onPressed: () =>
-                                              context.push('/notifications-privacy'),
+                                          onPressed: () => context.push(
+                                            '/notifications-privacy',
+                                          ),
                                           icon: const Icon(
                                             Icons.cloud_sync_outlined,
                                             size: 17,
                                           ),
-                                          label: const Text('Cổng QR & Ngân hàng'),
+                                          label: const Text(
+                                            'Cổng QR & Ngân hàng',
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -278,8 +328,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
                             // 2. WIDGET 01: Google Pixel Search & Voice Quick Bar (4x1)
                             _GoogleM3WidgetShowcaseCard(
-                              badgeLabel: 'WIDGET 01 · 4×1 · THANH TÌM KIẾM & GIỌNG NÓI PIXEL',
-                              description: 'Chạm mic nói nhanh chi tiêu hoặc chia tiền nhóm.',
+                              badgeLabel:
+                                  'WIDGET 01 · 4×1 · THANH TÌM KIẾM & GIỌNG NÓI PIXEL',
+                              description:
+                                  'Chạm mic nói nhanh chi tiêu hoặc chia tiền nhóm.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -289,12 +341,16 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                               ),
                               widgetPreview: Row(
                                 children: [
-                                  const LifeOsLeafMark(size: 28, borderRadius: 9),
+                                  const LifeOsLeafMark(
+                                    size: 28,
+                                    borderRadius: 9,
+                                  ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(16),
-                                      onTap: () => showVoiceSmartCaptureSheet(context),
+                                      onTap: () =>
+                                          showVoiceSmartCaptureSheet(context),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 12,
@@ -302,10 +358,13 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                         ),
                                         decoration: BoxDecoration(
                                           color: m3TonalBox,
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                         ),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'Nói chi tiêu hoặc chia tiền...',
@@ -381,7 +440,8 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                             // 3. WIDGET 02: Google Finance / Google Wallet Net Worth Card (4x2)
                             _GoogleM3WidgetShowcaseCard(
                               badgeLabel: 'WIDGET 02 · 4×2 · TÀI SẢN & THU CHI',
-                              description: 'Xem số dư và thu chi tháng ngay ngoài màn hình chính.',
+                              description:
+                                  'Xem số dư và thu chi tháng ngay ngoài màn hình chính.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -394,7 +454,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      const LifeOsLeafMark(size: 20, borderRadius: 6),
+                                      const LifeOsLeafMark(
+                                        size: 20,
+                                        borderRadius: 6,
+                                      ),
                                       const SizedBox(width: 7),
                                       Expanded(
                                         child: Text(
@@ -415,10 +478,14 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                         ),
                                         decoration: BoxDecoration(
                                           color: m3TonalPillBg,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                         ),
                                         child: Text(
-                                          autoConfirm ? 'Auto-Ledger' : 'Auto-Sync',
+                                          autoConfirm
+                                              ? 'Auto-Ledger'
+                                              : 'Auto-Sync',
                                           style: TextStyle(
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w700,
@@ -469,10 +536,13 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: m3IncomeBox,
-                                            borderRadius: BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                           ),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 'Thu tháng',
@@ -507,10 +577,13 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: m3ExpenseBox,
-                                            borderRadius: BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                           ),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 'Chi tháng',
@@ -544,8 +617,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
                             // 4. WIDGET 03: Google Keep / Tasks Family & Roommate Split Hub (4x2)
                             _GoogleM3WidgetShowcaseCard(
-                              badgeLabel: 'WIDGET 03 · 4×2 · CHIA TIỀN NHÓM & GIA ĐÌNH',
-                              description: 'Nói câu chia tiền nhóm và mở nhanh mã QR thanh toán.',
+                              badgeLabel:
+                                  'WIDGET 03 · 4×2 · CHIA TIỀN NHÓM & GIA ĐÌNH',
+                              description:
+                                  'Nói câu chia tiền nhóm và mở nhanh mã QR thanh toán.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -558,7 +633,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      const LifeOsLeafMark(size: 20, borderRadius: 6),
+                                      const LifeOsLeafMark(
+                                        size: 20,
+                                        borderRadius: 6,
+                                      ),
                                       const SizedBox(width: 7),
                                       Expanded(
                                         child: Text(
@@ -591,7 +669,9 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                       Expanded(
                                         flex: 5,
                                         child: InkWell(
-                                          borderRadius: BorderRadius.circular(22),
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
                                           onTap: () => showVoiceSmartCaptureSheet(
                                             context,
                                             initialTranscript:
@@ -601,10 +681,12 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                             height: 40,
                                             decoration: BoxDecoration(
                                               color: c.primary,
-                                              borderRadius: BorderRadius.circular(22),
+                                              borderRadius:
+                                                  BorderRadius.circular(22),
                                             ),
                                             child: const Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Icon(
                                                   Icons.mic_rounded,
@@ -616,11 +698,13 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                                   child: Text(
                                                     'Nói chia tiền',
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                     style: TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w700,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                 ),
@@ -633,16 +717,20 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                       Expanded(
                                         flex: 4,
                                         child: InkWell(
-                                          borderRadius: BorderRadius.circular(22),
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
                                           onTap: () => context.go('/family'),
                                           child: Container(
                                             height: 40,
                                             decoration: BoxDecoration(
                                               color: m3TonalPillBg,
-                                              borderRadius: BorderRadius.circular(22),
+                                              borderRadius:
+                                                  BorderRadius.circular(22),
                                             ),
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Icon(
                                                   Icons.groups_rounded,
@@ -654,11 +742,13 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                                   child: Text(
                                                     'Tất toán QR',
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                     style: TextStyle(
                                                       color: m3TonalPillFg,
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w700,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                 ),
@@ -675,8 +765,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
                             // 5. WIDGET 04: Google Digital Wellbeing Safe Daily Spend (3x2)
                             _GoogleM3WidgetShowcaseCard(
-                              badgeLabel: 'WIDGET 04 · 3×2 · HẠN MỨC CHI TIÊU HÔM NAY',
-                              description: 'Theo dõi số tiền an toàn có thể tiêu trong ngày.',
+                              badgeLabel:
+                                  'WIDGET 04 · 3×2 · HẠN MỨC CHI TIÊU HÔM NAY',
+                              description:
+                                  'Theo dõi số tiền an toàn có thể tiêu trong ngày.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -714,7 +806,9 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                         ),
                                         decoration: BoxDecoration(
                                           color: m3TonalPillBg,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                         ),
                                         child: Text(
                                           'Đã dùng $usedPct%',
@@ -729,7 +823,9 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    VndAmount.format(dash.dailySafeToSpendMinor),
+                                    VndAmount.format(
+                                      dash.dailySafeToSpendMinor,
+                                    ),
                                     style: TextStyle(
                                       fontSize: 21,
                                       fontWeight: FontWeight.w800,
@@ -846,7 +942,9 @@ class _GoogleM3WidgetShowcaseCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0E1310) : const Color(0xFFE9F3EC),
+                color: isDark
+                    ? const Color(0xFF0E1310)
+                    : const Color(0xFFE9F3EC),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Container(
@@ -860,7 +958,9 @@ class _GoogleM3WidgetShowcaseCard extends StatelessWidget {
                       ? const []
                       : [
                           BoxShadow(
-                            color: const Color(0xFF101828).withValues(alpha: 0.06),
+                            color: const Color(
+                              0xFF101828,
+                            ).withValues(alpha: 0.06),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),

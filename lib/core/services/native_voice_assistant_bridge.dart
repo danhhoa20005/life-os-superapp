@@ -29,12 +29,17 @@ final class VoiceErrorSignal extends VoiceAssistantSignal {
 }
 
 class NativeVoiceAssistantBridge {
-  static const MethodChannel _methodChannel = MethodChannel('vn.lifeos.app/voice_assistant');
-  static const EventChannel _eventChannel = EventChannel('vn.lifeos.app/voice_events');
+  static const MethodChannel _methodChannel = MethodChannel(
+    'vn.lifeos.app/voice_assistant',
+  );
+  static const EventChannel _eventChannel = EventChannel(
+    'vn.lifeos.app/voice_events',
+  );
 
   const NativeVoiceAssistantBridge();
 
-  bool get isSupportedPlatform => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get isSupportedPlatform =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   bool get _hasServicesBinding {
     try {
@@ -50,7 +55,9 @@ class NativeVoiceAssistantBridge {
       return 'UNSUPPORTED';
     }
     try {
-      final status = await _methodChannel.invokeMethod<String>('startListening');
+      final status = await _methodChannel.invokeMethod<String>(
+        'startListening',
+      );
       return status ?? 'STARTED';
     } catch (_) {
       return 'ERROR';
@@ -71,35 +78,43 @@ class NativeVoiceAssistantBridge {
     return Stream<VoiceAssistantSignal>.multi((controller) {
       StreamSubscription<dynamic>? sub;
       try {
-        sub = _eventChannel.receiveBroadcastStream().listen(
-          (raw) {
-            if (raw is! Map) return;
-            final map = Map<String, dynamic>.from(raw);
-            final type = (map['type'] ?? '').toString();
-            switch (type) {
-              case 'state':
-                controller.add(VoiceStateSignal((map['status'] ?? 'idle').toString()));
-              case 'rms':
-                controller.add(VoiceRmsSignal((map['rms'] as num?)?.toDouble() ?? 0.0));
-              case 'partial':
-                controller.add(
-                  VoiceTranscriptSignal(text: (map['text'] ?? '').toString(), isFinal: false),
-                );
-              case 'final':
-                controller.add(
-                  VoiceTranscriptSignal(text: (map['text'] ?? '').toString(), isFinal: true),
-                );
-              case 'error':
-                controller.add(
-                  VoiceErrorSignal(
-                    (map['message'] ?? 'Không nghe rõ giọng nói. Bạn có thể bấm mic nói lại.')
-                        .toString(),
-                  ),
-                );
-            }
-          },
-          onError: (_) {},
-        );
+        sub = _eventChannel.receiveBroadcastStream().listen((raw) {
+          if (raw is! Map) return;
+          final map = Map<String, dynamic>.from(raw);
+          final type = (map['type'] ?? '').toString();
+          switch (type) {
+            case 'state':
+              controller.add(
+                VoiceStateSignal((map['status'] ?? 'idle').toString()),
+              );
+            case 'rms':
+              controller.add(
+                VoiceRmsSignal((map['rms'] as num?)?.toDouble() ?? 0.0),
+              );
+            case 'partial':
+              controller.add(
+                VoiceTranscriptSignal(
+                  text: (map['text'] ?? '').toString(),
+                  isFinal: false,
+                ),
+              );
+            case 'final':
+              controller.add(
+                VoiceTranscriptSignal(
+                  text: (map['text'] ?? '').toString(),
+                  isFinal: true,
+                ),
+              );
+            case 'error':
+              controller.add(
+                VoiceErrorSignal(
+                  (map['message'] ??
+                          'Không nghe rõ giọng nói. Bạn có thể bấm mic nói lại.')
+                      .toString(),
+                ),
+              );
+          }
+        }, onError: (_) {});
       } catch (_) {
         controller.close();
         return;

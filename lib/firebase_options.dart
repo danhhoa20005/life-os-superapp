@@ -61,7 +61,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '913180533540',
     projectId: 'life-os-vn-2026',
     storageBucket: 'life-os-vn-2026.firebasestorage.app',
-    androidClientId: '913180533540-4hmi4om68usccdtbhq4plfubeooho0lr.apps.googleusercontent.com',
+    androidClientId:
+        '913180533540-4hmi4om68usccdtbhq4plfubeooho0lr.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -70,8 +71,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '913180533540',
     projectId: 'life-os-vn-2026',
     storageBucket: 'life-os-vn-2026.firebasestorage.app',
-    androidClientId: '913180533540-4hmi4om68usccdtbhq4plfubeooho0lr.apps.googleusercontent.com',
-    iosClientId: '913180533540-3drd28gcsvh57175vg1d5h2qkhan5qg3.apps.googleusercontent.com',
+    androidClientId:
+        '913180533540-4hmi4om68usccdtbhq4plfubeooho0lr.apps.googleusercontent.com',
+    iosClientId:
+        '913180533540-3drd28gcsvh57175vg1d5h2qkhan5qg3.apps.googleusercontent.com',
     iosBundleId: 'vn.lifeos.app',
   );
 }

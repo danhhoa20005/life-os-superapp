@@ -19,10 +19,13 @@ abstract final class AppAssets {
   static const String brandAppIcon512 = 'assets/branding/app_icon_512.png';
   static const String splashHero = 'assets/images/splash_hero.png';
   static const String authHero = 'assets/images/auth_hero.png';
-  static const String onboardingPrivacy = 'assets/images/onboarding_privacy.png';
+  static const String onboardingPrivacy =
+      'assets/images/onboarding_privacy.png';
   static const String dashboardBanner = 'assets/images/dashboard_banner.png';
-  static const String financeIllustration = 'assets/images/finance_illustration.png';
-  static const String familySplitIllustration = 'assets/images/family_split_illustration.png';
+  static const String financeIllustration =
+      'assets/images/finance_illustration.png';
+  static const String familySplitIllustration =
+      'assets/images/family_split_illustration.png';
   static const String planningAssetsIllustration =
       'assets/images/planning_assets_illustration.png';
 
@@ -125,11 +128,8 @@ class BananaGlassIcon extends StatelessWidget {
         cacheHeight: decodePx,
         filterQuality: FilterQuality.medium,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Icon(
-          fallbackIcon,
-          color: effectiveColor,
-          size: size * 0.54,
-        ),
+        errorBuilder: (_, __, ___) =>
+            Icon(fallbackIcon, color: effectiveColor, size: size * 0.54),
       ),
     );
 
@@ -143,11 +143,7 @@ class BrandLogoMark extends StatelessWidget {
   final double size;
   final double borderRadius;
 
-  const BrandLogoMark({
-    super.key,
-    this.size = 44,
-    this.borderRadius = 12,
-  });
+  const BrandLogoMark({super.key, this.size = 44, this.borderRadius = 12});
 
   @override
   Widget build(BuildContext context) {
@@ -175,11 +171,8 @@ class BrandLogoMark extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Icon(
-            Icons.shield_outlined,
-            color: c.primary,
-            size: size * 0.56,
-          ),
+          errorBuilder: (_, __, ___) =>
+              Icon(Icons.shield_outlined, color: c.primary, size: size * 0.56),
         ),
       ),
     );
@@ -223,9 +216,8 @@ class BrandVisualBanner extends StatelessWidget {
           height: height,
           width: double.infinity,
           fit: fit,
-          errorBuilder: (_, __, ___) => Center(
-            child: Icon(fallbackIcon, size: 42, color: c.primary),
-          ),
+          errorBuilder: (_, __, ___) =>
+              Center(child: Icon(fallbackIcon, size: 42, color: c.primary)),
         ),
       ),
     );

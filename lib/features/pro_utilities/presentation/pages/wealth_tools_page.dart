@@ -27,7 +27,8 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
 
   // 1. Receipt Scanner State
   final TextEditingController _receiptCtrl = TextEditingController(
-    text: 'Siêu thị Co.opmart Quận 7\n'
+    text:
+        'Siêu thị Co.opmart Quận 7\n'
         'Thịt bò Úc 300g 145.000\n'
         'Sữa tươi TH True Milk 42.000\n'
         'Rau củ hữu cơ Đà Lạt 58.000\n'
@@ -36,8 +37,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
   );
 
   // 2. Loan Calculator State
-  final TextEditingController _loanPrincipalCtrl =
-      TextEditingController(text: '1200000000');
+  final TextEditingController _loanPrincipalCtrl = TextEditingController(
+    text: '1200000000',
+  );
   double _loanRatePct = 8.5;
   int _loanTermMonths = 180; // 15 years
   bool _decliningBalance = true;
@@ -74,7 +76,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                  constraints: const BoxConstraints(
+                    maxWidth: AppSpacing.maxContentWidth,
+                  ),
                   child: LifeOsSegmentedPills<String>(
                     selected: _activeTool,
                     options: const [
@@ -90,7 +94,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -106,7 +112,8 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                             user.id,
                             wallets.isNotEmpty ? wallets.first.id : null,
                           ),
-                        if (_activeTool == 'loan') _buildLoanCalculatorView(context, c),
+                        if (_activeTool == 'loan')
+                          _buildLoanCalculatorView(context, c),
                         if (_activeTool == 'fire')
                           _buildFireAndSixJarsView(
                             context,
@@ -148,7 +155,11 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.document_scanner_outlined, size: 20, color: c.primary),
+                  Icon(
+                    Icons.document_scanner_outlined,
+                    size: 20,
+                    color: c.primary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -170,7 +181,8 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                     ActionChip(
                       label: const Text('Mẫu Siêu thị Co.opmart'),
                       onPressed: () => setState(() {
-                        _receiptCtrl.text = 'Siêu thị Co.opmart Quận 7\n'
+                        _receiptCtrl.text =
+                            'Siêu thị Co.opmart Quận 7\n'
                             'Thịt bò Úc 300g 145.000\n'
                             'Sữa tươi TH True Milk 42.000\n'
                             'Rau củ hữu cơ Đà Lạt 58.000\n'
@@ -181,7 +193,8 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                     ActionChip(
                       label: const Text('Mẫu GrabFood Liên hoan'),
                       onPressed: () => setState(() {
-                        _receiptCtrl.text = 'GrabFood - Cơm Tấm Phúc Lộc Thọ\n'
+                        _receiptCtrl.text =
+                            'GrabFood - Cơm Tấm Phúc Lộc Thọ\n'
                             '3x Cơm sườn bì chả 195k\n'
                             '3x Trà tắc mật ong 75k\n'
                             'Phí giao hàng 18k\n'
@@ -259,7 +272,10 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                             '• ${it.name}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13.5, color: c.textPrimary),
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: c.textPrimary,
+                            ),
                           ),
                         ),
                         Text(
@@ -303,20 +319,20 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                       ? null
                       : () {
                           context.read<TransactionActionBloc>().add(
-                                TransactionCreateSubmitted(
-                                  operationId: const Uuid().v4(),
-                                  userId: userId,
-                                  walletId: defaultWalletId,
-                                  categoryName: parsed.suggestedCategory,
-                                  kind: TransactionKind.expense,
-                                  amountMinor: parsed.totalMinor,
-                                  merchant: parsed.merchant,
-                                  note:
-                                      'Quét Bill AI (${parsed.items.length} món)',
-                                  occurredAt: DateTime.now(),
-                                ),
-                              );
-                          LifeOsTopToast.fromSnackBar(context, 
+                            TransactionCreateSubmitted(
+                              operationId: const Uuid().v4(),
+                              userId: userId,
+                              walletId: defaultWalletId,
+                              categoryName: parsed.suggestedCategory,
+                              kind: TransactionKind.expense,
+                              amountMinor: parsed.totalMinor,
+                              merchant: parsed.merchant,
+                              note: 'Quét Bill AI (${parsed.items.length} món)',
+                              occurredAt: DateTime.now(),
+                            ),
+                          );
+                          LifeOsTopToast.fromSnackBar(
+                            context,
                             SnackBar(
                               content: Text(
                                 '✓ Đã ghi hóa đơn "${parsed.merchant}" (${VndAmount.format(parsed.totalMinor)}) vào Sổ cái.',
@@ -381,7 +397,10 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
               const SizedBox(height: 12),
               Text(
                 'Lãi suất năm: ${_loanRatePct.toStringAsFixed(1)}% / năm',
-                style: TextStyle(fontWeight: FontWeight.w700, color: c.textPrimary),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
               ),
               Slider(
                 value: _loanRatePct,
@@ -393,7 +412,10 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
               ),
               Text(
                 'Kỳ hạn vay: $_loanTermMonths tháng (${(_loanTermMonths / 12).toStringAsFixed(0)} năm)',
-                style: TextStyle(fontWeight: FontWeight.w700, color: c.textPrimary),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
               ),
               Slider(
                 value: _loanTermMonths.toDouble(),

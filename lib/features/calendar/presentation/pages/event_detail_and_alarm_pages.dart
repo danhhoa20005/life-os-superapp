@@ -32,7 +32,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Future<void> _loadExistingAlarm(String eventId) async {
     if (_loadedEventId == eventId) return;
     _loadedEventId = eventId;
-    final info = await NativeAlarmSchedulerBridge.instance.getScheduledAlarm(eventId);
+    final info = await NativeAlarmSchedulerBridge.instance.getScheduledAlarm(
+      eventId,
+    );
     if (!mounted) return;
     if (info != null) {
       setState(() {
@@ -59,10 +61,12 @@ class _EventDetailPageState extends State<EventDetailPage> {
       maybeFamilyBloc = null;
     }
 
-    final calEvents = maybeCalBloc?.state.events ?? const <CalendarEventEntity>[];
+    final calEvents =
+        maybeCalBloc?.state.events ?? const <CalendarEventEntity>[];
     final family = maybeFamilyBloc?.state.activeFamily;
 
-    final event = widget.initialEvent ?? (calEvents.isNotEmpty ? calEvents.first : null);
+    final event =
+        widget.initialEvent ?? (calEvents.isNotEmpty ? calEvents.first : null);
     if (event == null) {
       return Scaffold(
         body: LifeOsMintWaveCanvas(
@@ -157,7 +161,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
       (30, 'Trước 30 phút', 'Nhắc vào lúc ${reminderClock(30)}'),
     ];
 
-    final memberNames = (event.visibility == CalendarEventVisibility.sharedEvent &&
+    final memberNames =
+        (event.visibility == CalendarEventVisibility.sharedEvent &&
             family != null &&
             family.members.isNotEmpty)
         ? family.members.map((m) => m.fullName).take(4).toList()
@@ -180,7 +185,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -215,12 +222,16 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                     ),
                                     const SizedBox(height: 6),
                                     LifeOsStatusPill(
-                                      icon: event.visibility ==
-                                              CalendarEventVisibility.privateEvent
+                                      icon:
+                                          event.visibility ==
+                                              CalendarEventVisibility
+                                                  .privateEvent
                                           ? Icons.person_outline_rounded
                                           : Icons.groups_outlined,
-                                      label: event.visibility ==
-                                              CalendarEventVisibility.privateEvent
+                                      label:
+                                          event.visibility ==
+                                              CalendarEventVisibility
+                                                  .privateEvent
                                           ? 'Sự kiện cá nhân'
                                           : 'Sự kiện gia đình',
                                       tone: LifeOsAccentTone.emerald,
@@ -278,7 +289,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.groups_outlined, size: 20, color: c.primary),
+                                    Icon(
+                                      Icons.groups_outlined,
+                                      size: 20,
+                                      color: c.primary,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -314,7 +329,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                           child: Text(
                                             name.trim().isEmpty
                                                 ? 'U'
-                                                : name.trim().characters.first.toUpperCase(),
+                                                : name
+                                                      .trim()
+                                                      .characters
+                                                      .first
+                                                      .toUpperCase(),
                                             style: TextStyle(
                                               fontWeight: FontWeight.w800,
                                               color: c.primary,
@@ -368,28 +387,37 @@ class _EventDetailPageState extends State<EventDetailPage> {
                               const SizedBox(height: 3),
                               Text(
                                 'Chọn thời điểm nhắc nhở cho sự kiện này.',
-                                style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: c.textSecondary,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               ...reminderOptions.map((opt) {
-                                final isSelected = _selectedReminderMinutes == opt.$1;
+                                final isSelected =
+                                    _selectedReminderMinutes == opt.$1;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
-                                    onTap: () =>
-                                        setState(() => _selectedReminderMinutes = opt.$1),
+                                    onTap: () => setState(
+                                      () => _selectedReminderMinutes = opt.$1,
+                                    ),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
                                         vertical: 11,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: isSelected ? c.primarySubtle : c.surface,
+                                        color: isSelected
+                                            ? c.primarySubtle
+                                            : c.surface,
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
                                           color: isSelected
-                                              ? c.primary.withValues(alpha: 0.45)
+                                              ? c.primary.withValues(
+                                                  alpha: 0.45,
+                                                )
                                               : c.separator,
                                         ),
                                       ),
@@ -397,15 +425,20 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                         children: [
                                           Icon(
                                             isSelected
-                                                ? Icons.radio_button_checked_rounded
-                                                : Icons.radio_button_off_rounded,
-                                            color: isSelected ? c.primary : c.border,
+                                                ? Icons
+                                                      .radio_button_checked_rounded
+                                                : Icons
+                                                      .radio_button_off_rounded,
+                                            color: isSelected
+                                                ? c.primary
+                                                : c.border,
                                             size: 22,
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   opt.$2,
@@ -435,11 +468,17 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 contentPadding: EdgeInsets.zero,
                                 title: const Text(
                                   'Báo thức toàn màn hình khi đến giờ',
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13.5,
+                                  ),
                                 ),
-                                subtitle: const Text('Phát chuông nhắc & hiển thị màn hình báo thức'),
+                                subtitle: const Text(
+                                  'Phát chuông nhắc & hiển thị màn hình báo thức',
+                                ),
                                 value: _enableFullScreenAlarm,
-                                onChanged: (v) => setState(() => _enableFullScreenAlarm = v),
+                                onChanged: (v) =>
+                                    setState(() => _enableFullScreenAlarm = v),
                               ),
                             ],
                           ),
@@ -455,11 +494,17 @@ class _EventDetailPageState extends State<EventDetailPage> {
                             decoration: BoxDecoration(
                               color: c.primarySubtle,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: c.primary.withValues(alpha: 0.35)),
+                              border: Border.all(
+                                color: c.primary.withValues(alpha: 0.35),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.alarm_on_rounded, color: c.primary, size: 20),
+                                Icon(
+                                  Icons.alarm_on_rounded,
+                                  color: c.primary,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
@@ -478,13 +523,19 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                         .cancelEventAlarm(event.id);
                                     if (!context.mounted) return;
                                     setState(() => _scheduledAlarm = null);
-                                    LifeOsTopToast.fromSnackBar(context, 
+                                    LifeOsTopToast.fromSnackBar(
+                                      context,
                                       const SnackBar(
-                                        content: Text('Đã hủy lịch báo thức trên hệ thống.'),
+                                        content: Text(
+                                          'Đã hủy lịch báo thức trên hệ thống.',
+                                        ),
                                       ),
                                     );
                                   },
-                                  child: Text('Hủy', style: TextStyle(color: c.error)),
+                                  child: Text(
+                                    'Hủy',
+                                    style: TextStyle(color: c.error),
+                                  ),
                                 ),
                               ],
                             ),
@@ -496,19 +547,24 @@ class _EventDetailPageState extends State<EventDetailPage> {
                               ? 'Lưu nhắc nhở hệ thống'
                               : 'Cập nhật giờ báo thức',
                           onPressed: () async {
-                            final info =
-                                await NativeAlarmSchedulerBridge.instance.scheduleEventAlarm(
-                              eventId: event.id,
-                              title: event.title,
-                              subtitle: '$timeLabel · ${event.location ?? "Lịch trình LifeOS"}',
-                              eventStartsAt: event.startsAt,
-                              minutesBefore: _selectedReminderMinutes,
-                              fullScreen: _enableFullScreenAlarm,
-                            );
+                            final info = await NativeAlarmSchedulerBridge
+                                .instance
+                                .scheduleEventAlarm(
+                                  eventId: event.id,
+                                  title: event.title,
+                                  subtitle:
+                                      '$timeLabel · ${event.location ?? "Lịch trình LifeOS"}',
+                                  eventStartsAt: event.startsAt,
+                                  minutesBefore: _selectedReminderMinutes,
+                                  fullScreen: _enableFullScreenAlarm,
+                                );
                             if (!context.mounted) return;
                             setState(() => _scheduledAlarm = info);
-                            final triggerFmt = DateFormat('HH:mm dd/MM').format(info.triggerAt);
-                            LifeOsTopToast.fromSnackBar(context, 
+                            final triggerFmt = DateFormat(
+                              'HH:mm dd/MM',
+                            ).format(info.triggerAt);
+                            LifeOsTopToast.fromSnackBar(
+                              context,
                               SnackBar(
                                 content: Text(
                                   '✓ Đã đặt báo thức hệ thống lúc $triggerFmt cho "${event.title}".',
@@ -516,8 +572,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 action: !info.exactScheduled
                                     ? SnackBarAction(
                                         label: 'Cấp quyền đúng giây',
-                                        onPressed: () => NativeAlarmSchedulerBridge.instance
-                                            .openExactAlarmSettings(),
+                                        onPressed: () =>
+                                            NativeAlarmSchedulerBridge.instance
+                                                .openExactAlarmSettings(),
                                       )
                                     : null,
                               ),
@@ -528,8 +585,12 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         Center(
                           child: TextButton.icon(
                             key: const Key('preview_alarm_screen_button'),
-                            onPressed: () => context.push('/event-alarm', extra: event),
-                            icon: const Icon(Icons.volume_up_outlined, size: 17),
+                            onPressed: () =>
+                                context.push('/event-alarm', extra: event),
+                            icon: const Icon(
+                              Icons.volume_up_outlined,
+                              size: 17,
+                            ),
                             label: const Text('Xem thử màn hình báo thức'),
                           ),
                         ),
@@ -563,9 +624,16 @@ class _EventInfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     return Row(
-      crossAxisAlignment: multiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: multiLine
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
-        LifeOsIconSquircle(icon: icon, tone: LifeOsAccentTone.emerald, size: 38, iconSize: 19),
+        LifeOsIconSquircle(
+          icon: icon,
+          tone: LifeOsAccentTone.emerald,
+          size: 38,
+          iconSize: 19,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -628,13 +696,14 @@ class _EventAlarmPageState extends State<EventAlarmPage>
     CalendarEventEntity? ev = widget.event;
     if (ev == null) {
       try {
-        final upcoming = context
-            .watch<CalendarBloc>()
-            .state
-            .events
-            .where((e) => e.endsAt.isAfter(DateTime.now()))
-            .toList()
-          ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+        final upcoming =
+            context
+                .watch<CalendarBloc>()
+                .state
+                .events
+                .where((e) => e.endsAt.isAfter(DateTime.now()))
+                .toList()
+              ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
         if (upcoming.isNotEmpty) {
           ev = upcoming.first;
         }
@@ -663,11 +732,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0C7430),
-              Color(0xFF0A6128),
-              Color(0xFF074E20),
-            ],
+            colors: [Color(0xFF0C7430), Color(0xFF0A6128), Color(0xFF074E20)],
           ),
         ),
         child: SafeArea(
@@ -705,7 +770,9 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                       child: AnimatedBuilder(
                         animation: _pulseCtrl,
                         builder: (_, __) => CustomPaint(
-                          painter: _AlarmRadarRingsPainter(progress: _pulseCtrl.value),
+                          painter: _AlarmRadarRingsPainter(
+                            progress: _pulseCtrl.value,
+                          ),
                           child: Center(
                             child: Container(
                               width: 82,
@@ -715,7 +782,9 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF22C55E).withValues(alpha: 0.48),
+                                    color: const Color(
+                                      0xFF22C55E,
+                                    ).withValues(alpha: 0.48),
                                     blurRadius: 28,
                                     spreadRadius: 4,
                                   ),
@@ -835,15 +904,20 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                         onPressed: () async {
                           final activeEv = ev;
                           if (activeEv != null) {
-                            final snoozeAt = DateTime.now().add(const Duration(minutes: 5));
-                            await NativeAlarmSchedulerBridge.instance.scheduleEventAlarm(
-                              eventId: activeEv.id,
-                              title: activeEv.title,
-                              subtitle: activeEv.location ?? 'Nhắc lại sau 5 phút',
-                              eventStartsAt: snoozeAt,
-                              minutesBefore: 0,
-                              fullScreen: true,
+                            final snoozeAt = DateTime.now().add(
+                              const Duration(minutes: 5),
                             );
+                            await NativeAlarmSchedulerBridge.instance
+                                .scheduleEventAlarm(
+                                  eventId: activeEv.id,
+                                  title: activeEv.title,
+                                  subtitle:
+                                      activeEv.location ??
+                                      'Nhắc lại sau 5 phút',
+                                  eventStartsAt: snoozeAt,
+                                  minutesBefore: 0,
+                                  fullScreen: true,
+                                );
                           }
                           if (!context.mounted) return;
                           LifeOsTopToast.fromSnackBar(
@@ -860,7 +934,10 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                         },
                         child: const Text(
                           'Hoãn 5 phút',
-                          style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),

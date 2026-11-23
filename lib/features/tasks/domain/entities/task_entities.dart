@@ -40,37 +40,40 @@ class TaskEntity extends Equatable {
   bool get isPersonal => familyId == null || familyId!.isEmpty;
 
   /// Computes next due date for recurring tasks cleanly in pure Dart.
-  static DateTime? computeNextOccurrence(DateTime? currentDue, TaskRecurrence recurrence) {
+  static DateTime? computeNextOccurrence(
+    DateTime? currentDue,
+    TaskRecurrence recurrence,
+  ) {
     if (recurrence == TaskRecurrence.none) return null;
     final base = currentDue ?? DateTime.now();
     return switch (recurrence) {
       TaskRecurrence.daily => base.add(const Duration(days: 1)),
       TaskRecurrence.weekly => base.add(const Duration(days: 7)),
       TaskRecurrence.monthly => DateTime(
-          base.year,
-          base.month + 1,
-          base.day,
-          base.hour,
-          base.minute,
-        ),
+        base.year,
+        base.month + 1,
+        base.day,
+        base.hour,
+        base.minute,
+      ),
       TaskRecurrence.none => null,
     };
   }
 
   @override
   List<Object?> get props => [
-        id,
-        familyId,
-        createdBy,
-        creatorName,
-        assigneeId,
-        assigneeName,
-        title,
-        description,
-        dueAt,
-        priority,
-        status,
-        recurrence,
-        responseNote,
-      ];
+    id,
+    familyId,
+    createdBy,
+    creatorName,
+    assigneeId,
+    assigneeName,
+    title,
+    description,
+    dueAt,
+    priority,
+    status,
+    recurrence,
+    responseNote,
+  ];
 }

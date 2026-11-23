@@ -1,0 +1,24 @@
+{
+  "name": "life-os-functions",
+  "version": "1.0.0",
+  "description": "Life OS Gen 2 Cloud Functions — SePay Real-Time Banking Webhook, Durable Inbox, Reconciliation & FCM Push",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit --pretty",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "npm run build && node --test lib/test/realtime_banking.test.js lib/test/firestore_emulator.test.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  },
+  "private": true
+}

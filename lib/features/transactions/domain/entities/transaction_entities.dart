@@ -4,9 +4,27 @@ enum WalletType { cash, bank, creditCard, savings }
 
 enum TransactionKind { expense, income, transfer, creditCardPayment, reversal }
 
-enum TransactionVerification { provisional, userConfirmed, verified, rejected }
+enum TransactionVerification {
+  provisional,
+  userConfirmed,
+  verified,
+  rejected,
+  needsReview,
+}
 
-enum TransactionSourceKind { manual, androidNotification, csv, bankApi }
+enum TransactionSourceKind {
+  manual,
+  androidNotification,
+  csv,
+  bankApi,
+  bankWebhook,
+}
+
+enum TransactionBalanceType {
+  observedBankBalance,
+  estimatedWalletBalance,
+  unknownBalance,
+}
 
 /// Represents a single category slice of a multi-category Split Transaction
 /// (e.g., 1 supermarket payment of 500,000 VND split into 320,000 VND "Ăn uống"
@@ -53,17 +71,17 @@ class WalletEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        name,
-        type,
-        bankCode,
-        maskedAccount,
-        balanceMinor,
-        creditLimitMinor,
-        isEstimatedBalance,
-        hasPendingWrites,
-      ];
+    id,
+    ownerId,
+    name,
+    type,
+    bankCode,
+    maskedAccount,
+    balanceMinor,
+    creditLimitMinor,
+    isEstimatedBalance,
+    hasPendingWrites,
+  ];
 }
 
 class CategoryEntity extends Equatable {
@@ -108,7 +126,20 @@ class TransactionEntity extends Equatable {
   final bool isVehicleMaintenanceHint;
   final List<TransactionSplitLine> splitLines;
   final int? balanceAfterMinor;
+  final TransactionBalanceType balanceType;
+  final bool ledgerApplied;
   final String? walletName;
+  final String? connectionId;
+  final String? sourceProvider;
+  final String? externalTransactionId;
+  final String? referenceCode;
+  final String? bankCode;
+  final String? accountMasked;
+  final String? counterpartyDisplay;
+  final DateTime? receivedAt;
+  final String? reconciliationStatus;
+  final String? sourceEventKey;
+  final bool isRecurringCandidate;
   final bool hasPendingWrites;
 
   const TransactionEntity({
@@ -134,9 +165,25 @@ class TransactionEntity extends Equatable {
     this.isVehicleMaintenanceHint = false,
     this.splitLines = const [],
     this.balanceAfterMinor,
+    this.balanceType = TransactionBalanceType.unknownBalance,
+    bool? ledgerApplied,
     this.walletName,
+    this.connectionId,
+    this.sourceProvider,
+    this.externalTransactionId,
+    this.referenceCode,
+    this.bankCode,
+    this.accountMasked,
+    this.counterpartyDisplay,
+    this.receivedAt,
+    this.reconciliationStatus,
+    this.sourceEventKey,
+    this.isRecurringCandidate = false,
     this.hasPendingWrites = false,
-  });
+  }) : ledgerApplied =
+           ledgerApplied ??
+           (verification == TransactionVerification.userConfirmed ||
+               verification == TransactionVerification.verified);
 
   bool get isConfirmedInLedger =>
       verification == TransactionVerification.userConfirmed ||
@@ -148,31 +195,44 @@ class TransactionEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        walletId,
-        targetWalletId,
-        categoryId,
-        categoryName,
-        kind,
-        direction,
-        amountMinor,
-        currencyCode,
-        merchant,
-        note,
-        occurredAt,
-        monthKey,
-        sourceKind,
-        verification,
-        crossSourceFingerprint,
-        reversalOfId,
-        reversedById,
-        isVehicleMaintenanceHint,
-        splitLines,
-        balanceAfterMinor,
-        walletName,
-        hasPendingWrites,
-      ];
+    id,
+    ownerId,
+    walletId,
+    targetWalletId,
+    categoryId,
+    categoryName,
+    kind,
+    direction,
+    amountMinor,
+    currencyCode,
+    merchant,
+    note,
+    occurredAt,
+    monthKey,
+    sourceKind,
+    verification,
+    crossSourceFingerprint,
+    reversalOfId,
+    reversedById,
+    isVehicleMaintenanceHint,
+    splitLines,
+    balanceAfterMinor,
+    balanceType,
+    ledgerApplied,
+    walletName,
+    connectionId,
+    sourceProvider,
+    externalTransactionId,
+    referenceCode,
+    bankCode,
+    accountMasked,
+    counterpartyDisplay,
+    receivedAt,
+    reconciliationStatus,
+    sourceEventKey,
+    isRecurringCandidate,
+    hasPendingWrites,
+  ];
 }
 
 class CategorySpendShare extends Equatable {
@@ -330,7 +390,8 @@ class FinanceOverviewSummary extends Equatable {
                   (breakdown[line.categoryName] ?? 0) + line.amountMinor;
             }
           } else {
-            breakdown[tx.categoryName] = (breakdown[tx.categoryName] ?? 0) + tx.amountMinor;
+            breakdown[tx.categoryName] =
+                (breakdown[tx.categoryName] ?? 0) + tx.amountMinor;
           }
         case TransactionKind.income:
           income += tx.amountMinor;
@@ -360,30 +421,27 @@ class FinanceOverviewSummary extends Equatable {
 
   @override
   List<Object?> get props => [
-        netWorthMinor,
-        liquidAssetsMinor,
-        savingsAssetsMinor,
-        creditLiabilityMinor,
-        monthlyIncomeMinor,
-        monthlyExpenseMinor,
-        monthlyInternalTransferMinor,
-        provisionalCount,
-        verifiedCount,
-        userConfirmedCount,
-        expenseByCategory,
-      ];
+    netWorthMinor,
+    liquidAssetsMinor,
+    savingsAssetsMinor,
+    creditLiabilityMinor,
+    monthlyIncomeMinor,
+    monthlyExpenseMinor,
+    monthlyInternalTransferMinor,
+    provisionalCount,
+    verifiedCount,
+    userConfirmedCount,
+    expenseByCategory,
+  ];
 }
 
-enum AllocationPreset {
-  personal503020,
-  family602020,
-  roommates552025,
-}
+enum AllocationPreset { personal503020, family602020, roommates552025 }
 
 class AllocationBucketItem extends Equatable {
   final String categoryId;
   final String categoryName;
-  final String groupLabel; // 'Thiết yếu' | 'Linh hoạt & Đối ngoại' | 'Tiết kiệm & Dự phòng'
+  final String
+  groupLabel; // 'Thiết yếu' | 'Linh hoạt & Đối ngoại' | 'Tiết kiệm & Dự phòng'
   final int weightPct;
   final int amountMinor;
   final bool isSavingsFund;
@@ -399,13 +457,13 @@ class AllocationBucketItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        categoryId,
-        categoryName,
-        groupLabel,
-        weightPct,
-        amountMinor,
-        isSavingsFund,
-      ];
+    categoryId,
+    categoryName,
+    groupLabel,
+    weightPct,
+    amountMinor,
+    isSavingsFund,
+  ];
 }
 
 class IncomeAllocationPlan extends Equatable {
@@ -419,7 +477,8 @@ class IncomeAllocationPlan extends Equatable {
     required this.buckets,
   });
 
-  int get allocatedTotalMinor => buckets.fold<int>(0, (sum, b) => sum + b.amountMinor);
+  int get allocatedTotalMinor =>
+      buckets.fold<int>(0, (sum, b) => sum + b.amountMinor);
 
   @override
   List<Object?> get props => [preset, totalIncomeMinor, buckets];
@@ -432,7 +491,8 @@ abstract final class IncomeAllocationEngine {
     return switch (preset) {
       AllocationPreset.personal503020 => 'Cá nhân Cân bằng (50/30/20)',
       AllocationPreset.family602020 => 'Hộ Gia đình & Tổ ấm (60/20/20)',
-      AllocationPreset.roommates552025 => 'Ở ghép / Hội nhóm Tiết kiệm (55/20/25)',
+      AllocationPreset.roommates552025 =>
+        'Ở ghép / Hội nhóm Tiết kiệm (55/20/25)',
     };
   }
 
@@ -450,36 +510,132 @@ abstract final class IncomeAllocationEngine {
 
     final specs = switch (preset) {
       AllocationPreset.personal503020 => const [
-          ('cat_food', 'Ăn uống', 'Thiết yếu (50%)', 20, false),
-          ('cat_housing', 'Nhà cửa & Thuê nhà', 'Thiết yếu (50%)', 15, false),
-          ('cat_utilities', 'Điện/Nước/Internet', 'Thiết yếu (50%)', 5, false),
-          ('cat_housework', 'Việc nhà & Gia dụng', 'Thiết yếu (50%)', 5, false),
-          ('cat_vehicle', 'Xe cộ & Di chuyển', 'Thiết yếu (50%)', 5, false),
-          ('cat_shopping', 'Chợ & Mua sắm', 'Cá nhân & Giải trí (30%)', 15, false),
-          ('cat_entertainment', 'Giải trí & Đăng ký', 'Cá nhân & Giải trí (30%)', 10, false),
-          ('cat_health', 'Sức khỏe & Giáo dục', 'Cá nhân & Giải trí (30%)', 5, false),
-          ('fund_emergency', 'Quỹ Tiết kiệm & Dự phòng', 'Tích lũy (20%)', 20, true),
-        ],
+        ('cat_food', 'Ăn uống', 'Thiết yếu (50%)', 20, false),
+        ('cat_housing', 'Nhà cửa & Thuê nhà', 'Thiết yếu (50%)', 15, false),
+        ('cat_utilities', 'Điện/Nước/Internet', 'Thiết yếu (50%)', 5, false),
+        ('cat_housework', 'Việc nhà & Gia dụng', 'Thiết yếu (50%)', 5, false),
+        ('cat_vehicle', 'Xe cộ & Di chuyển', 'Thiết yếu (50%)', 5, false),
+        (
+          'cat_shopping',
+          'Chợ & Mua sắm',
+          'Cá nhân & Giải trí (30%)',
+          15,
+          false,
+        ),
+        (
+          'cat_entertainment',
+          'Giải trí & Đăng ký',
+          'Cá nhân & Giải trí (30%)',
+          10,
+          false,
+        ),
+        (
+          'cat_health',
+          'Sức khỏe & Giáo dục',
+          'Cá nhân & Giải trí (30%)',
+          5,
+          false,
+        ),
+        (
+          'fund_emergency',
+          'Quỹ Tiết kiệm & Dự phòng',
+          'Tích lũy (20%)',
+          20,
+          true,
+        ),
+      ],
       AllocationPreset.family602020 => const [
-          ('cat_food', 'Ăn uống', 'Sinh hoạt Gia đình (60%)', 22, false),
-          ('cat_shopping', 'Chợ & Mua sắm', 'Sinh hoạt Gia đình (60%)', 10, false),
-          ('cat_housework', 'Việc nhà & Gia dụng', 'Sinh hoạt Gia đình (60%)', 8, false),
-          ('cat_utilities', 'Điện/Nước/Internet', 'Sinh hoạt Gia đình (60%)', 8, false),
-          ('cat_health', 'Sức khỏe & Giáo dục', 'Sinh hoạt Gia đình (60%)', 12, false),
-          ('cat_family_social', 'Hiếu hỉ & Đối ngoại', 'Đối nội ngoại & Chung (20%)', 12, false),
-          ('cat_vehicle', 'Xe cộ & Di chuyển', 'Đối nội ngoại & Chung (20%)', 8, false),
-          ('fund_family', 'Quỹ Tích lũy Gia đình', 'Tích lũy (20%)', 20, true),
-        ],
+        ('cat_food', 'Ăn uống', 'Sinh hoạt Gia đình (60%)', 22, false),
+        (
+          'cat_shopping',
+          'Chợ & Mua sắm',
+          'Sinh hoạt Gia đình (60%)',
+          10,
+          false,
+        ),
+        (
+          'cat_housework',
+          'Việc nhà & Gia dụng',
+          'Sinh hoạt Gia đình (60%)',
+          8,
+          false,
+        ),
+        (
+          'cat_utilities',
+          'Điện/Nước/Internet',
+          'Sinh hoạt Gia đình (60%)',
+          8,
+          false,
+        ),
+        (
+          'cat_health',
+          'Sức khỏe & Giáo dục',
+          'Sinh hoạt Gia đình (60%)',
+          12,
+          false,
+        ),
+        (
+          'cat_family_social',
+          'Hiếu hỉ & Đối ngoại',
+          'Đối nội ngoại & Chung (20%)',
+          12,
+          false,
+        ),
+        (
+          'cat_vehicle',
+          'Xe cộ & Di chuyển',
+          'Đối nội ngoại & Chung (20%)',
+          8,
+          false,
+        ),
+        ('fund_family', 'Quỹ Tích lũy Gia đình', 'Tích lũy (20%)', 20, true),
+      ],
       AllocationPreset.roommates552025 => const [
-          ('cat_housing', 'Nhà cửa & Thuê nhà', 'Chi phí Ở ghép & Sinh hoạt (55%)', 20, false),
-          ('cat_food', 'Ăn uống', 'Chi phí Ở ghép & Sinh hoạt (55%)', 18, false),
-          ('cat_utilities', 'Điện/Nước/Internet', 'Chi phí Ở ghép & Sinh hoạt (55%)', 7, false),
-          ('cat_housework', 'Việc nhà & Gia dụng', 'Chi phí Ở ghép & Sinh hoạt (55%)', 5, false),
-          ('cat_vehicle', 'Xe cộ & Di chuyển', 'Chi phí Ở ghép & Sinh hoạt (55%)', 5, false),
-          ('cat_entertainment', 'Giải trí & Đăng ký', 'Học tập & Giải trí (20%)', 10, false),
-          ('cat_health', 'Sức khỏe & Giáo dục', 'Học tập & Giải trí (20%)', 10, false),
-          ('fund_goal', 'Quỹ Mục tiêu Cá nhân', 'Tiết kiệm (25%)', 25, true),
-        ],
+        (
+          'cat_housing',
+          'Nhà cửa & Thuê nhà',
+          'Chi phí Ở ghép & Sinh hoạt (55%)',
+          20,
+          false,
+        ),
+        ('cat_food', 'Ăn uống', 'Chi phí Ở ghép & Sinh hoạt (55%)', 18, false),
+        (
+          'cat_utilities',
+          'Điện/Nước/Internet',
+          'Chi phí Ở ghép & Sinh hoạt (55%)',
+          7,
+          false,
+        ),
+        (
+          'cat_housework',
+          'Việc nhà & Gia dụng',
+          'Chi phí Ở ghép & Sinh hoạt (55%)',
+          5,
+          false,
+        ),
+        (
+          'cat_vehicle',
+          'Xe cộ & Di chuyển',
+          'Chi phí Ở ghép & Sinh hoạt (55%)',
+          5,
+          false,
+        ),
+        (
+          'cat_entertainment',
+          'Giải trí & Đăng ký',
+          'Học tập & Giải trí (20%)',
+          10,
+          false,
+        ),
+        (
+          'cat_health',
+          'Sức khỏe & Giáo dục',
+          'Học tập & Giải trí (20%)',
+          10,
+          false,
+        ),
+        ('fund_goal', 'Quỹ Mục tiêu Cá nhân', 'Tiết kiệm (25%)', 25, true),
+      ],
     };
 
     final totalWeight = specs.fold<int>(0, (s, item) => s + item.$4);

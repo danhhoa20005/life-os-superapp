@@ -12,7 +12,8 @@ sealed class Failure extends Equatable {
 
 final class NetworkFailure extends Failure {
   const NetworkFailure({
-    super.message = 'Không thể kết nối mạng. Vui lòng kiểm tra kết nối của bạn.',
+    super.message =
+        'Không thể kết nối mạng. Vui lòng kiểm tra kết nối của bạn.',
     super.code = 'NETWORK_FAILURE',
   });
 }
@@ -26,7 +27,8 @@ final class AuthenticationFailure extends Failure {
 
 final class PermissionDeniedFailure extends Failure {
   const PermissionDeniedFailure({
-    super.message = 'Bạn không có quyền truy cập hoặc thực hiện thao tác trên dữ liệu này.',
+    super.message =
+        'Bạn không có quyền truy cập hoặc thực hiện thao tác trên dữ liệu này.',
     super.code = 'PERMISSION_DENIED',
   });
 }

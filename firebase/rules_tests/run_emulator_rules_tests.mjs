@@ -23,7 +23,8 @@ function makeEmulatorJwt(uid) {
 function toFirestoreFields(obj) {
   const fields = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === 'string') fields[k] = { stringValue: v };
+    if (v instanceof Date) fields[k] = { timestampValue: v.toISOString() };
+    else if (typeof v === 'string') fields[k] = { stringValue: v };
     else if (typeof v === 'number') fields[k] = { integerValue: String(v) };
     else if (typeof v === 'boolean') fields[k] = { booleanValue: v };
     else if (Array.isArray(v)) {
@@ -127,13 +128,15 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       }),
       200,
     );
+    const invCode = `FAM-JOIN-${Date.now()}`;
     assert.equal(
-      await firestoreRequest('PATCH', 'family_invites/FAM-JOIN99', {
+      await firestoreRequest('PATCH', `family_invites/${invCode}`, {
         uid: 'owner_1',
         data: {
-          inviteCode: 'FAM-JOIN99',
+          inviteCode: invCode,
           familyId: 'fam_1',
           createdBy: 'owner_1',
+          expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
         },
       }),
       200,
@@ -156,7 +159,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           createdBy: 'owner_1',
           memberIds: ['owner_1', 'user_2'],
           memberRoles: { owner_1: 'owner', user_2: 'owner' },
-          lastJoinedInviteCode: 'FAM-JOIN99',
+          lastJoinedInviteCode: invCode,
         },
       }),
       403,
@@ -172,7 +175,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           createdBy: 'owner_1',
           memberIds: ['owner_1', 'user_2'],
           memberRoles: { owner_1: 'owner', user_2: 'member' },
-          lastJoinedInviteCode: 'FAM-JOIN99',
+          lastJoinedInviteCode: invCode,
         },
       }),
       200,
@@ -237,6 +240,92 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
     );
     assert.equal(
       await firestoreRequest('GET', 'families/fam_1/funds/fund_1', { uid: 'user_2' }),
+      403,
+    );
+  });
+
+  it('4. T20 & T23 — Isolates devices, bank_connections, financial_notifications & blocks client access to server-only collections', async () => {
+    // Owner A registers own FCM device & privacy settings -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', 'users/bank_user_a/devices/dev_pixel9', {
+        uid: 'bank_user_a',
+        data: {
+          deviceId: 'dev_pixel9',
+          ownerId: 'bank_user_a',
+          fcmToken: 'tok_a_123',
+          pushEnabled: true,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', 'users/bank_user_a/notification_preferences/settings', {
+        uid: 'bank_user_a',
+        data: {
+          ownerId: 'bank_user_a',
+          hideAmountOnLockscreen: true,
+        },
+      }),
+      200,
+    );
+
+    // Client CANNOT forge a verified `sepay` + `connected` bank_connection directly -> 403!
+    assert.equal(
+      await firestoreRequest('PATCH', 'users/bank_user_a/bank_connections/forged_conn', {
+        uid: 'bank_user_a',
+        data: {
+          ownerId: 'bank_user_a',
+          provider: 'sepay',
+          status: 'connected',
+          bankCode: 'VCB',
+        },
+      }),
+      403,
+    );
+
+    // User B CANNOT read or write User A's devices, preferences, bank_connections, or financial_notifications -> 403!
+    assert.equal(
+      await firestoreRequest('GET', 'users/bank_user_a/devices/dev_pixel9', { uid: 'bank_user_b' }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', 'users/bank_user_a/devices/dev_hijack', {
+        uid: 'bank_user_b',
+        data: { deviceId: 'dev_hijack', ownerId: 'bank_user_a', fcmToken: 'evil' },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('GET', 'users/bank_user_a/notification_preferences/settings', {
+        uid: 'bank_user_b',
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('GET', 'users/bank_user_a/financial_notifications/n1', {
+        uid: 'bank_user_b',
+      }),
+      403,
+    );
+
+    // Server-only collections are strictly inaccessible to ALL client users -> 403!
+    assert.equal(
+      await firestoreRequest('GET', 'server_bank_connections/conn_1', { uid: 'bank_user_a' }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', 'sepay_webhook_inbox/ev_1', {
+        uid: 'bank_user_a',
+        data: { state: 'PROCESSED' },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('GET', 'notification_outbox/out_1', { uid: 'bank_user_a' }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('GET', 'bank_reconciliation_jobs/job_1', { uid: 'bank_user_a' }),
       403,
     );
   });

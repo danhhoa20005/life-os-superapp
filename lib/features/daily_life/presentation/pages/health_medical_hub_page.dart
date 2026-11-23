@@ -30,12 +30,10 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
   double _sleepHours = 7.5;
   bool _hydratedFromLogs = false;
 
-  static const List<({
-    String name,
-    String dosage,
-    MedicationScheduleSlot slot,
-    int pills,
-  })> _medPresets = [
+  static const List<
+    ({String name, String dosage, MedicationScheduleSlot slot, int pills})
+  >
+  _medPresets = [
     (
       name: 'Vitamin D3 + K2 MK7',
       dosage: '1 viên sau ăn sáng',
@@ -79,11 +77,13 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
           p.successBanner != n.successBanner || p.failure != n.failure,
       listener: (context, state) {
         if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text(state.successBanner!)),
           );
         } else if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text(state.failure!.message)),
           );
         }
@@ -132,8 +132,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   Expanded(
                     child: Center(
                       child: ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSpacing.maxContentWidth,
+                        ),
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.md,
@@ -157,7 +158,8 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               'Hồ sơ Sức khỏe Gia đình',
@@ -189,13 +191,19 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                                           label: 'Cữ thuốc hôm nay',
                                           color: c.primary,
                                         ),
-                                        VerticalDivider(width: 16, color: c.separator),
+                                        VerticalDivider(
+                                          width: 16,
+                                          color: c.separator,
+                                        ),
                                         _HeroKpiCol(
                                           value: '${assessment.bmi}',
                                           label: 'BMI Châu Á',
                                           color: const Color(0xFF0EA5E9),
                                         ),
-                                        VerticalDivider(width: 16, color: c.separator),
+                                        VerticalDivider(
+                                          width: 16,
+                                          color: c.separator,
+                                        ),
                                         _HeroKpiCol(
                                           value: '$_systolic/$_diastolic',
                                           label: 'Huyết áp mmHg',
@@ -214,18 +222,43 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                               onChanged: (v) => setState(() => _tab = v),
                               options: const [
                                 ('meds', 'Tủ thuốc', Icons.medication_outlined),
-                                ('vitals', 'BMI & Chỉ số', Icons.monitor_heart_outlined),
-                                ('sos', 'Thẻ SOS', Icons.medical_information_outlined),
+                                (
+                                  'vitals',
+                                  'BMI & Chỉ số',
+                                  Icons.monitor_heart_outlined,
+                                ),
+                                (
+                                  'sos',
+                                  'Thẻ SOS',
+                                  Icons.medical_information_outlined,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 14),
 
                             if (_tab == 'meds')
-                              _buildMedicationsTab(context, c, userId, snap, todayKey)
+                              _buildMedicationsTab(
+                                context,
+                                c,
+                                userId,
+                                snap,
+                                todayKey,
+                              )
                             else if (_tab == 'vitals')
-                              _buildVitalsTab(context, c, userId, snap, assessment)
+                              _buildVitalsTab(
+                                context,
+                                c,
+                                userId,
+                                snap,
+                                assessment,
+                              )
                             else
-                              _buildEmergencyCardTab(context, c, userId, snap.emergencyCard),
+                              _buildEmergencyCardTab(
+                                context,
+                                c,
+                                userId,
+                                snap.emergencyCard,
+                              ),
                           ],
                         ),
                       ),
@@ -267,21 +300,25 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
           runSpacing: 8,
           children: _medPresets.map((p) {
             return ActionChip(
-              avatar: Icon(Icons.add_circle_outline_rounded, size: 16, color: c.primary),
+              avatar: Icon(
+                Icons.add_circle_outline_rounded,
+                size: 16,
+                color: c.primary,
+              ),
               label: Text(p.name, style: const TextStyle(fontSize: 12.5)),
               onPressed: userId.isEmpty
                   ? null
                   : () {
                       context.read<DailyLifeBloc>().add(
-                            MedicationCabinetAdded(
-                              userId: userId,
-                              name: p.name,
-                              dosage: p.dosage,
-                              slot: p.slot,
-                              remainingPills: p.pills,
-                              expiryDate: now.add(const Duration(days: 270)),
-                            ),
-                          );
+                        MedicationCabinetAdded(
+                          userId: userId,
+                          name: p.name,
+                          dosage: p.dosage,
+                          slot: p.slot,
+                          remainingPills: p.pills,
+                          expiryDate: now.add(const Duration(days: 270)),
+                        ),
+                      );
                     },
             );
           }).toList(),
@@ -292,7 +329,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
           key: const Key('open_add_medication_btn'),
           label: '+ Thêm thuốc / Vitamin vào Tủ thuốc',
           icon: Icons.medication_liquid_rounded,
-          onPressed: userId.isEmpty ? null : () => _showAddMedSheet(context, userId),
+          onPressed: userId.isEmpty
+              ? null
+              : () => _showAddMedSheet(context, userId),
         ),
         const SizedBox(height: 14),
 
@@ -300,11 +339,18 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
           LifeOsSoftCard(
             child: Column(
               children: [
-                Icon(Icons.health_and_safety_outlined, size: 40, color: c.primary),
+                Icon(
+                  Icons.health_and_safety_outlined,
+                  size: 40,
+                  color: c.primary,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Tủ thuốc gia đình đang trống',
-                  style: TextStyle(fontWeight: FontWeight.w800, color: c.textPrimary),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: c.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -335,8 +381,8 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                           tone: taken
                               ? LifeOsAccentTone.emerald
                               : (expiring
-                                  ? LifeOsAccentTone.coral
-                                  : LifeOsAccentTone.blue),
+                                    ? LifeOsAccentTone.coral
+                                    : LifeOsAccentTone.blue),
                           size: 42,
                         ),
                         const SizedBox(width: 12),
@@ -354,7 +400,10 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                               ),
                               Text(
                                 '${med.dosage} · ${med.slot.label}',
-                                style: TextStyle(fontSize: 12.2, color: c.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12.2,
+                                  color: c.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -363,13 +412,16 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                           visualDensity: VisualDensity.compact,
                           tooltip: 'Xóa thuốc',
                           onPressed: () => context.read<DailyLifeBloc>().add(
-                                MedicationCabinetDeleted(
-                                  userId: userId,
-                                  medId: med.id,
-                                ),
-                              ),
-                          icon: Icon(Icons.delete_outline_rounded,
-                              size: 19, color: c.textSecondary),
+                            MedicationCabinetDeleted(
+                              userId: userId,
+                              medId: med.id,
+                            ),
+                          ),
+                          icon: Icon(
+                            Icons.delete_outline_rounded,
+                            size: 19,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -395,15 +447,17 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                         ),
                         FilledButton.tonalIcon(
                           onPressed: () => context.read<DailyLifeBloc>().add(
-                                MedicationTakenToggled(userId: userId, item: med),
-                              ),
+                            MedicationTakenToggled(userId: userId, item: med),
+                          ),
                           icon: Icon(
                             taken
                                 ? Icons.check_circle_rounded
                                 : Icons.radio_button_unchecked_rounded,
                             size: 17,
                           ),
-                          label: Text(taken ? 'Đã uống hôm nay' : 'Đánh dấu đã uống'),
+                          label: Text(
+                            taken ? 'Đã uống hôm nay' : 'Đánh dấu đã uống',
+                          ),
                         ),
                       ],
                     ),
@@ -484,7 +538,8 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   ),
                   LifeOsStatusPill(
                     icon: Icons.water_drop_outlined,
-                    label: 'Nước chuẩn: ${assessment.recommendedWaterMl} ml/ngày',
+                    label:
+                        'Nước chuẩn: ${assessment.recommendedWaterMl} ml/ngày',
                     tone: LifeOsAccentTone.purple,
                   ),
                 ],
@@ -525,7 +580,8 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
               ),
               _SliderMetricRow(
                 label: 'Giấc ngủ đêm qua',
-                valueLabel: '${_sleepHours.toStringAsFixed(1)} giờ · $_heartRate bpm',
+                valueLabel:
+                    '${_sleepHours.toStringAsFixed(1)} giờ · $_heartRate bpm',
                 value: _sleepHours,
                 min: 3.5,
                 max: 11.0,
@@ -540,17 +596,21 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                     ? null
                     : () {
                         context.read<DailyLifeBloc>().add(
-                              HealthVitalLogAdded(
-                                userId: userId,
-                                weightKg: double.parse(_weightKg.toStringAsFixed(1)),
-                                heightCm: _heightCm.roundToDouble(),
-                                systolicMmHg: _systolic,
-                                diastolicMmHg: _diastolic,
-                                heartRateBpm: _heartRate,
-                                sleepHours: double.parse(_sleepHours.toStringAsFixed(1)),
-                                note: assessment.bmiCategory,
-                              ),
-                            );
+                          HealthVitalLogAdded(
+                            userId: userId,
+                            weightKg: double.parse(
+                              _weightKg.toStringAsFixed(1),
+                            ),
+                            heightCm: _heightCm.roundToDouble(),
+                            systolicMmHg: _systolic,
+                            diastolicMmHg: _diastolic,
+                            heartRateBpm: _heartRate,
+                            sleepHours: double.parse(
+                              _sleepHours.toStringAsFixed(1),
+                            ),
+                            note: assessment.bmiCategory,
+                          ),
+                        );
                       },
               ),
             ],
@@ -567,11 +627,16 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
             ),
           ),
           const SizedBox(height: 8),
-          ...snap.healthLogs.take(5).map(
+          ...snap.healthLogs
+              .take(5)
+              .map(
                 (log) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: LifeOsSoftCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
                     child: Row(
                       children: [
                         const LifeOsIconSquircle(
@@ -590,12 +655,17 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13.5,
                                   color: c.textPrimary,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                               Text(
                                 '${dtFmt.format(log.recordedAt)} · ${log.note}',
-                                style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 11.8,
+                                  color: c.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -646,7 +716,10 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                         ),
                         Text(
                           'Xuất trình nhanh khi khám chữa bệnh hoặc cấp cứu',
-                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -665,7 +738,11 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline_rounded, size: 18, color: c.warning),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: c.warning,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -682,11 +759,15 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                 ),
               _MedicalFieldRow(
                 label: 'Nhóm máu',
-                value: card.bloodType.trim().isEmpty ? 'Chưa cung cấp' : card.bloodType,
+                value: card.bloodType.trim().isEmpty
+                    ? 'Chưa cung cấp'
+                    : card.bloodType,
               ),
               _MedicalFieldRow(
                 label: 'Dị ứng thuốc / thức ăn',
-                value: card.allergies.trim().isEmpty ? 'Chưa cung cấp' : card.allergies,
+                value: card.allergies.trim().isEmpty
+                    ? 'Chưa cung cấp'
+                    : card.allergies,
               ),
               _MedicalFieldRow(
                 label: 'Tiền sử / Bệnh nền',
@@ -708,12 +789,13 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
               ),
               _MedicalFieldRow(
                 label: 'Liên hệ khẩn cấp',
-                value: card.emergencyContactName.trim().isEmpty &&
+                value:
+                    card.emergencyContactName.trim().isEmpty &&
                         card.emergencyContactPhone.trim().isEmpty
                     ? 'Chưa cung cấp'
                     : card.emergencyContactPhone.trim().isEmpty
-                        ? card.emergencyContactName
-                        : '${card.emergencyContactName} (${card.emergencyContactPhone})',
+                    ? card.emergencyContactName
+                    : '${card.emergencyContactName} (${card.emergencyContactPhone})',
               ),
               const SizedBox(height: 12),
               LifeOsPrimaryCtaButton(
@@ -811,15 +893,21 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: doseCtrl,
-                  decoration: const InputDecoration(labelText: 'Liều dùng & Ghi chú'),
+                  decoration: const InputDecoration(
+                    labelText: 'Liều dùng & Ghi chú',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<MedicationScheduleSlot>(
                   isExpanded: true,
                   initialValue: selectedSlot,
-                  decoration: const InputDecoration(labelText: 'Khung giờ uống'),
+                  decoration: const InputDecoration(
+                    labelText: 'Khung giờ uống',
+                  ),
                   items: MedicationScheduleSlot.values
-                      .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
+                      .map(
+                        (s) => DropdownMenuItem(value: s, child: Text(s.label)),
+                      )
                       .toList(),
                   onChanged: (v) {
                     if (v != null) setModal(() => selectedSlot = v);
@@ -829,7 +917,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                 TextField(
                   controller: pillsCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Số lượng tồn (viên/gói)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Số lượng tồn (viên/gói)',
+                  ),
                 ),
                 const SizedBox(height: 14),
                 LifeOsPrimaryCtaButton(
@@ -839,15 +929,18 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                     final name = nameCtrl.text.trim();
                     if (name.isEmpty) return;
                     context.read<DailyLifeBloc>().add(
-                          MedicationCabinetAdded(
-                            userId: userId,
-                            name: name,
-                            dosage: doseCtrl.text.trim(),
-                            slot: selectedSlot,
-                            remainingPills: int.tryParse(pillsCtrl.text.trim()) ?? 30,
-                            expiryDate: DateTime.now().add(const Duration(days: 300)),
-                          ),
-                        );
+                      MedicationCabinetAdded(
+                        userId: userId,
+                        name: name,
+                        dosage: doseCtrl.text.trim(),
+                        slot: selectedSlot,
+                        remainingPills:
+                            int.tryParse(pillsCtrl.text.trim()) ?? 30,
+                        expiryDate: DateTime.now().add(
+                          const Duration(days: 300),
+                        ),
+                      ),
+                    );
                     Navigator.of(sheetCtx).pop();
                   },
                 ),
@@ -864,12 +957,28 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
     String userId,
     EmergencyMedicalCardEntity current,
   ) async {
-    const validBloodOptions = ['', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
-    var blood = validBloodOptions.contains(current.bloodType) ? current.bloodType : '';
+    const validBloodOptions = [
+      '',
+      'O+',
+      'O-',
+      'A+',
+      'A-',
+      'B+',
+      'B-',
+      'AB+',
+      'AB-',
+    ];
+    var blood = validBloodOptions.contains(current.bloodType)
+        ? current.bloodType
+        : '';
     final allergyCtrl = TextEditingController(text: current.allergies);
     final bhytCtrl = TextEditingController(text: current.insuranceCode);
-    final contactNameCtrl = TextEditingController(text: current.emergencyContactName);
-    final contactPhoneCtrl = TextEditingController(text: current.emergencyContactPhone);
+    final contactNameCtrl = TextEditingController(
+      text: current.emergencyContactName,
+    );
+    final contactPhoneCtrl = TextEditingController(
+      text: current.emergencyContactPhone,
+    );
     final hospitalCtrl = TextEditingController(text: current.preferredHospital);
 
     await showModalBottomSheet<void>(
@@ -897,12 +1006,18 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     initialValue: blood,
-                    decoration: const InputDecoration(labelText: 'Nhóm máu (theo phiếu xét nghiệm)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Nhóm máu (theo phiếu xét nghiệm)',
+                    ),
                     items: validBloodOptions
                         .map(
                           (b) => DropdownMenuItem(
                             value: b,
-                            child: Text(b.isEmpty ? 'Chưa biết / Chưa xét nghiệm' : 'Nhóm máu $b'),
+                            child: Text(
+                              b.isEmpty
+                                  ? 'Chưa biết / Chưa xét nghiệm'
+                                  : 'Nhóm máu $b',
+                            ),
                           ),
                         )
                         .toList(),
@@ -913,7 +1028,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: allergyCtrl,
-                    decoration: const InputDecoration(labelText: 'Dị ứng thuốc / Thực phẩm'),
+                    decoration: const InputDecoration(
+                      labelText: 'Dị ứng thuốc / Thực phẩm',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -926,18 +1043,24 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: hospitalCtrl,
-                    decoration: const InputDecoration(labelText: 'Bệnh viện đăng ký KCB ban đầu'),
+                    decoration: const InputDecoration(
+                      labelText: 'Bệnh viện đăng ký KCB ban đầu',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: contactNameCtrl,
-                    decoration: const InputDecoration(labelText: 'Người liên hệ khẩn cấp'),
+                    decoration: const InputDecoration(
+                      labelText: 'Người liên hệ khẩn cấp',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: contactPhoneCtrl,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'Số điện thoại khẩn cấp'),
+                    decoration: const InputDecoration(
+                      labelText: 'Số điện thoại khẩn cấp',
+                    ),
                   ),
                   const SizedBox(height: 14),
                   LifeOsPrimaryCtaButton(
@@ -945,19 +1068,19 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                     icon: Icons.save_outlined,
                     onPressed: () {
                       context.read<DailyLifeBloc>().add(
-                            EmergencyMedicalCardSaved(
-                              EmergencyMedicalCardEntity(
-                                ownerId: userId,
-                                bloodType: blood,
-                                allergies: allergyCtrl.text.trim(),
-                                chronicConditions: current.chronicConditions,
-                                insuranceCode: bhytCtrl.text.trim(),
-                                emergencyContactName: contactNameCtrl.text.trim(),
-                                emergencyContactPhone: contactPhoneCtrl.text.trim(),
-                                preferredHospital: hospitalCtrl.text.trim(),
-                              ),
-                            ),
-                          );
+                        EmergencyMedicalCardSaved(
+                          EmergencyMedicalCardEntity(
+                            ownerId: userId,
+                            bloodType: blood,
+                            allergies: allergyCtrl.text.trim(),
+                            chronicConditions: current.chronicConditions,
+                            insuranceCode: bhytCtrl.text.trim(),
+                            emergencyContactName: contactNameCtrl.text.trim(),
+                            emergencyContactPhone: contactPhoneCtrl.text.trim(),
+                            preferredHospital: hospitalCtrl.text.trim(),
+                          ),
+                        ),
+                      );
                       Navigator.of(sheetCtx).pop();
                     },
                   ),
@@ -1127,21 +1250,14 @@ class _AsianBmiSpectrumPainter extends CustomPainter {
     var x = 0.0;
     for (final s in segments) {
       final w = size.width * s.$1;
-      canvas.drawRect(
-        Rect.fromLTWH(x, 10, w, 14),
-        Paint()..color = s.$2,
-      );
+      canvas.drawRect(Rect.fromLTWH(x, 10, w, 14), Paint()..color = s.$2);
       x += w;
     }
     canvas.restore();
 
     final normalized = ((bmi - 15.0) / (33.0 - 15.0)).clamp(0.03, 0.97);
     final markerX = size.width * normalized;
-    canvas.drawCircle(
-      Offset(markerX, 17),
-      9,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawCircle(Offset(markerX, 17), 9, Paint()..color = Colors.white);
     canvas.drawCircle(
       Offset(markerX, 17),
       6.5,

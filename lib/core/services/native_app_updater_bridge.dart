@@ -20,7 +20,9 @@ class InstalledAppMeta {
 }
 
 class NativeAppUpdaterBridge {
-  static const MethodChannel _channel = MethodChannel('vn.lifeos.app/app_updater');
+  static const MethodChannel _channel = MethodChannel(
+    'vn.lifeos.app/app_updater',
+  );
 
   final InstalledAppMeta? fixedInstalledMeta;
 
@@ -48,7 +50,9 @@ class NativeAppUpdaterBridge {
       );
     }
     try {
-      final raw = await _channel.invokeMapMethod<String, dynamic>('getInstalledAppVersion');
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'getInstalledAppVersion',
+      );
       if (raw == null) {
         return const InstalledAppMeta(
           versionName: compileTimeVersion,
@@ -121,15 +125,13 @@ class NativeAppUpdaterBridge {
   }) async {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
-        final path = await _channel.invokeMethod<String>(
-          'shareTextFile',
-          <String, dynamic>{
-            'fileName': fileName,
-            'content': content,
-            'mimeType': mimeType,
-            'title': title,
-          },
-        );
+        final path = await _channel
+            .invokeMethod<String>('shareTextFile', <String, dynamic>{
+              'fileName': fileName,
+              'content': content,
+              'mimeType': mimeType,
+              'title': title,
+            });
         if (path != null && path.isNotEmpty) return path;
       } catch (_) {}
     }

@@ -160,7 +160,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<UserEntity>> completeOnboarding({required String userId}) async {
+  Future<Result<UserEntity>> completeOnboarding({
+    required String userId,
+  }) async {
     try {
       final model = await _remoteDataSource.completeOnboarding(userId: userId);
       final entity = model.toEntity();

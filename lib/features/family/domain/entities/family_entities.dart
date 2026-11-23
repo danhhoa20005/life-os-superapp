@@ -7,10 +7,10 @@ enum HouseholdRole {
   member;
 
   String get displayLabel => switch (this) {
-        HouseholdRole.owner => 'Trưởng nhóm',
-        HouseholdRole.admin => 'Quản trị',
-        HouseholdRole.member => 'Thành viên',
-      };
+    HouseholdRole.owner => 'Trưởng nhóm',
+    HouseholdRole.admin => 'Quản trị',
+    HouseholdRole.member => 'Thành viên',
+  };
 }
 
 /// Three real-world collaboration operating modes researched for Life OS:
@@ -23,16 +23,17 @@ enum CollaborationSpaceType {
   group;
 
   String get displayLabel => switch (this) {
-        CollaborationSpaceType.family => 'Hộ Gia đình / Tổ ấm',
-        CollaborationSpaceType.roommates => 'Ở ghép / Nhà trọ',
-        CollaborationSpaceType.group => 'Hội nhóm / Chuyến đi',
-      };
+    CollaborationSpaceType.family => 'Hộ Gia đình / Tổ ấm',
+    CollaborationSpaceType.roommates => 'Ở ghép / Nhà trọ',
+    CollaborationSpaceType.group => 'Hội nhóm / Chuyến đi',
+  };
 
   String get subtitleHint => switch (this) {
-        CollaborationSpaceType.family => 'Quỹ chung, việc nhà & lịch gia đình.',
-        CollaborationSpaceType.roommates => 'Chia tiền phòng, điện nước & ăn chung.',
-        CollaborationSpaceType.group => 'Chia hóa đơn ăn uống & chuyến đi.',
-      };
+    CollaborationSpaceType.family => 'Quỹ chung, việc nhà & lịch gia đình.',
+    CollaborationSpaceType.roommates =>
+      'Chia tiền phòng, điện nước & ăn chung.',
+    CollaborationSpaceType.group => 'Chia hóa đơn ăn uống & chuyến đi.',
+  };
 }
 
 enum SplitMethod {
@@ -42,11 +43,11 @@ enum SplitMethod {
   exact;
 
   String get displayLabel => switch (this) {
-        SplitMethod.equal => 'Chia đều',
-        SplitMethod.percentage => 'Chia theo %',
-        SplitMethod.shares => 'Chia theo phần',
-        SplitMethod.exact => 'Nhập số tiền từng người',
-      };
+    SplitMethod.equal => 'Chia đều',
+    SplitMethod.percentage => 'Chia theo %',
+    SplitMethod.shares => 'Chia theo phần',
+    SplitMethod.exact => 'Nhập số tiền từng người',
+  };
 }
 
 enum SharedExpenseTopic {
@@ -59,14 +60,14 @@ enum SharedExpenseTopic {
   other;
 
   String get displayLabel => switch (this) {
-        SharedExpenseTopic.dining => 'Ăn uống & Tụ tập',
-        SharedExpenseTopic.housework => 'Việc nhà & Vật tư sinh hoạt',
-        SharedExpenseTopic.utilities => 'Điện / Nước / Internet',
-        SharedExpenseTopic.housing => 'Tiền nhà / Phí chung cư',
-        SharedExpenseTopic.shopping => 'Đi chợ & Mua sắm chung',
-        SharedExpenseTopic.travel => 'Du lịch & Hội nhóm',
-        SharedExpenseTopic.other => 'Khoản chung khác',
-      };
+    SharedExpenseTopic.dining => 'Ăn uống & Tụ tập',
+    SharedExpenseTopic.housework => 'Việc nhà & Vật tư sinh hoạt',
+    SharedExpenseTopic.utilities => 'Điện / Nước / Internet',
+    SharedExpenseTopic.housing => 'Tiền nhà / Phí chung cư',
+    SharedExpenseTopic.shopping => 'Đi chợ & Mua sắm chung',
+    SharedExpenseTopic.travel => 'Du lịch & Hội nhóm',
+    SharedExpenseTopic.other => 'Khoản chung khác',
+  };
 }
 
 class FamilyMemberInfo extends Equatable {
@@ -115,14 +116,14 @@ class FamilyEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        spaceType,
-        createdBy,
-        memberIds,
-        members,
-        createdAt,
-      ];
+    id,
+    name,
+    spaceType,
+    createdBy,
+    memberIds,
+    members,
+    createdAt,
+  ];
 }
 
 class ShoppingItemEntity extends Equatable {
@@ -146,14 +147,14 @@ class ShoppingItemEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        familyId,
-        title,
-        quantityLabel,
-        estimatedPriceMinor,
-        isPurchased,
-        addedByName,
-      ];
+    id,
+    familyId,
+    title,
+    quantityLabel,
+    estimatedPriceMinor,
+    isPurchased,
+    addedByName,
+  ];
 }
 
 /// Represents a shared bill paid upfront by one member and split across participants
@@ -167,7 +168,8 @@ class SharedBillSplitEntity extends Equatable {
   final String paidByName;
   final int totalAmountMinor;
   final SplitMethod splitMethod;
-  final Map<String, int> sharesByUserId; // Exact VND integer owed by each userId
+  final Map<String, int>
+  sharesByUserId; // Exact VND integer owed by each userId
   final Map<String, String> participantNames;
   final String? choreOrTaskNote;
   final DateTime createdAt;
@@ -189,19 +191,19 @@ class SharedBillSplitEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        familyId,
-        title,
-        topic,
-        paidByUserId,
-        paidByName,
-        totalAmountMinor,
-        splitMethod,
-        sharesByUserId,
-        participantNames,
-        choreOrTaskNote,
-        createdAt,
-      ];
+    id,
+    familyId,
+    title,
+    topic,
+    paidByUserId,
+    paidByName,
+    totalAmountMinor,
+    splitMethod,
+    sharesByUserId,
+    participantNames,
+    choreOrTaskNote,
+    createdAt,
+  ];
 }
 
 /// Records an actual debt settlement transfer between two group/family members
@@ -233,17 +235,17 @@ class DebtSettlementEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        familyId,
-        fromUserId,
-        fromUserName,
-        toUserId,
-        toUserName,
-        amountMinor,
-        paymentCode,
-        note,
-        createdAt,
-      ];
+    id,
+    familyId,
+    fromUserId,
+    fromUserName,
+    toUserId,
+    toUserName,
+    amountMinor,
+    paymentCode,
+    note,
+    createdAt,
+  ];
 }
 
 class MemberNetBalance extends Equatable {
@@ -270,14 +272,14 @@ class MemberNetBalance extends Equatable {
 
   @override
   List<Object?> get props => [
-        userId,
-        fullName,
-        totalPaidMinor,
-        totalOwedMinor,
-        settlementsSentMinor,
-        settlementsReceivedMinor,
-        netBalanceMinor,
-      ];
+    userId,
+    fullName,
+    totalPaidMinor,
+    totalOwedMinor,
+    settlementsSentMinor,
+    settlementsReceivedMinor,
+    netBalanceMinor,
+  ];
 }
 
 class SimplifiedDebtTransfer extends Equatable {
@@ -299,13 +301,13 @@ class SimplifiedDebtTransfer extends Equatable {
 
   @override
   List<Object?> get props => [
-        fromUserId,
-        fromUserName,
-        toUserId,
-        toUserName,
-        amountMinor,
-        sePayTransferCode,
-      ];
+    fromUserId,
+    fromUserName,
+    toUserId,
+    toUserName,
+    amountMinor,
+    sePayTransferCode,
+  ];
 }
 
 class SharedLedgerSummary extends Equatable {
@@ -323,11 +325,11 @@ class SharedLedgerSummary extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalSharedSpendMinor,
-        spendByTopic,
-        memberBalances,
-        suggestedTransfers,
-      ];
+    totalSharedSpendMinor,
+    spendByTopic,
+    memberBalances,
+    suggestedTransfers,
+  ];
 }
 
 /// Pure Domain exact-VND Split Bill Calculator (Equal, Percentage, Shares, Exact).
@@ -421,7 +423,8 @@ abstract final class DebtSimplifier {
 
     for (final bill in bills) {
       totalSpend += bill.totalAmountMinor;
-      topicSpend[bill.topic] = (topicSpend[bill.topic] ?? 0) + bill.totalAmountMinor;
+      topicSpend[bill.topic] =
+          (topicSpend[bill.topic] ?? 0) + bill.totalAmountMinor;
       namesById.putIfAbsent(bill.paidByUserId, () => bill.paidByName);
       paidMap[bill.paidByUserId] =
           (paidMap[bill.paidByUserId] ?? 0) + bill.totalAmountMinor;
@@ -442,7 +445,8 @@ abstract final class DebtSimplifier {
       namesById.putIfAbsent(st.fromUserId, () => st.fromUserName);
       namesById.putIfAbsent(st.toUserId, () => st.toUserName);
       sentMap[st.fromUserId] = (sentMap[st.fromUserId] ?? 0) + st.amountMinor;
-      receivedMap[st.toUserId] = (receivedMap[st.toUserId] ?? 0) + st.amountMinor;
+      receivedMap[st.toUserId] =
+          (receivedMap[st.toUserId] ?? 0) + st.amountMinor;
       paidMap.putIfAbsent(st.fromUserId, () => 0);
       paidMap.putIfAbsent(st.toUserId, () => 0);
       owedMap.putIfAbsent(st.fromUserId, () => 0);

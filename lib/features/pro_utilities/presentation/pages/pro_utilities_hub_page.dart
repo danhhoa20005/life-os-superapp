@@ -31,7 +31,9 @@ class ProUtilitiesHubPage extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -56,7 +58,8 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Công cụ Quản lý Nâng cao',
@@ -91,7 +94,10 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                         color: c.primary,
                                       ),
                                     ),
-                                    VerticalDivider(width: 12, color: c.separator),
+                                    VerticalDivider(
+                                      width: 12,
+                                      color: c.separator,
+                                    ),
                                     Expanded(
                                       child: _MiniHubMetric(
                                         label: 'Nước & Tập trung',
@@ -100,11 +106,15 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                         color: c.primary,
                                       ),
                                     ),
-                                    VerticalDivider(width: 12, color: c.separator),
+                                    VerticalDivider(
+                                      width: 12,
+                                      color: c.separator,
+                                    ),
                                     Expanded(
                                       child: _MiniHubMetric(
                                         label: 'Sổ Hiếu Hỷ',
-                                        value: '${proState.giftEntries.length} mục',
+                                        value:
+                                            '${proState.giftEntries.length} mục',
                                         color: c.primary,
                                       ),
                                     ),
@@ -122,7 +132,8 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           tone: LifeOsAccentTone.emerald,
                           replacesBadge: 'Thuê bao & Thiết bị',
                           title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
-                          subtitle: 'Theo dõi phí gia hạn hằng tháng và hạn bảo hành đồ gia dụng.',
+                          subtitle:
+                              'Theo dõi phí gia hạn hằng tháng và hạn bảo hành đồ gia dụng.',
                           metricLine:
                               '${proState.subscriptionsOnly.length} gói đăng ký · ${proState.warrantiesOnly.length} phiếu bảo hành',
                           onTap: () => context.push('/subscriptions-warranty'),
@@ -135,7 +146,8 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           tone: LifeOsAccentTone.blue,
                           replacesBadge: 'Tài chính cá nhân',
                           title: 'Quét Bill AI, Tính Lãi Vay & Tự do FIRE',
-                          subtitle: 'Tách nhanh hóa đơn, tính lịch trả góp và lập mục tiêu tiết kiệm.',
+                          subtitle:
+                              'Tách nhanh hóa đơn, tính lịch trả góp và lập mục tiêu tiết kiệm.',
                           metricLine:
                               'Tài sản ròng: ${VndAmount.format(dashData.netWorthMinor)}',
                           onTap: () => context.push('/wealth-tools'),
@@ -148,7 +160,8 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           tone: LifeOsAccentTone.amber,
                           replacesBadge: 'Thói quen mỗi ngày',
                           title: 'Chuỗi Thói quen, Uống Nước & Pomodoro',
-                          subtitle: 'Đồng hồ tập trung 25p/45p, nhắc uống nước và giữ kỷ luật chi tiêu.',
+                          subtitle:
+                              'Đồng hồ tập trung 25p/45p, nhắc uống nước và giữ kỷ luật chi tiêu.',
                           metricLine:
                               '${proState.habits.length} thói quen · ${proState.todayWellness.completedPomodoros} phiên hôm nay',
                           onTap: () => context.push('/habits-focus'),
@@ -161,7 +174,8 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           tone: LifeOsAccentTone.purple,
                           replacesBadge: 'Gia đình & Chuyến đi',
                           title: 'Sổ Hiếu Hỷ & Hành lý Du lịch',
-                          subtitle: 'Ghi chép tiền mừng cưới hai chiều và danh sách đồ mang đi xa.',
+                          subtitle:
+                              'Ghi chép tiền mừng cưới hai chiều và danh sách đồ mang đi xa.',
                           metricLine:
                               'Đi mừng: ${VndAmount.formatCompact(proState.totalGiftGaveMinor)} · Nhận: ${VndAmount.formatCompact(proState.totalGiftReceivedMinor)}',
                           onTap: () => context.push('/social-ledger-travel'),
@@ -250,7 +264,12 @@ class _ProSuiteModuleCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              LifeOsIconSquircle(icon: icon, tone: tone, size: 46, iconSize: 24),
+              LifeOsIconSquircle(
+                icon: icon,
+                tone: tone,
+                size: 46,
+                iconSize: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

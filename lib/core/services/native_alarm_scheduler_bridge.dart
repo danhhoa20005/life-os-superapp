@@ -26,9 +26,12 @@ class ScheduledEventAlarmInfo {
 /// Real OS Alarm & Reminder Scheduler Bridge (`AlarmManager` + `BOOT_COMPLETED` on Android).
 /// Replaces SnackBar-only mock reminders with genuine OS-level scheduled alarms.
 class NativeAlarmSchedulerBridge {
-  static const MethodChannel _channel = MethodChannel('vn.lifeos.app/alarm_scheduler');
+  static const MethodChannel _channel = MethodChannel(
+    'vn.lifeos.app/alarm_scheduler',
+  );
 
-  static final NativeAlarmSchedulerBridge instance = NativeAlarmSchedulerBridge._();
+  static final NativeAlarmSchedulerBridge instance =
+      NativeAlarmSchedulerBridge._();
 
   final Map<String, ScheduledEventAlarmInfo> _inMemorySchedule =
       <String, ScheduledEventAlarmInfo>{};
@@ -52,14 +55,18 @@ class NativeAlarmSchedulerBridge {
 
   bool get _useNativeAndroid => !kIsWeb && Platform.isAndroid;
 
-  void setOnAlarmRingingListener(void Function(Map<String, String> payload)? listener) {
+  void setOnAlarmRingingListener(
+    void Function(Map<String, String> payload)? listener,
+  ) {
     _ringingListener = listener;
   }
 
   Future<Map<String, String>?> consumeInitialAlarmPayload() async {
     if (!_useNativeAndroid) return null;
     try {
-      final raw = await _channel.invokeMethod<Map<Object?, Object?>>('consumeInitialAlarmPayload');
+      final raw = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'consumeInitialAlarmPayload',
+      );
       if (raw == null) return null;
       return <String, String>{
         'eventId': (raw['eventId'] ?? '').toString(),
@@ -74,7 +81,8 @@ class NativeAlarmSchedulerBridge {
   Future<bool> canScheduleExactAlarms() async {
     if (!_useNativeAndroid) return true;
     try {
-      return await _channel.invokeMethod<bool>('canScheduleExactAlarms') ?? false;
+      return await _channel.invokeMethod<bool>('canScheduleExactAlarms') ??
+          false;
     } on MissingPluginException {
       return true;
     }
@@ -97,9 +105,13 @@ class NativeAlarmSchedulerBridge {
     required int minutesBefore,
     required bool fullScreen,
   }) async {
-    final desiredTrigger = eventStartsAt.subtract(Duration(minutes: minutesBefore));
+    final desiredTrigger = eventStartsAt.subtract(
+      Duration(minutes: minutesBefore),
+    );
     final minFuture = DateTime.now().add(const Duration(seconds: 5));
-    final safeTrigger = desiredTrigger.isBefore(minFuture) ? minFuture : desiredTrigger;
+    final safeTrigger = desiredTrigger.isBefore(minFuture)
+        ? minFuture
+        : desiredTrigger;
 
     var exactScheduled = true;
     var resolvedTrigger = safeTrigger;
@@ -183,7 +195,9 @@ class NativeAlarmSchedulerBridge {
     _inMemorySchedule.remove(eventId);
     if (_useNativeAndroid) {
       try {
-        await _channel.invokeMethod<bool>('cancelAlarm', <String, dynamic>{'eventId': eventId});
+        await _channel.invokeMethod<bool>('cancelAlarm', <String, dynamic>{
+          'eventId': eventId,
+        });
       } on MissingPluginException {
         // Ignore in test harness
       }

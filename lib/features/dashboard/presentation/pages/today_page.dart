@@ -279,14 +279,18 @@ class _TodayPageState extends State<TodayPage> {
     final c = TammySemanticColors.of(context);
     final user = context.select((AuthBloc b) => b.state.user);
     final calEvents = context.select((CalendarBloc b) => b.state.events);
-    final gcalConnected = context.select((CalendarBloc b) => b.state.isGoogleAuthorized);
+    final gcalConnected = context.select(
+      (CalendarBloc b) => b.state.isGoogleAuthorized,
+    );
     final allTasks = context.select((TaskBloc b) => b.state.tasks);
     final budgets = context.select((BudgetBloc b) => b.state.budgets);
     final funds = context.select((BudgetBloc b) => b.state.funds);
-    final activeFamilyName =
-        context.select((FamilyBloc b) => b.state.activeFamily?.name);
-    final allTransactions =
-        context.select((TransactionListBloc b) => b.state.allTransactions);
+    final activeFamilyName = context.select(
+      (FamilyBloc b) => b.state.activeFamily?.name,
+    );
+    final allTransactions = context.select(
+      (TransactionListBloc b) => b.state.allTransactions,
+    );
     final vehicles = context.select((VehicleBloc b) => b.state.vehicles);
     final bills = context.select((VehicleBloc b) => b.state.bills);
     final bankConnected = context.select(
@@ -330,20 +334,22 @@ class _TodayPageState extends State<TodayPage> {
               Expanded(
                 child: BlocBuilder<DashboardBloc, DashboardState>(
                   builder: (context, state) {
-                    if (state.isLoading && state.data == TodayDashboardEntity.empty) {
+                    if (state.isLoading &&
+                        state.data == TodayDashboardEntity.empty) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (state.failure != null && state.data == TodayDashboardEntity.empty) {
+                    if (state.failure != null &&
+                        state.data == TodayDashboardEntity.empty) {
                       return ErrorRetryView(
                         message: state.failure!.message,
                         onRetry: () {
                           if (user != null) {
                             context.read<DashboardBloc>().add(
-                                  DashboardWatchStarted(
-                                    userId: user.id,
-                                    familyId: user.activeFamilyId,
-                                  ),
-                                );
+                              DashboardWatchStarted(
+                                userId: user.id,
+                                familyId: user.activeFamilyId,
+                              ),
+                            );
                           }
                         },
                       );
@@ -358,7 +364,9 @@ class _TodayPageState extends State<TodayPage> {
                     );
                     final hasConfiguredBudget = totalBudgetLimit > 0;
                     final spentPct = hasConfiguredBudget
-                        ? ((d.monthlyExpenseMinor * 100) / totalBudgetLimit).clamp(0, 999).round()
+                        ? ((d.monthlyExpenseMinor * 100) / totalBudgetLimit)
+                              .clamp(0, 999)
+                              .round()
                         : 0;
 
                     final totalFundsBalance = funds.fold<int>(
@@ -368,15 +376,15 @@ class _TodayPageState extends State<TodayPage> {
                     final hasFamilyFunds = funds.isNotEmpty;
 
                     // Unified Cross-Feature Inbox (100% Real Data)
-                    final upcomingEvents = calEvents
-                        .where((e) => !e.endsAt.isBefore(now))
-                        .toList()
-                      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+                    final upcomingEvents =
+                        calEvents.where((e) => !e.endsAt.isBefore(now)).toList()
+                          ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
                     final provisionalTxs = allTransactions
                         .where(
                           (t) =>
-                              t.verification == TransactionVerification.provisional &&
+                              t.verification ==
+                                  TransactionVerification.provisional &&
                               !t.isReversed,
                         )
                         .toList();
@@ -386,7 +394,9 @@ class _TodayPageState extends State<TodayPage> {
                         .toList();
 
                     final dueVehicles = vehicles
-                        .where((v) => v.dueStateAt(now) != VehicleDueState.healthy)
+                        .where(
+                          (v) => v.dueStateAt(now) != VehicleDueState.healthy,
+                        )
                         .toList();
 
                     final dueBills = bills
@@ -404,10 +414,20 @@ class _TodayPageState extends State<TodayPage> {
                               t.occurredAt.day == now.day,
                         )
                         .fold<int>(0, (sum, t) => sum + t.amountMinor);
-                    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-                    final remainingDays = (daysInMonth - now.day + 1).clamp(1, 31);
+                    final daysInMonth = DateTime(
+                      now.year,
+                      now.month + 1,
+                      0,
+                    ).day;
+                    final remainingDays = (daysInMonth - now.day + 1).clamp(
+                      1,
+                      31,
+                    );
                     final remainingBudgetMinor = hasConfiguredBudget
-                        ? (totalBudgetLimit - d.monthlyExpenseMinor).clamp(0, totalBudgetLimit)
+                        ? (totalBudgetLimit - d.monthlyExpenseMinor).clamp(
+                            0,
+                            totalBudgetLimit,
+                          )
                         : 0;
                     final safeDailyMinor = hasConfiguredBudget
                         ? (remainingBudgetMinor ~/ remainingDays)
@@ -418,24 +438,27 @@ class _TodayPageState extends State<TodayPage> {
                         _InboxActionItem(
                           icon: Icons.account_balance_outlined,
                           tone: LifeOsAccentTone.amber,
-                          title: '${provisionalTxs.length} giao dịch mới chờ xác nhận',
+                          title:
+                              '${provisionalTxs.length} giao dịch mới chờ xác nhận',
                           subtitle:
                               '${provisionalTxs.first.merchant} · ${_fmtMoney(provisionalTxs.first.amountMinor)}',
                           badge: 'Chờ duyệt',
-                          onTap: () =>
-                              context.push('/auto-tx-review', extra: provisionalTxs.first),
+                          onTap: () => context.push(
+                            '/auto-tx-review',
+                            extra: provisionalTxs.first,
+                          ),
                           quickActionLabel: user != null ? 'Duyệt' : null,
                           onQuickAction: user == null
                               ? null
                               : () {
                                   final firstTx = provisionalTxs.first;
                                   context.read<TransactionActionBloc>().add(
-                                        ProvisionalTransactionDecisionSubmitted(
-                                          userId: user.id,
-                                          transactionId: firstTx.id,
-                                          approve: true,
-                                        ),
-                                      );
+                                    ProvisionalTransactionDecisionSubmitted(
+                                      userId: user.id,
+                                      transactionId: firstTx.id,
+                                      approve: true,
+                                    ),
+                                  );
                                   LifeOsTopToast.show(
                                     context,
                                     'Đã duyệt giao dịch ${firstTx.merchant}.',
@@ -450,8 +473,10 @@ class _TodayPageState extends State<TodayPage> {
                           subtitle:
                               '${timeFmt.format(upcomingEvents.first.startsAt)} – ${timeFmt.format(upcomingEvents.first.endsAt)}${upcomingEvents.first.location != null && upcomingEvents.first.location!.isNotEmpty ? " · ${upcomingEvents.first.location}" : ""}',
                           badge: 'Lịch hẹn',
-                          onTap: () =>
-                              context.push('/event-detail', extra: upcomingEvents.first),
+                          onTap: () => context.push(
+                            '/event-detail',
+                            extra: upcomingEvents.first,
+                          ),
                         ),
                       if (openTasks.isNotEmpty)
                         _InboxActionItem(
@@ -470,23 +495,26 @@ class _TodayPageState extends State<TodayPage> {
                                   final t = openTasks.first;
                                   if (t.status == TaskWorkflowStatus.proposed) {
                                     context.read<TaskBloc>().add(
-                                          TaskResponseSubmitted(
-                                            RespondToTaskParams(
-                                              actorUserId: user.id,
-                                              task: t,
-                                              accept: true,
-                                            ),
-                                          ),
-                                        );
-                                    LifeOsTopToast.show(context, 'Đã nhận việc "${t.title}".');
+                                      TaskResponseSubmitted(
+                                        RespondToTaskParams(
+                                          actorUserId: user.id,
+                                          task: t,
+                                          accept: true,
+                                        ),
+                                      ),
+                                    );
+                                    LifeOsTopToast.show(
+                                      context,
+                                      'Đã nhận việc "${t.title}".',
+                                    );
                                   } else {
                                     context.read<TaskBloc>().add(
-                                          TaskStatusChanged(
-                                            actorUserId: user.id,
-                                            task: t,
-                                            nextStatus: TaskWorkflowStatus.done,
-                                          ),
-                                        );
+                                      TaskStatusChanged(
+                                        actorUserId: user.id,
+                                        task: t,
+                                        nextStatus: TaskWorkflowStatus.done,
+                                      ),
+                                    );
                                     LifeOsTopToast.show(
                                       context,
                                       'Đã hoàn thành "${t.title}"!',
@@ -499,7 +527,8 @@ class _TodayPageState extends State<TodayPage> {
                           icon: Icons.car_repair_rounded,
                           tone: LifeOsAccentTone.coral,
                           title: 'Bảo dưỡng xe: ${dueVehicles.first.name}',
-                          subtitle: 'Mốc tiếp theo: ${dueVehicles.first.nextDueKm} km',
+                          subtitle:
+                              'Mốc tiếp theo: ${dueVehicles.first.nextDueKm} km',
                           badge: 'Đến hạn',
                           onTap: () => context.go('/assets'),
                         ),
@@ -528,10 +557,10 @@ class _TodayPageState extends State<TodayPage> {
                     final syncStatusLabel = gcalConnected && bankConnected
                         ? 'Đã nối Lịch & Ngân hàng'
                         : gcalConnected
-                            ? 'Đã nối Google Calendar'
-                            : bankConnected
-                                ? 'Đã nối Ngân hàng'
-                                : 'Đang đồng bộ';
+                        ? 'Đã nối Google Calendar'
+                        : bankConnected
+                        ? 'Đã nối Ngân hàng'
+                        : 'Đang đồng bộ';
 
                     final pinnedSpecs = _allShortcuts
                         .where((s) => _pinnedIds.contains(s.id))
@@ -539,8 +568,9 @@ class _TodayPageState extends State<TodayPage> {
 
                     return Center(
                       child: ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSpacing.maxContentWidth,
+                        ),
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.md,
@@ -570,10 +600,16 @@ class _TodayPageState extends State<TodayPage> {
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.14),
-                                          borderRadius: BorderRadius.circular(20),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.14,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.22),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.22,
+                                            ),
                                             width: 0.8,
                                           ),
                                         ),
@@ -602,25 +638,35 @@ class _TodayPageState extends State<TodayPage> {
                                       ),
                                       const Spacer(),
                                       InkWell(
-                                        key: const Key('toggle_balance_privacy_btn'),
+                                        key: const Key(
+                                          'toggle_balance_privacy_btn',
+                                        ),
                                         borderRadius: BorderRadius.circular(18),
                                         onTap: () {
                                           final nextHide = !_hideBalances;
-                                          setState(() => _hideBalances = nextHide);
-                                          UserBehaviorPrefs.saveHideBalances(nextHide);
+                                          setState(
+                                            () => _hideBalances = nextHide,
+                                          );
+                                          UserBehaviorPrefs.saveHideBalances(
+                                            nextHide,
+                                          );
                                           LifeOsTopToast.show(
                                             context,
                                             nextHide
                                                 ? 'Đã bật chế độ ẩn số dư riêng tư (tự nhớ cho lần sau).'
                                                 : 'Đã hiển thị lại số dư tài chính.',
                                             kind: LifeOsToastKind.info,
-                                            duration: const Duration(milliseconds: 1800),
+                                            duration: const Duration(
+                                              milliseconds: 1800,
+                                            ),
                                           );
                                         },
                                         child: Container(
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.14),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.14,
+                                            ),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(
@@ -640,7 +686,9 @@ class _TodayPageState extends State<TodayPage> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.white.withValues(alpha: 0.82),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.82,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -654,7 +702,9 @@ class _TodayPageState extends State<TodayPage> {
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: -0.6,
                                         color: Colors.white,
-                                        fontFeatures: [FontFeature.tabularFigures()],
+                                        fontFeatures: [
+                                          FontFeature.tabularFigures(),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -665,7 +715,9 @@ class _TodayPageState extends State<TodayPage> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.12),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       borderRadius: BorderRadius.circular(11),
                                     ),
                                     child: Wrap(
@@ -677,8 +729,12 @@ class _TodayPageState extends State<TodayPage> {
                                           style: TextStyle(
                                             fontSize: 11.8,
                                             fontWeight: FontWeight.w700,
-                                            color: Colors.white.withValues(alpha: 0.94),
-                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                            color: Colors.white.withValues(
+                                              alpha: 0.94,
+                                            ),
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
                                         ),
                                         if (hasConfiguredBudget)
@@ -688,7 +744,9 @@ class _TodayPageState extends State<TodayPage> {
                                               fontSize: 11.8,
                                               fontWeight: FontWeight.w700,
                                               color: Color(0xFF86EFAC),
-                                              fontFeatures: [FontFeature.tabularFigures()],
+                                              fontFeatures: [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                             ),
                                           ),
                                       ],
@@ -702,7 +760,10 @@ class _TodayPageState extends State<TodayPage> {
                                           icon: Icons.south_west_rounded,
                                           iconColor: const Color(0xFF86EFAC),
                                           label: 'Thu tháng',
-                                          value: _fmtMoney(d.monthlyIncomeMinor, prefix: '+'),
+                                          value: _fmtMoney(
+                                            d.monthlyIncomeMinor,
+                                            prefix: '+',
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -711,7 +772,10 @@ class _TodayPageState extends State<TodayPage> {
                                           icon: Icons.north_east_rounded,
                                           iconColor: const Color(0xFFFCA5A5),
                                           label: 'Chi tháng',
-                                          value: _fmtMoney(d.monthlyExpenseMinor, prefix: '-'),
+                                          value: _fmtMoney(
+                                            d.monthlyExpenseMinor,
+                                            prefix: '-',
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -722,13 +786,24 @@ class _TodayPageState extends State<TodayPage> {
                                       Expanded(
                                         child: Material(
                                           color: Colors.white,
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                           child: InkWell(
-                                            key: const Key('home_quick_expense_btn'),
-                                            borderRadius: BorderRadius.circular(14),
-                                            onTap: () => showLifeOsQuickCreateHub(context),
+                                            key: const Key(
+                                              'home_quick_expense_btn',
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            onTap: () =>
+                                                showLifeOsQuickCreateHub(
+                                                  context,
+                                                ),
                                             child: ConstrainedBox(
-                                              constraints: const BoxConstraints(minHeight: 44),
+                                              constraints: const BoxConstraints(
+                                                minHeight: 44,
+                                              ),
                                               child: const Padding(
                                                 padding: EdgeInsets.symmetric(
                                                   horizontal: 10,
@@ -737,20 +812,26 @@ class _TodayPageState extends State<TodayPage> {
                                                 child: FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
                                                     children: [
                                                       Icon(
                                                         Icons.mic_rounded,
                                                         size: 17,
-                                                        color: LifeOSBrandColors.primary,
+                                                        color: LifeOSBrandColors
+                                                            .primary,
                                                       ),
                                                       SizedBox(width: 6),
                                                       Text(
                                                         'Ghi chi tiêu',
                                                         style: TextStyle(
                                                           fontSize: 13,
-                                                          fontWeight: FontWeight.w800,
-                                                          color: LifeOSBrandColors.forest,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                          color:
+                                                              LifeOSBrandColors
+                                                                  .forest,
                                                         ),
                                                       ),
                                                     ],
@@ -764,19 +845,34 @@ class _TodayPageState extends State<TodayPage> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Material(
-                                          color: Colors.white.withValues(alpha: 0.16),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.16,
+                                          ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             side: BorderSide(
-                                              color: Colors.white.withValues(alpha: 0.28),
+                                              color: Colors.white.withValues(
+                                                alpha: 0.28,
+                                              ),
                                             ),
                                           ),
                                           child: InkWell(
-                                            key: const Key('home_quick_schedule_btn'),
-                                            borderRadius: BorderRadius.circular(14),
-                                            onTap: () => showLifeOsQuickCreateHub(context),
+                                            key: const Key(
+                                              'home_quick_schedule_btn',
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            onTap: () =>
+                                                showLifeOsQuickCreateHub(
+                                                  context,
+                                                ),
                                             child: ConstrainedBox(
-                                              constraints: const BoxConstraints(minHeight: 44),
+                                              constraints: const BoxConstraints(
+                                                minHeight: 44,
+                                              ),
                                               child: const Padding(
                                                 padding: EdgeInsets.symmetric(
                                                   horizontal: 10,
@@ -785,10 +881,13 @@ class _TodayPageState extends State<TodayPage> {
                                                 child: FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
                                                     children: [
                                                       Icon(
-                                                        Icons.event_note_rounded,
+                                                        Icons
+                                                            .event_note_rounded,
                                                         size: 17,
                                                         color: Colors.white,
                                                       ),
@@ -797,7 +896,8 @@ class _TodayPageState extends State<TodayPage> {
                                                         'Thêm lịch / việc',
                                                         style: TextStyle(
                                                           fontSize: 13,
-                                                          fontWeight: FontWeight.w700,
+                                                          fontWeight:
+                                                              FontWeight.w700,
                                                           color: Colors.white,
                                                         ),
                                                       ),
@@ -844,7 +944,9 @@ class _TodayPageState extends State<TodayPage> {
                                   Expanded(
                                     child: _PulseMiniBentoCard(
                                       icon: Icons.inbox_rounded,
-                                      tone: (provisionalTxs.isNotEmpty || dueVehicles.isNotEmpty)
+                                      tone:
+                                          (provisionalTxs.isNotEmpty ||
+                                              dueVehicles.isNotEmpty)
                                           ? LifeOsAccentTone.coral
                                           : LifeOsAccentTone.amber,
                                       count: inboxItems.length,
@@ -899,7 +1001,9 @@ class _TodayPageState extends State<TodayPage> {
                                   const SizedBox(height: 8),
                                   if (inboxItems.isEmpty)
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 4,
+                                      ),
                                       child: Row(
                                         children: [
                                           Icon(
@@ -921,17 +1025,28 @@ class _TodayPageState extends State<TodayPage> {
                                       ),
                                     )
                                   else
-                                    ...inboxItems.take(4).toList().asMap().entries.map((entry) {
+                                    ...inboxItems.take(4).toList().asMap().entries.map((
+                                      entry,
+                                    ) {
                                       final idx = entry.key;
                                       final item = entry.value;
                                       return Column(
                                         children: [
-                                          if (idx > 0) Divider(height: 14, color: c.separator),
+                                          if (idx > 0)
+                                            Divider(
+                                              height: 14,
+                                              color: c.separator,
+                                            ),
                                           InkWell(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             onTap: item.onTap,
                                             child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 3),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 3,
+                                                  ),
                                               child: Row(
                                                 children: [
                                                   LifeOsIconSquircle(
@@ -944,50 +1059,65 @@ class _TodayPageState extends State<TodayPage> {
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
                                                         Text(
                                                           item.title,
                                                           maxLines: 2,
-                                                          overflow: TextOverflow.ellipsis,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                           style: TextStyle(
                                                             fontSize: 13.4,
                                                             height: 1.24,
-                                                            fontWeight: FontWeight.w700,
-                                                            color: c.textPrimary,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color:
+                                                                c.textPrimary,
                                                           ),
                                                         ),
-                                                        const SizedBox(height: 2),
+                                                        const SizedBox(
+                                                          height: 2,
+                                                        ),
                                                         Text(
                                                           item.subtitle,
                                                           maxLines: 2,
-                                                          overflow: TextOverflow.ellipsis,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                           style: TextStyle(
                                                             fontSize: 12,
                                                             height: 1.28,
-                                                            color: c.textSecondary,
+                                                            color:
+                                                                c.textSecondary,
                                                           ),
                                                         ),
                                                       ],
                                                     ),
                                                   ),
                                                   const SizedBox(width: 6),
-                                                  if (item.onQuickAction != null &&
-                                                      item.quickActionLabel != null)
+                                                  if (item.onQuickAction !=
+                                                          null &&
+                                                      item.quickActionLabel !=
+                                                          null)
                                                     FilledButton.tonal(
                                                       style: FilledButton.styleFrom(
-                                                        visualDensity: VisualDensity.compact,
-                                                        padding: const EdgeInsets.symmetric(
-                                                          horizontal: 10,
-                                                          vertical: 4,
-                                                        ),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 10,
+                                                              vertical: 4,
+                                                            ),
                                                       ),
-                                                      onPressed: item.onQuickAction,
+                                                      onPressed:
+                                                          item.onQuickAction,
                                                       child: Text(
                                                         item.quickActionLabel!,
                                                         style: const TextStyle(
                                                           fontSize: 11.8,
-                                                          fontWeight: FontWeight.w800,
+                                                          fontWeight:
+                                                              FontWeight.w800,
                                                         ),
                                                       ),
                                                     )
@@ -1018,7 +1148,8 @@ class _TodayPageState extends State<TodayPage> {
                                       padding: const EdgeInsets.all(12),
                                       onTap: () => context.go('/finance'),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -1032,7 +1163,8 @@ class _TodayPageState extends State<TodayPage> {
                                                 child: Text(
                                                   'Ngân sách tháng',
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w800,
@@ -1052,7 +1184,9 @@ class _TodayPageState extends State<TodayPage> {
                                                 style: TextStyle(
                                                   fontSize: 16.5,
                                                   fontWeight: FontWeight.w800,
-                                                  color: spentPct >= 85 ? c.error : c.textPrimary,
+                                                  color: spentPct >= 85
+                                                      ? c.error
+                                                      : c.textPrimary,
                                                   fontFeatures: const [
                                                     FontFeature.tabularFigures(),
                                                   ],
@@ -1072,14 +1206,24 @@ class _TodayPageState extends State<TodayPage> {
                                             ),
                                             const SizedBox(height: 6),
                                             ClipRRect(
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                               child: LinearProgressIndicator(
                                                 minHeight: 6,
-                                                value: (spentPct / 100).clamp(0.03, 1.0),
-                                                backgroundColor: c.surfaceRaised,
-                                                valueColor: AlwaysStoppedAnimation<Color>(
-                                                  spentPct >= 85 ? c.error : c.primary,
+                                                value: (spentPct / 100).clamp(
+                                                  0.03,
+                                                  1.0,
                                                 ),
+                                                backgroundColor:
+                                                    c.surfaceRaised,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(
+                                                      spentPct >= 85
+                                                          ? c.error
+                                                          : c.primary,
+                                                    ),
                                               ),
                                             ),
                                           ] else ...[
@@ -1113,9 +1257,11 @@ class _TodayPageState extends State<TodayPage> {
                                   Expanded(
                                     child: LifeOsSoftCard(
                                       padding: const EdgeInsets.all(12),
-                                      onTap: () => context.push('/family-funds'),
+                                      onTap: () =>
+                                          context.push('/family-funds'),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -1129,7 +1275,8 @@ class _TodayPageState extends State<TodayPage> {
                                                 child: Text(
                                                   'Quỹ mục tiêu',
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w800,
@@ -1148,7 +1295,9 @@ class _TodayPageState extends State<TodayPage> {
                                                   ? _fmtMoney(totalFundsBalance)
                                                   : 'Chưa tạo quỹ',
                                               style: TextStyle(
-                                                fontSize: hasFamilyFunds ? 16.5 : 14.5,
+                                                fontSize: hasFamilyFunds
+                                                    ? 16.5
+                                                    : 14.5,
                                                 fontWeight: FontWeight.w800,
                                                 color: c.textPrimary,
                                                 fontFeatures: const [
@@ -1186,7 +1335,9 @@ class _TodayPageState extends State<TodayPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -1202,18 +1353,31 @@ class _TodayPageState extends State<TodayPage> {
                                           ),
                                         ),
                                         TextButton(
-                                          key: const Key('customize_home_shortcuts_btn'),
-                                          style: TextButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          key: const Key(
+                                            'customize_home_shortcuts_btn',
                                           ),
-                                          onPressed: () => _showCustomizeShortcutsSheet(context),
+                                          style: TextButton.styleFrom(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                            ),
+                                          ),
+                                          onPressed: () =>
+                                              _showCustomizeShortcutsSheet(
+                                                context,
+                                              ),
                                           child: const Text('Tùy chỉnh'),
                                         ),
                                         InkWell(
-                                          key: const Key('open_super_app_directory_btn'),
-                                          borderRadius: BorderRadius.circular(12),
-                                          onTap: () => context.push('/super-app-hub'),
+                                          key: const Key(
+                                            'open_super_app_directory_btn',
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          onTap: () =>
+                                              context.push('/super-app-hub'),
                                           child: Padding(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 6,
@@ -1273,9 +1437,12 @@ class _TodayPageState extends State<TodayPage> {
                                 children: [
                                   Expanded(
                                     child: LifeOsSoftCard(
-                                      key: const Key('open_pro_utilities_hub_card'),
+                                      key: const Key(
+                                        'open_pro_utilities_hub_card',
+                                      ),
                                       padding: const EdgeInsets.all(12),
-                                      onTap: () => context.push('/pro-utilities'),
+                                      onTap: () =>
+                                          context.push('/pro-utilities'),
                                       child: Row(
                                         children: [
                                           const LifeOsIconSquircle(
@@ -1287,13 +1454,16 @@ class _TodayPageState extends State<TodayPage> {
                                           const SizedBox(width: 9),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Text(
                                                   'Công cụ nâng cao',
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w800,
                                                     fontSize: 13,
@@ -1305,7 +1475,8 @@ class _TodayPageState extends State<TodayPage> {
                                                 Text(
                                                   'Lãi vay · Tiết kiệm',
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontSize: 11.8,
                                                     height: 1.22,
@@ -1324,7 +1495,8 @@ class _TodayPageState extends State<TodayPage> {
                                     child: LifeOsMintHeroCard(
                                       key: const Key('home_tile_all_services'),
                                       padding: const EdgeInsets.all(12),
-                                      onTap: () => context.push('/super-app-hub'),
+                                      onTap: () =>
+                                          context.push('/super-app-hub'),
                                       child: Row(
                                         children: [
                                           const LifeOsIconSquircle(
@@ -1337,13 +1509,16 @@ class _TodayPageState extends State<TodayPage> {
                                           const SizedBox(width: 9),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Text(
                                                   'Tất cả danh mục',
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w800,
                                                     fontSize: 13,
@@ -1355,7 +1530,8 @@ class _TodayPageState extends State<TodayPage> {
                                                 Text(
                                                   'Đầy đủ 20+ tiện ích',
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontSize: 11.8,
                                                     height: 1.22,

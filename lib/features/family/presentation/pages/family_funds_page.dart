@@ -27,14 +27,17 @@ class FamilyFundsPage extends StatelessWidget {
     final dtFmt = DateFormat('dd/MM, HH:mm');
 
     return BlocListener<BudgetBloc, BudgetState>(
-      listenWhen: (p, c) => p.failure != c.failure || p.actionMessage != c.actionMessage,
+      listenWhen: (p, c) =>
+          p.failure != c.failure || p.actionMessage != c.actionMessage,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.actionMessage != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('✓ ${state.actionMessage!}')),
           );
         }
@@ -61,14 +64,24 @@ class FamilyFundsPage extends StatelessWidget {
                   child: BlocBuilder<BudgetBloc, BudgetState>(
                     builder: (context, state) {
                       final funds = state.funds;
-                      final totalBalance = funds.fold<int>(0, (s, f) => s + f.balanceMinor);
-                      final totalTarget = funds.fold<int>(0, (s, f) => s + f.targetAmountMinor);
+                      final totalBalance = funds.fold<int>(
+                        0,
+                        (s, f) => s + f.balanceMinor,
+                      );
+                      final totalTarget = funds.fold<int>(
+                        0,
+                        (s, f) => s + f.targetAmountMinor,
+                      );
 
-                      final allContributions = <({FundEntity fund, FundContributionEntity item})>[
-                        for (final f in funds)
-                          for (final contrib in f.recentContributions)
-                            (fund: f, item: contrib),
-                      ]..sort((a, b) => b.item.createdAt.compareTo(a.item.createdAt));
+                      final allContributions =
+                          <({FundEntity fund, FundContributionEntity item})>[
+                            for (final f in funds)
+                              for (final contrib in f.recentContributions)
+                                (fund: f, item: contrib),
+                          ]..sort(
+                            (a, b) =>
+                                b.item.createdAt.compareTo(a.item.createdAt),
+                          );
 
                       final totalIn = allContributions.fold<int>(
                         0,
@@ -79,16 +92,23 @@ class FamilyFundsPage extends StatelessWidget {
                           .where((r) => r.status == FundExpenseStatus.approved)
                           .fold<int>(0, (s, r) => s + r.amountMinor);
 
-                      final monthlyGoal = totalTarget > 0 ? totalTarget : 20000000;
+                      final monthlyGoal = totalTarget > 0
+                          ? totalTarget
+                          : 20000000;
                       final monthlyPct = monthlyGoal > 0
-                          ? ((totalBalance * 100) / monthlyGoal).clamp(0, 100).round()
+                          ? ((totalBalance * 100) / monthlyGoal)
+                                .clamp(0, 100)
+                                .round()
                           : 0;
-                      final memberNames = family?.members.map((m) => m.fullName).toList() ??
+                      final memberNames =
+                          family?.members.map((m) => m.fullName).toList() ??
                           <String>[user.fullName];
 
                       return Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                          constraints: const BoxConstraints(
+                            maxWidth: AppSpacing.maxContentWidth,
+                          ),
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(
                               AppSpacing.md,
@@ -103,11 +123,13 @@ class FamilyFundsPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Row(
                                                 children: [
@@ -121,9 +143,11 @@ class FamilyFundsPage extends StatelessWidget {
                                                     child: Text(
                                                       'Tổng quỹ hiện tại',
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: TextStyle(
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                         fontSize: 14.5,
                                                         color: c.textPrimary,
                                                       ),
@@ -136,7 +160,9 @@ class FamilyFundsPage extends StatelessWidget {
                                                 fit: BoxFit.scaleDown,
                                                 alignment: Alignment.centerLeft,
                                                 child: Text(
-                                                  VndAmount.format(totalBalance),
+                                                  VndAmount.format(
+                                                    totalBalance,
+                                                  ),
                                                   style: TextStyle(
                                                     fontSize: 28,
                                                     fontWeight: FontWeight.w800,
@@ -152,9 +178,13 @@ class FamilyFundsPage extends StatelessWidget {
                                           ),
                                         ),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
                                           children: [
-                                            LifeOsAvatarStack(names: memberNames, radius: 15),
+                                            LifeOsAvatarStack(
+                                              names: memberNames,
+                                              radius: 15,
+                                            ),
                                             const SizedBox(height: 4),
                                             Text(
                                               '${memberNames.length} thành viên',
@@ -175,31 +205,38 @@ class FamilyFundsPage extends StatelessWidget {
                                             child: Row(
                                               children: [
                                                 const LifeOsIconSquircle(
-                                                  icon: Icons.arrow_downward_rounded,
-                                                  tone: LifeOsAccentTone.emerald,
+                                                  icon: Icons
+                                                      .arrow_downward_rounded,
+                                                  tone:
+                                                      LifeOsAccentTone.emerald,
                                                   size: 36,
                                                   iconSize: 18,
                                                 ),
                                                 const SizedBox(width: 10),
                                                 Expanded(
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Text(
                                                         'Tiền vào (Thu)',
                                                         style: TextStyle(
                                                           fontSize: 11.8,
-                                                          color: c.textSecondary,
+                                                          color:
+                                                              c.textSecondary,
                                                         ),
                                                       ),
                                                       FittedBox(
                                                         fit: BoxFit.scaleDown,
-                                                        alignment: Alignment.centerLeft,
+                                                        alignment: Alignment
+                                                            .centerLeft,
                                                         child: Text(
                                                           '+${VndAmount.format(totalIn)}',
                                                           style: TextStyle(
                                                             fontSize: 14,
-                                                            fontWeight: FontWeight.w800,
+                                                            fontWeight:
+                                                                FontWeight.w800,
                                                             color: c.primary,
                                                             fontFeatures: const [
                                                               FontFeature.tabularFigures(),
@@ -211,7 +248,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                         'Tháng này',
                                                         style: TextStyle(
                                                           fontSize: 11.2,
-                                                          color: c.textSecondary,
+                                                          color:
+                                                              c.textSecondary,
                                                         ),
                                                       ),
                                                     ],
@@ -220,12 +258,16 @@ class FamilyFundsPage extends StatelessWidget {
                                               ],
                                             ),
                                           ),
-                                          VerticalDivider(width: 16, color: c.separator),
+                                          VerticalDivider(
+                                            width: 16,
+                                            color: c.separator,
+                                          ),
                                           Expanded(
                                             child: Row(
                                               children: [
                                                 const LifeOsIconSquircle(
-                                                  icon: Icons.arrow_upward_rounded,
+                                                  icon: Icons
+                                                      .arrow_upward_rounded,
                                                   tone: LifeOsAccentTone.coral,
                                                   size: 36,
                                                   iconSize: 18,
@@ -233,23 +275,28 @@ class FamilyFundsPage extends StatelessWidget {
                                                 const SizedBox(width: 10),
                                                 Expanded(
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Text(
                                                         'Tiền ra (Chi)',
                                                         style: TextStyle(
                                                           fontSize: 11.8,
-                                                          color: c.textSecondary,
+                                                          color:
+                                                              c.textSecondary,
                                                         ),
                                                       ),
                                                       FittedBox(
                                                         fit: BoxFit.scaleDown,
-                                                        alignment: Alignment.centerLeft,
+                                                        alignment: Alignment
+                                                            .centerLeft,
                                                         child: Text(
                                                           '-${VndAmount.format(totalOut)}',
                                                           style: TextStyle(
                                                             fontSize: 14,
-                                                            fontWeight: FontWeight.w800,
+                                                            fontWeight:
+                                                                FontWeight.w800,
                                                             color: c.error,
                                                             fontFeatures: const [
                                                               FontFeature.tabularFigures(),
@@ -261,7 +308,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                         'Tháng này',
                                                         style: TextStyle(
                                                           fontSize: 11,
-                                                          color: c.textSecondary,
+                                                          color:
+                                                              c.textSecondary,
                                                         ),
                                                       ),
                                                     ],
@@ -285,7 +333,11 @@ class FamilyFundsPage extends StatelessWidget {
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.groups_outlined, size: 19, color: c.primary),
+                                        Icon(
+                                          Icons.groups_outlined,
+                                          size: 19,
+                                          color: c.primary,
+                                        ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
@@ -309,16 +361,21 @@ class FamilyFundsPage extends StatelessWidget {
                                       text: TextSpan(
                                         children: [
                                           TextSpan(
-                                            text: VndAmount.format(totalBalance),
+                                            text: VndAmount.format(
+                                              totalBalance,
+                                            ),
                                             style: TextStyle(
                                               fontSize: 20,
                                               fontWeight: FontWeight.w800,
                                               color: c.textPrimary,
-                                              fontFeatures: const [FontFeature.tabularFigures()],
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                             ),
                                           ),
                                           TextSpan(
-                                            text: ' / ${VndAmount.format(monthlyGoal)}',
+                                            text:
+                                                ' / ${VndAmount.format(monthlyGoal)}',
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
@@ -333,13 +390,20 @@ class FamilyFundsPage extends StatelessWidget {
                                       children: [
                                         Expanded(
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             child: LinearProgressIndicator(
                                               minHeight: 9,
-                                              value: (monthlyPct / 100).clamp(0.0, 1.0),
+                                              value: (monthlyPct / 100).clamp(
+                                                0.0,
+                                                1.0,
+                                              ),
                                               backgroundColor: c.surfaceRaised,
                                               valueColor:
-                                                  AlwaysStoppedAnimation<Color>(c.primary),
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    c.primary,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -361,11 +425,16 @@ class FamilyFundsPage extends StatelessWidget {
 
                               // 3. "Mục tiêu quỹ" Section Header + Cards
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(Icons.track_changes_rounded, size: 19, color: c.primary),
+                                      Icon(
+                                        Icons.track_changes_rounded,
+                                        size: 19,
+                                        color: c.primary,
+                                      ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'Mục tiêu quỹ',
@@ -411,7 +480,10 @@ class FamilyFundsPage extends StatelessWidget {
                                       Text(
                                         'Khởi tạo Quỹ du lịch hè, Quỹ khẩn cấp hoặc Quỹ học tập để cả nhà cùng đóng góp minh bạch.',
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -431,14 +503,16 @@ class FamilyFundsPage extends StatelessWidget {
                                         fund: fund,
                                       ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
                                               LifeOsIconSquircle(
                                                 icon: isTravel
                                                     ? Icons.luggage_outlined
-                                                    : Icons.health_and_safety_outlined,
+                                                    : Icons
+                                                          .health_and_safety_outlined,
                                                 tone: isTravel
                                                     ? LifeOsAccentTone.blue
                                                     : LifeOsAccentTone.emerald,
@@ -447,18 +521,21 @@ class FamilyFundsPage extends StatelessWidget {
                                               const SizedBox(width: 12),
                                               Expanded(
                                                 child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
                                                       fund.name,
                                                       style: TextStyle(
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                         fontSize: 15.5,
                                                         color: c.textPrimary,
                                                       ),
                                                     ),
                                                     Text(
-                                                      fund.scope == FundScope.family
+                                                      fund.scope ==
+                                                              FundScope.family
                                                           ? 'Quỹ chung gia đình'
                                                           : 'Quỹ tích lũy cá nhân',
                                                       style: TextStyle(
@@ -470,12 +547,13 @@ class FamilyFundsPage extends StatelessWidget {
                                                 ),
                                               ),
                                               FilledButton.tonal(
-                                                onPressed: () => _showContributeDialog(
-                                                  context,
-                                                  userId: user.id,
-                                                  userName: user.fullName,
-                                                  fund: fund,
-                                                ),
+                                                onPressed: () =>
+                                                    _showContributeDialog(
+                                                      context,
+                                                      userId: user.id,
+                                                      userName: user.fullName,
+                                                      fund: fund,
+                                                    ),
                                                 child: const Text('Nạp quỹ'),
                                               ),
                                             ],
@@ -485,7 +563,9 @@ class FamilyFundsPage extends StatelessWidget {
                                             text: TextSpan(
                                               children: [
                                                 TextSpan(
-                                                  text: VndAmount.format(fund.balanceMinor),
+                                                  text: VndAmount.format(
+                                                    fund.balanceMinor,
+                                                  ),
                                                   style: TextStyle(
                                                     fontSize: 15,
                                                     fontWeight: FontWeight.w800,
@@ -511,14 +591,19 @@ class FamilyFundsPage extends StatelessWidget {
                                             children: [
                                               Expanded(
                                                 child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                   child: LinearProgressIndicator(
                                                     minHeight: 8,
-                                                    value: (fund.progressPct / 100)
-                                                        .clamp(0.0, 1.0),
-                                                    backgroundColor: c.surfaceRaised,
+                                                    value:
+                                                        (fund.progressPct / 100)
+                                                            .clamp(0.0, 1.0),
+                                                    backgroundColor:
+                                                        c.surfaceRaised,
                                                     valueColor:
-                                                        AlwaysStoppedAnimation<Color>(c.primary),
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(c.primary),
                                                   ),
                                                 ),
                                               ),
@@ -544,7 +629,11 @@ class FamilyFundsPage extends StatelessWidget {
                               // 4. "Đóng góp gần đây" Card
                               Row(
                                 children: [
-                                  Icon(Icons.history_rounded, size: 19, color: c.primary),
+                                  Icon(
+                                    Icons.history_rounded,
+                                    size: 19,
+                                    color: c.primary,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Đóng góp gần đây',
@@ -561,19 +650,26 @@ class FamilyFundsPage extends StatelessWidget {
                                 child: allContributions.isEmpty
                                     ? Text(
                                         'Chưa có lượt đóng góp nào. Nhấn vào mục tiêu quỹ để nạp khoản đóng góp đầu tiên.',
-                                        style: TextStyle(fontSize: 13, color: c.textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: c.textSecondary,
+                                        ),
                                       )
                                     : Column(
                                         children: [
-                                          for (var i = 0;
-                                              i < allContributions.take(6).length;
-                                              i++) ...[
-                                            if (i > 0) const Divider(height: 20),
+                                          for (
+                                            var i = 0;
+                                            i < allContributions.take(6).length;
+                                            i++
+                                          ) ...[
+                                            if (i > 0)
+                                              const Divider(height: 20),
                                             Row(
                                               children: [
                                                 CircleAvatar(
                                                   radius: 18,
-                                                  backgroundColor: c.primarySubtle,
+                                                  backgroundColor:
+                                                      c.primarySubtle,
                                                   child: Text(
                                                     allContributions[i]
                                                             .item
@@ -582,14 +678,15 @@ class FamilyFundsPage extends StatelessWidget {
                                                             .isEmpty
                                                         ? 'U'
                                                         : allContributions[i]
-                                                            .item
-                                                            .contributorName
-                                                            .trim()
-                                                            .characters
-                                                            .first
-                                                            .toUpperCase(),
+                                                              .item
+                                                              .contributorName
+                                                              .trim()
+                                                              .characters
+                                                              .first
+                                                              .toUpperCase(),
                                                     style: TextStyle(
-                                                      fontWeight: FontWeight.w800,
+                                                      fontWeight:
+                                                          FontWeight.w800,
                                                       color: c.primary,
                                                     ),
                                                   ),
@@ -598,14 +695,16 @@ class FamilyFundsPage extends StatelessWidget {
                                                 Expanded(
                                                   child: Column(
                                                     crossAxisAlignment:
-                                                        CrossAxisAlignment.start,
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Text(
                                                         allContributions[i]
                                                             .item
                                                             .contributorName,
                                                         style: TextStyle(
-                                                          fontWeight: FontWeight.w800,
+                                                          fontWeight:
+                                                              FontWeight.w800,
                                                           fontSize: 14.5,
                                                           color: c.textPrimary,
                                                         ),
@@ -613,10 +712,12 @@ class FamilyFundsPage extends StatelessWidget {
                                                       Text(
                                                         '${dtFmt.format(allContributions[i].item.createdAt)} · ${allContributions[i].fund.name}',
                                                         maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                         style: TextStyle(
                                                           fontSize: 12,
-                                                          color: c.textSecondary,
+                                                          color:
+                                                              c.textSecondary,
                                                         ),
                                                       ),
                                                     ],
@@ -661,8 +762,9 @@ class FamilyFundsPage extends StatelessWidget {
   }) async {
     final nameCtrl = TextEditingController();
     final targetCtrl = TextEditingController(text: '25000000');
-    var scope =
-        (familyId != null && familyId.isNotEmpty) ? FundScope.family : FundScope.personal;
+    var scope = (familyId != null && familyId.isNotEmpty)
+        ? FundScope.family
+        : FundScope.personal;
     final bloc = context.read<BudgetBloc>();
 
     await showDialog<void>(
@@ -702,7 +804,10 @@ class FamilyFundsPage extends StatelessWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () {
                 final target = VndAmount.tryParseInput(targetCtrl.text) ?? 0;
@@ -749,17 +854,24 @@ class FamilyFundsPage extends StatelessWidget {
             TextField(
               controller: amtCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Số tiền đóng góp (VND)'),
+              decoration: const InputDecoration(
+                labelText: 'Số tiền đóng góp (VND)',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: noteCtrl,
-              decoration: const InputDecoration(labelText: 'Ghi chú (Tùy chọn)'),
+              decoration: const InputDecoration(
+                labelText: 'Ghi chú (Tùy chọn)',
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               final amt = VndAmount.tryParseInput(amtCtrl.text) ?? 0;

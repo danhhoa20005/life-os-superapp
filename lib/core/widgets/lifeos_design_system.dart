@@ -35,24 +35,30 @@ extension LifeOsAccentToneColors on LifeOsAccentTone {
   (Color bg, Color fg) resolve(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (this) {
-      LifeOsAccentTone.emerald => isDark
-          ? (const Color(0xFF13331E), const Color(0xFF34D399))
-          : (const Color(0xFFEAFBF0), const Color(0xFF12B847)),
-      LifeOsAccentTone.blue => isDark
-          ? (const Color(0xFF13294B), const Color(0xFF60A5FA))
-          : (const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
-      LifeOsAccentTone.purple => isDark
-          ? (const Color(0xFF271B47), const Color(0xFFA78BFA))
-          : (const Color(0xFFF5F3FF), const Color(0xFF7C3AED)),
-      LifeOsAccentTone.amber => isDark
-          ? (const Color(0xFF38290A), const Color(0xFFFBBF24))
-          : (const Color(0xFFFEF7E0), const Color(0xFFD97706)),
-      LifeOsAccentTone.coral => isDark
-          ? (const Color(0xFF3A1616), const Color(0xFFF87171))
-          : (const Color(0xFFFEE2E2), const Color(0xFFDC2626)),
-      LifeOsAccentTone.neutral => isDark
-          ? (const Color(0xFF222B26), const Color(0xFFA0AEB6))
-          : (const Color(0xFFF1F5F3), const Color(0xFF475467)),
+      LifeOsAccentTone.emerald =>
+        isDark
+            ? (const Color(0xFF13331E), const Color(0xFF34D399))
+            : (const Color(0xFFEAFBF0), const Color(0xFF12B847)),
+      LifeOsAccentTone.blue =>
+        isDark
+            ? (const Color(0xFF13294B), const Color(0xFF60A5FA))
+            : (const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
+      LifeOsAccentTone.purple =>
+        isDark
+            ? (const Color(0xFF271B47), const Color(0xFFA78BFA))
+            : (const Color(0xFFF5F3FF), const Color(0xFF7C3AED)),
+      LifeOsAccentTone.amber =>
+        isDark
+            ? (const Color(0xFF38290A), const Color(0xFFFBBF24))
+            : (const Color(0xFFFEF7E0), const Color(0xFFD97706)),
+      LifeOsAccentTone.coral =>
+        isDark
+            ? (const Color(0xFF3A1616), const Color(0xFFF87171))
+            : (const Color(0xFFFEE2E2), const Color(0xFFDC2626)),
+      LifeOsAccentTone.neutral =>
+        isDark
+            ? (const Color(0xFF222B26), const Color(0xFFA0AEB6))
+            : (const Color(0xFFF1F5F3), const Color(0xFF475467)),
     };
   }
 }
@@ -161,9 +167,7 @@ class LifeOsSymbolMark extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _LifeOsSymbolPainter(variant: variant),
-      ),
+      child: CustomPaint(painter: _LifeOsSymbolPainter(variant: variant)),
     );
   }
 }
@@ -249,11 +253,7 @@ class LifeOsLeafMark extends StatelessWidget {
   final double size;
   final double borderRadius;
 
-  const LifeOsLeafMark({
-    super.key,
-    this.size = 36,
-    this.borderRadius = 11,
-  });
+  const LifeOsLeafMark({super.key, this.size = 36, this.borderRadius = 11});
 
   @override
   Widget build(BuildContext context) {
@@ -278,9 +278,7 @@ class LifeOsLeafMark extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: const CustomPaint(
-          painter: _LifeOsAppIconForegroundPainter(),
-        ),
+        child: const CustomPaint(painter: _LifeOsAppIconForegroundPainter()),
       ),
     );
   }
@@ -358,25 +356,25 @@ class LifeOsBrandWordmark extends StatelessWidget {
 
     final (symbolVariant, lifeColor, osColor) = switch (effectiveStyle) {
       LifeOsWordmarkStyle.primary => (
-          LifeOsSymbolVariant.color,
-          LifeOSBrandColors.forest,
-          LifeOSBrandColors.primary,
-        ),
+        LifeOsSymbolVariant.color,
+        LifeOSBrandColors.forest,
+        LifeOSBrandColors.primary,
+      ),
       LifeOsWordmarkStyle.white => (
-          LifeOsSymbolVariant.white,
-          Colors.white,
-          Colors.white,
-        ),
+        LifeOsSymbolVariant.white,
+        Colors.white,
+        Colors.white,
+      ),
       LifeOsWordmarkStyle.black => (
-          LifeOsSymbolVariant.black,
-          const Color(0xFF111111),
-          const Color(0xFF111111),
-        ),
+        LifeOsSymbolVariant.black,
+        const Color(0xFF111111),
+        const Color(0xFF111111),
+      ),
       LifeOsWordmarkStyle.auto => (
-          LifeOsSymbolVariant.color,
-          LifeOSBrandColors.forest,
-          LifeOSBrandColors.primary,
-        ),
+        LifeOsSymbolVariant.color,
+        LifeOSBrandColors.forest,
+        LifeOSBrandColors.primary,
+      ),
     };
 
     return Row(
@@ -432,7 +430,9 @@ class LifeOsStackedBrandLogo extends StatelessWidget {
       children: [
         LifeOsSymbolMark(
           size: symbolSize,
-          variant: isDark ? LifeOsSymbolVariant.white : LifeOsSymbolVariant.color,
+          variant: isDark
+              ? LifeOsSymbolVariant.white
+              : LifeOsSymbolVariant.color,
         ),
         const SizedBox(height: 8),
         Text.rich(
@@ -678,13 +678,16 @@ class LifeOsTopBrandHeader extends StatelessWidget {
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
             child: Row(
               children: [
                 LifeOsHeaderCircleButton(
                   icon: Icons.chevron_left_rounded,
                   tooltip: 'Quay lại',
-                  onTap: onBack ??
+                  onTap:
+                      onBack ??
                       () {
                         if (context.canPop()) {
                           context.pop();
@@ -734,11 +737,15 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     child: w,
                   ),
                 ),
-                if (themeBloc != null && trailingAction == null && extraBrandActions.isEmpty) ...[
+                if (themeBloc != null &&
+                    trailingAction == null &&
+                    extraBrandActions.isEmpty) ...[
                   const SizedBox(width: 6),
                   LifeOsHeaderCircleButton(
                     buttonKey: const Key('open_appearance_studio_button'),
-                    icon: isDark ? Icons.light_mode_outlined : Icons.text_fields_rounded,
+                    icon: isDark
+                        ? Icons.light_mode_outlined
+                        : Icons.text_fields_rounded,
                     tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
                     onTap: () => showLifeOsAppearanceSheet(context),
                   ),
@@ -763,7 +770,9 @@ class LifeOsTopBrandHeader extends StatelessWidget {
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.maxContentWidth,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -806,7 +815,10 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     ),
                   ],
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: c.surface,
                       borderRadius: BorderRadius.circular(24),
@@ -815,7 +827,9 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                           ? const []
                           : [
                               BoxShadow(
-                                color: const Color(0xFF0A140E).withValues(alpha: 0.04),
+                                color: const Color(
+                                  0xFF0A140E,
+                                ).withValues(alpha: 0.04),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -826,8 +840,12 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       children: [
                         if (themeBloc != null)
                           _CapsuleIconBtn(
-                            buttonKey: const Key('open_appearance_studio_button'),
-                            icon: isDark ? Icons.light_mode_outlined : Icons.text_fields_rounded,
+                            buttonKey: const Key(
+                              'open_appearance_studio_button',
+                            ),
+                            icon: isDark
+                                ? Icons.light_mode_outlined
+                                : Icons.text_fields_rounded,
                             tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
                             onTap: () => showLifeOsAppearanceSheet(context),
                           ),
@@ -984,10 +1002,7 @@ class LifeOsSoftCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? c.surface,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: borderColor ?? c.separator,
-          width: 1,
-        ),
+        border: Border.all(color: borderColor ?? c.separator, width: 1),
         boxShadow: isDark
             ? const []
             : [
@@ -1003,10 +1018,7 @@ class LifeOsSoftCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(borderRadius),
           onTap: onTap,
-          child: Padding(
-            padding: padding,
-            child: child,
-          ),
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );
@@ -1058,10 +1070,7 @@ class LifeOsMintHeroCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
-          child: Padding(
-            padding: padding,
-            child: child,
-          ),
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );
@@ -1095,11 +1104,7 @@ class LifeOsIconSquircle extends StatelessWidget {
         color: solidFill ? fg : bg,
         borderRadius: BorderRadius.circular(size * 0.31),
       ),
-      child: Icon(
-        icon,
-        size: iconSize,
-        color: solidFill ? Colors.white : fg,
-      ),
+      child: Icon(icon, size: iconSize, color: solidFill ? Colors.white : fg),
     );
   }
 }
@@ -1238,7 +1243,9 @@ class LifeOsAvatarStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final display = names.isEmpty ? const ['Bố', 'Mẹ', 'Bạn'] : names.take(4).toList();
+    final display = names.isEmpty
+        ? const ['Bố', 'Mẹ', 'Bạn']
+        : names.take(4).toList();
     final step = radius * 1.45;
     final count = display.length + (onAddTap != null ? 1 : 0);
     final totalWidth = count == 0 ? 0.0 : (count - 1) * step + radius * 2;
@@ -1286,7 +1293,11 @@ class LifeOsAvatarStack extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: c.separator, width: 1.5),
                   ),
-                  child: Icon(Icons.add_rounded, size: radius * 1.05, color: c.textSecondary),
+                  child: Icon(
+                    Icons.add_rounded,
+                    size: radius * 1.05,
+                    color: c.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -1414,7 +1425,9 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
   }
 }
 
-T? _tryReadSearchBloc<T extends StateStreamableSource<Object?>>(BuildContext context) {
+T? _tryReadSearchBloc<T extends StateStreamableSource<Object?>>(
+  BuildContext context,
+) {
   try {
     return context.read<T>();
   } catch (_) {
@@ -1430,191 +1443,194 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
   final taskBloc = _tryReadSearchBloc<TaskBloc>(context);
   final dailyBloc = _tryReadSearchBloc<DailyLifeBloc>(context);
 
-  final searchItems = <({
-    String title,
-    String subtitle,
-    IconData icon,
-    String route,
-    LifeOsAccentTone tone,
-    String? badge,
-  })>[
-    (
-      title: 'Trang chủ LifeOS',
-      subtitle: 'Tổng quan hôm nay',
-      icon: Icons.home_rounded,
-      route: '/today',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Chi tiêu & Ngân sách',
-      subtitle: 'Ví, thu chi & ngân sách tháng',
-      icon: Icons.payments_outlined,
-      route: '/finance',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Chi tiết giao dịch (Tự động)',
-      subtitle: 'Xác nhận giao dịch ngân hàng mới',
-      icon: Icons.auto_awesome_rounded,
-      route: '/auto-tx-review',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Báo cáo chi tiêu & Gia đình',
-      subtitle: 'Thống kê thu chi & xuất báo cáo',
-      icon: Icons.bar_chart_rounded,
-      route: '/finance-report',
-      tone: LifeOsAccentTone.blue,
-      badge: null,
-    ),
-    (
-      title: 'Lịch trình & Google Calendar',
-      subtitle: 'Lịch hẹn & đồng bộ Google Calendar',
-      icon: Icons.calendar_month_rounded,
-      route: '/planning',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Báo thức sự kiện',
-      subtitle: 'Hẹn giờ nhắc sự kiện',
-      icon: Icons.alarm_on_rounded,
-      route: '/event-alarm',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Việc cần làm',
-      subtitle: 'Việc cá nhân & phân công gia đình',
-      icon: Icons.task_alt_rounded,
-      route: '/tasks-board',
-      tone: LifeOsAccentTone.blue,
-      badge: null,
-    ),
-    (
-      title: 'Quỹ gia đình & Mục tiêu chung',
-      subtitle: 'Tiết kiệm chung & lịch sử đóng góp',
-      icon: Icons.savings_outlined,
-      route: '/family-funds',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Tài liệu gia đình',
-      subtitle: 'Hợp đồng, giấy tờ xe & bảo hiểm',
-      icon: Icons.folder_copy_outlined,
-      route: '/family-documents',
-      tone: LifeOsAccentTone.amber,
-      badge: null,
-    ),
-    (
-      title: 'Xe cộ & Bảo dưỡng',
-      subtitle: 'Thay dầu, bảo hiểm & đăng kiểm',
-      icon: Icons.directions_car_outlined,
-      route: '/assets',
-      tone: LifeOsAccentTone.blue,
-      badge: null,
-    ),
-    (
-      title: 'Widget màn hình chính',
-      subtitle: 'Ghim tiện ích ra màn hình điện thoại',
-      icon: Icons.widgets_outlined,
-      route: '/home-widgets',
-      tone: LifeOsAccentTone.purple,
-      badge: null,
-    ),
-    (
-      title: 'Tiện ích Pro Tích hợp',
-      subtitle: 'Thuê bao, lãi vay, thói quen & sổ hiếu hỷ',
-      icon: Icons.workspace_premium_rounded,
-      route: '/pro-utilities',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
-      subtitle: 'Theo dõi phí gia hạn & hạn bảo hành',
-      icon: Icons.radar_rounded,
-      route: '/subscriptions-warranty',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
-      subtitle: 'Tách hóa đơn, tính lãi vay & tiết kiệm',
-      icon: Icons.calculate_outlined,
-      route: '/wealth-tools',
-      tone: LifeOsAccentTone.blue,
-      badge: null,
-    ),
-    (
-      title: 'Thói quen, Uống nước & Tập trung',
-      subtitle: 'Đồng hồ tập trung & nhắc uống nước',
-      icon: Icons.local_fire_department_outlined,
-      route: '/habits-focus',
-      tone: LifeOsAccentTone.amber,
-      badge: null,
-    ),
-    (
-      title: 'Sổ Hiếu Hỷ & Hành lý Du lịch',
-      subtitle: 'Ghi tiền mừng cưới & đồ mang đi chơi',
-      icon: Icons.card_giftcard_rounded,
-      route: '/social-ledger-travel',
-      tone: LifeOsAccentTone.purple,
-      badge: null,
-    ),
-    (
-      title: 'Tất cả Dịch vụ 360°',
-      subtitle: 'Tài chính, sức khỏe, đi chợ, điện nước & lương',
-      icon: Icons.apps_rounded,
-      route: '/super-app-hub',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Sức khỏe & Tủ thuốc',
-      subtitle: 'Nhắc uống thuốc, BMI & thẻ y tế khẩn cấp',
-      icon: Icons.favorite_outline_rounded,
-      route: '/health-hub',
-      tone: LifeOsAccentTone.coral,
-      badge: null,
-    ),
-    (
-      title: 'Bếp & Đi chợ Thông minh',
-      subtitle: 'Gợi ý món ăn, giỏ đi chợ & tủ lạnh',
-      icon: Icons.shopping_basket_outlined,
-      route: '/kitchen-groceries',
-      tone: LifeOsAccentTone.emerald,
-      badge: null,
-    ),
-    (
-      title: 'Điện nước EVN & Nhà cửa',
-      subtitle: 'Tính điện 5 bậc, nước & tiền thuê nhà',
-      icon: Icons.electric_bolt_rounded,
-      route: '/home-living',
-      tone: LifeOsAccentTone.amber,
-      badge: null,
-    ),
-    (
-      title: 'Ghi chú & Lương Gross–Net',
-      subtitle: 'Sổ tay nhanh & tính lương thực nhận',
-      icon: Icons.sticky_note_2_outlined,
-      route: '/smart-notes-hub',
-      tone: LifeOsAccentTone.purple,
-      badge: null,
-    ),
-    (
-      title: 'Cài đặt',
-      subtitle: 'Tài khoản, giao diện & kết nối ngân hàng',
-      icon: Icons.settings_outlined,
-      route: '/settings-hub',
-      tone: LifeOsAccentTone.neutral,
-      badge: null,
-    ),
-  ];
+  final searchItems =
+      <
+        ({
+          String title,
+          String subtitle,
+          IconData icon,
+          String route,
+          LifeOsAccentTone tone,
+          String? badge,
+        })
+      >[
+        (
+          title: 'Trang chủ LifeOS',
+          subtitle: 'Tổng quan hôm nay',
+          icon: Icons.home_rounded,
+          route: '/today',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Chi tiêu & Ngân sách',
+          subtitle: 'Ví, thu chi & ngân sách tháng',
+          icon: Icons.payments_outlined,
+          route: '/finance',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Chi tiết giao dịch (Tự động)',
+          subtitle: 'Xác nhận giao dịch ngân hàng mới',
+          icon: Icons.auto_awesome_rounded,
+          route: '/auto-tx-review',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Báo cáo chi tiêu & Gia đình',
+          subtitle: 'Thống kê thu chi & xuất báo cáo',
+          icon: Icons.bar_chart_rounded,
+          route: '/finance-report',
+          tone: LifeOsAccentTone.blue,
+          badge: null,
+        ),
+        (
+          title: 'Lịch trình & Google Calendar',
+          subtitle: 'Lịch hẹn & đồng bộ Google Calendar',
+          icon: Icons.calendar_month_rounded,
+          route: '/planning',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Báo thức sự kiện',
+          subtitle: 'Hẹn giờ nhắc sự kiện',
+          icon: Icons.alarm_on_rounded,
+          route: '/event-alarm',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Việc cần làm',
+          subtitle: 'Việc cá nhân & phân công gia đình',
+          icon: Icons.task_alt_rounded,
+          route: '/tasks-board',
+          tone: LifeOsAccentTone.blue,
+          badge: null,
+        ),
+        (
+          title: 'Quỹ gia đình & Mục tiêu chung',
+          subtitle: 'Tiết kiệm chung & lịch sử đóng góp',
+          icon: Icons.savings_outlined,
+          route: '/family-funds',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Tài liệu gia đình',
+          subtitle: 'Hợp đồng, giấy tờ xe & bảo hiểm',
+          icon: Icons.folder_copy_outlined,
+          route: '/family-documents',
+          tone: LifeOsAccentTone.amber,
+          badge: null,
+        ),
+        (
+          title: 'Xe cộ & Bảo dưỡng',
+          subtitle: 'Thay dầu, bảo hiểm & đăng kiểm',
+          icon: Icons.directions_car_outlined,
+          route: '/assets',
+          tone: LifeOsAccentTone.blue,
+          badge: null,
+        ),
+        (
+          title: 'Widget màn hình chính',
+          subtitle: 'Ghim tiện ích ra màn hình điện thoại',
+          icon: Icons.widgets_outlined,
+          route: '/home-widgets',
+          tone: LifeOsAccentTone.purple,
+          badge: null,
+        ),
+        (
+          title: 'Tiện ích Pro Tích hợp',
+          subtitle: 'Thuê bao, lãi vay, thói quen & sổ hiếu hỷ',
+          icon: Icons.workspace_premium_rounded,
+          route: '/pro-utilities',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
+          subtitle: 'Theo dõi phí gia hạn & hạn bảo hành',
+          icon: Icons.radar_rounded,
+          route: '/subscriptions-warranty',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
+          subtitle: 'Tách hóa đơn, tính lãi vay & tiết kiệm',
+          icon: Icons.calculate_outlined,
+          route: '/wealth-tools',
+          tone: LifeOsAccentTone.blue,
+          badge: null,
+        ),
+        (
+          title: 'Thói quen, Uống nước & Tập trung',
+          subtitle: 'Đồng hồ tập trung & nhắc uống nước',
+          icon: Icons.local_fire_department_outlined,
+          route: '/habits-focus',
+          tone: LifeOsAccentTone.amber,
+          badge: null,
+        ),
+        (
+          title: 'Sổ Hiếu Hỷ & Hành lý Du lịch',
+          subtitle: 'Ghi tiền mừng cưới & đồ mang đi chơi',
+          icon: Icons.card_giftcard_rounded,
+          route: '/social-ledger-travel',
+          tone: LifeOsAccentTone.purple,
+          badge: null,
+        ),
+        (
+          title: 'Tất cả Dịch vụ 360°',
+          subtitle: 'Tài chính, sức khỏe, đi chợ, điện nước & lương',
+          icon: Icons.apps_rounded,
+          route: '/super-app-hub',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Sức khỏe & Tủ thuốc',
+          subtitle: 'Nhắc uống thuốc, BMI & thẻ y tế khẩn cấp',
+          icon: Icons.favorite_outline_rounded,
+          route: '/health-hub',
+          tone: LifeOsAccentTone.coral,
+          badge: null,
+        ),
+        (
+          title: 'Bếp & Đi chợ Thông minh',
+          subtitle: 'Gợi ý món ăn, giỏ đi chợ & tủ lạnh',
+          icon: Icons.shopping_basket_outlined,
+          route: '/kitchen-groceries',
+          tone: LifeOsAccentTone.emerald,
+          badge: null,
+        ),
+        (
+          title: 'Điện nước EVN & Nhà cửa',
+          subtitle: 'Tính điện 5 bậc, nước & tiền thuê nhà',
+          icon: Icons.electric_bolt_rounded,
+          route: '/home-living',
+          tone: LifeOsAccentTone.amber,
+          badge: null,
+        ),
+        (
+          title: 'Ghi chú & Lương Gross–Net',
+          subtitle: 'Sổ tay nhanh & tính lương thực nhận',
+          icon: Icons.sticky_note_2_outlined,
+          route: '/smart-notes-hub',
+          tone: LifeOsAccentTone.purple,
+          badge: null,
+        ),
+        (
+          title: 'Cài đặt',
+          subtitle: 'Tài khoản, giao diện & kết nối ngân hàng',
+          icon: Icons.settings_outlined,
+          route: '/settings-hub',
+          tone: LifeOsAccentTone.neutral,
+          badge: null,
+        ),
+      ];
 
   await showModalBottomSheet<void>(
     context: context,
@@ -1626,32 +1642,41 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
           final c = TammySemanticColors.of(ctx);
           final q = query.trim().toLowerCase();
 
-          final liveDataResults = <({
-            String title,
-            String subtitle,
-            IconData icon,
-            String route,
-            LifeOsAccentTone tone,
-            String? badge,
-          })>[];
+          final liveDataResults =
+              <
+                ({
+                  String title,
+                  String subtitle,
+                  IconData icon,
+                  String route,
+                  LifeOsAccentTone tone,
+                  String? badge,
+                })
+              >[];
 
           if (q.isNotEmpty) {
             final dateFmt = DateFormat('dd/MM HH:mm');
             // 1. Live Transactions
-            final txs = txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
-            for (final tx in txs.where((t) => t.verification != TransactionVerification.rejected)) {
+            final txs =
+                txListBloc?.state.allTransactions ??
+                const <TransactionEntity>[];
+            for (final tx in txs.where(
+              (t) => t.verification != TransactionVerification.rejected,
+            )) {
               if (tx.merchant.toLowerCase().contains(q) ||
                   tx.categoryName.toLowerCase().contains(q) ||
                   (tx.note ?? '').toLowerCase().contains(q)) {
                 liveDataResults.add((
                   title: tx.merchant,
-                  subtitle: '${tx.categoryName} · ${dateFmt.format(tx.occurredAt)}',
+                  subtitle:
+                      '${tx.categoryName} · ${dateFmt.format(tx.occurredAt)}',
                   icon: Icons.receipt_long_rounded,
                   route: tx.verification == TransactionVerification.provisional
                       ? '/auto-tx-review'
                       : '/finance',
                   tone: LifeOsAccentTone.emerald,
-                  badge: '${tx.direction == 'credit' ? '+' : '-'}${VndAmount.format(tx.amountMinor)}',
+                  badge:
+                      '${tx.direction == 'credit' ? '+' : '-'}${VndAmount.format(tx.amountMinor)}',
                 ));
                 if (liveDataResults.length >= 6) break;
               }
@@ -1702,17 +1727,22 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                 if (g.name.toLowerCase().contains(q)) {
                   liveDataResults.add((
                     title: g.name,
-                    subtitle: g.inFridgeStorage ? 'Trong tủ lạnh' : 'Giỏ đi chợ',
+                    subtitle: g.inFridgeStorage
+                        ? 'Trong tủ lạnh'
+                        : 'Giỏ đi chợ',
                     icon: Icons.shopping_basket_outlined,
                     route: '/kitchen-groceries',
                     tone: LifeOsAccentTone.amber,
-                    badge: g.estimatedMinor > 0 ? VndAmount.format(g.estimatedMinor) : 'Đi chợ',
+                    badge: g.estimatedMinor > 0
+                        ? VndAmount.format(g.estimatedMinor)
+                        : 'Đi chợ',
                   ));
                   if (liveDataResults.length >= 16) break;
                 }
               }
               for (final n in snap.notes) {
-                if (n.title.toLowerCase().contains(q) || n.content.toLowerCase().contains(q)) {
+                if (n.title.toLowerCase().contains(q) ||
+                    n.content.toLowerCase().contains(q)) {
                   liveDataResults.add((
                     title: n.title,
                     subtitle: n.content,
@@ -1730,12 +1760,12 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
           final screenResults = q.isEmpty
               ? searchItems
               : searchItems
-                  .where(
-                    (it) =>
-                        it.title.toLowerCase().contains(q) ||
-                        it.subtitle.toLowerCase().contains(q),
-                  )
-                  .toList();
+                    .where(
+                      (it) =>
+                          it.title.toLowerCase().contains(q) ||
+                          it.subtitle.toLowerCase().contains(q),
+                    )
+                    .toList();
 
           final combined = [...liveDataResults, ...screenResults];
 
@@ -1753,7 +1783,8 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                     key: const Key('omni_search_text_field'),
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: 'Tìm chi tiêu, lịch hẹn, việc làm, ghi chú, tiện ích...',
+                      hintText:
+                          'Tìm chi tiêu, lịch hẹn, việc làm, ghi chú, tiện ích...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: query.isEmpty
                           ? null
@@ -1772,7 +1803,11 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                             controller: scrollCtrl,
                             children: [
                               const SizedBox(height: 24),
-                              Icon(Icons.search_off_rounded, size: 42, color: c.textSecondary),
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 42,
+                                color: c.textSecondary,
+                              ),
                               const SizedBox(height: 8),
                               Text(
                                 'Chưa tìm thấy "$query" trong dữ liệu của bạn',
@@ -1787,7 +1822,10 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                               Text(
                                 'Bạn muốn tạo nhanh một khoản chi tiêu, lịch hẹn hoặc ghi chú mới?',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 13, color: c.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: c.textSecondary,
+                                ),
                               ),
                               const SizedBox(height: 14),
                               Center(
@@ -1805,11 +1843,15 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                         : ListView.separated(
                             controller: scrollCtrl,
                             itemCount: combined.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
                             itemBuilder: (_, idx) {
                               final item = combined[idx];
                               return LifeOsSoftCard(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 11,
+                                ),
                                 onTap: () {
                                   Navigator.of(sheetCtx).pop();
                                   if (item.route == '/today' ||
@@ -1824,11 +1866,16 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                 },
                                 child: Row(
                                   children: [
-                                    LifeOsIconSquircle(icon: item.icon, tone: item.tone, size: 40),
+                                    LifeOsIconSquircle(
+                                      icon: item.icon,
+                                      tone: item.tone,
+                                      size: 40,
+                                    ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             item.title,
@@ -1843,7 +1890,9 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                             item.subtitle,
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context).textTheme.bodySmall,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
                                           ),
                                         ],
                                       ),
@@ -1857,7 +1906,9 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                         ),
                                         decoration: BoxDecoration(
                                           color: c.primarySubtle,
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         child: Text(
                                           item.badge!,
@@ -1865,12 +1916,17 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w800,
                                             color: c.primary,
-                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
                                         ),
                                       ),
                                     ] else
-                                      const Icon(Icons.chevron_right_rounded, size: 20),
+                                      const Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 20,
+                                      ),
                                   ],
                                 ),
                               );
@@ -1919,12 +1975,7 @@ class LifeOsCompactDockItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            LifeOsIconSquircle(
-              icon: icon,
-              tone: tone,
-              size: 42,
-              iconSize: 21,
-            ),
+            LifeOsIconSquircle(icon: icon, tone: tone, size: 42, iconSize: 21),
             const SizedBox(height: 6),
             Text(
               label,
@@ -1975,7 +2026,9 @@ class LifeOsResponsiveIconGrid extends StatelessWidget {
         final idx = i + c;
         rowCells.add(
           Expanded(
-            child: idx < children.length ? children[idx] : const SizedBox.shrink(),
+            child: idx < children.length
+                ? children[idx]
+                : const SizedBox.shrink(),
           ),
         );
       }
@@ -1991,10 +2044,7 @@ class LifeOsResponsiveIconGrid extends StatelessWidget {
         ),
       );
     }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: rows,
-    );
+    return Column(mainAxisSize: MainAxisSize.min, children: rows);
   }
 }
 
@@ -2013,9 +2063,9 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
           builder: (ctx, state) {
             final c = TammySemanticColors.of(ctx);
             return MediaQuery(
-              data: MediaQuery.of(ctx).copyWith(
-                textScaler: TextScaler.linear(state.textScale),
-              ),
+              data: MediaQuery.of(
+                ctx,
+              ).copyWith(textScaler: TextScaler.linear(state.textScale)),
               child: SafeArea(
                 top: false,
                 child: Padding(
@@ -2046,7 +2096,10 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                                 ),
                                 Text(
                                   'Áp dụng tức thì và tự lưu cho mọi màn hình',
-                                  style: TextStyle(fontSize: 12, color: c.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: c.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -2067,11 +2120,16 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                       const SizedBox(height: 8),
                       LifeOsSegmentedPills<ThemeMode>(
                         selected: state.themeMode,
-                        onChanged: (mode) => themeBloc.add(ThemeModeChanged(mode)),
+                        onChanged: (mode) =>
+                            themeBloc.add(ThemeModeChanged(mode)),
                         options: const [
                           (ThemeMode.light, 'Sáng', Icons.light_mode_rounded),
                           (ThemeMode.dark, 'Tối', Icons.dark_mode_rounded),
-                          (ThemeMode.system, 'Hệ thống', Icons.phone_android_rounded),
+                          (
+                            ThemeMode.system,
+                            'Hệ thống',
+                            Icons.phone_android_rounded,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -2100,15 +2158,17 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final preset in const <(double scale, String label)>[
-                            (0.85, 'Nhỏ gọn (85%)'),
-                            (0.92, 'Tối ưu (92%)'),
-                            (1.00, 'Chuẩn (100%)'),
-                            (1.12, 'Chữ lớn (112%)'),
-                          ])
+                          for (final preset
+                              in const <(double scale, String label)>[
+                                (0.85, 'Nhỏ gọn (85%)'),
+                                (0.92, 'Tối ưu (92%)'),
+                                (1.00, 'Chuẩn (100%)'),
+                                (1.12, 'Chữ lớn (112%)'),
+                              ])
                             ChoiceChip(
                               label: Text(preset.$2),
-                              selected: (state.textScale - preset.$1).abs() < 0.025,
+                              selected:
+                                  (state.textScale - preset.$1).abs() < 0.025,
                               onSelected: (_) =>
                                   themeBloc.add(TextScaleChanged(preset.$1)),
                             ),
@@ -2131,7 +2191,8 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                               min: 0.80,
                               max: 1.25,
                               divisions: 18,
-                              onChanged: (v) => themeBloc.add(TextScaleChanged(v)),
+                              onChanged: (v) =>
+                                  themeBloc.add(TextScaleChanged(v)),
                             ),
                           ),
                           Text(
@@ -2158,10 +2219,14 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                         ),
                         subtitle: Text(
                           'Thu gọn khoảng đệm thừa để hiển thị trọn vẹn nội dung trên 1 màn hình',
-                          style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 11.8,
+                            color: c.textSecondary,
+                          ),
                         ),
                         value: state.compactDensity,
-                        onChanged: (v) => themeBloc.add(CompactDensityToggled(v)),
+                        onChanged: (v) =>
+                            themeBloc.add(CompactDensityToggled(v)),
                       ),
                     ],
                   ),
@@ -2237,7 +2302,11 @@ Future<void> showLifeOsBrandIdentitySheet(BuildContext context) {
               const SizedBox(height: 4),
               Text(
                 'Biểu tượng kết hợp mái nhà, 3 thành viên gia đình và 2 chiếc lá nâng đỡ — đồng bộ trên toàn bộ ứng dụng, Android Adaptive Icon, iOS & Widget.',
-                style: TextStyle(fontSize: 12.5, color: c.textSecondary, height: 1.4),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: c.textSecondary,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -2318,7 +2387,10 @@ Future<void> showLifeOsBrandIdentitySheet(BuildContext context) {
               // Forest Reversed Horizontal Banner (`#113824`)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: LifeOSBrandColors.forest,
                   borderRadius: BorderRadius.circular(18),
@@ -2452,11 +2524,16 @@ Future<void> showLifeOsBrandIdentitySheet(BuildContext context) {
                 children: swatches.map((item) {
                   final (label, hex, color) = item;
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: c.surfaceRaised,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: c.border.withValues(alpha: 0.6)),
+                      border: Border.all(
+                        color: c.border.withValues(alpha: 0.6),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

@@ -29,50 +29,50 @@ void main() {
     }
   });
 
-  testWidgets('WelcomePage and Full-Screen EventAlarmPage (07:30) render cleanly', (tester) async {
-    tester.view.physicalSize = const Size(430, 932);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
+  testWidgets(
+    'WelcomePage and Full-Screen EventAlarmPage (07:30) render cleanly',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: const WelcomePage(),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Bắt đầu'), findsOneWidget);
-    expect(find.text('Tôi đã có tài khoản'), findsOneWidget);
+      await tester.pumpWidget(
+        MaterialApp(theme: AppTheme.light(), home: const WelcomePage()),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Bắt đầu'), findsOneWidget);
+      expect(find.text('Tôi đã có tài khoản'), findsOneWidget);
 
-    final syncedEvent = CalendarEventEntity(
-      id: 'gcal_real_standup',
-      ownerId: 'uid_unified_test',
-      ownerName: 'Nguyễn Hòa',
-      visibility: CalendarEventVisibility.privateEvent,
-      title: 'Họp dự án sáng thứ Hai',
-      location: 'Google Meet',
-      startsAt: DateTime(2026, 11, 23, 7, 45),
-      endsAt: DateTime(2026, 11, 23, 8, 30),
-      reminderMinutesBefore: 15,
-      syncStatus: CalendarSyncStatus.synced,
-    );
+      final syncedEvent = CalendarEventEntity(
+        id: 'gcal_real_standup',
+        ownerId: 'uid_unified_test',
+        ownerName: 'Nguyễn Hòa',
+        visibility: CalendarEventVisibility.privateEvent,
+        title: 'Họp dự án sáng thứ Hai',
+        location: 'Google Meet',
+        startsAt: DateTime(2026, 11, 23, 7, 45),
+        endsAt: DateTime(2026, 11, 23, 8, 30),
+        reminderMinutesBefore: 15,
+        syncStatus: CalendarSyncStatus.synced,
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: EventAlarmPage(event: syncedEvent),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Báo thức sự kiện'), findsOneWidget);
-    expect(find.text('07:30'), findsOneWidget);
-    expect(find.text('Họp dự án sáng thứ Hai'), findsOneWidget);
-    expect(find.text('Hoãn 5 phút'), findsOneWidget);
-    expect(find.text('Tắt báo thức'), findsOneWidget);
-  });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: EventAlarmPage(event: syncedEvent),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Báo thức sự kiện'), findsOneWidget);
+      expect(find.text('07:30'), findsOneWidget);
+      expect(find.text('Họp dự án sáng thứ Hai'), findsOneWidget);
+      expect(find.text('Hoãn 5 phút'), findsOneWidget);
+      expect(find.text('Tắt báo thức'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Unified LifeOS Navigation: Center + Quick Hub, Auto-Tx 98% Review, Document Vault & Settings Dark Mode',
@@ -114,7 +114,10 @@ void main() {
       // 1. Verify Unified Home Page (LifeOS wordmark, greeting, 3x3 Grid & Center + FAB)
       expect(find.text('LifeOS'), findsWidgets);
       expect(find.textContaining('Xin chào, Hòa'), findsOneWidget);
-      expect(find.byKey(const Key('lifeos_center_quick_add_fab')), findsOneWidget);
+      expect(
+        find.byKey(const Key('lifeos_center_quick_add_fab')),
+        findsOneWidget,
+      );
 
       // 2. Open Redesigned Center + Quick Action Hub ("Thêm nhanh"):
       //    Verify 1-line instant expense save + 2×3 clear Bento tiles + Bank Review shortcut
@@ -152,7 +155,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Tìm kiếm nhanh LifeOS').first);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('omni_search_text_field')), 'Cà phê');
+      await tester.enterText(
+        find.byKey(const Key('omni_search_text_field')),
+        'Cà phê',
+      );
       await tester.pumpAndSettle();
       expect(find.text('Cà phê'), findsWidgets);
       expect(
@@ -162,7 +168,9 @@ void main() {
         ),
         findsOneWidget,
       );
-      Navigator.of(tester.element(find.byKey(const Key('omni_search_text_field')))).pop();
+      Navigator.of(
+        tester.element(find.byKey(const Key('omni_search_text_field'))),
+      ).pop();
       await tester.pumpAndSettle();
 
       // 3. Scroll Home ListView into view and tap "Tài liệu" tile in Home 3x3 Grid

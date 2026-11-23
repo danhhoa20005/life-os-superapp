@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 /// Ensures sensitive credentials (such as SePay API tokens) are stored only inside
 /// hardware-protected local storage on Android and NEVER written to Cloud Firestore.
 class NativeSecureVaultBridge {
-  static const MethodChannel _channel = MethodChannel('vn.lifeos.app/secure_vault');
+  static const MethodChannel _channel = MethodChannel(
+    'vn.lifeos.app/secure_vault',
+  );
 
   static final NativeSecureVaultBridge instance = NativeSecureVaultBridge._();
 
@@ -42,9 +44,10 @@ class NativeSecureVaultBridge {
   Future<String?> readSecret(String key) async {
     if (_useNativeAndroid) {
       try {
-        final res = await _channel.invokeMethod<String>('readSecret', <String, dynamic>{
-          'key': key,
-        });
+        final res = await _channel.invokeMethod<String>(
+          'readSecret',
+          <String, dynamic>{'key': key},
+        );
         if (res != null && res.isNotEmpty) {
           _memoryFallback[key] = res;
           return res;
@@ -60,7 +63,9 @@ class NativeSecureVaultBridge {
     _memoryFallback.remove(key);
     if (_useNativeAndroid) {
       try {
-        await _channel.invokeMethod<bool>('deleteSecret', <String, dynamic>{'key': key});
+        await _channel.invokeMethod<bool>('deleteSecret', <String, dynamic>{
+          'key': key,
+        });
       } on MissingPluginException {
         // Ignore in test harness
       }

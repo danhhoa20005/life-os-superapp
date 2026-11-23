@@ -10,20 +10,29 @@ import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../notifications/domain/entities/notification_entities.dart';
+import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dart';
+import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../domain/entities/transaction_entities.dart';
 import '../bloc/transaction_bloc.dart';
 import '../bloc/transaction_event.dart';
 import '../bloc/transaction_state.dart';
 
 /// Screen 05: "Chi tiết giao dịch (Tự động)" (`05_Giao_dich_tu_dong.png`).
-/// Strictly operates on REAL pending provisional transactions — never fabricates or commits dummy charges.
+/// Strictly operates on REAL pending provisional or push-targeted transactions — never fabricates charges.
 class AutoTransactionReviewPage extends StatefulWidget {
   final TransactionEntity? initialTransaction;
+  final String? initialTransactionId;
 
-  const AutoTransactionReviewPage({super.key, this.initialTransaction});
+  const AutoTransactionReviewPage({
+    super.key,
+    this.initialTransaction,
+    this.initialTransactionId,
+  });
 
   @override
-  State<AutoTransactionReviewPage> createState() => _AutoTransactionReviewPageState();
+  State<AutoTransactionReviewPage> createState() =>
+      _AutoTransactionReviewPageState();
 }
 
 class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
@@ -43,15 +52,21 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   String? _boundTxId;
   int _pendingCountAtAction = 0;
   bool _isEditing = false;
+  bool _dismissedVehiclePrompt = false;
+  bool _dismissedRecurringPrompt = false;
 
   @override
   void initState() {
     super.initState();
     final tx = widget.initialTransaction;
     final initialCat = tx?.categoryName ?? 'Ăn uống';
-    _selectedCategory = _categories.contains(initialCat) ? initialCat : 'Ăn uống';
+    _selectedCategory = _categories.contains(initialCat)
+        ? initialCat
+        : 'Ăn uống';
     _merchantCtrl = TextEditingController(text: tx?.merchant ?? '');
-    _amountCtrl = TextEditingController(text: tx != null ? '${tx.amountMinor}' : '');
+    _amountCtrl = TextEditingController(
+      text: tx != null ? '${tx.amountMinor}' : '',
+    );
     _noteCtrl = TextEditingController(text: tx?.note ?? '');
     _boundTxId = tx?.id;
   }
@@ -59,7 +74,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   void _syncControllersFromTransaction(TransactionEntity tx) {
     if (_boundTxId == tx.id) return;
     _boundTxId = tx.id;
-    _selectedCategory = _categories.contains(tx.categoryName) ? tx.categoryName : 'Ăn uống';
+    _selectedCategory = _categories.contains(tx.categoryName)
+        ? tx.categoryName
+        : 'Ăn uống';
     _merchantCtrl.text = tx.merchant;
     _amountCtrl.text = '${tx.amountMinor}';
     _noteCtrl.text = tx.note ?? '';
@@ -81,7 +98,15 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     final listState = context.watch<TransactionListBloc>().state;
 
     final pendingQueue = listState.provisionalTransactions;
-    final tx = widget.initialTransaction ?? pendingQueue.firstOrNull;
+    final byTargetId =
+        (widget.initialTransactionId != null &&
+            widget.initialTransactionId!.trim().isNotEmpty)
+        ? listState.allTransactions
+              .where((t) => t.id == widget.initialTransactionId!.trim())
+              .firstOrNull
+        : null;
+    final tx =
+        widget.initialTransaction ?? byTargetId ?? pendingQueue.firstOrNull;
     if (tx != null) {
       _syncControllersFromTransaction(tx);
     }
@@ -99,7 +124,8 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
 
     return BlocListener<TransactionActionBloc, TransactionActionState>(
       listener: (context, state) {
-        if (state.status == ActionStatus.success && state.successMessage != null) {
+        if (state.status == ActionStatus.success &&
+            state.successMessage != null) {
           LifeOsTopToast.fromSnackBar(
             context,
             SnackBar(content: Text('✓ ${state.successMessage!}')),
@@ -111,7 +137,8 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
               context.go('/finance');
             }
           }
-        } else if (state.status == ActionStatus.failure && state.failure != null) {
+        } else if (state.status == ActionStatus.failure &&
+            state.failure != null) {
           LifeOsTopToast.fromSnackBar(
             context,
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
@@ -135,9 +162,15 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: AppSpacing.maxContentWidth,
+                      ),
                       child: tx == null
-                          ? _buildHonestEmptyQueue(context, c, recentAutoVerified)
+                          ? _buildHonestEmptyQueue(
+                              context,
+                              c,
+                              recentAutoVerified,
+                            )
                           : _buildActiveReviewBody(
                               context,
                               c,
@@ -260,7 +293,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                         ),
                         Text(
                           '${item.categoryName} · ${DateFormat('dd/MM HH:mm').format(item.occurredAt)}',
-                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -269,7 +305,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                     '${item.direction == 'credit' ? '+' : '-'}${VndAmount.format(item.amountMinor)}',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: item.direction == 'credit' ? c.primary : c.textPrimary,
+                      color: item.direction == 'credit'
+                          ? c.primary
+                          : c.textPrimary,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -291,11 +329,14 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     required int pendingCount,
     required List<WalletEntity> wallets,
   }) {
-    final parsedAmt = VndAmount.tryParseInput(_amountCtrl.text) ?? tx.amountMinor;
+    final parsedAmt =
+        VndAmount.tryParseInput(_amountCtrl.text) ?? tx.amountMinor;
     final timeStr = DateFormat('HH:mm').format(tx.occurredAt);
-    final matchedWallet = wallets.where((w) => w.id == tx.walletId).firstOrNull ??
+    final matchedWallet =
+        wallets.where((w) => w.id == tx.walletId).firstOrNull ??
         wallets.where((w) => w.type == WalletType.bank).firstOrNull;
-    final sourceLabel = tx.walletName ??
+    final sourceLabel =
+        tx.walletName ??
         (matchedWallet != null
             ? '${matchedWallet.bankCode ?? matchedWallet.name}${matchedWallet.maskedAccount != null ? " ${matchedWallet.maskedAccount}" : ""}'
             : 'Ví ngân hàng liên kết');
@@ -453,7 +494,11 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       child: Text(
                         _merchantCtrl.text.trim().isEmpty
                             ? 'G'
-                            : _merchantCtrl.text.trim().characters.first.toUpperCase(),
+                            : _merchantCtrl.text
+                                  .trim()
+                                  .characters
+                                  .first
+                                  .toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -525,10 +570,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   Expanded(
                     child: Text(
                       'Xác minh',
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        color: c.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 13.5, color: c.textSecondary),
                     ),
                   ),
                   const LifeOsStatusPill(
@@ -654,6 +696,171 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
         ),
         const SizedBox(height: 12),
 
+        // Section 17: Vehicle Maintenance Link Suggestion (Never assumes automatically!)
+        if (tx.isVehicleMaintenanceHint && !_dismissedVehiclePrompt) ...[
+          LifeOsMintHeroCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const LifeOsIconSquircle(
+                      icon: Icons.build_circle_outlined,
+                      tone: LifeOsAccentTone.amber,
+                      size: 38,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Có vẻ bạn vừa chi ${VndAmount.format(tx.amountMinor)} cho bảo dưỡng xe.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.8,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        key: const Key('link_tx_to_vehicle_maintenance_btn'),
+                        onPressed: () {
+                          final vehicles = context
+                              .read<VehicleBloc>()
+                              .state
+                              .vehicles;
+                          if (vehicles.isEmpty) {
+                            context.go('/assets');
+                            return;
+                          }
+                          final targetVehicle = vehicles.first;
+                          context.read<VehicleBloc>().add(
+                            VehicleMaintenanceLogged(
+                              vehicle: targetVehicle,
+                              serviceTitle: tx.merchant,
+                              odometerKm: targetVehicle.currentOdometerKm,
+                              costMinor: tx.amountMinor,
+                            ),
+                          );
+                          setState(() => _dismissedVehiclePrompt = true);
+                          LifeOsTopToast.show(
+                            context,
+                            'Đã ghi vào lịch sử bảo dưỡng ${targetVehicle.name}!',
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.directions_car_rounded,
+                          size: 17,
+                        ),
+                        label: const Text('Ghi vào lịch sử bảo dưỡng'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _dismissedVehiclePrompt = true),
+                      child: const Text('Bỏ qua'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Section 17: Recurring Expense Detection Suggestion (Suggests only, never auto-creates!)
+        Builder(
+          builder: (context) {
+            final recLabel =
+                ExplainableBankingRuleEngine.detectRecurringSuggestionLabel(
+                  tx.merchant,
+                  tx.direction,
+                );
+            if ((recLabel == null && !tx.isRecurringCandidate) ||
+                _dismissedRecurringPrompt) {
+              return const SizedBox.shrink();
+            }
+            final suggestedTitle = recLabel ?? tx.categoryName;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: LifeOsSoftCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.event_repeat_rounded,
+                          size: 19,
+                          color: c.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Đề xuất khoản chi định kỳ: $suggestedTitle',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.8,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Bạn có muốn lưu thành lời nhắc hóa đơn hàng tháng (dự kiến ${VndAmount.format(tx.amountMinor)})?',
+                      style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: userId == null
+                              ? null
+                              : () {
+                                  context.read<VehicleBloc>().add(
+                                    RecurringBillCreated(
+                                      userId: userId,
+                                      title: suggestedTitle,
+                                      providerName: tx.merchant,
+                                      estimatedAmountMinor: tx.amountMinor,
+                                      nextDueDate: DateTime.now().add(
+                                        const Duration(days: 30),
+                                      ),
+                                    ),
+                                  );
+                                  setState(
+                                    () => _dismissedRecurringPrompt = true,
+                                  );
+                                  LifeOsTopToast.show(
+                                    context,
+                                    'Đã lưu lời nhắc định kỳ "$suggestedTitle".',
+                                  );
+                                },
+                          icon: const Icon(Icons.add_alert_rounded, size: 16),
+                          label: const Text('Lưu nhắc định kỳ'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () =>
+                              setState(() => _dismissedRecurringPrompt = true),
+                          child: const Text('Bỏ qua'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+
         // 5. Note Card
         LifeOsSoftCard(
           child: Column(
@@ -699,12 +906,12 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                     : () {
                         _pendingCountAtAction = pendingCount;
                         context.read<TransactionActionBloc>().add(
-                              ProvisionalTransactionDecisionSubmitted(
-                                userId: userId,
-                                transactionId: tx.id,
-                                approve: false,
-                              ),
-                            );
+                          ProvisionalTransactionDecisionSubmitted(
+                            userId: userId,
+                            transactionId: tx.id,
+                            approve: false,
+                          ),
+                        );
                       },
                 child: const Text('Bỏ qua'),
               ),
@@ -736,19 +943,43 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       ? null
                       : () {
                           _pendingCountAtAction = pendingCount;
-                          if (tx.verification == TransactionVerification.provisional) {
+                          // Remember user's category correction as an explainable merchant rule (Section 17)
+                          if (_selectedCategory != tx.categoryName &&
+                              tx.merchant.trim().length >= 3) {
+                            try {
+                              context.read<NotificationIngestionBloc>().add(
+                                SaveMerchantRuleSubmitted(
+                                  userId: userId,
+                                  keyword: tx.merchant
+                                      .trim()
+                                      .split(' ')
+                                      .take(2)
+                                      .join(' '),
+                                  categoryName: _selectedCategory,
+                                ),
+                              );
+                            } catch (_) {}
+                          }
+                          if (tx.verification ==
+                                  TransactionVerification.provisional ||
+                              tx.verification ==
+                                  TransactionVerification.needsReview) {
                             context.read<TransactionActionBloc>().add(
-                                  ProvisionalTransactionDecisionSubmitted(
-                                    userId: userId,
-                                    transactionId: tx.id,
-                                    approve: true,
-                                  ),
-                                );
+                              ProvisionalTransactionDecisionSubmitted(
+                                userId: userId,
+                                transactionId: tx.id,
+                                approve: true,
+                                updatedCategoryName: _selectedCategory,
+                                updatedMerchant: _merchantCtrl.text.trim(),
+                              ),
+                            );
                           } else {
                             LifeOsTopToast.fromSnackBar(
                               context,
                               const SnackBar(
-                                content: Text('✓ Giao dịch này đã được ghi vào Sổ cái.'),
+                                content: Text(
+                                  '✓ Giao dịch này đã được ghi vào Sổ cái.',
+                                ),
                               ),
                             );
                             if (context.canPop()) {
@@ -830,7 +1061,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final listState = context.watch<TransactionListBloc>().state;
-    final txs = listState.filteredTransactions.where((t) => !t.isReversed).toList();
+    final txs = listState.filteredTransactions
+        .where((t) => !t.isReversed)
+        .toList();
 
     var totalIncome = 0;
     var totalExpense = 0;
@@ -861,7 +1094,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -887,7 +1122,8 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Kỳ báo cáo: ${listState.monthKey}',
@@ -916,12 +1152,17 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                     final isPeak = val > 0 && val == maxBucket;
                                     return Expanded(
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                        ),
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
                                           children: [
                                             Text(
-                                              val > 0 ? VndAmount.formatCompact(val) : '0 ₫',
+                                              val > 0
+                                                  ? VndAmount.formatCompact(val)
+                                                  : '0 ₫',
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
@@ -932,13 +1173,18 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                             ),
                                             const SizedBox(height: 6),
                                             AnimatedContainer(
-                                              duration: const Duration(milliseconds: 240),
+                                              duration: const Duration(
+                                                milliseconds: 240,
+                                              ),
                                               height: 108 * ratio,
                                               decoration: BoxDecoration(
                                                 color: isPeak
                                                     ? c.primary
-                                                    : c.primary.withValues(alpha: 0.48),
-                                                borderRadius: BorderRadius.circular(10),
+                                                    : c.primary.withValues(
+                                                        alpha: 0.48,
+                                                      ),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
                                               ),
                                             ),
                                             const SizedBox(height: 6),
@@ -980,7 +1226,10 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                               const Divider(height: 22),
                               _ReportSummaryRow(
                                 label: 'Chênh lệch ròng',
-                                value: VndAmount.format(netDiff, showPlus: true),
+                                value: VndAmount.format(
+                                  netDiff,
+                                  showPlus: true,
+                                ),
                                 valueColor: netDiff >= 0 ? c.primary : c.error,
                               ),
                             ],
@@ -1020,7 +1269,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                           label: 'Xuất báo cáo (CSV)',
                           onPressed: () async {
                             final buf = StringBuffer()
-                              ..writeln('ThoiGian,HangMuc,DonVi,Loai,SoTienVND');
+                              ..writeln(
+                                'ThoiGian,HangMuc,DonVi,Loai,SoTienVND',
+                              );
                             for (final tx in txs) {
                               final signed = tx.direction == 'credit'
                                   ? tx.amountMinor
@@ -1029,16 +1280,21 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                 '"${tx.occurredAt.toIso8601String()}","${tx.categoryName}","${tx.merchant}","${tx.kind.name}",$signed',
                               );
                             }
-                            final fileName = 'BaoCao_LifeOS_${listState.monthKey}.csv';
+                            final fileName =
+                                'BaoCao_LifeOS_${listState.monthKey}.csv';
                             await sl<NativeAppUpdaterBridge>().shareTextFile(
                               fileName: fileName,
                               content: buf.toString(),
                               mimeType: 'text/csv',
-                              title: 'Báo cáo Tài chính LifeOS (${listState.monthKey})',
+                              title:
+                                  'Báo cáo Tài chính LifeOS (${listState.monthKey})',
                             );
                             if (context.mounted) {
-                              LifeOsTopToast.fromSnackBar(context, 
-                                SnackBar(content: Text('✓ Đã xuất báo cáo $fileName.')),
+                              LifeOsTopToast.fromSnackBar(
+                                context,
+                                SnackBar(
+                                  content: Text('✓ Đã xuất báo cáo $fileName.'),
+                                ),
                               );
                             }
                           },

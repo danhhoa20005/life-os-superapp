@@ -22,7 +22,9 @@ import '../utils/vnd_amount.dart';
 import 'lifeos_design_system.dart';
 import 'voice_smart_capture_sheet.dart';
 
-T? _tryReadBloc<T extends StateStreamableSource<Object?>>(BuildContext context) {
+T? _tryReadBloc<T extends StateStreamableSource<Object?>>(
+  BuildContext context,
+) {
   try {
     return context.read<T>();
   } catch (_) {
@@ -110,7 +112,8 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
   }
 
   void _saveInlineDraft() {
-    final draft = _parsedDraft ?? SmartQuickEntryParser.tryParse(_quickInputCtrl.text);
+    final draft =
+        _parsedDraft ?? SmartQuickEntryParser.tryParse(_quickInputCtrl.text);
     final user = widget.authBloc?.state.user;
     final actionBloc = widget.txActionBloc;
 
@@ -158,122 +161,127 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
         widget.txListBloc?.state.provisionalTransactions.length ?? 0;
     final viewInsets = MediaQuery.viewInsetsOf(context);
 
-    final tiles = <({
-      Key key,
-      String title,
-      String subtitle,
-      IconData icon,
-      LifeOsAccentTone tone,
-      VoidCallback onTap,
-    })>[
-      (
-        key: const Key('quick_tile_expense'),
-        title: 'Ghi thu chi',
-        subtitle: 'Chi tiêu · Thu nhập',
-        icon: Icons.account_balance_wallet_outlined,
-        tone: LifeOsAccentTone.emerald,
-        onTap: () {
-          Navigator.of(context).pop();
-          _showQuickTransactionSheet(
-            widget.parentContext,
-            authBloc: widget.authBloc,
-            txListBloc: widget.txListBloc,
-            txActionBloc: widget.txActionBloc,
-          );
-        },
-      ),
-      (
-        key: const Key('quick_tile_split'),
-        title: 'Chia tiền nhóm',
-        subtitle: 'Chia đều hóa đơn',
-        icon: Icons.groups_outlined,
-        tone: LifeOsAccentTone.blue,
-        onTap: () {
-          Navigator.of(context).pop();
-          showVoiceSmartCaptureSheet(widget.parentContext);
-        },
-      ),
-      (
-        key: const Key('quick_tile_event'),
-        title: 'Thêm lịch hẹn',
-        subtitle: 'Lưu vào Lịch máy',
-        icon: Icons.event_available_rounded,
-        tone: LifeOsAccentTone.emerald,
-        onTap: () {
-          final user = widget.authBloc?.state.user;
-          final calBloc = widget.calBloc;
-          final familyId = widget.familyBloc?.state.activeFamily?.id ?? user?.activeFamilyId;
-          Navigator.of(context).pop();
-          if (user != null && calBloc != null) {
-            showDialog<void>(
-              context: widget.parentContext,
-              builder: (_) => BlocProvider<CalendarBloc>.value(
-                value: calBloc,
-                child: Builder(
-                  builder: (innerCtx) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      Navigator.of(innerCtx).pop();
-                      showUpsertCalendarEventDialog(
-                        widget.parentContext,
-                        userId: user.id,
-                        userName: user.fullName,
-                        familyId: familyId,
-                        availabilityOptIn: user.availabilityOptIn,
-                      );
-                    });
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ),
-            );
-          } else {
-            widget.parentContext.go('/planning');
-          }
-        },
-      ),
-      (
-        key: const Key('quick_tile_task'),
-        title: 'Thêm việc làm',
-        subtitle: 'Nhắc việc cần làm',
-        icon: Icons.task_alt_rounded,
-        tone: LifeOsAccentTone.purple,
-        onTap: () {
-          Navigator.of(context).pop();
-          _showQuickTaskSheet(
-            widget.parentContext,
-            authBloc: widget.authBloc,
-            taskBloc: widget.taskBloc,
-            familyBloc: widget.familyBloc,
-          );
-        },
-      ),
-      (
-        key: const Key('quick_tile_qr'),
-        title: 'Mã QR thu tiền',
-        subtitle: 'Tạo VietQR nhận tiền',
-        icon: Icons.qr_code_2_rounded,
-        tone: LifeOsAccentTone.emerald,
-        onTap: () {
-          Navigator.of(context).pop();
-          widget.parentContext.push('/notifications-privacy');
-        },
-      ),
-      (
-        key: const Key('quick_tile_note_grocery'),
-        title: 'Đi chợ & Ghi chú',
-        subtitle: 'Món cần mua · Sổ tay',
-        icon: Icons.shopping_basket_outlined,
-        tone: LifeOsAccentTone.amber,
-        onTap: () {
-          Navigator.of(context).pop();
-          _showQuickGroceryAndNoteSheet(
-            widget.parentContext,
-            authBloc: widget.authBloc,
-            dailyBloc: widget.dailyBloc,
-          );
-        },
-      ),
-    ];
+    final tiles =
+        <
+          ({
+            Key key,
+            String title,
+            String subtitle,
+            IconData icon,
+            LifeOsAccentTone tone,
+            VoidCallback onTap,
+          })
+        >[
+          (
+            key: const Key('quick_tile_expense'),
+            title: 'Ghi thu chi',
+            subtitle: 'Chi tiêu · Thu nhập',
+            icon: Icons.account_balance_wallet_outlined,
+            tone: LifeOsAccentTone.emerald,
+            onTap: () {
+              Navigator.of(context).pop();
+              _showQuickTransactionSheet(
+                widget.parentContext,
+                authBloc: widget.authBloc,
+                txListBloc: widget.txListBloc,
+                txActionBloc: widget.txActionBloc,
+              );
+            },
+          ),
+          (
+            key: const Key('quick_tile_split'),
+            title: 'Chia tiền nhóm',
+            subtitle: 'Chia đều hóa đơn',
+            icon: Icons.groups_outlined,
+            tone: LifeOsAccentTone.blue,
+            onTap: () {
+              Navigator.of(context).pop();
+              showVoiceSmartCaptureSheet(widget.parentContext);
+            },
+          ),
+          (
+            key: const Key('quick_tile_event'),
+            title: 'Thêm lịch hẹn',
+            subtitle: 'Lưu vào Lịch máy',
+            icon: Icons.event_available_rounded,
+            tone: LifeOsAccentTone.emerald,
+            onTap: () {
+              final user = widget.authBloc?.state.user;
+              final calBloc = widget.calBloc;
+              final familyId =
+                  widget.familyBloc?.state.activeFamily?.id ??
+                  user?.activeFamilyId;
+              Navigator.of(context).pop();
+              if (user != null && calBloc != null) {
+                showDialog<void>(
+                  context: widget.parentContext,
+                  builder: (_) => BlocProvider<CalendarBloc>.value(
+                    value: calBloc,
+                    child: Builder(
+                      builder: (innerCtx) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Navigator.of(innerCtx).pop();
+                          showUpsertCalendarEventDialog(
+                            widget.parentContext,
+                            userId: user.id,
+                            userName: user.fullName,
+                            familyId: familyId,
+                            availabilityOptIn: user.availabilityOptIn,
+                          );
+                        });
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                );
+              } else {
+                widget.parentContext.go('/planning');
+              }
+            },
+          ),
+          (
+            key: const Key('quick_tile_task'),
+            title: 'Thêm việc làm',
+            subtitle: 'Nhắc việc cần làm',
+            icon: Icons.task_alt_rounded,
+            tone: LifeOsAccentTone.purple,
+            onTap: () {
+              Navigator.of(context).pop();
+              _showQuickTaskSheet(
+                widget.parentContext,
+                authBloc: widget.authBloc,
+                taskBloc: widget.taskBloc,
+                familyBloc: widget.familyBloc,
+              );
+            },
+          ),
+          (
+            key: const Key('quick_tile_qr'),
+            title: 'Mã QR thu tiền',
+            subtitle: 'Tạo VietQR nhận tiền',
+            icon: Icons.qr_code_2_rounded,
+            tone: LifeOsAccentTone.emerald,
+            onTap: () {
+              Navigator.of(context).pop();
+              widget.parentContext.push('/notifications-privacy');
+            },
+          ),
+          (
+            key: const Key('quick_tile_note_grocery'),
+            title: 'Đi chợ & Ghi chú',
+            subtitle: 'Món cần mua · Sổ tay',
+            icon: Icons.shopping_basket_outlined,
+            tone: LifeOsAccentTone.amber,
+            onTap: () {
+              Navigator.of(context).pop();
+              _showQuickGroceryAndNoteSheet(
+                widget.parentContext,
+                authBloc: widget.authBloc,
+                dailyBloc: widget.dailyBloc,
+              );
+            },
+          ),
+        ];
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + viewInsets.bottom),
@@ -402,7 +410,11 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                   if (_parsedDraft != null)
                     Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, size: 16, color: c.primary),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 16,
+                          color: c.primary,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -432,14 +444,20 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                         ])
                           ActionChip(
                             visualDensity: VisualDensity.compact,
-                            label: Text(sample, style: const TextStyle(fontSize: 11.8)),
+                            label: Text(
+                              sample,
+                              style: const TextStyle(fontSize: 11.8),
+                            ),
                             onPressed: () {
                               setState(() {
                                 _quickInputCtrl.text = sample;
-                                _quickInputCtrl.selection = TextSelection.collapsed(
-                                  offset: sample.length,
+                                _quickInputCtrl.selection =
+                                    TextSelection.collapsed(
+                                      offset: sample.length,
+                                    );
+                                _parsedDraft = SmartQuickEntryParser.tryParse(
+                                  sample,
                                 );
-                                _parsedDraft = SmartQuickEntryParser.tryParse(sample);
                               });
                             },
                           ),
@@ -475,7 +493,10 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                     child: OutlinedButton.icon(
                       key: const Key('quick_hub_auto_tx_btn'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -484,7 +505,11 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                         Navigator.of(context).pop();
                         widget.parentContext.push('/auto-tx-review');
                       },
-                      icon: Icon(Icons.bolt_rounded, size: 17, color: c.primary),
+                      icon: Icon(
+                        Icons.bolt_rounded,
+                        size: 17,
+                        color: c.primary,
+                      ),
                       label: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -501,7 +526,10 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                     child: OutlinedButton.icon(
                       key: const Key('quick_hub_doc_btn'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -510,7 +538,11 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                         Navigator.of(context).pop();
                         widget.parentContext.push('/family-documents');
                       },
-                      icon: Icon(Icons.folder_open_rounded, size: 17, color: c.textSecondary),
+                      icon: Icon(
+                        Icons.folder_open_rounded,
+                        size: 17,
+                        color: c.textSecondary,
+                      ),
                       label: const FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -538,7 +570,8 @@ class _QuickBentoActionTile extends StatelessWidget {
     IconData icon,
     LifeOsAccentTone tone,
     VoidCallback onTap,
-  }) item;
+  })
+  item;
 
   const _QuickBentoActionTile({required this.item});
 
@@ -640,7 +673,9 @@ Future<void> _showQuickTransactionSheet(
       return StatefulBuilder(
         builder: (ctx, setModal) {
           final c = TammySemanticColors.of(ctx);
-          final cats = kind == TransactionKind.expense ? expenseCategories : incomeCategories;
+          final cats = kind == TransactionKind.expense
+              ? expenseCategories
+              : incomeCategories;
           if (!cats.contains(selectedCategory)) {
             selectedCategory = cats.first;
           }
@@ -669,8 +704,16 @@ Future<void> _showQuickTransactionSheet(
                   LifeOsSegmentedPills<TransactionKind>(
                     selected: kind,
                     options: const [
-                      (TransactionKind.expense, 'Chi tiêu', Icons.north_east_rounded),
-                      (TransactionKind.income, 'Thu nhập', Icons.south_west_rounded),
+                      (
+                        TransactionKind.expense,
+                        'Chi tiêu',
+                        Icons.north_east_rounded,
+                      ),
+                      (
+                        TransactionKind.income,
+                        'Thu nhập',
+                        Icons.south_west_rounded,
+                      ),
                     ],
                     onChanged: (v) => setModal(() => kind = v),
                   ),
@@ -695,8 +738,9 @@ Future<void> _showQuickTransactionSheet(
                   const SizedBox(height: 8),
                   Builder(
                     builder: (_) {
-                      final zeroPads =
-                          UserBehaviorPrefs.vndZeroPadSuggestions(amountCtrl.text);
+                      final zeroPads = UserBehaviorPrefs.vndZeroPadSuggestions(
+                        amountCtrl.text,
+                      );
                       if (zeroPads.isNotEmpty) {
                         return Wrap(
                           spacing: 6,
@@ -707,7 +751,9 @@ Future<void> _showQuickTransactionSheet(
                                 key: Key('vnd_zero_pad_${sug.$1}'),
                                 visualDensity: VisualDensity.compact,
                                 backgroundColor: c.primarySubtle,
-                                side: BorderSide(color: c.primary.withValues(alpha: 0.45)),
+                                side: BorderSide(
+                                  color: c.primary.withValues(alpha: 0.45),
+                                ),
                                 label: Text(
                                   sug.$2,
                                   style: TextStyle(
@@ -717,9 +763,10 @@ Future<void> _showQuickTransactionSheet(
                                 ),
                                 onPressed: () => setModal(() {
                                   amountCtrl.text = '${sug.$1}';
-                                  amountCtrl.selection = TextSelection.collapsed(
-                                    offset: amountCtrl.text.length,
-                                  );
+                                  amountCtrl.selection =
+                                      TextSelection.collapsed(
+                                        offset: amountCtrl.text.length,
+                                      );
                                 }),
                               ),
                           ],
@@ -767,7 +814,8 @@ Future<void> _showQuickTransactionSheet(
                       return ChoiceChip(
                         label: Text(cat),
                         selected: selectedCategory == cat,
-                        onSelected: (_) => setModal(() => selectedCategory = cat),
+                        onSelected: (_) =>
+                            setModal(() => selectedCategory = cat),
                       );
                     }).toList(),
                   ),
@@ -928,7 +976,8 @@ Future<void> _showQuickTaskSheet(
                         ActionChip(
                           visualDensity: VisualDensity.compact,
                           label: Text(preset),
-                          onPressed: () => setModal(() => titleCtrl.text = preset),
+                          onPressed: () =>
+                              setModal(() => titleCtrl.text = preset),
                         ),
                     ],
                   ),
@@ -965,7 +1014,9 @@ Future<void> _showQuickTaskSheet(
                             (m) => DropdownMenuItem(
                               value: m.userId,
                               child: Text(
-                                m.userId == user.id ? '${m.fullName} (Tôi)' : m.fullName,
+                                m.userId == user.id
+                                    ? '${m.fullName} (Tôi)'
+                                    : m.fullName,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -973,7 +1024,9 @@ Future<void> _showQuickTaskSheet(
                           .toList(),
                       onChanged: (v) {
                         if (v != null) {
-                          final found = members.where((m) => m.userId == v).first;
+                          final found = members
+                              .where((m) => m.userId == v)
+                              .first;
                           setModal(() {
                             assigneeId = v;
                             assigneeName = found.fullName;
@@ -998,8 +1051,20 @@ Future<void> _showQuickTaskSheet(
                       }
                       final now = DateTime.now();
                       final dueAt = switch (dueChoice) {
-                        'tomorrow' => DateTime(now.year, now.month, now.day + 1, 18, 0),
-                        'week' => DateTime(now.year, now.month, now.day + 3, 18, 0),
+                        'tomorrow' => DateTime(
+                          now.year,
+                          now.month,
+                          now.day + 1,
+                          18,
+                          0,
+                        ),
+                        'week' => DateTime(
+                          now.year,
+                          now.month,
+                          now.day + 3,
+                          18,
+                          0,
+                        ),
                         _ => DateTime(now.year, now.month, now.day, 20, 0),
                       };
                       taskBloc.add(
@@ -1093,7 +1158,9 @@ Future<void> _showQuickGroceryAndNoteSheet(
                     controller: titleCtrl,
                     autofocus: true,
                     decoration: InputDecoration(
-                      labelText: isGrocery ? 'Tên thực phẩm / đồ dùng' : 'Tiêu đề ghi chú',
+                      labelText: isGrocery
+                          ? 'Tên thực phẩm / đồ dùng'
+                          : 'Tiêu đề ghi chú',
                       hintText: isGrocery
                           ? 'VD: Thịt bò, rau cải, sữa tươi...'
                           : 'VD: Mật khẩu Wifi / Ý tưởng mới',
@@ -1104,12 +1171,16 @@ Future<void> _showQuickGroceryAndNoteSheet(
                     key: const Key('quick_life_detail_input'),
                     controller: detailCtrl,
                     maxLines: isGrocery ? 1 : 3,
-                    keyboardType: isGrocery ? TextInputType.number : TextInputType.multiline,
+                    keyboardType: isGrocery
+                        ? TextInputType.number
+                        : TextInputType.multiline,
                     decoration: InputDecoration(
                       labelText: isGrocery
                           ? 'Giá dự kiến (không bắt buộc)'
                           : 'Nội dung chi tiết',
-                      hintText: isGrocery ? 'VD: 85000' : 'Nhập nội dung cần lưu...',
+                      hintText: isGrocery
+                          ? 'VD: 85000'
+                          : 'Nhập nội dung cần lưu...',
                       suffixText: isGrocery ? '₫' : null,
                     ),
                   ),
@@ -1130,7 +1201,8 @@ Future<void> _showQuickGroceryAndNoteSheet(
                         return;
                       }
                       if (isGrocery) {
-                        final est = VndAmount.tryParseInput(detailCtrl.text) ?? 0;
+                        final est =
+                            VndAmount.tryParseInput(detailCtrl.text) ?? 0;
                         dailyBloc.add(
                           GroceryItemAdded(
                             userId: user.id,

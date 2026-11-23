@@ -272,16 +272,19 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                 trailingAction: IconButton.filled(
                   visualDensity: VisualDensity.compact,
                   tooltip: 'Ghi bằng giọng nói',
-                  onPressed: () =>
-                      showVoiceSmartCaptureSheet(context, autoStartListening: true),
+                  onPressed: () => showVoiceSmartCaptureSheet(
+                    context,
+                    autoStartListening: true,
+                  ),
                   icon: const Icon(Icons.mic_rounded, size: 18),
                 ),
               ),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppSpacing.maxContentWidth,
+                    ),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
@@ -302,7 +305,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                             children: [
                               LifeOsStatusPill(
                                 icon: Icons.account_balance_wallet_outlined,
-                                label: 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
+                                label:
+                                    'Ví: ${VndAmount.format(dash.netWorthMinor)}',
                                 tone: LifeOsAccentTone.emerald,
                               ),
                               LifeOsStatusPill(
@@ -312,7 +316,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                               ),
                               LifeOsStatusPill(
                                 icon: Icons.shopping_cart_outlined,
-                                label: 'Chợ: ${dailySnap.pendingGroceriesCount}',
+                                label:
+                                    'Chợ: ${dailySnap.pendingGroceriesCount}',
                                 tone: LifeOsAccentTone.blue,
                               ),
                               LifeOsStatusPill(
@@ -331,7 +336,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                           key: const Key('super_app_directory_search_input'),
                           decoration: const InputDecoration(
                             isDense: true,
-                            hintText: 'Tìm nhanh: điện EVN, đi chợ, thuốc, lương, lãi vay...',
+                            hintText:
+                                'Tìm nhanh: điện EVN, đi chợ, thuốc, lương, lãi vay...',
                             prefixIcon: Icon(Icons.search_rounded, size: 20),
                           ),
                           onChanged: (v) => setState(() => _query = v),
@@ -369,12 +375,19 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: LifeOsSoftCard(
-                              padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+                              padding: const EdgeInsets.fromLTRB(
+                                10,
+                                12,
+                                10,
+                                10,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
                                     child: Text(
                                       entry.key,
                                       style: TextStyle(

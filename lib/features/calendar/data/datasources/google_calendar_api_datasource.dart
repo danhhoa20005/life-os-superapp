@@ -55,7 +55,8 @@ class GoogleCalendarEventsDeltaPage {
   });
 }
 
-typedef GoogleCalendarTokenProvider = Future<String?> Function({required bool interactive});
+typedef GoogleCalendarTokenProvider =
+    Future<String?> Function({required bool interactive});
 
 /// Official Google Calendar REST API v3 client (`https://www.googleapis.com/calendar/v3`).
 class GoogleCalendarApiDataSource {
@@ -76,14 +77,15 @@ class GoogleCalendarApiDataSource {
     required FirebaseAuth firebaseAuth,
     http.Client? httpClient,
     GoogleCalendarTokenProvider? tokenProviderOverride,
-  })  : _firebaseAuth = firebaseAuth,
-        _httpClient = httpClient ?? http.Client(),
-        _tokenProviderOverride = tokenProviderOverride;
+  }) : _firebaseAuth = firebaseAuth,
+       _httpClient = httpClient ?? http.Client(),
+       _tokenProviderOverride = tokenProviderOverride;
 
   bool get hasAuthorizedToken =>
       _cachedAccessToken != null &&
       _cachedAccessToken!.isNotEmpty &&
-      (_cachedTokenExpiresAt == null || DateTime.now().isBefore(_cachedTokenExpiresAt!));
+      (_cachedTokenExpiresAt == null ||
+          DateTime.now().isBefore(_cachedTokenExpiresAt!));
 
   void cacheManualAccessToken(String token) {
     _cachedAccessToken = token.trim();
@@ -138,10 +140,8 @@ class GoogleCalendarApiDataSource {
 
     try {
       await FirebaseConfig.ensureGoogleSignInInitialized();
-      final headers = await GoogleSignIn.instance.authorizationClient.authorizationHeaders(
-        calendarScopes,
-        promptIfNecessary: interactive,
-      );
+      final headers = await GoogleSignIn.instance.authorizationClient
+          .authorizationHeaders(calendarScopes, promptIfNecessary: interactive);
       final authHeader = headers?['Authorization'] ?? '';
       if (authHeader.startsWith('Bearer ')) {
         final token = authHeader.substring(7).trim();
@@ -151,8 +151,12 @@ class GoogleCalendarApiDataSource {
         }
       }
       if (interactive) {
-        final account = await GoogleSignIn.instance.authenticate(scopeHint: calendarScopes);
-        final authz = await account.authorizationClient.authorizeScopes(calendarScopes);
+        final account = await GoogleSignIn.instance.authenticate(
+          scopeHint: calendarScopes,
+        );
+        final authz = await account.authorizationClient.authorizeScopes(
+          calendarScopes,
+        );
         if (authz.accessToken.isNotEmpty) {
           cacheManualAccessToken(authz.accessToken);
           return authz.accessToken;
@@ -179,20 +183,22 @@ class GoogleCalendarApiDataSource {
   }
 
   Map<String, String> _headers(String accessToken) => <String, String>{
-        'Authorization': 'Bearer $accessToken',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-      };
+    'Authorization': 'Bearer $accessToken',
+    'Accept': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
+  };
 
-  Future<void> _invalidateIfUnauthorized(int statusCode, String accessToken) async {
+  Future<void> _invalidateIfUnauthorized(
+    int statusCode,
+    String accessToken,
+  ) async {
     if (statusCode == 401) {
       _cachedAccessToken = null;
       _cachedTokenExpiresAt = null;
       if (!kIsWeb && FirebaseConfig.isGoogleSignInInitialized) {
         try {
-          await GoogleSignIn.instance.authorizationClient.clearAuthorizationToken(
-            accessToken: accessToken,
-          );
+          await GoogleSignIn.instance.authorizationClient
+              .clearAuthorizationToken(accessToken: accessToken);
         } catch (_) {}
       }
     }
@@ -222,7 +228,8 @@ class GoogleCalendarApiDataSource {
       if (gId.isEmpty) continue;
       final isPrimary = (item['primary'] as bool?) ?? false;
       final accessRole = ((item['accessRole'] as String?) ?? 'writer').trim();
-      final isReadOnly = accessRole == 'reader' || accessRole == 'freeBusyReader';
+      final isReadOnly =
+          accessRole == 'reader' || accessRole == 'freeBusyReader';
       result.add(
         ManagedCalendarEntity(
           id: isPrimary ? 'primary' : _sanitizeDocId(gId),
@@ -256,7 +263,8 @@ class GoogleCalendarApiDataSource {
       headers: _headers(accessToken),
       body: jsonEncode(<String, dynamic>{
         'summary': summary,
-        if (description != null && description.isNotEmpty) 'description': description,
+        if (description != null && description.isNotEmpty)
+          'description': description,
         'timeZone': timeZone,
       }),
     );
@@ -264,7 +272,8 @@ class GoogleCalendarApiDataSource {
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw AppException(
         code: 'GCAL_CREATE_CALENDAR_ERROR',
-        message: 'Không thể tạo bộ lịch trên Google Calendar (HTTP ${resp.statusCode}).',
+        message:
+            'Không thể tạo bộ lịch trên Google Calendar (HTTP ${resp.statusCode}).',
       );
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -311,10 +320,14 @@ class GoogleCalendarApiDataSource {
       headers: _headers(accessToken),
     );
     await _invalidateIfUnauthorized(resp.statusCode, accessToken);
-    if (resp.statusCode != 204 && resp.statusCode != 200 && resp.statusCode != 404 && resp.statusCode != 410) {
+    if (resp.statusCode != 204 &&
+        resp.statusCode != 200 &&
+        resp.statusCode != 404 &&
+        resp.statusCode != 410) {
       throw AppException(
         code: 'GCAL_DELETE_CALENDAR_ERROR',
-        message: 'Không thể xóa bộ lịch trên Google Calendar (HTTP ${resp.statusCode}).',
+        message:
+            'Không thể xóa bộ lịch trên Google Calendar (HTTP ${resp.statusCode}).',
       );
     }
   }
@@ -343,12 +356,15 @@ class GoogleCalendarApiDataSource {
         query['syncToken'] = syncToken.trim();
       } else {
         final minDt =
-            (fullSyncTimeMin ?? DateTime.now().subtract(const Duration(days: 90))).toUtc();
+            (fullSyncTimeMin ??
+                    DateTime.now().subtract(const Duration(days: 90)))
+                .toUtc();
         query['timeMin'] = minDt.toIso8601String();
       }
 
-      final uri = Uri.parse('$baseUrl/calendars/$encodedCalId/events')
-          .replace(queryParameters: query);
+      final uri = Uri.parse(
+        '$baseUrl/calendars/$encodedCalId/events',
+      ).replace(queryParameters: query);
       final resp = await _httpClient.get(uri, headers: _headers(accessToken));
       await _invalidateIfUnauthorized(resp.statusCode, accessToken);
 
@@ -365,12 +381,14 @@ class GoogleCalendarApiDataSource {
       if (resp.statusCode != 200) {
         throw AppException(
           code: 'GCAL_LIST_EVENTS_ERROR',
-          message: 'Lỗi đồng bộ danh sách sự kiện Google Calendar (HTTP ${resp.statusCode}).',
+          message:
+              'Lỗi đồng bộ danh sách sự kiện Google Calendar (HTTP ${resp.statusCode}).',
         );
       }
 
       final jsonMap = jsonDecode(resp.body) as Map<String, dynamic>;
-      final rawItems = (jsonMap['items'] as List<dynamic>?) ?? const <dynamic>[];
+      final rawItems =
+          (jsonMap['items'] as List<dynamic>?) ?? const <dynamic>[];
       for (final raw in rawItems) {
         if (raw is Map<String, dynamic>) {
           final parsed = _parseRemoteEvent(raw);
@@ -406,7 +424,8 @@ class GoogleCalendarApiDataSource {
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw AppException(
         code: 'GCAL_INSERT_EVENT_ERROR',
-        message: 'Không thể đẩy sự kiện mới lên Google Calendar (HTTP ${resp.statusCode}).',
+        message:
+            'Không thể đẩy sự kiện mới lên Google Calendar (HTTP ${resp.statusCode}).',
       );
     }
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -442,7 +461,8 @@ class GoogleCalendarApiDataSource {
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw AppException(
         code: 'GCAL_PATCH_EVENT_ERROR',
-        message: 'Không thể cập nhật sự kiện trên Google Calendar (HTTP ${resp.statusCode}).',
+        message:
+            'Không thể cập nhật sự kiện trên Google Calendar (HTTP ${resp.statusCode}).',
       );
     }
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -471,7 +491,8 @@ class GoogleCalendarApiDataSource {
         resp.statusCode != 410) {
       throw AppException(
         code: 'GCAL_DELETE_EVENT_ERROR',
-        message: 'Không thể xóa sự kiện trên Google Calendar (HTTP ${resp.statusCode}).',
+        message:
+            'Không thể xóa sự kiện trên Google Calendar (HTTP ${resp.statusCode}).',
       );
     }
   }
@@ -482,7 +503,11 @@ class GoogleCalendarApiDataSource {
     final Map<String, dynamic> endObj;
 
     if (ev.isAllDay) {
-      final startDay = DateTime(ev.startsAt.year, ev.startsAt.month, ev.startsAt.day);
+      final startDay = DateTime(
+        ev.startsAt.year,
+        ev.startsAt.month,
+        ev.startsAt.day,
+      );
       var endDay = DateTime(ev.endsAt.year, ev.endsAt.month, ev.endsAt.day);
       if (!endDay.isAfter(startDay)) {
         endDay = startDay.add(const Duration(days: 1));
@@ -524,7 +549,8 @@ class GoogleCalendarApiDataSource {
     final gId = (raw['id'] as String?) ?? '';
     if (gId.isEmpty) return null;
     final status = (raw['status'] as String?) ?? 'confirmed';
-    final updatedAt = DateTime.tryParse((raw['updated'] ?? '').toString())?.toLocal() ??
+    final updatedAt =
+        DateTime.tryParse((raw['updated'] ?? '').toString())?.toLocal() ??
         DateTime.now();
 
     if (status == 'cancelled') {
@@ -544,8 +570,10 @@ class GoogleCalendarApiDataSource {
       );
     }
 
-    final startMap = (raw['start'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
-    final endMap = (raw['end'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+    final startMap =
+        (raw['start'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+    final endMap =
+        (raw['end'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
     final startDateOnly = startMap['date'] as String?;
     final endDateOnly = endMap['date'] as String?;
 
@@ -555,14 +583,20 @@ class GoogleCalendarApiDataSource {
 
     if (isAllDay) {
       startsAt = DateTime.tryParse(startDateOnly)?.toLocal() ?? DateTime.now();
-      final parsedEnd = endDateOnly != null ? DateTime.tryParse(endDateOnly)?.toLocal() : null;
+      final parsedEnd = endDateOnly != null
+          ? DateTime.tryParse(endDateOnly)?.toLocal()
+          : null;
       endsAt = parsedEnd != null && parsedEnd.isAfter(startsAt)
           ? parsedEnd.subtract(const Duration(minutes: 1))
           : startsAt.add(const Duration(hours: 23, minutes: 59));
     } else {
-      startsAt = DateTime.tryParse((startMap['dateTime'] ?? '').toString())?.toLocal() ??
+      startsAt =
+          DateTime.tryParse(
+            (startMap['dateTime'] ?? '').toString(),
+          )?.toLocal() ??
           DateTime.now();
-      endsAt = DateTime.tryParse((endMap['dateTime'] ?? '').toString())?.toLocal() ??
+      endsAt =
+          DateTime.tryParse((endMap['dateTime'] ?? '').toString())?.toLocal() ??
           startsAt.add(const Duration(hours: 1));
     }
 

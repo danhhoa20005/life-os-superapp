@@ -112,20 +112,47 @@ abstract final class VoiceFinancialNlpEngine {
     s = s
         .replaceAll(RegExp(r'\bnửa\s+triệu\b', caseSensitive: false), '500k')
         .replaceAll(RegExp(r'\bnửa\s+củ\b', caseSensitive: false), '500k')
-        .replaceAll(RegExp(r'\bmột\s+củ\s+rưỡi\b', caseSensitive: false), '1tr5')
-        .replaceAll(RegExp(r'\bmột\s+triệu\s+rưỡi\b', caseSensitive: false), '1tr5')
-        .replaceAll(RegExp(r'\bhai\s+trăm\s+rưỡi\b', caseSensitive: false), '250k')
-        .replaceAll(RegExp(r'\bba\s+trăm\s+rưỡi\b', caseSensitive: false), '350k')
-        .replaceAll(RegExp(r'\bbốn\s+trăm\s+rưỡi\b', caseSensitive: false), '450k')
-        .replaceAll(RegExp(r'\bnăm\s+trăm\s+rưỡi\b', caseSensitive: false), '550k')
-        .replaceAll(RegExp(r'\bmột\s+trăm\s+rưỡi\b', caseSensitive: false), '150k')
+        .replaceAll(
+          RegExp(r'\bmột\s+củ\s+rưỡi\b', caseSensitive: false),
+          '1tr5',
+        )
+        .replaceAll(
+          RegExp(r'\bmột\s+triệu\s+rưỡi\b', caseSensitive: false),
+          '1tr5',
+        )
+        .replaceAll(
+          RegExp(r'\bhai\s+trăm\s+rưỡi\b', caseSensitive: false),
+          '250k',
+        )
+        .replaceAll(
+          RegExp(r'\bba\s+trăm\s+rưỡi\b', caseSensitive: false),
+          '350k',
+        )
+        .replaceAll(
+          RegExp(r'\bbốn\s+trăm\s+rưỡi\b', caseSensitive: false),
+          '450k',
+        )
+        .replaceAll(
+          RegExp(r'\bnăm\s+trăm\s+rưỡi\b', caseSensitive: false),
+          '550k',
+        )
+        .replaceAll(
+          RegExp(r'\bmột\s+trăm\s+rưỡi\b', caseSensitive: false),
+          '150k',
+        )
         .replaceAll(RegExp(r'\bphần\s+trăm\b', caseSensitive: false), '%')
-        .replaceAll(RegExp(r'\bchia\s+đôi\b', caseSensitive: false), 'chia đều 2 người')
+        .replaceAll(
+          RegExp(r'\bchia\s+đôi\b', caseSensitive: false),
+          'chia đều 2 người',
+        )
         .replaceAll(RegExp(r'\bcampuchia\b', caseSensitive: false), 'chia đều');
 
     // Convert "<number> triệu rưỡi" / "<number> củ rưỡi" -> "<number>tr5"
     s = s.replaceAllMapped(
-      RegExp(r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi\b', caseSensitive: false),
+      RegExp(
+        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi\b',
+        caseSensitive: false,
+      ),
       (m) => '${m.group(1)}tr5',
     );
 
@@ -153,7 +180,10 @@ abstract final class VoiceFinancialNlpEngine {
 
     // Re-apply "<number> triệu rưỡi" after word-to-digit conversion!
     s = s.replaceAllMapped(
-      RegExp(r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi\b', caseSensitive: false),
+      RegExp(
+        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi\b',
+        caseSensitive: false,
+      ),
       (m) => '${m.group(1)}tr5',
     );
 
@@ -175,7 +205,10 @@ abstract final class VoiceFinancialNlpEngine {
   }
 
   static int? _parseSpokenSmallNumber(String phrase) {
-    final tokens = phrase.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    final tokens = phrase
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
     if (tokens.isEmpty) return null;
 
     var hundreds = 0;
@@ -240,16 +273,27 @@ abstract final class VoiceFinancialNlpEngine {
         l.contains('rửa chén')) {
       return SharedExpenseTopic.housework;
     }
-    if (l.contains('điện') || l.contains('nước') || l.contains('wifi') || l.contains('internet')) {
+    if (l.contains('điện') ||
+        l.contains('nước') ||
+        l.contains('wifi') ||
+        l.contains('internet')) {
       return SharedExpenseTopic.utilities;
     }
-    if (l.contains('tiền nhà') || l.contains('tiền phòng') || l.contains('thuê') || l.contains('chung cư')) {
+    if (l.contains('tiền nhà') ||
+        l.contains('tiền phòng') ||
+        l.contains('thuê') ||
+        l.contains('chung cư')) {
       return SharedExpenseTopic.housing;
     }
-    if (l.contains('du lịch') || l.contains('vé') || l.contains('khách sạn') || l.contains('homestay')) {
+    if (l.contains('du lịch') ||
+        l.contains('vé') ||
+        l.contains('khách sạn') ||
+        l.contains('homestay')) {
       return SharedExpenseTopic.travel;
     }
-    if (l.contains('siêu thị') || l.contains('đi chợ') || l.contains('bách hóa')) {
+    if (l.contains('siêu thị') ||
+        l.contains('đi chợ') ||
+        l.contains('bách hóa')) {
       return SharedExpenseTopic.shopping;
     }
     if (l.contains('ăn') ||
@@ -321,7 +365,12 @@ abstract final class VoiceFinancialNlpEngine {
       for (final m in amountMatches) {
         final segment = normalized.substring(cursor, m.end).trim();
         cursor = m.end;
-        final cleanedSeg = segment.replaceAll(RegExp(r'^[,;.\s]+|\b(và|rồi|xong|tiếp)\b', caseSensitive: false), ' ').trim();
+        final cleanedSeg = segment
+            .replaceAll(
+              RegExp(r'^[,;.\s]+|\b(và|rồi|xong|tiếp)\b', caseSensitive: false),
+              ' ',
+            )
+            .trim();
         final parsed = SmartQuickEntryParser.tryParse(cleanedSeg);
         if (parsed != null) {
           batch.add(parsed);
@@ -333,7 +382,8 @@ abstract final class VoiceFinancialNlpEngine {
           normalizedText: normalized,
           intentKind: VoiceSentenceIntentKind.batchTransactions,
           personalEntries: batch,
-          summaryHeadline: 'Ghi hàng loạt ${batch.length} bút toán trong 1 câu nói',
+          summaryHeadline:
+              'Ghi hàng loạt ${batch.length} bút toán trong 1 câu nói',
         );
       }
     }
@@ -355,7 +405,9 @@ abstract final class VoiceFinancialNlpEngine {
   }
 
   static bool _looksLikeMultiCategoryReceipt(String lower) {
-    if (lower.contains('chia ') || lower.contains('người') || lower.contains('%')) {
+    if (lower.contains('chia ') ||
+        lower.contains('người') ||
+        lower.contains('%')) {
       return false;
     }
     return lower.contains(' gồm ') ||
@@ -364,7 +416,9 @@ abstract final class VoiceFinancialNlpEngine {
         lower.contains(' tách ');
   }
 
-  static ParsedMultiCategoryReceiptIntent? _tryParseMultiCategoryReceipt(String normalized) {
+  static ParsedMultiCategoryReceiptIntent? _tryParseMultiCategoryReceipt(
+    String normalized,
+  ) {
     final splitMatch = RegExp(
       r'\b(bao\s+gồm|trong\s+đó|gồm|tách)\b',
       caseSensitive: false,
@@ -586,7 +640,10 @@ abstract final class VoiceFinancialNlpEngine {
     if (countMatch != null) {
       final count = (int.tryParse(countMatch.group(1)!) ?? 2).clamp(2, 20);
       if (knownMembers.length >= count) {
-        participantNames = knownMembers.take(count).map((m) => m.fullName).toList();
+        participantNames = knownMembers
+            .take(count)
+            .map((m) => m.fullName)
+            .toList();
       } else {
         participantNames = List<String>.generate(
           count,
@@ -603,7 +660,11 @@ abstract final class VoiceFinancialNlpEngine {
         final rawNames = namesClauseMatch
             .group(1)!
             .split(RegExp(r'\s*(?:,|và|với|&)\s*', caseSensitive: false))
-            .map((s) => s.replaceAll(RegExp(r'[^A-Za-zÀ-ỹ\s]', unicode: true), '').trim())
+            .map(
+              (s) => s
+                  .replaceAll(RegExp(r'[^A-Za-zÀ-ỹ\s]', unicode: true), '')
+                  .trim(),
+            )
             .where((s) => s.isNotEmpty && !_isStopWord(s))
             .map(_capitalizeName)
             .toList();
@@ -673,7 +734,9 @@ abstract final class VoiceFinancialNlpEngine {
     }
     for (final m in knownMembers) {
       final mLower = m.fullName.toLowerCase();
-      if (mLower == lower || mLower.endsWith(' $lower') || mLower.contains(lower)) {
+      if (mLower == lower ||
+          mLower.endsWith(' $lower') ||
+          mLower.contains(lower)) {
         return m.userId;
       }
     }

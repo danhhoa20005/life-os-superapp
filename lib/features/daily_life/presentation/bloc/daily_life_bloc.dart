@@ -42,8 +42,15 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
   });
 
   @override
-  List<Object?> get props =>
-      [userId, name, dosage, slot, remainingPills, expiryDate, memberName];
+  List<Object?> get props => [
+    userId,
+    name,
+    dosage,
+    slot,
+    remainingPills,
+    expiryDate,
+    memberName,
+  ];
 }
 
 final class MedicationTakenToggled extends DailyLifeEvent {
@@ -89,15 +96,15 @@ final class HealthVitalLogAdded extends DailyLifeEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        weightKg,
-        heightCm,
-        systolicMmHg,
-        diastolicMmHg,
-        heartRateBpm,
-        sleepHours,
-        note,
-      ];
+    userId,
+    weightKg,
+    heightCm,
+    systolicMmHg,
+    diastolicMmHg,
+    heartRateBpm,
+    sleepHours,
+    note,
+  ];
 }
 
 final class EmergencyMedicalCardSaved extends DailyLifeEvent {
@@ -129,21 +136,24 @@ final class GroceryItemAdded extends DailyLifeEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        name,
-        quantityLabel,
-        aisle,
-        estimatedMinor,
-        inFridgeStorage,
-        expiryDate,
-      ];
+    userId,
+    name,
+    quantityLabel,
+    aisle,
+    estimatedMinor,
+    inFridgeStorage,
+    expiryDate,
+  ];
 }
 
 final class MealComboAppliedToGroceries extends DailyLifeEvent {
   final String userId;
   final MealComboPreset combo;
 
-  const MealComboAppliedToGroceries({required this.userId, required this.combo});
+  const MealComboAppliedToGroceries({
+    required this.userId,
+    required this.combo,
+  });
 
   @override
   List<Object?> get props => [userId, combo];
@@ -202,23 +212,26 @@ final class UtilityReadingSaved extends DailyLifeEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        monthKey,
-        prevElectricKwh,
-        currElectricKwh,
-        prevWaterM3,
-        currWaterM3,
-        useEvnTieredTariff,
-        fixedServicesMinor,
-        totalAmountMinor,
-      ];
+    userId,
+    monthKey,
+    prevElectricKwh,
+    currElectricKwh,
+    prevWaterM3,
+    currWaterM3,
+    useEvnTieredTariff,
+    fixedServicesMinor,
+    totalAmountMinor,
+  ];
 }
 
 final class UtilityReadingMarkedPaid extends DailyLifeEvent {
   final String userId;
   final String readingId;
 
-  const UtilityReadingMarkedPaid({required this.userId, required this.readingId});
+  const UtilityReadingMarkedPaid({
+    required this.userId,
+    required this.readingId,
+  });
 
   @override
   List<Object?> get props => [userId, readingId];
@@ -247,15 +260,15 @@ final class HomeContractSaved extends DailyLifeEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        homeName,
-        monthlyRentMinor,
-        depositMinor,
-        paymentDayOfMonth,
-        leaseEndDate,
-        wifiCredentials,
-        nextApplianceMaintenanceNote,
-      ];
+    userId,
+    homeName,
+    monthlyRentMinor,
+    depositMinor,
+    paymentDayOfMonth,
+    leaseEndDate,
+    wifiCredentials,
+    nextApplianceMaintenanceNote,
+  ];
 }
 
 final class SmartNoteSaved extends DailyLifeEvent {
@@ -278,8 +291,15 @@ final class SmartNoteSaved extends DailyLifeEvent {
   });
 
   @override
-  List<Object?> get props =>
-      [userId, existingId, title, content, categoryTag, mood, isPinned];
+  List<Object?> get props => [
+    userId,
+    existingId,
+    title,
+    content,
+    categoryTag,
+    mood,
+    isPinned,
+  ];
 }
 
 final class SmartNotePinToggled extends DailyLifeEvent {
@@ -327,7 +347,9 @@ class DailyLifeState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       snapshot: snapshot ?? this.snapshot,
       failure: clearFailure ? null : (failure ?? this.failure),
-      successBanner: clearSuccess ? null : (successBanner ?? this.successBanner),
+      successBanner: clearSuccess
+          ? null
+          : (successBanner ?? this.successBanner),
     );
   }
 
@@ -344,21 +366,37 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     on<MedicationTakenToggled>(_onMedToggled, transformer: sequential());
     on<MedicationCabinetDeleted>(_onMedDeleted, transformer: sequential());
     on<HealthVitalLogAdded>(_onVitalAdded, transformer: sequential());
-    on<EmergencyMedicalCardSaved>(_onEmergencyCardSaved, transformer: sequential());
+    on<EmergencyMedicalCardSaved>(
+      _onEmergencyCardSaved,
+      transformer: sequential(),
+    );
     on<GroceryItemAdded>(_onGroceryAdded, transformer: sequential());
-    on<MealComboAppliedToGroceries>(_onMealComboApplied, transformer: sequential());
-    on<GroceryItemBoughtToggled>(_onGroceryBoughtToggled, transformer: sequential());
-    on<BoughtGroceriesCleared>(_onBoughtGroceriesCleared, transformer: sequential());
+    on<MealComboAppliedToGroceries>(
+      _onMealComboApplied,
+      transformer: sequential(),
+    );
+    on<GroceryItemBoughtToggled>(
+      _onGroceryBoughtToggled,
+      transformer: sequential(),
+    );
+    on<BoughtGroceriesCleared>(
+      _onBoughtGroceriesCleared,
+      transformer: sequential(),
+    );
     on<GroceryItemDeleted>(_onGroceryDeleted, transformer: sequential());
     on<UtilityReadingSaved>(_onUtilityReadingSaved, transformer: sequential());
-    on<UtilityReadingMarkedPaid>(_onUtilityMarkedPaid, transformer: sequential());
+    on<UtilityReadingMarkedPaid>(
+      _onUtilityMarkedPaid,
+      transformer: sequential(),
+    );
     on<HomeContractSaved>(_onHomeContractSaved, transformer: sequential());
     on<SmartNoteSaved>(_onNoteSaved, transformer: sequential());
     on<SmartNotePinToggled>(_onNotePinToggled, transformer: sequential());
     on<SmartNoteDeleted>(_onNoteDeleted, transformer: sequential());
   }
 
-  static String todayDayKey() => DateFormat('yyyy-MM-dd').format(DateTime.now());
+  static String todayDayKey() =>
+      DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   Future<void> _onWatchStarted(
     DailyLifeWatchStarted event,
@@ -367,11 +405,8 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     emit(state.copyWith(isLoading: true, clearFailure: true));
     await emit.forEach<DailyLifeSnapshot>(
       _repository.watchAll(userId: event.userId),
-      onData: (data) => state.copyWith(
-        isLoading: false,
-        snapshot: data,
-        clearFailure: true,
-      ),
+      onData: (data) =>
+          state.copyWith(isLoading: false, snapshot: data, clearFailure: true),
       onError: (err, _) => state.copyWith(
         isLoading: false,
         failure: UnexpectedFailure(message: err.toString()),
@@ -422,7 +457,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     MedicationCabinetDeleted e,
     Emitter<DailyLifeState> emit,
   ) async {
-    final res = await _repository.deleteMedication(userId: e.userId, medId: e.medId);
+    final res = await _repository.deleteMedication(
+      userId: e.userId,
+      medId: e.medId,
+    );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(state.copyWith(clearFailure: true)),
@@ -448,7 +486,8 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       (_) => emit(
         state.copyWith(
           clearFailure: true,
-          successBanner: '✓ Đã lưu chỉ số sức khỏe & cập nhật hồ sơ BMI/Huyết áp.',
+          successBanner:
+              '✓ Đã lưu chỉ số sức khỏe & cập nhật hồ sơ BMI/Huyết áp.',
         ),
       ),
     );
@@ -521,7 +560,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     GroceryItemBoughtToggled e,
     Emitter<DailyLifeState> emit,
   ) async {
-    final res = await _repository.toggleGroceryBought(userId: e.userId, item: e.item);
+    final res = await _repository.toggleGroceryBought(
+      userId: e.userId,
+      item: e.item,
+    );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(state.copyWith(clearFailure: true)),
@@ -548,7 +590,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     GroceryItemDeleted e,
     Emitter<DailyLifeState> emit,
   ) async {
-    final res = await _repository.deleteGroceryItem(userId: e.userId, itemId: e.itemId);
+    final res = await _repository.deleteGroceryItem(
+      userId: e.userId,
+      itemId: e.itemId,
+    );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(state.copyWith(clearFailure: true)),
@@ -648,7 +693,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     SmartNotePinToggled e,
     Emitter<DailyLifeState> emit,
   ) async {
-    final res = await _repository.toggleNotePinned(userId: e.userId, note: e.note);
+    final res = await _repository.toggleNotePinned(
+      userId: e.userId,
+      note: e.note,
+    );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(state.copyWith(clearFailure: true)),
@@ -659,7 +707,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     SmartNoteDeleted e,
     Emitter<DailyLifeState> emit,
   ) async {
-    final res = await _repository.deleteNote(userId: e.userId, noteId: e.noteId);
+    final res = await _repository.deleteNote(
+      userId: e.userId,
+      noteId: e.noteId,
+    );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(state.copyWith(clearFailure: true)),

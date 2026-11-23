@@ -27,7 +27,8 @@ class BudgetEntity extends Equatable {
 
   int get remainingMinor => limitMinor - spentMinor;
 
-  int get percentUsed => limitMinor > 0 ? ((spentMinor * 100) / limitMinor).round() : 0;
+  int get percentUsed =>
+      limitMinor > 0 ? ((spentMinor * 100) / limitMinor).round() : 0;
 
   bool get isExceeded => spentMinor > limitMinor;
 
@@ -48,15 +49,15 @@ class BudgetEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        categoryId,
-        categoryName,
-        monthKey,
-        limitMinor,
-        spentMinor,
-        alertThresholdPct,
-      ];
+    id,
+    ownerId,
+    categoryId,
+    categoryName,
+    monthKey,
+    limitMinor,
+    spentMinor,
+    alertThresholdPct,
+  ];
 }
 
 class FundContributionEntity extends Equatable {
@@ -77,7 +78,14 @@ class FundContributionEntity extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, contributorId, contributorName, amountMinor, note, createdAt];
+  List<Object?> get props => [
+    id,
+    contributorId,
+    contributorName,
+    amountMinor,
+    note,
+    createdAt,
+  ];
 }
 
 class FundExpenseRequestEntity extends Equatable {
@@ -100,7 +108,15 @@ class FundExpenseRequestEntity extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, requesterId, requesterName, title, amountMinor, status, createdAt];
+  List<Object?> get props => [
+    id,
+    requesterId,
+    requesterName,
+    title,
+    amountMinor,
+    status,
+    createdAt,
+  ];
 }
 
 /// Virtual fund ledger (accounting earmark — never claims to custody real money).
@@ -133,14 +149,14 @@ class FundEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        scope,
-        ownerId,
-        familyId,
-        name,
-        targetAmountMinor,
-        balanceMinor,
-        recentContributions,
-        expenseRequests,
-      ];
+    id,
+    scope,
+    ownerId,
+    familyId,
+    name,
+    targetAmountMinor,
+    balanceMinor,
+    recentContributions,
+    expenseRequests,
+  ];
 }

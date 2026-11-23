@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart' as cf;
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/error/app_exception.dart';
@@ -14,22 +15,47 @@ import '../../../../core/utils/vnd_amount.dart';
 import '../../domain/entities/notification_entities.dart';
 import '../../domain/repositories/notifications_repository.dart';
 
+typedef CloudFunctionsInvoker =
+    Future<Map<String, dynamic>> Function(
+      String functionName,
+      Map<String, dynamic> payload,
+    );
+
 class NotificationsRemoteDataSource {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _firebaseAuth;
   final AndroidNotificationBridge _bridge;
+  final CloudFunctionsInvoker? _functionsInvokerOverride;
 
   NotificationsRemoteDataSource({
     required FirebaseFirestore firestore,
     required FirebaseAuth firebaseAuth,
     required AndroidNotificationBridge bridge,
-  })  : _firestore = firestore,
-        _firebaseAuth = firebaseAuth,
-        _bridge = bridge;
+    CloudFunctionsInvoker? functionsInvokerOverride,
+  }) : _firestore = firestore,
+       _firebaseAuth = firebaseAuth,
+       _bridge = bridge,
+       _functionsInvokerOverride = functionsInvokerOverride;
 
-  Future<bool> isNativePermissionGranted() => _bridge.isNotificationAccessGranted();
+  Future<Map<String, dynamic>> _invokeBackendFunction(
+    String functionName,
+    Map<String, dynamic> payload,
+  ) async {
+    if (_functionsInvokerOverride != null) {
+      return _functionsInvokerOverride(functionName, payload);
+    }
+    final callable = cf.FirebaseFunctions.instanceFor(
+      region: 'asia-southeast1',
+    ).httpsCallable(functionName);
+    final res = await callable.call<Map<dynamic, dynamic>>(payload);
+    return Map<String, dynamic>.from(res.data);
+  }
 
-  Future<void> openNativePermissionSettings() => _bridge.openNotificationAccessSettings();
+  Future<bool> isNativePermissionGranted() =>
+      _bridge.isNotificationAccessGranted();
+
+  Future<void> openNativePermissionSettings() =>
+      _bridge.openNotificationAccessSettings();
 
   Future<void> speakSoundboxTest(String message) =>
       _bridge.speakSoundboxAnnouncement(message);
@@ -41,10 +67,36 @@ class NotificationsRemoteDataSource {
       _bridge.drainQueuedBackgroundNotifications();
 
   DocumentReference<Map<String, dynamic>> _consentRef(String userId) =>
-      _firestore.collection('users').doc(userId).collection('consents').doc('android_notification');
+      _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('consents')
+          .doc('android_notification');
 
   CollectionReference<Map<String, dynamic>> _bankAccountsCol(String userId) =>
       _firestore.collection('users').doc(userId).collection('bank_accounts');
+
+  CollectionReference<Map<String, dynamic>> _bankConnectionsCol(
+    String userId,
+  ) =>
+      _firestore.collection('users').doc(userId).collection('bank_connections');
+
+  CollectionReference<Map<String, dynamic>> _financialNotifsCol(
+    String userId,
+  ) => _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('financial_notifications');
+
+  DocumentReference<Map<String, dynamic>> _notifPrefsRef(String userId) =>
+      _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notification_preferences')
+          .doc('settings');
+
+  CollectionReference<Map<String, dynamic>> _merchantRulesCol(String userId) =>
+      _firestore.collection('users').doc(userId).collection('merchant_rules');
 
   CollectionReference<Map<String, dynamic>> _paymentOrdersCol(String userId) =>
       _firestore.collection('users').doc(userId).collection('payment_orders');
@@ -79,20 +131,18 @@ class NotificationsRemoteDataSource {
   }) async {
     final now = DateTime.now();
     final batch = _firestore.batch();
-    batch.set(
-      _consentRef(userId),
-      {
-        'sourceId': 'android_notification',
-        'ownerId': userId,
-        'enabled': enabled,
-        if (autoConfirmSignals != null) 'autoConfirmSignals': autoConfirmSignals,
-        if (voiceSoundboxEnabled != null) 'voiceSoundboxEnabled': voiceSoundboxEnabled,
-        if (syncObservedBalance != null) 'syncObservedBalance': syncObservedBalance,
-        'allowedPackages': allowedPackages,
-        'updatedAt': Timestamp.fromDate(now),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(_consentRef(userId), {
+      'sourceId': 'android_notification',
+      'ownerId': userId,
+      'enabled': enabled,
+      if (autoConfirmSignals != null) 'autoConfirmSignals': autoConfirmSignals,
+      if (voiceSoundboxEnabled != null)
+        'voiceSoundboxEnabled': voiceSoundboxEnabled,
+      if (syncObservedBalance != null)
+        'syncObservedBalance': syncObservedBalance,
+      'allowedPackages': allowedPackages,
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
 
     // When consent is revoked, immediately stop listener & reject unconfirmed provisional items
     if (!enabled) {
@@ -138,11 +188,12 @@ class NotificationsRemoteDataSource {
 
   Stream<List<LinkedBankAccountEntity>> watchLinkedBankAccounts(String userId) {
     return _bankAccountsCol(userId).snapshots().map((snap) {
-      final items = snap.docs.map((d) => _mapBankAccount(d.id, d.data())).toList()
-        ..sort((a, b) {
-          if (a.isDefault != b.isDefault) return a.isDefault ? -1 : 1;
-          return b.createdAt.compareTo(a.createdAt);
-        });
+      final items =
+          snap.docs.map((d) => _mapBankAccount(d.id, d.data())).toList()
+            ..sort((a, b) {
+              if (a.isDefault != b.isDefault) return a.isDefault ? -1 : 1;
+              return b.createdAt.compareTo(a.createdAt);
+            });
       return items;
     });
   }
@@ -157,7 +208,9 @@ class NotificationsRemoteDataSource {
     required String accountHolderName,
     bool isDefault = true,
   }) async {
-    final cleanAcc = accountNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').trim();
+    final cleanAcc = accountNumber
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .trim();
     if (cleanAcc.length < 6) {
       throw const AppException(
         code: 'VALIDATION_FAILURE',
@@ -208,7 +261,11 @@ class NotificationsRemoteDataSource {
     });
 
     // Also enrich the linked Wallet's bankCode & maskedAccount (`•••• 1234`) if it exists
-    final walletRef = _firestore.collection('users').doc(userId).collection('wallets').doc(walletId);
+    final walletRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('wallets')
+        .doc(walletId);
     final wSnap = await walletRef.get();
     if (wSnap.exists) {
       batch.update(walletRef, {
@@ -260,8 +317,9 @@ class NotificationsRemoteDataSource {
 
   Stream<List<PaymentOrderEntity>> watchPaymentOrders(String userId) {
     return _paymentOrdersCol(userId).snapshots().map((snap) {
-      final list = snap.docs.map((d) => _mapPaymentOrder(d.id, d.data())).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final list =
+          snap.docs.map((d) => _mapPaymentOrder(d.id, d.data())).toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });
   }
@@ -283,24 +341,32 @@ class NotificationsRemoteDataSource {
         message: 'Số tiền cần thu phải lớn hơn 0 ₫.',
       );
     }
-    final cleanAcc = accountNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').trim();
+    final cleanAcc = accountNumber
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .trim();
     if (cleanAcc.length < 6) {
       throw const AppException(
         code: 'VALIDATION_FAILURE',
-        message: 'Vui lòng liên kết số tài khoản ngân hàng trước khi tạo mã QR.',
+        message:
+            'Vui lòng liên kết số tài khoản ngân hàng trước khi tạo mã QR.',
       );
     }
     final now = DateTime.now();
     final paymentCode = VietQrEmvBuilder.generatePaymentCode(prefix: 'LO');
-    final cleanDesc = description.trim().isEmpty ? 'Thu tien' : description.trim();
-    final memoWithCode = '$paymentCode ${VietQrEmvBuilder.toBankSafeAscii(cleanDesc, maxLength: 28)}'.trim();
+    final cleanDesc = description.trim().isEmpty
+        ? 'Thu tien'
+        : description.trim();
+    final memoWithCode =
+        '$paymentCode ${VietQrEmvBuilder.toBankSafeAscii(cleanDesc, maxLength: 28)}'
+            .trim();
     final emvQr = VietQrEmvBuilder.buildNapas247Payload(
       bankBin: bankBin,
       accountNumber: cleanAcc,
       amountVnd: amountMinor,
       memo: memoWithCode,
     );
-    final orderId = 'ord_${paymentCode.toLowerCase()}_${now.millisecondsSinceEpoch}';
+    final orderId =
+        'ord_${paymentCode.toLowerCase()}_${now.millisecondsSinceEpoch}';
     final holder = VietQrEmvBuilder.toBankSafeAscii(
       accountHolderName.trim().isEmpty ? 'CHU TAI KHOAN' : accountHolderName,
     );
@@ -379,10 +445,12 @@ class NotificationsRemoteDataSource {
     final consentData = consentSnap.data() ?? const <String, dynamic>{};
     final enabled = (consentData['enabled'] as bool?) ?? false;
     final autoConfirm = (consentData['autoConfirmSignals'] as bool?) ?? false;
-    final syncObservedBalance = (consentData['syncObservedBalance'] as bool?) ?? true;
-    final allowedPackages = (consentData['allowedPackages'] as List<dynamic>? ?? const <dynamic>[])
-        .map((e) => e.toString())
-        .toSet();
+    final syncObservedBalance =
+        (consentData['syncObservedBalance'] as bool?) ?? true;
+    final allowedPackages =
+        (consentData['allowedPackages'] as List<dynamic>? ?? const <dynamic>[])
+            .map((e) => e.toString())
+            .toSet();
 
     if (!enabled || !allowedPackages.contains(packageName)) {
       return const IngestionOutcome(
@@ -419,14 +487,18 @@ class NotificationsRemoteDataSource {
     var targetWalletId = defaultWalletId;
     final bankAccSnap = await _bankAccountsCol(userId).get();
     if (bankAccSnap.docs.isNotEmpty) {
-      final accounts = bankAccSnap.docs.map((d) => _mapBankAccount(d.id, d.data())).toList();
+      final accounts = bankAccSnap.docs
+          .map((d) => _mapBankAccount(d.id, d.data()))
+          .toList();
       LinkedBankAccountEntity? routed;
       if (signal.accountTail != null && signal.accountTail!.isNotEmpty) {
         routed = accounts
             .where((a) => a.accountTail.endsWith(signal.accountTail!))
             .firstOrNull;
       }
-      routed ??= accounts.where((a) => a.bankCode == signal.bankCode).firstOrNull;
+      routed ??= accounts
+          .where((a) => a.bankCode == signal.bankCode)
+          .firstOrNull;
       if (routed != null && routed.walletId.isNotEmpty) {
         targetWalletId = routed.walletId;
       }
@@ -436,9 +508,9 @@ class NotificationsRemoteDataSource {
     PaymentOrderEntity? matchedOrder;
     if (signal.direction == 'credit') {
       final upperCombined = '$title $body'.toUpperCase();
-      final pendingOrdersSnap = await _paymentOrdersCol(userId)
-          .where('status', isEqualTo: PaymentOrderStatus.pending.name)
-          .get();
+      final pendingOrdersSnap = await _paymentOrdersCol(
+        userId,
+      ).where('status', isEqualTo: PaymentOrderStatus.pending.name).get();
       for (final doc in pendingOrdersSnap.docs) {
         final order = _mapPaymentOrder(doc.id, doc.data());
         final codeUpper = order.paymentCode.toUpperCase();
@@ -464,12 +536,13 @@ class NotificationsRemoteDataSource {
       amountMinor: signal.amountMinor,
       occurredAt: signal.occurredAt,
     );
-    final candidateWindowFps = BankNotificationParser.computeOverlappingSoftWindowFingerprints(
-      ownerId: userId,
-      direction: signal.direction,
-      amountMinor: signal.amountMinor,
-      occurredAt: signal.occurredAt,
-    );
+    final candidateWindowFps =
+        BankNotificationParser.computeOverlappingSoftWindowFingerprints(
+          ownerId: userId,
+          direction: signal.direction,
+          amountMinor: signal.amountMinor,
+          occurredAt: signal.occurredAt,
+        );
 
     final existingTxQuery = await _firestore
         .collection('users')
@@ -480,11 +553,13 @@ class NotificationsRemoteDataSource {
     final matchingExistingDocs = existingTxQuery.docs.where((d) {
       if (matchedOrder != null) {
         // Distinct QR payment codes are distinct payments even if same amount within 15 minutes
-        return d.data()['crossSourceFingerprint'] == signal.crossSourceFingerprint;
+        return d.data()['crossSourceFingerprint'] ==
+            signal.crossSourceFingerprint;
       }
       final ts = d.data()['occurredAt'];
       if (ts is! Timestamp) return true;
-      return ts.toDate().difference(signal.occurredAt).abs() <= const Duration(minutes: 15);
+      return ts.toDate().difference(signal.occurredAt).abs() <=
+          const Duration(minutes: 15);
     }).toList();
 
     final shouldAutoCommitToLedger = autoConfirm || matchedOrder != null;
@@ -519,17 +594,24 @@ class NotificationsRemoteDataSource {
       int? newWalletBal;
       String? resolvedWalletName;
       if (shouldAutoCommitToLedger) {
-        final walletRef =
-            _firestore.collection('users').doc(userId).collection('wallets').doc(targetWalletId);
+        final walletRef = _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('wallets')
+            .doc(targetWalletId);
         final wSnap = await tx.get(walletRef);
         if (wSnap.exists) {
           final curBal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
-          final delta = signal.direction == 'credit' ? signal.amountMinor : -signal.amountMinor;
+          final delta = signal.direction == 'credit'
+              ? signal.amountMinor
+              : -signal.amountMinor;
           // If bank notification carries exact post-tx `SD:` balance and syncObservedBalance is enabled, sync exact balance!
-          newWalletBal = (syncObservedBalance && signal.observedBalanceMinor != null)
+          newWalletBal =
+              (syncObservedBalance && signal.observedBalanceMinor != null)
               ? signal.observedBalanceMinor!
               : (curBal + delta);
-          resolvedWalletName = (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
+          resolvedWalletName =
+              (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
           tx.update(walletRef, {
             'balanceMinor': newWalletBal,
             if (syncObservedBalance && signal.observedBalanceMinor != null)
@@ -560,37 +642,109 @@ class NotificationsRemoteDataSource {
         'receivedAt': Timestamp.fromDate(now),
       });
 
+      final hasObservedBankBal =
+          syncObservedBalance &&
+          signal.observedBalanceMinor != null &&
+          signal.observedBalanceMinor! > 0;
+      final balanceType = hasObservedBankBal
+          ? 'observedBankBalance'
+          : (shouldAutoCommitToLedger
+                ? 'estimatedWalletBalance'
+                : 'unknownBalance');
+      final verifStr = matchedOrder != null
+          ? 'verified'
+          : (autoConfirm ? 'userConfirmed' : 'provisional');
+      final verifUpper = matchedOrder != null
+          ? 'VERIFIED'
+          : (autoConfirm ? 'USER_CONFIRMED' : 'PROVISIONAL');
+
       tx.set(
-        _firestore.collection('users').doc(userId).collection('transactions').doc(txId),
+        _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('transactions')
+            .doc(txId),
         {
           'id': txId,
           'ownerId': userId,
           'walletId': targetWalletId,
           if (resolvedWalletName != null) 'walletName': resolvedWalletName,
           if (newWalletBal != null) 'balanceAfterMinor': newWalletBal,
-          'categoryName': matchedOrder != null ? 'Thu tiền QR' : signal.categorySuggestion,
+          'balanceType': balanceType,
+          'ledgerApplied': shouldAutoCommitToLedger,
+          'categoryName': matchedOrder != null
+              ? 'Thu tiền QR'
+              : signal.categorySuggestion,
           'kind': signal.direction == 'credit' ? 'income' : 'expense',
           'direction': signal.direction,
           'amountMinor': signal.amountMinor,
           'currencyCode': 'VND',
+          'bankCode': signal.bankCode,
+          if (signal.accountTail != null)
+            'accountMasked': '•••• ${signal.accountTail}',
           'merchant': matchedOrder != null
               ? '${matchedOrder.description} (${matchedOrder.paymentCode})'
               : '${signal.bankCode}: ${signal.merchant}',
-          if (matchedOrder != null) 'note': 'Tự động đối soát mã QR ${matchedOrder.paymentCode}',
+          if (matchedOrder != null)
+            'note': 'Tự động đối soát mã QR ${matchedOrder.paymentCode}',
           'occurredAt': Timestamp.fromDate(signal.occurredAt),
+          'receivedAt': Timestamp.fromDate(now),
           'monthKey': monthKey,
+          'sourceProvider': 'android_device',
           'sourceKind': 'androidNotification',
-          'verification': matchedOrder != null
-              ? 'verified'
-              : (autoConfirm ? 'userConfirmed' : 'provisional'),
+          'verification': verifStr,
+          'verificationStatus': verifUpper,
+          'reconciliationStatus': matchedOrder != null
+              ? 'canonical_verified'
+              : 'unreconciled_provisional',
+          'sourceEventKey': signal.sourceEventKey,
           'crossSourceFingerprint': signal.crossSourceFingerprint,
           'softWindowFingerprint': softFp,
           'isVehicleMaintenanceHint': signal.isVehicleMaintenanceHint,
-          'schemaVersion': 1,
+          'isRecurringCandidate':
+              ExplainableBankingRuleEngine.detectRecurringSuggestionLabel(
+                '$title $body',
+                signal.direction,
+              ) !=
+              null,
+          'schemaVersion': 2,
           'createdAt': Timestamp.fromDate(now),
           'updatedAt': Timestamp.fromDate(now),
         },
       );
+
+      final notifId = 'notif_${signal.sourceEventKey.substring(0, 24)}';
+      final sign = signal.direction == 'credit' ? '+' : '-';
+      final notifTitle = matchedOrder != null || autoConfirm
+          ? (signal.direction == 'credit'
+                ? '💰 Life OS — Tiền vừa về!'
+                : '💸 Life OS — Giao dịch chi tiêu')
+          : '🔔 Life OS — Phát hiện biến động ngân hàng';
+      final notifBody =
+          '$sign${VndAmount.format(signal.amountMinor)}\nNguồn: Thông báo Android\nTrạng thái: ${matchedOrder != null ? "Đã xác minh QR" : (autoConfirm ? "Đã xác nhận" : "Chờ đối soát")}';
+      tx.set(_financialNotifsCol(userId).doc(notifId), {
+        'id': notifId,
+        'ownerId': userId,
+        'transactionId': txId,
+        'walletId': targetWalletId,
+        'connectionId': '',
+        'direction': signal.direction,
+        'amountMinor': signal.amountMinor,
+        'bankCode': signal.bankCode,
+        'bankName': signal.bankCode,
+        'accountMasked': signal.accountTail != null
+            ? '•••• ${signal.accountTail}'
+            : '••••',
+        'title': notifTitle,
+        'body': notifBody,
+        'content': signal.merchant,
+        'verificationStatus': verifUpper,
+        'sourceKind': 'androidNotification',
+        'isRead': false,
+        'isTestNotification': false,
+        'occurredAt': Timestamp.fromDate(signal.occurredAt),
+        'createdAt': Timestamp.fromDate(now),
+      });
     });
 
     if (isDuplicate) {
@@ -606,8 +760,10 @@ class NotificationsRemoteDataSource {
         signal.matchedPaymentCode!.startsWith('LIFEOS SPLIT')) {
       try {
         final userDoc = await _firestore.collection('users').doc(userId).get();
-        final activeFamId = (userDoc.data()?['activeFamilyId'] as String?)?.trim();
-        final receiverName = (userDoc.data()?['fullName'] as String?) ?? 'Thành viên';
+        final activeFamId = (userDoc.data()?['activeFamilyId'] as String?)
+            ?.trim();
+        final receiverName =
+            (userDoc.data()?['fullName'] as String?) ?? 'Thành viên';
         if (activeFamId != null && activeFamId.isNotEmpty) {
           final settleId = 'auto_st_${signal.sourceEventKey.substring(0, 16)}';
           await _firestore
@@ -616,16 +772,16 @@ class NotificationsRemoteDataSource {
               .collection('settlements')
               .doc(settleId)
               .set({
-            'id': settleId,
-            'familyId': activeFamId,
-            'fromUserId': 'bank_transfer',
-            'fromUserName': signal.merchant,
-            'toUserId': userId,
-            'toUserName': receiverName,
-            'amountMinor': signal.amountMinor,
-            'paymentCode': signal.matchedPaymentCode,
-            'createdAt': Timestamp.fromDate(DateTime.now()),
-          });
+                'id': settleId,
+                'familyId': activeFamId,
+                'fromUserId': 'bank_transfer',
+                'fromUserName': signal.merchant,
+                'toUserId': userId,
+                'toUserName': receiverName,
+                'amountMinor': signal.amountMinor,
+                'paymentCode': signal.matchedPaymentCode,
+                'createdAt': Timestamp.fromDate(DateTime.now()),
+              });
         }
       } catch (_) {}
     }
@@ -659,13 +815,19 @@ class NotificationsRemoteDataSource {
     required String content,
     required DateTime occurredAt,
     String? referenceCode,
+    int? accumulatedBalanceMinor,
+    String? bankCode,
+    String? accountMasked,
   }) async {
     final eventKey = BankNotificationParser.computeSourceEventKey(
       'bank_api',
       externalTransactionId,
     );
-    final eventRef =
-        _firestore.collection('users').doc(userId).collection('source_events').doc(eventKey);
+    final eventRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('source_events')
+        .doc(eventKey);
 
     final softFp = BankNotificationParser.computeSoftWindowFingerprint(
       ownerId: userId,
@@ -673,12 +835,13 @@ class NotificationsRemoteDataSource {
       amountMinor: amountMinor,
       occurredAt: occurredAt,
     );
-    final candidateWindowFps = BankNotificationParser.computeOverlappingSoftWindowFingerprints(
-      ownerId: userId,
-      direction: direction,
-      amountMinor: amountMinor,
-      occurredAt: occurredAt,
-    );
+    final candidateWindowFps =
+        BankNotificationParser.computeOverlappingSoftWindowFingerprints(
+          ownerId: userId,
+          direction: direction,
+          amountMinor: amountMinor,
+          occurredAt: occurredAt,
+        );
 
     final provMatches = await _firestore
         .collection('users')
@@ -687,90 +850,200 @@ class NotificationsRemoteDataSource {
         .where('softWindowFingerprint', whereIn: candidateWindowFps)
         .get();
 
-    final matchingProvDoc = provMatches.docs.where((d) {
-      if (d.data()['verification'] != 'provisional') return false;
-      final ts = d.data()['occurredAt'];
-      if (ts is! Timestamp) return true;
-      return ts.toDate().difference(occurredAt).abs() <= const Duration(minutes: 15);
+    // Exact externalTransactionId duplicate check (T21: REST API reverse sync after Webhook)
+    final exactExternalMatch = provMatches.docs.where((d) {
+      final ext = d.data()['externalTransactionId']?.toString();
+      return ext != null && ext == externalTransactionId;
     }).firstOrNull;
 
+    // Cross-source reconciliation candidates (T05, T06, T24):
+    // Matches BOTH `provisional` AND `userConfirmed` unlinked Android signals within ±15m,
+    // while keeping distinct `referenceCode` transactions separate!
+    final reconcilableCandidates = provMatches.docs.where((d) {
+      final data = d.data();
+      if (data['verification'] == 'rejected') return false;
+      if (data['sourceKind'] != 'androidNotification') return false;
+      final existingExt = data['externalTransactionId']?.toString();
+      if (existingExt != null &&
+          existingExt.isNotEmpty &&
+          existingExt != externalTransactionId) {
+        return false;
+      }
+      final existingRef = (data['referenceCode'] as String?)?.trim() ?? '';
+      final incomingRef = (referenceCode ?? '').trim();
+      if (existingRef.isNotEmpty &&
+          incomingRef.isNotEmpty &&
+          existingRef.toUpperCase() != incomingRef.toUpperCase()) {
+        return false;
+      }
+      final ts = data['occurredAt'];
+      if (ts is! Timestamp) return true;
+      return ts.toDate().difference(occurredAt).abs() <=
+          const Duration(minutes: 15);
+    }).toList();
+
+    final isAmbiguousCollision = reconcilableCandidates.length > 1;
+    final matchingAndroidDoc = reconcilableCandidates.length == 1
+        ? reconcilableCandidates.first
+        : null;
+
     var outcomeKind = IngestionOutcomeKind.upgradedToVerified;
-    var targetTxId = matchingProvDoc?.id ?? 'ver_${eventKey.substring(0, 20)}';
+    var targetTxId =
+        exactExternalMatch?.id ??
+        matchingAndroidDoc?.id ??
+        'ver_${eventKey.substring(0, 20)}';
 
     await _firestore.runTransaction((tx) async {
       final evSnap = await tx.get(eventRef);
-      if (evSnap.exists) {
+      if (evSnap.exists || exactExternalMatch != null) {
         outcomeKind = IngestionOutcomeKind.duplicateIgnored;
         return;
       }
 
-      final walletRef =
-          _firestore.collection('users').doc(userId).collection('wallets').doc(walletId);
+      final walletRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('wallets')
+          .doc(walletId);
       final walletSnap = await tx.get(walletRef);
-      final currentBal = (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final currentBal =
+          (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
       final delta = direction == 'credit' ? amountMinor : -amountMinor;
       final now = DateTime.now();
+
+      final matchedData = matchingAndroidDoc?.data();
+      final alreadyAppliedInLedger =
+          matchedData != null &&
+          ((matchedData['ledgerApplied'] as bool?) ??
+              (matchedData['verification'] == 'userConfirmed' ||
+                  matchedData['verification'] == 'verified'));
+
+      // T15: NEVER treat accumulatedBalanceMinor == 0 as zero bank balance!
+      final hasObservedBankBalance =
+          accumulatedBalanceMinor != null && accumulatedBalanceMinor > 0;
+
+      var newWalletBalance = currentBal;
+      var balanceType = 'unknownBalance';
+      if (!isAmbiguousCollision) {
+        if (hasObservedBankBalance) {
+          newWalletBalance = accumulatedBalanceMinor;
+          balanceType = 'observedBankBalance';
+          if (walletSnap.exists) {
+            tx.update(walletRef, {
+              'balanceMinor': newWalletBalance,
+              'isEstimatedBalance': false,
+              'updatedAt': Timestamp.fromDate(now),
+            });
+          }
+        } else if (!alreadyAppliedInLedger) {
+          newWalletBalance = currentBal + delta;
+          balanceType = 'estimatedWalletBalance';
+          if (walletSnap.exists) {
+            tx.update(walletRef, {
+              'balanceMinor': newWalletBalance,
+              'updatedAt': Timestamp.fromDate(now),
+            });
+          }
+        } else {
+          // T24: Balance delta was ALREADY applied when Android signal was confirmed -> DO NOT apply twice!
+          newWalletBalance = currentBal;
+          balanceType = (walletSnap.data()?['isEstimatedBalance'] == false)
+              ? 'observedBankBalance'
+              : 'estimatedWalletBalance';
+        }
+      }
+
+      final resolvedWalletName =
+          (walletSnap.data()?['name'] as String?) ?? 'Ngân hàng';
 
       tx.set(eventRef, {
         'eventKey': eventKey,
         'source': 'bank_api',
-        'status': 'verified_processed',
+        'status': isAmbiguousCollision ? 'needs_review' : 'verified_processed',
         'linkedTransactionId': targetTxId,
         'receivedAt': Timestamp.fromDate(now),
       });
 
-      final newWalletBalance = currentBal + delta;
-      final resolvedWalletName = (walletSnap.data()?['name'] as String?) ?? 'Ngân hàng';
-
-      if (walletSnap.exists) {
-        tx.update(walletRef, {
-          'balanceMinor': newWalletBalance,
-          'updatedAt': Timestamp.fromDate(now),
-        });
-      }
-
-      if (matchingProvDoc != null) {
-        tx.update(matchingProvDoc.reference, {
+      if (matchingAndroidDoc != null) {
+        tx.update(matchingAndroidDoc.reference, {
           'verification': 'verified',
+          'verificationStatus': 'VERIFIED',
+          'reconciliationStatus': 'reconciled_cross_source',
+          'sourceProvider': 'sepay',
           'sourceKind': 'bankApi',
+          'externalTransactionId': externalTransactionId,
+          if (referenceCode != null && referenceCode.isNotEmpty)
+            'referenceCode': referenceCode,
           'walletId': walletId,
           'walletName': resolvedWalletName,
           'balanceAfterMinor': newWalletBalance,
+          'balanceType': balanceType,
+          'ledgerApplied': true,
           'updatedAt': Timestamp.fromDate(now),
         });
       } else {
         targetTxId = 'ver_${eventKey.substring(0, 20)}';
-        final inferred = BankNotificationParser.inferCategory(content, direction);
+        final inferred = BankNotificationParser.inferCategory(
+          content,
+          direction,
+        );
         final monthKey =
             '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}';
+        final verifName = isAmbiguousCollision ? 'needsReview' : 'verified';
+        final verifUpper = isAmbiguousCollision ? 'NEEDS_REVIEW' : 'VERIFIED';
         tx.set(
-          _firestore.collection('users').doc(userId).collection('transactions').doc(targetTxId),
+          _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('transactions')
+              .doc(targetTxId),
           {
             'id': targetTxId,
             'ownerId': userId,
             'walletId': walletId,
             'walletName': resolvedWalletName,
-            'balanceAfterMinor': newWalletBalance,
+            if (!isAmbiguousCollision) 'balanceAfterMinor': newWalletBalance,
+            'balanceType': balanceType,
+            'ledgerApplied': !isAmbiguousCollision,
             'categoryName': inferred.category,
             'kind': direction == 'credit' ? 'income' : 'expense',
             'direction': direction,
             'amountMinor': amountMinor,
             'currencyCode': 'VND',
+            if (bankCode != null) 'bankCode': bankCode,
+            if (accountMasked != null) 'accountMasked': accountMasked,
+            'externalTransactionId': externalTransactionId,
+            if (referenceCode != null && referenceCode.isNotEmpty)
+              'referenceCode': referenceCode,
             'merchant': content,
             'occurredAt': Timestamp.fromDate(occurredAt),
+            'receivedAt': Timestamp.fromDate(now),
             'monthKey': monthKey,
+            'sourceProvider': 'sepay',
             'sourceKind': 'bankApi',
-            'verification': 'verified',
-            'crossSourceFingerprint': BankNotificationParser.computeCrossSourceFingerprint(
-              ownerId: userId,
-              direction: direction,
-              amountMinor: amountMinor,
-              occurredAt: occurredAt,
-              referenceCode: referenceCode,
-            ),
+            'verification': verifName,
+            'verificationStatus': verifUpper,
+            'reconciliationStatus': isAmbiguousCollision
+                ? 'ambiguous_collision'
+                : 'canonical_verified',
+            'sourceEventKey': eventKey,
+            'crossSourceFingerprint':
+                BankNotificationParser.computeCrossSourceFingerprint(
+                  ownerId: userId,
+                  direction: direction,
+                  amountMinor: amountMinor,
+                  occurredAt: occurredAt,
+                  referenceCode: referenceCode,
+                ),
             'softWindowFingerprint': softFp,
             'isVehicleMaintenanceHint': inferred.isVehicleMaintenance,
-            'schemaVersion': 1,
+            'isRecurringCandidate':
+                ExplainableBankingRuleEngine.detectRecurringSuggestionLabel(
+                  content,
+                  direction,
+                ) !=
+                null,
+            'schemaVersion': 2,
             'createdAt': Timestamp.fromDate(now),
             'updatedAt': Timestamp.fromDate(now),
           },
@@ -789,7 +1062,11 @@ class NotificationsRemoteDataSource {
 
   Future<String> exportPersonalDataJson(String userId) async {
     final userDoc = await _firestore.collection('users').doc(userId).get();
-    final wallets = await _firestore.collection('users').doc(userId).collection('wallets').get();
+    final wallets = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('wallets')
+        .get();
     final bankAccounts = await _bankAccountsCol(userId).get();
     final paymentOrders = await _paymentOrdersCol(userId).limit(100).get();
     final txs = await _firestore
@@ -798,8 +1075,11 @@ class NotificationsRemoteDataSource {
         .collection('transactions')
         .limit(200)
         .get();
-    final privEvents =
-        await _firestore.collection('users').doc(userId).collection('private_events').get();
+    final privEvents = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('private_events')
+        .get();
 
     Map<String, dynamic> sanitizeMap(Map<String, dynamic>? m) {
       if (m == null) return {};
@@ -813,10 +1093,16 @@ class NotificationsRemoteDataSource {
       'exportedAt': DateTime.now().toIso8601String(),
       'profile': sanitizeMap(userDoc.data()),
       'wallets': wallets.docs.map((d) => sanitizeMap(d.data())).toList(),
-      'bankAccounts': bankAccounts.docs.map((d) => sanitizeMap(d.data())).toList(),
-      'paymentOrders': paymentOrders.docs.map((d) => sanitizeMap(d.data())).toList(),
+      'bankAccounts': bankAccounts.docs
+          .map((d) => sanitizeMap(d.data()))
+          .toList(),
+      'paymentOrders': paymentOrders.docs
+          .map((d) => sanitizeMap(d.data()))
+          .toList(),
       'transactions': txs.docs.map((d) => sanitizeMap(d.data())).toList(),
-      'privateEvents': privEvents.docs.map((d) => sanitizeMap(d.data())).toList(),
+      'privateEvents': privEvents.docs
+          .map((d) => sanitizeMap(d.data()))
+          .toList(),
     };
 
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -837,7 +1123,11 @@ class NotificationsRemoteDataSource {
     var importedCount = 0;
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
-      if (i == 0 && RegExp(r'(date|ngay|amount|so_tien|description)', caseSensitive: false).hasMatch(line)) {
+      if (i == 0 &&
+          RegExp(
+            r'(date|ngay|amount|so_tien|description)',
+            caseSensitive: false,
+          ).hasMatch(line)) {
         continue;
       }
       if (OtpRedactor.containsOtpOrSecret(line)) {
@@ -849,30 +1139,43 @@ class NotificationsRemoteDataSource {
 
       final parsedDate = DateTime.tryParse(cols[0]) ?? DateTime.now();
       final rawDir = cols[1].toLowerCase();
-      final direction =
-          (rawDir == 'credit' || rawDir == 'in' || rawDir == '+') ? 'credit' : 'debit';
+      final direction = (rawDir == 'credit' || rawDir == 'in' || rawDir == '+')
+          ? 'credit'
+          : 'debit';
       final amountMinor = VndAmount.tryParseInput(cols[2]);
       if (amountMinor == null || amountMinor <= 0) continue;
-      final desc = cols.length >= 4 && cols[3].isNotEmpty ? cols.sublist(3).join(', ') : 'Sao kê CSV';
+      final desc = cols.length >= 4 && cols[3].isNotEmpty
+          ? cols.sublist(3).join(', ')
+          : 'Sao kê CSV';
 
       final rowEventKey = BankNotificationParser.computeSourceEventKey(
         'csv',
         '$userId:$walletId:${cols[0]}:$direction:$amountMinor:$desc',
       );
-      final eventRef =
-          _firestore.collection('users').doc(userId).collection('source_events').doc(rowEventKey);
+      final eventRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('source_events')
+          .doc(rowEventKey);
       final txId = 'csv_${rowEventKey.substring(0, 20)}';
-      final txRef =
-          _firestore.collection('users').doc(userId).collection('transactions').doc(txId);
-      final walletRef =
-          _firestore.collection('users').doc(userId).collection('wallets').doc(walletId);
+      final txRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('transactions')
+          .doc(txId);
+      final walletRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('wallets')
+          .doc(walletId);
 
       await _firestore.runTransaction((tx) async {
         final existing = await tx.get(eventRef);
         if (existing.exists) return;
 
         final wSnap = await tx.get(walletRef);
-        final currentBal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+        final currentBal =
+            (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
         final delta = direction == 'credit' ? amountMinor : -amountMinor;
         final now = DateTime.now();
         final inferred = BankNotificationParser.inferCategory(desc, direction);
@@ -908,12 +1211,13 @@ class NotificationsRemoteDataSource {
           'monthKey': monthKey,
           'sourceKind': 'csv',
           'verification': 'userConfirmed',
-          'crossSourceFingerprint': BankNotificationParser.computeCrossSourceFingerprint(
-            ownerId: userId,
-            direction: direction,
-            amountMinor: amountMinor,
-            occurredAt: parsedDate,
-          ),
+          'crossSourceFingerprint':
+              BankNotificationParser.computeCrossSourceFingerprint(
+                ownerId: userId,
+                direction: direction,
+                amountMinor: amountMinor,
+                occurredAt: parsedDate,
+              ),
           'isVehicleMaintenanceHint': inferred.isVehicleMaintenance,
           'schemaVersion': 1,
           'createdAt': Timestamp.fromDate(now),
@@ -935,14 +1239,11 @@ class NotificationsRemoteDataSource {
     await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
 
     final userDocRef = _firestore.collection('users').doc(userId);
-    await userDocRef.set(
-      {
-        'id': userId,
-        'deletionInProgress': true,
-        'deletionStartedAt': Timestamp.fromDate(DateTime.now()),
-      },
-      SetOptions(merge: true),
-    );
+    await userDocRef.set({
+      'id': userId,
+      'deletionInProgress': true,
+      'deletionStartedAt': Timestamp.fromDate(DateTime.now()),
+    }, SetOptions(merge: true));
 
     final famSnap = await _firestore
         .collection('families')
@@ -964,8 +1265,10 @@ class NotificationsRemoteDataSource {
           .map((e) => e.toString())
           .where((id) => id != userId)
           .toList();
-      final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {})..remove(userId);
-      final names = Map<String, dynamic>.from((d['memberNames'] as Map?) ?? {})..remove(userId);
+      final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {})
+        ..remove(userId);
+      final names = Map<String, dynamic>.from((d['memberNames'] as Map?) ?? {})
+        ..remove(userId);
       await famDoc.reference.update({
         'memberIds': members,
         'memberRoles': roles,
@@ -993,6 +1296,11 @@ class NotificationsRemoteDataSource {
     const allPersonalSubcollections = [
       'wallets',
       'bank_accounts',
+      'bank_connections',
+      'financial_notifications',
+      'devices',
+      'notification_preferences',
+      'merchant_rules',
       'payment_orders',
       'ledger_audits',
       'net_worth_snapshots',
@@ -1041,6 +1349,352 @@ class NotificationsRemoteDataSource {
       await _firebaseAuth.signOut();
     }
   }
+
+  BankConnectionEntity _mapBankConnection(String id, Map<String, dynamic> d) {
+    final bankCode = (d['bankCode'] as String?) ?? 'VCB';
+    final bankName = (d['bankName'] as String?) ?? bankCode;
+    final capMap = d['capabilities'];
+    final cap = capMap is Map<dynamic, dynamic>
+        ? BankIntegrationCapability(
+            bankCode: (capMap['bankCode'] as String?) ?? bankCode,
+            bankName: (capMap['bankName'] as String?) ?? bankName,
+            supportsWebhookCredit:
+                (capMap['supportsWebhookCredit'] as bool?) ?? false,
+            supportsWebhookDebit:
+                (capMap['supportsWebhookDebit'] as bool?) ?? false,
+            supportsApiCredit: (capMap['supportsApiCredit'] as bool?) ?? false,
+            supportsApiDebit: (capMap['supportsApiDebit'] as bool?) ?? false,
+            supportsAndroidCredit:
+                (capMap['supportsAndroidCredit'] as bool?) ?? true,
+            supportsAndroidDebit:
+                (capMap['supportsAndroidDebit'] as bool?) ?? true,
+            supportsVerifiedBalance:
+                (capMap['supportsVerifiedBalance'] as bool?) ?? true,
+            requiredIntegrationType: BankIntegrationRequirement.fromWire(
+              capMap['requiredIntegrationType'] as String?,
+            ),
+            limitations:
+                (capMap['limitations'] as List<dynamic>? ?? const <dynamic>[])
+                    .map((e) => e.toString())
+                    .toList(),
+            lastVerifiedAt: DateTime.utc(2026, 11, 23),
+          )
+        : BankIntegrationCapability.forBankCode(
+            bankCode,
+            fallbackName: bankName,
+          );
+
+    final syncTs = d['lastSyncedAt'];
+    return BankConnectionEntity(
+      id: id,
+      ownerId: (d['ownerId'] as String?) ?? '',
+      provider: (d['provider'] as String?) ?? 'sepay',
+      providerConnectionId: (d['providerConnectionId'] as String?) ?? id,
+      bankCode: bankCode,
+      bankName: bankName,
+      accountMasked: (d['accountMasked'] as String?) ?? '••••',
+      subAccount: (d['subAccount'] as String?) ?? '',
+      linkedWalletId: (d['linkedWalletId'] as String?) ?? 'wallet_bank_default',
+      consentStatus: (d['consentStatus'] as String?) ?? 'granted',
+      status: BankConnectionStatus.fromWire(d['status'] as String?),
+      capabilities: cap,
+      lastSyncedAt: syncTs is Timestamp ? syncTs.toDate() : null,
+      lastError: d['lastError'] as String?,
+    );
+  }
+
+  Stream<List<BankConnectionEntity>> watchBankConnections(String userId) {
+    return _bankConnectionsCol(userId).snapshots().map((snap) {
+      return snap.docs.map((d) => _mapBankConnection(d.id, d.data())).toList();
+    });
+  }
+
+  Future<BankConnectionEntity> linkVerifiedSePayConnection({
+    required String userId,
+    required String bankCode,
+    required String accountNumber,
+    String subAccount = '',
+    required String linkedWalletId,
+    required String sepayApiToken,
+  }) async {
+    final cleanAcc = accountNumber
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .trim();
+    if (cleanAcc.length < 6) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Số tài khoản phải có ít nhất 6 ký tự.',
+      );
+    }
+    if (sepayApiToken.trim().length < 16) {
+      throw const AppException(
+        code: 'OWNERSHIP_PROOF_REQUIRED',
+        message:
+            'Cần cung cấp mã xác thực SePay hợp lệ để xác minh quyền sở hữu tài khoản trên máy chủ (không tự đánh dấu Đã kết nối khi chỉ nhập số tài khoản).',
+      );
+    }
+
+    final resp = await _invokeBackendFunction('verifyAndLinkBankConnection', {
+      'bankCode': bankCode,
+      'accountNumber': cleanAcc,
+      'subAccount': subAccount.trim(),
+      'linkedWalletId': linkedWalletId,
+      'sepayApiToken': sepayApiToken.trim(),
+    });
+
+    if (resp['ok'] != true) {
+      throw AppException(
+        code: 'PERMISSION_DENIED',
+        message:
+            (resp['message'] as String?) ??
+            'Xác minh liên kết ngân hàng thất bại.',
+      );
+    }
+
+    final connId =
+        (resp['connectionId'] as String?) ?? 'conn_${bankCode.toLowerCase()}';
+    final masked =
+        (resp['accountMasked'] as String?) ??
+        '•••• ${cleanAcc.substring(cleanAcc.length - 4)}';
+    final cap = BankIntegrationCapability.forBankCode(bankCode);
+    return BankConnectionEntity(
+      id: connId,
+      ownerId: userId,
+      provider: 'sepay',
+      providerConnectionId: connId,
+      bankCode: cap.bankCode,
+      bankName: cap.bankName,
+      accountMasked: masked,
+      subAccount: subAccount.trim(),
+      linkedWalletId: linkedWalletId,
+      consentStatus: 'granted',
+      status: BankConnectionStatus.connected,
+      capabilities: cap,
+      lastSyncedAt: DateTime.now(),
+    );
+  }
+
+  Future<void> disconnectBankConnection({
+    required String userId,
+    required String connectionId,
+  }) async {
+    try {
+      await _invokeBackendFunction('disconnectBankConnection', {
+        'connectionId': connectionId,
+      });
+    } catch (_) {
+      // Fallback: mark user-scoped connection revoked directly (permitted by firestore.rules)
+      await _bankConnectionsCol(userId).doc(connectionId).set({
+        'ownerId': userId,
+        'status': 'disconnected',
+        'consentStatus': 'revoked',
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
+    }
+  }
+
+  Future<int> reconcileBankConnection({
+    required String userId,
+    required String connectionId,
+    required String sepayApiToken,
+  }) async {
+    final resp = await _invokeBackendFunction('reconcileBankConnectionViaApi', {
+      'connectionId': connectionId,
+      'sepayApiToken': sepayApiToken.trim(),
+    });
+    return (resp['processedCount'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Phase 4 Migration (Section 14): Purges any legacy `users/{uid}/consents/sepay_api` plaintext token
+  /// without logging or exposing the token.
+  Future<bool> migrateLegacySePayConsentIfPresent(String userId) async {
+    final legacyRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('consents')
+        .doc('sepay_api');
+    final snap = await legacyRef.get();
+    if (!snap.exists) return false;
+
+    final data = snap.data() ?? const <String, dynamic>{};
+    final legacyToken = data['apiToken'] as String?;
+    if (legacyToken != null && legacyToken.trim().isNotEmpty) {
+      await NativeSecureVaultBridge.instance.writeSecret(
+        key: 'migrated_sepay_token_backup_$userId',
+        value: legacyToken.trim(),
+      );
+    }
+    try {
+      await _invokeBackendFunction(
+        'migrateLegacySePayToken',
+        const <String, dynamic>{},
+      );
+    } catch (_) {}
+    await legacyRef.delete();
+    return true;
+  }
+
+  FinancialNotificationEntity _mapFinancialNotif(
+    String id,
+    Map<String, dynamic> d,
+  ) {
+    final occRaw = d['occurredAt'];
+    return FinancialNotificationEntity(
+      id: id,
+      ownerId: (d['ownerId'] as String?) ?? '',
+      transactionId: (d['transactionId'] as String?) ?? '',
+      walletId: (d['walletId'] as String?) ?? '',
+      connectionId: (d['connectionId'] as String?) ?? '',
+      direction: (d['direction'] as String?) ?? 'credit',
+      amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
+      bankCode: (d['bankCode'] as String?) ?? 'BANK',
+      bankName: (d['bankName'] as String?) ?? 'Ngân hàng',
+      accountMasked: (d['accountMasked'] as String?) ?? '••••',
+      title: (d['title'] as String?) ?? 'Biến động ngân hàng',
+      body: (d['body'] as String?) ?? '',
+      content: (d['content'] as String?) ?? '',
+      verificationStatus: (d['verificationStatus'] as String?) ?? 'PROVISIONAL',
+      sourceKind: (d['sourceKind'] as String?) ?? 'androidNotification',
+      isRead: (d['isRead'] as bool?) ?? false,
+      isTestNotification: (d['isTestNotification'] as bool?) ?? false,
+      occurredAt: occRaw is Timestamp ? occRaw.toDate() : DateTime.now(),
+    );
+  }
+
+  Stream<List<FinancialNotificationEntity>> watchFinancialNotifications(
+    String userId,
+  ) {
+    return _financialNotifsCol(userId).snapshots().map((snap) {
+      final items =
+          snap.docs.map((d) => _mapFinancialNotif(d.id, d.data())).toList()
+            ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+      return items;
+    });
+  }
+
+  Future<FinancialNotificationEntity> sendTestBankingNotification(
+    String userId,
+  ) async {
+    final now = DateTime.now();
+    final id = 'test_notif_${now.millisecondsSinceEpoch}';
+    final entity = FinancialNotificationEntity(
+      id: id,
+      ownerId: userId,
+      transactionId: '',
+      walletId: '',
+      direction: 'credit',
+      amountMinor: 0,
+      bankCode: 'TEST',
+      bankName: 'Kiểm thử hệ thống',
+      accountMasked: '•••• 0000',
+      title: '🧪 [KIỂM THỬ] Thông báo ngân hàng Life OS',
+      body:
+          'Đây là thông báo kiểm thử hiển thị — KHÔNG tạo giao dịch tài chính thật trong Sổ cái.',
+      content: 'Thông báo kiểm thử (không tạo giao dịch thật)',
+      verificationStatus: 'VERIFIED',
+      sourceKind: 'test',
+      isRead: false,
+      isTestNotification: true,
+      occurredAt: now,
+    );
+    await _financialNotifsCol(userId).doc(id).set({
+      'id': id,
+      'ownerId': userId,
+      'transactionId': '',
+      'walletId': '',
+      'connectionId': '',
+      'direction': 'credit',
+      'amountMinor': 0,
+      'bankCode': 'TEST',
+      'bankName': 'Kiểm thử hệ thống',
+      'accountMasked': '•••• 0000',
+      'title': entity.title,
+      'body': entity.body,
+      'content': entity.content,
+      'verificationStatus': 'VERIFIED',
+      'sourceKind': 'test',
+      'isRead': false,
+      'isTestNotification': true,
+      'occurredAt': Timestamp.fromDate(now),
+      'createdAt': Timestamp.fromDate(now),
+    });
+    return entity;
+  }
+
+  Stream<BankingNotificationPreferencesEntity>
+  watchBankingNotificationPreferences(String userId) {
+    return _notifPrefsRef(userId).snapshots().map((snap) {
+      if (!snap.exists) {
+        return BankingNotificationPreferencesEntity(ownerId: userId);
+      }
+      final d = snap.data() ?? const <String, dynamic>{};
+      return BankingNotificationPreferencesEntity(
+        ownerId: userId,
+        notifyCredit: (d['notifyCredit'] as bool?) ?? true,
+        notifyDebit: (d['notifyDebit'] as bool?) ?? true,
+        minAmountMinor: (d['minAmountMinor'] as num?)?.toInt() ?? 0,
+        hideAmountOnLockscreen: (d['hideAmountOnLockscreen'] as bool?) ?? true,
+        hideCounterpartyAndContent:
+            (d['hideCounterpartyAndContent'] as bool?) ?? false,
+        soundEnabled: (d['soundEnabled'] as bool?) ?? true,
+        mutedConnectionIds:
+            (d['mutedConnectionIds'] as List<dynamic>? ?? const <dynamic>[])
+                .map((e) => e.toString())
+                .toList(),
+        notifyUnverified: (d['notifyUnverified'] as bool?) ?? true,
+      );
+    });
+  }
+
+  Future<void> updateBankingNotificationPreferences(
+    BankingNotificationPreferencesEntity prefs,
+  ) async {
+    await _notifPrefsRef(prefs.ownerId).set({
+      'ownerId': prefs.ownerId,
+      'notifyCredit': prefs.notifyCredit,
+      'notifyDebit': prefs.notifyDebit,
+      'minAmountMinor': prefs.minAmountMinor,
+      'hideAmountOnLockscreen': prefs.hideAmountOnLockscreen,
+      'hideCounterpartyAndContent': prefs.hideCounterpartyAndContent,
+      'soundEnabled': prefs.soundEnabled,
+      'mutedConnectionIds': prefs.mutedConnectionIds,
+      'notifyUnverified': prefs.notifyUnverified,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    }, SetOptions(merge: true));
+  }
+
+  Stream<List<MerchantCategoryRuleEntity>> watchMerchantCategoryRules(
+    String userId,
+  ) {
+    return _merchantRulesCol(userId).snapshots().map((snap) {
+      return snap.docs.map((d) {
+        final m = d.data();
+        return MerchantCategoryRuleEntity(
+          id: d.id,
+          keyword: (m['keyword'] as String?) ?? '',
+          categoryName: (m['categoryName'] as String?) ?? 'Chi tiêu khác',
+        );
+      }).toList();
+    });
+  }
+
+  Future<void> saveMerchantCategoryRule({
+    required String userId,
+    required String keyword,
+    required String categoryName,
+  }) async {
+    final cleanKw = keyword.trim();
+    if (cleanKw.isEmpty) return;
+    final id =
+        'rule_${cleanKw.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+    await _merchantRulesCol(userId).doc(id).set({
+      'id': id,
+      'ownerId': userId,
+      'keyword': cleanKw,
+      'categoryName': categoryName.trim(),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+  }
 }
 
 class NotificationsRepositoryImpl implements NotificationsRepository {
@@ -1048,15 +1702,22 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   const NotificationsRepositoryImpl(this._remoteDataSource);
 
   @override
-  Stream<Result<SourceConsentEntity>> watchAndroidNotificationConsent(String userId) {
+  Stream<Result<SourceConsentEntity>> watchAndroidNotificationConsent(
+    String userId,
+  ) {
     return _remoteDataSource
         .watchConsent(userId)
         .map<Result<SourceConsentEntity>>((c) => Success(c))
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object e, StackTrace _, EventSink<Result<SourceConsentEntity>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<SourceConsentEntity>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -1121,6 +1782,9 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
     required String content,
     required DateTime occurredAt,
     String? referenceCode,
+    int? accumulatedBalanceMinor,
+    String? bankCode,
+    String? accountMasked,
   }) async {
     try {
       final res = await _remoteDataSource.ingestVerifiedBankFeedEvent(
@@ -1132,6 +1796,9 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
         content: content,
         occurredAt: occurredAt,
         referenceCode: referenceCode,
+        accumulatedBalanceMinor: accumulatedBalanceMinor,
+        bankCode: bankCode,
+        accountMasked: accountMasked,
       );
       return Success(res);
     } catch (e) {
@@ -1140,16 +1807,216 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   }
 
   @override
-  Stream<Result<List<LinkedBankAccountEntity>>> watchLinkedBankAccounts(String userId) {
+  Stream<Result<List<BankConnectionEntity>>> watchBankConnections(
+    String userId,
+  ) {
+    return _remoteDataSource
+        .watchBankConnections(userId)
+        .map<Result<List<BankConnectionEntity>>>((list) => Success(list))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<BankConnectionEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
+          ),
+        );
+  }
+
+  @override
+  Future<Result<BankConnectionEntity>> linkVerifiedSePayConnection({
+    required String userId,
+    required String bankCode,
+    required String accountNumber,
+    String subAccount = '',
+    required String linkedWalletId,
+    required String sepayApiToken,
+  }) async {
+    try {
+      final conn = await _remoteDataSource.linkVerifiedSePayConnection(
+        userId: userId,
+        bankCode: bankCode,
+        accountNumber: accountNumber,
+        subAccount: subAccount,
+        linkedWalletId: linkedWalletId,
+        sepayApiToken: sepayApiToken,
+      );
+      return Success(conn);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> disconnectBankConnection({
+    required String userId,
+    required String connectionId,
+  }) async {
+    try {
+      await _remoteDataSource.disconnectBankConnection(
+        userId: userId,
+        connectionId: connectionId,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<int>> reconcileBankConnection({
+    required String userId,
+    required String connectionId,
+    required String sepayApiToken,
+  }) async {
+    try {
+      final count = await _remoteDataSource.reconcileBankConnection(
+        userId: userId,
+        connectionId: connectionId,
+        sepayApiToken: sepayApiToken,
+      );
+      return Success(count);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<bool>> migrateLegacySePayConsentIfPresent(String userId) async {
+    try {
+      final migrated = await _remoteDataSource
+          .migrateLegacySePayConsentIfPresent(userId);
+      return Success(migrated);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Stream<Result<List<FinancialNotificationEntity>>> watchFinancialNotifications(
+    String userId,
+  ) {
+    return _remoteDataSource
+        .watchFinancialNotifications(userId)
+        .map<Result<List<FinancialNotificationEntity>>>((list) => Success(list))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<FinancialNotificationEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
+          ),
+        );
+  }
+
+  @override
+  Future<Result<FinancialNotificationEntity>> sendTestBankingNotification(
+    String userId,
+  ) async {
+    try {
+      final notif = await _remoteDataSource.sendTestBankingNotification(userId);
+      return Success(notif);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Stream<Result<BankingNotificationPreferencesEntity>>
+  watchBankingNotificationPreferences(String userId) {
+    return _remoteDataSource
+        .watchBankingNotificationPreferences(userId)
+        .map<Result<BankingNotificationPreferencesEntity>>((p) => Success(p))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<BankingNotificationPreferencesEntity>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
+          ),
+        );
+  }
+
+  @override
+  Future<Result<void>> updateBankingNotificationPreferences(
+    BankingNotificationPreferencesEntity prefs,
+  ) async {
+    try {
+      await _remoteDataSource.updateBankingNotificationPreferences(prefs);
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Stream<Result<List<MerchantCategoryRuleEntity>>> watchMerchantCategoryRules(
+    String userId,
+  ) {
+    return _remoteDataSource
+        .watchMerchantCategoryRules(userId)
+        .map<Result<List<MerchantCategoryRuleEntity>>>((list) => Success(list))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<MerchantCategoryRuleEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
+          ),
+        );
+  }
+
+  @override
+  Future<Result<void>> saveMerchantCategoryRule({
+    required String userId,
+    required String keyword,
+    required String categoryName,
+  }) async {
+    try {
+      await _remoteDataSource.saveMerchantCategoryRule(
+        userId: userId,
+        keyword: keyword,
+        categoryName: categoryName,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Stream<Result<List<LinkedBankAccountEntity>>> watchLinkedBankAccounts(
+    String userId,
+  ) {
     return _remoteDataSource
         .watchLinkedBankAccounts(userId)
         .map<Result<List<LinkedBankAccountEntity>>>((list) => Success(list))
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<LinkedBankAccountEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<LinkedBankAccountEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }
@@ -1188,7 +2055,10 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
     required String accountId,
   }) async {
     try {
-      await _remoteDataSource.deleteLinkedBankAccount(userId: userId, accountId: accountId);
+      await _remoteDataSource.deleteLinkedBankAccount(
+        userId: userId,
+        accountId: accountId,
+      );
       return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));
@@ -1203,9 +2073,13 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
         .transform(
           StreamTransformer.fromHandlers(
             handleError:
-                (Object e, StackTrace _, EventSink<Result<List<PaymentOrderEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(e)));
-            },
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<PaymentOrderEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
           ),
         );
   }

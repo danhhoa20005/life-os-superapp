@@ -19,9 +19,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
         )
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object error, StackTrace _, EventSink<Result<List<WalletEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(error)));
-            },
+            handleError:
+                (
+                  Object error,
+                  StackTrace _,
+                  EventSink<Result<List<WalletEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(error)));
+                },
           ),
         );
   }
@@ -35,9 +40,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
         )
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (Object error, StackTrace _, EventSink<Result<List<CategoryEntity>>> sink) {
-              sink.add(Err(ErrorMapper.map(error)));
-            },
+            handleError:
+                (
+                  Object error,
+                  StackTrace _,
+                  EventSink<Result<List<CategoryEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(error)));
+                },
           ),
         );
   }
@@ -55,13 +65,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
         )
         .transform(
           StreamTransformer.fromHandlers(
-            handleError: (
-              Object error,
-              StackTrace _,
-              EventSink<Result<List<TransactionEntity>>> sink,
-            ) {
-              sink.add(Err(ErrorMapper.map(error)));
-            },
+            handleError:
+                (
+                  Object error,
+                  StackTrace _,
+                  EventSink<Result<List<TransactionEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(error)));
+                },
           ),
         );
   }

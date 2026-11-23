@@ -37,7 +37,11 @@ class AppUpdateBanner extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0B3B2E), Color(0xFF0E6248), Color(0xFF0A4D68)],
+                colors: [
+                  Color(0xFF0B3B2E),
+                  Color(0xFF0E6248),
+                  Color(0xFF0A4D68),
+                ],
               ),
               boxShadow: [
                 BoxShadow(
@@ -82,7 +86,9 @@ class AppUpdateBanner extends StatelessWidget {
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.82),
                               fontSize: 12,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ],
@@ -91,9 +97,9 @@ class AppUpdateBanner extends StatelessWidget {
                     if (!state.isForceUpdate && !isDownloading)
                       IconButton(
                         tooltip: 'Tạm ẩn thông báo cập nhật',
-                        onPressed: () => context
-                            .read<AppUpdateBloc>()
-                            .add(const AppUpdateBannerDismissed()),
+                        onPressed: () => context.read<AppUpdateBloc>().add(
+                          const AppUpdateBannerDismissed(),
+                        ),
                         icon: Icon(
                           Icons.close_rounded,
                           color: Colors.white.withValues(alpha: 0.78),
@@ -103,7 +109,9 @@ class AppUpdateBanner extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                ...manifest.changelog.take(3).map(
+                ...manifest.changelog
+                    .take(3)
+                    .map(
                       (line) => Padding(
                         padding: const EdgeInsets.only(bottom: 3),
                         child: Row(
@@ -139,7 +147,9 @@ class AppUpdateBanner extends StatelessWidget {
                           : null,
                       minHeight: 7,
                       backgroundColor: Colors.white.withValues(alpha: 0.18),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF86EFAC)),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF86EFAC),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -164,10 +174,13 @@ class AppUpdateBanner extends StatelessWidget {
                           backgroundColor: const Color(0xFF86EFAC),
                           foregroundColor: const Color(0xFF052E16),
                         ),
-                        onPressed: () => context
-                            .read<AppUpdateBloc>()
-                            .add(const AppUpdateDownloadRequested()),
-                        icon: const Icon(Icons.download_for_offline_rounded, size: 18),
+                        onPressed: () => context.read<AppUpdateBloc>().add(
+                          const AppUpdateDownloadRequested(),
+                        ),
+                        icon: const Icon(
+                          Icons.download_for_offline_rounded,
+                          size: 18,
+                        ),
                         label: Text(
                           state.status == AppUpdateStatus.permissionRequired ||
                                   state.status == AppUpdateStatus.readyToInstall
@@ -179,11 +192,15 @@ class AppUpdateBanner extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.14),
                           foregroundColor: Colors.white,
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
                         ),
-                        onPressed: () => context
-                            .read<AppUpdateBloc>()
-                            .add(AppUpdateOpenReleasePageRequested(manifest.htmlReleaseUrl)),
+                        onPressed: () => context.read<AppUpdateBloc>().add(
+                          AppUpdateOpenReleasePageRequested(
+                            manifest.htmlReleaseUrl,
+                          ),
+                        ),
                         icon: const Icon(Icons.open_in_new_rounded, size: 16),
                         label: const Text('Xem trên GitHub'),
                       ),
@@ -208,14 +225,17 @@ class AppUpdateSettingsCard extends StatelessWidget {
     final c = TammySemanticColors.of(context);
 
     return BlocConsumer<AppUpdateBloc, AppUpdateState>(
-      listenWhen: (p, n) => p.infoMessage != n.infoMessage || p.failure != n.failure,
+      listenWhen: (p, n) =>
+          p.infoMessage != n.infoMessage || p.failure != n.failure,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.infoMessage != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('✓ ${state.infoMessage!}')),
           );
         }
@@ -319,19 +339,22 @@ class AppUpdateSettingsCard extends StatelessWidget {
                         key: const Key('profile_download_update_button'),
                         onPressed: isDownloading
                             ? null
-                            : () => context
-                                .read<AppUpdateBloc>()
-                                .add(const AppUpdateDownloadRequested()),
-                        icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                            : () => context.read<AppUpdateBloc>().add(
+                                const AppUpdateDownloadRequested(),
+                              ),
+                        icon: const Icon(
+                          Icons.system_update_alt_rounded,
+                          size: 18,
+                        ),
                         label: const Text('Tải & Cài đặt bản mới'),
                       ),
                     OutlinedButton.icon(
                       key: const Key('check_app_update_button'),
                       onPressed: isChecking || isDownloading
                           ? null
-                          : () => context
-                              .read<AppUpdateBloc>()
-                              .add(const AppUpdateCheckRequested(silent: false)),
+                          : () => context.read<AppUpdateBloc>().add(
+                              const AppUpdateCheckRequested(silent: false),
+                            ),
                       icon: isChecking
                           ? const SizedBox(
                               width: 15,
@@ -343,10 +366,10 @@ class AppUpdateSettingsCard extends StatelessWidget {
                     ),
                     TextButton.icon(
                       onPressed: () => context.read<AppUpdateBloc>().add(
-                            const AppUpdateOpenReleasePageRequested(
-                              'https://github.com/danhhoa20005/life-os-superapp/releases',
-                            ),
-                          ),
+                        const AppUpdateOpenReleasePageRequested(
+                          'https://github.com/danhhoa20005/life-os-superapp/releases',
+                        ),
+                      ),
                       icon: const Icon(Icons.open_in_new_rounded, size: 17),
                       label: const Text('GitHub Releases'),
                     ),

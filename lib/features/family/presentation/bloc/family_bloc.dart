@@ -20,7 +20,10 @@ final class FamilySubscriptionRequested extends FamilyEvent {
   final String userId;
   final String? preferredFamilyId;
 
-  const FamilySubscriptionRequested({required this.userId, this.preferredFamilyId});
+  const FamilySubscriptionRequested({
+    required this.userId,
+    this.preferredFamilyId,
+  });
 
   @override
   List<Object?> get props => [userId, preferredFamilyId];
@@ -107,7 +110,13 @@ final class ShoppingItemAdded extends FamilyEvent {
   });
 
   @override
-  List<Object?> get props => [familyId, userName, title, quantityLabel, estimatedPriceMinor];
+  List<Object?> get props => [
+    familyId,
+    userName,
+    title,
+    quantityLabel,
+    estimatedPriceMinor,
+  ];
 }
 
 final class ShoppingItemToggled extends FamilyEvent {
@@ -205,12 +214,18 @@ final class FamilyState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       families: families != null ? List.unmodifiable(families) : this.families,
-      selectedFamilyId:
-          clearSelectedFamily ? null : (selectedFamilyId ?? this.selectedFamilyId),
-      shoppingItems:
-          shoppingItems != null ? List.unmodifiable(shoppingItems) : this.shoppingItems,
-      sharedBills: sharedBills != null ? List.unmodifiable(sharedBills) : this.sharedBills,
-      settlements: settlements != null ? List.unmodifiable(settlements) : this.settlements,
+      selectedFamilyId: clearSelectedFamily
+          ? null
+          : (selectedFamilyId ?? this.selectedFamilyId),
+      shoppingItems: shoppingItems != null
+          ? List.unmodifiable(shoppingItems)
+          : this.shoppingItems,
+      sharedBills: sharedBills != null
+          ? List.unmodifiable(sharedBills)
+          : this.sharedBills,
+      settlements: settlements != null
+          ? List.unmodifiable(settlements)
+          : this.settlements,
       latestInviteCode: latestInviteCode ?? this.latestInviteCode,
       failure: clearFailure ? null : (failure ?? this.failure),
       message: clearMessage ? null : (message ?? this.message),
@@ -219,17 +234,17 @@ final class FamilyState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        isSubmitting,
-        families,
-        selectedFamilyId,
-        shoppingItems,
-        sharedBills,
-        settlements,
-        latestInviteCode,
-        failure,
-        message,
-      ];
+    isLoading,
+    isSubmitting,
+    families,
+    selectedFamilyId,
+    shoppingItems,
+    sharedBills,
+    settlements,
+    latestInviteCode,
+    failure,
+    message,
+  ];
 }
 
 class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
@@ -245,16 +260,22 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     required JoinFamilyByCodeUseCase joinFamily,
     CreateSharedBillSplitUseCase? createSharedBillSplit,
     RecordDebtSettlementUseCase? recordDebtSettlement,
-  })  : _repository = repository,
-        _createFamily = createFamily,
-        _joinFamily = joinFamily,
-        _createSharedBillSplit =
-            createSharedBillSplit ?? CreateSharedBillSplitUseCase(repository),
-        _recordDebtSettlement =
-            recordDebtSettlement ?? RecordDebtSettlementUseCase(repository),
-        super(const FamilyState()) {
-    on<FamilySubscriptionRequested>(_onSubscriptionRequested, transformer: restartable());
-    on<FamilyShoppingWatchRequested>(_onShoppingWatchRequested, transformer: restartable());
+  }) : _repository = repository,
+       _createFamily = createFamily,
+       _joinFamily = joinFamily,
+       _createSharedBillSplit =
+           createSharedBillSplit ?? CreateSharedBillSplitUseCase(repository),
+       _recordDebtSettlement =
+           recordDebtSettlement ?? RecordDebtSettlementUseCase(repository),
+       super(const FamilyState()) {
+    on<FamilySubscriptionRequested>(
+      _onSubscriptionRequested,
+      transformer: restartable(),
+    );
+    on<FamilyShoppingWatchRequested>(
+      _onShoppingWatchRequested,
+      transformer: restartable(),
+    );
     on<FamilyCreateSubmitted>(_onCreateFamily, transformer: sequential());
     on<FamilyInviteGenerated>(_onGenerateInvite, transformer: droppable());
     on<FamilyJoinByCodeSubmitted>(_onJoinFamily, transformer: sequential());
@@ -276,7 +297,8 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
         return res.fold(
           (failure) => state.copyWith(isLoading: false, failure: failure),
           (list) {
-            final chosenId = event.preferredFamilyId ??
+            final chosenId =
+                event.preferredFamilyId ??
                 state.selectedFamilyId ??
                 (list.isNotEmpty ? list.first.id : null);
             if (chosenId != null && chosenId != state.selectedFamilyId) {
@@ -303,32 +325,37 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     Emitter<FamilyState> emit,
   ) async {
     emit(state.copyWith(selectedFamilyId: event.familyId));
-    final combined = StreamCombiner.combine3<
-        Result<List<ShoppingItemEntity>>,
-        Result<List<SharedBillSplitEntity>>,
-        Result<List<DebtSettlementEntity>>,
-        FamilyState>(
-      _repository.watchShoppingItems(event.familyId),
-      _repository.watchSharedBills(event.familyId),
-      _repository.watchSettlements(event.familyId),
-      (shopRes, billsRes, settleRes) {
-        if (shopRes is Err<List<ShoppingItemEntity>>) {
-          return state.copyWith(failure: shopRes.failure);
-        }
-        if (billsRes is Err<List<SharedBillSplitEntity>>) {
-          return state.copyWith(failure: billsRes.failure);
-        }
-        if (settleRes is Err<List<DebtSettlementEntity>>) {
-          return state.copyWith(failure: settleRes.failure);
-        }
-        return state.copyWith(
-          shoppingItems: (shopRes as Success<List<ShoppingItemEntity>>).value,
-          sharedBills: (billsRes as Success<List<SharedBillSplitEntity>>).value,
-          settlements: (settleRes as Success<List<DebtSettlementEntity>>).value,
-          clearFailure: true,
+    final combined =
+        StreamCombiner.combine3<
+          Result<List<ShoppingItemEntity>>,
+          Result<List<SharedBillSplitEntity>>,
+          Result<List<DebtSettlementEntity>>,
+          FamilyState
+        >(
+          _repository.watchShoppingItems(event.familyId),
+          _repository.watchSharedBills(event.familyId),
+          _repository.watchSettlements(event.familyId),
+          (shopRes, billsRes, settleRes) {
+            if (shopRes is Err<List<ShoppingItemEntity>>) {
+              return state.copyWith(failure: shopRes.failure);
+            }
+            if (billsRes is Err<List<SharedBillSplitEntity>>) {
+              return state.copyWith(failure: billsRes.failure);
+            }
+            if (settleRes is Err<List<DebtSettlementEntity>>) {
+              return state.copyWith(failure: settleRes.failure);
+            }
+            return state.copyWith(
+              shoppingItems:
+                  (shopRes as Success<List<ShoppingItemEntity>>).value,
+              sharedBills:
+                  (billsRes as Success<List<SharedBillSplitEntity>>).value,
+              settlements:
+                  (settleRes as Success<List<DebtSettlementEntity>>).value,
+              clearFailure: true,
+            );
+          },
         );
-      },
-    );
 
     await emit.forEach<FamilyState>(combined, onData: (next) => next);
   }
@@ -337,7 +364,13 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     FamilyCreateSubmitted event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _createFamily(
       CreateFamilyParams(
         userId: event.userId,
@@ -346,26 +379,31 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
         spaceType: event.spaceType,
       ),
     );
-    res.fold(
-      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
-      (fam) {
-        add(FamilyShoppingWatchRequested(fam.id));
-        emit(
-          state.copyWith(
-            isSubmitting: false,
-            selectedFamilyId: fam.id,
-            message: 'Đã khởi tạo ${fam.spaceType.displayLabel} "${fam.name}".',
-          ),
-        );
-      },
-    );
+    res.fold((f) => emit(state.copyWith(isSubmitting: false, failure: f)), (
+      fam,
+    ) {
+      add(FamilyShoppingWatchRequested(fam.id));
+      emit(
+        state.copyWith(
+          isSubmitting: false,
+          selectedFamilyId: fam.id,
+          message: 'Đã khởi tạo ${fam.spaceType.displayLabel} "${fam.name}".',
+        ),
+      );
+    });
   }
 
   Future<void> _onGenerateInvite(
     FamilyInviteGenerated event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _repository.createInviteCode(
       userId: event.userId,
       familyId: event.familyId,
@@ -387,7 +425,13 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     FamilyJoinByCodeSubmitted event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _joinFamily(
       JoinFamilyParams(
         userId: event.userId,
@@ -395,26 +439,31 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
         inviteCode: event.inviteCode,
       ),
     );
-    res.fold(
-      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
-      (fam) {
-        add(FamilyShoppingWatchRequested(fam.id));
-        emit(
-          state.copyWith(
-            isSubmitting: false,
-            selectedFamilyId: fam.id,
-            message: 'Đã tham gia "${fam.name}".',
-          ),
-        );
-      },
-    );
+    res.fold((f) => emit(state.copyWith(isSubmitting: false, failure: f)), (
+      fam,
+    ) {
+      add(FamilyShoppingWatchRequested(fam.id));
+      emit(
+        state.copyWith(
+          isSubmitting: false,
+          selectedFamilyId: fam.id,
+          message: 'Đã tham gia "${fam.name}".',
+        ),
+      );
+    });
   }
 
   Future<void> _onLeaveFamily(
     FamilyLeaveConfirmed event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _repository.leaveFamily(
       userId: event.userId,
       familyId: event.familyId,
@@ -441,7 +490,9 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     if (event.title.trim().isEmpty) {
       emit(
         state.copyWith(
-          failure: const ValidationFailure(message: 'Vui lòng nhập tên món cần mua.'),
+          failure: const ValidationFailure(
+            message: 'Vui lòng nhập tên món cần mua.',
+          ),
         ),
       );
       return;
@@ -450,8 +501,12 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
       familyId: event.familyId,
       userName: event.userName,
       title: event.title.trim(),
-      quantityLabel: event.quantityLabel.trim().isEmpty ? '1' : event.quantityLabel.trim(),
-      estimatedPriceMinor: event.estimatedPriceMinor < 0 ? 0 : event.estimatedPriceMinor,
+      quantityLabel: event.quantityLabel.trim().isEmpty
+          ? '1'
+          : event.quantityLabel.trim(),
+      estimatedPriceMinor: event.estimatedPriceMinor < 0
+          ? 0
+          : event.estimatedPriceMinor,
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
@@ -475,14 +530,21 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     SharedBillSplitCreated event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _createSharedBillSplit(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
       (bill) => emit(
         state.copyWith(
           isSubmitting: false,
-          message: 'Đã chia khoản "${bill.title}" (${bill.splitMethod.displayLabel}).',
+          message:
+              'Đã chia khoản "${bill.title}" (${bill.splitMethod.displayLabel}).',
         ),
       ),
     );
@@ -492,7 +554,13 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     DebtSettlementRecorded event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(isSubmitting: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _recordDebtSettlement(event.params);
     res.fold(
       (f) => emit(state.copyWith(isSubmitting: false, failure: f)),

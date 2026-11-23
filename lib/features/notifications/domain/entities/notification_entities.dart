@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+export 'bank_capability_and_connection_entities.dart';
+
 class SourceConsentEntity extends Equatable {
   final String sourceId;
   final String ownerId;
@@ -23,15 +25,15 @@ class SourceConsentEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        sourceId,
-        ownerId,
-        enabled,
-        autoConfirmSignals,
-        voiceSoundboxEnabled,
-        syncObservedBalance,
-        allowedPackages,
-        updatedAt,
-      ];
+    sourceId,
+    ownerId,
+    enabled,
+    autoConfirmSignals,
+    voiceSoundboxEnabled,
+    syncObservedBalance,
+    allowedPackages,
+    updatedAt,
+  ];
 }
 
 /// User's own receiving bank account configured directly inside LifeOS for VietQR generation
@@ -75,17 +77,17 @@ class LinkedBankAccountEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        walletId,
-        bankBin,
-        bankCode,
-        bankName,
-        accountNumber,
-        accountHolderName,
-        isDefault,
-        createdAt,
-      ];
+    id,
+    ownerId,
+    walletId,
+    bankBin,
+    bankCode,
+    bankName,
+    accountNumber,
+    accountHolderName,
+    isDefault,
+    createdAt,
+  ];
 }
 
 enum PaymentOrderStatus {
@@ -94,10 +96,10 @@ enum PaymentOrderStatus {
   cancelled;
 
   String get displayLabel => switch (this) {
-        PaymentOrderStatus.pending => 'Chờ nhận tiền',
-        PaymentOrderStatus.paid => 'Đã nhận đủ',
-        PaymentOrderStatus.cancelled => 'Đã hủy',
-      };
+    PaymentOrderStatus.pending => 'Chờ nhận tiền',
+    PaymentOrderStatus.paid => 'Đã nhận đủ',
+    PaymentOrderStatus.cancelled => 'Đã hủy',
+  };
 }
 
 /// Native In-App Dynamic VietQR Payment Collection Order ("Mã QR Thu Tiền Tự Động").
@@ -145,24 +147,24 @@ class PaymentOrderEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        ownerId,
-        walletId,
-        bankBin,
-        bankCode,
-        bankName,
-        accountNumber,
-        accountHolderName,
-        amountMinor,
-        receivedAmountMinor,
-        paymentCode,
-        description,
-        emvQrPayload,
-        status,
-        matchedTransactionId,
-        createdAt,
-        paidAt,
-      ];
+    id,
+    ownerId,
+    walletId,
+    bankBin,
+    bankCode,
+    bankName,
+    accountNumber,
+    accountHolderName,
+    amountMinor,
+    receivedAmountMinor,
+    paymentCode,
+    description,
+    emvQrPayload,
+    status,
+    matchedTransactionId,
+    createdAt,
+    paidAt,
+  ];
 }
 
 enum IngestionOutcomeKind {
@@ -192,10 +194,10 @@ class IngestionOutcome extends Equatable {
 
   @override
   List<Object?> get props => [
-        kind,
-        transactionId,
-        matchedOrderId,
-        matchedPaymentCode,
-        message,
-      ];
+    kind,
+    transactionId,
+    matchedOrderId,
+    matchedPaymentCode,
+    message,
+  ];
 }

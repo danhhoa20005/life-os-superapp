@@ -59,7 +59,10 @@ final class UpdateOdometerParams {
   final VehicleEntity vehicle;
   final int newOdometerKm;
 
-  const UpdateOdometerParams({required this.vehicle, required this.newOdometerKm});
+  const UpdateOdometerParams({
+    required this.vehicle,
+    required this.newOdometerKm,
+  });
 }
 
 class UpdateOdometerUseCase implements UseCase<void, UpdateOdometerParams> {
@@ -71,7 +74,8 @@ class UpdateOdometerUseCase implements UseCase<void, UpdateOdometerParams> {
     if (params.newOdometerKm < params.vehicle.currentOdometerKm) {
       return const Err(
         ValidationFailure(
-          message: 'Số Odometer mới không được nhỏ hơn số km hiện tại của phương tiện.',
+          message:
+              'Số Odometer mới không được nhỏ hơn số km hiện tại của phương tiện.',
         ),
       );
     }

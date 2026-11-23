@@ -27,11 +27,13 @@ class FamilyDocumentsPage extends StatelessWidget {
       listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('⚠ ${state.failure!.message}')),
           );
         } else if (state.message != null) {
-          LifeOsTopToast.fromSnackBar(context, 
+          LifeOsTopToast.fromSnackBar(
+            context,
             SnackBar(content: Text('✓ ${state.message!}')),
           );
         }
@@ -61,7 +63,9 @@ class FamilyDocumentsPage extends StatelessWidget {
                       final visible = state.visibleDocuments;
                       return Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                          constraints: const BoxConstraints(
+                            maxWidth: AppSpacing.maxContentWidth,
+                          ),
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(
                               AppSpacing.md,
@@ -74,7 +78,8 @@ class FamilyDocumentsPage extends StatelessWidget {
                               TextField(
                                 key: const Key('documents_search_field'),
                                 decoration: InputDecoration(
-                                  hintText: 'Tìm tài liệu, mã hợp đồng, biển số...',
+                                  hintText:
+                                      'Tìm tài liệu, mã hợp đồng, biển số...',
                                   prefixIcon: const Icon(Icons.search_rounded),
                                   fillColor: c.surface,
                                 ),
@@ -87,19 +92,27 @@ class FamilyDocumentsPage extends StatelessWidget {
                               // 4 Canonical Folder Cards (matching Sheet 1 & Sheet 2 Screen 19)
                               ...DocumentFolderCategory.values.map((folder) {
                                 final count = state.countForFolder(folder);
-                                final isSelected = state.selectedFolder == folder;
+                                final isSelected =
+                                    state.selectedFolder == folder;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: LifeOsSoftCard(
-                                    backgroundColor: isSelected ? c.primarySubtle : c.surface,
-                                    borderColor: isSelected ? c.primary : c.separator,
+                                    backgroundColor: isSelected
+                                        ? c.primarySubtle
+                                        : c.surface,
+                                    borderColor: isSelected
+                                        ? c.primary
+                                        : c.separator,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 14,
                                     ),
-                                    onTap: () => context
-                                        .read<DocumentVaultBloc>()
-                                        .add(DocumentVaultFolderFilterChanged(folder)),
+                                    onTap: () =>
+                                        context.read<DocumentVaultBloc>().add(
+                                          DocumentVaultFolderFilterChanged(
+                                            folder,
+                                          ),
+                                        ),
                                     child: Row(
                                       children: [
                                         const LifeOsIconSquircle(
@@ -111,7 +124,8 @@ class FamilyDocumentsPage extends StatelessWidget {
                                         const SizedBox(width: 14),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 folder.displayTitle,
@@ -138,7 +152,9 @@ class FamilyDocumentsPage extends StatelessWidget {
                                           isSelected
                                               ? Icons.filter_alt_off_rounded
                                               : Icons.chevron_right_rounded,
-                                          color: isSelected ? c.primary : c.textSecondary,
+                                          color: isSelected
+                                              ? c.primary
+                                              : c.textSecondary,
                                         ),
                                       ],
                                     ),
@@ -148,7 +164,8 @@ class FamilyDocumentsPage extends StatelessWidget {
 
                               const SizedBox(height: 8),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -164,9 +181,12 @@ class FamilyDocumentsPage extends StatelessWidget {
                                   ),
                                   if (state.selectedFolder != null)
                                     TextButton(
-                                      onPressed: () => context
-                                          .read<DocumentVaultBloc>()
-                                          .add(const DocumentVaultFolderFilterChanged(null)),
+                                      onPressed: () =>
+                                          context.read<DocumentVaultBloc>().add(
+                                            const DocumentVaultFolderFilterChanged(
+                                              null,
+                                            ),
+                                          ),
                                       child: const Text('Xem tất cả'),
                                     ),
                                 ],
@@ -195,7 +215,10 @@ class FamilyDocumentsPage extends StatelessWidget {
                                       Text(
                                         'Lưu trữ số hợp đồng thuê nhà, đăng ký xe, bảo hiểm TNDS và giấy tờ quan trọng kèm hạn gia hạn.',
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -210,12 +233,14 @@ class FamilyDocumentsPage extends StatelessWidget {
                                     child: LifeOsSoftCard(
                                       padding: const EdgeInsets.all(14),
                                       child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           LifeOsIconSquircle(
                                             icon: doc.isFamilyShared
                                                 ? Icons.folder_shared_outlined
-                                                : Icons.insert_drive_file_outlined,
+                                                : Icons
+                                                      .insert_drive_file_outlined,
                                             tone: doc.isFamilyShared
                                                 ? LifeOsAccentTone.emerald
                                                 : LifeOsAccentTone.blue,
@@ -224,7 +249,8 @@ class FamilyDocumentsPage extends StatelessWidget {
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   doc.title,
@@ -238,9 +264,13 @@ class FamilyDocumentsPage extends StatelessWidget {
                                                 Text(
                                                   [
                                                     doc.folder.displayTitle,
-                                                    if (doc.referenceCode.isNotEmpty)
+                                                    if (doc
+                                                        .referenceCode
+                                                        .isNotEmpty)
                                                       'Mã: ${doc.referenceCode}',
-                                                    doc.isFamilyShared ? 'Chung gia đình' : 'Cá nhân',
+                                                    doc.isFamilyShared
+                                                        ? 'Chung gia đình'
+                                                        : 'Cá nhân',
                                                   ].join(' · '),
                                                   style: TextStyle(
                                                     fontSize: 12,
@@ -264,22 +294,26 @@ class FamilyDocumentsPage extends StatelessWidget {
                                                     label: expired
                                                         ? 'Quá hạn: ${dateFmt.format(doc.expiryDate!)}'
                                                         : soon
-                                                            ? 'Sắp hết hạn: ${dateFmt.format(doc.expiryDate!)}'
-                                                            : 'Hiệu lực đến: ${dateFmt.format(doc.expiryDate!)}',
+                                                        ? 'Sắp hết hạn: ${dateFmt.format(doc.expiryDate!)}'
+                                                        : 'Hiệu lực đến: ${dateFmt.format(doc.expiryDate!)}',
                                                     tone: expired
                                                         ? LifeOsAccentTone.coral
                                                         : soon
-                                                            ? LifeOsAccentTone.amber
-                                                            : LifeOsAccentTone.emerald,
+                                                        ? LifeOsAccentTone.amber
+                                                        : LifeOsAccentTone
+                                                              .emerald,
                                                   ),
                                                 ],
                                               ],
                                             ),
                                           ),
                                           IconButton(
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                             tooltip: 'Xóa tài liệu',
-                                            onPressed: () => context.read<DocumentVaultBloc>().add(
+                                            onPressed: () => context
+                                                .read<DocumentVaultBloc>()
+                                                .add(
                                                   DocumentVaultDeleteRequested(
                                                     userId: user.id,
                                                     document: doc,
@@ -352,12 +386,17 @@ class FamilyDocumentsPage extends StatelessWidget {
                 DropdownButtonFormField<DocumentFolderCategory>(
                   isExpanded: true,
                   initialValue: folder,
-                  decoration: const InputDecoration(labelText: 'Thư mục lưu trữ'),
+                  decoration: const InputDecoration(
+                    labelText: 'Thư mục lưu trữ',
+                  ),
                   items: DocumentFolderCategory.values
                       .map(
                         (f) => DropdownMenuItem(
                           value: f,
-                          child: Text(f.displayTitle, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            f.displayTitle,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(),
@@ -371,7 +410,8 @@ class FamilyDocumentsPage extends StatelessWidget {
                   controller: titleCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Tên tài liệu / hồ sơ',
-                    hintText: 'VD: Bảo hiểm vật chất Toyota Cross / Hợp đồng điện',
+                    hintText:
+                        'VD: Bảo hiểm vật chất Toyota Cross / Hợp đồng điện',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -396,7 +436,9 @@ class FamilyDocumentsPage extends StatelessWidget {
                   onPressed: () async {
                     final picked = await showDatePicker(
                       context: ctx,
-                      initialDate: expiryDate ?? DateTime.now().add(const Duration(days: 180)),
+                      initialDate:
+                          expiryDate ??
+                          DateTime.now().add(const Duration(days: 180)),
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2036),
                     );
@@ -422,7 +464,10 @@ class FamilyDocumentsPage extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               key: const Key('submit_document_button'),
               onPressed: () {

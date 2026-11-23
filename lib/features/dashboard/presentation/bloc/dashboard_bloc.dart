@@ -56,8 +56,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final DashboardRepository _repository;
 
   DashboardBloc({required DashboardRepository repository})
-      : _repository = repository,
-        super(const DashboardState()) {
+    : _repository = repository,
+      super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted, transformer: restartable());
   }
 
@@ -67,7 +67,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
     await emit.forEach<Result<TodayDashboardEntity>>(
-      _repository.watchTodayDashboard(userId: event.userId, familyId: event.familyId),
+      _repository.watchTodayDashboard(
+        userId: event.userId,
+        familyId: event.familyId,
+      ),
       onData: (res) => res.fold(
         (f) => state.copyWith(isLoading: false, failure: f),
         (d) => state.copyWith(isLoading: false, data: d, clearFailure: true),

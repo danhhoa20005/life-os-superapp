@@ -40,13 +40,13 @@ final class AuthSignUpSubmitted extends AuthEvent {
 
   @override
   List<Object?> get props => [
-        email,
-        password,
-        confirmPassword,
-        fullName,
-        phoneNumber,
-        acceptedTerms,
-      ];
+    email,
+    password,
+    confirmPassword,
+    fullName,
+    phoneNumber,
+    acceptedTerms,
+  ];
 }
 
 final class AuthGoogleSignInRequested extends AuthEvent {

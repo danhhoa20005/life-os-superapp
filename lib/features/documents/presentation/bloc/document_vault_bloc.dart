@@ -110,7 +110,9 @@ final class DocumentVaultState extends Equatable {
     return DocumentVaultState(
       isLoading: isLoading ?? this.isLoading,
       documents: documents ?? this.documents,
-      selectedFolder: clearSelectedFolder ? null : (selectedFolder ?? this.selectedFolder),
+      selectedFolder: clearSelectedFolder
+          ? null
+          : (selectedFolder ?? this.selectedFolder),
       searchQuery: searchQuery ?? this.searchQuery,
       failure: clearFailure ? null : (failure ?? this.failure),
       message: clearMessage ? null : (message ?? this.message),
@@ -119,40 +121,48 @@ final class DocumentVaultState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        documents,
-        selectedFolder,
-        searchQuery,
-        failure,
-        message,
-      ];
+    isLoading,
+    documents,
+    selectedFolder,
+    searchQuery,
+    failure,
+    message,
+  ];
 }
 
 class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
   final DocumentVaultRepository _repository;
 
   DocumentVaultBloc({required DocumentVaultRepository repository})
-      : _repository = repository,
-        super(const DocumentVaultState()) {
+    : _repository = repository,
+      super(const DocumentVaultState()) {
     on<DocumentVaultWatchStarted>(_onWatchStarted, transformer: restartable());
     on<DocumentVaultFolderFilterChanged>(_onFolderChanged);
     on<DocumentVaultSearchQueryChanged>(_onSearchChanged);
-    on<DocumentVaultCreateSubmitted>(_onCreateSubmitted, transformer: droppable());
-    on<DocumentVaultDeleteRequested>(_onDeleteRequested, transformer: sequential());
+    on<DocumentVaultCreateSubmitted>(
+      _onCreateSubmitted,
+      transformer: droppable(),
+    );
+    on<DocumentVaultDeleteRequested>(
+      _onDeleteRequested,
+      transformer: sequential(),
+    );
   }
 
   Future<void> _onWatchStarted(
     DocumentVaultWatchStarted event,
     Emitter<DocumentVaultState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isLoading: true, clearFailure: true, clearMessage: true),
+    );
     await emit.forEach<List<DocumentVaultEntity>>(
-      _repository.watchDocuments(userId: event.userId, familyId: event.familyId),
-      onData: (docs) => state.copyWith(
-        isLoading: false,
-        documents: docs,
-        clearFailure: true,
+      _repository.watchDocuments(
+        userId: event.userId,
+        familyId: event.familyId,
       ),
+      onData: (docs) =>
+          state.copyWith(isLoading: false, documents: docs, clearFailure: true),
       onError: (err, _) => state.copyWith(
         isLoading: false,
         failure: UnexpectedFailure(message: 'Lỗi tải kho tài liệu: $err'),
@@ -186,7 +196,11 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
     final res = await _repository.createDocument(event.params);
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (doc) => emit(state.copyWith(message: 'Đã lưu "${doc.title}" vào ${doc.folder.displayTitle}.')),
+      (doc) => emit(
+        state.copyWith(
+          message: 'Đã lưu "${doc.title}" vào ${doc.folder.displayTitle}.',
+        ),
+      ),
     );
   }
 
