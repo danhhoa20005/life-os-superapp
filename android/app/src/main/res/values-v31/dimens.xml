@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Official Android 12+ System Launcher Concentric Widget Radii -->
+    <dimen name="widget_outer_radius">@android:dimen/system_app_widget_background_radius</dimen>
+    <dimen name="widget_inner_radius">@android:dimen/system_app_widget_inner_radius</dimen>
+</resources>

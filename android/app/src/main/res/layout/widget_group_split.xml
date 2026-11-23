@@ -1,66 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_group_root"
+<!-- Widget 3: Google Keep / Google Tasks Material 3 Family & Roommate Split Card (4x2) -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_cobalt"
-    android:orientation="vertical"
-    android:padding="14dp">
-
-    <TextView
-        android:id="@+id/tv_group_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="HỘI NHÓM &amp; GIA ĐÌNH · CHIA TIỀN NHANH"
-        android:textColor="#BAE6FD"
-        android:textSize="10.5sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/tv_group_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="Sẵn sàng chia ăn uống, việc nhà, điện nước"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+    android:background="@drawable/bg_widget_m3_surface"
+    android:clipToOutline="true">
 
     <LinearLayout
+        android:id="@+id/widget_group_root"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="10dp"
-        android:layout_weight="1"
-        android:gravity="bottom"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="Tổ ấm &amp; Hội nhóm"
+                android:src="@drawable/ic_widget_leaf" />
+
+            <TextView
+                android:id="@+id/tv_group_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="7dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Tổ ấm &amp; Hội nhóm"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/btn_group_voice_split"
-            android:layout_width="0dp"
-            android:layout_height="38dp"
-            android:layout_weight="1.35"
-            android:background="@drawable/bg_widget_pill_mint"
-            android:gravity="center"
-            android:text="🎙 Nói câu chia tiền"
-            android:textColor="#FFFFFF"
-            android:textSize="11.5sp"
+            android:id="@+id/tv_group_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="Chia tiền ăn uống, việc nhà, điện nước 1 chạm"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/btn_group_vietqr"
-            android:layout_width="0dp"
-            android:layout_height="38dp"
-            android:layout_marginLeft="8dp"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="10dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_widget_pill_glass"
-            android:gravity="center"
-            android:text="QR Tất toán"
-            android:textColor="#FFFFFF"
-            android:textSize="11.5sp"
-            android:textStyle="bold" />
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/btn_group_voice_split"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1.25"
+                android:background="@drawable/bg_widget_m3_primary_pill"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:contentDescription="Mic"
+                    android:src="@drawable/ic_widget_mic" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="6dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="Nói chia tiền"
+                    android:textColor="@color/widget_on_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btn_group_vietqr"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginLeft="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:contentDescription="Nhóm"
+                    android:src="@drawable/ic_widget_split" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="6dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="Tất toán QR"
+                    android:textColor="@color/widget_primary_tonal_fg"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

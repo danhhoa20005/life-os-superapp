@@ -1,85 +1,159 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_wealth_root"
+<!-- Widget 2: Google Finance / Google Wallet Material 3 Net Worth & Cashflow Card (4x2) -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_emerald"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:background="@drawable/bg_widget_m3_surface"
+    android:clipToOutline="true">
 
     <LinearLayout
+        android:id="@+id/widget_wealth_root"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
 
-        <TextView
-            android:layout_width="0dp"
+        <!-- Google Standard Widget Attribution Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="TỔNG TÀI SẢN RÒNG · LIFE OS"
-            android:textColor="#D1FAE5"
-            android:textSize="10.5sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="LifeOS"
+                android:src="@drawable/ic_widget_leaf" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="7dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Tài sản &amp; Dòng tiền"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_wealth_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
+                android:fontFamily="sans-serif-medium"
+                android:paddingLeft="9dp"
+                android:paddingTop="3dp"
+                android:paddingRight="9dp"
+                android:paddingBottom="3dp"
+                android:text="Auto-Sync"
+                android:textColor="@color/widget_primary_tonal_fg"
+                android:textSize="10.5sp" />
+
+            <FrameLayout
+                android:id="@+id/btn_wealth_quick_add"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginLeft="6dp"
+                android:background="@drawable/bg_widget_m3_tonal_pill">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Ghi giao dịch mới"
+                    android:src="@drawable/ic_widget_add" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Primary Headline Metric -->
         <TextView
-            android:id="@+id/tv_wealth_badge"
-            android:layout_width="wrap_content"
+            android:id="@+id/tv_wealth_net_worth"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_widget_pill_glass"
-            android:paddingLeft="8dp"
-            android:paddingTop="2dp"
-            android:paddingRight="8dp"
-            android:paddingBottom="2dp"
-            android:text="Auto-Sync"
-            android:textColor="#FFFFFF"
-            android:textSize="10sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/tv_wealth_net_worth"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="80.100.000 ₫"
-        android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1"
-        android:gravity="bottom"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/tv_wealth_income"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_marginTop="4dp"
             android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
             android:maxLines="1"
-            android:text="↓ Thu: +0 ₫"
-            android:textColor="#86EFAC"
-            android:textSize="11.5sp"
+            android:text="80.100.000 ₫"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="23sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/tv_wealth_expense"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+        <!-- Concentric Inner Tonal KPI Pills -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
             android:layout_weight="1"
-            android:ellipsize="end"
-            android:gravity="right"
-            android:maxLines="1"
-            android:text="↑ Chi: -0 ₫"
-            android:textColor="#FDE68A"
-            android:textSize="11.5sp"
-            android:textStyle="bold" />
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/bg_widget_m3_income_box"
+                android:orientation="vertical"
+                android:paddingLeft="10dp"
+                android:paddingTop="6dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Thu tháng"
+                    android:textColor="@color/widget_text_secondary"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/tv_wealth_income"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="+25.700.000 ₫"
+                    android:textColor="@color/widget_text_income"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_widget_m3_expense_box"
+                android:orientation="vertical"
+                android:paddingLeft="10dp"
+                android:paddingTop="6dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chi tháng"
+                    android:textColor="@color/widget_text_secondary"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/tv_wealth_expense"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="-1.573.000 ₫"
+                    android:textColor="@color/widget_text_expense"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

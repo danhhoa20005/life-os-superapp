@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.widget.RemoteViews
 
 object LifeOsWidgetStore {
@@ -36,7 +37,7 @@ object LifeOsWidgetStore {
         val pending = prefs.getInt("pending_auto_signals", 0) + 1
         prefs.edit()
             .putInt("pending_auto_signals", pending)
-            .putString("wealth_badge", "+$pending mới tự bắt")
+            .putString("wealth_badge", "+$pending mới")
             .apply()
         refreshAllWidgets(context)
     }
@@ -67,11 +68,20 @@ object LifeOsWidgetStore {
 }
 
 /**
- * Widget 1: Voice AI Quick Expense & Sentence Split Bar (4x2)
+ * Widget 1: Google Pixel Search & Voice Quick Bar (4x1 / 4x2 Material 3)
  */
 class VoiceQuickWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         render(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        render(context, appWidgetManager, intArrayOf(appWidgetId))
     }
 
     companion object {
@@ -81,7 +91,7 @@ class VoiceQuickWidgetProvider : AppWidgetProvider() {
 
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_voice_quick)
-                views.setTextViewText(R.id.tv_voice_today_spend, "Hôm nay: $todaySpend")
+                views.setTextViewText(R.id.tv_voice_today_spend, "Chi hôm nay: $todaySpend")
                 views.setOnClickPendingIntent(
                     R.id.btn_widget_voice_mic,
                     LifeOsWidgetStore.buildLaunchPendingIntent(context, LifeOsWidgetStore.ACTION_VOICE_CAPTURE, 101)
@@ -92,7 +102,7 @@ class VoiceQuickWidgetProvider : AppWidgetProvider() {
                 )
                 views.setOnClickPendingIntent(
                     R.id.widget_voice_root,
-                    LifeOsWidgetStore.buildLaunchPendingIntent(context, LifeOsWidgetStore.ACTION_VOICE_CAPTURE, 103)
+                    LifeOsWidgetStore.buildLaunchPendingIntent(context, LifeOsWidgetStore.ACTION_OPEN_TODAY, 103)
                 )
                 mgr.updateAppWidget(id, views)
             }
@@ -101,11 +111,20 @@ class VoiceQuickWidgetProvider : AppWidgetProvider() {
 }
 
 /**
- * Widget 2: Executive Net Worth & Cashflow Private Banking Card (4x2)
+ * Widget 2: Google Finance / Google Wallet Net Worth & Cashflow Card (4x2 Material 3)
  */
 class WealthNetWorthWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         render(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        render(context, appWidgetManager, intArrayOf(appWidgetId))
     }
 
     companion object {
@@ -119,9 +138,13 @@ class WealthNetWorthWidgetProvider : AppWidgetProvider() {
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_wealth_net_worth)
                 views.setTextViewText(R.id.tv_wealth_net_worth, netWorth)
-                views.setTextViewText(R.id.tv_wealth_income, "↓ Thu: $income")
-                views.setTextViewText(R.id.tv_wealth_expense, "↑ Chi: $expense")
+                views.setTextViewText(R.id.tv_wealth_income, income)
+                views.setTextViewText(R.id.tv_wealth_expense, expense)
                 views.setTextViewText(R.id.tv_wealth_badge, badge)
+                views.setOnClickPendingIntent(
+                    R.id.btn_wealth_quick_add,
+                    LifeOsWidgetStore.buildLaunchPendingIntent(context, LifeOsWidgetStore.ACTION_OPEN_FINANCE, 202)
+                )
                 views.setOnClickPendingIntent(
                     R.id.widget_wealth_root,
                     LifeOsWidgetStore.buildLaunchPendingIntent(context, LifeOsWidgetStore.ACTION_OPEN_TODAY, 201)
@@ -133,20 +156,29 @@ class WealthNetWorthWidgetProvider : AppWidgetProvider() {
 }
 
 /**
- * Widget 3: Group, Roommates & Family Bill Split + VietQR Hub (4x2)
+ * Widget 3: Google Keep / Google Tasks Family & Roommates Split Hub (4x2 Material 3)
  */
 class GroupSplitWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         render(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        render(context, appWidgetManager, intArrayOf(appWidgetId))
+    }
+
     companion object {
         fun render(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val prefs = context.getSharedPreferences(LifeOsWidgetStore.PREFS_NAME, Context.MODE_PRIVATE)
-            val groupTitle = prefs.getString("group_title", "HỘI NHÓM & GIA ĐÌNH · CHIA TIỀN NHANH")
-                ?: "HỘI NHÓM & GIA ĐÌNH · CHIA TIỀN NHANH"
-            val groupStatus = prefs.getString("group_status", "Nói câu chia ăn uống, việc nhà, điện nước")
-                ?: "Nói câu chia ăn uống, việc nhà, điện nước"
+            val groupTitle = prefs.getString("group_title", "Tổ ấm & Hội nhóm")
+                ?: "Tổ ấm & Hội nhóm"
+            val groupStatus = prefs.getString("group_status", "Chia tiền ăn uống, việc nhà, điện nước 1 chạm")
+                ?: "Chia tiền ăn uống, việc nhà, điện nước 1 chạm"
 
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_group_split)
@@ -171,25 +203,35 @@ class GroupSplitWidgetProvider : AppWidgetProvider() {
 }
 
 /**
- * Widget 4: Daily Safe-to-Spend & Emergency Runway Discipline Card (3x2)
+ * Widget 4: Google Digital Wellbeing / Calendar Daily Safe-to-Spend Card (3x2 Material 3)
  */
 class DailySafeSpendWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         render(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        render(context, appWidgetManager, intArrayOf(appWidgetId))
+    }
+
     companion object {
         fun render(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val prefs = context.getSharedPreferences(LifeOsWidgetStore.PREFS_NAME, Context.MODE_PRIVATE)
             val safeDaily = prefs.getString("safe_daily_formatted", "0 ₫") ?: "0 ₫"
-            val runwayLabel = prefs.getString("runway_label", "Quỹ dự phòng ổn định · Tự động bắt số dư")
-                ?: "Quỹ dự phòng ổn định · Tự động bắt số dư"
+            val runwayLabel = prefs.getString("runway_label", "Quỹ dự phòng ổn định · Tự động cập nhật")
+                ?: "Quỹ dự phòng ổn định · Tự động cập nhật"
             val usedPct = prefs.getInt("daily_used_pct", 15).coerceIn(4, 100)
 
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_daily_safe_spend)
                 views.setTextViewText(R.id.tv_safe_daily_amount, safeDaily)
                 views.setTextViewText(R.id.tv_safe_runway, runwayLabel)
+                views.setTextViewText(R.id.tv_safe_pct_badge, "Đã dùng $usedPct%")
                 views.setProgressBar(R.id.pb_safe_daily, 100, usedPct, false)
                 views.setOnClickPendingIntent(
                     R.id.widget_safe_root,

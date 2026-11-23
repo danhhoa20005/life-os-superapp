@@ -1,52 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_safe_root"
+<!-- Widget 4: Google Digital Wellbeing / Calendar Material 3 Daily Safe Spend Card (3x2 / 4x2) -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_dark_glass"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:background="@drawable/bg_widget_m3_surface"
+    android:clipToOutline="true">
 
-    <TextView
+    <LinearLayout
+        android:id="@+id/widget_safe_root"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="HẠN MỨC AN TOÀN HÔM NAY"
-        android:textColor="#FCD34D"
-        android:textSize="10.5sp"
-        android:textStyle="bold" />
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
 
-    <TextView
-        android:id="@+id/tv_safe_daily_amount"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="2.373.375 ₫"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-    <ProgressBar
-        android:id="@+id/pb_safe_daily"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:layout_marginTop="8dp"
-        android:max="100"
-        android:progress="18"
-        android:progressTint="#10B981" />
+            <ImageView
+                android:layout_width="19dp"
+                android:layout_height="19dp"
+                android:contentDescription="Hạn mức an toàn"
+                android:src="@drawable/ic_widget_shield_check" />
 
-    <TextView
-        android:id="@+id/tv_safe_runway"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="Quỹ dự phòng: An toàn · Tự động bắt biến động"
-        android:textColor="#94A3B8"
-        android:textSize="11sp" />
-</LinearLayout>
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="6dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Hạn mức hôm nay"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_safe_pct_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
+                android:fontFamily="sans-serif-medium"
+                android:paddingLeft="8dp"
+                android:paddingTop="2dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="2dp"
+                android:text="Đã dùng 15%"
+                android:textColor="@color/widget_primary_tonal_fg"
+                android:textSize="10.5sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_safe_daily_amount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="2.373.375 ₫"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/pb_safe_daily"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="10dp"
+            android:layout_marginTop="10dp"
+            android:max="100"
+            android:progress="15"
+            android:progressDrawable="@drawable/bg_widget_m3_progress" />
+
+        <TextView
+            android:id="@+id/tv_safe_runway"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Quỹ dự phòng ổn định · Tự động cập nhật"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="11.5sp" />
+    </LinearLayout>
+</FrameLayout>

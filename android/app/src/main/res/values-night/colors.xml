@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Google Material 3 Dark Mode Widget Palette -->
+    <color name="widget_bg_surface">#191C1A</color>
+    <color name="widget_bg_container_tonal">#232A26</color>
+    <color name="widget_bg_income_pill">#132B1D</color>
+    <color name="widget_bg_expense_pill">#31181B</color>
+    <color name="widget_primary">#22C55E</color>
+    <color name="widget_on_primary">#052E16</color>
+    <color name="widget_primary_tonal_bg">#183925</color>
+    <color name="widget_primary_tonal_fg">#86EFAC</color>
+    <color name="widget_text_primary">#F1F5F9</color>
+    <color name="widget_text_secondary">#94A3B8</color>
+    <color name="widget_text_income">#4ADE80</color>
+    <color name="widget_text_expense">#F87171</color>
+    <color name="widget_stroke_subtle">#2C3731</color>
+    <color name="widget_progress_track">#2D3748</color>
+</resources>
