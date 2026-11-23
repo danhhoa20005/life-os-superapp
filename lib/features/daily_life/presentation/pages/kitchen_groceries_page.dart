@@ -154,8 +154,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                               snap.mealPlans.isNotEmpty
                                                   ? 'Thực đơn hôm nay: ${snap.mealPlans.first.lunch}'
                                                   : 'Lên thực đơn trước khi đi chợ giúp giảm 25% chi tiêu thừa',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 12.2,
                                                 color: c.textSecondary,
@@ -210,8 +209,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                                   snap.pendingGroceriesMinor +
                                                       snap.boughtGroceriesMinor,
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                                softWrap: true,
                                                 style: TextStyle(
                                                   fontSize: 17,
                                                   fontWeight: FontWeight.w800,
@@ -662,8 +660,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                         ),
                         Text(
                           combo.lunch,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: TextStyle(
                             fontSize: 12,
                             color: c.textSecondary,

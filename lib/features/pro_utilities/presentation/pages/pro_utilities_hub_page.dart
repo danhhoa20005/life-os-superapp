@@ -212,8 +212,7 @@ class _MiniHubMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+          softWrap: true,
           style: TextStyle(fontSize: 11.5, color: c.textSecondary),
         ),
         const SizedBox(height: 3),
@@ -314,8 +313,7 @@ class _ProSuiteModuleCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     metricLine,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.25,

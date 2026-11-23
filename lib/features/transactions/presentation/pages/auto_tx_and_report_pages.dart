@@ -284,8 +284,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       children: [
                         Text(
                           item.merchant,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             color: c.textPrimary,
@@ -385,8 +384,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                         Expanded(
                           child: Text(
                             'Thông báo ngân hàng (đã nhận diện)',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 13.8,
@@ -513,8 +511,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                         children: [
                           Text(
                             _merchantCtrl.text,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: TextStyle(
                               fontSize: 17,
                               height: 1.2,
@@ -1031,9 +1028,8 @@ class _TxMetaLine extends StatelessWidget {
         Flexible(
           child: Text(
             value,
-            maxLines: 2,
             textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -1159,16 +1155,19 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                           mainAxisAlignment:
                                               MainAxisAlignment.end,
                                           children: [
-                                            Text(
-                                              val > 0
-                                                  ? VndAmount.formatCompact(val)
-                                                  : '0 ₫',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                color: c.textSecondary,
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                val > 0
+                                                    ? VndAmount.formatCompact(
+                                                        val,
+                                                      )
+                                                    : '0 ₫',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: c.textSecondary,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(height: 6),

@@ -444,8 +444,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                       _grossToNetMode
                           ? 'Mức lương Gross đầu vào'
                           : 'Mức lương Net mong muốn',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(fontSize: 13, color: c.textSecondary),
                     ),
                   ),
@@ -474,8 +473,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                   Expanded(
                     child: Text(
                       'Người phụ thuộc (${VndAmount.format(_taxPolicy.dependentDeductionVnd)}/người)',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(fontSize: 13, color: c.textSecondary),
                     ),
                   ),

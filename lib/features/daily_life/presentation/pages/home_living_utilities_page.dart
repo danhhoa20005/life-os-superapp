@@ -947,8 +947,7 @@ class _MeterSliderControl extends StatelessWidget {
             Flexible(
               child: Text(
                 title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
                 style: TextStyle(fontSize: 12.8, color: c.textSecondary),
               ),
             ),

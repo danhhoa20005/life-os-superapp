@@ -64,7 +64,6 @@ class SemanticStatusBadge extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                maxLines: 2,
                 softWrap: true,
                 style: TextStyle(
                   fontSize: 12,

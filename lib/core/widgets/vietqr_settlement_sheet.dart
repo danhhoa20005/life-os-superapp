@@ -170,9 +170,12 @@ Future<void> showVietQrSettlementSheet({
                                 .map(
                                   (b) => DropdownMenuItem(
                                     value: b.bin,
-                                    child: Text(
-                                      '${b.shortName} · ${b.fullName}',
-                                      overflow: TextOverflow.ellipsis,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '${b.shortName} · ${b.fullName}',
+                                      ),
                                     ),
                                   ),
                                 )

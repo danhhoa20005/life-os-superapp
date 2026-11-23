@@ -136,8 +136,7 @@ class GoogleAuthButton extends StatelessWidget {
               Flexible(
                 child: Text(
                   label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
@@ -1365,8 +1364,7 @@ class _PwdCheckItem extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: passed ? FontWeight.w700 : FontWeight.w500,

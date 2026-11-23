@@ -116,10 +116,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             .map(
                               (b) => DropdownMenuItem(
                                 value: b.bin,
-                                child: Text(
+                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                                   '${b.shortName} · ${b.fullName}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                )),
                               ),
                             )
                             .toList(),
@@ -158,10 +157,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               .map(
                                 (w) => DropdownMenuItem(
                                   value: w.id,
-                                  child: Text(
+                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                                     w.name,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  )),
                                 ),
                               )
                               .toList(),
@@ -337,10 +335,9 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               .map(
                                 (w) => DropdownMenuItem(
                                   value: w.id,
-                                  child: Text(
+                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                                     w.name,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  )),
                                 ),
                               )
                               .toList(),

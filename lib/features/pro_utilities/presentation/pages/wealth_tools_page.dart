@@ -270,8 +270,7 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                         Expanded(
                           child: Text(
                             '• ${it.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: TextStyle(
                               fontSize: 13.5,
                               color: c.textPrimary,

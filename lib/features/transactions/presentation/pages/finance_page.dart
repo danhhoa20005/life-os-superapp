@@ -379,17 +379,15 @@ class FinancePage extends StatelessWidget {
                       DropdownMenuItem(value: TransactionKind.income, child: Text('Thu nhập')),
                       DropdownMenuItem(
                         value: TransactionKind.transfer,
-                        child: Text(
+                        child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                           'Chuyển ví nội bộ / Rút tiền mặt',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        )),
                       ),
                       DropdownMenuItem(
                         value: TransactionKind.creditCardPayment,
-                        child: Text(
+                        child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                           'Trả dư nợ thẻ tín dụng',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        )),
                       ),
                     ],
                     onChanged: (v) {
@@ -412,10 +410,9 @@ class FinancePage extends StatelessWidget {
                     items: wallets
                         .map((w) => DropdownMenuItem(
                               value: w.id,
-                              child: Text(
+                              child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                                 '${w.name} (${VndAmount.format(w.balanceMinor)})',
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              )),
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -432,7 +429,7 @@ class FinancePage extends StatelessWidget {
                       items: wallets
                           .map((w) => DropdownMenuItem(
                                 value: w.id,
-                                child: Text(w.name, overflow: TextOverflow.ellipsis),
+                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(w.name)),
                               ))
                           .toList(),
                       onChanged: (v) => setDialogState(() => targetWalletId = v),
@@ -459,7 +456,7 @@ class FinancePage extends StatelessWidget {
                         items: catNames
                             .map((name) => DropdownMenuItem(
                                   value: name,
-                                  child: Text(name, overflow: TextOverflow.ellipsis),
+                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(name)),
                                 ))
                             .toList(),
                         onChanged: (v) {
@@ -517,7 +514,7 @@ class FinancePage extends StatelessWidget {
                       items: catNames
                           .map((n) => DropdownMenuItem(
                                 value: n,
-                                child: Text(n, overflow: TextOverflow.ellipsis),
+                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(n)),
                               ))
                           .toList(),
                       onChanged: (v) {
@@ -539,7 +536,7 @@ class FinancePage extends StatelessWidget {
                       items: catNames
                           .map((n) => DropdownMenuItem(
                                 value: n,
-                                child: Text(n, overflow: TextOverflow.ellipsis),
+                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(n)),
                               ))
                           .toList(),
                       onChanged: (v) {
@@ -859,7 +856,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                 // 2. Clearly Separated Section: Ví & Tài khoản
                 LifeOsSectionHeader(
                   title: 'Ví của bạn (${state.wallets.length})',
-                  subtitle: 'Chạm vào thẻ ví để lọc riêng giao dịch của ví đó',
+                  padding: const EdgeInsets.only(top: 10, bottom: 4, left: 2, right: 2),
                   trailing: _selectedWalletId != null
                       ? TextButton.icon(
                           style: TextButton.styleFrom(
@@ -976,7 +973,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   onChanged: (q) =>
                       context.read<TransactionListBloc>().add(TransactionsSearchChanged(q)),
                   decoration: const InputDecoration(
-                    labelText: 'Tìm sao kê theo nội dung, đối tác hoặc hạng mục',
+                    labelText: 'Tìm giao dịch, đối tác',
                     prefixIcon: Icon(Icons.search_rounded),
                   ),
                 ),
@@ -1420,10 +1417,9 @@ class _PersonalAnalyticsAndAllocationTabViewState
                               .map(
                                 (p) => DropdownMenuItem(
                                   value: p,
-                                  child: Text(
+                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                                     IncomeAllocationEngine.presetLabel(p),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  )),
                                 ),
                               )
                               .toList(),
@@ -2091,7 +2087,7 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
                     onChanged: (v) => setState(() => _preview = SmartQuickEntryParser.tryParse(v)),
                     onSubmitted: (_) => _submitQuickEntry(),
                     decoration: const InputDecoration(
-                      hintText: 'VD: phở bò 65k, xăng 90k, nhận lương 18tr5',
+                      hintText: 'VD: phở 65k, xăng 90k',
                       isDense: true,
                       prefixIcon: Icon(Icons.auto_fix_high_rounded, size: 19),
                     ),
@@ -2225,8 +2221,7 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                         Flexible(
                           child: Text(
                             'Kỳ ${state.monthKey} · Đã chi $pctUsed%',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -2556,8 +2551,7 @@ class _MiniCategoryCard extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11.8,

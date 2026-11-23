@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -280,6 +281,23 @@ void main() {
           httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
         );
 
+        void expectZeroTruncatedParagraphs(String screenName) {
+          final truncated = <String>[];
+          for (final element in find.byType(RichText).evaluate()) {
+            final renderObj = element.renderObject;
+            if (renderObj is RenderParagraph && renderObj.didExceedMaxLines) {
+              truncated.add(renderObj.text.toPlainText());
+            }
+          }
+          expect(
+            truncated,
+            isEmpty,
+            reason:
+                'Found truncated (...) text on $screenName at 360x800 @ 112%: $truncated',
+          );
+          expect(tester.takeException(), isNull);
+        }
+
         await tester.pumpWidget(const LifeOsApp());
         await tester.pumpAndSettle();
 
@@ -287,9 +305,16 @@ void main() {
         final scaffoldCtx = tester.element(find.byType(Scaffold).first);
         scaffoldCtx.read<ThemeBloc>().add(const TextScaleChanged(1.12));
         await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
+        expectZeroTruncatedParagraphs('Hôm nay (TodayPage)');
 
-        // Open All Services 360° Directory and verify crisp labels & zero overflow
+        // Open Center `+` Quick Sheet and verify zero `...` truncation on Bento cards
+        await tester.tap(find.byKey(const Key('lifeos_center_quick_add_fab')));
+        await tester.pumpAndSettle();
+        expectZeroTruncatedParagraphs('Bảng Thêm nhanh (+)');
+        Navigator.of(tester.element(find.text('Thêm nhanh'))).pop();
+        await tester.pumpAndSettle();
+
+        // Open All Services 360° Directory and verify crisp labels, zero truncation & zero overflow
         final allServicesCard = find.byKey(const Key('home_tile_all_services'));
         await tester.scrollUntilVisible(
           allServicesCard,
@@ -301,17 +326,29 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Sổ thu chi'), findsOneWidget);
         expect(find.text('Lương Gross–Net'), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        expectZeroTruncatedParagraphs('Tất cả Dịch vụ 360°');
 
-        // Pop back to Home and traverse all 4 symmetrical tabs + pushed Vehicles/Assets hub at 360px + 112% font
+        // Pop back to Home and traverse all 4 symmetrical tabs + sub-tabs + pushed Vehicles/Assets hub
         await tester.tap(find.byTooltip('Quay lại'));
         await tester.pumpAndSettle();
 
-        for (final tabLabel in const ['Tài chính', 'Lịch & Việc', 'Gia đình']) {
-          await tester.tap(find.text(tabLabel).last);
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-        }
+        await tester.tap(find.text('Tài chính').last);
+        await tester.pumpAndSettle();
+        expectZeroTruncatedParagraphs('Tài chính — Sổ thu chi');
+        await tester.tap(find.byKey(const Key('finance_tools_tab')));
+        await tester.pumpAndSettle();
+        expectZeroTruncatedParagraphs('Tài chính — Công cụ');
+
+        await tester.tap(find.text('Lịch & Việc').last);
+        await tester.pumpAndSettle();
+        expectZeroTruncatedParagraphs('Lịch & Việc — Lịch trình');
+        await tester.tap(find.byKey(const Key('planning_tools_tab')));
+        await tester.pumpAndSettle();
+        expectZeroTruncatedParagraphs('Lịch & Việc — Thói quen & Sổ');
+
+        await tester.tap(find.text('Gia đình').last);
+        await tester.pumpAndSettle();
+        expectZeroTruncatedParagraphs('Gia đình — Tiện ích nhà');
 
         // Inside Gia đình tab (solo mode), verify clearly separated Vehicles & Living hub opens AssetsPage cleanly
         final vehiclesTile = find.byKey(const Key('family_hub_vehicles_tile'));
@@ -319,9 +356,33 @@ void main() {
         await tester.tap(vehiclesTile);
         await tester.pumpAndSettle();
         expect(find.text('Xe cộ & Hóa đơn'), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        expectZeroTruncatedParagraphs('Xe cộ & Hóa đơn');
         await tester.tap(find.byTooltip('Quay lại'));
         await tester.pumpAndSettle();
+      },
+    );
+
+    test(
+      'Strictly ZERO TextOverflow.ellipsis remains anywhere in lib/ UI & presentation files',
+      () {
+        final dartFiles = Directory('lib')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.dart'))
+            .toList();
+
+        final offenders = <String>[];
+        for (final f in dartFiles) {
+          final content = f.readAsStringSync();
+          if (content.contains('TextOverflow')) {
+            offenders.add(f.path);
+          }
+        }
+        expect(
+          offenders,
+          isEmpty,
+          reason: 'Found TextOverflow truncation in: $offenders',
+        );
       },
     );
   });

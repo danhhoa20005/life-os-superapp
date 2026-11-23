@@ -350,16 +350,14 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                       children: [
                         Text(
                           'Trợ lý Giọng nói & Phân tích Câu Chia Tiền',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
                         ),
                         Text(
                           'Tự bóc tách số tiền nói, tách hóa đơn & chia bill nhóm',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                       ],
@@ -448,8 +446,7 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                             const SizedBox(height: 3),
                             Text(
                               _voiceStatusHint!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: _isListening
@@ -648,8 +645,7 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                                     children: [
                                       Text(
                                         item.merchant,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                        softWrap: true,
                                         style: const TextStyle(
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w700,
@@ -686,14 +682,18 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                           isExpanded: true,
                           initialValue: resolvedWalletId,
                           decoration: const InputDecoration(
-                            labelText: 'Ví ghi nhận bút toán',
+                            labelText: 'Chọn ví ghi nhận',
                             isDense: true,
                           ),
                           items: wallets
                               .map(
                                 (w) => DropdownMenuItem(
                                   value: w.id,
-                                  child: Text(w.name, overflow: TextOverflow.ellipsis),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(w.name),
+                                  ),
                                 ),
                               )
                               .toList(),

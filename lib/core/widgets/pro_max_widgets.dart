@@ -197,8 +197,7 @@ class ProGlassStatPill extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -372,9 +371,8 @@ class ProBentoTile extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   title,
+                  softWrap: true,
                   style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 SemanticStatusBadge(kind: statusKind, label: badgeText),
@@ -486,8 +484,7 @@ class ProWalletCreditCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14.5,
@@ -546,8 +543,7 @@ class ProWalletCreditCard extends StatelessWidget {
             maskedAccount != null && maskedAccount!.isNotEmpty
                 ? '$typeLabel · $maskedAccount'
                 : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.82),
               fontSize: 11.8,
@@ -575,9 +571,8 @@ class ProWalletCreditCard extends StatelessWidget {
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
-                        hasPendingWrites ? 'Đang lưu...' : 'Đã đồng bộ',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        hasPendingWrites ? 'Đang lưu' : 'Đã đồng bộ',
+                        softWrap: true,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 11,
@@ -843,8 +838,7 @@ class ProDonutChart extends StatelessWidget {
                     Expanded(
                       child: Text(
                         s.label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: c.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -1084,8 +1078,7 @@ class ProHeroBankingDockItem extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
@@ -1196,16 +1189,14 @@ class ProCashflowPulseCard extends StatelessWidget {
                         children: [
                           Text(
                             'Dòng tiền 7 ngày',
+                            softWrap: true,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w800),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             'Thu chi thực tế trong tuần',
+                            softWrap: true,
                             style: Theme.of(context).textTheme.labelSmall,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -1350,9 +1341,8 @@ class _CapitalColumn extends StatelessWidget {
           children: [
             Text(
               label,
+              softWrap: true,
               style: Theme.of(context).textTheme.labelSmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
             FittedBox(
@@ -1569,8 +1559,7 @@ class ProFintechStatementTile extends StatelessWidget {
                     children: [
                       Text(
                         merchant,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                           height: 1.22,
@@ -1582,8 +1571,7 @@ class ProFintechStatementTile extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         metaParts.join(' · '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 12,
                           height: 1.28,
@@ -1593,8 +1581,7 @@ class ProFintechStatementTile extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           splitSummary!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,

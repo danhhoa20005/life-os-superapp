@@ -138,8 +138,7 @@ class FamilyDocumentsPage extends StatelessWidget {
                                               const SizedBox(height: 2),
                                               Text(
                                                 '$count tệp · ${folder.subtitleHint}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                                softWrap: true,
                                                 style: TextStyle(
                                                   fontSize: 12.5,
                                                   color: c.textSecondary,
@@ -393,10 +392,9 @@ class FamilyDocumentsPage extends StatelessWidget {
                       .map(
                         (f) => DropdownMenuItem(
                           value: f,
-                          child: Text(
+                          child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                             f.displayTitle,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          )),
                         ),
                       )
                       .toList(),

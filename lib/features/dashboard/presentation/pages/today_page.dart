@@ -978,8 +978,7 @@ class _TodayPageState extends State<TodayPage> {
                                       Expanded(
                                         child: Text(
                                           'Việc cần chú ý',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: true,
                                           style: TextStyle(
                                             fontSize: 13.8,
                                             fontWeight: FontWeight.w800,
@@ -1060,9 +1059,7 @@ class _TodayPageState extends State<TodayPage> {
                                                       children: [
                                                         Text(
                                                           item.title,
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             fontSize: 13.4,
                                                             height: 1.24,
@@ -1077,9 +1074,7 @@ class _TodayPageState extends State<TodayPage> {
                                                         ),
                                                         Text(
                                                           item.subtitle,
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             fontSize: 12,
                                                             height: 1.28,
@@ -1158,9 +1153,7 @@ class _TodayPageState extends State<TodayPage> {
                                               Expanded(
                                                 child: Text(
                                                   'Ngân sách tháng',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
+                                                  softWrap: true,
                                                   style: TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w800,
@@ -1192,8 +1185,7 @@ class _TodayPageState extends State<TodayPage> {
                                             const SizedBox(height: 3),
                                             Text(
                                               'Hạn mức: ${_fmtMoney(totalBudgetLimit)}',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 11.8,
                                                 height: 1.25,
@@ -1225,8 +1217,7 @@ class _TodayPageState extends State<TodayPage> {
                                           ] else ...[
                                             Text(
                                               'Chưa đặt hạn mức',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 14.5,
                                                 fontWeight: FontWeight.w800,
@@ -1236,8 +1227,7 @@ class _TodayPageState extends State<TodayPage> {
                                             const SizedBox(height: 3),
                                             Text(
                                               'Chạm để thiết lập hạn mức chi tiêu thật',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 11.8,
                                                 height: 1.25,
@@ -1270,9 +1260,7 @@ class _TodayPageState extends State<TodayPage> {
                                               Expanded(
                                                 child: Text(
                                                   'Quỹ mục tiêu',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
+                                                  softWrap: true,
                                                   style: TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w800,
@@ -1307,8 +1295,7 @@ class _TodayPageState extends State<TodayPage> {
                                             activeFamilyName != null
                                                 ? 'Nhóm: $activeFamilyName'
                                                 : 'Chưa tạo nhóm chung',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
                                             style: TextStyle(
                                               fontSize: 11.8,
                                               height: 1.25,
@@ -1347,8 +1334,7 @@ class _TodayPageState extends State<TodayPage> {
                                         Expanded(
                                           child: Text(
                                             'Tiện ích của bạn',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
                                             style: TextStyle(
                                               fontSize: 13.5,
                                               fontWeight: FontWeight.w800,
@@ -1428,64 +1414,22 @@ class _TodayPageState extends State<TodayPage> {
                             ),
                             const SizedBox(height: 10),
 
-                            // 6. Clean Utility Strip (Công cụ nâng cao | Danh mục tất cả tính năng)
+                            // 6. Clean Full-Width Vertical Bento Strip (Zero Truncation)
                             IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    child: LifeOsSoftCard(
-                                      key: const Key(
+                                    child: LifeOsFeatureBentoTile(
+                                      tileKey: const Key(
                                         'open_pro_utilities_hub_card',
                                       ),
-                                      padding: const EdgeInsets.all(12),
+                                      icon: Icons.calculate_outlined,
+                                      tone: LifeOsAccentTone.blue,
+                                      title: 'Công cụ nâng cao',
+                                      subtitle: 'Lãi vay · Tiết kiệm',
                                       onTap: () =>
                                           context.push('/pro-utilities'),
-                                      child: Row(
-                                        children: [
-                                          const LifeOsIconSquircle(
-                                            icon: Icons.calculate_outlined,
-                                            tone: LifeOsAccentTone.blue,
-                                            size: 36,
-                                            iconSize: 18,
-                                          ),
-                                          const SizedBox(width: 9),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  'Công cụ nâng cao',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    fontSize: 13,
-                                                    height: 1.2,
-                                                    color: c.textPrimary,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  'Lãi vay · Tiết kiệm',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 11.8,
-                                                    height: 1.22,
-                                                    color: c.textSecondary,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -1495,49 +1439,55 @@ class _TodayPageState extends State<TodayPage> {
                                       padding: const EdgeInsets.all(12),
                                       onTap: () =>
                                           context.push('/super-app-hub'),
-                                      child: Row(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const LifeOsIconSquircle(
-                                            icon: Icons.apps_rounded,
-                                            tone: LifeOsAccentTone.emerald,
-                                            solidFill: true,
-                                            size: 36,
-                                            iconSize: 18,
+                                          Row(
+                                            children: [
+                                              const LifeOsIconSquircle(
+                                                icon: Icons.apps_rounded,
+                                                tone: LifeOsAccentTone.emerald,
+                                                solidFill: true,
+                                                size: 36,
+                                                iconSize: 18,
+                                              ),
+                                              const Spacer(),
+                                              Icon(
+                                                Icons.chevron_right_rounded,
+                                                size: 17,
+                                                color: c.primary,
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 9),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  'Tất cả danh mục',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    fontSize: 13,
-                                                    height: 1.2,
-                                                    color: c.textPrimary,
-                                                  ),
+                                          const SizedBox(height: 8),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Tất cả danh mục',
+                                                softWrap: true,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 13.2,
+                                                  height: 1.22,
+                                                  color: c.textPrimary,
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  'Đầy đủ 20+ tiện ích',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 11.8,
-                                                    height: 1.22,
-                                                    color: c.textSecondary,
-                                                  ),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                'Đầy đủ 20+ tiện ích',
+                                                softWrap: true,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  height: 1.25,
+                                                  color: c.textSecondary,
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -1605,8 +1555,7 @@ class _HeroGlassCapsule extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -1685,8 +1634,7 @@ class _PulseMiniBentoCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               fontSize: 12.2,
               height: 1.2,

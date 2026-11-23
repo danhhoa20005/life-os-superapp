@@ -1127,8 +1127,7 @@ class _HeroKpiCol extends StatelessWidget {
           ),
           Text(
             label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(fontSize: 11.8, color: c.textSecondary),
           ),
         ],
@@ -1164,8 +1163,7 @@ class _SliderMetricRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
                 style: TextStyle(fontSize: 13, color: c.textSecondary),
               ),
             ),

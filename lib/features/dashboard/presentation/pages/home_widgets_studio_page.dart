@@ -368,8 +368,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                           children: [
                                             Text(
                                               'Nói chi tiêu hoặc chia tiền...',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.w600,
@@ -378,8 +377,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                             ),
                                             Text(
                                               'Chi hôm nay: ${VndAmount.format(dash.todayExpenseMinor)}',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 10.5,
                                                 color: c.textSecondary,
@@ -462,8 +460,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                       Expanded(
                                         child: Text(
                                           'Tài sản & Dòng tiền',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: true,
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -553,8 +550,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                               ),
                                               Text(
                                                 '+${VndAmount.format(dash.monthlyIncomeMinor)}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                                softWrap: true,
                                                 style: TextStyle(
                                                   fontSize: 12.2,
                                                   fontWeight: FontWeight.w800,
@@ -594,8 +590,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                               ),
                                               Text(
                                                 '-${VndAmount.format(dash.monthlyExpenseMinor)}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                                softWrap: true,
                                                 style: const TextStyle(
                                                   fontSize: 12.2,
                                                   fontWeight: FontWeight.w800,
@@ -641,8 +636,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                       Expanded(
                                         child: Text(
                                           groupTitle,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: true,
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -655,8 +649,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                   const SizedBox(height: 6),
                                   Text(
                                     'Chia tiền ăn uống, việc nhà, điện nước 1 chạm',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
                                     style: TextStyle(
                                       fontSize: 13.8,
                                       fontWeight: FontWeight.w800,
@@ -697,9 +690,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                                 Flexible(
                                                   child: Text(
                                                     'Nói chia tiền',
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    softWrap: true,
                                                     style: TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 12,
@@ -741,9 +732,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                                 Flexible(
                                                   child: Text(
                                                     'Tất toán QR',
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    softWrap: true,
                                                     style: TextStyle(
                                                       color: m3TonalPillFg,
                                                       fontSize: 12,
@@ -790,8 +779,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                       Expanded(
                                         child: Text(
                                           'Hạn mức hôm nay',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: true,
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -850,8 +838,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                   const SizedBox(height: 8),
                                   Text(
                                     runwayLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       color: c.textSecondary,
@@ -909,8 +896,7 @@ class _GoogleM3WidgetShowcaseCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     badgeLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,

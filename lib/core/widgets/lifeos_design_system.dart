@@ -704,8 +704,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: TextStyle(
                           fontSize: compact ? 17.5 : 19,
                           fontWeight: FontWeight.w800,
@@ -718,8 +717,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           subtitle!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: TextStyle(
                             fontSize: 12.2,
                             fontWeight: FontWeight.w500,
@@ -881,8 +879,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           style: TextStyle(
                             fontSize: compact ? 20.5 : 23,
                             fontWeight: FontWeight.w800,
@@ -895,8 +892,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             subtitle!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: TextStyle(
                               fontSize: compact ? 12.2 : 13,
                               fontWeight: FontWeight.w500,
@@ -1141,9 +1137,7 @@ class LifeOsStatusPill extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              maxLines: 2,
               softWrap: true,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12.2,
                 fontWeight: FontWeight.w700,
@@ -1337,8 +1331,7 @@ class LifeOsFeatureGridTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -1878,8 +1871,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                         children: [
                                           Text(
                                             item.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w700,
                                               fontSize: 14.5,
@@ -1887,8 +1879,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                           ),
                                           Text(
                                             item.subtitle,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
                                             style: Theme.of(
                                               context,
                                             ).textTheme.bodySmall,
@@ -1978,8 +1969,7 @@ class LifeOsCompactDockItem extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.2,
@@ -2613,8 +2603,7 @@ class LifeOsSectionHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   style: TextStyle(
                     fontSize: 13.8,
                     fontWeight: FontWeight.w800,
@@ -2626,8 +2615,7 @@ class LifeOsSectionHeader extends StatelessWidget {
                   const SizedBox(height: 1),
                   Text(
                     subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: TextStyle(fontSize: 11.6, color: c.textSecondary),
                   ),
                 ],
@@ -2641,8 +2629,9 @@ class LifeOsSectionHeader extends StatelessWidget {
   }
 }
 
-/// Tactile 2-column Bento shortcut card (`>= 48dp` hit target, zero overflow)
-/// used to organize domain sub-features cleanly into separate tabs.
+/// Tactile 2-column Bento shortcut card (`>= 48dp` hit target, zero truncation, zero overflow).
+/// Places the icon + corner chevron on top so `title` and `subtitle` get 100% of the card width
+/// and display full Vietnamese labels without ever clipping to `...`.
 class LifeOsFeatureBentoTile extends StatelessWidget {
   final Key? tileKey;
   final IconData icon;
@@ -2666,39 +2655,55 @@ class LifeOsFeatureBentoTile extends StatelessWidget {
     final c = TammySemanticColors.of(context);
     return LifeOsSoftCard(
       key: tileKey,
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
+      padding: const EdgeInsets.all(12),
       borderRadius: 18,
       onTap: onTap,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          LifeOsIconSquircle(icon: icon, tone: tone, size: 36, iconSize: 18),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.8,
-                    fontWeight: FontWeight.w800,
-                    color: c.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.2, color: c.textSecondary),
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              LifeOsIconSquircle(
+                icon: icon,
+                tone: tone,
+                size: 36,
+                iconSize: 18,
+              ),
+              const Spacer(),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 17,
+                color: c.textSecondary,
+              ),
+            ],
           ),
-          Icon(Icons.chevron_right_rounded, size: 16, color: c.textSecondary),
+          const SizedBox(height: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 13.2,
+                  height: 1.22,
+                  fontWeight: FontWeight.w800,
+                  color: c.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.25,
+                  color: c.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

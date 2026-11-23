@@ -646,8 +646,7 @@ class _EventInfoRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 value,
-                maxLines: multiLine ? 4 : 2,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
                 style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: multiLine ? FontWeight.w600 : FontWeight.w800,
@@ -852,8 +851,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                               children: [
                                 Text(
                                   eventTitle,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                   style: const TextStyle(
                                     color: Color(0xFF101828),
                                     fontSize: 16,
@@ -863,8 +861,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                                 const SizedBox(height: 2),
                                 Text(
                                   eventTimeLine,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                   style: const TextStyle(
                                     color: Color(0xFF475467),
                                     fontSize: 13,
@@ -873,8 +870,7 @@ class _EventAlarmPageState extends State<EventAlarmPage>
                                 ),
                                 Text(
                                   eventLocation,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                   style: const TextStyle(
                                     color: Color(0xFF667085),
                                     fontSize: 12.5,

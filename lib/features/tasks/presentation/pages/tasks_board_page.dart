@@ -184,19 +184,25 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                             items: [
                               const DropdownMenuItem(
                                 value: 'all',
-                                child: Text(
-                                  'Tất cả thành viên',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Tất cả thành viên',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
                                 ),
                               ),
                               if (user != null)
                                 DropdownMenuItem(
                                   value: user.id,
-                                  child: const Text(
-                                    'Việc của tôi',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  child: const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'Việc của tôi',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
                                   ),
                                 ),
                               ...members
@@ -204,12 +210,15 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                                   .map(
                                     (m) => DropdownMenuItem(
                                       value: m.userId,
-                                      child: Text(
-                                        m.fullName,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          m.fullName,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -239,18 +248,24 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                             items: const [
                               DropdownMenuItem(
                                 value: 'all',
-                                child: Text(
-                                  'Mọi thời điểm',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Mọi thời điểm',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
                                 ),
                               ),
                               DropdownMenuItem(
                                 value: 'today',
-                                child: Text(
-                                  'Hôm nay',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Hôm nay',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
                                 ),
                               ),
                             ],
@@ -367,8 +382,7 @@ class _TaskStatColumn extends StatelessWidget {
           ),
           Text(
             label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               fontSize: 12,
               height: 1.2,
@@ -488,65 +502,64 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                 children: [
                   Text(
                     task.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: TextStyle(
                       fontSize: 15,
-                      height: 1.22,
+                      height: 1.25,
                       fontWeight: FontWeight.w800,
                       color: isDone ? c.textSecondary : c.textPrimary,
                       decoration: isDone ? TextDecoration.lineThrough : null,
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Row(
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(Icons.calendar_today_outlined, size: 12.5, color: c.textSecondary),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          task.dueAt != null
-                              ? timeFmt.format(task.dueAt!)
-                              : 'Linh hoạt trong ngày',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12.2, color: c.textSecondary),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today_outlined, size: 12.5, color: c.textSecondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            task.dueAt != null
+                                ? timeFmt.format(task.dueAt!)
+                                : 'Linh hoạt trong ngày',
+                            softWrap: true,
+                            style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 9,
+                            backgroundColor: c.primarySubtle,
+                            child: Text(
+                              task.assigneeName.trim().isEmpty
+                                  ? 'U'
+                                  : task.assigneeName.trim().characters.first.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: c.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            task.assigneeName,
+                            softWrap: true,
+                            style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 15,
-                  backgroundColor: c.primarySubtle,
-                  child: Text(
-                    task.assigneeName.trim().isEmpty
-                        ? 'U'
-                        : task.assigneeName.trim().characters.first.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: c.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 54),
-                  child: Text(
-                    task.assigneeName.split(' ').last,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: c.textSecondary),
-                  ),
-                ),
-              ],
             ),
             const SizedBox(width: 8),
             LifeOsStatusPill(
@@ -723,9 +736,12 @@ Future<void> showUnifiedCreateTaskDialog(
                       .map<DropdownMenuItem<String>>(
                         (m) => DropdownMenuItem(
                           value: m.userId as String,
-                          child: Text(
-                            '${m.fullName} (${m.userId == userId ? "Bản thân" : "Cần đồng ý"})',
-                            overflow: TextOverflow.ellipsis,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${m.fullName} (${m.userId == userId ? "Bản thân" : "Cần đồng ý"})',
+                            ),
                           ),
                         ),
                       )

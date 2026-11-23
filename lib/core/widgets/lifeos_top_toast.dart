@@ -392,8 +392,7 @@ class _TopToastBannerCard extends StatelessWidget {
                   children: [
                     Text(
                       badgeTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         fontSize: 10.8,
                         fontWeight: FontWeight.w800,
@@ -404,8 +403,7 @@ class _TopToastBannerCard extends StatelessWidget {
                     const SizedBox(height: 1),
                     Text(
                       data.message,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

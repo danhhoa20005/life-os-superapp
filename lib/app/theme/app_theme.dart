@@ -208,6 +208,9 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: c.surfaceRaised,
+        hintMaxLines: 2,
+        errorMaxLines: 3,
+        helperMaxLines: 3,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 13,

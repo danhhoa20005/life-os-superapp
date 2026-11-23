@@ -139,10 +139,9 @@ class FamilyPage extends StatelessWidget {
                                         .map(
                                           (f) => DropdownMenuItem(
                                             value: f.id,
-                                            child: Text(
+                                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                                               '${f.name} · ${f.spaceType.displayLabel}',
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                            )),
                                           ),
                                         )
                                         .toList(),
@@ -248,10 +247,9 @@ class FamilyPage extends StatelessWidget {
                       .map(
                         (t) => DropdownMenuItem(
                           value: t,
-                          child: Text(
+                          child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                             t.displayLabel,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          )),
                         ),
                       )
                       .toList(),
@@ -404,8 +402,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                           Expanded(
                             child: Text(
                               family.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
                               style: TextStyle(
                                 fontSize: 17,
                                 height: 1.2,
@@ -893,10 +890,9 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (t) => DropdownMenuItem(
                             value: t,
-                            child: Text(
+                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                               t.displayLabel,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            )),
                           ),
                         )
                         .toList(),
@@ -934,10 +930,9 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (m) => DropdownMenuItem(
                             value: m.userId,
-                            child: Text(
+                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                               m.fullName,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            )),
                           ),
                         )
                         .toList(),
@@ -955,10 +950,9 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (m) => DropdownMenuItem(
                             value: m,
-                            child: Text(
+                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                               m.displayLabel,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            )),
                           ),
                         )
                         .toList(),

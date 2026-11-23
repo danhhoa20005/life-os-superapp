@@ -347,7 +347,7 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                           },
                           onSubmitted: (_) => _saveInlineDraft(),
                           decoration: InputDecoration(
-                            hintText: 'Gõ nhanh: ăn phở 55k, xăng 80k...',
+                            hintText: 'VD: ăn phở 55k',
                             isDense: true,
                             filled: true,
                             fillColor: c.surface,
@@ -421,8 +421,7 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                             '${_parsedDraft!.kind == TransactionKind.income ? "Thu nhập" : "Chi tiêu"} · '
                             '${_parsedDraft!.merchant} · ${_parsedDraft!.categoryName} · '
                             '${VndAmount.format(_parsedDraft!.amountMinor)}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: TextStyle(
                               fontSize: 12.2,
                               fontWeight: FontWeight.w700,
@@ -587,46 +586,53 @@ class _QuickBentoActionTile extends StatelessWidget {
     return LifeOsSoftCard(
       key: item.key,
       borderRadius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      padding: const EdgeInsets.all(12),
       onTap: item.onTap,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          LifeOsIconSquircle(
-            icon: item.icon,
-            tone: item.tone,
-            size: 38,
-            iconSize: 20,
+          Row(
+            children: [
+              LifeOsIconSquircle(
+                icon: item.icon,
+                tone: item.tone,
+                size: 36,
+                iconSize: 19,
+              ),
+              const Spacer(),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: c.textSecondary,
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                    color: c.textPrimary,
-                  ),
+          const SizedBox(height: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.title,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
+                  color: c.textPrimary,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  item.subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1.2,
-                    color: c.textSecondary,
-                  ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.subtitle,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.22,
+                  color: c.textSecondary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -838,9 +844,12 @@ Future<void> _showQuickTransactionSheet(
                           .map(
                             (w) => DropdownMenuItem(
                               value: w.id,
-                              child: Text(
-                                '${w.name} (${VndAmount.format(w.balanceMinor)})',
-                                overflow: TextOverflow.ellipsis,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '${w.name} (${VndAmount.format(w.balanceMinor)})',
+                                ),
                               ),
                             ),
                           )
@@ -1019,11 +1028,14 @@ Future<void> _showQuickTaskSheet(
                           .map<DropdownMenuItem<String>>(
                             (m) => DropdownMenuItem(
                               value: m.userId,
-                              child: Text(
-                                m.userId == user.id
-                                    ? '${m.fullName} (Tôi)'
-                                    : m.fullName,
-                                overflow: TextOverflow.ellipsis,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  m.userId == user.id
+                                      ? '${m.fullName} (Tôi)'
+                                      : m.fullName,
+                                ),
                               ),
                             ),
                           )

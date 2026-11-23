@@ -335,8 +335,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                           key: const Key('super_app_directory_search_input'),
                           decoration: const InputDecoration(
                             isDense: true,
-                            hintText:
-                                'Tìm nhanh: điện EVN, đi chợ, thuốc, lương, lãi vay...',
+                            hintText: 'Tìm dịch vụ, tiện ích',
                             prefixIcon: Icon(Icons.search_rounded, size: 20),
                           ),
                           onChanged: (v) => setState(() => _query = v),

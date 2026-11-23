@@ -449,8 +449,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                   const SizedBox(height: 2),
                                   Text(
                                     activeVehicle.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
                                     style: TextStyle(
                                       fontSize: 13.5,
                                       fontWeight: FontWeight.w600,
@@ -553,8 +552,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       ),
                                       Text(
                                         'Mốc kế: ${numFmt.format(activeVehicle.nextDueKm)} km',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                        softWrap: true,
                                         style: TextStyle(
                                           fontSize: 11.8,
                                           color: c.textSecondary,

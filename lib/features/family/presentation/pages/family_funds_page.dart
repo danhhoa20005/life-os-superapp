@@ -142,9 +142,7 @@ class FamilyFundsPage extends StatelessWidget {
                                                   Flexible(
                                                     child: Text(
                                                       'Tổng quỹ hiện tại',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
+                                                      softWrap: true,
                                                       style: TextStyle(
                                                         fontWeight:
                                                             FontWeight.w800,
@@ -711,9 +709,7 @@ class FamilyFundsPage extends StatelessWidget {
                                                       ),
                                                       Text(
                                                         '${dtFmt.format(allContributions[i].item.createdAt)} · ${allContributions[i].fund.name}',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
+                                                        softWrap: true,
                                                         style: TextStyle(
                                                           fontSize: 12,
                                                           color:

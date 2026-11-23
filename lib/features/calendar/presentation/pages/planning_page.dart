@@ -171,10 +171,9 @@ class PlanningPage extends StatelessWidget {
                         .map<DropdownMenuItem<String>>(
                           (m) => DropdownMenuItem(
                             value: m.userId as String,
-                            child: Text(
+                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
                               '${m.fullName} (${m.userId == userId ? "Bản thân" : "Cần đồng ý"})',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            )),
                           ),
                         )
                         .toList(),
@@ -651,7 +650,7 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
                   onChanged: (q) =>
                       context.read<CalendarBloc>().add(CalendarSearchChanged(q)),
                   decoration: const InputDecoration(
-                    labelText: 'Tìm sự kiện theo tiêu đề, địa điểm hoặc ghi chú',
+                    labelText: 'Tìm sự kiện, địa điểm',
                     prefixIcon: Icon(Icons.search_rounded),
                     isDense: true,
                   ),
@@ -983,18 +982,16 @@ Future<void> showUpsertCalendarEventDialog(
                     items: [
                       const DropdownMenuItem(
                         value: CalendarEventVisibility.privateEvent,
-                        child: Text(
-                          'PRIVATE — Chỉ mình tôi & Google Calendar',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
+                          'Chỉ mình tôi & Lịch cá nhân',
+                        )),
                       ),
                       if (familyId != null)
                         const DropdownMenuItem(
                           value: CalendarEventVisibility.sharedEvent,
-                          child: Text(
-                            'SHARED — Chia sẻ với Gia đình / Hội nhóm',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
+                            'Chia sẻ với Gia đình / Nhóm',
+                          )),
                         ),
                     ],
                     onChanged: (v) {
@@ -1016,7 +1013,7 @@ Future<void> showUpsertCalendarEventDialog(
                         .map(
                           (cal) => DropdownMenuItem(
                             value: cal.id,
-                            child: Text(cal.summary, overflow: TextOverflow.ellipsis),
+                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(cal.summary)),
                           ),
                         )
                         .toList(),
@@ -1064,7 +1061,7 @@ Future<void> showUpsertCalendarEventDialog(
                   isExpanded: true,
                   initialValue: frequency,
                   decoration: const InputDecoration(
-                    labelText: 'Lịch lặp tự động (Chuẩn Google RRULE)',
+                    labelText: 'Lịch lặp tự động',
                     prefixIcon: Icon(Icons.repeat_rounded),
                     isDense: true,
                   ),
@@ -1072,19 +1069,19 @@ Future<void> showUpsertCalendarEventDialog(
                     DropdownMenuItem(value: RecurrenceFrequency.none, child: Text('Không lặp')),
                     DropdownMenuItem(
                       value: RecurrenceFrequency.daily,
-                      child: Text('Lặp hằng ngày (DAILY)'),
+                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng ngày')),
                     ),
                     DropdownMenuItem(
                       value: RecurrenceFrequency.weekly,
-                      child: Text('Lặp hằng tuần theo thứ (WEEKLY)'),
+                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng tuần theo thứ')),
                     ),
                     DropdownMenuItem(
                       value: RecurrenceFrequency.monthly,
-                      child: Text('Lặp hằng tháng (MONTHLY)'),
+                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng tháng')),
                     ),
                     DropdownMenuItem(
                       value: RecurrenceFrequency.yearly,
-                      child: Text('Lặp hằng năm / Giỗ Tết / Sinh nhật (YEARLY)'),
+                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng năm / Giỗ Tết / Sinh nhật')),
                     ),
                   ],
                   onChanged: (v) {
@@ -1110,7 +1107,7 @@ Future<void> showUpsertCalendarEventDialog(
                           controller: intervalCtrl,
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
-                            labelText: 'Khoảng cách (INTERVAL)',
+                            labelText: 'Khoảng cách lặp',
                             hintText: '1',
                             isDense: true,
                           ),
@@ -1571,8 +1568,7 @@ class _LifeOsInteractiveCalendarDeckState
                   Expanded(
                     child: Text(
                       periodHeader,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         fontSize: 15.5,
                         height: 1.2,
@@ -1759,8 +1755,7 @@ class _DayTimelineRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         fontSize: 14.5,
                         height: 1.22,
