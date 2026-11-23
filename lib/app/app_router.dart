@@ -667,8 +667,9 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
             }
 
             // Mobile Floating Frosted Liquid-Glass Dock with BrandKit Gradient `+` Squircle
-            final leftTabs = [_tabs[0], _tabs[2]]; // Hôm nay | Lịch & Việc
-            final rightTabs = [_tabs[1], _tabs[3], _tabs[4]]; // Tài chính | Gia đình | Tài sản
+            // Ordered by daily thumb-zone ergonomics: Hôm nay & Tài chính on left, Planning/Family/Assets on right.
+            final leftTabs = [_tabs[0], _tabs[1]]; // Hôm nay | Tài chính
+            final rightTabs = [_tabs[2], _tabs[3], _tabs[4]]; // Lịch & Việc | Gia đình | Tài sản
             final isDark = Theme.of(context).brightness == Brightness.dark;
 
             return Scaffold(

@@ -6,11 +6,11 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/lifeos_brand_colors.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
-import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/pages/account_profile_page.dart';
@@ -19,9 +19,11 @@ import '../../../calendar/presentation/bloc/calendar_bloc.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dart';
 import '../../../tasks/domain/entities/task_entities.dart';
+import '../../../tasks/domain/repositories/task_repository.dart';
 import '../../../tasks/presentation/bloc/task_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
+import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../vehicles/domain/entities/vehicle_entities.dart';
 import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../domain/entities/dashboard_entities.dart';
@@ -54,6 +56,8 @@ class _InboxActionItem {
   final String subtitle;
   final String badge;
   final VoidCallback onTap;
+  final String? quickActionLabel;
+  final VoidCallback? onQuickAction;
 
   const _InboxActionItem({
     required this.icon,
@@ -62,6 +66,8 @@ class _InboxActionItem {
     required this.subtitle,
     required this.badge,
     required this.onTap,
+    this.quickActionLabel,
+    this.onQuickAction,
   });
 }
 
@@ -176,6 +182,27 @@ class _TodayPageState extends State<TodayPage> {
 
   bool _hideBalances = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _hydrateUserPrefs();
+  }
+
+  Future<void> _hydrateUserPrefs() async {
+    await UserBehaviorPrefs.loadLastWalletId();
+    final savedPinned = await UserBehaviorPrefs.loadPinnedShortcuts();
+    final savedHide = await UserBehaviorPrefs.loadHideBalances();
+    if (!mounted) return;
+    setState(() {
+      if (savedPinned != null) {
+        _pinnedIds
+          ..clear()
+          ..addAll(savedPinned);
+      }
+      _hideBalances = savedHide;
+    });
+  }
+
   String _fmtMoney(int minor, {String prefix = ''}) {
     if (_hideBalances) return '$prefix•••••••• ₫';
     return '$prefix${VndAmount.format(minor)}';
@@ -204,7 +231,7 @@ class _TodayPageState extends State<TodayPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Chọn tối thiểu 4 tiện ích thường dùng để truy cập ngay 1 chạm.',
+                  'Chọn tối thiểu 4 tiện ích thường dùng — tự động ghi nhớ cho các lần mở sau.',
                   style: TextStyle(fontSize: 12.2, color: c.textSecondary),
                 ),
                 const SizedBox(height: 12),
@@ -233,6 +260,7 @@ class _TodayPageState extends State<TodayPage> {
                             _pinnedIds.remove(item.id);
                           }
                         });
+                        UserBehaviorPrefs.savePinnedShortcuts(_pinnedIds);
                         setModal(() {});
                       },
                     );
@@ -278,7 +306,8 @@ class _TodayPageState extends State<TodayPage> {
       DateTime.saturday: 'Thứ Bảy',
       DateTime.sunday: 'Chủ Nhật',
     };
-    final todayDateLabel = '${weekdays[now.weekday]}, ${now.day} thg ${now.month}';
+    final todayDateLabel =
+        '${UserBehaviorPrefs.contextualTimeSubtitle(now)} · ${weekdays[now.weekday]}, ${now.day} thg ${now.month}';
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -364,6 +393,26 @@ class _TodayPageState extends State<TodayPage> {
                         .where((b) => b.nextDueDate.difference(now).inDays <= 7)
                         .toList();
 
+                    // Compute Today's real spending & daily safe allowance for immediate awareness
+                    final todayExpenseMinor = allTransactions
+                        .where(
+                          (t) =>
+                              !t.isReversed &&
+                              t.kind == TransactionKind.expense &&
+                              t.occurredAt.year == now.year &&
+                              t.occurredAt.month == now.month &&
+                              t.occurredAt.day == now.day,
+                        )
+                        .fold<int>(0, (sum, t) => sum + t.amountMinor);
+                    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+                    final remainingDays = (daysInMonth - now.day + 1).clamp(1, 31);
+                    final remainingBudgetMinor = hasConfiguredBudget
+                        ? (totalBudgetLimit - d.monthlyExpenseMinor).clamp(0, totalBudgetLimit)
+                        : 0;
+                    final safeDailyMinor = hasConfiguredBudget
+                        ? (remainingBudgetMinor ~/ remainingDays)
+                        : 0;
+
                     final inboxItems = <_InboxActionItem>[
                       if (provisionalTxs.isNotEmpty)
                         _InboxActionItem(
@@ -375,6 +424,23 @@ class _TodayPageState extends State<TodayPage> {
                           badge: 'Chờ duyệt',
                           onTap: () =>
                               context.push('/auto-tx-review', extra: provisionalTxs.first),
+                          quickActionLabel: user != null ? 'Duyệt' : null,
+                          onQuickAction: user == null
+                              ? null
+                              : () {
+                                  final firstTx = provisionalTxs.first;
+                                  context.read<TransactionActionBloc>().add(
+                                        ProvisionalTransactionDecisionSubmitted(
+                                          userId: user.id,
+                                          transactionId: firstTx.id,
+                                          approve: true,
+                                        ),
+                                      );
+                                  LifeOsTopToast.show(
+                                    context,
+                                    'Đã duyệt giao dịch ${firstTx.merchant}.',
+                                  );
+                                },
                         ),
                       if (upcomingEvents.isNotEmpty)
                         _InboxActionItem(
@@ -382,7 +448,7 @@ class _TodayPageState extends State<TodayPage> {
                           tone: LifeOsAccentTone.emerald,
                           title: upcomingEvents.first.title,
                           subtitle:
-                              '${timeFmt.format(upcomingEvents.first.startsAt)} – ${timeFmt.format(upcomingEvents.first.endsAt)}${upcomingEvents.first.location != null ? " · ${upcomingEvents.first.location}" : ""}',
+                              '${timeFmt.format(upcomingEvents.first.startsAt)} – ${timeFmt.format(upcomingEvents.first.endsAt)}${upcomingEvents.first.location != null && upcomingEvents.first.location!.isNotEmpty ? " · ${upcomingEvents.first.location}" : ""}',
                           badge: 'Lịch hẹn',
                           onTap: () =>
                               context.push('/event-detail', extra: upcomingEvents.first),
@@ -397,6 +463,36 @@ class _TodayPageState extends State<TodayPage> {
                               : 'Chạm để mở việc cần làm',
                           badge: 'Việc làm',
                           onTap: () => context.push('/tasks-board'),
+                          quickActionLabel: user != null ? '✓ Xong' : null,
+                          onQuickAction: user == null
+                              ? null
+                              : () {
+                                  final t = openTasks.first;
+                                  if (t.status == TaskWorkflowStatus.proposed) {
+                                    context.read<TaskBloc>().add(
+                                          TaskResponseSubmitted(
+                                            RespondToTaskParams(
+                                              actorUserId: user.id,
+                                              task: t,
+                                              accept: true,
+                                            ),
+                                          ),
+                                        );
+                                    LifeOsTopToast.show(context, 'Đã nhận việc "${t.title}".');
+                                  } else {
+                                    context.read<TaskBloc>().add(
+                                          TaskStatusChanged(
+                                            actorUserId: user.id,
+                                            task: t,
+                                            nextStatus: TaskWorkflowStatus.done,
+                                          ),
+                                        );
+                                    LifeOsTopToast.show(
+                                      context,
+                                      'Đã hoàn thành "${t.title}"!',
+                                    );
+                                  }
+                                },
                         ),
                       if (dueVehicles.isNotEmpty)
                         _InboxActionItem(
@@ -509,11 +605,13 @@ class _TodayPageState extends State<TodayPage> {
                                         key: const Key('toggle_balance_privacy_btn'),
                                         borderRadius: BorderRadius.circular(18),
                                         onTap: () {
-                                          setState(() => _hideBalances = !_hideBalances);
+                                          final nextHide = !_hideBalances;
+                                          setState(() => _hideBalances = nextHide);
+                                          UserBehaviorPrefs.saveHideBalances(nextHide);
                                           LifeOsTopToast.show(
                                             context,
-                                            _hideBalances
-                                                ? 'Đã bật chế độ ẩn số dư riêng tư.'
+                                            nextHide
+                                                ? 'Đã bật chế độ ẩn số dư riêng tư (tự nhớ cho lần sau).'
                                                 : 'Đã hiển thị lại số dư tài chính.',
                                             kind: LifeOsToastKind.info,
                                             duration: const Duration(milliseconds: 1800),
@@ -560,6 +658,42 @@ class _TodayPageState extends State<TodayPage> {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(11),
+                                    ),
+                                    child: Wrap(
+                                      spacing: 12,
+                                      runSpacing: 4,
+                                      children: [
+                                        Text(
+                                          'Hôm nay chi: ${_fmtMoney(todayExpenseMinor)}',
+                                          style: TextStyle(
+                                            fontSize: 11.8,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white.withValues(alpha: 0.94),
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                          ),
+                                        ),
+                                        if (hasConfiguredBudget)
+                                          Text(
+                                            'Còn tiêu/ngày: ${_fmtMoney(safeDailyMinor)}',
+                                            style: const TextStyle(
+                                              fontSize: 11.8,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF86EFAC),
+                                              fontFeatures: [FontFeature.tabularFigures()],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                   const SizedBox(height: 10),
                                   Row(
                                     children: [
@@ -592,7 +726,7 @@ class _TodayPageState extends State<TodayPage> {
                                           child: InkWell(
                                             key: const Key('home_quick_expense_btn'),
                                             borderRadius: BorderRadius.circular(14),
-                                            onTap: () => showVoiceSmartCaptureSheet(context),
+                                            onTap: () => showLifeOsQuickCreateHub(context),
                                             child: ConstrainedBox(
                                               constraints: const BoxConstraints(minHeight: 44),
                                               child: const Padding(
@@ -838,10 +972,30 @@ class _TodayPageState extends State<TodayPage> {
                                                     ),
                                                   ),
                                                   const SizedBox(width: 6),
-                                                  LifeOsStatusPill(
-                                                    label: item.badge,
-                                                    tone: item.tone,
-                                                  ),
+                                                  if (item.onQuickAction != null &&
+                                                      item.quickActionLabel != null)
+                                                    FilledButton.tonal(
+                                                      style: FilledButton.styleFrom(
+                                                        visualDensity: VisualDensity.compact,
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4,
+                                                        ),
+                                                      ),
+                                                      onPressed: item.onQuickAction,
+                                                      child: Text(
+                                                        item.quickActionLabel!,
+                                                        style: const TextStyle(
+                                                          fontSize: 11.8,
+                                                          fontWeight: FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  else
+                                                    LifeOsStatusPill(
+                                                      label: item.badge,
+                                                      tone: item.tone,
+                                                    ),
                                                 ],
                                               ),
                                             ),

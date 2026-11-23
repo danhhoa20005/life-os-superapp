@@ -9,6 +9,7 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/smart_quick_entry_parser.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
@@ -320,8 +321,12 @@ class FinancePage extends StatelessWidget {
     final merchantCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
     var kind = TransactionKind.expense;
-    var sourceWalletId = wallets.first.id;
-    String? targetWalletId = wallets.length > 1 ? wallets[1].id : null;
+    var sourceWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
+      wallets.map((w) => w.id),
+    );
+    String? targetWalletId = wallets.length > 1
+        ? wallets.firstWhere((w) => w.id != sourceWalletId, orElse: () => wallets.first).id
+        : null;
 
     final catNames = categories.isEmpty
         ? const [
@@ -464,7 +469,37 @@ class FinancePage extends StatelessWidget {
                     key: const Key('tx_amount_input'),
                     controller: amountCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: '85000'),
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'Gõ ngắn gọn (VD: 85 -> chọn 85.000 ₫)',
+                    ),
+                  ),
+                  Builder(
+                    builder: (_) {
+                      final zeroPads =
+                          UserBehaviorPrefs.vndZeroPadSuggestions(amountCtrl.text);
+                      if (zeroPads.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final sug in zeroPads)
+                              ActionChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(sug.$2),
+                                onPressed: () => setDialogState(() {
+                                  amountCtrl.text = '${sug.$1}';
+                                  amountCtrl.selection = TextSelection.collapsed(
+                                    offset: amountCtrl.text.length,
+                                  );
+                                }),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   if (enableSplitCategories && kind == TransactionKind.expense) ...[
                     const SizedBox(height: AppSpacing.sm),
@@ -549,6 +584,7 @@ class FinancePage extends StatelessWidget {
                       ),
                     );
                   }
+                  UserBehaviorPrefs.rememberWallet(sourceWalletId);
                   actionBloc.add(
                     TransactionCreateSubmitted(
                       operationId: opId,
@@ -589,6 +625,12 @@ class _TransactionsTabView extends StatefulWidget {
 class _TransactionsTabViewState extends State<_TransactionsTabView> {
   String? _selectedWalletId;
   final bool _obscureBalances = false;
+
+  @override
+  void initState() {
+    super.initState();
+    UserBehaviorPrefs.loadLastWalletId();
+  }
 
   String _formatDateHeader(DateTime date, DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
@@ -1047,29 +1089,82 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                               ? 'Tách khoản: ${tx.splitLines.map((l) => '${l.categoryName} (${VndAmount.format(l.amountMinor)})').join(' · ')}'
                               : null;
 
+                          final canUndo = tx.isConfirmedInLedger &&
+                              !tx.isReversed &&
+                              tx.kind != TransactionKind.reversal;
+                          final statementTile = ProFintechStatementTile(
+                            merchant: tx.merchant,
+                            categoryName: tx.categoryName,
+                            walletName: wName,
+                            timeLabel: _formatTimeLabel(tx.occurredAt),
+                            amountMinor: tx.amountMinor,
+                            balanceAfterMinor: tx.balanceAfterMinor,
+                            isCredit: isCredit,
+                            isTransfer: isInternal,
+                            isReversed: tx.isReversed,
+                            isVerified: tx.verification == TransactionVerification.verified ||
+                                tx.verification == TransactionVerification.userConfirmed,
+                            hasPendingWrites: tx.hasPendingWrites,
+                            splitSummary: splitSummary,
+                            obscureAmounts: _obscureBalances,
+                            onTap: () => _showTransactionReceiptSheet(
+                              context,
+                              tx,
+                              wName ?? 'Ví cá nhân',
+                            ),
+                          );
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 9),
-                            child: ProFintechStatementTile(
-                              merchant: tx.merchant,
-                              categoryName: tx.categoryName,
-                              walletName: wName,
-                              timeLabel: _formatTimeLabel(tx.occurredAt),
-                              amountMinor: tx.amountMinor,
-                              balanceAfterMinor: tx.balanceAfterMinor,
-                              isCredit: isCredit,
-                              isTransfer: isInternal,
-                              isReversed: tx.isReversed,
-                              isVerified: tx.verification == TransactionVerification.verified ||
-                                  tx.verification == TransactionVerification.userConfirmed,
-                              hasPendingWrites: tx.hasPendingWrites,
-                              splitSummary: splitSummary,
-                              obscureAmounts: _obscureBalances,
-                              onTap: () => _showTransactionReceiptSheet(
-                                context,
-                                tx,
-                                wName ?? 'Ví cá nhân',
-                              ),
-                            ),
+                            child: canUndo
+                                ? Dismissible(
+                                    key: ValueKey('swipe_tx_${tx.id}'),
+                                    direction: DismissDirection.endToStart,
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                                      decoration: BoxDecoration(
+                                        color: c.warning.withValues(alpha: 0.16),
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: c.warning.withValues(alpha: 0.45),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.undo_rounded, color: c.warning, size: 19),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Hoàn tác',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color: c.warning,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    confirmDismiss: (_) async {
+                                      final ok = await showDestructiveConfirmDialog(
+                                        context: context,
+                                        title: 'Hoàn tác giao dịch này?',
+                                        message: 'Số tiền sẽ được cộng trả lại vào ví của bạn.',
+                                        confirmLabel: 'Hoàn tác',
+                                      );
+                                      if (ok && context.mounted) {
+                                        context.read<TransactionActionBloc>().add(
+                                              TransactionReverseRequested(
+                                                userId: widget.userId,
+                                                transactionId: tx.id,
+                                              ),
+                                            );
+                                      }
+                                      return false;
+                                    },
+                                    child: statementTile,
+                                  )
+                                : statementTile,
                           );
                         }),
                       ],

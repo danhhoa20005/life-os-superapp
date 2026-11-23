@@ -112,7 +112,7 @@ class AssetsPage extends StatelessWidget {
   ) async {
     final nameCtrl = TextEditingController();
     final plateCtrl = TextEditingController();
-    final odoCtrl = TextEditingController(text: '36420');
+    final odoCtrl = TextEditingController();
     var shared = false;
     final bloc = context.read<VehicleBloc>();
 
@@ -145,7 +145,10 @@ class AssetsPage extends StatelessWidget {
                 TextField(
                   controller: odoCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Số ODO hiện tại (km)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Số ODO hiện tại (km)',
+                    hintText: 'VD: 15000',
+                  ),
                 ),
                 if (familyId != null)
                   SwitchListTile(
@@ -188,7 +191,7 @@ class AssetsPage extends StatelessWidget {
   ) async {
     final titleCtrl = TextEditingController();
     final providerCtrl = TextEditingController();
-    final amountCtrl = TextEditingController(text: '540000');
+    final amountCtrl = TextEditingController();
     final bloc = context.read<VehicleBloc>();
 
     await showDialog<void>(
@@ -209,13 +212,19 @@ class AssetsPage extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: providerCtrl,
-              decoration: const InputDecoration(labelText: 'Nhà cung cấp'),
+              decoration: const InputDecoration(
+                labelText: 'Nhà cung cấp',
+                hintText: 'VD: EVN / FPT / VNPT',
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: amountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Số tiền dự kiến (VND)'),
+              decoration: const InputDecoration(
+                labelText: 'Số tiền dự kiến (VND)',
+                hintText: 'VD: 350000',
+              ),
             ),
           ],
         ),

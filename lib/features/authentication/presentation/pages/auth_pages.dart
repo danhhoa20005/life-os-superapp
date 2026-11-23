@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/services/native_device_calendar_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -1199,8 +1200,8 @@ class ResetPasswordPage extends StatefulWidget {
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  final TextEditingController _pwdCtrl = TextEditingController(text: 'LifeOs@2026');
-  final TextEditingController _confirmCtrl = TextEditingController(text: 'LifeOs@2026');
+  final TextEditingController _pwdCtrl = TextEditingController();
+  final TextEditingController _confirmCtrl = TextEditingController();
   bool _obscure1 = true;
   bool _obscure2 = true;
 
@@ -1269,6 +1270,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                       obscureText: _obscure1,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
+                        hintText: 'Ít nhất 8 ký tự, chữ hoa, chữ thường, số',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
                           onPressed: () => setState(() => _obscure1 = !_obscure1),
@@ -1288,6 +1290,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                       obscureText: _obscure2,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
+                        hintText: 'Nhập lại mật khẩu mới',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
                           onPressed: () => setState(() => _obscure2 = !_obscure2),
@@ -1310,7 +1313,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     LifeOsPrimaryCtaButton(
                       label: 'Lưu mật khẩu',
                       onPressed: () {
-                        LifeOsTopToast.fromSnackBar(context, 
+                        if (!hasLen || _pwdCtrl.text != _confirmCtrl.text) {
+                          LifeOsTopToast.show(
+                            context,
+                            !hasLen
+                                ? 'Mật khẩu mới cần tối thiểu 8 ký tự.'
+                                : 'Mật khẩu xác nhận chưa khớp.',
+                            kind: LifeOsToastKind.warning,
+                          );
+                          return;
+                        }
+                        LifeOsTopToast.fromSnackBar(
+                          context,
                           const SnackBar(
                             content: Text('✓ Đã cập nhật mật khẩu mới an toàn.'),
                           ),
@@ -1672,6 +1686,23 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
               (false, 'Chỉ đọc', Icons.visibility_outlined),
             ],
             onChanged: (v) => setState(() => _twoWaySync = v),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const Key('onboarding_grant_device_calendar_btn'),
+            onPressed: () async {
+              final granted = await NativeDeviceCalendarBridge.instance.requestPermission();
+              if (!mounted) return;
+              LifeOsTopToast.show(
+                context,
+                granted
+                    ? 'Đã kết nối Lịch trên máy thành công!'
+                    : 'Bạn có thể cấp quyền Lịch bất cứ lúc nào trong Lịch & Việc.',
+                kind: granted ? LifeOsToastKind.success : LifeOsToastKind.info,
+              );
+            },
+            icon: const Icon(Icons.event_available_rounded, size: 18),
+            label: const Text('Cấp quyền Lịch trên máy ngay'),
           ),
         ],
       ),

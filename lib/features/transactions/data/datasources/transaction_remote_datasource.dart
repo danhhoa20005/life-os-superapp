@@ -122,12 +122,15 @@ class TransactionRemoteDataSource {
       }
 
       final sourceSnap = await tx.get(sourceWalletRef);
-      if (!sourceSnap.exists) {
+      final autoCreateDefaultCash =
+          !sourceSnap.exists && walletId == 'wallet_cash_default' && targetWalletRef == null;
+      if (!sourceSnap.exists && !autoCreateDefaultCash) {
         throw const AppException(code: 'NOT_FOUND', message: 'Không tìm thấy ví nguồn.');
       }
       final sourceData = sourceSnap.data() ?? const <String, dynamic>{};
       final sourceBal = (sourceData['balanceMinor'] as num?)?.toInt() ?? 0;
-      final sourceName = (sourceData['name'] as String?) ?? 'Ví nguồn';
+      final sourceName =
+          autoCreateDefaultCash ? 'Ví tiền mặt' : ((sourceData['name'] as String?) ?? 'Ví nguồn');
 
       int? targetBal;
       String? targetName;
@@ -190,10 +193,25 @@ class TransactionRemoteDataSource {
       } else {
         final delta = direction == 'credit' ? amountMinor : -amountMinor;
         newSourceBal = sourceBal + delta;
-        tx.update(sourceWalletRef, {
-          'balanceMinor': newSourceBal,
-          'updatedAt': Timestamp.fromDate(now),
-        });
+        if (autoCreateDefaultCash) {
+          tx.set(sourceWalletRef, {
+            'id': walletId,
+            'ownerId': userId,
+            'name': sourceName,
+            'type': WalletType.cash.name,
+            'bankCode': null,
+            'maskedAccount': null,
+            'balanceMinor': newSourceBal,
+            'isEstimatedBalance': true,
+            'createdAt': Timestamp.fromDate(now),
+            'updatedAt': Timestamp.fromDate(now),
+          });
+        } else {
+          tx.update(sourceWalletRef, {
+            'balanceMinor': newSourceBal,
+            'updatedAt': Timestamp.fromDate(now),
+          });
+        }
         tx.set(_auditCol(userId).doc('aud_$operationId'), {
           'id': 'aud_$operationId',
           'ownerId': userId,

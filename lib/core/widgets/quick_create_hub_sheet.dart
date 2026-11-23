@@ -17,6 +17,7 @@ import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
 import '../utils/smart_quick_entry_parser.dart';
+import '../utils/user_behavior_prefs.dart';
 import '../utils/vnd_amount.dart';
 import 'lifeos_design_system.dart';
 import 'voice_smart_capture_sheet.dart';
@@ -92,6 +93,12 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
   ParsedSmartEntry? _parsedDraft;
 
   @override
+  void initState() {
+    super.initState();
+    UserBehaviorPrefs.loadLastWalletId();
+  }
+
+  @override
   void dispose() {
     _quickInputCtrl.dispose();
     super.dispose();
@@ -99,8 +106,7 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
 
   String _defaultWalletId() {
     final wallets = widget.txListBloc?.state.wallets ?? const <WalletEntity>[];
-    if (wallets.isNotEmpty) return wallets.first.id;
-    return 'wallet_cash_default';
+    return UserBehaviorPrefs.resolvePreferredWalletId(wallets.map((w) => w.id));
   }
 
   void _saveInlineDraft() {
@@ -123,11 +129,13 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
       return;
     }
 
+    final walletId = _defaultWalletId();
+    UserBehaviorPrefs.rememberWallet(walletId);
     actionBloc.add(
       TransactionCreateSubmitted(
         operationId: const Uuid().v4(),
         userId: user.id,
-        walletId: _defaultWalletId(),
+        walletId: walletId,
         categoryName: draft.categoryName,
         kind: draft.kind,
         amountMinor: draft.amountMinor,
@@ -603,7 +611,9 @@ Future<void> _showQuickTransactionSheet(
   final wallets = txListBloc?.state.wallets ?? const <WalletEntity>[];
   var kind = TransactionKind.expense;
   var selectedCategory = 'Ăn uống';
-  var selectedWalletId = wallets.isNotEmpty ? wallets.first.id : 'wallet_cash_default';
+  var selectedWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
+    wallets.map((w) => w.id),
+  );
   final amountCtrl = TextEditingController();
   final noteCtrl = TextEditingController();
 
@@ -670,6 +680,7 @@ Future<void> _showQuickTransactionSheet(
                     controller: amountCtrl,
                     keyboardType: TextInputType.number,
                     autofocus: true,
+                    onChanged: (_) => setModal(() {}),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -677,30 +688,67 @@ Future<void> _showQuickTransactionSheet(
                     ),
                     decoration: const InputDecoration(
                       labelText: 'Số tiền (VND)',
-                      hintText: '50000',
+                      hintText: 'Gõ ngắn gọn (VD: 45 -> gợi ý 45.000 ₫)',
                       suffixText: '₫',
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final preset in const [
-                        (35000, '35.000'),
-                        (50000, '50.000'),
-                        (100000, '100.000'),
-                        (200000, '200.000'),
-                        (500000, '500.000'),
-                      ])
-                        ActionChip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text('${preset.$2} ₫'),
-                          onPressed: () => setModal(() {
-                            amountCtrl.text = '${preset.$1}';
-                          }),
-                        ),
-                    ],
+                  Builder(
+                    builder: (_) {
+                      final zeroPads =
+                          UserBehaviorPrefs.vndZeroPadSuggestions(amountCtrl.text);
+                      if (zeroPads.isNotEmpty) {
+                        return Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final sug in zeroPads)
+                              ActionChip(
+                                key: Key('vnd_zero_pad_${sug.$1}'),
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: c.primarySubtle,
+                                side: BorderSide(color: c.primary.withValues(alpha: 0.45)),
+                                label: Text(
+                                  sug.$2,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: c.primary,
+                                  ),
+                                ),
+                                onPressed: () => setModal(() {
+                                  amountCtrl.text = '${sug.$1}';
+                                  amountCtrl.selection = TextSelection.collapsed(
+                                    offset: amountCtrl.text.length,
+                                  );
+                                }),
+                              ),
+                          ],
+                        );
+                      }
+                      return Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final preset in const [
+                            (35000, '35.000'),
+                            (50000, '50.000'),
+                            (100000, '100.000'),
+                            (200000, '200.000'),
+                            (500000, '500.000'),
+                          ])
+                            ActionChip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text('${preset.$2} ₫'),
+                              onPressed: () => setModal(() {
+                                amountCtrl.text = '${preset.$1}';
+                                amountCtrl.selection = TextSelection.collapsed(
+                                  offset: amountCtrl.text.length,
+                                );
+                              }),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -775,6 +823,7 @@ Future<void> _showQuickTransactionSheet(
                       final merchant = noteCtrl.text.trim().isEmpty
                           ? selectedCategory
                           : noteCtrl.text.trim();
+                      UserBehaviorPrefs.rememberWallet(selectedWalletId);
                       txActionBloc.add(
                         TransactionCreateSubmitted(
                           operationId: const Uuid().v4(),

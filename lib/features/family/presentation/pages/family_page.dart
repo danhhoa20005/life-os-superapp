@@ -61,7 +61,7 @@ class FamilyPage extends StatelessWidget {
                         tooltip: 'Chia tiền bằng giọng nói',
                         onTap: () => showVoiceSmartCaptureSheet(
                           context,
-                          initialTranscript: 'Ăn lẩu bò 450 nghìn chia đều 3 người',
+                          autoStartListening: true,
                         ),
                       ),
                       LifeOsHeaderCircleButton(

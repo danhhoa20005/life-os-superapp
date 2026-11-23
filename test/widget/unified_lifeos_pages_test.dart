@@ -138,15 +138,31 @@ void main() {
       await tester.pumpAndSettle();
 
       // Re-open Center + Quick Action Hub -> Navigate to Auto-Transaction Review Page
+      // When 0 pending bank transactions exist, verify honest Empty State (NO fake Circle K!)
       await tester.tap(find.byKey(const Key('lifeos_center_quick_add_fab')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('quick_hub_auto_tx_btn')));
       await tester.pumpAndSettle();
       expect(find.text('Chi tiết giao dịch (Tự động)'), findsOneWidget);
-      expect(find.textContaining('Khớp mẫu · Chờ duyệt'), findsOneWidget);
+      expect(find.text('Chưa có giao dịch tự động chờ duyệt'), findsOneWidget);
+      expect(find.text('Circle K'), findsNothing);
 
-      // Go back to Home
+      // Go back to Home & verify Live Omni-Search finds the "Cà phê" expense we just saved!
       await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Tìm kiếm nhanh LifeOS').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('omni_search_text_field')), 'Cà phê');
+      await tester.pumpAndSettle();
+      expect(find.text('Cà phê'), findsWidgets);
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('-35.000 ₫'),
+        ),
+        findsOneWidget,
+      );
+      Navigator.of(tester.element(find.byKey(const Key('omni_search_text_field')))).pop();
       await tester.pumpAndSettle();
 
       // 3. Scroll Home ListView into view and tap "Tài liệu" tile in Home 3x3 Grid

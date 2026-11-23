@@ -3,11 +3,19 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/lifeos_brand_colors.dart';
 import '../../app/theme/theme_bloc.dart';
+import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
+import '../../features/daily_life/presentation/bloc/daily_life_bloc.dart';
+import '../../features/tasks/domain/entities/task_entities.dart';
+import '../../features/tasks/presentation/bloc/task_bloc.dart';
+import '../../features/transactions/domain/entities/transaction_entities.dart';
+import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
+import '../utils/vnd_amount.dart';
 import 'quick_create_hub_sheet.dart';
 
 export 'lifeos_top_toast.dart';
@@ -1406,15 +1414,37 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
   }
 }
 
+T? _tryReadSearchBloc<T extends StateStreamableSource<Object?>>(BuildContext context) {
+  try {
+    return context.read<T>();
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Global Omni-Search Sheet opened from `🔍` in `LifeOsTopBrandHeader`.
+/// Searches REAL user data (Transactions, Events, Tasks, Groceries, Notes) + App Screens simultaneously.
 Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
-  final searchItems = <({String title, String subtitle, IconData icon, String route, LifeOsAccentTone tone})>[
+  final txListBloc = _tryReadSearchBloc<TransactionListBloc>(context);
+  final calBloc = _tryReadSearchBloc<CalendarBloc>(context);
+  final taskBloc = _tryReadSearchBloc<TaskBloc>(context);
+  final dailyBloc = _tryReadSearchBloc<DailyLifeBloc>(context);
+
+  final searchItems = <({
+    String title,
+    String subtitle,
+    IconData icon,
+    String route,
+    LifeOsAccentTone tone,
+    String? badge,
+  })>[
     (
       title: 'Trang chủ LifeOS',
       subtitle: 'Tổng quan hôm nay',
       icon: Icons.home_rounded,
       route: '/today',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Chi tiêu & Ngân sách',
@@ -1422,6 +1452,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.payments_outlined,
       route: '/finance',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Chi tiết giao dịch (Tự động)',
@@ -1429,6 +1460,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.auto_awesome_rounded,
       route: '/auto-tx-review',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Báo cáo chi tiêu & Gia đình',
@@ -1436,6 +1468,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.bar_chart_rounded,
       route: '/finance-report',
       tone: LifeOsAccentTone.blue,
+      badge: null,
     ),
     (
       title: 'Lịch trình & Google Calendar',
@@ -1443,6 +1476,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.calendar_month_rounded,
       route: '/planning',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Báo thức sự kiện',
@@ -1450,6 +1484,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.alarm_on_rounded,
       route: '/event-alarm',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Việc cần làm',
@@ -1457,6 +1492,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.task_alt_rounded,
       route: '/tasks-board',
       tone: LifeOsAccentTone.blue,
+      badge: null,
     ),
     (
       title: 'Quỹ gia đình & Mục tiêu chung',
@@ -1464,6 +1500,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.savings_outlined,
       route: '/family-funds',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Tài liệu gia đình',
@@ -1471,6 +1508,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.folder_copy_outlined,
       route: '/family-documents',
       tone: LifeOsAccentTone.amber,
+      badge: null,
     ),
     (
       title: 'Xe cộ & Bảo dưỡng',
@@ -1478,6 +1516,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.directions_car_outlined,
       route: '/assets',
       tone: LifeOsAccentTone.blue,
+      badge: null,
     ),
     (
       title: 'Widget màn hình chính',
@@ -1485,6 +1524,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.widgets_outlined,
       route: '/home-widgets',
       tone: LifeOsAccentTone.purple,
+      badge: null,
     ),
     (
       title: 'Tiện ích Pro Tích hợp',
@@ -1492,6 +1532,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.workspace_premium_rounded,
       route: '/pro-utilities',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
@@ -1499,6 +1540,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.radar_rounded,
       route: '/subscriptions-warranty',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
@@ -1506,6 +1548,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.calculate_outlined,
       route: '/wealth-tools',
       tone: LifeOsAccentTone.blue,
+      badge: null,
     ),
     (
       title: 'Thói quen, Uống nước & Tập trung',
@@ -1513,6 +1556,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.local_fire_department_outlined,
       route: '/habits-focus',
       tone: LifeOsAccentTone.amber,
+      badge: null,
     ),
     (
       title: 'Sổ Hiếu Hỷ & Hành lý Du lịch',
@@ -1520,6 +1564,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.card_giftcard_rounded,
       route: '/social-ledger-travel',
       tone: LifeOsAccentTone.purple,
+      badge: null,
     ),
     (
       title: 'Tất cả Dịch vụ 360°',
@@ -1527,6 +1572,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.apps_rounded,
       route: '/super-app-hub',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Sức khỏe & Tủ thuốc',
@@ -1534,6 +1580,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.favorite_outline_rounded,
       route: '/health-hub',
       tone: LifeOsAccentTone.coral,
+      badge: null,
     ),
     (
       title: 'Bếp & Đi chợ Thông minh',
@@ -1541,6 +1588,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.shopping_basket_outlined,
       route: '/kitchen-groceries',
       tone: LifeOsAccentTone.emerald,
+      badge: null,
     ),
     (
       title: 'Điện nước EVN & Nhà cửa',
@@ -1548,6 +1596,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.electric_bolt_rounded,
       route: '/home-living',
       tone: LifeOsAccentTone.amber,
+      badge: null,
     ),
     (
       title: 'Ghi chú & Lương Gross–Net',
@@ -1555,6 +1604,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.sticky_note_2_outlined,
       route: '/smart-notes-hub',
       tone: LifeOsAccentTone.purple,
+      badge: null,
     ),
     (
       title: 'Cài đặt',
@@ -1562,6 +1612,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       icon: Icons.settings_outlined,
       route: '/settings-hub',
       tone: LifeOsAccentTone.neutral,
+      badge: null,
     ),
   ];
 
@@ -1572,8 +1623,111 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
       var query = '';
       return StatefulBuilder(
         builder: (ctx, setModalState) {
+          final c = TammySemanticColors.of(ctx);
           final q = query.trim().toLowerCase();
-          final filtered = q.isEmpty
+
+          final liveDataResults = <({
+            String title,
+            String subtitle,
+            IconData icon,
+            String route,
+            LifeOsAccentTone tone,
+            String? badge,
+          })>[];
+
+          if (q.isNotEmpty) {
+            final dateFmt = DateFormat('dd/MM HH:mm');
+            // 1. Live Transactions
+            final txs = txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
+            for (final tx in txs.where((t) => t.verification != TransactionVerification.rejected)) {
+              if (tx.merchant.toLowerCase().contains(q) ||
+                  tx.categoryName.toLowerCase().contains(q) ||
+                  (tx.note ?? '').toLowerCase().contains(q)) {
+                liveDataResults.add((
+                  title: tx.merchant,
+                  subtitle: '${tx.categoryName} · ${dateFmt.format(tx.occurredAt)}',
+                  icon: Icons.receipt_long_rounded,
+                  route: tx.verification == TransactionVerification.provisional
+                      ? '/auto-tx-review'
+                      : '/finance',
+                  tone: LifeOsAccentTone.emerald,
+                  badge: '${tx.direction == 'credit' ? '+' : '-'}${VndAmount.format(tx.amountMinor)}',
+                ));
+                if (liveDataResults.length >= 6) break;
+              }
+            }
+
+            // 2. Live Calendar Events
+            final events = calBloc?.state.events ?? const [];
+            for (final ev in events) {
+              if (ev.title.toLowerCase().contains(q) ||
+                  (ev.location ?? '').toLowerCase().contains(q) ||
+                  (ev.description ?? '').toLowerCase().contains(q)) {
+                liveDataResults.add((
+                  title: ev.title,
+                  subtitle:
+                      'Lịch hẹn · ${dateFmt.format(ev.startsAt)}${ev.location != null && ev.location!.isNotEmpty ? " · ${ev.location}" : ""}',
+                  icon: Icons.event_available_rounded,
+                  route: '/planning',
+                  tone: LifeOsAccentTone.blue,
+                  badge: 'Lịch',
+                ));
+                if (liveDataResults.length >= 10) break;
+              }
+            }
+
+            // 3. Live Tasks
+            final tasks = taskBloc?.state.tasks ?? const <TaskEntity>[];
+            for (final task in tasks) {
+              if (task.title.toLowerCase().contains(q) ||
+                  (task.description ?? '').toLowerCase().contains(q)) {
+                liveDataResults.add((
+                  title: task.title,
+                  subtitle: task.status == TaskWorkflowStatus.done
+                      ? 'Việc làm · Đã hoàn thành'
+                      : 'Việc cần làm · Đang mở',
+                  icon: Icons.task_alt_rounded,
+                  route: '/tasks-board',
+                  tone: LifeOsAccentTone.purple,
+                  badge: 'Việc',
+                ));
+                if (liveDataResults.length >= 13) break;
+              }
+            }
+
+            // 4. Live Groceries & Smart Notes
+            final snap = dailyBloc?.state.snapshot;
+            if (snap != null) {
+              for (final g in snap.groceryItems) {
+                if (g.name.toLowerCase().contains(q)) {
+                  liveDataResults.add((
+                    title: g.name,
+                    subtitle: g.inFridgeStorage ? 'Trong tủ lạnh' : 'Giỏ đi chợ',
+                    icon: Icons.shopping_basket_outlined,
+                    route: '/kitchen-groceries',
+                    tone: LifeOsAccentTone.amber,
+                    badge: g.estimatedMinor > 0 ? VndAmount.format(g.estimatedMinor) : 'Đi chợ',
+                  ));
+                  if (liveDataResults.length >= 16) break;
+                }
+              }
+              for (final n in snap.notes) {
+                if (n.title.toLowerCase().contains(q) || n.content.toLowerCase().contains(q)) {
+                  liveDataResults.add((
+                    title: n.title,
+                    subtitle: n.content,
+                    icon: Icons.sticky_note_2_outlined,
+                    route: '/smart-notes-hub',
+                    tone: LifeOsAccentTone.purple,
+                    badge: 'Ghi chú',
+                  ));
+                  if (liveDataResults.length >= 18) break;
+                }
+              }
+            }
+          }
+
+          final screenResults = q.isEmpty
               ? searchItems
               : searchItems
                   .where(
@@ -1582,6 +1736,9 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                         it.subtitle.toLowerCase().contains(q),
                   )
                   .toList();
+
+          final combined = [...liveDataResults, ...screenResults];
+
           return DraggableScrollableSheet(
             expand: false,
             initialChildSize: 0.72,
@@ -1593,65 +1750,132 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextField(
+                    key: const Key('omni_search_text_field'),
                     autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Tìm kiếm màn hình, chi tiêu, lịch, tài liệu...',
-                      prefixIcon: Icon(Icons.search_rounded),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm chi tiêu, lịch hẹn, việc làm, ghi chú, tiện ích...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: query.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Xóa',
+                              onPressed: () => setModalState(() => query = ''),
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                            ),
                     ),
                     onChanged: (v) => setModalState(() => query = v),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: ListView.separated(
-                      controller: scrollCtrl,
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, idx) {
-                        final item = filtered[idx];
-                        return LifeOsSoftCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                          onTap: () {
-                            Navigator.of(sheetCtx).pop();
-                            if (item.route == '/today' ||
-                                item.route == '/finance' ||
-                                item.route == '/planning' ||
-                                item.route == '/family' ||
-                                item.route == '/assets') {
-                              context.go(item.route);
-                            } else {
-                              context.push(item.route);
-                            }
-                          },
-                          child: Row(
+                    child: combined.isEmpty
+                        ? ListView(
+                            controller: scrollCtrl,
                             children: [
-                              LifeOsIconSquircle(icon: item.icon, tone: item.tone, size: 40),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14.5,
-                                      ),
-                                    ),
-                                    Text(
-                                      item.subtitle,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
+                              const SizedBox(height: 24),
+                              Icon(Icons.search_off_rounded, size: 42, color: c.textSecondary),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Chưa tìm thấy "$query" trong dữ liệu của bạn',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: c.textPrimary,
                                 ),
                               ),
-                              const Icon(Icons.chevron_right_rounded, size: 20),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Bạn muốn tạo nhanh một khoản chi tiêu, lịch hẹn hoặc ghi chú mới?',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 13, color: c.textSecondary),
+                              ),
+                              const SizedBox(height: 14),
+                              Center(
+                                child: FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(sheetCtx).pop();
+                                    showLifeOsQuickCreateHub(context);
+                                  },
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Mở Thêm nhanh (+)'),
+                                ),
+                              ),
                             ],
+                          )
+                        : ListView.separated(
+                            controller: scrollCtrl,
+                            itemCount: combined.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (_, idx) {
+                              final item = combined[idx];
+                              return LifeOsSoftCard(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                onTap: () {
+                                  Navigator.of(sheetCtx).pop();
+                                  if (item.route == '/today' ||
+                                      item.route == '/finance' ||
+                                      item.route == '/planning' ||
+                                      item.route == '/family' ||
+                                      item.route == '/assets') {
+                                    context.go(item.route);
+                                  } else {
+                                    context.push(item.route);
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    LifeOsIconSquircle(icon: item.icon, tone: item.tone, size: 40),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14.5,
+                                            ),
+                                          ),
+                                          Text(
+                                            item.subtitle,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (item.badge != null) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: c.primarySubtle,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          item.badge!,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.primary,
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                          ),
+                                        ),
+                                      ),
+                                    ] else
+                                      const Icon(Icons.chevron_right_rounded, size: 20),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),
