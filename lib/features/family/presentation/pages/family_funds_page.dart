@@ -46,7 +46,6 @@ class FamilyFundsPage extends StatelessWidget {
               children: [
                 LifeOsTopBrandHeader(
                   title: 'Quỹ gia đình',
-                  subtitle: 'Quỹ chung cho các mục tiêu và chi tiêu của gia đình.',
                   showBackButton: true,
                   trailingAction: IconButton.filledTonal(
                     tooltip: 'Tạo mục tiêu quỹ mới',

@@ -268,11 +268,10 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
             children: [
               LifeOsTopBrandHeader(
                 title: 'Tất cả Dịch vụ 360°',
-                subtitle: 'Bố cục lưới gọn gàng — chạm mở nhanh mọi phân hệ.',
                 showBackButton: true,
                 trailingAction: IconButton.filled(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Trợ lý Giọng nói AI',
+                  tooltip: 'Ghi bằng giọng nói',
                   onPressed: () =>
                       showVoiceSmartCaptureSheet(context, autoStartListening: true),
                   icon: const Icon(Icons.mic_rounded, size: 18),

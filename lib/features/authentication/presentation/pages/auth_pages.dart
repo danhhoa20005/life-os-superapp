@@ -809,7 +809,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     onChanged: (v) =>
                                         setState(() => _acceptedTerms = v ?? false),
                                     title: Text(
-                                      'Tôi đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư (Zero-OTP).',
+                                      'Tôi đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
                                       style: Theme.of(context).textTheme.bodySmall,
                                     ),
                                   ),
@@ -1704,7 +1704,7 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                       ),
                     ),
                     Text(
-                      'Tự động nhận diện giao dịch, theo dõi thu chi Zero-OTP.',
+                      'Tự động nhận diện giao dịch và theo dõi thu chi an toàn.',
                       style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                     ),
                   ],

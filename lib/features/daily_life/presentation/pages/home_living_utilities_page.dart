@@ -85,8 +85,6 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                 children: [
                   const LifeOsTopBrandHeader(
                     title: 'Điện nước EVN & Nhà cửa',
-                    subtitle:
-                        'Biểu giá điện 5 bậc EVN (QĐ 2892/QĐ-BCT), chia phòng trọ & hợp đồng nhà.',
                     showBackButton: true,
                   ),
                   Expanded(

@@ -56,64 +56,66 @@ class ProHeroGradientCard extends StatelessWidget {
             ? const [Color(0xFF073B1A), Color(0xFF0A5C28), Color(0xFF062914)]
             : const [Color(0xFF064E1E), Color(0xFF0B7A2A), Color(0xFF0E9447)]);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
+    return RepaintBoundary(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors[1].withValues(alpha: isDark ? 0.32 : 0.24),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colors[1].withValues(alpha: isDark ? 0.32 : 0.24),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            right: -36,
-            top: -42,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.16),
-                    Colors.white.withValues(alpha: 0.0),
-                  ],
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned(
+              right: -36,
+              top: -42,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.16),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: -28,
-            bottom: -48,
-            child: Container(
-              width: 130,
-              height: 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF63E6BE).withValues(alpha: 0.18),
-                    Colors.transparent,
-                  ],
+            Positioned(
+              left: -28,
+              bottom: -48,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF63E6BE).withValues(alpha: 0.18),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: child,
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: child,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -484,7 +486,7 @@ class ProWalletCreditCard extends StatelessWidget {
           Text(
             maskedAccount != null && maskedAccount!.isNotEmpty
                 ? '$typeLabel · $maskedAccount'
-                : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Đã đối soát"}',
+                : '$typeLabel · ${isEstimatedBalance ? "Số dư ước tính" : "Số dư hiện tại"}',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.76),
               fontSize: 11.5,
@@ -508,7 +510,7 @@ class ProWalletCreditCard extends StatelessWidget {
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
-                        hasPendingWrites ? 'Chờ đồng bộ' : 'Đã đối soát Cloud',
+                        hasPendingWrites ? 'Đang lưu...' : 'Đã đồng bộ',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

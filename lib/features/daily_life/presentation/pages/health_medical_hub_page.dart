@@ -122,7 +122,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                 children: [
                   const LifeOsTopBrandHeader(
                     title: 'Sức khỏe & Tủ thuốc',
-                    subtitle: 'Lịch uống thuốc, chỉ số BMI Châu Á & Thẻ Y tế SOS.',
                     showBackButton: true,
                     trailingAction: LifeOsStatusPill(
                       icon: Icons.emergency_rounded,
@@ -670,7 +669,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Thẻ y tế chưa được kê khai. Ứng dụng không điền sẵn giá trị giả định để đảm bảo an toàn cấp cứu.',
+                          'Chưa điền thông tin y tế khẩn cấp.',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

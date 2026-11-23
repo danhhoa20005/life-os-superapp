@@ -35,8 +35,8 @@ class SplashPage extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.94, end: 1.0),
-                  duration: const Duration(milliseconds: 420),
+                  tween: Tween<double>(begin: 0.96, end: 1.0),
+                  duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
                   builder: (context, scale, child) => Transform.scale(
                     scale: scale,
@@ -103,7 +103,7 @@ class SplashPage extends StatelessWidget {
                       const SizedBox(height: AppSpacing.md),
                       const SemanticStatusBadge(
                         kind: SemanticStatusKind.info,
-                        label: 'Privacy-by-Default · Chuẩn Sổ cái VND',
+                        label: 'Đơn giản · Gọn gàng · An toàn',
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       SizedBox(

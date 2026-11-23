@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../app/config/firebase_config.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/theme_bloc.dart';
@@ -292,7 +291,6 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
             children: [
               const LifeOsTopBrandHeader(
                 title: 'Cài đặt',
-                subtitle: 'Tùy chỉnh ứng dụng và kết nối các dịch vụ bạn sử dụng.',
                 showBackButton: true,
               ),
               Expanded(
@@ -377,7 +375,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.person_outline_rounded,
                           tone: LifeOsAccentTone.emerald,
                           title: 'Hồ sơ cá nhân',
-                          subtitle: 'Thông tin, email, bảo mật và tài khoản',
+                          subtitle: 'Tên hiển thị, email & mật khẩu',
                           onTap: () => context.push('/account-profile'),
                         ),
                         const SizedBox(height: 10),
@@ -387,10 +385,8 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.calendar_month_rounded,
                           tone: LifeOsAccentTone.blue,
                           title: 'Đồng bộ Google Calendar',
-                          subtitle: 'Đồng bộ sự kiện, lịch họp và nhắc nhở.',
-                          statusPillLabel: _calendarSyncEnabled
-                              ? 'Đã kết nối Google Calendar'
-                              : 'Đang tạm tắt',
+                          subtitle: 'Đồng bộ lịch hẹn & nhắc nhở',
+                          statusPillLabel: _calendarSyncEnabled ? 'Đã kết nối' : 'Đang tắt',
                           statusPillTone: _calendarSyncEnabled
                               ? LifeOsAccentTone.emerald
                               : LifeOsAccentTone.neutral,
@@ -418,11 +414,8 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.account_balance_outlined,
                           tone: LifeOsAccentTone.emerald,
                           title: 'Nhận diện thông báo ngân hàng',
-                          subtitle:
-                              'Tự động đọc và phân loại biến động số dư, chi tiêu vào LifeOS.',
-                          statusPillLabel: bankConsentEnabled
-                              ? 'Đang nhận diện thông báo'
-                              : 'Chưa bật tự động',
+                          subtitle: 'Tự động ghi nhận biến động số dư',
+                          statusPillLabel: bankConsentEnabled ? 'Đang nhận diện' : 'Chưa bật',
                           statusPillTone: bankConsentEnabled
                               ? LifeOsAccentTone.emerald
                               : LifeOsAccentTone.neutral,
@@ -451,11 +444,9 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.notifications_none_rounded,
                           tone: LifeOsAccentTone.emerald,
                           title: 'Quyền nhắc nhở',
-                          subtitle:
-                              'Cho phép LifeOS gửi thông báo nhắc sự kiện, việc làm và chi tiêu.',
-                          statusPillLabel: _reminderPermissionEnabled
-                              ? 'Bật nhắc sự kiện'
-                              : 'Đang tắt',
+                          subtitle: 'Chuông báo sự kiện & việc cần làm',
+                          statusPillLabel:
+                              _reminderPermissionEnabled ? 'Bật nhắc sự kiện' : 'Tạm tắt',
                           statusPillTone: _reminderPermissionEnabled
                               ? LifeOsAccentTone.emerald
                               : LifeOsAccentTone.neutral,
@@ -473,7 +464,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.dark_mode_outlined,
                           tone: LifeOsAccentTone.emerald,
                           title: 'Chế độ tối',
-                          subtitle: 'Chuyển nhanh giữa Giao diện Sáng ngọc lục bảo và Giao diện Tối.',
+                          subtitle: 'Chuyển nhanh giao diện Sáng / Tối',
                           statusPillLabel: isDark ? 'Đang bật' : 'Đang tắt',
                           statusPillTone:
                               isDark ? LifeOsAccentTone.emerald : LifeOsAccentTone.neutral,
@@ -489,81 +480,54 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                         ),
                         const SizedBox(height: 10),
 
-                        // 6b. Tùy chỉnh Giao diện Sáng/Tối/Hệ thống & Cỡ chữ (Aa)
+                        // 6b. Tùy chỉnh Giao diện & Cỡ chữ (Aa)
                         _SettingsCardItem(
                           icon: Icons.text_fields_rounded,
                           tone: LifeOsAccentTone.amber,
-                          title: 'Cỡ chữ (Aa) & Tối ưu Không gian',
-                          subtitle:
-                              'Chọn Sáng / Tối / Theo hệ thống, điều chỉnh cỡ chữ 80%–125% và mật độ hiển thị.',
+                          title: 'Cỡ chữ (Aa) & Bố cục',
+                          subtitle: 'Chỉnh cỡ chữ & mật độ hiển thị',
                           statusPillLabel:
-                              'Giao diện: ${themeState.themeModeLabel} · Chữ: ${themeState.textScalePercent}%',
+                              '${themeState.themeModeLabel} · ${themeState.textScalePercent}%',
                           statusPillTone: LifeOsAccentTone.emerald,
                           onTap: () => showLifeOsAppearanceSheet(context),
                         ),
                         const SizedBox(height: 10),
 
-                        // 7. Quyền riêng tư gia đình & Tài liệu
+                        // 7. Tài liệu & Quyền riêng tư gia đình
                         _SettingsCardItem(
                           icon: Icons.groups_outlined,
                           tone: LifeOsAccentTone.emerald,
-                          title: 'Quyền riêng tư gia đình',
-                          subtitle:
-                              'Quản lý chia sẻ, hiển thị và quyền truy cập dữ liệu trong gia đình.',
-                          statusPillLabel: 'Đã thiết lập quyền chia sẻ',
-                          statusPillTone: LifeOsAccentTone.emerald,
+                          title: 'Tài liệu & Quyền chia sẻ gia đình',
+                          subtitle: 'Quản lý giấy tờ chung & quyền xem',
                           onTap: () => context.push('/family-documents'),
                         ),
                         const SizedBox(height: 10),
 
-                        // 8. 4 Widget Màn hình chính & Giọng nói AI
+                        // 8. Widget Màn hình chính
                         _SettingsCardItem(
                           icon: Icons.widgets_outlined,
                           tone: LifeOsAccentTone.purple,
-                          title: '4 Widget Màn hình chính & Giọng nói AI',
-                          subtitle:
-                              'Ghim widget ra màn hình Android và nói câu chia tiền tự động.',
-                          statusPillLabel: 'Sẵn sàng ghim ra Launcher',
-                          statusPillTone: LifeOsAccentTone.emerald,
+                          title: 'Widget màn hình chính',
+                          subtitle: 'Ghim tiện ích ra màn hình điện thoại',
                           onTap: () => context.push('/home-widgets'),
                         ),
                         const SizedBox(height: 10),
 
-                        // 8b. Siêu Ứng dụng Đời sống 360° (Sức khỏe, Đi chợ, Điện EVN, Ghi chú & Lương)
+                        // 8b. Tất cả tiện ích
                         _SettingsCardItem(
                           icon: Icons.apps_rounded,
                           tone: LifeOsAccentTone.emerald,
-                          title: 'Trung tâm Siêu ứng dụng Đời sống 360°',
-                          subtitle:
-                              'Sức khỏe & Tủ thuốc, Bếp & Đi chợ, Điện nước EVN 6 bậc, Ghi chú & Lương Gross–Net.',
-                          statusPillLabel: 'Trọn bộ 20+ tiện ích đời sống',
-                          statusPillTone: LifeOsAccentTone.emerald,
+                          title: 'Tất cả tiện ích',
+                          subtitle: 'Sức khỏe, Đi chợ, Điện nước & Lương',
                           onTap: () => context.push('/super-app-hub'),
-                        ),
-                        const SizedBox(height: 10),
-
-                        // 8c. Trạng thái Kết nối Hạ tầng Đám mây Firebase (Cloud Auth + Firestore + OAuth)
-                        _SettingsCardItem(
-                          icon: Icons.cloud_done_outlined,
-                          tone: LifeOsAccentTone.blue,
-                          title: 'Hạ tầng Firebase Cloud (life-os-vn-2026)',
-                          subtitle:
-                              'Email/Mật khẩu · Google OAuth 2.0 · Cloud Firestore Realtime · Google Calendar v3.',
-                          statusPillLabel: FirebaseConfig.isCloudProduction
-                              ? 'Đang kết nối Cloud Production'
-                              : 'Chế độ Firebase Emulator cục bộ',
-                          statusPillTone: FirebaseConfig.isCloudProduction
-                              ? LifeOsAccentTone.emerald
-                              : LifeOsAccentTone.amber,
-                          onTap: () => context.push('/account-profile'),
                         ),
                         const SizedBox(height: 16),
 
-                        // 9. Bottom Emerald CTA ("🔗 Quản lý kết nối và tích hợp ->")
+                        // 9. Bottom Emerald CTA
                         LifeOsPrimaryCtaButton(
                           icon: Icons.link_rounded,
                           trailingIcon: Icons.arrow_forward_rounded,
-                          label: 'Quản lý kết nối và tích hợp',
+                          label: 'Quản lý kết nối ngân hàng & quyền riêng tư',
                           onPressed: () => context.push('/notifications-privacy'),
                         ),
                       ],

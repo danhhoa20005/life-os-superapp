@@ -72,7 +72,6 @@ class FinancePage extends StatelessWidget {
                 children: [
                   LifeOsTopBrandHeader(
                     title: 'Chi tiêu',
-                    subtitle: 'Theo dõi và tối ưu chi tiêu cá nhân.',
                     extraBrandActions: [
                       BlocBuilder<TransactionListBloc, TransactionListState>(
                         builder: (context, listState) {
@@ -193,8 +192,8 @@ class FinancePage extends StatelessWidget {
         SnackBar(
           content: Text(
             savedPath != null
-                ? '✓ Đã xuất tệp sao kê $fileName (${transactions.length} bút toán).'
-                : '✓ Đã sao chép sao kê CSV (${transactions.length} bút toán) vào bộ nhớ tạm.',
+                ? '✓ Đã xuất sao kê $fileName (${transactions.length} giao dịch).'
+                : '✓ Đã sao chép sao kê CSV (${transactions.length} giao dịch).',
           ),
         ),
       );
@@ -671,9 +670,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   kind: tx.isReversed
                       ? SemanticStatusKind.warning
                       : SemanticStatusKind.success,
-                  label: tx.isReversed
-                      ? 'BÚT TOÁN ĐÃ ĐẢO NGƯỢC'
-                      : 'BIÊN LAI SỔ CÁI ĐÃ ĐỐI SOÁT (${tx.verification.name.toUpperCase()})',
+                  label: tx.isReversed ? 'Đã hoàn tác' : 'Đã ghi nhận',
                 ),
                 const SizedBox(height: 16),
                 Container(
@@ -685,30 +682,30 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   ),
                   child: Column(
                     children: [
-                      _ReceiptRow(label: 'Hạng mục kế toán', value: tx.categoryName),
+                      _ReceiptRow(label: 'Danh mục', value: tx.categoryName),
                       const Divider(height: 16),
-                      _ReceiptRow(label: 'Tài khoản / Ví nguồn', value: resolvedWalletName),
+                      _ReceiptRow(label: 'Ví', value: resolvedWalletName),
                       if (tx.balanceAfterMinor != null) ...[
                         const Divider(height: 16),
                         _ReceiptRow(
-                          label: 'Số dư ví sau GD',
+                          label: 'Số dư sau giao dịch',
                           value: VndAmount.format(tx.balanceAfterMinor!),
                         ),
                       ],
                       const Divider(height: 16),
                       _ReceiptRow(
-                        label: 'Thời gian ghi sổ',
+                        label: 'Thời gian',
                         value:
                             '${tx.occurredAt.day.toString().padLeft(2, '0')}/${tx.occurredAt.month.toString().padLeft(2, '0')}/${tx.occurredAt.year} · ${_formatTimeLabel(tx.occurredAt)}',
                       ),
                       const Divider(height: 16),
                       _ReceiptRow(
-                        label: 'Mã bút toán Cloud',
+                        label: 'Mã giao dịch',
                         value: tx.id.length > 16 ? '#${tx.id.substring(0, 16)}' : '#${tx.id}',
                       ),
                       if (tx.note != null && tx.note!.trim().isNotEmpty) ...[
                         const Divider(height: 16),
-                        _ReceiptRow(label: 'Diễn giải', value: tx.note!),
+                        _ReceiptRow(label: 'Ghi chú', value: tx.note!),
                       ],
                       if (tx.splitLines.isNotEmpty) ...[
                         const Divider(height: 16),
@@ -728,7 +725,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(sheetCtx).pop(),
-                        child: const Text('Đóng biên lai'),
+                        child: const Text('Đóng'),
                       ),
                     ),
                     if (tx.isConfirmedInLedger &&
@@ -738,15 +735,14 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                       Expanded(
                         child: FilledButton.tonalIcon(
                           icon: const Icon(Icons.undo_rounded, size: 18),
-                          label: const Text('Đảo bút toán'),
+                          label: const Text('Hoàn tác'),
                           onPressed: () async {
                             Navigator.of(sheetCtx).pop();
                             final ok = await showDestructiveConfirmDialog(
                               context: context,
-                              title: 'Đảo bút toán giao dịch?',
-                              message:
-                                  'Hệ thống giữ nguyên lịch sử kiểm toán và sinh bút toán đối ứng để hoàn lại số dư ví chính xác.',
-                              confirmLabel: 'Thực hiện đảo bút toán',
+                              title: 'Hoàn tác giao dịch này?',
+                              message: 'Số tiền sẽ được cộng trả lại vào ví của bạn.',
+                              confirmLabel: 'Hoàn tác',
                             );
                             if (ok && context.mounted) {
                               context.read<TransactionActionBloc>().add(
@@ -816,7 +812,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Danh mục Nguồn vốn (${state.wallets.length})',
+                        'Ví của bạn (${state.wallets.length})',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -833,12 +829,12 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                         ),
                         onPressed: () => setState(() => _selectedWalletId = null),
                         icon: const Icon(Icons.filter_alt_off_rounded, size: 15),
-                        label: const Text('Bỏ lọc ví'),
+                        label: const Text('Bỏ lọc'),
                       )
                     else
                       Flexible(
                         child: Text(
-                          'Chạm thẻ để lọc sao kê',
+                          'Chạm để lọc',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelSmall,
@@ -887,7 +883,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                 if (state.provisionalTransactions.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Biến động số dư chờ duyệt (${state.provisionalTransactions.length})',
+                    'Giao dịch mới chờ duyệt (${state.provisionalTransactions.length})',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: AppSpacing.xs),
@@ -898,7 +894,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                         child: ListTile(
                           leading: Icon(Icons.hourglass_top_rounded, color: c.warning),
                           title: Text('${tx.merchant} · ${VndAmount.format(tx.amountMinor)}'),
-                          subtitle: Text('Danh mục gợi ý: ${tx.categoryName} (PROVISIONAL)'),
+                          subtitle: Text('Gợi ý: ${tx.categoryName}'),
                           trailing: Wrap(
                             spacing: 6,
                             children: [
@@ -994,9 +990,8 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   const EmptyStateView(
                     icon: Icons.receipt_long_outlined,
                     imageAsset: AppAssets.financeIllustration,
-                    title: 'Chưa có bút toán trong bộ lọc hiện tại',
-                    subtitle:
-                        'Nhấn "Ghi giao dịch" ở góc trên để thêm thu/chi, tách khoản hoặc chuyển ví.',
+                    title: 'Chưa có giao dịch nào',
+                    subtitle: 'Nhấn "Ghi giao dịch" để thêm khoản thu chi mới.',
                   )
                 else
                   ...groupedByDay.entries.map((entry) {
@@ -1224,9 +1219,11 @@ class _PersonalAnalyticsAndAllocationTabViewState
                       accent: c.primary,
                     ),
                     _MetricMiniCard(
-                      label: 'Độ tin cậy Nguồn (SePay Standard)',
-                      value: '${s.verifiedCount} VERIFIED · ${s.userConfirmedCount} CONFIRMED',
-                      subtitle: '${s.provisionalCount} tín hiệu PROVISIONAL chờ duyệt',
+                      label: 'Giao dịch đã xác nhận',
+                      value: '${s.verifiedCount + s.userConfirmedCount} giao dịch',
+                      subtitle: s.provisionalCount > 0
+                          ? '${s.provisionalCount} khoản đang chờ duyệt'
+                          : 'Không có khoản chờ duyệt',
                       accent: c.secondary,
                     ),
                   ],
@@ -1239,30 +1236,27 @@ class _PersonalAnalyticsAndAllocationTabViewState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Phân tích Cơ cấu Chi tiêu theo Khoản mục',
+                          'Cơ cấu Chi tiêu theo Danh mục',
                           style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tự động loại trừ chuyển khoản nội bộ (${VndAmount.format(s.monthlyInternalTransferMinor)}) và phân bổ chính xác các giao dịch tách khoản (Ăn uống, Việc nhà, Hóa đơn...).',
-                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         if (shares.isEmpty)
-                          const Text('Chưa có khoản chi đã xác nhận trong tháng này.')
+                          const Text('Chưa có khoản chi trong tháng này.')
                         else ...[
-                          ProDonutChart(
-                            totalExpenseMinor: s.monthlyExpenseMinor,
-                            slices: shares
-                                .map(
-                                  (sh) => ProDonutSlice(
-                                    label: sh.categoryName,
-                                    amountMinor: sh.amountMinor,
-                                    pct: sh.sharePct,
-                                    color: ProCategoryStyle.resolve(sh.categoryName).color,
-                                  ),
-                                )
-                                .toList(),
+                          RepaintBoundary(
+                            child: ProDonutChart(
+                              totalExpenseMinor: s.monthlyExpenseMinor,
+                              slices: shares
+                                  .map(
+                                    (sh) => ProDonutSlice(
+                                      label: sh.categoryName,
+                                      amountMinor: sh.amountMinor,
+                                      pct: sh.sharePct,
+                                      color: ProCategoryStyle.resolve(sh.categoryName).color,
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
                           ),
                           const Divider(height: 28),
                           ...shares.map(
@@ -1323,16 +1317,11 @@ class _PersonalAnalyticsAndAllocationTabViewState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Bộ Chia & Phân bổ Thu nhập Vào Các Khoản Sinh hoạt',
+                          'Bộ Chia & Phân bổ Thu nhập',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Chia lương/ngân quỹ chính xác đến từng đồng VND (không sai số làm tròn) theo 3 mô hình: Cá nhân · Gia đình · Ở ghép.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
                         const SizedBox(height: AppSpacing.sm),
-                        const Text('Mô hình vận hành'),
+                        const Text('Mô hình phân bổ'),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<AllocationPreset>(
                           isExpanded: true,
@@ -1591,16 +1580,9 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Quỹ Riêng & Quỹ Chung Gia đình / Nhóm',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          Text(
-                            'Sổ phân bổ kế toán minh bạch — Không giữ tiền thật hay lộ số dư ví riêng.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+                      child: Text(
+                        'Quỹ Riêng & Quỹ Chung',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
                     FilledButton.icon(

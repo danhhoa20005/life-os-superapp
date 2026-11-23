@@ -86,8 +86,6 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 children: [
                   const LifeOsTopBrandHeader(
                     title: 'Ghi chú & Lương Gross–Net',
-                    subtitle:
-                        'Sổ tay thông minh, nhật ký cảm xúc & thuế TNCN 5 bậc 2026 (Luật 109/2025).',
                     showBackButton: true,
                   ),
                   Expanded(
@@ -560,7 +558,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Tổng chi phí người sử dụng lao động chi trả (gồm 21.5% BHXH/BHYT/BHTN DN): ${VndAmount.format(res.totalEmployerCostMinor)}',
+                'Tổng chi phí công ty chi trả: ${VndAmount.format(res.totalEmployerCostMinor)}',
                 style: TextStyle(fontSize: 11.8, color: c.textSecondary),
               ),
               if (res.brackets.isNotEmpty) ...[

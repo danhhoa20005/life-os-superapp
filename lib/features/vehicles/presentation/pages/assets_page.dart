@@ -43,7 +43,6 @@ class AssetsPage extends StatelessWidget {
                 children: [
                   LifeOsTopBrandHeader(
                     title: 'Xe cộ',
-                    subtitle: 'Quản lý xe, bảo dưỡng, bảo hiểm và đăng kiểm dễ dàng.',
                     extraBrandActions: [
                       LifeOsHeaderCircleButton(
                         icon: Icons.receipt_long_outlined,
@@ -331,7 +330,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Thêm ô tô hoặc xe máy để theo dõi số ODO, chu kỳ thay dầu, bảo hiểm và hạn đăng kiểm tự động.',
+                      'Thêm xe để theo dõi lịch thay dầu, bảo hiểm và đăng kiểm.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: c.textSecondary),
                     ),

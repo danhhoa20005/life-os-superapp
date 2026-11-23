@@ -26,8 +26,6 @@ class ProUtilitiesHubPage extends StatelessWidget {
             children: [
               const LifeOsTopBrandHeader(
                 title: 'Tiện ích Pro Tích hợp',
-                subtitle:
-                    'Trọn bộ công cụ cao cấp thường phải thuê bao trả phí — miễn phí 100% trong LifeOS.',
                 showBackButton: true,
               ),
               Expanded(
@@ -42,7 +40,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                         AppSpacing.xxl,
                       ),
                       children: [
-                        // 1. Value Proposition Hero Card
+                        // 1. Summary Card
                         LifeOsMintHeroCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,7 +59,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Bộ 4 Siêu Tiện Ích Đời Sống & Tiền Bạc',
+                                          'Công cụ Quản lý Nâng cao',
                                           style: TextStyle(
                                             fontSize: 16.5,
                                             fontWeight: FontWeight.w800,
@@ -69,7 +67,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                           ),
                                         ),
                                         Text(
-                                          'Thay thế 6 app trả phí rời rạc (tiết kiệm ~350.000 ₫/tháng)',
+                                          'Thuê bao · Lãi vay · Thói quen · Sổ Hiếu Hỷ',
                                           style: TextStyle(
                                             fontSize: 12.5,
                                             color: c.textSecondary,
@@ -86,7 +84,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                   children: [
                                     Expanded(
                                       child: _MiniHubMetric(
-                                        label: 'Đốt ngầm/tháng',
+                                        label: 'Phí định kỳ/tháng',
                                         value: VndAmount.formatCompact(
                                           proState.totalMonthlySubBurnMinor,
                                         ),
@@ -122,10 +120,9 @@ class ProUtilitiesHubPage extends StatelessWidget {
                         _ProSuiteModuleCard(
                           icon: Icons.radar_rounded,
                           tone: LifeOsAccentTone.emerald,
-                          replacesBadge: 'Thay thế Rocket Money / Bobby',
+                          replacesBadge: 'Thuê bao & Thiết bị',
                           title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
-                          subtitle:
-                              'Phát hiện chi phí trừ ngầm hằng tháng/năm, nhắc hủy trước khi gia hạn & đếm ngược hạn bảo hành điện máy.',
+                          subtitle: 'Theo dõi phí gia hạn hằng tháng và hạn bảo hành đồ gia dụng.',
                           metricLine:
                               '${proState.subscriptionsOnly.length} gói đăng ký · ${proState.warrantiesOnly.length} phiếu bảo hành',
                           onTap: () => context.push('/subscriptions-warranty'),
@@ -136,12 +133,11 @@ class ProUtilitiesHubPage extends StatelessWidget {
                         _ProSuiteModuleCard(
                           icon: Icons.calculate_outlined,
                           tone: LifeOsAccentTone.blue,
-                          replacesBadge: 'Thay thế YNAB / Monarch / Bill OCR',
+                          replacesBadge: 'Tài chính cá nhân',
                           title: 'Quét Bill AI, Tính Lãi Vay & Tự do FIRE',
-                          subtitle:
-                              'Bóc tách hóa đơn nhiều món 1 chạm, tính dư nợ giảm dần vay mua nhà/xe & lộ trình nghỉ hưu sớm 4% + 6 Chiếc Lọ.',
+                          subtitle: 'Tách nhanh hóa đơn, tính lịch trả góp và lập mục tiêu tiết kiệm.',
                           metricLine:
-                              'Tài sản ròng hiện tại: ${VndAmount.format(dashData.netWorthMinor)}',
+                              'Tài sản ròng: ${VndAmount.format(dashData.netWorthMinor)}',
                           onTap: () => context.push('/wealth-tools'),
                         ),
                         const SizedBox(height: 12),
@@ -150,12 +146,11 @@ class ProUtilitiesHubPage extends StatelessWidget {
                         _ProSuiteModuleCard(
                           icon: Icons.local_fire_department_outlined,
                           tone: LifeOsAccentTone.amber,
-                          replacesBadge: 'Thay thế Habitify / Forest / Waterllama',
+                          replacesBadge: 'Thói quen mỗi ngày',
                           title: 'Chuỗi Thói quen, Uống Nước & Pomodoro',
-                          subtitle:
-                              'Xây dựng chuỗi ngày không chi tiêu thừa, đồng hồ tập trung sâu 25p/45p và nhắc uống đủ 2.000ml nước mỗi ngày.',
+                          subtitle: 'Đồng hồ tập trung 25p/45p, nhắc uống nước và giữ kỷ luật chi tiêu.',
                           metricLine:
-                              '${proState.habits.length} thói quen · ${proState.todayWellness.completedPomodoros} phiên Pomodoro hôm nay',
+                              '${proState.habits.length} thói quen · ${proState.todayWellness.completedPomodoros} phiên hôm nay',
                           onTap: () => context.push('/habits-focus'),
                         ),
                         const SizedBox(height: 12),
@@ -164,10 +159,9 @@ class ProUtilitiesHubPage extends StatelessWidget {
                         _ProSuiteModuleCard(
                           icon: Icons.card_giftcard_rounded,
                           tone: LifeOsAccentTone.purple,
-                          replacesBadge: 'Thay thế Sổ Hiếu Hỷ Pro & Tripsy',
-                          title: 'Sổ Hiếu Hỷ "Có Đi Có Lại" & Hành lý Du lịch',
-                          subtitle:
-                              'Tra cứu tức thì tiền mừng cưới/tân gia/lễ Tết hai chiều để đáp lễ tinh tế, kèm mẫu checklist hành lý 1 chạm.',
+                          replacesBadge: 'Gia đình & Chuyến đi',
+                          title: 'Sổ Hiếu Hỷ & Hành lý Du lịch',
+                          subtitle: 'Ghi chép tiền mừng cưới hai chiều và danh sách đồ mang đi xa.',
                           metricLine:
                               'Đi mừng: ${VndAmount.formatCompact(proState.totalGiftGaveMinor)} · Nhận: ${VndAmount.formatCompact(proState.totalGiftReceivedMinor)}',
                           onTap: () => context.push('/social-ledger-travel'),

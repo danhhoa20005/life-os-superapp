@@ -249,14 +249,23 @@ class _TodayPageState extends State<TodayPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final calState = context.watch<CalendarBloc>().state;
-    final taskState = context.watch<TaskBloc>().state;
-    final budgetState = context.watch<BudgetBloc>().state;
-    final familyState = context.watch<FamilyBloc>().state;
-    final txState = context.watch<TransactionListBloc>().state;
-    final vehicleState = context.watch<VehicleBloc>().state;
-    final notifState = context.watch<NotificationIngestionBloc>().state;
+    final user = context.select((AuthBloc b) => b.state.user);
+    final calEvents = context.select((CalendarBloc b) => b.state.events);
+    final gcalConnected = context.select((CalendarBloc b) => b.state.isGoogleAuthorized);
+    final allTasks = context.select((TaskBloc b) => b.state.tasks);
+    final budgets = context.select((BudgetBloc b) => b.state.budgets);
+    final funds = context.select((BudgetBloc b) => b.state.funds);
+    final activeFamilyName =
+        context.select((FamilyBloc b) => b.state.activeFamily?.name);
+    final allTransactions =
+        context.select((TransactionListBloc b) => b.state.allTransactions);
+    final vehicles = context.select((VehicleBloc b) => b.state.vehicles);
+    final bills = context.select((VehicleBloc b) => b.state.bills);
+    final bankConnected = context.select(
+      (NotificationIngestionBloc b) =>
+          (b.state.consent?.enabled ?? false) ||
+          (b.state.savedSePayMaskedToken != null),
+    );
 
     final firstName = (user?.fullName ?? 'bạn').trim().split(' ').last;
     final now = DateTime.now();
@@ -278,13 +287,13 @@ class _TodayPageState extends State<TodayPage> {
             children: [
               LifeOsTopBrandHeader(
                 title: 'Xin chào, $firstName',
-                subtitle: '$todayDateLabel · Một ứng dụng. Cả cuộc sống.',
+                subtitle: todayDateLabel,
                 profileTrailing: user == null
                     ? null
                     : IconButton(
                         key: const Key('open_account_profile_button'),
                         visualDensity: VisualDensity.compact,
-                        tooltip: 'Hồ sơ & Bảo mật tài khoản',
+                        tooltip: 'Hồ sơ tài khoản',
                         onPressed: () => context.push('/account-profile'),
                         icon: UserAvatarBadge(user: user, radius: 16),
                       ),
@@ -314,7 +323,7 @@ class _TodayPageState extends State<TodayPage> {
                     final d = state.data;
                     final timeFmt = DateFormat('HH:mm');
 
-                    final totalBudgetLimit = budgetState.budgets.fold<int>(
+                    final totalBudgetLimit = budgets.fold<int>(
                       0,
                       (sum, b) => sum + b.limitMinor,
                     );
@@ -323,19 +332,19 @@ class _TodayPageState extends State<TodayPage> {
                         ? ((d.monthlyExpenseMinor * 100) / totalBudgetLimit).clamp(0, 999).round()
                         : 0;
 
-                    final totalFundsBalance = budgetState.funds.fold<int>(
+                    final totalFundsBalance = funds.fold<int>(
                       0,
                       (sum, f) => sum + f.balanceMinor,
                     );
-                    final hasFamilyFunds = budgetState.funds.isNotEmpty;
+                    final hasFamilyFunds = funds.isNotEmpty;
 
-                    // Unified Cross-Feature `LifeOS Inbox` (100% Real Data)
-                    final upcomingEvents = calState.events
+                    // Unified Cross-Feature Inbox (100% Real Data)
+                    final upcomingEvents = calEvents
                         .where((e) => !e.endsAt.isBefore(now))
                         .toList()
                       ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
-                    final provisionalTxs = txState.allTransactions
+                    final provisionalTxs = allTransactions
                         .where(
                           (t) =>
                               t.verification == TransactionVerification.provisional &&
@@ -343,15 +352,15 @@ class _TodayPageState extends State<TodayPage> {
                         )
                         .toList();
 
-                    final openTasks = taskState.tasks
+                    final openTasks = allTasks
                         .where((t) => t.status != TaskWorkflowStatus.done)
                         .toList();
 
-                    final dueVehicles = vehicleState.vehicles
+                    final dueVehicles = vehicles
                         .where((v) => v.dueStateAt(now) != VehicleDueState.healthy)
                         .toList();
 
-                    final dueBills = vehicleState.bills
+                    final dueBills = bills
                         .where((b) => b.nextDueDate.difference(now).inDays <= 7)
                         .toList();
 
@@ -360,10 +369,10 @@ class _TodayPageState extends State<TodayPage> {
                         _InboxActionItem(
                           icon: Icons.account_balance_outlined,
                           tone: LifeOsAccentTone.amber,
-                          title: '${provisionalTxs.length} giao dịch ngân hàng chờ xác nhận',
+                          title: '${provisionalTxs.length} giao dịch mới chờ xác nhận',
                           subtitle:
                               '${provisionalTxs.first.merchant} · ${_fmtMoney(provisionalTxs.first.amountMinor)}',
-                          badge: 'Đối soát',
+                          badge: 'Chờ duyệt',
                           onTap: () =>
                               context.push('/auto-tx-review', extra: provisionalTxs.first),
                         ),
@@ -374,7 +383,7 @@ class _TodayPageState extends State<TodayPage> {
                           title: upcomingEvents.first.title,
                           subtitle:
                               '${timeFmt.format(upcomingEvents.first.startsAt)} – ${timeFmt.format(upcomingEvents.first.endsAt)}${upcomingEvents.first.location != null ? " · ${upcomingEvents.first.location}" : ""}',
-                          badge: 'Sự kiện',
+                          badge: 'Lịch hẹn',
                           onTap: () =>
                               context.push('/event-detail', extra: upcomingEvents.first),
                         ),
@@ -384,8 +393,8 @@ class _TodayPageState extends State<TodayPage> {
                           tone: LifeOsAccentTone.blue,
                           title: openTasks.first.title,
                           subtitle: openTasks.length > 1
-                              ? 'Còn ${openTasks.length} việc cần hoàn thành'
-                              : 'Chạm mở bảng việc cần làm',
+                              ? 'Còn ${openTasks.length} việc cần làm'
+                              : 'Chạm để mở việc cần làm',
                           badge: 'Việc làm',
                           onTap: () => context.push('/tasks-board'),
                         ),
@@ -394,8 +403,7 @@ class _TodayPageState extends State<TodayPage> {
                           icon: Icons.car_repair_rounded,
                           tone: LifeOsAccentTone.coral,
                           title: 'Bảo dưỡng xe: ${dueVehicles.first.name}',
-                          subtitle:
-                              'ODO hiện tại ${dueVehicles.first.currentOdometerKm} km · Mốc kế ${dueVehicles.first.nextDueKm} km',
+                          subtitle: 'Mốc tiếp theo: ${dueVehicles.first.nextDueKm} km',
                           badge: 'Đến hạn',
                           onTap: () => context.go('/assets'),
                         ),
@@ -421,17 +429,13 @@ class _TodayPageState extends State<TodayPage> {
                         ),
                     ];
 
-                    final bankConnected =
-                        (notifState.consent?.enabled ?? false) ||
-                        (notifState.savedSePayMaskedToken != null);
-                    final gcalConnected = calState.isGoogleAuthorized;
                     final syncStatusLabel = gcalConnected && bankConnected
-                        ? 'Lịch & Ngân hàng đã nối'
+                        ? 'Đã nối Lịch & Ngân hàng'
                         : gcalConnected
-                            ? 'Google Calendar đã nối'
+                            ? 'Đã nối Google Calendar'
                             : bankConnected
-                                ? 'Ngân hàng tự động bật'
-                                : 'Đồng bộ Cloud trực tuyến';
+                                ? 'Đã nối Ngân hàng'
+                                : 'Đang đồng bộ';
 
                     final pinnedSpecs = _allShortcuts
                         .where((s) => _pinnedIds.contains(s.id))
@@ -735,7 +739,7 @@ class _TodayPageState extends State<TodayPage> {
                                       const SizedBox(width: 5),
                                       Expanded(
                                         child: Text(
-                                          'LifeOS Inbox · Việc cần chú ý',
+                                          'Việc cần chú ý',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -766,7 +770,7 @@ class _TodayPageState extends State<TodayPage> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
-                                              'Mọi việc hôm nay đã gọn gàng, không có khoản chờ duyệt hay hạn khẩn.',
+                                              'Chưa có việc gấp hôm nay.',
                                               style: TextStyle(
                                                 fontSize: 12.2,
                                                 color: c.textSecondary,
@@ -986,9 +990,9 @@ class _TodayPageState extends State<TodayPage> {
                                           ),
                                           const SizedBox(height: 3),
                                           Text(
-                                            familyState.activeFamily != null
-                                                ? 'Không gian: ${familyState.activeFamily!.name}'
-                                                : 'Tách biệt hoàn toàn với ví cá nhân',
+                                            activeFamilyName != null
+                                                ? 'Nhóm: $activeFamilyName'
+                                                : 'Chưa tạo nhóm chung',
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(

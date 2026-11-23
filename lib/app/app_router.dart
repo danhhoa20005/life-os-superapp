@@ -664,100 +664,102 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
             return Scaffold(
               extendBody: false,
               body: navigationShell,
-              bottomNavigationBar: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(26),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Container(
-                        height: 66,
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        decoration: BoxDecoration(
-                          color: c.surface.withValues(alpha: isDark ? 0.92 : 0.95),
-                          borderRadius: BorderRadius.circular(26),
-                          border: Border.all(color: c.separator, width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF0A140E)
-                                  .withValues(alpha: isDark ? 0.36 : 0.08),
-                              blurRadius: 24,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            for (final tab in leftTabs)
-                              _BottomNavTabButton(
-                                icon: tab.icon,
-                                activeIcon: tab.activeIcon,
-                                label: tab.label,
-                                isSelected: navigationShell.currentIndex == tab.branchIndex,
-                                onTap: () => navigationShell.goBranch(
-                                  tab.branchIndex,
-                                  initialLocation:
-                                      tab.branchIndex == navigationShell.currentIndex,
-                                ),
+              bottomNavigationBar: RepaintBoundary(
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(26),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: Container(
+                          height: 66,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: c.surface.withValues(alpha: isDark ? 0.92 : 0.95),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(color: c.separator, width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF0A140E)
+                                    .withValues(alpha: isDark ? 0.36 : 0.08),
+                                blurRadius: 24,
+                                offset: const Offset(0, 8),
                               ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              for (final tab in leftTabs)
+                                _BottomNavTabButton(
+                                  icon: tab.icon,
+                                  activeIcon: tab.activeIcon,
+                                  label: tab.label,
+                                  isSelected: navigationShell.currentIndex == tab.branchIndex,
+                                  onTap: () => navigationShell.goBranch(
+                                    tab.branchIndex,
+                                    initialLocation:
+                                        tab.branchIndex == navigationShell.currentIndex,
+                                  ),
+                                ),
 
-                            // Signature Center BrandKit Gradient `+` Squircle Button
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Tooltip(
-                                message: 'Tạo nhanh & Giọng nói',
-                                child: Material(
-                                  color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: InkWell(
-                                    key: const Key('lifeos_center_quick_add_fab'),
+                              // Signature Center BrandKit Gradient `+` Squircle Button
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Tooltip(
+                                  message: 'Tạo nhanh & Giọng nói',
+                                  child: Material(
+                                    color: Colors.transparent,
                                     borderRadius: BorderRadius.circular(16),
-                                    onTap: () => showLifeOsQuickCreateHub(context),
-                                    child: Container(
-                                      width: 46,
-                                      height: 46,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(16),
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: LifeOSBrandColors.appIconBgGradient,
-                                          stops: LifeOSBrandColors.appIconBgStops,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: c.primary.withValues(alpha: 0.32),
-                                            blurRadius: 14,
-                                            offset: const Offset(0, 5),
+                                    child: InkWell(
+                                      key: const Key('lifeos_center_quick_add_fab'),
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () => showLifeOsQuickCreateHub(context),
+                                      child: Container(
+                                        width: 46,
+                                        height: 46,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(16),
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: LifeOSBrandColors.appIconBgGradient,
+                                            stops: LifeOSBrandColors.appIconBgStops,
                                           ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        Icons.add_rounded,
-                                        color: Colors.white,
-                                        size: 27,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: c.primary.withValues(alpha: 0.32),
+                                              blurRadius: 14,
+                                              offset: const Offset(0, 5),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.add_rounded,
+                                          color: Colors.white,
+                                          size: 27,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
 
-                            for (final tab in rightTabs)
-                              _BottomNavTabButton(
-                                icon: tab.icon,
-                                activeIcon: tab.activeIcon,
-                                label: tab.label,
-                                isSelected: navigationShell.currentIndex == tab.branchIndex,
-                                onTap: () => navigationShell.goBranch(
-                                  tab.branchIndex,
-                                  initialLocation:
-                                      tab.branchIndex == navigationShell.currentIndex,
+                              for (final tab in rightTabs)
+                                _BottomNavTabButton(
+                                  icon: tab.icon,
+                                  activeIcon: tab.activeIcon,
+                                  label: tab.label,
+                                  isSelected: navigationShell.currentIndex == tab.branchIndex,
+                                  onTap: () => navigationShell.goBranch(
+                                    tab.branchIndex,
+                                    initialLocation:
+                                        tab.branchIndex == navigationShell.currentIndex,
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

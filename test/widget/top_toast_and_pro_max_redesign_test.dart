@@ -30,6 +30,35 @@ void main() {
       expect(violations, isEmpty, reason: 'Found legacy bottom showSnackBar in: $violations');
     });
 
+    test('Zero confusing developer/accounting jargon remains in UI presentation pages', () {
+      const bannedUiJargon = <String>[
+        'BankNotificationListenerService',
+        'BIÊN LAI SỔ CÁI ĐÃ ĐỐI SOÁT',
+        'BÚT TOÁN ĐÃ ĐẢO NGƯỢC',
+        'Chuẩn RFC 5545 RRULE',
+        'Hạ tầng Firebase Cloud (life-os-vn-2026)',
+        'Thay thế Rocket Money',
+        'Zero-OTP',
+        'Khử trùng lặp SHA-256',
+      ];
+      final uiFiles = Directory('lib/features')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.contains('presentation') && f.path.endsWith('.dart'))
+          .toList();
+
+      final violations = <String>[];
+      for (final f in uiFiles) {
+        final content = f.readAsStringSync();
+        for (final term in bannedUiJargon) {
+          if (content.contains(term)) {
+            violations.add('${f.path}: "$term"');
+          }
+        }
+      }
+      expect(violations, isEmpty, reason: 'Found wordy/technical UI jargon: $violations');
+    });
+
     testWidgets(
       'LifeOsTopToast renders strictly at the TOP of the screen, triggers actions & auto-dismisses cleanly',
       (tester) async {
@@ -123,7 +152,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Tổng tài sản ròng cá nhân'), findsOneWidget);
-        expect(find.text('LifeOS Inbox · Việc cần chú ý'), findsOneWidget);
+        expect(find.text('Việc cần chú ý'), findsOneWidget);
 
         // Tap 1-Tap Eye Privacy Toggle -> masks balance & shows Top Toast at top of screen!
         await tester.tap(find.byKey(const Key('toggle_balance_privacy_btn')));

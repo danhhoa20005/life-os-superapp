@@ -362,8 +362,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                           child: ProBentoTile(
                             icon: Icons.shield_moon_rounded,
                             accentColor: c.secondary,
-                            title: 'Lá chắn Riêng tư',
-                            metric: 'Zero-OTP',
+                            title: 'Quyền riêng tư',
+                            metric: 'Đã bảo vệ',
                             badgeText: user.timezone,
                             statusKind: SemanticStatusKind.info,
                             onTap: () => context.push('/notifications-privacy'),
@@ -546,12 +546,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                               key: const Key('open_brand_identity_tile'),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                               leading: const LifeOsLeafMark(size: 40, borderRadius: 12),
-                              title: const Text(
-                                'Bộ nhận diện thương hiệu LifeOS (BrandKit 1.0)',
-                              ),
-                              subtitle: const Text(
-                                'Một ứng dụng. Cả cuộc sống. · Xem chuẩn Logo, App Icon & Bảng màu',
-                              ),
+                              title: const Text('Bộ nhận diện thương hiệu LifeOS'),
+                              subtitle: const Text('Logo, biểu tượng & bảng màu'),
                               trailing: const Icon(Icons.chevron_right_rounded),
                               onTap: () => showLifeOsBrandIdentitySheet(context),
                             ),
@@ -567,11 +563,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                 ),
                                 child: Icon(Icons.shield_outlined, color: c.primary),
                               ),
-                              title: const Text(
-                                'Tự động hóa Ngân hàng, Sao kê CSV & Dữ liệu',
-                              ),
+                              title: const Text('Ngân hàng & Quyền riêng tư'),
                               subtitle: const Text(
-                                'Quản lý quyền đọc thông báo, xuất JSON và xóa dữ liệu theo Luật 91/2025',
+                                'Quyền thông báo, sao lưu & xóa tài khoản',
                               ),
                               trailing: const Icon(Icons.chevron_right_rounded),
                               onTap: () => context.push('/notifications-privacy'),

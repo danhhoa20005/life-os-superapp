@@ -73,7 +73,6 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                 children: [
                   const LifeOsTopBrandHeader(
                     title: 'Bếp & Đi chợ Thông minh',
-                    subtitle: 'Thực đơn "Hôm nay ăn gì?", giỏ chợ theo quầy & tủ lạnh.',
                     showBackButton: true,
                   ),
                   Expanded(

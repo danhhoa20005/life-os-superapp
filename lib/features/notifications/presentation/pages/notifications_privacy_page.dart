@@ -100,7 +100,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
       },
       child: Scaffold(
         appBar: const LiquidGlassBar(
-          title: Text('Kết nối Ngân hàng SePay & Quyền riêng tư'),
+          title: Text('Ngân hàng & Quyền riêng tư'),
         ),
         body: SafeArea(
           child: BlocBuilder<NotificationIngestionBloc, NotificationIngestionState>(
@@ -127,19 +127,17 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             child: Icon(Icons.manage_accounts_rounded, color: c.primary),
                           ),
                           title: Text(
-                            'Hồ sơ & Bảo mật (${user.fullName})',
+                            'Tài khoản (${user.fullName})',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          subtitle: Text(
-                            'Liên kết Google, xác thực Email (${user.email}) & đổi mật khẩu',
-                          ),
+                          subtitle: Text(user.email),
                           trailing: const Icon(Icons.chevron_right_rounded),
                           onTap: () => context.push('/account-profile'),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 2. REAL SEPAY OFFICIAL REST API LIVE SYNC CARD
+                      // 2. SEPAY LIVE SYNC CARD
                       ProHeroGradientCard(
                         gradientColors: const [
                           Color(0xFF0A2240),
@@ -164,7 +162,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const Text(
-                                        'Đồng bộ Trực tiếp SePay Banking API',
+                                        'Kết nối ngân hàng tự động (SePay)',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
@@ -173,8 +171,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                       ),
                                       Text(
                                         state.savedSePayMaskedToken != null
-                                            ? 'Đã lưu Token: ${state.savedSePayMaskedToken}'
-                                            : 'Kết nối thực tới my.sepay.vn/userapi/transactions/list',
+                                            ? 'Đã kết nối: ${state.savedSePayMaskedToken}'
+                                            : 'Tự động cập nhật giao dịch ngân hàng mới vào ví',
                                         style: TextStyle(
                                           color: Colors.white.withValues(alpha: 0.82),
                                           fontSize: 12,
@@ -196,7 +194,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   fontWeight: FontWeight.w700,
                                 ),
                                 decoration: InputDecoration(
-                                  labelText: 'Ví nhận giao dịch đối soát SePay',
+                                  labelText: 'Ví nhận giao dịch',
                                   labelStyle:
                                       TextStyle(color: Colors.white.withValues(alpha: 0.85)),
                                   filled: true,
@@ -227,8 +225,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
                                 labelText: state.savedSePayMaskedToken != null
-                                    ? 'Nhập API Token mới (hoặc để trống dùng Token đã lưu)'
-                                    : 'SePay API Token (từ my.sepay.vn → API Access)',
+                                    ? 'Đổi mã kết nối (để trống nếu giữ nguyên)'
+                                    : 'Mã kết nối SePay',
                                 labelStyle:
                                     TextStyle(color: Colors.white.withValues(alpha: 0.82)),
                                 filled: true,
@@ -280,9 +278,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                     )
                                   : const Icon(Icons.cloud_sync_rounded),
                               label: Text(
-                                state.isSyncingSePay
-                                    ? 'Đang tải sao kê thực từ SePay...'
-                                    : 'Đồng bộ Giao dịch Thực từ SePay',
+                                state.isSyncingSePay ? 'Đang đồng bộ...' : 'Đồng bộ ngay',
                               ),
                             ),
                           ],
@@ -290,41 +286,29 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 3. REAL ANDROID NOTIFICATION LISTENER SERVICE CARD
+                      // 3. ANDROID BANK NOTIFICATION CARD
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  const SemanticStatusBadge(
-                                    kind: SemanticStatusKind.info,
-                                    label: 'Tuân thủ Google Play & Luật BVDLCN 91/2025',
-                                  ),
-                                  SemanticStatusBadge(
-                                    kind: state.isNativePermissionGranted
-                                        ? SemanticStatusKind.success
-                                        : SemanticStatusKind.warning,
-                                    label: state.isNativePermissionGranted
-                                        ? 'Quyền Hệ thống Android: ĐÃ CẤP'
-                                        : 'Quyền Hệ thống Android: CHƯA CẤP',
-                                  ),
-                                ],
+                              SemanticStatusBadge(
+                                kind: state.isNativePermissionGranted
+                                    ? SemanticStatusKind.success
+                                    : SemanticStatusKind.warning,
+                                label: state.isNativePermissionGranted
+                                    ? 'Đã cấp quyền thông báo'
+                                    : 'Chưa cấp quyền thông báo',
                               ),
                               const SizedBox(height: AppSpacing.sm),
                               Text(
-                                'Tự động bắt thông báo biến động số dư Android',
+                                'Đọc thông báo biến động số dư',
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
-                                '• Dịch vụ nền BankNotificationListenerService tự động bắt thông báo thực từ VCB, MB, Techcombank, BIDV, VietinBank, ACB, VPBank, TPBank, MoMo.\n'
-                                '• Lọc chặn cứng mã OTP, SmartOTP, CVV, PIN ngay trên thiết bị trước khi xử lý.\n'
-                                '• Ghi nhận trạng thái PROVISIONAL và tự động nâng cấp lên VERIFIED khi đồng bộ SePay.',
+                                'Tự động ghi nhận chi tiêu từ ứng dụng ngân hàng và bỏ qua tin nhắn chứa mã OTP.',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               const SizedBox(height: 12),
@@ -340,19 +324,15 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 ),
                                 label: Text(
                                   state.isNativePermissionGranted
-                                      ? 'Quản lý Quyền Truy cập Thông báo Android'
-                                      : 'Bước 1: Cấp quyền Đọc Thông báo trên Android',
+                                      ? 'Quản lý quyền thông báo'
+                                      : 'Cấp quyền đọc thông báo',
                                 ),
                               ),
                               const Divider(height: 24),
                               SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Bước 2: Bật lắng nghe theo danh sách ngân hàng'),
-                                subtitle: Text(
-                                  enabled
-                                      ? 'Đang hoạt động trên toàn ứng dụng'
-                                      : 'Đang tắt mặc định (An toàn)',
-                                ),
+                                title: const Text('Tự động nhận diện giao dịch mới'),
+                                subtitle: Text(enabled ? 'Đang bật' : 'Đang tắt'),
                                 value: enabled,
                                 onChanged: (next) {
                                   final pkgs = next && allowedSet.isEmpty
@@ -374,9 +354,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 children: kSupportedVnBanks.map((bank) {
                                   final selected = allowedSet.contains(bank.packageName);
                                   return FilterChip(
-                                    label: Text(
-                                      '${bank.displayName} (${bank.supportsDebit ? "Vào/Ra" : "Chỉ tiền vào"})',
-                                    ),
+                                    label: Text(bank.displayName),
                                     selected: selected,
                                     onSelected: !enabled
                                         ? null
@@ -404,119 +382,108 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 4. Live Parser & OTP Redactor Sandbox
+                      // 4. Advanced Tools (CSV Import & Notification Test) — Cleanly Collapsed
                       Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                'Kiểm thử Pipeline Phân tích SMS & Chặn OTP',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                initialValue: _selectedPkg,
-                                items: kSupportedVnBanks
-                                    .map((b) => DropdownMenuItem(
-                                          value: b.packageName,
-                                          child: Text(
-                                            '${b.displayName} (${b.packageName})',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ))
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) setState(() => _selectedPkg = v);
-                                },
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              TextField(
-                                controller: _sampleBodyCtrl,
-                                maxLines: 2,
-                                decoration: const InputDecoration(
-                                  labelText: 'Nội dung thông báo ngân hàng',
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              FilledButton.icon(
-                                onPressed: () {
-                                  context.read<NotificationIngestionBloc>().add(
-                                        BankNotificationSignalReceived(
-                                          userId: user.id,
-                                          defaultWalletId: activeWalletId,
-                                          packageName: _selectedPkg,
-                                          title: 'Biến động số dư',
-                                          body: _sampleBodyCtrl.text,
-                                        ),
-                                      );
-                                },
-                                icon: const Icon(Icons.bolt_rounded),
-                                label: const Text('Gửi qua Pipeline Nhận diện'),
-                              ),
-                              if (state.lastOutcome != null) ...[
-                                const SizedBox(height: AppSpacing.sm),
-                                SemanticStatusBadge(
-                                  kind: state.lastOutcome!.kind.name.contains('blocked')
-                                      ? SemanticStatusKind.error
-                                      : SemanticStatusKind.success,
-                                  label: state.lastOutcome!.message,
-                                ),
-                              ],
-                            ],
+                        child: ExpansionTile(
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          leading: Icon(Icons.tune_rounded, color: c.primary),
+                          title: const Text('Nhập sao kê CSV & Thử nghiệm nâng cao'),
+                          subtitle: const Text('Nhập tệp sao kê ngân hàng hoặc thử mẫu tin nhắn'),
+                          childrenPadding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            0,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
                           ),
+                          children: [
+                            Text(
+                              'Nhập sao kê CSV',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextField(
+                              controller: _csvCtrl,
+                              maxLines: 3,
+                              decoration: const InputDecoration(
+                                labelText: 'Nội dung CSV sao kê',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                context.read<NotificationIngestionBloc>().add(
+                                      CsvStatementImportSubmitted(
+                                        userId: user.id,
+                                        walletId: activeWalletId,
+                                        csvContent: _csvCtrl.text,
+                                      ),
+                                    );
+                              },
+                              icon: const Icon(Icons.upload_file_rounded),
+                              label: const Text('Nhập sao kê'),
+                            ),
+                            const Divider(height: 24),
+                            Text(
+                              'Thử nhận diện nội dung thông báo',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: _selectedPkg,
+                              items: kSupportedVnBanks
+                                  .map((b) => DropdownMenuItem(
+                                        value: b.packageName,
+                                        child: Text(
+                                          b.displayName,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ))
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null) setState(() => _selectedPkg = v);
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextField(
+                              controller: _sampleBodyCtrl,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                labelText: 'Nội dung tin nhắn mẫu',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            FilledButton.tonalIcon(
+                              onPressed: () {
+                                context.read<NotificationIngestionBloc>().add(
+                                      BankNotificationSignalReceived(
+                                        userId: user.id,
+                                        defaultWalletId: activeWalletId,
+                                        packageName: _selectedPkg,
+                                        title: 'Biến động số dư',
+                                        body: _sampleBodyCtrl.text,
+                                      ),
+                                    );
+                              },
+                              icon: const Icon(Icons.bolt_rounded),
+                              label: const Text('Kiểm tra thử'),
+                            ),
+                            if (state.lastOutcome != null) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              SemanticStatusBadge(
+                                kind: state.lastOutcome!.kind.name.contains('blocked')
+                                    ? SemanticStatusKind.error
+                                    : SemanticStatusKind.success,
+                                label: state.lastOutcome!.message,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 5. CSV Statement Import
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                'Nhập Sao kê Ngân hàng CSV (Khử trùng lặp SHA-256)',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                'Dùng trên mọi thiết bị Android & iOS. Nhập lại cùng tệp CSV sẽ tự động bỏ qua các dòng đã ghi sổ.',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              TextField(
-                                controller: _csvCtrl,
-                                maxLines: 4,
-                                decoration: const InputDecoration(
-                                  labelText:
-                                      'Dữ liệu CSV (YYYY-MM-DD,debit|credit,amount,description)',
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  context.read<NotificationIngestionBloc>().add(
-                                        CsvStatementImportSubmitted(
-                                          userId: user.id,
-                                          walletId: activeWalletId,
-                                          csvContent: _csvCtrl.text,
-                                        ),
-                                      );
-                                },
-                                icon: const Icon(Icons.upload_file_rounded),
-                                label: const Text('Nhập Sao kê CSV vào Sổ cái'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // 6. Privacy Controls, JSON Export & Account Deletion
+                      // 5. Privacy Controls, Backup & Account Deletion
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -524,14 +491,14 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Quyền Chia sẻ Lịch, Giao diện, Xuất & Xóa Dữ liệu Cá nhân',
+                                'Quyền riêng tư & Dữ liệu cá nhân',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Chia sẻ khung giờ Bận/Rảnh (Free/Busy Opt-in)'),
+                                title: const Text('Chia sẻ khung giờ Bận/Rảnh'),
                                 subtitle: const Text(
-                                  'Tắt mặc định. Khi bật, gia đình chỉ thấy khung giờ bận mà không thấy tiêu đề sự kiện riêng.',
+                                  'Gia đình chỉ thấy giờ bận, không thấy tên sự kiện riêng.',
                                 ),
                                 value: user.availabilityOptIn,
                                 onChanged: (v) => context
@@ -542,9 +509,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 builder: (context, themeState) {
                                   return SwitchListTile(
                                     contentPadding: EdgeInsets.zero,
-                                    title: const Text(
-                                      'Chế độ Tăng độ tương phản (WCAG High Contrast)',
-                                    ),
+                                    title: const Text('Tăng độ tương phản chữ'),
                                     value: themeState.highContrast,
                                     onChanged: (v) =>
                                         context.read<ThemeBloc>().add(HighContrastToggled(v)),
@@ -563,7 +528,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                           .add(PersonalDataExportRequested(user.id));
                                     },
                                     icon: const Icon(Icons.download_rounded),
-                                    label: const Text('Xuất dữ liệu cá nhân (JSON)'),
+                                    label: const Text('Sao lưu dữ liệu'),
                                   ),
                                   if (state.exportedJson != null)
                                     FilledButton.tonalIcon(
@@ -572,20 +537,20 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                           fileName: 'LifeOS_Data_${user.id.substring(0, 6)}.json',
                                           content: state.exportedJson!,
                                           mimeType: 'application/json',
-                                          title: 'Xuất Dữ liệu Cá nhân Life OS',
+                                          title: 'Sao lưu dữ liệu LifeOS',
                                         );
                                       },
                                       icon: const Icon(Icons.share_rounded, size: 18),
-                                      label: const Text('Chia sẻ / Lưu tệp JSON'),
+                                      label: const Text('Lưu tệp sao lưu'),
                                     ),
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(foregroundColor: c.error),
                                     onPressed: () async {
                                       final ok = await showDestructiveConfirmDialog(
                                         context: context,
-                                        title: 'Xóa vĩnh viễn tài khoản & dữ liệu cá nhân?',
+                                        title: 'Xóa vĩnh viễn tài khoản?',
                                         message:
-                                            'Toàn bộ ví, lịch riêng, thiết lập và quyền thành viên gia đình của bạn sẽ bị xóa theo Luật BVDLCN 91/2025/QH15. Thao tác không thể hoàn tác.',
+                                            'Toàn bộ ví, lịch, dữ liệu cá nhân và quyền thành viên gia đình sẽ bị xóa và không thể khôi phục.',
                                         confirmLabel: 'Xóa vĩnh viễn',
                                       );
                                       if (ok && context.mounted) {

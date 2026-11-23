@@ -409,7 +409,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Đã đăng ký chuông hệ thống lúc ${DateFormat('HH:mm dd/MM').format(_scheduledAlarm!.triggerAt)} (tự đổ chuông kể cả khi đóng app)',
+                                    'Đã hẹn báo thức lúc ${DateFormat('HH:mm dd/MM').format(_scheduledAlarm!.triggerAt)}',
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w700,

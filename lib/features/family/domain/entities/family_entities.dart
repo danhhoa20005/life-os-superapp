@@ -1,7 +1,17 @@
 import 'package:equatable/equatable.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 
-enum HouseholdRole { owner, admin, member }
+enum HouseholdRole {
+  owner,
+  admin,
+  member;
+
+  String get displayLabel => switch (this) {
+        HouseholdRole.owner => 'Trưởng nhóm',
+        HouseholdRole.admin => 'Quản trị',
+        HouseholdRole.member => 'Thành viên',
+      };
+}
 
 /// Three real-world collaboration operating modes researched for Life OS:
 /// - `family`: Hộ Gia đình / Tổ ấm (vợ chồng, đa thế hệ — quỹ chung + việc nhà + chi phí tổ ấm)
@@ -19,12 +29,9 @@ enum CollaborationSpaceType {
       };
 
   String get subtitleHint => switch (this) {
-        CollaborationSpaceType.family =>
-          'Quỹ chung mục tiêu, phân chia chi phí sinh hoạt & việc nhà, bảo vệ 100% ví riêng.',
-        CollaborationSpaceType.roommates =>
-          'Chia tiền phòng, điện nước, ăn uống, vật tư việc nhà & tối giản công nợ cuối tháng.',
-        CollaborationSpaceType.group =>
-          'Chia tiền ăn uống, du lịch, sự kiện nhóm & tự động rút gọn số lệnh chuyển khoản.',
+        CollaborationSpaceType.family => 'Quỹ chung, việc nhà & lịch gia đình.',
+        CollaborationSpaceType.roommates => 'Chia tiền phòng, điện nước & ăn chung.',
+        CollaborationSpaceType.group => 'Chia hóa đơn ăn uống & chuyến đi.',
       };
 }
 
@@ -35,10 +42,10 @@ enum SplitMethod {
   exact;
 
   String get displayLabel => switch (this) {
-        SplitMethod.equal => 'Chia đều (tự xử lý số lẻ 1 ₫)',
-        SplitMethod.percentage => 'Chia theo tỷ lệ % (tổng 100%)',
-        SplitMethod.shares => 'Chia theo phần / hệ số (VD: 2 : 1)',
-        SplitMethod.exact => 'Chia số tiền cụ thể từng người',
+        SplitMethod.equal => 'Chia đều',
+        SplitMethod.percentage => 'Chia theo %',
+        SplitMethod.shares => 'Chia theo phần',
+        SplitMethod.exact => 'Nhập số tiền từng người',
       };
 }
 

@@ -42,7 +42,6 @@ class TasksBoardPage extends StatelessWidget {
               children: [
                 const LifeOsTopBrandHeader(
                   title: 'Việc làm',
-                  subtitle: 'Phân công, theo dõi và cùng hoàn thành việc nhà.',
                   showBackButton: true,
                 ),
                 Expanded(

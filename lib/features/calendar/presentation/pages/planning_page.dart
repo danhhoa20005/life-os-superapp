@@ -63,7 +63,6 @@ class PlanningPage extends StatelessWidget {
                 children: [
                   LifeOsTopBrandHeader(
                     title: 'Lịch',
-                    subtitle: 'Quản lý lịch trình, sự kiện và kế hoạch của bạn.',
                     extraBrandActions: [
                       LifeOsHeaderCircleButton(
                         buttonKey: const Key('open_create_event_button'),
@@ -330,8 +329,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Khởi tạo trực tiếp trên Google Calendar'),
-                  subtitle: const Text('Tạo Secondary Calendar trên tài khoản Google của bạn'),
+                  title: const Text('Đồng bộ lên Google Calendar'),
                   value: createOnGoogle,
                   onChanged: (v) => setModalState(() => createOnGoogle = v),
                 ),
@@ -374,21 +372,21 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cấu hình OAuth Google Calendar API v3'),
+        title: const Text('Kết nối thủ công (nâng cao)'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Mặc định ứng dụng tự lấy OAuth Token qua Google Sign-In. Trong môi trường máy ảo / kiểm thử chuyên sâu, bạn cũng có thể dán trực tiếp Google OAuth Access Token (scope calendar):',
+              'Ứng dụng tự kết nối qua tài khoản Google. Chỉ nhập mã bên dưới nếu cần kiểm thử thủ công:',
               style: Theme.of(ctx).textTheme.bodySmall,
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: tokenCtrl,
               decoration: const InputDecoration(
-                labelText: 'OAuth 2.0 Bearer Access Token (Tùy chọn)',
-                hintText: 'ya29.a0AfH6SM...',
+                labelText: 'Mã kết nối Google (tùy chọn)',
+                hintText: 'ya29...',
                 prefixIcon: Icon(Icons.key_rounded),
               ),
             ),
@@ -410,7 +408,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
               );
             },
             icon: const Icon(Icons.sync_rounded, size: 18),
-            label: const Text('Xác thực & Đồng bộ ngay'),
+            label: const Text('Đồng bộ ngay'),
           ),
         ],
       ),
@@ -430,7 +428,6 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
         final calById = <String, ManagedCalendarEntity>{
           for (final cal in state.calendars) cal.id: cal,
         };
-        final recurringCount = state.events.where((e) => e.isRecurring).length;
         final syncedCount =
             state.events.where((e) => e.syncStatus == CalendarSyncStatus.synced).length;
 
@@ -450,7 +447,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                 _LifeOsInteractiveCalendarDeck(events: state.events),
                 const SizedBox(height: 14),
 
-                // 1. Google Calendar API v3 Sync Card
+                // 1. Google Calendar Sync Card
                 LifeOsMintHeroCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,7 +471,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Google Calendar API v3 · Đồng bộ 2 chiều',
+                                  'Đồng bộ Google Calendar',
                                   style: TextStyle(
                                     color: c.textPrimary,
                                     fontWeight: FontWeight.w800,
@@ -483,8 +480,8 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                                 ),
                                 Text(
                                   state.lastSyncReport != null
-                                      ? 'Đồng bộ lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · ${state.calendars.length} bộ lịch · $recurringCount lặp RRULE'
-                                      : '${state.calendars.length} bộ lịch · $syncedCount đã đồng bộ · Chuẩn RFC 5545 RRULE',
+                                      ? 'Cập nhật lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · ${state.calendars.length} bộ lịch'
+                                      : '${state.calendars.length} bộ lịch · $syncedCount sự kiện đã đồng bộ',
                                   style: TextStyle(
                                     color: c.textSecondary,
                                     fontSize: 12,
@@ -494,7 +491,7 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Cấu hình OAuth Token nâng cao',
+                            tooltip: 'Tùy chọn nâng cao',
                             onPressed: () => _showOAuthTokenSyncDialog(context),
                             icon: Icon(Icons.tune_rounded, color: c.primary),
                           ),
@@ -655,9 +652,8 @@ class _GoogleAndLifeOsCalendarTab extends StatelessWidget {
                   EmptyStateView(
                     icon: Icons.event_available_rounded,
                     imageAsset: AppAssets.planningAssetsIllustration,
-                    title: 'Chưa có sự kiện trong bộ lọc hiện tại',
-                    subtitle:
-                        'Tạo sự kiện đơn lẻ hoặc lịch lặp chuẩn Google Calendar (RRULE hằng ngày, hằng tuần T2-T4-T6, hằng tháng) và đồng bộ 2 chiều.',
+                    title: 'Chưa có sự kiện nào',
+                    subtitle: 'Nhấn nút bên dưới để thêm lịch hẹn mới.',
                     actionLabel: 'Tạo sự kiện mới',
                     onAction: () => showUpsertCalendarEventDialog(
                       context,

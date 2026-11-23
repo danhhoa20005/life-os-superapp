@@ -55,11 +55,10 @@ class FamilyPage extends StatelessWidget {
                 children: [
                   LifeOsTopBrandHeader(
                     title: 'Gia đình',
-                    subtitle: 'Phối hợp cùng nhau, quản lý việc nhà, lịch và tài chính chung an toàn.',
                     extraBrandActions: [
                       LifeOsHeaderCircleButton(
                         icon: Icons.mic_rounded,
-                        tooltip: 'Nói câu chia tiền nhóm bằng Giọng nói AI',
+                        tooltip: 'Chia tiền bằng giọng nói',
                         onTap: () => showVoiceSmartCaptureSheet(
                           context,
                           initialTranscript: 'Ăn lẩu bò 450 nghìn chia đều 3 người',
@@ -86,10 +85,9 @@ class FamilyPage extends StatelessWidget {
                           return EmptyStateView(
                             icon: Icons.family_restroom_rounded,
                             imageAsset: AppAssets.familySplitIllustration,
-                            title: 'Chưa tham gia Gia đình / Nhóm Ở ghép / Hội nhóm nào',
-                            subtitle:
-                                'Tạo không gian mới (Hộ gia đình, Nhà trọ ở ghép hoặc Hội nhóm chuyến đi) để chia tiền ăn uống, việc nhà, điện nước, quỹ chung & tài liệu mà không lộ ví cá nhân.',
-                            actionLabel: 'Khởi tạo không gian đầu tiên',
+                            title: 'Chưa tham gia nhóm nào',
+                            subtitle: 'Tạo không gian gia đình, nhà trọ hoặc nhóm bạn để chia chi phí chung.',
+                            actionLabel: 'Tạo nhóm đầu tiên',
                             onAction: () =>
                                 _showCreateFamilyDialog(context, user.id, user.fullName),
                           );
@@ -378,13 +376,13 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                             names: family.members.map((m) => m.fullName).toList(),
                             radius: 16,
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              '🔒 Chỉ thành viên trong nhóm mới xem được\n👥 Phối hợp, phân công & chia khoản công bằng',
+                              '${family.members.length} thành viên cùng quản lý',
                               style: TextStyle(
-                                fontSize: 11.8,
-                                height: 1.38,
+                                fontSize: 12.2,
+                                fontWeight: FontWeight.w600,
                                 color: c.textSecondary,
                               ),
                             ),
@@ -539,7 +537,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
 
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Số dư Ròng từng Thành viên (Ứng trước vs Phải chịu)',
+              'Cân đối chi tiêu thành viên',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -553,10 +551,10 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                     final statusColor =
                         isPositive ? c.success : (isNegative ? c.error : c.textSecondary);
                     final statusLabel = isPositive
-                        ? 'Cần nhận lại ${VndAmount.format(mb.netBalanceMinor)}'
+                        ? 'Nhận lại ${VndAmount.format(mb.netBalanceMinor)}'
                         : isNegative
-                            ? 'Đang nợ nhóm ${VndAmount.format(mb.netBalanceMinor.abs())}'
-                            : 'Đã cân bằng (0 ₫)';
+                            ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
+                            : 'Đã cân bằng';
 
                     return ListTile(
                       dense: true,
@@ -567,7 +565,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                       ),
                       title: Text(mb.fullName),
                       subtitle: Text(
-                        'Đã trả hộ: ${VndAmount.format(mb.totalPaidMinor)} · Phần chịu: ${VndAmount.format(mb.totalOwedMinor)}',
+                        'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
                       ),
                       trailing: Text(
                         statusLabel,
@@ -581,7 +579,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
 
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Lộ trình Tất toán Tối giản Công nợ (Chuẩn mã SePay SEVQR)',
+              'Gợi ý thanh toán nhanh',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -590,7 +588,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.all(AppSpacing.md),
                   child: Text(
-                    'Tuyệt vời! Mọi khoản ăn uống, việc nhà và hóa đơn chung hiện đã cân bằng 100%.',
+                    'Mọi khoản chi chung đã cân bằng.',
                   ),
                 ),
               )
@@ -1034,7 +1032,7 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                         SemanticStatusBadge(
                           kind: SemanticStatusKind.info,
                           label:
-                              '${family.spaceType.displayLabel} · ${family.roleOf(currentUserId).name.toUpperCase()}',
+                              '${family.spaceType.displayLabel} · ${family.roleOf(currentUserId).displayLabel}',
                         ),
                       ],
                     ),

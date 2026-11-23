@@ -498,14 +498,14 @@ enum EvnTariffPolicy {
   /// Quyết định 2892/QĐ-BCT của Bộ Công Thương (hiệu lực từ 01/11/2026) — 5 bậc thang.
   qd2892Nov2026(
     code: 'QD_2892_BCT_2026_11_01',
-    title: 'Biểu giá 5 bậc EVN (QĐ 2892/QĐ-BCT · từ 01/11/2026)',
+    title: 'Biểu giá điện 5 bậc (mới nhất)',
     effectiveFromIso: '2026-11-01',
   ),
 
   /// Biểu giá 6 bậc trước ngày 01/11/2026 (dùng đối chiếu hóa đơn kỳ cũ).
   legacy6TierPreNov2026(
     code: 'EVN_LEGACY_6_TIER_PRE_2026_11',
-    title: 'Biểu giá 6 bậc cũ (Trước 01/11/2026)',
+    title: 'Biểu giá 6 bậc (cũ)',
     effectiveFromIso: '2024-10-11',
   );
 
@@ -837,10 +837,10 @@ class VietnamSalaryTaxResult extends Equatable {
 
 /// Regional Minimum Wage Zones (`Nghị định 293/2025/NĐ-CP`, hiệu lực từ 01/01/2026).
 enum VietnamWageRegion {
-  region1(label: 'Vùng I (5,31tr · Trần BHTN 106,2tr)', minWage2026Vnd: 5310000, minWage2025Vnd: 4960000),
-  region2(label: 'Vùng II (4,73tr · Trần BHTN 94,6tr)', minWage2026Vnd: 4730000, minWage2025Vnd: 4410000),
-  region3(label: 'Vùng III (4,14tr · Trần BHTN 82,8tr)', minWage2026Vnd: 4140000, minWage2025Vnd: 3860000),
-  region4(label: 'Vùng IV (3,70tr · Trần BHTN 74,0tr)', minWage2026Vnd: 3700000, minWage2025Vnd: 3450000);
+  region1(label: 'Vùng I (TP.HCM, Hà Nội...)', minWage2026Vnd: 5310000, minWage2025Vnd: 4960000),
+  region2(label: 'Vùng II (Đà Nẵng, Cần Thơ...)', minWage2026Vnd: 4730000, minWage2025Vnd: 4410000),
+  region3(label: 'Vùng III (Thành phố tỉnh)', minWage2026Vnd: 4140000, minWage2025Vnd: 3860000),
+  region4(label: 'Vùng IV (Khu vực khác)', minWage2026Vnd: 3700000, minWage2025Vnd: 3450000);
 
   final String label;
   final int minWage2026Vnd;
@@ -863,7 +863,7 @@ enum VietnamTaxPolicy {
   /// Kỳ tính thuế từ 2026: Giảm trừ bản thân 15,5 triệu/tháng, NPT 6,2 triệu/tháng, Biểu thuế 5 bậc.
   law109Year2026(
     code: 'LAW_109_2025_QH15_YEAR_2026',
-    title: 'Kỳ thuế 2026 (Luật 109/2025 · 5 bậc · Giảm trừ 15,5tr)',
+    title: 'Mức thuế mới 2026 (5 bậc · Giảm trừ 15,5tr)',
     personalDeductionVnd: 15500000,
     dependentDeductionVnd: 6200000,
   ),
@@ -871,7 +871,7 @@ enum VietnamTaxPolicy {
   /// Kỳ tính thuế trước 2026: Giảm trừ bản thân 11 triệu/tháng, NPT 4,4 triệu/tháng, Biểu thuế 7 bậc.
   legacy7Bracket2025(
     code: 'PIT_LEGACY_7_BRACKET_PRE_2026',
-    title: 'Kỳ thuế 2025 trở về trước (7 bậc · Giảm trừ 11tr)',
+    title: 'Mức cũ 2025 (7 bậc · Giảm trừ 11tr)',
     personalDeductionVnd: 11000000,
     dependentDeductionVnd: 4400000,
   );

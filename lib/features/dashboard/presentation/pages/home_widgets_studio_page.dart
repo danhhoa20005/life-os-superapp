@@ -102,11 +102,10 @@ class HomeWidgetsStudioPage extends StatelessWidget {
             children: [
               LifeOsTopBrandHeader(
                 title: '4 Widget Chuẩn Google M3',
-                subtitle: 'Đồng bộ Material You Sáng/Tối, bo góc đồng tâm & tự cập nhật.',
                 showBackButton: true,
                 trailingAction: IconButton.filled(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Trợ lý Giọng nói AI',
+                  tooltip: 'Ghi bằng giọng nói',
                   onPressed: () => showVoiceSmartCaptureSheet(context),
                   icon: const Icon(Icons.mic_rounded, size: 18),
                 ),
@@ -185,8 +184,8 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                     ),
                                     subtitle: Text(
                                       notifState.isNativePermissionGranted
-                                          ? 'Đã cấp quyền NotificationListener Android'
-                                          : 'Nhấn để cấp quyền đọc thông báo biến động số dư',
+                                          ? 'Đã cấp quyền đọc thông báo'
+                                          : 'Nhấn để cấp quyền đọc thông báo ngân hàng',
                                       style: TextStyle(
                                         fontSize: 11.2,
                                         color: c.textSecondary,
@@ -280,8 +279,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                             // 2. WIDGET 01: Google Pixel Search & Voice Quick Bar (4x1)
                             _GoogleM3WidgetShowcaseCard(
                               badgeLabel: 'WIDGET 01 · 4×1 · THANH TÌM KIẾM & GIỌNG NÓI PIXEL',
-                              description:
-                                  'Chuẩn thanh Google Search trên Pixel Launcher: gọn 1 hàng (4×1), hỗ trợ co giãn tự do & tự đổi Sáng/Tối.',
+                              description: 'Chạm mic nói nhanh chi tiêu hoặc chia tiền nhóm.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -382,9 +380,8 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
                             // 3. WIDGET 02: Google Finance / Google Wallet Net Worth Card (4x2)
                             _GoogleM3WidgetShowcaseCard(
-                              badgeLabel: 'WIDGET 02 · 4×2 · TÀI SẢN & DÒNG TIỀN GOOGLE WALLET',
-                              description:
-                                  'Bo góc đồng tâm chuẩn Material 3 (ngoài 28dp · trong 16dp), chữ số thẳng hàng và nút + tạo nhanh.',
+                              badgeLabel: 'WIDGET 02 · 4×2 · TÀI SẢN & THU CHI',
+                              description: 'Xem số dư và thu chi tháng ngay ngoài màn hình chính.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -547,9 +544,8 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
                             // 4. WIDGET 03: Google Keep / Tasks Family & Roommate Split Hub (4x2)
                             _GoogleM3WidgetShowcaseCard(
-                              badgeLabel: 'WIDGET 03 · 4×2 · TỔ ẤM & CHIA TIỀN NHÓM GOOGLE TASKS',
-                              description:
-                                  'Nút bấm dạng viên thuốc (Pill M3) với biểu tượng vector sắc nét thay vì ký tự emoji lỗi phông.',
+                              badgeLabel: 'WIDGET 03 · 4×2 · CHIA TIỀN NHÓM & GIA ĐÌNH',
+                              description: 'Nói câu chia tiền nhóm và mở nhanh mã QR thanh toán.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(
@@ -679,9 +675,8 @@ class HomeWidgetsStudioPage extends StatelessWidget {
 
                             // 5. WIDGET 04: Google Digital Wellbeing Safe Daily Spend (3x2)
                             _GoogleM3WidgetShowcaseCard(
-                              badgeLabel: 'WIDGET 04 · 3×2 · HẠN MỨC HÔM NAY DIGITAL WELLBEING',
-                              description:
-                                  'Thanh tiến độ bo tròn dày 10dp chuẩn Google Digital Wellbeing cùng cảnh báo quỹ dự phòng.',
+                              badgeLabel: 'WIDGET 04 · 3×2 · HẠN MỨC CHI TIÊU HÔM NAY',
+                              description: 'Theo dõi số tiền an toàn có thể tiêu trong ngày.',
                               surfaceColor: m3WidgetSurface,
                               strokeColor: m3Stroke,
                               onPin: () => _pinWidget(

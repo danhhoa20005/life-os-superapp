@@ -246,11 +246,11 @@ class AppUpdateSettingsCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Phiên bản Ứng dụng & Cập nhật Tự động (OTA)',
+                            'Phiên bản ứng dụng',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            'Đang cài: v${state.installedDisplay} · GitHub: danhhoa20005/life-os-superapp',
+                            'Đang dùng: v${state.installedDisplay}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
