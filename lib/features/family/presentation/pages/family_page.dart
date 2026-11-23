@@ -140,9 +140,13 @@ class FamilyPage extends StatelessWidget {
                                         .map(
                                           (f) => DropdownMenuItem(
                                             value: f.id,
-                                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                                              '${f.name} · ${f.spaceType.displayLabel}',
-                                            )),
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                '${f.name} · ${f.spaceType.displayLabel}',
+                                              ),
+                                            ),
                                           ),
                                         )
                                         .toList(),
@@ -249,9 +253,11 @@ class FamilyPage extends StatelessWidget {
                       .map(
                         (t) => DropdownMenuItem(
                           value: t,
-                          child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                            t.displayLabel,
-                          )),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(t.displayLabel),
+                          ),
                         ),
                       )
                       .toList(),
@@ -1107,9 +1113,11 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (t) => DropdownMenuItem(
                             value: t,
-                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                              t.displayLabel,
-                            )),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(t.displayLabel),
+                            ),
                           ),
                         )
                         .toList(),
@@ -1147,9 +1155,11 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (m) => DropdownMenuItem(
                             value: m.userId,
-                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                              m.fullName,
-                            )),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(m.fullName),
+                            ),
                           ),
                         )
                         .toList(),
@@ -1167,9 +1177,11 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         .map(
                           (m) => DropdownMenuItem(
                             value: m,
-                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                              m.displayLabel,
-                            )),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(m.displayLabel),
+                            ),
                           ),
                         )
                         .toList(),
@@ -1353,12 +1365,7 @@ Future<void> showFamilyInviteMemberSheet(
             return LiquidGlassSheetFrame(
               showHandle: true,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  18,
-                  6,
-                  18,
-                  20 + viewInsets.bottom,
-                ),
+                padding: EdgeInsets.fromLTRB(18, 6, 18, 20 + viewInsets.bottom),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1854,10 +1861,7 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                                   'Đã sao chép tin nhắn mời để gửi lại.',
                                 );
                               },
-                              icon: const Icon(
-                                Icons.send_outlined,
-                                size: 15,
-                              ),
+                              icon: const Icon(Icons.send_outlined, size: 15),
                               label: const Text('Gửi lại lời mời'),
                             ),
                             if (isManager)
@@ -1867,14 +1871,13 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                                   foregroundColor: c.error,
                                   visualDensity: VisualDensity.compact,
                                 ),
-                                onPressed: () =>
-                                    context.read<FamilyBloc>().add(
-                                      FamilyInviteRevokeRequested(
-                                        actorUserId: currentUserId,
-                                        familyId: family.id,
-                                        inviteCode: inv.inviteCode,
-                                      ),
-                                    ),
+                                onPressed: () => context.read<FamilyBloc>().add(
+                                  FamilyInviteRevokeRequested(
+                                    actorUserId: currentUserId,
+                                    familyId: family.id,
+                                    inviteCode: inv.inviteCode,
+                                  ),
+                                ),
                                 icon: const Icon(
                                   Icons.cancel_outlined,
                                   size: 15,
@@ -1910,8 +1913,7 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
               final canManageTarget =
                   !isSelf &&
                   m.role != HouseholdRole.owner &&
-                  (isOwner ||
-                      (isManager && m.role == HouseholdRole.member));
+                  (isOwner || (isManager && m.role == HouseholdRole.member));
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 9),
@@ -2324,10 +2326,10 @@ class _HouseholdAndAssetsHubView extends StatelessWidget {
                   Expanded(
                     child: LifeOsFeatureBentoTile(
                       tileKey: const Key('family_hub_vehicles_tile'),
-                      icon: Icons.directions_car_outlined,
-                      tone: LifeOsAccentTone.blue,
-                      title: 'Xe & Hóa đơn',
-                      subtitle: 'Bảo dưỡng & định kỳ',
+                      icon: Icons.two_wheeler_rounded,
+                      tone: LifeOsAccentTone.emerald,
+                      title: 'Xe máy & Hóa đơn',
+                      subtitle: 'Nhớt, nồi & chuẩn hãng',
                       onTap: () => context.push('/assets'),
                     ),
                   ),

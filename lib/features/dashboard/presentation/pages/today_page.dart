@@ -90,9 +90,9 @@ class _TodayPageState extends State<TodayPage> {
     ),
     _ShortcutSpec(
       id: 'vehicles',
-      label: 'Xe cộ',
-      icon: Icons.directions_car_outlined,
-      tone: LifeOsAccentTone.blue,
+      label: 'Xe máy',
+      icon: Icons.two_wheeler_rounded,
+      tone: LifeOsAccentTone.emerald,
       route: '/assets',
     ),
     _ShortcutSpec(
@@ -519,7 +519,9 @@ class _TodayPageState extends State<TodayPage> {
                         ),
                       if (dueVehicles.isNotEmpty)
                         _InboxActionItem(
-                          icon: Icons.car_repair_rounded,
+                          icon: dueVehicles.first.isMotorcycle
+                              ? Icons.two_wheeler_rounded
+                              : Icons.car_repair_rounded,
                           tone: LifeOsAccentTone.coral,
                           title: 'Bảo dưỡng xe: ${dueVehicles.first.name}',
                           subtitle:

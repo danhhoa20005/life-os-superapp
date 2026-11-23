@@ -24,23 +24,74 @@ class VehicleRemoteDataSource {
     final lastDateRaw = d['lastServiceDate'];
     final insRaw = d['insuranceExpiryDate'];
     final inspRaw = d['inspectionExpiryDate'];
+    final name = (d['name'] as String?) ?? 'Xe máy';
+    final rawCat = d['category'] as String?;
+    final rawProfileKey = d['modelProfileKey'] as String?;
+    final resolvedProfile = MotorcycleSpecCatalog.resolveForVehicle(
+      modelProfileKey: rawProfileKey,
+      category: rawCat != null
+          ? VehicleCategory.values.where((c) => c.name == rawCat).firstOrNull
+          : null,
+      vehicleName: name,
+    );
+    final category = rawCat != null
+        ? (VehicleCategory.values.where((c) => c.name == rawCat).firstOrNull ??
+              resolvedProfile.category)
+        : resolvedProfile.category;
+
+    final rawCompMap = d['componentLastKm'];
+    final compMap = <String, int>{};
+    if (rawCompMap is Map) {
+      for (final entry in rawCompMap.entries) {
+        final k = entry.key.toString();
+        final v = entry.value;
+        if (v is num) {
+          compMap[k] = v.toInt();
+        }
+      }
+    }
+
     return VehicleEntity(
       id: (d['id'] as String?) ?? doc.id,
       ownerId: (d['ownerId'] as String?) ?? '',
       familyId: familyId,
       isFamilyShared: isShared,
-      name: (d['name'] as String?) ?? 'Phương tiện',
+      name: name,
       plateNumber: (d['plateNumber'] as String?) ?? '',
+      category: category,
+      modelProfileKey: rawProfileKey ?? resolvedProfile.profileKey,
       maskPlateWhenShared: (d['maskPlateWhenShared'] as bool?) ?? true,
       currentOdometerKm: (d['currentOdometerKm'] as num?)?.toInt() ?? 0,
       lastServiceOdometerKm: (d['lastServiceOdometerKm'] as num?)?.toInt() ?? 0,
       lastServiceDate: lastDateRaw is Timestamp
           ? lastDateRaw.toDate()
           : DateTime.now(),
-      serviceIntervalKm: (d['serviceIntervalKm'] as num?)?.toInt() ?? 3000,
-      serviceIntervalDays: (d['serviceIntervalDays'] as num?)?.toInt() ?? 90,
+      serviceIntervalKm:
+          (d['serviceIntervalKm'] as num?)?.toInt() ??
+          resolvedProfile.recommendedOilIntervalKm,
+      serviceIntervalDays:
+          (d['serviceIntervalDays'] as num?)?.toInt() ??
+          resolvedProfile.recommendedIntervalDays,
+      componentLastKm: Map<String, int>.unmodifiable(compMap),
       insuranceExpiryDate: insRaw is Timestamp ? insRaw.toDate() : null,
       inspectionExpiryDate: inspRaw is Timestamp ? inspRaw.toDate() : null,
+    );
+  }
+
+  MaintenanceRecordEntity _mapMaintenanceRecord(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+    String vehicleId,
+  ) {
+    final d = doc.data() ?? const <String, dynamic>{};
+    final dateRaw = d['serviceDate'];
+    return MaintenanceRecordEntity(
+      id: (d['id'] as String?) ?? doc.id,
+      vehicleId: vehicleId,
+      serviceTitle: (d['serviceTitle'] as String?) ?? 'Bảo dưỡng định kỳ',
+      componentKey: d['componentKey'] as String?,
+      odometerKm: (d['odometerKm'] as num?)?.toInt() ?? 0,
+      costMinor: (d['costMinor'] as num?)?.toInt() ?? 0,
+      serviceDate: dateRaw is Timestamp ? dateRaw.toDate() : DateTime.now(),
     );
   }
 
@@ -144,9 +195,18 @@ class VehicleRemoteDataSource {
     required int currentOdometerKm,
     required int serviceIntervalKm,
     required int serviceIntervalDays,
+    VehicleCategory category = VehicleCategory.scooter,
+    String? modelProfileKey,
+    DateTime? insuranceExpiryDate,
+    DateTime? inspectionExpiryDate,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
+    final resolvedProfile = MotorcycleSpecCatalog.resolveForVehicle(
+      modelProfileKey: modelProfileKey,
+      category: category,
+      vehicleName: name,
+    );
     final ref = isFamilyShared && familyId != null && familyId.isNotEmpty
         ? _firestore
               .collection('families')
@@ -159,19 +219,60 @@ class VehicleRemoteDataSource {
               .collection('vehicles')
               .doc(id);
 
+    final primaryKey = resolvedProfile.category == VehicleCategory.electricMoto
+        ? 'ev_battery'
+        : 'engine_oil';
+
     await ref.set({
       'id': id,
       'ownerId': userId,
       'name': name,
       'plateNumber': plateNumber,
+      'category': resolvedProfile.category.name,
+      'modelProfileKey': resolvedProfile.profileKey,
       'maskPlateWhenShared': true,
       'currentOdometerKm': currentOdometerKm,
       'lastServiceOdometerKm': currentOdometerKm,
       'lastServiceDate': Timestamp.fromDate(now),
       'serviceIntervalKm': serviceIntervalKm,
       'serviceIntervalDays': serviceIntervalDays,
+      'componentLastKm': <String, int>{primaryKey: currentOdometerKm},
+      if (insuranceExpiryDate != null)
+        'insuranceExpiryDate': Timestamp.fromDate(insuranceExpiryDate),
+      if (inspectionExpiryDate != null)
+        'inspectionExpiryDate': Timestamp.fromDate(inspectionExpiryDate),
       'createdAt': Timestamp.fromDate(now),
     });
+  }
+
+  Future<void> updateVehicleSpecProfile({
+    required VehicleEntity vehicle,
+    required VehicleCategory category,
+    required String modelProfileKey,
+    DateTime? insuranceExpiryDate,
+    DateTime? inspectionExpiryDate,
+  }) async {
+    final profile = MotorcycleSpecCatalog.resolveForVehicle(
+      modelProfileKey: modelProfileKey,
+      category: category,
+      vehicleName: vehicle.name,
+    );
+    final payload = <String, dynamic>{
+      'category': profile.category.name,
+      'modelProfileKey': profile.profileKey,
+      'serviceIntervalKm': profile.recommendedOilIntervalKm,
+      'serviceIntervalDays': profile.recommendedIntervalDays,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    };
+    if (insuranceExpiryDate != null) {
+      payload['insuranceExpiryDate'] = Timestamp.fromDate(insuranceExpiryDate);
+    }
+    if (inspectionExpiryDate != null) {
+      payload['inspectionExpiryDate'] = Timestamp.fromDate(
+        inspectionExpiryDate,
+      );
+    }
+    await _vehicleRef(vehicle).update(payload);
   }
 
   Future<void> updateOdometer({
@@ -184,16 +285,39 @@ class VehicleRemoteDataSource {
     });
   }
 
+  Stream<List<MaintenanceRecordEntity>> watchMaintenanceHistory({
+    required VehicleEntity vehicle,
+  }) {
+    return _vehicleRef(vehicle)
+        .collection('maintenances')
+        .orderBy('serviceDate', descending: true)
+        .limit(20)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => _mapMaintenanceRecord(d, vehicle.id))
+              .toList(growable: false),
+        );
+  }
+
   Future<void> recordMaintenance({
     required VehicleEntity vehicle,
     required String serviceTitle,
     required int odometerKm,
     required int costMinor,
+    String? componentKey,
     String? walletIdForExpense,
   }) async {
     final now = DateTime.now();
     final vRef = _vehicleRef(vehicle);
     final mId = _uuid.v4();
+    final normalizedKey = componentKey != null && componentKey.trim().isNotEmpty
+        ? componentKey.trim()
+        : null;
+    final resetsPrimaryOilCycle =
+        normalizedKey == null ||
+        normalizedKey == 'engine_oil' ||
+        normalizedKey == 'ev_battery';
 
     await _firestore.runTransaction((tx) async {
       DocumentSnapshot<Map<String, dynamic>>? walletSnap;
@@ -216,16 +340,28 @@ class VehicleRemoteDataSource {
       tx.set(vRef.collection('maintenances').doc(mId), {
         'id': mId,
         'serviceTitle': serviceTitle,
+        if (normalizedKey != null) 'componentKey': normalizedKey,
         'odometerKm': odometerKm,
         'costMinor': costMinor,
         'serviceDate': Timestamp.fromDate(now),
       });
 
-      tx.update(vRef, {
+      final targetKey =
+          normalizedKey ??
+          (vehicle.maintenanceProfile.category == VehicleCategory.electricMoto
+              ? 'ev_battery'
+              : 'engine_oil');
+
+      final vehicleUpdate = <String, dynamic>{
         'currentOdometerKm': updatedKm,
-        'lastServiceOdometerKm': odometerKm,
-        'lastServiceDate': Timestamp.fromDate(now),
-      });
+        'componentLastKm.$targetKey': odometerKm,
+        'updatedAt': Timestamp.fromDate(now),
+      };
+      if (resetsPrimaryOilCycle) {
+        vehicleUpdate['lastServiceOdometerKm'] = odometerKm;
+        vehicleUpdate['lastServiceDate'] = Timestamp.fromDate(now);
+      }
+      tx.update(vRef, vehicleUpdate);
 
       if (walletRef != null &&
           walletSnap != null &&
@@ -469,6 +605,10 @@ class VehicleRepositoryImpl implements VehicleRepository {
     required int currentOdometerKm,
     required int serviceIntervalKm,
     required int serviceIntervalDays,
+    VehicleCategory category = VehicleCategory.scooter,
+    String? modelProfileKey,
+    DateTime? insuranceExpiryDate,
+    DateTime? inspectionExpiryDate,
   }) async {
     try {
       await _remoteDataSource.createVehicle(
@@ -480,6 +620,32 @@ class VehicleRepositoryImpl implements VehicleRepository {
         currentOdometerKm: currentOdometerKm,
         serviceIntervalKm: serviceIntervalKm,
         serviceIntervalDays: serviceIntervalDays,
+        category: category,
+        modelProfileKey: modelProfileKey,
+        insuranceExpiryDate: insuranceExpiryDate,
+        inspectionExpiryDate: inspectionExpiryDate,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> updateVehicleSpecProfile({
+    required VehicleEntity vehicle,
+    required VehicleCategory category,
+    required String modelProfileKey,
+    DateTime? insuranceExpiryDate,
+    DateTime? inspectionExpiryDate,
+  }) async {
+    try {
+      await _remoteDataSource.updateVehicleSpecProfile(
+        vehicle: vehicle,
+        category: category,
+        modelProfileKey: modelProfileKey,
+        insuranceExpiryDate: insuranceExpiryDate,
+        inspectionExpiryDate: inspectionExpiryDate,
       );
       return const Success(null);
     } catch (e) {
@@ -504,11 +670,33 @@ class VehicleRepositoryImpl implements VehicleRepository {
   }
 
   @override
+  Stream<Result<List<MaintenanceRecordEntity>>> watchMaintenanceHistory({
+    required VehicleEntity vehicle,
+  }) {
+    return _remoteDataSource
+        .watchMaintenanceHistory(vehicle: vehicle)
+        .map<Result<List<MaintenanceRecordEntity>>>((r) => Success(r))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (
+                  Object e,
+                  StackTrace _,
+                  EventSink<Result<List<MaintenanceRecordEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(e)));
+                },
+          ),
+        );
+  }
+
+  @override
   Future<Result<void>> recordMaintenance({
     required VehicleEntity vehicle,
     required String serviceTitle,
     required int odometerKm,
     required int costMinor,
+    String? componentKey,
     String? walletIdForExpense,
   }) async {
     try {
@@ -517,6 +705,7 @@ class VehicleRepositoryImpl implements VehicleRepository {
         serviceTitle: serviceTitle,
         odometerKm: odometerKm,
         costMinor: costMinor,
+        componentKey: componentKey,
         walletIdForExpense: walletIdForExpense,
       );
       return const Success(null);

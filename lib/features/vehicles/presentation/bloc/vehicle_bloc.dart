@@ -34,6 +34,10 @@ final class VehicleCreated extends VehicleEvent {
   final int currentOdometerKm;
   final int serviceIntervalKm;
   final int serviceIntervalDays;
+  final VehicleCategory category;
+  final String? modelProfileKey;
+  final DateTime? insuranceExpiryDate;
+  final DateTime? inspectionExpiryDate;
 
   const VehicleCreated({
     required this.userId,
@@ -42,8 +46,12 @@ final class VehicleCreated extends VehicleEvent {
     required this.name,
     required this.plateNumber,
     required this.currentOdometerKm,
-    this.serviceIntervalKm = 3000,
+    this.serviceIntervalKm = 2000,
     this.serviceIntervalDays = 90,
+    this.category = VehicleCategory.scooter,
+    this.modelProfileKey,
+    this.insuranceExpiryDate,
+    this.inspectionExpiryDate,
   });
 
   @override
@@ -56,6 +64,35 @@ final class VehicleCreated extends VehicleEvent {
     currentOdometerKm,
     serviceIntervalKm,
     serviceIntervalDays,
+    category,
+    modelProfileKey,
+    insuranceExpiryDate,
+    inspectionExpiryDate,
+  ];
+}
+
+final class VehicleSpecProfileUpdated extends VehicleEvent {
+  final VehicleEntity vehicle;
+  final VehicleCategory category;
+  final String modelProfileKey;
+  final DateTime? insuranceExpiryDate;
+  final DateTime? inspectionExpiryDate;
+
+  const VehicleSpecProfileUpdated({
+    required this.vehicle,
+    required this.category,
+    required this.modelProfileKey,
+    this.insuranceExpiryDate,
+    this.inspectionExpiryDate,
+  });
+
+  @override
+  List<Object?> get props => [
+    vehicle,
+    category,
+    modelProfileKey,
+    insuranceExpiryDate,
+    inspectionExpiryDate,
   ];
 }
 
@@ -77,6 +114,7 @@ final class VehicleMaintenanceLogged extends VehicleEvent {
   final String serviceTitle;
   final int odometerKm;
   final int costMinor;
+  final String? componentKey;
   final String? walletIdForExpense;
 
   const VehicleMaintenanceLogged({
@@ -84,6 +122,7 @@ final class VehicleMaintenanceLogged extends VehicleEvent {
     required this.serviceTitle,
     required this.odometerKm,
     required this.costMinor,
+    this.componentKey,
     this.walletIdForExpense,
   });
 
@@ -93,8 +132,18 @@ final class VehicleMaintenanceLogged extends VehicleEvent {
     serviceTitle,
     odometerKm,
     costMinor,
+    componentKey,
     walletIdForExpense,
   ];
+}
+
+final class VehicleMaintenanceHistoryWatched extends VehicleEvent {
+  final VehicleEntity vehicle;
+
+  const VehicleMaintenanceHistoryWatched(this.vehicle);
+
+  @override
+  List<Object?> get props => [vehicle];
 }
 
 final class RecurringBillCreated extends VehicleEvent {
@@ -146,6 +195,8 @@ final class VehicleState extends Equatable {
   final bool isLoading;
   final List<VehicleEntity> vehicles;
   final List<RecurringBillEntity> bills;
+  final Map<String, List<MaintenanceRecordEntity>>
+  maintenanceHistoryByVehicleId;
   final Failure? failure;
   final String? message;
 
@@ -153,6 +204,7 @@ final class VehicleState extends Equatable {
     this.isLoading = false,
     this.vehicles = const [],
     this.bills = const [],
+    this.maintenanceHistoryByVehicleId = const {},
     this.failure,
     this.message,
   });
@@ -161,6 +213,7 @@ final class VehicleState extends Equatable {
     bool? isLoading,
     List<VehicleEntity>? vehicles,
     List<RecurringBillEntity>? bills,
+    Map<String, List<MaintenanceRecordEntity>>? maintenanceHistoryByVehicleId,
     Failure? failure,
     bool clearFailure = false,
     String? message,
@@ -170,13 +223,25 @@ final class VehicleState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       vehicles: vehicles != null ? List.unmodifiable(vehicles) : this.vehicles,
       bills: bills != null ? List.unmodifiable(bills) : this.bills,
+      maintenanceHistoryByVehicleId: maintenanceHistoryByVehicleId != null
+          ? Map<String, List<MaintenanceRecordEntity>>.unmodifiable(
+              maintenanceHistoryByVehicleId,
+            )
+          : this.maintenanceHistoryByVehicleId,
       failure: clearFailure ? null : (failure ?? this.failure),
       message: clearMessage ? null : (message ?? this.message),
     );
   }
 
   @override
-  List<Object?> get props => [isLoading, vehicles, bills, failure, message];
+  List<Object?> get props => [
+    isLoading,
+    vehicles,
+    bills,
+    maintenanceHistoryByVehicleId,
+    failure,
+    message,
+  ];
 }
 
 class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
@@ -190,7 +255,15 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
        _updateOdometer = updateOdometer,
        super(const VehicleState()) {
     on<VehiclesWatchStarted>(_onWatchStarted, transformer: restartable());
+    on<VehicleMaintenanceHistoryWatched>(
+      _onWatchMaintenanceHistory,
+      transformer: restartable(),
+    );
     on<VehicleCreated>(_onCreateVehicle, transformer: sequential());
+    on<VehicleSpecProfileUpdated>(
+      _onUpdateSpecProfile,
+      transformer: sequential(),
+    );
     on<VehicleOdometerLogged>(_onOdometerLogged, transformer: sequential());
     on<VehicleMaintenanceLogged>(
       _onMaintenanceLogged,
@@ -198,6 +271,24 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     );
     on<RecurringBillCreated>(_onCreateBill, transformer: sequential());
     on<RecurringBillPaid>(_onPayBill, transformer: sequential());
+  }
+
+  Future<void> _onWatchMaintenanceHistory(
+    VehicleMaintenanceHistoryWatched event,
+    Emitter<VehicleState> emit,
+  ) async {
+    await emit.forEach<Result<List<MaintenanceRecordEntity>>>(
+      _repository.watchMaintenanceHistory(vehicle: event.vehicle),
+      onData: (res) => res.fold(
+        (_) => state,
+        (records) => state.copyWith(
+          maintenanceHistoryByVehicleId: {
+            ...state.maintenanceHistoryByVehicleId,
+            event.vehicle.id: List.unmodifiable(records),
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _onWatchStarted(
@@ -263,10 +354,39 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
           : event.currentOdometerKm,
       serviceIntervalKm: event.serviceIntervalKm,
       serviceIntervalDays: event.serviceIntervalDays,
+      category: event.category,
+      modelProfileKey: event.modelProfileKey,
+      insuranceExpiryDate: event.insuranceExpiryDate,
+      inspectionExpiryDate: event.inspectionExpiryDate,
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã thêm hồ sơ phương tiện.')),
+      (_) => emit(
+        state.copyWith(
+          message: 'Đã thêm hồ sơ xe và lịch bảo dưỡng chuẩn hãng.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onUpdateSpecProfile(
+    VehicleSpecProfileUpdated event,
+    Emitter<VehicleState> emit,
+  ) async {
+    final res = await _repository.updateVehicleSpecProfile(
+      vehicle: event.vehicle,
+      category: event.category,
+      modelProfileKey: event.modelProfileKey,
+      insuranceExpiryDate: event.insuranceExpiryDate,
+      inspectionExpiryDate: event.inspectionExpiryDate,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          message: 'Đã cập nhật dòng máy và thông số bảo dưỡng chuẩn hãng.',
+        ),
+      ),
     );
   }
 
@@ -299,6 +419,7 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
           : event.serviceTitle.trim(),
       odometerKm: event.odometerKm,
       costMinor: event.costMinor < 0 ? 0 : event.costMinor,
+      componentKey: event.componentKey,
       walletIdForExpense: event.walletIdForExpense,
     );
     res.fold(

@@ -723,11 +723,18 @@ abstract final class ProCategoryStyle {
         assetPath: AppAssets.icCatShopping,
       );
     }
+    if (lower.contains('ô tô') || lower.contains('oto')) {
+      return (
+        icon: Icons.directions_car_filled_outlined,
+        color: const Color(0xFF1971C2),
+        assetPath: AppAssets.icCatVehicle,
+      );
+    }
     if (lower.contains('bảo dưỡng') || lower.contains('sửa xe')) {
       return (
-        icon: Icons.handyman_rounded,
-        color: const Color(0xFF495057),
-        assetPath: AppAssets.icCatVehicle,
+        icon: Icons.two_wheeler_rounded,
+        color: const Color(0xFF0B7A2A),
+        assetPath: AppAssets.icCatScooter,
       );
     }
     if (lower.contains('xe') ||
@@ -735,8 +742,8 @@ abstract final class ProCategoryStyle {
         lower.contains('xăng')) {
       return (
         icon: Icons.two_wheeler_rounded,
-        color: const Color(0xFF1971C2),
-        assetPath: AppAssets.icCatVehicle,
+        color: const Color(0xFF087F5B),
+        assetPath: AppAssets.icCatScooter,
       );
     }
     if (lower.contains('sức khỏe') || lower.contains('giáo dục')) {

@@ -18,6 +18,8 @@ import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:life_os/core/widgets/liquid_glass.dart';
 import 'package:life_os/features/family/domain/entities/family_entities.dart';
 import 'package:life_os/features/family/domain/repositories/family_repository.dart';
+import 'package:life_os/features/vehicles/domain/entities/vehicle_entities.dart';
+import 'package:life_os/features/vehicles/domain/repositories/vehicle_repository.dart';
 
 void main() {
   group('Top Toast Standard & UI/UX Pro Max Redesign Verification (v3.1.0+16)', () {
@@ -457,9 +459,9 @@ void main() {
     );
 
     test(
-      'Nano Banana Pro 3D Icons & Bank Card Skins (v3.13): All 26 icons + 7 clean bank card skins exist and map accurately',
+      'Nano Banana Pro 3D Icons & Bank Card Skins (v3.14): All 27 icons (incl. 3D Scooter) + 7 clean bank card skins exist and map accurately',
       () {
-        expect(AppAssets.allBananaIcons.length, 26);
+        expect(AppAssets.allBananaIcons.length, 27);
         expect(AppAssets.allBankCardSkins.length, 7);
 
         for (final path in [
@@ -669,6 +671,291 @@ void main() {
         expect(roleRes, isA<Success<void>>());
         await tester.pumpAndSettle();
         expect(find.text('Quản trị'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    test(
+      'OEM Motorcycle Maintenance Spec Catalog (v3.14): Accurate JASO MB vs MA2, ml capacities, coolant rules & EV LFP schedules across 12 lines',
+      () {
+        expect(MotorcycleSpecCatalog.allProfiles.length, 12);
+
+        // 1. Air-cooled Honda Vision 110: JASO MB, 650-700 ml, NO coolant!
+        final vision = MotorcycleSpecCatalog.resolveForVehicle(
+          vehicleName: 'Honda Vision 2024',
+        );
+        expect(vision.profileKey, 'honda_esp_vision_110');
+        expect(vision.category, VehicleCategory.scooter);
+        expect(vision.oilGradeSpec, contains('JASO MB'));
+        expect(vision.engineOilCapacity, contains('650 – 700 ml'));
+        expect(vision.gearOilCapacity, isNotNull);
+        expect(
+          vision.components.any(
+            (c) => c.kind == MaintenanceComponentKind.coolant,
+          ),
+          isFalse,
+        );
+
+        // 2. Liquid-cooled Honda Air Blade 160: JASO MB, 800 ml, 120 ml gear oil, HAS coolant
+        final ab = MotorcycleSpecCatalog.resolveForVehicle(
+          vehicleName: 'Honda Air Blade 160',
+        );
+        expect(ab.profileKey, 'honda_esp_plus_125_160');
+        expect(ab.engineOilCapacity, contains('800 ml'));
+        expect(ab.gearOilCapacity, contains('120 ml'));
+        expect(
+          ab.components.any((c) => c.kind == MaintenanceComponentKind.coolant),
+          isTrue,
+        );
+
+        // 3. Manual clutch Honda Winner X: 1.100 ml JASO MA2, chain care every 600 km, NO gear oil
+        final winner = MotorcycleSpecCatalog.resolveForVehicle(
+          vehicleName: 'Honda Winner X V4',
+        );
+        expect(winner.profileKey, 'honda_winner_x');
+        expect(winner.category, VehicleCategory.manualClutch);
+        expect(winner.oilGradeSpec, contains('JASO MA2'));
+        expect(winner.engineOilCapacity, contains('1.100 ml'));
+        expect(winner.gearOilCapacity, isNull);
+        expect(
+          winner.components.any(
+            (c) =>
+                c.kind == MaintenanceComponentKind.chainAndSprocket &&
+                c.intervalKm == 600,
+          ),
+          isTrue,
+        );
+
+        // 4. Vespa Sprint i-Get: 5W-40 Fully Synthetic, 1.200-1.300 ml + oil filter + 250-270 ml gear oil
+        final vespa = MotorcycleSpecCatalog.resolveForVehicle(
+          vehicleName: 'Vespa Sprint 125',
+        );
+        expect(vespa.profileKey, 'piaggio_vespa_iget');
+        expect(vespa.oilGradeSpec, contains('5W-40'));
+        expect(vespa.engineOilCapacity, contains('1.200 ml'));
+        expect(vespa.gearOilCapacity, contains('270 ml'));
+        expect(
+          vespa.components.any(
+            (c) => c.kind == MaintenanceComponentKind.oilFilter,
+          ),
+          isTrue,
+        );
+
+        // 5. VinFast Evo200 Electric: 0 ml oil, LFP battery check every 5,000 km, NO engine oil
+        final evo = MotorcycleSpecCatalog.resolveForVehicle(
+          vehicleName: 'VinFast Evo200',
+        );
+        expect(evo.profileKey, 'vinfast_ev_scooter');
+        expect(evo.category, VehicleCategory.electricMoto);
+        expect(evo.engineOilCapacity, contains('0 ml'));
+        expect(
+          evo.components.any(
+            (c) => c.kind == MaintenanceComponentKind.engineOil,
+          ),
+          isFalse,
+        );
+        expect(
+          evo.components.any(
+            (c) =>
+                c.kind == MaintenanceComponentKind.evBatteryAndMotor &&
+                c.intervalKm == 5000,
+          ),
+          isTrue,
+        );
+
+        // 6. Motorcycles never require Đăng kiểm; only Car does
+        expect(VehicleCategory.scooter.requiresPeriodicInspection, isFalse);
+        expect(VehicleCategory.underbone.requiresPeriodicInspection, isFalse);
+        expect(
+          VehicleCategory.manualClutch.requiresPeriodicInspection,
+          isFalse,
+        );
+        expect(
+          VehicleCategory.electricMoto.requiresPeriodicInspection,
+          isFalse,
+        );
+        expect(VehicleCategory.car.requiresPeriodicInspection, isTrue);
+        expect(
+          AppAssets.resolveBananaIconForGlyph(Icons.two_wheeler_rounded),
+          AppAssets.icCatScooter,
+        );
+      },
+    );
+
+    testWidgets(
+      'Motorcycle Per-Component ODO Tracking & UI (v3.14): Logging gear oil preserves engine oil countdown, renders OEM specs & zero truncation at 360x800 @ 112%',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 800);
+        tester.view.devicePixelRatio = 1.0;
+        tester.platformDispatcher.textScaleFactorTestValue = 1.12;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          tester.platformDispatcher.clearTextScaleFactorTestValue();
+        });
+
+        final fakeFirestore = FakeFirebaseFirestore();
+        const uid = 'uid_rider_vision';
+        await fakeFirestore.collection('users').doc(uid).set({
+          'id': uid,
+          'email': 'rider@lifeos.vn',
+          'fullName': 'Hoàng Nam',
+          'onboardingCompleted': true,
+          'availabilityOptIn': false,
+        });
+        await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('wallets')
+            .doc('wallet_main')
+            .set({
+              'id': 'wallet_main',
+              'ownerId': uid,
+              'name': 'Ví tiền mặt',
+              'type': 'cash',
+              'balanceMinor': 2000000,
+              'currencyCode': 'VND',
+            });
+
+        final mockAuth = MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(
+            uid: uid,
+            email: 'rider@lifeos.vn',
+            displayName: 'Hoàng Nam',
+          ),
+        );
+
+        await sl.reset();
+        await configureDependencies(
+          authOverride: mockAuth,
+          firestoreOverride: fakeFirestore,
+          httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+        );
+
+        final vehRepo = sl<VehicleRepository>();
+        final createRes = await vehRepo.createVehicle(
+          userId: uid,
+          isFamilyShared: false,
+          name: 'Honda Vision trắng',
+          plateNumber: '59T2-686.86',
+          currentOdometerKm: 5800,
+          serviceIntervalKm: 2000,
+          serviceIntervalDays: 90,
+          category: VehicleCategory.scooter,
+          modelProfileKey: 'honda_esp_vision_110',
+        );
+        expect(createRes, isA<Success<void>>());
+
+        final vList =
+            (await vehRepo.watchVehicles(userId: uid).first
+                    as Success<List<VehicleEntity>>)
+                .value;
+        expect(vList.length, 1);
+        var vision = vList.single;
+        expect(vision.isMotorcycle, isTrue);
+
+        // Advance ODO to 7,900 km -> engine oil (5800 + 2000 = 7800) & gear oil (0 + 6000 = 6000) overdue!
+        await vehRepo.updateOdometer(vehicle: vision, newOdometerKm: 7900);
+        vision =
+            (await vehRepo.watchVehicles(userId: uid).first
+                    as Success<List<VehicleEntity>>)
+                .value
+                .single;
+        final checklistAt7900 = vision.evaluateComponentChecklist();
+        final oilAt7900 = checklistAt7900.firstWhere(
+          (c) => c.spec.key == 'engine_oil',
+        );
+        final gearAt7900 = checklistAt7900.firstWhere(
+          (c) => c.spec.key == 'gear_oil',
+        );
+        final beltAt7900 = checklistAt7900.firstWhere(
+          (c) => c.spec.key == 'cvt_belt',
+        );
+        expect(oilAt7900.dueState, VehicleDueState.overdue);
+        expect(gearAt7900.dueState, VehicleDueState.overdue);
+        // CVT belt (8000 km interval, remaining 100 km <= 600 warn) -> dueSoon!
+        expect(beltAt7900.dueState, VehicleDueState.dueSoon);
+
+        // Log ONLY gear oil at 7,900 km -> gear oil resets to healthy (next 13,900 km),
+        // while engine oil MUST remain overdue at lastServiceOdometerKm = 5,800 km!
+        await vehRepo.recordMaintenance(
+          vehicle: vision,
+          serviceTitle: 'Thay nhớt láp 70ml',
+          odometerKm: 7900,
+          costMinor: 55000,
+          componentKey: 'gear_oil',
+          walletIdForExpense: 'wallet_main',
+        );
+        vision =
+            (await vehRepo.watchVehicles(userId: uid).first
+                    as Success<List<VehicleEntity>>)
+                .value
+                .single;
+        expect(vision.lastServiceOdometerKm, 5800);
+        expect(vision.componentLastKm['gear_oil'], 7900);
+        expect(
+          vision
+              .evaluateComponentChecklist()
+              .firstWhere((c) => c.spec.key == 'gear_oil')
+              .dueState,
+          VehicleDueState.healthy,
+        );
+        expect(
+          vision
+              .evaluateComponentChecklist()
+              .firstWhere((c) => c.spec.key == 'engine_oil')
+              .dueState,
+          VehicleDueState.overdue,
+        );
+
+        // Now log engine oil at 7,950 km -> resets primary engine oil cycle!
+        await vehRepo.recordMaintenance(
+          vehicle: vision,
+          serviceTitle: 'Thay nhớt máy Honda JASO MB 700ml',
+          odometerKm: 7950,
+          costMinor: 135000,
+          componentKey: 'engine_oil',
+          walletIdForExpense: 'wallet_main',
+        );
+        vision =
+            (await vehRepo.watchVehicles(userId: uid).first
+                    as Success<List<VehicleEntity>>)
+                .value
+                .single;
+        expect(vision.lastServiceOdometerKm, 7950);
+        expect(vision.nextDueKm, 9950);
+
+        final hist =
+            (await vehRepo.watchMaintenanceHistory(vehicle: vision).first
+                    as Success<List<MaintenanceRecordEntity>>)
+                .value;
+        expect(hist.length, 2);
+
+        // Mount full app -> navigate to Xe cộ & Hóa đơn -> verify OEM specs & zero truncation!
+        await tester.pumpWidget(const LifeOsApp());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Gia đình').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('family_hub_vehicles_tile')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Honda Vision 110 (eSP)'), findsOneWidget);
+        // Motorcycle must NOT show car periodic inspection ("Hạn đăng kiểm định kỳ (Ô tô)"):
+        expect(find.text('Hạn đăng kiểm định kỳ (Ô tô)'), findsNothing);
+
+        final truncated = <String>[];
+        for (final ro in tester.allRenderObjects) {
+          if (ro is RenderParagraph && ro.didExceedMaxLines) {
+            truncated.add(ro.text.toPlainText());
+          }
+        }
+        expect(
+          truncated,
+          isEmpty,
+          reason: 'Found truncated text on Motorcycle AssetsPage: $truncated',
+        );
         expect(tester.takeException(), isNull);
       },
     );

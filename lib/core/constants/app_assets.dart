@@ -47,6 +47,7 @@ abstract final class AppAssets {
   static const String icCatShopping = 'assets/icons/ic_cat_shopping.png';
   static const String icCatIncome = 'assets/icons/ic_cat_income.png';
   static const String icCatVehicle = 'assets/icons/ic_cat_vehicle.png';
+  static const String icCatScooter = 'assets/icons/ic_cat_scooter.png';
   static const String icCatHealth = 'assets/icons/ic_cat_health.png';
   static const String icToolReceiptAi = 'assets/icons/ic_tool_receipt_ai.png';
   static const String icToolAnalytics = 'assets/icons/ic_tool_analytics.png';
@@ -90,6 +91,7 @@ abstract final class AppAssets {
     icCatShopping,
     icCatIncome,
     icCatVehicle,
+    icCatScooter,
     icCatHealth,
     icToolReceiptAi,
     icToolAnalytics,
@@ -242,10 +244,16 @@ abstract final class AppAssets {
         code == Icons.inventory_2_outlined.codePoint) {
       return icCatShopping;
     }
+    if (code == Icons.two_wheeler_rounded.codePoint ||
+        code == Icons.electric_moped_rounded.codePoint ||
+        code == Icons.moped_rounded.codePoint ||
+        code == Icons.sports_motorsports_rounded.codePoint) {
+      return icCatScooter;
+    }
     if (code == Icons.directions_car_outlined.codePoint ||
         code == Icons.directions_car_filled_outlined.codePoint ||
+        code == Icons.directions_car_filled_rounded.codePoint ||
         code == Icons.car_repair_rounded.codePoint ||
-        code == Icons.two_wheeler_rounded.codePoint ||
         code == Icons.handyman_rounded.codePoint ||
         code == Icons.build_circle_outlined.codePoint ||
         code == Icons.oil_barrel_outlined.codePoint ||

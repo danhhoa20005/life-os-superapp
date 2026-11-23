@@ -23,6 +23,18 @@ abstract interface class VehicleRepository {
     required int currentOdometerKm,
     required int serviceIntervalKm,
     required int serviceIntervalDays,
+    VehicleCategory category = VehicleCategory.scooter,
+    String? modelProfileKey,
+    DateTime? insuranceExpiryDate,
+    DateTime? inspectionExpiryDate,
+  });
+
+  Future<Result<void>> updateVehicleSpecProfile({
+    required VehicleEntity vehicle,
+    required VehicleCategory category,
+    required String modelProfileKey,
+    DateTime? insuranceExpiryDate,
+    DateTime? inspectionExpiryDate,
   });
 
   Future<Result<void>> updateOdometer({
@@ -35,7 +47,12 @@ abstract interface class VehicleRepository {
     required String serviceTitle,
     required int odometerKm,
     required int costMinor,
+    String? componentKey,
     String? walletIdForExpense,
+  });
+
+  Stream<Result<List<MaintenanceRecordEntity>>> watchMaintenanceHistory({
+    required VehicleEntity vehicle,
   });
 
   Future<Result<void>> createRecurringBill({
