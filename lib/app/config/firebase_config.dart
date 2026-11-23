@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
 import '../../firebase_options.dart';
@@ -20,12 +21,47 @@ abstract final class FirebaseConfig {
     defaultValue: '',
   );
 
+  /// Official Web OAuth 2.0 Client ID (`client_type: 3`) provisioned by Firebase Authentication
+  /// for `life-os-vn-2026`. Used as `serverClientId` on Android/iOS so Play Services Credential
+  /// Manager returns a verified `idToken` for both Firebase Auth & Google Calendar API v3.
+  static const String defaultGoogleWebClientId =
+      '913180533540-0guqo9do0n0varqhfstc7hae2g84c6dt.apps.googleusercontent.com';
+
+  /// Official iOS OAuth 2.0 Client ID (`client_type: 2`) from `GoogleService-Info.plist`.
+  static const String defaultGoogleIosClientId =
+      '913180533540-3drd28gcsvh57175vg1d5h2qkhan5qg3.apps.googleusercontent.com';
+
+  static const String _envGoogleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue: defaultGoogleWebClientId,
+  );
+
+  static String get googleWebClientId =>
+      _envGoogleWebClientId.isNotEmpty ? _envGoogleWebClientId : defaultGoogleWebClientId;
+
+  static Future<void>? _googleSignInInitFuture;
+
+  static bool get isGoogleSignInInitialized => _googleSignInInitFuture != null;
+
+  /// Ensures `GoogleSignIn.instance.initialize` runs at most once per app lifecycle
+  /// with unified `serverClientId` (and `clientId` on iOS) across Auth and Calendar.
+  static Future<void> ensureGoogleSignInInitialized() {
+    return _googleSignInInitFuture ??= GoogleSignIn.instance.initialize(
+      clientId: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+          ? defaultGoogleIosClientId
+          : null,
+      serverClientId: googleWebClientId,
+    );
+  }
+
   static bool _runtimeEmulatorFallbackActive = false;
 
   static bool get shouldUseEmulator =>
       useEmulatorFlag ||
       _runtimeEmulatorFallbackActive ||
       DefaultFirebaseOptions.currentPlatform.projectId.startsWith('demo-');
+
+  static bool get isCloudProduction => !shouldUseEmulator;
 
   static String get resolvedEmulatorHost {
     if (emulatorHostOverride.isNotEmpty) return emulatorHostOverride;
@@ -108,8 +144,14 @@ abstract final class FirebaseConfig {
       }
     }
 
+    // Deliver password-reset & email-verification emails in Vietnamese
+    try {
+      await FirebaseAuth.instance.setLanguageCode('vi');
+    } catch (_) {}
+
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
   }
 }

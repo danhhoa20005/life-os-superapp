@@ -41,6 +41,14 @@
       ]
     },
     {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "softWindowFingerprint", "order": "ASCENDING" },
+        { "fieldPath": "occurredAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "ledger_audits",
       "queryScope": "COLLECTION",
       "fields": [
@@ -70,6 +78,30 @@
       "fields": [
         { "fieldPath": "assigneeId", "order": "ASCENDING" },
         { "fieldPath": "dueAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "grocery_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inFridgeStorage", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "life_notes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPinned", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "utility_readings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "monthKey", "order": "ASCENDING" },
+        { "fieldPath": "recordedAt", "order": "DESCENDING" }
       ]
     }
   ],

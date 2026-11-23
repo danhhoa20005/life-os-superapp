@@ -7,7 +7,22 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Life Os</string>
+	<string>LifeOS</string>
+	<key>GIDClientID</key>
+	<string>913180533540-3drd28gcsvh57175vg1d5h2qkhan5qg3.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>913180533540-0guqo9do0n0varqhfstc7hae2g84c6dt.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.913180533540-3drd28gcsvh57175vg1d5h2qkhan5qg3</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

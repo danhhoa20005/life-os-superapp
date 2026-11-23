@@ -16,13 +16,6 @@ class FirebaseAuthRemoteDataSource {
   final FirebaseFirestore _firestore;
   final GoogleAuthHandler? _googleAuthOverride;
 
-  static Future<void>? _googleInitFuture;
-
-  static const String _envGoogleServerClientId = String.fromEnvironment(
-    'GOOGLE_WEB_CLIENT_ID',
-    defaultValue: '',
-  );
-
   FirebaseAuthRemoteDataSource({
     required FirebaseAuth firebaseAuth,
     required FirebaseFirestore firestore,
@@ -209,9 +202,7 @@ class FirebaseAuthRemoteDataSource {
   }
 
   Future<void> _ensureGoogleInitialized() {
-    return _googleInitFuture ??= GoogleSignIn.instance.initialize(
-      serverClientId: _envGoogleServerClientId.isNotEmpty ? _envGoogleServerClientId : null,
-    );
+    return FirebaseConfig.ensureGoogleSignInInitialized();
   }
 
   Future<UserCredential> _obtainGoogleUserCredential() async {
@@ -675,7 +666,7 @@ class FirebaseAuthRemoteDataSource {
   }
 
   Future<void> signOut() async {
-    if (!kIsWeb && _googleInitFuture != null) {
+    if (!kIsWeb && FirebaseConfig.isGoogleSignInInitialized) {
       try {
         await GoogleSignIn.instance.signOut();
       } catch (_) {

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../app/config/firebase_config.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../domain/entities/calendar_entities.dart';
 
@@ -63,8 +64,6 @@ class GoogleCalendarApiDataSource {
     'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/calendar.events',
   ];
-
-  static Future<void>? _googleInitFuture;
 
   final FirebaseAuth _firebaseAuth;
   final http.Client _httpClient;
@@ -138,7 +137,7 @@ class GoogleCalendarApiDataSource {
     }
 
     try {
-      await (_googleInitFuture ??= GoogleSignIn.instance.initialize());
+      await FirebaseConfig.ensureGoogleSignInInitialized();
       final headers = await GoogleSignIn.instance.authorizationClient.authorizationHeaders(
         calendarScopes,
         promptIfNecessary: interactive,
@@ -189,7 +188,7 @@ class GoogleCalendarApiDataSource {
     if (statusCode == 401) {
       _cachedAccessToken = null;
       _cachedTokenExpiresAt = null;
-      if (!kIsWeb && _googleInitFuture != null) {
+      if (!kIsWeb && FirebaseConfig.isGoogleSignInInitialized) {
         try {
           await GoogleSignIn.instance.authorizationClient.clearAuthorizationToken(
             accessToken: accessToken,

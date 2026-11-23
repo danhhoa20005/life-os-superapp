@@ -12,7 +12,20 @@
           "package_name": "vn.lifeos.app.life_os"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "913180533540-4hmi4om68usccdtbhq4plfubeooho0lr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "vn.lifeos.app.life_os",
+            "certificate_hash": "4340453021a1432c986f35eb68790e6f13cb3d44"
+          }
+        },
+        {
+          "client_id": "913180533540-0guqo9do0n0varqhfstc7hae2g84c6dt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDQ6tXMZrL-fN883uHQxnJ-N9qcEt7pQis"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "913180533540-0guqo9do0n0varqhfstc7hae2g84c6dt.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "913180533540-3drd28gcsvh57175vg1d5h2qkhan5qg3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "vn.lifeos.app"
+              }
+            }
+          ]
         }
       }
     }

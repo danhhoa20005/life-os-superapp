@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../app/config/firebase_config.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/theme_bloc.dart';
@@ -524,6 +525,23 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           statusPillLabel: 'Trọn bộ 20+ tiện ích đời sống',
                           statusPillTone: LifeOsAccentTone.emerald,
                           onTap: () => context.push('/super-app-hub'),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // 8c. Trạng thái Kết nối Hạ tầng Đám mây Firebase (Cloud Auth + Firestore + OAuth)
+                        _SettingsCardItem(
+                          icon: Icons.cloud_done_outlined,
+                          tone: LifeOsAccentTone.blue,
+                          title: 'Hạ tầng Firebase Cloud (life-os-vn-2026)',
+                          subtitle:
+                              'Email/Mật khẩu · Google OAuth 2.0 · Cloud Firestore Realtime · Google Calendar v3.',
+                          statusPillLabel: FirebaseConfig.isCloudProduction
+                              ? 'Đang kết nối Cloud Production'
+                              : 'Chế độ Firebase Emulator cục bộ',
+                          statusPillTone: FirebaseConfig.isCloudProduction
+                              ? LifeOsAccentTone.emerald
+                              : LifeOsAccentTone.amber,
+                          onTap: () => context.push('/account-profile'),
                         ),
                         const SizedBox(height: 16),
 
