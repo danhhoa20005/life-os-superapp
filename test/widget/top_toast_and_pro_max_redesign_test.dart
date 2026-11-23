@@ -959,5 +959,125 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets(
+      'Sliding Bottom Dock (v3.15): Liquid Glass capsule stretches mid-flight on tap & scrubs smoothly under horizontal finger drag',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        var activeIndex = 0;
+        var centerJewelTapped = false;
+        final visitedDuringDrag = <int>[];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: StatefulBuilder(
+              builder: (context, setHostState) {
+                return Scaffold(
+                  extendBody: true,
+                  body: Center(child: Text('Tab đang chọn: $activeIndex')),
+                  bottomNavigationBar: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: LiquidGlassSlidingDock(
+                      dockKey: const Key('test_sliding_dock'),
+                      selectedIndex: activeIndex,
+                      items: [
+                        LiquidGlassDockItem(
+                          branchIndex: 0,
+                          label: 'Hôm nay',
+                          iconBuilder: (_, __, c) =>
+                              Icon(Icons.home_rounded, color: c, size: 22),
+                        ),
+                        LiquidGlassDockItem(
+                          branchIndex: 1,
+                          label: 'Tài chính',
+                          iconBuilder: (_, __, c) =>
+                              Icon(Icons.bar_chart_rounded, color: c, size: 22),
+                        ),
+                        LiquidGlassDockItem(
+                          branchIndex: 2,
+                          label: 'Lịch & Việc',
+                          iconBuilder: (_, __, c) => Icon(
+                            Icons.calendar_today_rounded,
+                            color: c,
+                            size: 22,
+                          ),
+                        ),
+                        LiquidGlassDockItem(
+                          branchIndex: 3,
+                          label: 'Gia đình',
+                          iconBuilder: (_, __, c) =>
+                              Icon(Icons.groups_rounded, color: c, size: 22),
+                        ),
+                      ],
+                      onDestinationSelected: (idx) {
+                        visitedDuringDrag.add(idx);
+                        setHostState(() => activeIndex = idx);
+                      },
+                      centerJewel: LiquidGlassJewelButton(
+                        tooltip: 'Thêm nhanh',
+                        onTap: () => centerJewelTapped = true,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final pillFinder = find.byKey(const Key('lifeos_sliding_dock_pill'));
+        expect(pillFinder, findsOneWidget);
+
+        // 1. Tap from Tab 0 (Hôm nay) -> Tab 3 (Gia đình) and verify mid-flight droplet stretch!
+        final rectAt0 = tester.getRect(pillFinder);
+        await tester.tap(find.text('Gia đình'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 180));
+
+        final rectMidFlight = tester.getRect(pillFinder);
+        expect(rectMidFlight.left, greaterThan(rectAt0.left + 40));
+        expect(
+          rectMidFlight.width,
+          greaterThan(rectAt0.width + 6),
+          reason: 'Liquid Glass capsule should stretch horizontally mid-slide',
+        );
+
+        await tester.pumpAndSettle();
+        final rectAt3 = tester.getRect(pillFinder);
+        expect(rectAt3.left, greaterThan(rectAt0.left + 200));
+        expect(activeIndex, 3);
+
+        // 2. Slide finger horizontally from right (Gia đình) across center `+` to left (Hôm nay)
+        visitedDuringDrag.clear();
+        final startPos = tester.getCenter(find.text('Gia đình'));
+        final endPos = tester.getCenter(find.text('Hôm nay'));
+        final gesture = await tester.startGesture(startPos);
+        await tester.pump();
+
+        const steps = 12;
+        for (var i = 1; i <= steps; i++) {
+          final pos = Offset.lerp(startPos, endPos, i / steps)!;
+          await gesture.moveTo(pos);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(visitedDuringDrag, containsAllInOrder([2, 1, 0]));
+        expect(activeIndex, 0);
+        expect(centerJewelTapped, isFalse);
+        final rectBackAt0 = tester.getRect(pillFinder);
+        expect((rectBackAt0.left - rectAt0.left).abs(), lessThan(1.5));
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

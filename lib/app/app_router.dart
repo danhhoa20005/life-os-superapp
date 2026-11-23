@@ -690,79 +690,50 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
               );
             }
 
-            // Symmetrical 4-Tab + Center `+` Apple Liquid Glass Floating Dock:
+            // Symmetrical 4-Tab + Center `+` Apple Liquid Glass Sliding Floating Dock:
             // Left: Hôm nay | Tài chính  •  Center: [+]  •  Right: Lịch & Việc | Gia đình
-            final leftTabs = [_tabs[0], _tabs[1]];
-            final rightTabs = [_tabs[2], _tabs[3]];
+            final dockItems = _tabs
+                .map(
+                  (tab) => LiquidGlassDockItem(
+                    branchIndex: tab.branchIndex,
+                    label: tab.label,
+                    iconBuilder: (_, isSelected, color) => BananaGlassIcon(
+                      assetPath: tab.assetPath,
+                      fallbackIcon: isSelected ? tab.activeIcon : tab.icon,
+                      fallbackColor: color,
+                      size: 24,
+                      borderRadius: 8,
+                      isSelected: isSelected,
+                    ),
+                  ),
+                )
+                .toList(growable: false);
 
             return Scaffold(
               extendBody: true,
-              body: navigationShell,
+              body: _SlidingShellViewport(
+                currentIndex: navigationShell.currentIndex,
+                child: navigationShell,
+              ),
               bottomNavigationBar: RepaintBoundary(
                 child: SafeArea(
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    child: LiquidGlassSurface(
-                      key: const Key('lifeos_liquid_glass_bottom_dock'),
-                      material: LiquidGlassMaterial.floatingDock,
-                      borderRadius: 32,
-                      blurSigma: 28,
-                      rimIntensity: 1.18,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: SizedBox(
-                        height: 68,
-                        child: Row(
-                          children: [
-                            for (final tab in leftTabs)
-                              _BottomNavTabButton(
-                                icon: tab.icon,
-                                activeIcon: tab.activeIcon,
-                                assetPath: tab.assetPath,
-                                label: tab.label,
-                                isSelected:
-                                    navigationShell.currentIndex ==
-                                    tab.branchIndex,
-                                onTap: () => navigationShell.goBranch(
-                                  tab.branchIndex,
-                                  initialLocation:
-                                      tab.branchIndex ==
-                                      navigationShell.currentIndex,
-                                ),
-                              ),
-
-                            // Signature 3D Glossy Apple Liquid Glass `+` Jewel (48×48 Tactile Target)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                              ),
-                              child: LiquidGlassJewelButton(
-                                buttonKey: const Key(
-                                  'lifeos_center_quick_add_fab',
-                                ),
-                                tooltip: 'Thêm nhanh',
-                                onTap: () => showLifeOsQuickCreateHub(context),
-                              ),
-                            ),
-
-                            for (final tab in rightTabs)
-                              _BottomNavTabButton(
-                                icon: tab.icon,
-                                activeIcon: tab.activeIcon,
-                                assetPath: tab.assetPath,
-                                label: tab.label,
-                                isSelected:
-                                    navigationShell.currentIndex ==
-                                    tab.branchIndex,
-                                onTap: () => navigationShell.goBranch(
-                                  tab.branchIndex,
-                                  initialLocation:
-                                      tab.branchIndex ==
-                                      navigationShell.currentIndex,
-                                ),
-                              ),
-                          ],
-                        ),
+                    child: LiquidGlassSlidingDock(
+                      dockKey: const Key('lifeos_liquid_glass_bottom_dock'),
+                      selectedIndex: navigationShell.currentIndex,
+                      items: dockItems,
+                      onDestinationSelected: (branchIdx) =>
+                          navigationShell.goBranch(
+                            branchIdx,
+                            initialLocation:
+                                branchIdx == navigationShell.currentIndex,
+                          ),
+                      centerJewel: LiquidGlassJewelButton(
+                        buttonKey: const Key('lifeos_center_quick_add_fab'),
+                        tooltip: 'Thêm nhanh',
+                        onTap: () => showLifeOsQuickCreateHub(context),
                       ),
                     ),
                   ),
@@ -776,114 +747,69 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
   }
 }
 
-class _BottomNavTabButton extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String assetPath;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
+/// Synchronizes subtle directional horizontal glide with the sliding bottom dock
+/// without ever unmounting [StatefulNavigationShell] or losing scroll/BLoC state.
+class _SlidingShellViewport extends StatefulWidget {
+  final int currentIndex;
+  final Widget child;
 
-  const _BottomNavTabButton({
-    required this.icon,
-    required this.activeIcon,
-    required this.assetPath,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
+  const _SlidingShellViewport({
+    required this.currentIndex,
+    required this.child,
   });
 
   @override
+  State<_SlidingShellViewport> createState() => _SlidingShellViewportState();
+}
+
+class _SlidingShellViewportState extends State<_SlidingShellViewport>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<Offset> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: 1.0,
+    );
+    _slideAnim = const AlwaysStoppedAnimation<Offset>(Offset.zero);
+    _fadeAnim = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
+    ).drive(Tween<double>(begin: 0.94, end: 1.0));
+  }
+
+  @override
+  void didUpdateWidget(covariant _SlidingShellViewport oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      final dir = widget.currentIndex > oldWidget.currentIndex ? 1.0 : -1.0;
+      _slideAnim =
+          Tween<Offset>(
+            begin: Offset(dir * 0.038, 0),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+          );
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isSelected ? c.primary : c.textSecondary;
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                gradient: isSelected
-                    ? LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isDark
-                            ? [
-                                c.primary.withValues(alpha: 0.24),
-                                c.primarySubtle.withValues(alpha: 0.72),
-                              ]
-                            : [
-                                Colors.white.withValues(alpha: 0.92),
-                                c.primarySubtle.withValues(alpha: 0.85),
-                              ],
-                      )
-                    : null,
-                borderRadius: BorderRadius.circular(22),
-                border: isSelected
-                    ? Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.22)
-                            : Colors.white.withValues(alpha: 0.95),
-                        width: 1.0,
-                      )
-                    : null,
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: c.primary.withValues(
-                            alpha: isDark ? 0.20 : 0.10,
-                          ),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: isSelected ? 1.0 : 0.82,
-                    child: BananaGlassIcon(
-                      assetPath: assetPath,
-                      fallbackIcon: isSelected ? activeIcon : icon,
-                      fallbackColor: color,
-                      size: 24,
-                      borderRadius: 8,
-                      isSelected: isSelected,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 11.2,
-                        fontWeight: isSelected
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                        color: color,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: SlideTransition(position: _slideAnim, child: widget.child),
     );
   }
 }

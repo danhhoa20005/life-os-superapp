@@ -1393,6 +1393,10 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rawIdx = options.indexWhere((o) => o.$1 == selected);
+    final activeIdx = rawIdx < 0 ? 0 : rawIdx;
+    final count = options.isEmpty ? 1 : options.length;
+
     return LiquidGlassSurface(
       material: LiquidGlassMaterial.segmentedTrough,
       borderRadius: 25,
@@ -1400,79 +1404,92 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       child: SizedBox(
         height: 40,
-        child: Row(
-          children: options.map((item) {
-            final isSelected = item.$1 == selected;
-            return Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(21),
-                onTap: () => onChanged(item.$1),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: isDark
-                                ? [
-                                    const Color(0xFF25CF65),
-                                    const Color(0xFF0E8F3E),
-                                  ]
-                                : [const Color(0xFF14963A), c.primary],
-                          )
-                        : null,
-                    borderRadius: BorderRadius.circular(21),
-                    border: isSelected
-                        ? Border.all(
-                            color: Colors.white.withValues(
-                              alpha: isDark ? 0.30 : 0.42,
-                            ),
-                            width: 1.0,
-                          )
-                        : null,
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: c.primary.withValues(
-                                alpha: isDark ? 0.32 : 0.22,
-                              ),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (item.$3 != null) ...[
-                          Icon(
-                            item.$3,
-                            size: 16,
-                            color: isSelected ? Colors.white : c.textSecondary,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = constraints.maxWidth / count;
+            return Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 280),
+                  curve: const Cubic(0.22, 1.06, 0.32, 1.0),
+                  left: activeIdx * itemWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: itemWidth,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark
+                            ? [const Color(0xFF25CF65), const Color(0xFF0E8F3E)]
+                            : [const Color(0xFF14963A), c.primary],
+                      ),
+                      borderRadius: BorderRadius.circular(21),
+                      border: Border.all(
+                        color: Colors.white.withValues(
+                          alpha: isDark ? 0.30 : 0.42,
+                        ),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: c.primary.withValues(
+                            alpha: isDark ? 0.32 : 0.22,
                           ),
-                          const SizedBox(width: 5),
-                        ],
-                        Text(
-                          item.$2,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: isSelected ? Colors.white : c.textSecondary,
-                          ),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
+                Row(
+                  children: options.map((item) {
+                    final isSelected = item.$1 == selected;
+                    return Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(21),
+                        onTap: () => onChanged(item.$1),
+                        child: Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (item.$3 != null) ...[
+                                  Icon(
+                                    item.$3,
+                                    size: 16,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : c.textSecondary,
+                                  ),
+                                  const SizedBox(width: 5),
+                                ],
+                                Text(
+                                  item.$2,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             );
-          }).toList(),
+          },
         ),
       ),
     );

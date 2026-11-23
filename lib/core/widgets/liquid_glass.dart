@@ -1,6 +1,8 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/lifeos_brand_colors.dart';
@@ -647,4 +649,451 @@ class _LiquidGlassJewelDomePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _LiquidGlassJewelDomePainter oldDelegate) =>
       oldDelegate.borderRadius != borderRadius;
+}
+
+/// Metadata descriptor for each tab in [LiquidGlassSlidingDock].
+class LiquidGlassDockItem {
+  final int branchIndex;
+  final String label;
+  final Widget Function(BuildContext context, bool isSelected, Color color)
+  iconBuilder;
+
+  const LiquidGlassDockItem({
+    required this.branchIndex,
+    required this.label,
+    required this.iconBuilder,
+  });
+}
+
+/// Apple iOS 26 Liquid Glass Sliding Floating Bottom Dock:
+/// - Physics-driven sliding glass capsule (`Key('lifeos_sliding_dock_pill')`) that morphs
+///   like a liquid droplet during tab transitions and glides seamlessly beneath the center `+` jewel.
+/// - Interactive horizontal finger scrubbing (`onHorizontalDrag*`) along the bar with real-time
+///   optical lens magnification and tactile selection haptics.
+class LiquidGlassSlidingDock extends StatefulWidget {
+  final Key? dockKey;
+  final List<LiquidGlassDockItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final Widget centerJewel;
+  final double jewelSlotWidth;
+
+  const LiquidGlassSlidingDock({
+    super.key,
+    this.dockKey,
+    required this.items,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.centerJewel,
+    this.jewelSlotWidth = 58.0,
+  }) : assert(items.length == 4, 'Symmetrical 4-tab + center jewel layout');
+
+  @override
+  State<LiquidGlassSlidingDock> createState() => _LiquidGlassSlidingDockState();
+}
+
+class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late double _fromVisualTab;
+  late double _toVisualTab;
+
+  bool _isDragging = false;
+  double _dragLeftPx = 0.0;
+  double _dragVelocityStretchPx = 0.0;
+  double _lastTabSlotWidth = 72.0;
+
+  static const Cubic _appleLiquidSpring = Cubic(0.22, 1.07, 0.32, 1.0);
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.selectedIndex.clamp(0, 3).toDouble();
+    _fromVisualTab = initial;
+    _toVisualTab = initial;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+      value: 1.0,
+    );
+  }
+
+  double _currentAnimatedVisualTab() {
+    final curved = _appleLiquidSpring.transform(_controller.value);
+    return lerpDouble(_fromVisualTab, _toVisualTab, curved) ?? _toVisualTab;
+  }
+
+  @override
+  void didUpdateWidget(covariant LiquidGlassSlidingDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex && !_isDragging) {
+      _fromVisualTab = _currentAnimatedVisualTab();
+      _toVisualTab = widget.selectedIndex.clamp(0, 3).toDouble();
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double _visualTabToLeftPx(double visualTab, double tabW) {
+    final jewelW = widget.jewelSlotWidth;
+    if (visualTab <= 1.0) {
+      return visualTab * tabW;
+    }
+    if (visualTab < 2.0) {
+      return tabW + (visualTab - 1.0) * (tabW + jewelW);
+    }
+    return (visualTab * tabW) + jewelW;
+  }
+
+  double _leftPxToVisualTab(double leftPx, double tabW) {
+    final jewelW = widget.jewelSlotWidth;
+    if (tabW <= 1.0) return widget.selectedIndex.toDouble();
+    if (leftPx <= tabW) {
+      return (leftPx / tabW).clamp(0.0, 1.0);
+    }
+    if (leftPx < (2.0 * tabW) + jewelW) {
+      return 1.0 + ((leftPx - tabW) / (tabW + jewelW));
+    }
+    return (2.0 + ((leftPx - ((2.0 * tabW) + jewelW)) / tabW)).clamp(2.0, 3.0);
+  }
+
+  int? _hitTabIndexAtDx(double dx, double tabW, double innerWidth) {
+    if (dx < 0 || dx > innerWidth) return null;
+    final jewelStart = 2.0 * tabW;
+    final jewelEnd = jewelStart + widget.jewelSlotWidth;
+    if (dx < tabW) return 0;
+    if (dx < jewelStart) return 1;
+    if (dx >= jewelEnd && dx < jewelEnd + tabW) return 2;
+    if (dx >= jewelEnd + tabW) return 3;
+    return null; // Inside center `+` jewel bridge
+  }
+
+  void _handleScrubPosition(
+    double localDx, {
+    required double innerWidth,
+    required double tabW,
+    double deltaDx = 0.0,
+  }) {
+    final maxLeft = (innerWidth - tabW).clamp(0.0, double.infinity);
+    final nextLeft = (localDx - (tabW / 2.0)).clamp(0.0, maxLeft);
+    setState(() {
+      _dragLeftPx = nextLeft;
+      _dragVelocityStretchPx = (deltaDx.abs() * 0.65).clamp(0.0, 16.0);
+    });
+
+    final hovered = _hitTabIndexAtDx(localDx, tabW, innerWidth);
+    if (hovered != null && hovered != widget.selectedIndex) {
+      HapticFeedback.selectionClick();
+      widget.onDestinationSelected(hovered);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return LiquidGlassSurface(
+      key: widget.dockKey,
+      material: LiquidGlassMaterial.floatingDock,
+      borderRadius: 32,
+      blurSigma: 28,
+      rimIntensity: 1.18,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: SizedBox(
+        height: 68,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final innerWidth = constraints.maxWidth;
+            final tabW = ((innerWidth - widget.jewelSlotWidth) / 4.0).clamp(
+              44.0,
+              240.0,
+            );
+            _lastTabSlotWidth = tabW;
+
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: (details) {
+                _controller.stop();
+                setState(() => _isDragging = true);
+                _handleScrubPosition(
+                  details.localPosition.dx,
+                  innerWidth: innerWidth,
+                  tabW: tabW,
+                );
+              },
+              onHorizontalDragUpdate: (details) {
+                _handleScrubPosition(
+                  details.localPosition.dx,
+                  innerWidth: innerWidth,
+                  tabW: tabW,
+                  deltaDx: details.primaryDelta ?? 0.0,
+                );
+              },
+              onHorizontalDragEnd: (_) {
+                final settledFrom = _leftPxToVisualTab(
+                  _dragLeftPx,
+                  _lastTabSlotWidth,
+                );
+                setState(() {
+                  _isDragging = false;
+                  _dragVelocityStretchPx = 0.0;
+                  _fromVisualTab = settledFrom;
+                  _toVisualTab = widget.selectedIndex.clamp(0, 3).toDouble();
+                });
+                _controller.forward(from: 0.0);
+              },
+              onHorizontalDragCancel: () {
+                final settledFrom = _leftPxToVisualTab(
+                  _dragLeftPx,
+                  _lastTabSlotWidth,
+                );
+                setState(() {
+                  _isDragging = false;
+                  _dragVelocityStretchPx = 0.0;
+                  _fromVisualTab = settledFrom;
+                  _toVisualTab = widget.selectedIndex.clamp(0, 3).toDouble();
+                });
+                _controller.forward(from: 0.0);
+              },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 1. Sliding Liquid Glass Droplet Pill (glides smoothly across slots & beneath `+` jewel)
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) {
+                      final double baseLeft;
+                      final double stretchW;
+                      final double pillHeight;
+
+                      if (_isDragging) {
+                        baseLeft = _dragLeftPx;
+                        stretchW = 4.0 + _dragVelocityStretchPx;
+                        pillHeight = 60.0;
+                      } else {
+                        final rawT = _controller.value.clamp(0.0, 1.0);
+                        final sinWave = math.sin(rawT * math.pi);
+                        final vTab = _currentAnimatedVisualTab();
+                        baseLeft = _visualTabToLeftPx(vTab, tabW);
+                        final travelPx =
+                            (_visualTabToLeftPx(_toVisualTab, tabW) -
+                                    _visualTabToLeftPx(_fromVisualTab, tabW))
+                                .abs();
+                        stretchW = (travelPx * 0.16).clamp(0.0, 22.0) * sinWave;
+                        pillHeight = 58.0 - (2.2 * sinWave);
+                      }
+
+                      final baseCenter = baseLeft + (tabW / 2.0);
+                      final pillWidth = ((tabW - 4.0) + stretchW).clamp(
+                        36.0,
+                        innerWidth,
+                      );
+                      final maxPillLeft = (innerWidth - pillWidth - 1.0).clamp(
+                        1.0,
+                        double.infinity,
+                      );
+                      final pillLeft = (baseCenter - (pillWidth / 2.0)).clamp(
+                        1.0,
+                        maxPillLeft,
+                      );
+                      final pillTop = (68.0 - pillHeight) / 2.0;
+
+                      return Positioned(
+                        left: pillLeft,
+                        top: pillTop,
+                        width: pillWidth,
+                        height: pillHeight,
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            key: const Key('lifeos_sliding_dock_pill'),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: isDark
+                                    ? [
+                                        c.primary.withValues(
+                                          alpha: _isDragging ? 0.36 : 0.28,
+                                        ),
+                                        const Color(0xFF152C20).withValues(
+                                          alpha: _isDragging ? 0.90 : 0.80,
+                                        ),
+                                      ]
+                                    : [
+                                        Colors.white.withValues(alpha: 0.96),
+                                        c.primarySubtle.withValues(alpha: 0.88),
+                                      ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: c.primary.withValues(
+                                    alpha: _isDragging
+                                        ? (isDark ? 0.34 : 0.18)
+                                        : (isDark ? 0.22 : 0.11),
+                                  ),
+                                  blurRadius: _isDragging ? 16 : 11,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: CustomPaint(
+                              foregroundPainter: LiquidGlassRimPainter(
+                                borderRadius: 24,
+                                isDark: isDark,
+                                accentRimColor: c.primary,
+                                strokeWidth: _isDragging ? 1.35 : 1.1,
+                                intensity: _isDragging ? 1.42 : 1.18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 2. Symmetrical 4 Tab Targets (2 Left + Jewel Spacer + 2 Right)
+                  Row(
+                    children: [
+                      _SlidingDockTabButton(
+                        item: widget.items[0],
+                        isSelected:
+                            widget.selectedIndex == widget.items[0].branchIndex,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          widget.onDestinationSelected(
+                            widget.items[0].branchIndex,
+                          );
+                        },
+                      ),
+                      _SlidingDockTabButton(
+                        item: widget.items[1],
+                        isSelected:
+                            widget.selectedIndex == widget.items[1].branchIndex,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          widget.onDestinationSelected(
+                            widget.items[1].branchIndex,
+                          );
+                        },
+                      ),
+                      SizedBox(width: widget.jewelSlotWidth),
+                      _SlidingDockTabButton(
+                        item: widget.items[2],
+                        isSelected:
+                            widget.selectedIndex == widget.items[2].branchIndex,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          widget.onDestinationSelected(
+                            widget.items[2].branchIndex,
+                          );
+                        },
+                      ),
+                      _SlidingDockTabButton(
+                        item: widget.items[3],
+                        isSelected:
+                            widget.selectedIndex == widget.items[3].branchIndex,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          widget.onDestinationSelected(
+                            widget.items[3].branchIndex,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+
+                  // 3. Elevated Center `+` Jewel (sits optically above the sliding glass lens)
+                  Align(
+                    alignment: Alignment.center,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: widget.centerJewel,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SlidingDockTabButton extends StatelessWidget {
+  final LiquidGlassDockItem item;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SlidingDockTabButton({
+    required this.item,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final color = isSelected ? c.primary : c.textSecondary;
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSlide(
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    offset: isSelected ? const Offset(0, -0.05) : Offset.zero,
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutBack,
+                      scale: isSelected ? 1.08 : 1.0,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: isSelected ? 1.0 : 0.80,
+                        child: item.iconBuilder(context, isSelected, color),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        fontSize: 11.2,
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: color,
+                      ),
+                      child: Text(item.label, maxLines: 1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
