@@ -30,7 +30,7 @@ class _LifeOsAppState extends State<LifeOsApp> {
   void initState() {
     super.initState();
     _authBloc = sl<AuthBloc>()..add(const AuthSubscriptionRequested());
-    _themeBloc = sl<ThemeBloc>();
+    _themeBloc = sl<ThemeBloc>()..add(const ThemeHydratedFromDisk());
     _appUpdateBloc = sl<AppUpdateBloc>()
       ..add(const AppUpdateCheckRequested(silent: true));
     _routerRefresh = BlocRouterRefreshStream(_authBloc.stream);
@@ -67,8 +67,23 @@ class _LifeOsAppState extends State<LifeOsApp> {
               title: 'Life OS — Quản lý Cuộc sống & Gia đình',
               debugShowCheckedModeBanner: false,
               themeMode: themeState.themeMode,
-              theme: AppTheme.light(highContrast: themeState.highContrast),
-              darkTheme: AppTheme.dark(highContrast: themeState.highContrast),
+              theme: AppTheme.light(
+                highContrast: themeState.highContrast,
+                compactDensity: themeState.compactDensity,
+              ),
+              darkTheme: AppTheme.dark(
+                highContrast: themeState.highContrast,
+                compactDensity: themeState.compactDensity,
+              ),
+              builder: (context, child) {
+                final mq = MediaQuery.of(context);
+                return MediaQuery(
+                  data: mq.copyWith(
+                    textScaler: TextScaler.linear(themeState.textScale),
+                  ),
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
               localizationsDelegates: const [
                 GlobalMaterialLocalizations.delegate,
                 GlobalWidgetsLocalizations.delegate,

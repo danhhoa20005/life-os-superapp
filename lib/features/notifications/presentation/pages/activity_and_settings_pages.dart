@@ -473,7 +473,7 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                           icon: Icons.dark_mode_outlined,
                           tone: LifeOsAccentTone.emerald,
                           title: 'Chế độ tối',
-                          subtitle: 'Chuyển giao diện tối để dùng thoải mái hơn vào ban đêm.',
+                          subtitle: 'Chuyển nhanh giữa Giao diện Sáng ngọc lục bảo và Giao diện Tối.',
                           statusPillLabel: isDark ? 'Đang bật' : 'Đang tắt',
                           statusPillTone:
                               isDark ? LifeOsAccentTone.emerald : LifeOsAccentTone.neutral,
@@ -486,6 +486,20 @@ class _SettingsHubPageState extends State<SettingsHubPage> {
                                   );
                             },
                           ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // 6b. Tùy chỉnh Giao diện Sáng/Tối/Hệ thống & Cỡ chữ (Aa)
+                        _SettingsCardItem(
+                          icon: Icons.text_fields_rounded,
+                          tone: LifeOsAccentTone.amber,
+                          title: 'Cỡ chữ (Aa) & Tối ưu Không gian',
+                          subtitle:
+                              'Chọn Sáng / Tối / Theo hệ thống, điều chỉnh cỡ chữ 80%–125% và mật độ hiển thị.',
+                          statusPillLabel:
+                              'Giao diện: ${themeState.themeModeLabel} · Chữ: ${themeState.textScalePercent}%',
+                          statusPillTone: LifeOsAccentTone.emerald,
+                          onTap: () => showLifeOsAppearanceSheet(context),
                         ),
                         const SizedBox(height: 10),
 

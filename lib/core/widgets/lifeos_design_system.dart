@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/theme_bloc.dart';
 import 'voice_smart_capture_sheet.dart';
+
+ThemeBloc? _maybeThemeBloc(BuildContext context, {bool listen = false}) {
+  try {
+    return BlocProvider.of<ThemeBloc>(context, listen: listen);
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Semantic pastel tone palette shared across all LifeOS screens.
 enum LifeOsAccentTone { emerald, blue, purple, amber, coral, neutral }
@@ -311,8 +321,17 @@ class LifeOsTopBrandHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final themeBloc = _maybeThemeBloc(context, listen: true);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final compact = themeBloc?.state.compactDensity ?? true;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 8, AppSpacing.md, 10),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        compact ? 4 : 8,
+        AppSpacing.md,
+        compact ? 6 : 10,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -320,10 +339,13 @@ class LifeOsTopBrandHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Row 1: Brand Wordmark + Search + Notification Bell + Optional Actions
+              // Row 1: Brand Wordmark + Appearance/Font (☀️/🌙 Aa) + Search + Bell + Profile
               Row(
                 children: [
-                  const LifeOsBrandWordmark(iconSize: 34, fontSize: 20),
+                  LifeOsBrandWordmark(
+                    iconSize: compact ? 30 : 34,
+                    fontSize: compact ? 18.5 : 20,
+                  ),
                   const Spacer(),
                   ...extraBrandActions.map(
                     (w) => Padding(
@@ -331,12 +353,21 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       child: w,
                     ),
                   ),
+                  if (themeBloc != null) ...[
+                    LifeOsHeaderCircleButton(
+                      buttonKey: const Key('open_appearance_studio_button'),
+                      icon: isDark ? Icons.light_mode_outlined : Icons.text_fields_rounded,
+                      tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
+                      onTap: () => showLifeOsAppearanceSheet(context),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   LifeOsHeaderCircleButton(
                     icon: Icons.search_rounded,
                     tooltip: 'Tìm kiếm nhanh LifeOS',
                     onTap: () => showLifeOsOmniSearchSheet(context),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   LifeOsHeaderCircleButton(
                     icon: Icons.notifications_none_rounded,
                     tooltip: 'Trung tâm Thông báo',
@@ -344,14 +375,14 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     onTap: () => context.push('/activity-notifications'),
                   ),
                   if (profileTrailing != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     profileTrailing!,
                   ],
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: compact ? 8 : 12),
 
-              // Row 2: Either `< Back + Detail Title` OR `26sp Page Title + Subtitle + Trailing`
+              // Row 2: Either `< Back + Detail Title` OR `Page Title + Subtitle + Trailing`
               if (showBackButton)
                 Row(
                   children: [
@@ -367,16 +398,16 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                             }
                           },
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: compact ? 18.5 : 20,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
+                          letterSpacing: -0.3,
                           color: c.textPrimary,
                         ),
                       ),
@@ -400,21 +431,21 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 25,
+                              fontSize: compact ? 21 : 24,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                              height: 1.18,
+                              letterSpacing: -0.4,
+                              height: 1.15,
                               color: c.textPrimary,
                             ),
                           ),
                           if (subtitle != null && subtitle!.isNotEmpty) ...[
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 2),
                             Text(
                               subtitle!,
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 13.2,
+                                fontSize: compact ? 12.2 : 13,
                                 fontWeight: FontWeight.w500,
                                 color: c.textSecondary,
                               ),
@@ -1319,6 +1350,237 @@ Future<void> showLifeOsQuickCreateHub(BuildContext context) async {
               ],
             ),
           ),
+        ),
+      );
+    },
+  );
+}
+
+/// Compact 4-column Super App mini-icon item (MoMo / Grab / Apple style) that avoids
+/// heavy card borders and fits 8 shortcuts cleanly inside a single grouped container.
+class LifeOsCompactDockItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final LifeOsAccentTone tone;
+  final VoidCallback onTap;
+
+  const LifeOsCompactDockItem({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.tone = LifeOsAccentTone.emerald,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            LifeOsIconSquircle(
+              icon: icon,
+              tone: tone,
+              size: 40,
+              iconSize: 20,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11.8,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+                color: c.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Live Display Studio Bottom Sheet (`☀️ Sáng / 🌙 Tối / 📱 Hệ thống` + `Aa Cỡ chữ 80%–125%` + `Mật độ Gọn`).
+Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
+  final themeBloc = _maybeThemeBloc(context);
+  if (themeBloc == null) return;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetCtx) {
+      return BlocProvider<ThemeBloc>.value(
+        value: themeBloc,
+        child: BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (ctx, state) {
+            final c = TammySemanticColors.of(ctx);
+            return MediaQuery(
+              data: MediaQuery.of(ctx).copyWith(
+                textScaler: TextScaler.linear(state.textScale),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const LifeOsIconSquircle(
+                            icon: Icons.palette_outlined,
+                            tone: LifeOsAccentTone.emerald,
+                            size: 38,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Giao diện Sáng/Tối & Cỡ chữ',
+                                  style: TextStyle(
+                                    fontSize: 16.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  'Áp dụng tức thì và tự lưu cho mọi màn hình',
+                                  style: TextStyle(fontSize: 12, color: c.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 1. Light / Dark / System Segmented Selector
+                      Text(
+                        'Chế độ màu sắc',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      LifeOsSegmentedPills<ThemeMode>(
+                        selected: state.themeMode,
+                        onChanged: (mode) => themeBloc.add(ThemeModeChanged(mode)),
+                        options: const [
+                          (ThemeMode.light, 'Sáng', Icons.light_mode_rounded),
+                          (ThemeMode.dark, 'Tối', Icons.dark_mode_rounded),
+                          (ThemeMode.system, 'Hệ thống', Icons.phone_android_rounded),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 2. Font Scale Quick Presets + Fine Slider
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Kích cỡ chữ hiển thị (Aa)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                          ),
+                          LifeOsStatusPill(
+                            label: '${state.textScalePercent}%',
+                            tone: LifeOsAccentTone.emerald,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final preset in const <(double scale, String label)>[
+                            (0.85, 'Nhỏ gọn (85%)'),
+                            (0.92, 'Tối ưu (92%)'),
+                            (1.00, 'Chuẩn (100%)'),
+                            (1.12, 'Chữ lớn (112%)'),
+                          ])
+                            ChoiceChip(
+                              label: Text(preset.$2),
+                              selected: (state.textScale - preset.$1).abs() < 0.025,
+                              onSelected: (_) =>
+                                  themeBloc.add(TextScaleChanged(preset.$1)),
+                            ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            'A-',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              key: const Key('appearance_font_scale_slider'),
+                              value: state.textScale,
+                              min: 0.80,
+                              max: 1.25,
+                              divisions: 18,
+                              onChanged: (v) => themeBloc.add(TextScaleChanged(v)),
+                            ),
+                          ),
+                          Text(
+                            'A+',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // 3. Spatial Compactness Toggle
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Tối ưu không gian gọn gàng',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Thu gọn khoảng đệm thừa để hiển thị trọn vẹn nội dung trên 1 màn hình',
+                          style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                        ),
+                        value: state.compactDensity,
+                        onChanged: (v) => themeBloc.add(CompactDensityToggled(v)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       );
     },

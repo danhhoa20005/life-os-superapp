@@ -14,8 +14,8 @@ import '../bloc/daily_life_bloc.dart';
 class SuperAppServiceEntry {
   final String domainKey;
   final String domainTitle;
-  final String title;
-  final String subtitle;
+  final String shortLabel;
+  final String keywords;
   final IconData icon;
   final LifeOsAccentTone tone;
   final String route;
@@ -24,8 +24,8 @@ class SuperAppServiceEntry {
   const SuperAppServiceEntry({
     required this.domainKey,
     required this.domainTitle,
-    required this.title,
-    required this.subtitle,
+    required this.shortLabel,
+    required this.keywords,
     required this.icon,
     required this.tone,
     required this.route,
@@ -33,6 +33,8 @@ class SuperAppServiceEntry {
   });
 }
 
+/// Space-optimized 4-column Super App Directory (MoMo / Grab / ZaloPay style)
+/// organizing all 21+ LifeOS services into clean, scannable category cards.
 class SuperAppDirectoryPage extends StatefulWidget {
   const SuperAppDirectoryPage({super.key});
 
@@ -48,9 +50,9 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     // 1. TÀI CHÍNH, NGÂN HÀNG & THUẾ LƯƠNG
     SuperAppServiceEntry(
       domainKey: 'finance',
-      domainTitle: '1. Tài chính · Ngân hàng · Thuế Lương',
-      title: 'Sổ cái Ví & Ngân sách',
-      subtitle: 'Theo dõi đa ví, hạn mức danh mục & phân tích thu chi',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Sổ cái Ví',
+      keywords: 'chi tiêu ngân sách ví tiền',
       icon: Icons.account_balance_wallet_outlined,
       tone: LifeOsAccentTone.emerald,
       route: '/finance',
@@ -58,94 +60,121 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
-      domainTitle: '1. Tài chính · Ngân hàng · Thuế Lương',
-      title: 'Tự động bắt giao dịch SePay',
-      subtitle: 'Đối soát biến động số dư tự động 98% độ tin cậy',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'SePay Tự động',
+      keywords: 'ngân hàng tự động biến động số dư',
       icon: Icons.auto_awesome_rounded,
       tone: LifeOsAccentTone.emerald,
       route: '/auto-tx-review',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
-      domainTitle: '1. Tài chính · Ngân hàng · Thuế Lương',
-      title: 'Quét Bill AI · Lãi Vay · FIRE',
-      subtitle: 'Bóc tách hóa đơn siêu thị, dư nợ giảm dần & 6 Chiếc Lọ',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Bill AI & FIRE',
+      keywords: 'quét hóa đơn lãi vay tự do tài chính 6 chiếc lọ',
       icon: Icons.calculate_outlined,
       tone: LifeOsAccentTone.blue,
       route: '/wealth-tools',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
-      domainTitle: '1. Tài chính · Ngân hàng · Thuế Lương',
-      title: 'Lương Gross ⇄ Net & Thuế TNCN',
-      subtitle: 'Tính BHXH 10.5%, giảm trừ gia cảnh & 7 bậc thuế Việt Nam',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Lương Gross–Net',
+      keywords: 'thuế tncn bhxh bảo hiểm lương thực nhận',
       icon: Icons.request_quote_outlined,
       tone: LifeOsAccentTone.purple,
       route: '/smart-notes-hub',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
-      domainTitle: '1. Tài chính · Ngân hàng · Thuế Lương',
-      title: 'Báo cáo tuần W1–W4 & Xuất CSV',
-      subtitle: 'Xu hướng chi tiêu gia đình và sao kê minh bạch',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Báo cáo W1–W4',
+      keywords: 'thống kê biểu đồ xuất csv',
       icon: Icons.bar_chart_rounded,
       tone: LifeOsAccentTone.emerald,
       route: '/finance-report',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
-      domainTitle: '1. Tài chính · Ngân hàng · Thuế Lương',
-      title: 'Radar Gói đăng ký & Bảo hành',
-      subtitle: 'Chặn phí trừ ngầm hằng tháng & canh hạn bảo hành điện máy',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Gói ĐK & BH',
+      keywords: 'netflix youtube bảo hành điện máy',
       icon: Icons.radar_rounded,
       tone: LifeOsAccentTone.amber,
       route: '/subscriptions-warranty',
     ),
+    SuperAppServiceEntry(
+      domainKey: 'finance',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Quỹ chung',
+      keywords: 'tiết kiệm mục tiêu gia đình',
+      icon: Icons.savings_outlined,
+      tone: LifeOsAccentTone.emerald,
+      route: '/family-funds',
+    ),
+    SuperAppServiceEntry(
+      domainKey: 'finance',
+      domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
+      shortLabel: 'Sổ Hiếu Hỷ',
+      keywords: 'mừng cưới tân gia lễ tết hành lý',
+      icon: Icons.card_giftcard_rounded,
+      tone: LifeOsAccentTone.purple,
+      route: '/social-ledger-travel',
+    ),
 
-    // 2. SỨC KHỎE, BẾP GIA ĐÌNH & ĐI CHỢ
+    // 2. SỨC KHỎE, BẾP GIA ĐÌNH & KỶ LUẬT SỐNG
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: '2. Sức khỏe · Y tế · Bếp & Đi chợ',
-      title: 'Sức khỏe, Tủ thuốc & SOS 115',
-      subtitle: 'Nhắc uống thuốc đúng cữ, BMI Châu Á, huyết áp & thẻ BHYT',
+      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
+      shortLabel: 'Sức khỏe & SOS',
+      keywords: 'tủ thuốc uống thuốc bmi huyết áp bhyt 115',
       icon: Icons.favorite_outline_rounded,
       tone: LifeOsAccentTone.coral,
       route: '/health-hub',
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: '2. Sức khỏe · Y tế · Bếp & Đi chợ',
-      title: 'Bếp Gia đình & Đi chợ Thông minh',
-      subtitle: 'Gợi ý "Hôm nay ăn gì?", giỏ chợ 1 chạm trừ Ví & tủ lạnh',
+      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
+      shortLabel: 'Bếp & Đi chợ',
+      keywords: 'hôm nay ăn gì thực đơn giỏ chợ tủ lạnh',
       icon: Icons.shopping_basket_outlined,
       tone: LifeOsAccentTone.emerald,
       route: '/kitchen-groceries',
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: '2. Sức khỏe · Y tế · Bếp & Đi chợ',
-      title: 'Nước uống 2L · Thói quen · Pomodoro',
-      subtitle: 'Đồng hồ tập trung sâu 25p/45p & chuỗi kỷ luật mỗi ngày',
+      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
+      shortLabel: 'Pomodoro & Nước',
+      keywords: 'thói quen tập trung uống nước 2000ml',
       icon: Icons.local_fire_department_outlined,
       tone: LifeOsAccentTone.amber,
       route: '/habits-focus',
     ),
+    SuperAppServiceEntry(
+      domainKey: 'health_food',
+      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
+      shortLabel: 'Ghi chú & Mood',
+      keywords: 'sổ tay ghim nhật ký cảm xúc tâm trạng',
+      icon: Icons.sticky_note_2_outlined,
+      tone: LifeOsAccentTone.purple,
+      route: '/smart-notes-hub',
+    ),
 
-    // 3. NHÀ CỬA, ĐIỆN NƯỚC EVN, XE CỘ & TÀI LIỆU
+    // 3. NHÀ CỬA, ĐIỆN NƯỚC EVN, XE CỘ & GIẤY TỜ
     SuperAppServiceEntry(
       domainKey: 'home_assets',
-      domainTitle: '3. Nhà cửa · Điện nước EVN · Xe cộ & Giấy tờ',
-      title: 'Điện 6 bậc EVN · Nước · Phòng trọ',
-      subtitle: 'Tính công tơ điện bậc thang +8% VAT, chia phòng & hợp đồng thuê',
+      domainTitle: 'Nhà cửa · Điện EVN · Xe cộ & Giấy tờ',
+      shortLabel: 'Điện nước EVN',
+      keywords: '6 bậc thang công tơ phòng trọ hợp đồng thuê nhà',
       icon: Icons.electric_bolt_rounded,
       tone: LifeOsAccentTone.amber,
       route: '/home-living',
     ),
     SuperAppServiceEntry(
       domainKey: 'home_assets',
-      domainTitle: '3. Nhà cửa · Điện nước EVN · Xe cộ & Giấy tờ',
-      title: 'Xe cộ · Bảo dưỡng · Đăng kiểm',
-      subtitle: 'Theo dõi Odometer, thay dầu định kỳ & hạn bảo hiểm xe',
+      domainTitle: 'Nhà cửa · Điện EVN · Xe cộ & Giấy tờ',
+      shortLabel: 'Xe & Bảo dưỡng',
+      keywords: 'odometer thay dầu đăng kiểm bảo hiểm xe',
       icon: Icons.directions_car_outlined,
       tone: LifeOsAccentTone.blue,
       route: '/assets',
@@ -153,20 +182,29 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'home_assets',
-      domainTitle: '3. Nhà cửa · Điện nước EVN · Xe cộ & Giấy tờ',
-      title: 'Kho Tài liệu & Giấy tờ Gia đình',
-      subtitle: 'Lưu hợp đồng, căn cước, bảo hiểm & hóa đơn quan trọng',
+      domainTitle: 'Nhà cửa · Điện EVN · Xe cộ & Giấy tờ',
+      shortLabel: 'Kho Tài liệu',
+      keywords: 'hợp đồng căn cước giấy tờ bảo hiểm',
       icon: Icons.folder_open_rounded,
       tone: LifeOsAccentTone.purple,
       route: '/family-documents',
     ),
+    SuperAppServiceEntry(
+      domainKey: 'home_assets',
+      domainTitle: 'Nhà cửa · Điện EVN · Xe cộ & Giấy tờ',
+      shortLabel: '4 Widget Chính',
+      keywords: 'ghim màn hình chính giọng nói chia tiền',
+      icon: Icons.widgets_outlined,
+      tone: LifeOsAccentTone.emerald,
+      route: '/home-widgets',
+    ),
 
-    // 4. LỊCH TRÌNH, TỔ ẤM, XÃ HỘI & TIỆN ÍCH AI
+    // 4. LỊCH TRÌNH, VIỆC LÀM & GIA ĐÌNH
     SuperAppServiceEntry(
       domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Lịch trình & Google Calendar 2 chiều',
-      subtitle: 'Lịch Ngày/Tuần/Tháng & đồng bộ trực tiếp Google Calendar',
+      domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
+      shortLabel: 'Lịch Google',
+      keywords: 'lịch ngày tuần tháng google calendar',
       icon: Icons.calendar_today_rounded,
       tone: LifeOsAccentTone.emerald,
       route: '/planning',
@@ -174,76 +212,31 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Báo thức Sự kiện Toàn màn hình',
-      subtitle: 'Chuông báo sự kiện quan trọng kèm nút Hoãn 5 phút',
+      domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
+      shortLabel: 'Báo thức Lịch',
+      keywords: 'chuông nhắc hẹn hoãn 5 phút',
       icon: Icons.alarm_on_rounded,
       tone: LifeOsAccentTone.blue,
       route: '/event-alarm',
     ),
     SuperAppServiceEntry(
       domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Bảng Kanban Việc nhà & Phân công',
-      subtitle: 'Giao việc theo thành viên và theo dõi tiến độ trực quan',
+      domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
+      shortLabel: 'Việc làm Kanban',
+      keywords: 'phân công việc nhà tiến độ',
       icon: Icons.task_alt_rounded,
       tone: LifeOsAccentTone.emerald,
       route: '/tasks-board',
     ),
     SuperAppServiceEntry(
       domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Không gian Tổ ấm & Chia tiền Nhóm',
-      subtitle: 'Quản lý thành viên, mã mời gia đình & cấn trừ công nợ',
+      domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
+      shortLabel: 'Tổ ấm & Nhóm',
+      keywords: 'thành viên chia tiền nhóm ở ghép',
       icon: Icons.groups_outlined,
       tone: LifeOsAccentTone.emerald,
       route: '/family',
       isShellTab: true,
-    ),
-    SuperAppServiceEntry(
-      domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Quỹ chung Gia đình & Mục tiêu lớn',
-      subtitle: 'Quỹ du lịch, quỹ khẩn cấp & lịch sử đóng góp từng người',
-      icon: Icons.savings_outlined,
-      tone: LifeOsAccentTone.emerald,
-      route: '/family-funds',
-    ),
-    SuperAppServiceEntry(
-      domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Sổ Hiếu Hỷ "Có Đi Có Lại" & Hành lý',
-      subtitle: 'Tra cứu mừng cưới/tân gia 2 chiều & checklist đồ du lịch',
-      icon: Icons.card_giftcard_rounded,
-      tone: LifeOsAccentTone.purple,
-      route: '/social-ledger-travel',
-    ),
-    SuperAppServiceEntry(
-      domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Sổ tay Ghi chú Ghim & Nhật ký Cảm xúc',
-      subtitle: 'Ghim ghi chú quan trọng, mật khẩu Wi-Fi & check-in tâm trạng',
-      icon: Icons.sticky_note_2_outlined,
-      tone: LifeOsAccentTone.amber,
-      route: '/smart-notes-hub',
-    ),
-    SuperAppServiceEntry(
-      domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: '4 Widget Màn hình chính & Giọng nói AI',
-      subtitle: 'Ghim 4 widget Android ngoài màn hình chính & nói câu chia tiền',
-      icon: Icons.widgets_outlined,
-      tone: LifeOsAccentTone.blue,
-      route: '/home-widgets',
-    ),
-    SuperAppServiceEntry(
-      domainKey: 'family_life',
-      domainTitle: '4. Lịch trình · Tổ ấm · Hiếu hỷ & Giọng nói AI',
-      title: 'Cài đặt · Giao diện Tối · Cập nhật OTA',
-      subtitle: 'Hồ sơ bảo mật, True Dark Mode & kiểm tra bản mới tự động',
-      icon: Icons.settings_outlined,
-      tone: LifeOsAccentTone.neutral,
-      route: '/settings-hub',
     ),
   ];
 
@@ -258,8 +251,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     final filtered = _catalog.where((e) {
       if (_domainFilter != 'all' && e.domainKey != _domainFilter) return false;
       if (q.isEmpty) return true;
-      return e.title.toLowerCase().contains(q) ||
-          e.subtitle.toLowerCase().contains(q) ||
+      return e.shortLabel.toLowerCase().contains(q) ||
+          e.keywords.toLowerCase().contains(q) ||
           e.domainTitle.toLowerCase().contains(q);
     }).toList();
 
@@ -275,7 +268,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
             children: [
               LifeOsTopBrandHeader(
                 title: 'Tất cả Dịch vụ 360°',
-                subtitle: 'Hệ sinh thái Siêu ứng dụng quản lý trọn vẹn mọi mặt đời sống.',
+                subtitle: 'Bố cục lưới gọn gàng — chạm mở nhanh mọi phân hệ.',
                 showBackButton: true,
                 trailingAction: IconButton.filled(
                   visualDensity: VisualDensity.compact,
@@ -293,108 +286,73 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
-                        4,
+                        2,
                         AppSpacing.md,
-                        AppSpacing.xxl,
+                        AppSpacing.xl,
                       ),
                       children: [
-                        // Super App 360° Live Pulse Hero Card
+                        // Compact Live Pulse Bar
                         LifeOsMintHeroCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
                             children: [
-                              Row(
-                                children: [
-                                  const LifeOsIconSquircle(
-                                    icon: Icons.apps_rounded,
-                                    tone: LifeOsAccentTone.emerald,
-                                    solidFill: true,
-                                    size: 42,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Trung tâm Điều hành Cuộc sống 360°',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w800,
-                                            color: c.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${_catalog.length} phân hệ chuyên sâu · Đồng bộ Cloud thời gian thực · 0₫ phí ẩn',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: c.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              LifeOsStatusPill(
+                                icon: Icons.account_balance_wallet_outlined,
+                                label: 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
+                                tone: LifeOsAccentTone.emerald,
                               ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  LifeOsStatusPill(
-                                    icon: Icons.account_balance_wallet_outlined,
-                                    label: 'Tài sản: ${VndAmount.format(dash.netWorthMinor)}',
-                                    tone: LifeOsAccentTone.emerald,
-                                  ),
-                                  LifeOsStatusPill(
-                                    icon: Icons.medication_outlined,
-                                    label: 'Tủ thuốc: ${dailySnap.medications.length}',
-                                    tone: LifeOsAccentTone.coral,
-                                  ),
-                                  LifeOsStatusPill(
-                                    icon: Icons.shopping_cart_outlined,
-                                    label: 'Giỏ chợ: ${dailySnap.pendingGroceriesCount} món',
-                                    tone: LifeOsAccentTone.blue,
-                                  ),
-                                  LifeOsStatusPill(
-                                    icon: Icons.radar_rounded,
-                                    label:
-                                        'Gói đăng ký: ${proSnap.subscriptionsAndWarranties.length}',
-                                    tone: LifeOsAccentTone.purple,
-                                  ),
-                                ],
+                              LifeOsStatusPill(
+                                icon: Icons.medication_outlined,
+                                label: 'Thuốc: ${dailySnap.medications.length}',
+                                tone: LifeOsAccentTone.coral,
+                              ),
+                              LifeOsStatusPill(
+                                icon: Icons.shopping_cart_outlined,
+                                label: 'Chợ: ${dailySnap.pendingGroceriesCount}',
+                                tone: LifeOsAccentTone.blue,
+                              ),
+                              LifeOsStatusPill(
+                                icon: Icons.radar_rounded,
+                                label:
+                                    'Gói ĐK: ${proSnap.subscriptionsAndWarranties.length}',
+                                tone: LifeOsAccentTone.purple,
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
 
-                        // Instant Super App Search Bar
+                        // Compact Instant Search
                         TextField(
                           key: const Key('super_app_directory_search_input'),
                           decoration: const InputDecoration(
-                            hintText:
-                                'Tìm tiện ích: điện EVN, đi chợ, thuốc, lương, lãi vay, lịch...',
-                            prefixIcon: Icon(Icons.search_rounded),
+                            isDense: true,
+                            hintText: 'Tìm nhanh: điện EVN, đi chợ, thuốc, lương, lãi vay...',
+                            prefixIcon: Icon(Icons.search_rounded, size: 20),
                           ),
                           onChanged: (v) => setState(() => _query = v),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
 
-                        // Domain Filter Pills
+                        // Compact Category Filter Chips
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: [
                               for (final f in const [
-                                ('all', 'Tất cả dịch vụ'),
+                                ('all', 'Tất cả'),
                                 ('finance', 'Tài chính & Lương'),
-                                ('health_food', 'Sức khỏe & Đi chợ'),
-                                ('home_assets', 'Điện nước & Nhà xe'),
-                                ('family_life', 'Lịch · Tổ ấm · AI'),
+                                ('health_food', 'Sức khỏe & Bếp'),
+                                ('home_assets', 'Điện EVN & Nhà xe'),
+                                ('family_life', 'Lịch & Gia đình'),
                               ])
                                 Padding(
-                                  padding: const EdgeInsets.only(right: 8),
+                                  padding: const EdgeInsets.only(right: 6),
                                   child: ChoiceChip(
                                     label: Text(f.$2),
                                     selected: _domainFilter == f.$1,
@@ -405,73 +363,52 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
 
+                        // Grouped 4-Column Super App Icon Cards (Zero vertical bloat!)
                         for (final entry in grouped.entries) ...[
                           Padding(
-                            padding: const EdgeInsets.only(top: 6, bottom: 8),
-                            child: Text(
-                              entry.key,
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w800,
-                                color: c.textPrimary,
-                              ),
-                            ),
-                          ),
-                          ...entry.value.map(
-                            (svc) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: LifeOsSoftCard(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                onTap: () {
-                                  if (svc.isShellTab) {
-                                    context.go(svc.route);
-                                  } else {
-                                    context.push(svc.route);
-                                  }
-                                },
-                                child: Row(
-                                  children: [
-                                    LifeOsIconSquircle(
-                                      icon: svc.icon,
-                                      tone: svc.tone,
-                                      size: 42,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            svc.title,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 14.2,
-                                              color: c.textPrimary,
-                                            ),
-                                          ),
-                                          Text(
-                                            svc.subtitle,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: c.textSecondary,
-                                            ),
-                                          ),
-                                        ],
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: LifeOsSoftCard(
+                              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      entry.key,
+                                      style: TextStyle(
+                                        fontSize: 13.2,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: c.textSecondary,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  GridView.count(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    crossAxisCount: 4,
+                                    mainAxisSpacing: 4,
+                                    crossAxisSpacing: 4,
+                                    childAspectRatio: 1.02,
+                                    children: entry.value.map((svc) {
+                                      return LifeOsCompactDockItem(
+                                        icon: svc.icon,
+                                        label: svc.shortLabel,
+                                        tone: svc.tone,
+                                        onTap: () {
+                                          if (svc.isShellTab) {
+                                            context.go(svc.route);
+                                          } else {
+                                            context.push(svc.route);
+                                          }
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

@@ -167,42 +167,50 @@ void main() {
     await tester.pumpWidget(const LifeOsApp());
     await tester.pumpAndSettle();
 
-    // Scroll down to the 360° Daily Life Super App Grid on TodayPage
-    await tester.drag(find.byType(ListView).first, const Offset(0, -640));
+    // 0. Open Live Appearance & Font Size Studio Sheet right from Top Brand Header!
+    await tester.tap(find.byKey(const Key('open_appearance_studio_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Giao diện Sáng/Tối & Cỡ chữ'), findsOneWidget);
+    expect(find.text('Nhỏ gọn (85%)'), findsOneWidget);
+    await tester.tap(find.text('Nhỏ gọn (85%)'));
+    await tester.pumpAndSettle();
+    expect(find.text('85%'), findsOneWidget);
+    // Dismiss appearance sheet
+    Navigator.of(tester.element(find.text('Giao diện Sáng/Tối & Cỡ chữ'))).pop();
     await tester.pumpAndSettle();
 
-    expect(find.text('Đời sống Hằng ngày 360°'), findsOneWidget);
-
-    // 1. Open Super App 360° Directory
-    await tester.tap(find.byKey(const Key('home_tile_all_services')));
-    await tester.pumpAndSettle();
-    expect(find.text('Tất cả Dịch vụ 360°'), findsOneWidget);
-    await tester.tap(find.byTooltip('Quay lại'));
+    // Scroll slightly on compact TodayPage to view 4x2 Dock & Ecosystem Strip
+    await tester.drag(find.byType(ListView).first, const Offset(0, -280));
     await tester.pumpAndSettle();
 
-    // 2. Open Health & Medication Hub
+    expect(find.text('Tiện ích thường dùng'), findsOneWidget);
+
+    // 1. Open Health & Medication Hub from 4x2 Dock
     await tester.tap(find.byKey(const Key('home_tile_health')));
     await tester.pumpAndSettle();
     expect(find.text('Sức khỏe & Tủ thuốc'), findsOneWidget);
     await tester.tap(find.byTooltip('Quay lại'));
     await tester.pumpAndSettle();
 
-    // 3. Open Kitchen & Smart Groceries
+    // 2. Open Kitchen & Smart Groceries from 4x2 Dock
     await tester.tap(find.byKey(const Key('home_tile_kitchen')));
     await tester.pumpAndSettle();
     expect(find.text('Bếp & Đi chợ Thông minh'), findsOneWidget);
     await tester.tap(find.byTooltip('Quay lại'));
     await tester.pumpAndSettle();
 
-    // 4. Open Home Living & EVN 6-Tier Utilities
+    // 3. Open Home Living & EVN 6-Tier Utilities from 4x2 Dock
     await tester.tap(find.byKey(const Key('home_tile_evn')));
     await tester.pumpAndSettle();
     expect(find.text('Điện nước EVN & Nhà cửa'), findsOneWidget);
     await tester.tap(find.byTooltip('Quay lại'));
     await tester.pumpAndSettle();
 
-    // 5. Open Smart Notes & Gross-Net Salary
-    await tester.tap(find.byKey(const Key('home_tile_notes_salary')));
+    // 4. Open 4-Column Super App 360° Directory -> launch Smart Notes & Gross-Net Salary
+    await tester.tap(find.byKey(const Key('home_tile_all_services')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tất cả Dịch vụ 360°'), findsOneWidget);
+    await tester.tap(find.text('Lương Gross–Net'));
     await tester.pumpAndSettle();
     expect(find.text('Ghi chú & Lương Gross–Net'), findsOneWidget);
   });

@@ -20,7 +20,8 @@ import '../../../tasks/presentation/bloc/task_bloc.dart';
 import '../../domain/entities/dashboard_entities.dart';
 import '../bloc/dashboard_bloc.dart';
 
-/// Screen 01: "Trang chủ" (`01_Trang_chu.png`) following Unified LifeOS Design System.
+/// Screen 01: Airy, Space-Optimized "Trang chủ" (`TodayPage`) — shows essential
+/// daily KPIs + a clean 4×2 quick-access dock instead of cramming 20+ tiles vertically.
 class TodayPage extends StatelessWidget {
   const TodayPage({super.key});
 
@@ -53,7 +54,7 @@ class TodayPage extends StatelessWidget {
             children: [
               LifeOsTopBrandHeader(
                 title: 'Xin chào, $firstName',
-                subtitle: 'Quản lý cuộc sống, đơn giản hơn mỗi ngày.',
+                subtitle: 'Quản lý cuộc sống gọn nhẹ mỗi ngày.',
                 profileTrailing: user == null
                     ? null
                     : IconButton(
@@ -61,7 +62,7 @@ class TodayPage extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                         tooltip: 'Hồ sơ & Bảo mật tài khoản',
                         onPressed: () => context.push('/account-profile'),
-                        icon: UserAvatarBadge(user: user, radius: 17),
+                        icon: UserAvatarBadge(user: user, radius: 16),
                       ),
               ),
               Expanded(
@@ -114,24 +115,29 @@ class TodayPage extends StatelessWidget {
                             <String>[user?.fullName ?? 'Tôi'];
 
                     final timeFmt = DateFormat('HH:mm');
-                    final upcomingEvents = calState.events.take(3).toList();
+                    final upcomingEvents = calState.events.take(2).toList();
 
                     return Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+                        constraints:
+                            const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.md,
                             2,
                             AppSpacing.md,
-                            AppSpacing.xxl,
+                            AppSpacing.xl,
                           ),
                           children: [
-                            // 0. Automatic OTA In-App Update Notification Banner
+                            // 0. OTA In-App Update Notification Banner (hidden when up to date)
                             const AppUpdateBanner(),
 
-                            // 1. Pastel Mint "Hôm nay" Summary Card (3 Columns: Sự kiện | Việc cần làm | Đã hoàn thành)
+                            // 1. Compact Pastel Mint "Hôm nay" Summary Strip
                             LifeOsMintHeroCard(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -142,14 +148,14 @@ class TodayPage extends StatelessWidget {
                                         children: [
                                           Icon(
                                             Icons.calendar_today_rounded,
-                                            size: 19,
+                                            size: 16,
                                             color: c.primary,
                                           ),
-                                          const SizedBox(width: 7),
+                                          const SizedBox(width: 6),
                                           Text(
                                             'Hôm nay',
                                             style: TextStyle(
-                                              fontSize: 16,
+                                              fontSize: 14.5,
                                               fontWeight: FontWeight.w800,
                                               color: c.textPrimary,
                                             ),
@@ -162,7 +168,7 @@ class TodayPage extends StatelessWidget {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontSize: 12.5,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                             color: c.textSecondary,
                                           ),
@@ -170,20 +176,19 @@ class TodayPage extends StatelessWidget {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 14),
+                                  const SizedBox(height: 10),
                                   IntrinsicHeight(
                                     child: Row(
                                       children: [
                                         Expanded(
                                           child: InkWell(
                                             onTap: () => context.go('/planning'),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                            child: Row(
                                               children: [
                                                 Text(
                                                   '${calState.events.length}',
                                                   style: TextStyle(
-                                                    fontSize: 25,
+                                                    fontSize: 21,
                                                     fontWeight: FontWeight.w800,
                                                     color: c.primary,
                                                     fontFeatures: const [
@@ -191,29 +196,33 @@ class TodayPage extends StatelessWidget {
                                                     ],
                                                   ),
                                                 ),
-                                                Text(
-                                                  'Sự kiện',
-                                                  style: TextStyle(
-                                                    fontSize: 12.5,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: c.textSecondary,
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    'Sự kiện',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: c.textSecondary,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           ),
                                         ),
-                                        VerticalDivider(width: 16, color: c.separator),
+                                        VerticalDivider(width: 12, color: c.separator),
                                         Expanded(
                                           child: InkWell(
                                             onTap: () => context.push('/tasks-board'),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                            child: Row(
                                               children: [
                                                 Text(
                                                   '${d.openTasksCount}',
                                                   style: TextStyle(
-                                                    fontSize: 25,
+                                                    fontSize: 21,
                                                     fontWeight: FontWeight.w800,
                                                     color: c.primary,
                                                     fontFeatures: const [
@@ -221,42 +230,45 @@ class TodayPage extends StatelessWidget {
                                                     ],
                                                   ),
                                                 ),
-                                                Text(
-                                                  'Việc cần làm',
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 12.5,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: c.textSecondary,
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    'Việc làm',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: c.textSecondary,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           ),
                                         ),
-                                        VerticalDivider(width: 16, color: c.separator),
+                                        VerticalDivider(width: 12, color: c.separator),
                                         Expanded(
                                           child: InkWell(
                                             onTap: () => context.push('/tasks-board'),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                            child: Row(
                                               children: [
                                                 Icon(
                                                   Icons.check_circle_outline_rounded,
                                                   color: c.primary,
-                                                  size: 24,
+                                                  size: 18,
                                                 ),
-                                                const SizedBox(height: 3),
-                                                Text(
-                                                  '$completedTasksCount đã hoàn thành',
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: c.textSecondary,
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: Text(
+                                                    '$completedTasksCount xong',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: c.textSecondary,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
@@ -269,17 +281,16 @@ class TodayPage extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
 
-                            // 2. 2-Column Split Row: "Lịch sắp tới" | "Chi tiêu tháng này"
+                            // 2. 2-Column Bento Split: "Lịch sắp tới" | "Chi tháng này"
                             IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // Left Card: Lịch sắp tới
                                   Expanded(
                                     child: LifeOsSoftCard(
-                                      padding: const EdgeInsets.all(14),
+                                      padding: const EdgeInsets.all(12),
                                       onTap: () => context.go('/planning'),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,18 +298,18 @@ class TodayPage extends StatelessWidget {
                                           Row(
                                             children: [
                                               Icon(
-                                                Icons.calendar_today_rounded,
-                                                size: 17,
+                                                Icons.schedule_rounded,
+                                                size: 16,
                                                 color: c.primary,
                                               ),
-                                              const SizedBox(width: 6),
+                                              const SizedBox(width: 5),
                                               Expanded(
                                                 child: Text(
                                                   'Lịch sắp tới',
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 14,
+                                                    fontSize: 13.2,
                                                     fontWeight: FontWeight.w800,
                                                     color: c.textPrimary,
                                                   ),
@@ -306,22 +317,22 @@ class TodayPage extends StatelessWidget {
                                               ),
                                               Icon(
                                                 Icons.chevron_right_rounded,
-                                                size: 18,
+                                                size: 17,
                                                 color: c.textSecondary,
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 12),
+                                          const SizedBox(height: 10),
                                           if (upcomingEvents.isEmpty) ...[
                                             _MiniScheduleBarItem(
                                               barColor: c.primary,
-                                              title: 'Họp team & kế hoạch',
+                                              title: 'Họp & kế hoạch ngày',
                                               time: '10:00 – 11:00',
                                             ),
-                                            const SizedBox(height: 9),
+                                            const SizedBox(height: 7),
                                             const _MiniScheduleBarItem(
                                               barColor: Color(0xFF3B82F6),
-                                              title: 'Ăn tối cùng gia đình',
+                                              title: 'Ăn tối gia đình',
                                               time: '19:00 – 20:00',
                                             ),
                                           ] else
@@ -330,8 +341,9 @@ class TodayPage extends StatelessWidget {
                                               final ev = e.value;
                                               return Padding(
                                                 padding: EdgeInsets.only(
-                                                  bottom:
-                                                      idx < upcomingEvents.length - 1 ? 8 : 0,
+                                                  bottom: idx < upcomingEvents.length - 1
+                                                      ? 7
+                                                      : 0,
                                                 ),
                                                 child: _MiniScheduleBarItem(
                                                   barColor: idx.isEven
@@ -347,12 +359,10 @@ class TodayPage extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-
-                                  // Right Card: Chi tiêu tháng này
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: LifeOsSoftCard(
-                                      padding: const EdgeInsets.all(14),
+                                      padding: const EdgeInsets.all(12),
                                       onTap: () => context.go('/finance'),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,17 +371,17 @@ class TodayPage extends StatelessWidget {
                                             children: [
                                               Icon(
                                                 Icons.payments_outlined,
-                                                size: 17,
+                                                size: 16,
                                                 color: c.primary,
                                               ),
-                                              const SizedBox(width: 6),
+                                              const SizedBox(width: 5),
                                               Expanded(
                                                 child: Text(
-                                                  'Chi tiêu tháng này',
+                                                  'Chi tháng này',
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 14,
+                                                    fontSize: 13.2,
                                                     fontWeight: FontWeight.w800,
                                                     color: c.textPrimary,
                                                   ),
@@ -379,55 +389,54 @@ class TodayPage extends StatelessWidget {
                                               ),
                                               Icon(
                                                 Icons.chevron_right_rounded,
-                                                size: 18,
+                                                size: 17,
                                                 color: c.textSecondary,
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 12),
+                                          const SizedBox(height: 10),
                                           Text(
                                             VndAmount.format(d.monthlyExpenseMinor),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 19,
+                                              fontSize: 17.5,
                                               fontWeight: FontWeight.w800,
-                                              letterSpacing: -0.4,
+                                              letterSpacing: -0.3,
                                               color: c.textPrimary,
                                               fontFeatures: const [
                                                 FontFeature.tabularFigures(),
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
                                           Text(
                                             '/ ${VndAmount.format(effectiveBudget)}',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 12,
+                                              fontSize: 11.2,
                                               color: c.textSecondary,
                                             ),
                                           ),
                                           const Spacer(),
-                                          const SizedBox(height: 10),
+                                          const SizedBox(height: 8),
                                           ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(6),
                                             child: LinearProgressIndicator(
-                                              minHeight: 8,
+                                              minHeight: 6,
                                               value: (spentPct / 100).clamp(0.05, 1.0),
                                               backgroundColor: c.surfaceRaised,
                                               valueColor:
                                                   AlwaysStoppedAnimation<Color>(c.primary),
                                             ),
                                           ),
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: 4),
                                           Text(
                                             'Đã chi $spentPct% ngân sách',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 11.5,
+                                              fontSize: 11,
                                               color: c.textSecondary,
                                             ),
                                           ),
@@ -438,341 +447,324 @@ class TodayPage extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
 
-                            // 3. "Quỹ gia đình" Card with Member Avatars (`01_Trang_chu.png`)
+                            // 3. Compact "Quỹ & Tài sản ròng" Card
                             LifeOsSoftCard(
-                              onTap: () => context.push('/family-funds'),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.groups_outlined, size: 20, color: c.primary),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Quỹ gia đình & Tài sản ròng',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 15.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: c.textPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        color: c.textSecondary,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              VndAmount.format(familyFundDisplay),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 23,
-                                                fontWeight: FontWeight.w800,
-                                                letterSpacing: -0.5,
-                                                color: c.textPrimary,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            LifeOsStatusPill(
-                                              icon: Icons.arrow_upward_rounded,
-                                              label:
-                                                  '+${VndAmount.format(d.monthlyIncomeMinor)} (thu tháng)',
-                                              tone: LifeOsAccentTone.emerald,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          LifeOsAvatarStack(
-                                            names: memberNames,
-                                            radius: 16,
-                                            onAddTap: () => context.go('/family'),
-                                          ),
-                                          const SizedBox(height: 5),
-                                          Text(
-                                            '${memberNames.length} thành viên',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: c.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
                               ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // 4. Unified 3×3 Feature Squircle Grid (`01_Trang_chu.png` + Full Suite)
-                            GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: 3,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              childAspectRatio: 1.06,
-                              children: [
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.calendar_today_rounded,
-                                  label: 'Lịch',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.go('/planning'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.payments_outlined,
-                                  label: 'Chi tiêu',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.go('/finance'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.groups_outlined,
-                                  label: 'Tổ ấm & Nhóm',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.go('/family'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.check_box_outlined,
-                                  label: 'Việc làm',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.push('/tasks-board'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.directions_car_outlined,
-                                  label: 'Xe cộ',
-                                  tone: LifeOsAccentTone.blue,
-                                  onTap: () => context.go('/assets'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.notifications_none_rounded,
-                                  label: 'Thông báo',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.push('/activity-notifications'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.savings_outlined,
-                                  label: 'Quỹ chung',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.push('/family-funds'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.folder_open_rounded,
-                                  label: 'Tài liệu',
-                                  tone: LifeOsAccentTone.amber,
-                                  onTap: () => context.push('/family-documents'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  icon: Icons.settings_outlined,
-                                  label: 'Cài đặt',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.push('/settings-hub'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 4a. Paid-Market Replacement Pro Suite Banner ("Tiện ích Pro 0₫")
-                            LifeOsSoftCard(
-                              key: const Key('open_pro_utilities_hub_card'),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              onTap: () => context.push('/pro-utilities'),
+                              onTap: () => context.push('/family-funds'),
                               child: Row(
                                 children: [
-                                  const LifeOsIconSquircle(
-                                    icon: Icons.workspace_premium_rounded,
-                                    tone: LifeOsAccentTone.emerald,
-                                    size: 42,
-                                  ),
-                                  const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
-                                            Expanded(
+                                            Icon(
+                                              Icons.account_balance_wallet_outlined,
+                                              size: 16,
+                                              color: c.primary,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Flexible(
                                               child: Text(
-                                                'Tiện ích Pro 0₫ (Thay 6 App Trả Phí)',
+                                                'Quỹ gia đình & Tài sản ròng',
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
+                                                  fontSize: 13.5,
                                                   fontWeight: FontWeight.w800,
-                                                  fontSize: 13.8,
                                                   color: c.textPrimary,
                                                 ),
                                               ),
                                             ),
-                                            const LifeOsStatusPill(
-                                              label: 'MỚI',
-                                              tone: LifeOsAccentTone.emerald,
-                                            ),
                                           ],
                                         ),
-                                        const SizedBox(height: 2),
+                                        const SizedBox(height: 6),
                                         Text(
-                                          'Radar Gói đăng ký & Bảo hành · Quét Bill AI · Pomodoro · Sổ Hiếu Hỷ',
+                                          VndAmount.format(familyFundDisplay),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontSize: 12,
-                                            color: c.textSecondary,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.4,
+                                            color: c.textPrimary,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        LifeOsStatusPill(
+                                          icon: Icons.arrow_upward_rounded,
+                                          label:
+                                              '+${VndAmount.format(d.monthlyIncomeMinor)} thu tháng',
+                                          tone: LifeOsAccentTone.emerald,
                                         ),
                                       ],
                                     ),
                                   ),
-                                  Icon(Icons.chevron_right_rounded, color: c.textSecondary),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      LifeOsAvatarStack(
+                                        names: memberNames,
+                                        radius: 14,
+                                        onAddTap: () => context.go('/family'),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${memberNames.length} thành viên',
+                                        style: TextStyle(
+                                          fontSize: 11.2,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-
-                            // 4b. 360° Daily Life Super App Expansion Row (Health, Kitchen, EVN Utilities, Notes/Salary, All 30+)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Đời sống Hằng ngày 360°',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  key: const Key('open_super_app_directory_btn'),
-                                  onPressed: () => context.push('/super-app-hub'),
-                                  icon: const Icon(Icons.apps_rounded, size: 17),
-                                  label: const Text('Tất cả'),
-                                ),
-                              ],
-                            ),
-                            GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: 3,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              childAspectRatio: 1.06,
-                              children: [
-                                LifeOsFeatureGridTile(
-                                  key: const Key('home_tile_health'),
-                                  icon: Icons.favorite_outline_rounded,
-                                  label: 'Sức khỏe',
-                                  tone: LifeOsAccentTone.coral,
-                                  onTap: () => context.push('/health-hub'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  key: const Key('home_tile_kitchen'),
-                                  icon: Icons.shopping_basket_outlined,
-                                  label: 'Bếp & Đi chợ',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.push('/kitchen-groceries'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  key: const Key('home_tile_evn'),
-                                  icon: Icons.electric_bolt_rounded,
-                                  label: 'Điện nước EVN',
-                                  tone: LifeOsAccentTone.amber,
-                                  onTap: () => context.push('/home-living'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  key: const Key('home_tile_notes_salary'),
-                                  icon: Icons.sticky_note_2_outlined,
-                                  label: 'Ghi chú & Lương',
-                                  tone: LifeOsAccentTone.purple,
-                                  onTap: () => context.push('/smart-notes-hub'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  key: const Key('home_tile_pro_suite'),
-                                  icon: Icons.workspace_premium_rounded,
-                                  label: 'Tiện ích Pro 0₫',
-                                  tone: LifeOsAccentTone.blue,
-                                  onTap: () => context.push('/pro-utilities'),
-                                ),
-                                LifeOsFeatureGridTile(
-                                  key: const Key('home_tile_all_services'),
-                                  icon: Icons.grid_view_rounded,
-                                  label: 'Siêu App 360°',
-                                  tone: LifeOsAccentTone.emerald,
-                                  onTap: () => context.push('/super-app-hub'),
-                                ),
-                              ],
-                            ),
                             const SizedBox(height: 10),
 
-                            // 5. Voice Sentence Split AI & 4 Android Home Screen Widgets Quick Card
-                            LifeOsMintHeroCard(
-                              key: const Key('open_home_widgets_studio_card'),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              onTap: () => context.push('/home-widgets'),
-                              child: Row(
+                            // 4. Clean 4×2 Quick Launcher Dock inside ONE Card (replaces 15 sprawling tiles!)
+                            LifeOsSoftCard(
+                              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const LifeOsIconSquircle(
-                                    icon: Icons.widgets_outlined,
-                                    tone: LifeOsAccentTone.emerald,
-                                    solidFill: true,
-                                    size: 40,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          'Tự động Cập nhật & 4 Widget Màn Hình Chính',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 13.8,
-                                            color: c.textPrimary,
+                                        Expanded(
+                                          child: Text(
+                                            'Tiện ích thường dùng',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: c.textPrimary,
+                                            ),
                                           ),
                                         ),
-                                        Text(
-                                          'Bắt số dư tự động · Ghim 4 Widget · Nói câu chia tiền AI',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: c.textSecondary,
+                                        InkWell(
+                                          key: const Key('open_super_app_directory_btn'),
+                                          borderRadius: BorderRadius.circular(12),
+                                          onTap: () => context.push('/super-app-hub'),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  'Tất cả 21+',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: c.primary,
+                                                  ),
+                                                ),
+                                                Icon(
+                                                  Icons.chevron_right_rounded,
+                                                  size: 16,
+                                                  color: c.primary,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  IconButton.filled(
-                                    visualDensity: VisualDensity.compact,
-                                    tooltip: 'Nói câu chia tiền bằng Giọng nói AI',
-                                    onPressed: () => showVoiceSmartCaptureSheet(
-                                      context,
-                                      autoStartListening: true,
+                                  const SizedBox(height: 6),
+                                  GridView.count(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    crossAxisCount: 4,
+                                    mainAxisSpacing: 4,
+                                    crossAxisSpacing: 4,
+                                    childAspectRatio: 1.05,
+                                    children: [
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.calendar_today_rounded,
+                                        label: 'Lịch',
+                                        tone: LifeOsAccentTone.emerald,
+                                        onTap: () => context.go('/planning'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.payments_outlined,
+                                        label: 'Chi tiêu',
+                                        tone: LifeOsAccentTone.emerald,
+                                        onTap: () => context.go('/finance'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.groups_outlined,
+                                        label: 'Tổ ấm & Nhóm',
+                                        tone: LifeOsAccentTone.emerald,
+                                        onTap: () => context.go('/family'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.favorite_outline_rounded,
+                                        label: 'Sức khỏe',
+                                        key: const Key('home_tile_health'),
+                                        tone: LifeOsAccentTone.coral,
+                                        onTap: () => context.push('/health-hub'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.shopping_basket_outlined,
+                                        label: 'Bếp & Đi chợ',
+                                        key: const Key('home_tile_kitchen'),
+                                        tone: LifeOsAccentTone.emerald,
+                                        onTap: () => context.push('/kitchen-groceries'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.electric_bolt_rounded,
+                                        label: 'Điện EVN',
+                                        key: const Key('home_tile_evn'),
+                                        tone: LifeOsAccentTone.amber,
+                                        onTap: () => context.push('/home-living'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.folder_open_rounded,
+                                        label: 'Tài liệu',
+                                        tone: LifeOsAccentTone.amber,
+                                        onTap: () => context.push('/family-documents'),
+                                      ),
+                                      LifeOsCompactDockItem(
+                                        icon: Icons.settings_outlined,
+                                        label: 'Cài đặt',
+                                        tone: LifeOsAccentTone.neutral,
+                                        onTap: () => context.push('/settings-hub'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // 5. Compact 2-Column Ecosystem Strip (Pro 0₫ | Kho 21+ Dịch vụ & Giọng nói AI)
+                            IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: LifeOsSoftCard(
+                                      key: const Key('open_pro_utilities_hub_card'),
+                                      padding: const EdgeInsets.all(11),
+                                      onTap: () => context.push('/pro-utilities'),
+                                      child: Row(
+                                        children: [
+                                          const LifeOsIconSquircle(
+                                            icon: Icons.workspace_premium_rounded,
+                                            tone: LifeOsAccentTone.blue,
+                                            size: 36,
+                                            iconSize: 19,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  'Tiện ích Pro 0₫',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 12.8,
+                                                    color: c.textPrimary,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Bill AI · Lãi vay · Hiếu hỷ',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: c.textSecondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    icon: const Icon(Icons.mic_rounded, size: 18),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: LifeOsMintHeroCard(
+                                      key: const Key('home_tile_all_services'),
+                                      padding: const EdgeInsets.all(11),
+                                      onTap: () => context.push('/super-app-hub'),
+                                      child: Row(
+                                        children: [
+                                          const LifeOsIconSquircle(
+                                            icon: Icons.apps_rounded,
+                                            tone: LifeOsAccentTone.emerald,
+                                            solidFill: true,
+                                            size: 36,
+                                            iconSize: 19,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  'Kho Dịch vụ 360°',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 12.8,
+                                                    color: c.textPrimary,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Ghi chú · Lương · Widget',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: c.textSecondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          InkWell(
+                                            borderRadius: BorderRadius.circular(16),
+                                            onTap: () => showVoiceSmartCaptureSheet(
+                                              context,
+                                              autoStartListening: true,
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(4),
+                                              child: Icon(
+                                                Icons.mic_rounded,
+                                                size: 18,
+                                                color: c.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -810,13 +802,13 @@ class _MiniScheduleBarItem extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 3.5,
+            width: 3,
             decoration: BoxDecoration(
               color: barColor,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -826,7 +818,7 @@ class _MiniScheduleBarItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12.8,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: c.textPrimary,
                   ),
@@ -835,7 +827,7 @@ class _MiniScheduleBarItem extends StatelessWidget {
                   time,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: c.textSecondary),
+                  style: TextStyle(fontSize: 10.8, color: c.textSecondary),
                 ),
               ],
             ),

@@ -4,27 +4,37 @@ import 'app_spacing.dart';
 import 'app_typography.dart';
 
 abstract final class AppTheme {
-  static ThemeData light({bool highContrast = false}) {
+  static ThemeData light({
+    bool highContrast = false,
+    bool compactDensity = true,
+  }) {
     final c = highContrast
         ? TammySemanticColors.light.copyWith(
             primary: const Color(0xFF0B8A33),
             border: const Color(0xFF344054),
           )
         : TammySemanticColors.light;
-    return _build(Brightness.light, c);
+    return _build(Brightness.light, c, compactDensity: compactDensity);
   }
 
-  static ThemeData dark({bool highContrast = false}) {
+  static ThemeData dark({
+    bool highContrast = false,
+    bool compactDensity = true,
+  }) {
     final c = highContrast
         ? TammySemanticColors.dark.copyWith(
             surface: const Color(0xFF101512),
             border: const Color(0xFFA0AEB6),
           )
         : TammySemanticColors.dark;
-    return _build(Brightness.dark, c);
+    return _build(Brightness.dark, c, compactDensity: compactDensity);
   }
 
-  static ThemeData _build(Brightness brightness, TammySemanticColors c) {
+  static ThemeData _build(
+    Brightness brightness,
+    TammySemanticColors c, {
+    bool compactDensity = true,
+  }) {
     final isDark = brightness == Brightness.dark;
     final colorScheme = ColorScheme(
       brightness: brightness,
@@ -45,6 +55,8 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      visualDensity:
+          compactDensity ? const VisualDensity(horizontal: -1, vertical: -1) : VisualDensity.standard,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: c.background,
       textTheme: AppTypography.buildTextTheme(c),
