@@ -67,7 +67,7 @@ final class SupportedVnBank {
   });
 }
 
-/// Bank capability matrix aligned with SePay_LifeOS_Blueprint_2026.md Section 3 & 4.2.
+/// Native LifeOS Vietnamese Bank & E-Wallet Notification Capability Matrix (18 supported apps + SMS).
 const List<SupportedVnBank> kSupportedVnBanks = [
   SupportedVnBank(
     packageName: 'com.VCB',
@@ -75,7 +75,7 @@ const List<SupportedVnBank> kSupportedVnBanks = [
     displayName: 'Vietcombank',
     supportsCredit: true,
     supportsDebit: true,
-    supportsVerifiedBalance: false,
+    supportsVerifiedBalance: true,
   ),
   SupportedVnBank(
     packageName: 'com.techcombank.bb.app',
@@ -83,15 +83,15 @@ const List<SupportedVnBank> kSupportedVnBanks = [
     displayName: 'Techcombank',
     supportsCredit: true,
     supportsDebit: true,
-    supportsVerifiedBalance: false,
+    supportsVerifiedBalance: true,
   ),
   SupportedVnBank(
     packageName: 'com.mbmobile',
     bankCode: 'MB',
-    displayName: 'MBBank',
+    displayName: 'MB Bank',
     supportsCredit: true,
     supportsDebit: true,
-    supportsVerifiedBalance: false,
+    supportsVerifiedBalance: true,
   ),
   SupportedVnBank(
     packageName: 'mobile.acb.com.vn',
@@ -99,7 +99,7 @@ const List<SupportedVnBank> kSupportedVnBanks = [
     displayName: 'ACB One',
     supportsCredit: true,
     supportsDebit: true,
-    supportsVerifiedBalance: false,
+    supportsVerifiedBalance: true,
   ),
   SupportedVnBank(
     packageName: 'com.vietinbank.ipay',
@@ -122,16 +122,96 @@ const List<SupportedVnBank> kSupportedVnBanks = [
     bankCode: 'BIDV',
     displayName: 'BIDV SmartBanking',
     supportsCredit: true,
-    supportsDebit: false,
-    supportsVerifiedBalance: false,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
   ),
   SupportedVnBank(
     packageName: 'com.vnpay.vpbankonline',
     bankCode: 'VPB',
     displayName: 'VPBank NEO',
     supportsCredit: true,
-    supportsDebit: false,
-    supportsVerifiedBalance: false,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'com.sacombank.ewallet',
+    bankCode: 'STB',
+    displayName: 'Sacombank Pay',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'com.vn.vib.mobileapp',
+    bankCode: 'VIB',
+    displayName: 'MyVIB',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'vn.com.msb.smartbanking',
+    bankCode: 'MSB',
+    displayName: 'MSB mBank',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'com.vnpay.hdbank',
+    bankCode: 'HDB',
+    displayName: 'HDBank',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'vn.com.ocb.awe',
+    bankCode: 'OCB',
+    displayName: 'OCB OMNI',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'xyz.be.cake',
+    bankCode: 'CAKE',
+    displayName: 'Cake by VPBank',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'io.lifestyle.timo',
+    bankCode: 'TIMO',
+    displayName: 'Timo Digital Bank',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'com.mservice.momotransfer',
+    bankCode: 'MOMO',
+    displayName: 'Ví MoMo',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'vn.com.vng.zalopay',
+    bankCode: 'ZALOPAY',
+    displayName: 'ZaloPay',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'com.google.android.apps.messaging',
+    bankCode: 'SMS',
+    displayName: 'SMS Ngân hàng',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
   ),
 ];
 
@@ -147,8 +227,14 @@ final class ParsedBankSignal {
   final String crossSourceFingerprint;
   final DateTime occurredAt;
 
-  /// Per SePay Blueprint T15: accumulated=0 from IPN/alert NEVER implies 0 VND account balance!
+  /// Observed post-transaction account balance parsed from `SD:` / `Số dư:` (`> 0` only).
   final int? observedBalanceMinor;
+
+  /// Last 2–4 digits of the bank account parsed from `TK 1029***88` / `STK ***8686` for multi-wallet routing.
+  final String? accountTail;
+
+  /// Extracted LifeOS QR / Group Split payment reference code (e.g. `LO482910`, `SPLIT...`) for instant auto-reconciliation!
+  final String? matchedPaymentCode;
 
   const ParsedBankSignal({
     required this.amountMinor,
@@ -162,6 +248,8 @@ final class ParsedBankSignal {
     required this.crossSourceFingerprint,
     required this.occurredAt,
     this.observedBalanceMinor,
+    this.accountTail,
+    this.matchedPaymentCode,
   });
 }
 
@@ -245,16 +333,22 @@ abstract final class BankNotificationParser {
     return sha256.convert(utf8.encode('$source:$uniqueHint')).toString().substring(0, 36);
   }
 
-  /// Generates a deterministic SePay / VietQR-compatible transfer content reference.
-  /// Preserves the mandatory `SEVQR` prefix per SePay_LifeOS_Blueprint_2026.md Section 3 (VietinBank/Bank Hub).
-  static String buildSePayTransferCode({
+  /// Generates a deterministic native LifeOS / VietQR transfer reference code (e.g. `LIFEOS SPLIT8A1F20`).
+  static String buildLifeOsPaymentCode({
     required String scopePrefix,
     required String seed,
   }) {
     final cleanPrefix = scopePrefix.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     final digest = sha256.convert(utf8.encode('$cleanPrefix:$seed')).toString().toUpperCase();
-    return 'SEVQR LIFEOS $cleanPrefix${digest.substring(0, 6)}';
+    return 'LIFEOS $cleanPrefix${digest.substring(0, 6)}';
   }
+
+  /// Backward-compatible alias generating native LifeOS payment codes.
+  static String buildSePayTransferCode({
+    required String scopePrefix,
+    required String seed,
+  }) =>
+      buildLifeOsPaymentCode(scopePrefix: scopePrefix, seed: seed);
 
   static ({String category, bool isVehicleMaintenance}) inferCategory(
     String text,
@@ -407,6 +501,49 @@ abstract final class BankNotificationParser {
         .firstMatch(combined);
     final refCode = refMatch?.group(2) ?? refMatch?.group(1);
 
+    // Extract observed post-transaction account balance from `SD:` / `Số dư:` (`> 0` only)
+    int? observedBalanceMinor;
+    final balMatch = RegExp(
+      r'(?:\bSD(?:\s*kh[aả]\s*d[uụ]ng)?|\bS[oố]\s*d[uư](?:\s*cu[oố]i)?|\bBal)[:\s]+(\d{1,3}(?:[.,]\d{3})+(?:[.,]00)?|\d{4,15})(?:\s*(?:VND|VNĐ|đ|₫|d))?',
+      caseSensitive: false,
+    ).firstMatch(combined);
+    if (balMatch != null) {
+      final parsedBal = VndAmount.tryParseInput(balMatch.group(1) ?? '');
+      if (parsedBal != null && parsedBal > 0) {
+        observedBalanceMinor = parsedBal;
+      }
+    }
+
+    // Extract account tail (last 2–4 digits) from `TK 1029***88`, `TK •••• 6868`, or `STK 00710008868`
+    String? accountTail;
+    final accMatch = RegExp(
+      r'\b(?:TK|STK|T[aà]i\s*kho[aả]n)[:\s]+([0-9*xX.•\s-]{4,24}?)(?=\s+(?:GD|PS|SD|ND|\+|-|\d{1,2}[/-])|[.,;]|$)',
+      caseSensitive: false,
+    ).firstMatch(combined);
+    if (accMatch != null) {
+      final token = accMatch.group(1)!.trim();
+      final trailingDigits = RegExp(r'(\d{2,4})$').firstMatch(token);
+      accountTail = trailingDigits?.group(1);
+    }
+
+    // Extract native LifeOS QR / Group Split payment code (`LO482910`, `LIFEOS SPLIT8A1F20`, etc.)
+    String? matchedPaymentCode;
+    final lifeOsSplitMatch = RegExp(
+      r'\bLIFEOS\s+([A-Z0-9]{6,18})\b',
+      caseSensitive: false,
+    ).firstMatch(combined);
+    if (lifeOsSplitMatch != null) {
+      matchedPaymentCode = 'LIFEOS ${lifeOsSplitMatch.group(1)!.toUpperCase()}';
+    } else {
+      final shortOrderMatch = RegExp(
+        r'\b(LO[2-9A-HJ-NP-Z]{5,10})\b',
+        caseSensitive: false,
+      ).firstMatch(combined);
+      if (shortOrderMatch != null) {
+        matchedPaymentCode = shortOrderMatch.group(1)!.toUpperCase();
+      }
+    }
+
     final inferred = inferCategory(combined, direction);
     final uniqueHint = notificationId != null && notificationId.isNotEmpty
         ? '$packageName:$notificationId'
@@ -427,9 +564,12 @@ abstract final class BankNotificationParser {
           direction: direction,
           amountMinor: amountMinor,
           occurredAt: occurred,
-          referenceCode: refCode,
+          referenceCode: refCode ?? matchedPaymentCode,
         ),
         occurredAt: occurred,
+        observedBalanceMinor: observedBalanceMinor,
+        accountTail: accountTail,
+        matchedPaymentCode: matchedPaymentCode,
       ),
     );
   }

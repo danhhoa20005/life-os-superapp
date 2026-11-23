@@ -98,7 +98,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
         (
           category: 'bank',
           title: 'Giao dịch ngân hàng (Tự động)',
-          subtitle: 'Nhận diện biến động số dư tự động qua SePay & Thông báo Android',
+          subtitle: 'Tự động nhận diện tiền ra vào & gạch nợ mã QR',
           timeLabel: 'Mới đây',
           icon: Icons.account_balance_rounded,
           tone: LifeOsAccentTone.emerald,

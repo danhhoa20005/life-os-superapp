@@ -1715,9 +1715,9 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
           const SizedBox(height: 12),
           _BankMethodOptionTile(
             selected: _bankConnectMethod == 'sepay',
-            icon: Icons.link_rounded,
-            title: 'SePay Bank Hub',
-            subtitle: 'Đồng bộ qua API với ngân hàng và tài khoản được hỗ trợ.',
+            icon: Icons.qr_code_2_rounded,
+            title: 'Cổng QR Thu tiền & Tự gạch nợ',
+            subtitle: 'Tạo mã VietQR ngay trong ứng dụng và tự xác nhận khi tiền vào.',
             onTap: () => setState(() => _bankConnectMethod = 'sepay'),
           ),
           const SizedBox(height: 8),

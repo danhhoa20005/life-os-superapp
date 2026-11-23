@@ -159,7 +159,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                               ),
                                             ),
                                             Text(
-                                              'Tự bắt thông báo ngân hàng & đồng bộ SePay ngay cả khi đóng app',
+                                              'Tự bắt biến động số dư ngân hàng ngay cả khi đóng app',
                                               style: TextStyle(
                                                 fontSize: 11.8,
                                                 color: c.textSecondary,
@@ -266,7 +266,7 @@ class HomeWidgetsStudioPage extends StatelessWidget {
                                             Icons.cloud_sync_outlined,
                                             size: 17,
                                           ),
-                                          label: const Text('Cấu hình SePay'),
+                                          label: const Text('Cổng QR & Ngân hàng'),
                                         ),
                                       ),
                                     ],

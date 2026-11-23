@@ -32,15 +32,26 @@ class AndroidNotificationBridge {
   Future<void> syncConsentConfig({
     required bool enabled,
     required List<String> allowedPackages,
+    bool? voiceSoundboxEnabled,
   }) async {
     if (!isSupportedPlatform) return;
     try {
       await _methodChannel.invokeMethod<void>('updateConfig', {
         'enabled': enabled,
         'allowedPackages': allowedPackages,
+        if (voiceSoundboxEnabled != null) 'voiceSoundboxEnabled': voiceSoundboxEnabled,
       });
     } catch (_) {
       // Safe no-op in headless unit tests without ServicesBinding
+    }
+  }
+
+  Future<void> speakSoundboxAnnouncement(String message) async {
+    if (!isSupportedPlatform || !_hasServicesBinding) return;
+    try {
+      await _methodChannel.invokeMethod<bool>('speakSoundbox', {'message': message});
+    } catch (_) {
+      // Safe no-op in headless unit tests
     }
   }
 

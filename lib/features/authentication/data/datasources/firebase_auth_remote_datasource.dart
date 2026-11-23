@@ -425,7 +425,7 @@ class FirebaseAuthRemoteDataSource {
         'name': 'Ngân hàng Thanh toán',
         'type': 'bank',
         'bankCode': 'NAPAS247',
-        'maskedAccount': 'SePay · Auto-Sync',
+        'maskedAccount': 'Tự động nhận diện',
         'balanceMinor': 0,
         'isEstimatedBalance': false,
         'createdAt': Timestamp.fromDate(now),

@@ -165,6 +165,15 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
+      // NATIVE IN-APP BANK RECEIVING ACCOUNTS & DYNAMIC VIETQR PAYMENT ORDERS
+      match /bank_accounts/{accountId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /payment_orders/{orderId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // PERSONAL DOCUMENT VAULT (Contracts, Vehicle Papers, Insurance, IDs)
       match /documents/{docId} {
         allow read: if isOwner(userId);

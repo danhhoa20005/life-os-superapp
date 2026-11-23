@@ -42,16 +42,27 @@ final class ConsentConfigUpdated extends NotificationIngestionEvent {
   final bool enabled;
   final List<String> allowedPackages;
   final bool? autoConfirmSignals;
+  final bool? voiceSoundboxEnabled;
+  final bool? syncObservedBalance;
 
   const ConsentConfigUpdated({
     required this.userId,
     required this.enabled,
     required this.allowedPackages,
     this.autoConfirmSignals,
+    this.voiceSoundboxEnabled,
+    this.syncObservedBalance,
   });
 
   @override
-  List<Object?> get props => [userId, enabled, allowedPackages, autoConfirmSignals];
+  List<Object?> get props => [
+        userId,
+        enabled,
+        allowedPackages,
+        autoConfirmSignals,
+        voiceSoundboxEnabled,
+        syncObservedBalance,
+      ];
 }
 
 final class BankNotificationSignalReceived extends NotificationIngestionEvent {
@@ -85,19 +96,114 @@ final class BankNotificationSignalReceived extends NotificationIngestionEvent {
       ];
 }
 
-final class SePayLiveSyncSubmitted extends NotificationIngestionEvent {
+final class LinkedBankAccountSaved extends NotificationIngestionEvent {
   final String userId;
   final String walletId;
-  final String? apiTokenOverride;
+  final String bankBin;
+  final String bankCode;
+  final String bankName;
+  final String accountNumber;
+  final String accountHolderName;
+  final bool isDefault;
 
-  const SePayLiveSyncSubmitted({
+  const LinkedBankAccountSaved({
     required this.userId,
     required this.walletId,
-    this.apiTokenOverride,
+    required this.bankBin,
+    required this.bankCode,
+    required this.bankName,
+    required this.accountNumber,
+    required this.accountHolderName,
+    this.isDefault = true,
   });
 
   @override
-  List<Object?> get props => [userId, walletId, apiTokenOverride];
+  List<Object?> get props => [
+        userId,
+        walletId,
+        bankBin,
+        bankCode,
+        bankName,
+        accountNumber,
+        accountHolderName,
+        isDefault,
+      ];
+}
+
+final class LinkedBankAccountDeleted extends NotificationIngestionEvent {
+  final String userId;
+  final String accountId;
+
+  const LinkedBankAccountDeleted({
+    required this.userId,
+    required this.accountId,
+  });
+
+  @override
+  List<Object?> get props => [userId, accountId];
+}
+
+final class PaymentOrderCreated extends NotificationIngestionEvent {
+  final String userId;
+  final String walletId;
+  final String bankBin;
+  final String bankCode;
+  final String bankName;
+  final String accountNumber;
+  final String accountHolderName;
+  final int amountMinor;
+  final String description;
+
+  const PaymentOrderCreated({
+    required this.userId,
+    required this.walletId,
+    required this.bankBin,
+    required this.bankCode,
+    required this.bankName,
+    required this.accountNumber,
+    required this.accountHolderName,
+    required this.amountMinor,
+    required this.description,
+  });
+
+  @override
+  List<Object?> get props => [
+        userId,
+        walletId,
+        bankBin,
+        bankCode,
+        bankName,
+        accountNumber,
+        accountHolderName,
+        amountMinor,
+        description,
+      ];
+}
+
+final class PaymentOrderStatusMarked extends NotificationIngestionEvent {
+  final String userId;
+  final String orderId;
+  final PaymentOrderStatus status;
+
+  const PaymentOrderStatusMarked({
+    required this.userId,
+    required this.orderId,
+    required this.status,
+  });
+
+  @override
+  List<Object?> get props => [userId, orderId, status];
+}
+
+final class SoundboxTestRequested extends NotificationIngestionEvent {
+  final String message;
+
+  const SoundboxTestRequested({
+    this.message = 'Đã nhận 250.000 đồng vào tài khoản',
+  });
+
+  @override
+  List<Object?> get props => [message];
 }
 
 final class CsvStatementImportSubmitted extends NotificationIngestionEvent {
@@ -131,12 +237,30 @@ final class AccountDeletionConfirmed extends NotificationIngestionEvent {
   List<Object?> get props => [userId];
 }
 
+final class _LinkedBankAccountsUpdated extends NotificationIngestionEvent {
+  final List<LinkedBankAccountEntity> accounts;
+  const _LinkedBankAccountsUpdated(this.accounts);
+
+  @override
+  List<Object?> get props => [accounts];
+}
+
+final class _PaymentOrdersUpdated extends NotificationIngestionEvent {
+  final List<PaymentOrderEntity> orders;
+  const _PaymentOrdersUpdated(this.orders);
+
+  @override
+  List<Object?> get props => [orders];
+}
+
 final class NotificationIngestionState extends Equatable {
   final bool isLoading;
-  final bool isSyncingSePay;
+  final bool isSubmittingOrder;
   final bool isNativePermissionGranted;
-  final String? savedSePayMaskedToken;
   final SourceConsentEntity? consent;
+  final List<LinkedBankAccountEntity> linkedBankAccounts;
+  final List<PaymentOrderEntity> paymentOrders;
+  final PaymentOrderEntity? latestCreatedOrder;
   final IngestionOutcome? lastOutcome;
   final String? infoMessage;
   final String? exportedJson;
@@ -145,10 +269,12 @@ final class NotificationIngestionState extends Equatable {
 
   const NotificationIngestionState({
     this.isLoading = false,
-    this.isSyncingSePay = false,
+    this.isSubmittingOrder = false,
     this.isNativePermissionGranted = false,
-    this.savedSePayMaskedToken,
     this.consent,
+    this.linkedBankAccounts = const <LinkedBankAccountEntity>[],
+    this.paymentOrders = const <PaymentOrderEntity>[],
+    this.latestCreatedOrder,
     this.lastOutcome,
     this.infoMessage,
     this.exportedJson,
@@ -156,12 +282,19 @@ final class NotificationIngestionState extends Equatable {
     this.failure,
   });
 
+  LinkedBankAccountEntity? get defaultBankAccount =>
+      linkedBankAccounts.where((a) => a.isDefault).firstOrNull ??
+      linkedBankAccounts.firstOrNull;
+
   NotificationIngestionState copyWith({
     bool? isLoading,
-    bool? isSyncingSePay,
+    bool? isSubmittingOrder,
     bool? isNativePermissionGranted,
-    String? savedSePayMaskedToken,
     SourceConsentEntity? consent,
+    List<LinkedBankAccountEntity>? linkedBankAccounts,
+    List<PaymentOrderEntity>? paymentOrders,
+    PaymentOrderEntity? latestCreatedOrder,
+    bool clearLatestCreatedOrder = false,
     IngestionOutcome? lastOutcome,
     String? infoMessage,
     String? exportedJson,
@@ -171,10 +304,14 @@ final class NotificationIngestionState extends Equatable {
   }) {
     return NotificationIngestionState(
       isLoading: isLoading ?? this.isLoading,
-      isSyncingSePay: isSyncingSePay ?? this.isSyncingSePay,
+      isSubmittingOrder: isSubmittingOrder ?? this.isSubmittingOrder,
       isNativePermissionGranted: isNativePermissionGranted ?? this.isNativePermissionGranted,
-      savedSePayMaskedToken: savedSePayMaskedToken ?? this.savedSePayMaskedToken,
       consent: consent ?? this.consent,
+      linkedBankAccounts: linkedBankAccounts ?? this.linkedBankAccounts,
+      paymentOrders: paymentOrders ?? this.paymentOrders,
+      latestCreatedOrder: clearLatestCreatedOrder
+          ? null
+          : (latestCreatedOrder ?? this.latestCreatedOrder),
       lastOutcome: lastOutcome ?? this.lastOutcome,
       infoMessage: infoMessage ?? this.infoMessage,
       exportedJson: exportedJson ?? this.exportedJson,
@@ -186,10 +323,12 @@ final class NotificationIngestionState extends Equatable {
   @override
   List<Object?> get props => [
         isLoading,
-        isSyncingSePay,
+        isSubmittingOrder,
         isNativePermissionGranted,
-        savedSePayMaskedToken,
         consent,
+        linkedBankAccounts,
+        paymentOrders,
+        latestCreatedOrder,
         lastOutcome,
         infoMessage,
         exportedJson,
@@ -202,6 +341,8 @@ class NotificationIngestionBloc
     extends Bloc<NotificationIngestionEvent, NotificationIngestionState> {
   final NotificationsRepository _repository;
   StreamSubscription<Map<String, dynamic>>? _nativeSignalsSub;
+  StreamSubscription<Result<List<LinkedBankAccountEntity>>>? _bankAccountsSub;
+  StreamSubscription<Result<List<PaymentOrderEntity>>>? _ordersSub;
 
   NotificationIngestionBloc({required NotificationsRepository repository})
       : _repository = repository,
@@ -214,7 +355,13 @@ class NotificationIngestionBloc
     );
     on<ConsentConfigUpdated>(_onConsentUpdated, transformer: sequential());
     on<BankNotificationSignalReceived>(_onSignalReceived, transformer: sequential());
-    on<SePayLiveSyncSubmitted>(_onSePaySynced, transformer: droppable());
+    on<LinkedBankAccountSaved>(_onBankAccountSaved, transformer: sequential());
+    on<LinkedBankAccountDeleted>(_onBankAccountDeleted, transformer: sequential());
+    on<PaymentOrderCreated>(_onPaymentOrderCreated, transformer: sequential());
+    on<PaymentOrderStatusMarked>(_onPaymentOrderStatusMarked, transformer: sequential());
+    on<SoundboxTestRequested>(_onSoundboxTest, transformer: droppable());
+    on<_LinkedBankAccountsUpdated>(_onBankAccountsUpdated);
+    on<_PaymentOrdersUpdated>(_onOrdersUpdated);
     on<CsvStatementImportSubmitted>(_onCsvImported, transformer: sequential());
     on<PersonalDataExportRequested>(_onExportRequested, transformer: droppable());
     on<AccountDeletionConfirmed>(_onAccountDeletionConfirmed, transformer: sequential());
@@ -226,14 +373,17 @@ class NotificationIngestionBloc
   ) async {
     emit(state.copyWith(isLoading: true, clearFailure: true));
     final permGranted = await _repository.isNativeNotificationAccessGranted();
-    final maskedTokenRes = await _repository.getSavedSePayMaskedToken(event.userId);
-    final maskedToken = maskedTokenRes.fold((_) => null, (v) => v);
-    emit(
-      state.copyWith(
-        isNativePermissionGranted: permGranted,
-        savedSePayMaskedToken: maskedToken,
-      ),
-    );
+    emit(state.copyWith(isNativePermissionGranted: permGranted));
+
+    await _bankAccountsSub?.cancel();
+    _bankAccountsSub = _repository.watchLinkedBankAccounts(event.userId).listen((res) {
+      res.fold((_) {}, (list) => add(_LinkedBankAccountsUpdated(list)));
+    });
+
+    await _ordersSub?.cancel();
+    _ordersSub = _repository.watchPaymentOrders(event.userId).listen((res) {
+      res.fold((_) {}, (list) => add(_PaymentOrdersUpdated(list)));
+    });
 
     await _nativeSignalsSub?.cancel();
     _nativeSignalsSub = _repository.watchLiveAndroidBankSignals().listen((payload) {
@@ -256,7 +406,7 @@ class NotificationIngestionBloc
       );
     });
 
-    // Drain any notifications captured by Android OS while Life OS was closed in background!
+    // Drain any notifications captured by Android OS while LifeOS was closed in background!
     final queued = await _repository.drainQueuedAndroidBankSignals();
     for (final payload in queued) {
       final pkg = (payload['packageName'] ?? '').toString().trim();
@@ -278,16 +428,6 @@ class NotificationIngestionBloc
       );
     }
 
-    // Zero-touch automatic SePay background reconciliation when user has linked a token
-    if (maskedToken != null) {
-      add(
-        SePayLiveSyncSubmitted(
-          userId: event.userId,
-          walletId: event.defaultWalletId,
-        ),
-      );
-    }
-
     await emit.forEach<Result<SourceConsentEntity>>(
       _repository.watchAndroidNotificationConsent(event.userId),
       onData: (res) => res.fold(
@@ -295,6 +435,20 @@ class NotificationIngestionBloc
         (c) => state.copyWith(isLoading: false, consent: c, clearFailure: true),
       ),
     );
+  }
+
+  void _onBankAccountsUpdated(
+    _LinkedBankAccountsUpdated event,
+    Emitter<NotificationIngestionState> emit,
+  ) {
+    emit(state.copyWith(linkedBankAccounts: event.accounts));
+  }
+
+  void _onOrdersUpdated(
+    _PaymentOrdersUpdated event,
+    Emitter<NotificationIngestionState> emit,
+  ) {
+    emit(state.copyWith(paymentOrders: event.orders));
   }
 
   Future<void> _onNativePermRefreshed(
@@ -321,6 +475,8 @@ class NotificationIngestionBloc
       enabled: event.enabled,
       allowedPackages: event.allowedPackages,
       autoConfirmSignals: event.autoConfirmSignals,
+      voiceSoundboxEnabled: event.voiceSoundboxEnabled,
+      syncObservedBalance: event.syncObservedBalance,
     );
     res.fold((f) => emit(state.copyWith(failure: f)), (_) {});
   }
@@ -340,39 +496,115 @@ class NotificationIngestionBloc
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (outcome) => emit(state.copyWith(lastOutcome: outcome, clearFailure: true)),
+      (outcome) => emit(
+        state.copyWith(
+          lastOutcome: outcome,
+          infoMessage: outcome.kind == IngestionOutcomeKind.autoReconciledOrder
+              ? outcome.message
+              : state.infoMessage,
+          clearFailure: true,
+        ),
+      ),
     );
   }
 
-  Future<void> _onSePaySynced(
-    SePayLiveSyncSubmitted event,
+  Future<void> _onBankAccountSaved(
+    LinkedBankAccountSaved event,
     Emitter<NotificationIngestionState> emit,
   ) async {
-    emit(state.copyWith(isSyncingSePay: true, clearFailure: true));
-    final res = await _repository.syncSePayTransactions(
+    final res = await _repository.saveLinkedBankAccount(
       userId: event.userId,
       walletId: event.walletId,
-      apiTokenOverride: event.apiTokenOverride,
+      bankBin: event.bankBin,
+      bankCode: event.bankCode,
+      bankName: event.bankName,
+      accountNumber: event.accountNumber,
+      accountHolderName: event.accountHolderName,
+      isDefault: event.isDefault,
     );
-    final refreshedMaskRes = await _repository.getSavedSePayMaskedToken(event.userId);
-    final refreshedMask = refreshedMaskRes.fold((_) => state.savedSePayMaskedToken, (v) => v);
     res.fold(
-      (f) => emit(
+      (f) => emit(state.copyWith(failure: f)),
+      (acc) => emit(
         state.copyWith(
-          isSyncingSePay: false,
-          savedSePayMaskedToken: refreshedMask,
-          failure: f,
-        ),
-      ),
-      (count) => emit(
-        state.copyWith(
-          isSyncingSePay: false,
-          savedSePayMaskedToken: refreshedMask,
-          infoMessage: count > 0
-              ? 'Đã đồng bộ xác thực $count giao dịch mới trực tiếp từ SePay!'
-              : 'Sổ cái đã đồng bộ mới nhất với SePay (0 giao dịch mới).',
+          infoMessage: 'Đã lưu tài khoản nhận tiền ${acc.bankName} (${acc.maskedAccount}).',
           clearFailure: true,
         ),
+      ),
+    );
+  }
+
+  Future<void> _onBankAccountDeleted(
+    LinkedBankAccountDeleted event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    final res = await _repository.deleteLinkedBankAccount(
+      userId: event.userId,
+      accountId: event.accountId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(state.copyWith(infoMessage: 'Đã gỡ tài khoản ngân hàng.', clearFailure: true)),
+    );
+  }
+
+  Future<void> _onPaymentOrderCreated(
+    PaymentOrderCreated event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    emit(state.copyWith(isSubmittingOrder: true, clearFailure: true));
+    final res = await _repository.createPaymentOrder(
+      userId: event.userId,
+      walletId: event.walletId,
+      bankBin: event.bankBin,
+      bankCode: event.bankCode,
+      bankName: event.bankName,
+      accountNumber: event.accountNumber,
+      accountHolderName: event.accountHolderName,
+      amountMinor: event.amountMinor,
+      description: event.description,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(isSubmittingOrder: false, failure: f)),
+      (order) => emit(
+        state.copyWith(
+          isSubmittingOrder: false,
+          latestCreatedOrder: order,
+          infoMessage: 'Đã tạo mã QR thu tiền ${order.paymentCode}!',
+          clearFailure: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onPaymentOrderStatusMarked(
+    PaymentOrderStatusMarked event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    final res = await _repository.markPaymentOrderStatus(
+      userId: event.userId,
+      orderId: event.orderId,
+      status: event.status,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          infoMessage: 'Đã cập nhật trạng thái lệnh thu tiền.',
+          clearFailure: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onSoundboxTest(
+    SoundboxTestRequested event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    await _repository.speakSoundboxTest(event.message);
+    emit(
+      state.copyWith(
+        infoMessage: 'Đang phát thử giọng đọc loa báo tiền về.',
+        clearFailure: true,
       ),
     );
   }
@@ -390,8 +622,7 @@ class NotificationIngestionBloc
       (f) => emit(state.copyWith(failure: f)),
       (count) => emit(
         state.copyWith(
-          infoMessage:
-              'Đã nhập thành công $count giao dịch mới từ sao kê CSV (bỏ qua dòng trùng lặp).',
+          infoMessage: 'Đã nhập $count giao dịch từ sao kê CSV.',
           clearFailure: true,
         ),
       ),
@@ -405,7 +636,13 @@ class NotificationIngestionBloc
     final res = await _repository.exportPersonalDataJson(event.userId);
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (jsonStr) => emit(state.copyWith(exportedJson: jsonStr, clearFailure: true)),
+      (jsonStr) => emit(
+        state.copyWith(
+          exportedJson: jsonStr,
+          infoMessage: 'Đã tạo bản sao lưu dữ liệu cá nhân.',
+          clearFailure: true,
+        ),
+      ),
     );
   }
 
@@ -423,6 +660,8 @@ class NotificationIngestionBloc
   @override
   Future<void> close() async {
     await _nativeSignalsSub?.cancel();
+    await _bankAccountsSub?.cancel();
+    await _ordersSub?.cancel();
     return super.close();
   }
 }

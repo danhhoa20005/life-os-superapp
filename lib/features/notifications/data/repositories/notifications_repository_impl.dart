@@ -9,30 +9,30 @@ import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
+import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../domain/entities/notification_entities.dart';
 import '../../domain/repositories/notifications_repository.dart';
-import '../datasources/sepay_api_datasource.dart';
 
 class NotificationsRemoteDataSource {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _firebaseAuth;
   final AndroidNotificationBridge _bridge;
-  final SePayApiDataSource _sePayApi;
 
   NotificationsRemoteDataSource({
     required FirebaseFirestore firestore,
     required FirebaseAuth firebaseAuth,
     required AndroidNotificationBridge bridge,
-    SePayApiDataSource? sePayApi,
   })  : _firestore = firestore,
         _firebaseAuth = firebaseAuth,
-        _bridge = bridge,
-        _sePayApi = sePayApi ?? SePayApiDataSource();
+        _bridge = bridge;
 
   Future<bool> isNativePermissionGranted() => _bridge.isNotificationAccessGranted();
 
   Future<void> openNativePermissionSettings() => _bridge.openNotificationAccessSettings();
+
+  Future<void> speakSoundboxTest(String message) =>
+      _bridge.speakSoundboxAnnouncement(message);
 
   Stream<Map<String, dynamic>> watchLiveNativeSignals() =>
       _bridge.watchIncomingBankNotifications();
@@ -40,126 +40,14 @@ class NotificationsRemoteDataSource {
   Future<List<Map<String, dynamic>>> drainQueuedNativeSignals() =>
       _bridge.drainQueuedBackgroundNotifications();
 
-  DocumentReference<Map<String, dynamic>> _sePayConfigRef(String userId) =>
-      _firestore.collection('users').doc(userId).collection('consents').doc('sepay_api');
-
-  static String _sePayVaultKey(String userId) => 'sepay_api_token_$userId';
-
-  static String _maskSecretToken(String token) {
-    final t = token.trim();
-    if (t.isEmpty) return '';
-    if (t.length <= 6) return '••••••';
-    return '••••••••••••${t.substring(t.length - 4)}';
-  }
-
-  Future<String?> getSavedSePayMaskedToken(String userId) async {
-    final vaultToken = await NativeSecureVaultBridge.instance.readSecret(_sePayVaultKey(userId));
-    if (vaultToken != null && vaultToken.trim().isNotEmpty) {
-      return _maskSecretToken(vaultToken);
-    }
-    final snap = await _sePayConfigRef(userId).get();
-    if (!snap.exists) return null;
-    final data = snap.data() ?? const <String, dynamic>{};
-    // Auto-migrate & scrub any legacy plaintext `apiToken` stored by older app versions
-    final legacyPlain = (data['apiToken'] as String?)?.trim() ?? '';
-    if (legacyPlain.isNotEmpty) {
-      await NativeSecureVaultBridge.instance.writeSecret(
-        key: _sePayVaultKey(userId),
-        value: legacyPlain,
-      );
-      final masked = _maskSecretToken(legacyPlain);
-      await _sePayConfigRef(userId).set(
-        {
-          'sourceId': 'sepay_api',
-          'ownerId': userId,
-          'hasTokenConfigured': true,
-          'maskedToken': masked,
-          'apiToken': FieldValue.delete(),
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        },
-        SetOptions(merge: true),
-      );
-      return masked;
-    }
-    final savedMasked = (data['maskedToken'] as String?)?.trim() ?? '';
-    return savedMasked.isEmpty ? null : savedMasked;
-  }
-
-  Future<int> syncSePayTransactions({
-    required String userId,
-    required String walletId,
-    String? apiTokenOverride,
-    int limit = 40,
-  }) async {
-    var resolvedToken = apiTokenOverride?.trim() ?? '';
-    if (resolvedToken.isNotEmpty) {
-      await NativeSecureVaultBridge.instance.writeSecret(
-        key: _sePayVaultKey(userId),
-        value: resolvedToken,
-      );
-      // Store ONLY non-sensitive masked status in Firestore (NEVER plaintext `apiToken`!)
-      await _sePayConfigRef(userId).set(
-        {
-          'sourceId': 'sepay_api',
-          'ownerId': userId,
-          'hasTokenConfigured': true,
-          'maskedToken': _maskSecretToken(resolvedToken),
-          'apiToken': FieldValue.delete(),
-          'defaultWalletId': walletId,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        },
-        SetOptions(merge: true),
-      );
-    } else {
-      resolvedToken =
-          (await NativeSecureVaultBridge.instance.readSecret(_sePayVaultKey(userId)))?.trim() ?? '';
-      if (resolvedToken.isEmpty) {
-        final snap = await _sePayConfigRef(userId).get();
-        final legacyPlain = (snap.data()?['apiToken'] as String?)?.trim() ?? '';
-        if (legacyPlain.isNotEmpty) {
-          resolvedToken = legacyPlain;
-          await NativeSecureVaultBridge.instance.writeSecret(
-            key: _sePayVaultKey(userId),
-            value: legacyPlain,
-          );
-          await _sePayConfigRef(userId).set(
-            {
-              'hasTokenConfigured': true,
-              'maskedToken': _maskSecretToken(legacyPlain),
-              'apiToken': FieldValue.delete(),
-            },
-            SetOptions(merge: true),
-          );
-        }
-      }
-    }
-
-    final remoteItems = await _sePayApi.fetchRecentTransactions(
-      apiToken: resolvedToken,
-      limit: limit,
-    );
-
-    var appliedCount = 0;
-    for (final item in remoteItems) {
-      final outcome = await ingestVerifiedBankFeedEvent(
-        userId: userId,
-        walletId: walletId,
-        externalTransactionId: item.externalId,
-        direction: item.direction,
-        amountMinor: item.amountMinor,
-        content: '${item.bankBrandName}: ${item.content}',
-        occurredAt: item.occurredAt,
-        referenceCode: item.referenceCode,
-      );
-      if (outcome.kind == IngestionOutcomeKind.upgradedToVerified) {
-        appliedCount += 1;
-      }
-    }
-    return appliedCount;
-  }
-
   DocumentReference<Map<String, dynamic>> _consentRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('consents').doc('android_notification');
+
+  CollectionReference<Map<String, dynamic>> _bankAccountsCol(String userId) =>
+      _firestore.collection('users').doc(userId).collection('bank_accounts');
+
+  CollectionReference<Map<String, dynamic>> _paymentOrdersCol(String userId) =>
+      _firestore.collection('users').doc(userId).collection('payment_orders');
 
   Stream<SourceConsentEntity> watchConsent(String userId) {
     return _consentRef(userId).snapshots().map((snap) {
@@ -173,6 +61,8 @@ class NotificationsRemoteDataSource {
         ownerId: userId,
         enabled: (d['enabled'] as bool?) ?? false,
         autoConfirmSignals: (d['autoConfirmSignals'] as bool?) ?? false,
+        voiceSoundboxEnabled: (d['voiceSoundboxEnabled'] as bool?) ?? false,
+        syncObservedBalance: (d['syncObservedBalance'] as bool?) ?? true,
         allowedPackages: pkgs,
         updatedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
       );
@@ -184,6 +74,8 @@ class NotificationsRemoteDataSource {
     required bool enabled,
     required List<String> allowedPackages,
     bool? autoConfirmSignals,
+    bool? voiceSoundboxEnabled,
+    bool? syncObservedBalance,
   }) async {
     final now = DateTime.now();
     final batch = _firestore.batch();
@@ -194,13 +86,15 @@ class NotificationsRemoteDataSource {
         'ownerId': userId,
         'enabled': enabled,
         if (autoConfirmSignals != null) 'autoConfirmSignals': autoConfirmSignals,
+        if (voiceSoundboxEnabled != null) 'voiceSoundboxEnabled': voiceSoundboxEnabled,
+        if (syncObservedBalance != null) 'syncObservedBalance': syncObservedBalance,
         'allowedPackages': allowedPackages,
         'updatedAt': Timestamp.fromDate(now),
       },
       SetOptions(merge: true),
     );
 
-    // Section 17 & T19: When consent is revoked, immediately stop listener & reject unconfirmed provisional items
+    // When consent is revoked, immediately stop listener & reject unconfirmed provisional items
     if (!enabled) {
       final provSnap = await _firestore
           .collection('users')
@@ -219,7 +113,248 @@ class NotificationsRemoteDataSource {
     }
 
     await batch.commit();
-    await _bridge.syncConsentConfig(enabled: enabled, allowedPackages: allowedPackages);
+    await _bridge.syncConsentConfig(
+      enabled: enabled,
+      allowedPackages: allowedPackages,
+      voiceSoundboxEnabled: voiceSoundboxEnabled,
+    );
+  }
+
+  LinkedBankAccountEntity _mapBankAccount(String id, Map<String, dynamic> d) {
+    final ts = d['createdAt'];
+    return LinkedBankAccountEntity(
+      id: id,
+      ownerId: (d['ownerId'] as String?) ?? '',
+      walletId: (d['walletId'] as String?) ?? 'wallet_bank_default',
+      bankBin: (d['bankBin'] as String?) ?? '970436',
+      bankCode: (d['bankCode'] as String?) ?? 'VCB',
+      bankName: (d['bankName'] as String?) ?? 'Vietcombank',
+      accountNumber: (d['accountNumber'] as String?) ?? '',
+      accountHolderName: (d['accountHolderName'] as String?) ?? '',
+      isDefault: (d['isDefault'] as bool?) ?? true,
+      createdAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
+    );
+  }
+
+  Stream<List<LinkedBankAccountEntity>> watchLinkedBankAccounts(String userId) {
+    return _bankAccountsCol(userId).snapshots().map((snap) {
+      final items = snap.docs.map((d) => _mapBankAccount(d.id, d.data())).toList()
+        ..sort((a, b) {
+          if (a.isDefault != b.isDefault) return a.isDefault ? -1 : 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+      return items;
+    });
+  }
+
+  Future<LinkedBankAccountEntity> saveLinkedBankAccount({
+    required String userId,
+    required String walletId,
+    required String bankBin,
+    required String bankCode,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    bool isDefault = true,
+  }) async {
+    final cleanAcc = accountNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').trim();
+    if (cleanAcc.length < 6) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Số tài khoản ngân hàng phải có ít nhất 6 ký tự.',
+      );
+    }
+    final cleanHolder = VietQrEmvBuilder.toBankSafeAscii(
+      accountHolderName.trim().isEmpty ? 'CHU TAI KHOAN' : accountHolderName,
+      maxLength: 50,
+    );
+    final now = DateTime.now();
+    final id = 'ba_${bankCode.toLowerCase()}_$cleanAcc';
+    final entity = LinkedBankAccountEntity(
+      id: id,
+      ownerId: userId,
+      walletId: walletId,
+      bankBin: bankBin,
+      bankCode: bankCode,
+      bankName: bankName,
+      accountNumber: cleanAcc,
+      accountHolderName: cleanHolder,
+      isDefault: isDefault,
+      createdAt: now,
+    );
+
+    final batch = _firestore.batch();
+    if (isDefault) {
+      final existing = await _bankAccountsCol(userId).get();
+      for (final doc in existing.docs) {
+        if (doc.id != id && (doc.data()['isDefault'] as bool? ?? false)) {
+          batch.update(doc.reference, {'isDefault': false});
+        }
+      }
+    }
+
+    batch.set(_bankAccountsCol(userId).doc(id), {
+      'id': id,
+      'ownerId': userId,
+      'walletId': walletId,
+      'bankBin': bankBin,
+      'bankCode': bankCode,
+      'bankName': bankName,
+      'accountNumber': cleanAcc,
+      'accountHolderName': cleanHolder,
+      'isDefault': isDefault,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    });
+
+    // Also enrich the linked Wallet's bankCode & maskedAccount (`•••• 1234`) if it exists
+    final walletRef = _firestore.collection('users').doc(userId).collection('wallets').doc(walletId);
+    final wSnap = await walletRef.get();
+    if (wSnap.exists) {
+      batch.update(walletRef, {
+        'bankCode': bankCode,
+        'maskedAccount': entity.maskedAccount,
+        'updatedAt': Timestamp.fromDate(now),
+      });
+    }
+
+    await batch.commit();
+    return entity;
+  }
+
+  Future<void> deleteLinkedBankAccount({
+    required String userId,
+    required String accountId,
+  }) async {
+    await _bankAccountsCol(userId).doc(accountId).delete();
+  }
+
+  PaymentOrderEntity _mapPaymentOrder(String id, Map<String, dynamic> d) {
+    final rawStatus = (d['status'] as String?) ?? 'pending';
+    final status = PaymentOrderStatus.values.firstWhere(
+      (s) => s.name == rawStatus,
+      orElse: () => PaymentOrderStatus.pending,
+    );
+    final cTs = d['createdAt'];
+    final pTs = d['paidAt'];
+    return PaymentOrderEntity(
+      id: id,
+      ownerId: (d['ownerId'] as String?) ?? '',
+      walletId: (d['walletId'] as String?) ?? 'wallet_bank_default',
+      bankBin: (d['bankBin'] as String?) ?? '970436',
+      bankCode: (d['bankCode'] as String?) ?? 'VCB',
+      bankName: (d['bankName'] as String?) ?? 'Vietcombank',
+      accountNumber: (d['accountNumber'] as String?) ?? '',
+      accountHolderName: (d['accountHolderName'] as String?) ?? '',
+      amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
+      receivedAmountMinor: (d['receivedAmountMinor'] as num?)?.toInt() ?? 0,
+      paymentCode: (d['paymentCode'] as String?) ?? '',
+      description: (d['description'] as String?) ?? '',
+      emvQrPayload: (d['emvQrPayload'] as String?) ?? '',
+      status: status,
+      matchedTransactionId: d['matchedTransactionId'] as String?,
+      createdAt: cTs is Timestamp ? cTs.toDate() : DateTime.now(),
+      paidAt: pTs is Timestamp ? pTs.toDate() : null,
+    );
+  }
+
+  Stream<List<PaymentOrderEntity>> watchPaymentOrders(String userId) {
+    return _paymentOrdersCol(userId).snapshots().map((snap) {
+      final list = snap.docs.map((d) => _mapPaymentOrder(d.id, d.data())).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
+  }
+
+  Future<PaymentOrderEntity> createPaymentOrder({
+    required String userId,
+    required String walletId,
+    required String bankBin,
+    required String bankCode,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    required int amountMinor,
+    required String description,
+  }) async {
+    if (amountMinor <= 0) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Số tiền cần thu phải lớn hơn 0 ₫.',
+      );
+    }
+    final cleanAcc = accountNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').trim();
+    if (cleanAcc.length < 6) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Vui lòng liên kết số tài khoản ngân hàng trước khi tạo mã QR.',
+      );
+    }
+    final now = DateTime.now();
+    final paymentCode = VietQrEmvBuilder.generatePaymentCode(prefix: 'LO');
+    final cleanDesc = description.trim().isEmpty ? 'Thu tien' : description.trim();
+    final memoWithCode = '$paymentCode ${VietQrEmvBuilder.toBankSafeAscii(cleanDesc, maxLength: 28)}'.trim();
+    final emvQr = VietQrEmvBuilder.buildNapas247Payload(
+      bankBin: bankBin,
+      accountNumber: cleanAcc,
+      amountVnd: amountMinor,
+      memo: memoWithCode,
+    );
+    final orderId = 'ord_${paymentCode.toLowerCase()}_${now.millisecondsSinceEpoch}';
+    final holder = VietQrEmvBuilder.toBankSafeAscii(
+      accountHolderName.trim().isEmpty ? 'CHU TAI KHOAN' : accountHolderName,
+    );
+
+    final entity = PaymentOrderEntity(
+      id: orderId,
+      ownerId: userId,
+      walletId: walletId,
+      bankBin: bankBin,
+      bankCode: bankCode,
+      bankName: bankName,
+      accountNumber: cleanAcc,
+      accountHolderName: holder,
+      amountMinor: amountMinor,
+      paymentCode: paymentCode,
+      description: cleanDesc,
+      emvQrPayload: emvQr,
+      status: PaymentOrderStatus.pending,
+      createdAt: now,
+    );
+
+    await _paymentOrdersCol(userId).doc(orderId).set({
+      'id': orderId,
+      'ownerId': userId,
+      'walletId': walletId,
+      'bankBin': bankBin,
+      'bankCode': bankCode,
+      'bankName': bankName,
+      'accountNumber': cleanAcc,
+      'accountHolderName': holder,
+      'amountMinor': amountMinor,
+      'receivedAmountMinor': 0,
+      'paymentCode': paymentCode,
+      'description': cleanDesc,
+      'emvQrPayload': emvQr,
+      'status': PaymentOrderStatus.pending.name,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    });
+
+    return entity;
+  }
+
+  Future<void> markPaymentOrderStatus({
+    required String userId,
+    required String orderId,
+    required PaymentOrderStatus status,
+  }) async {
+    final now = DateTime.now();
+    await _paymentOrdersCol(userId).doc(orderId).update({
+      'status': status.name,
+      if (status == PaymentOrderStatus.paid) 'paidAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    });
   }
 
   Future<IngestionOutcome> ingestAndroidNotification({
@@ -235,7 +370,7 @@ class NotificationsRemoteDataSource {
     if (OtpRedactor.containsOtpOrSecret('$title $body')) {
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.blockedOtpOrSecret,
-        message: 'Đã chặn và hủy thông báo chứa mã OTP / thông tin bảo mật.',
+        message: 'Đã chặn thông báo chứa mã OTP / bảo mật.',
       );
     }
 
@@ -244,6 +379,7 @@ class NotificationsRemoteDataSource {
     final consentData = consentSnap.data() ?? const <String, dynamic>{};
     final enabled = (consentData['enabled'] as bool?) ?? false;
     final autoConfirm = (consentData['autoConfirmSignals'] as bool?) ?? false;
+    final syncObservedBalance = (consentData['syncObservedBalance'] as bool?) ?? true;
     final allowedPackages = (consentData['allowedPackages'] as List<dynamic>? ?? const <dynamic>[])
         .map((e) => e.toString())
         .toSet();
@@ -251,11 +387,11 @@ class NotificationsRemoteDataSource {
     if (!enabled || !allowedPackages.contains(packageName)) {
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.blockedConsentDisabled,
-        message: 'Nguồn thông báo chưa được cấp quyền hoặc ngân hàng không nằm trong allowlist.',
+        message: 'Chưa bật nhận diện cho ứng dụng ngân hàng này.',
       );
     }
 
-    // Step 3: Parse bank notification
+    // Step 3: Parse bank notification (amount, direction, SD balance, account tail, QR code)
     final parsed = BankNotificationParser.parseAndroidNotification(
       ownerId: userId,
       packageName: packageName,
@@ -275,8 +411,45 @@ class NotificationsRemoteDataSource {
     if (signal == null) {
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.ignoredPackageOrFormat,
-        message: 'Thông báo không phải biến động giao dịch tài chính.',
+        message: 'Thông báo không phải biến động số dư.',
       );
+    }
+
+    // Step 4: Smart Linked Bank Account -> Wallet Routing (matches accountTail or bankCode)
+    var targetWalletId = defaultWalletId;
+    final bankAccSnap = await _bankAccountsCol(userId).get();
+    if (bankAccSnap.docs.isNotEmpty) {
+      final accounts = bankAccSnap.docs.map((d) => _mapBankAccount(d.id, d.data())).toList();
+      LinkedBankAccountEntity? routed;
+      if (signal.accountTail != null && signal.accountTail!.isNotEmpty) {
+        routed = accounts
+            .where((a) => a.accountTail.endsWith(signal.accountTail!))
+            .firstOrNull;
+      }
+      routed ??= accounts.where((a) => a.bankCode == signal.bankCode).firstOrNull;
+      if (routed != null && routed.walletId.isNotEmpty) {
+        targetWalletId = routed.walletId;
+      }
+    }
+
+    // Step 5: Check if incoming transfer matches a pending Dynamic VietQR Payment Order (`LO...`)
+    PaymentOrderEntity? matchedOrder;
+    if (signal.direction == 'credit') {
+      final upperCombined = '$title $body'.toUpperCase();
+      final pendingOrdersSnap = await _paymentOrdersCol(userId)
+          .where('status', isEqualTo: PaymentOrderStatus.pending.name)
+          .get();
+      for (final doc in pendingOrdersSnap.docs) {
+        final order = _mapPaymentOrder(doc.id, doc.data());
+        final codeUpper = order.paymentCode.toUpperCase();
+        if (codeUpper.isNotEmpty &&
+            (signal.matchedPaymentCode?.toUpperCase() == codeUpper ||
+                upperCombined.contains(codeUpper))) {
+          matchedOrder = order;
+          targetWalletId = order.walletId;
+          break;
+        }
+      }
     }
 
     final eventRef = _firestore
@@ -298,7 +471,6 @@ class NotificationsRemoteDataSource {
       occurredAt: signal.occurredAt,
     );
 
-    // Check if already confirmed/verified by an official feed within a true ±15m sliding window
     final existingTxQuery = await _firestore
         .collection('users')
         .doc(userId)
@@ -306,13 +478,20 @@ class NotificationsRemoteDataSource {
         .where('softWindowFingerprint', whereIn: candidateWindowFps)
         .get();
     final matchingExistingDocs = existingTxQuery.docs.where((d) {
+      if (matchedOrder != null) {
+        // Distinct QR payment codes are distinct payments even if same amount within 15 minutes
+        return d.data()['crossSourceFingerprint'] == signal.crossSourceFingerprint;
+      }
       final ts = d.data()['occurredAt'];
       if (ts is! Timestamp) return true;
       return ts.toDate().difference(signal.occurredAt).abs() <= const Duration(minutes: 15);
     }).toList();
 
+    final shouldAutoCommitToLedger = autoConfirm || matchedOrder != null;
     var isDuplicate = false;
-    final txId = 'prov_${signal.sourceEventKey.substring(0, 20)}';
+    final txId = matchedOrder != null
+        ? 'qr_${signal.sourceEventKey.substring(0, 20)}'
+        : 'prov_${signal.sourceEventKey.substring(0, 20)}';
 
     await _firestore.runTransaction((tx) async {
       final existingEvent = await tx.get(eventRef);
@@ -339,27 +518,45 @@ class NotificationsRemoteDataSource {
 
       int? newWalletBal;
       String? resolvedWalletName;
-      if (autoConfirm) {
+      if (shouldAutoCommitToLedger) {
         final walletRef =
-            _firestore.collection('users').doc(userId).collection('wallets').doc(defaultWalletId);
+            _firestore.collection('users').doc(userId).collection('wallets').doc(targetWalletId);
         final wSnap = await tx.get(walletRef);
         if (wSnap.exists) {
           final curBal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
           final delta = signal.direction == 'credit' ? signal.amountMinor : -signal.amountMinor;
-          newWalletBal = curBal + delta;
+          // If bank notification carries exact post-tx `SD:` balance and syncObservedBalance is enabled, sync exact balance!
+          newWalletBal = (syncObservedBalance && signal.observedBalanceMinor != null)
+              ? signal.observedBalanceMinor!
+              : (curBal + delta);
           resolvedWalletName = (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
           tx.update(walletRef, {
             'balanceMinor': newWalletBal,
+            if (syncObservedBalance && signal.observedBalanceMinor != null)
+              'isEstimatedBalance': false,
             'updatedAt': Timestamp.fromDate(now),
           });
         }
       }
 
+      if (matchedOrder != null) {
+        tx.update(_paymentOrdersCol(userId).doc(matchedOrder.id), {
+          'status': PaymentOrderStatus.paid.name,
+          'receivedAmountMinor': signal.amountMinor,
+          'matchedTransactionId': txId,
+          'paidAt': Timestamp.fromDate(now),
+          'updatedAt': Timestamp.fromDate(now),
+        });
+      }
+
       tx.set(eventRef, {
         'eventKey': signal.sourceEventKey,
         'source': 'android_notification',
-        'status': autoConfirm ? 'auto_confirmed' : 'provisional_created',
+        'status': matchedOrder != null
+            ? 'qr_order_reconciled'
+            : (autoConfirm ? 'auto_confirmed' : 'provisional_created'),
         'linkedTransactionId': txId,
+        if (matchedOrder != null) 'matchedOrderId': matchedOrder.id,
         'receivedAt': Timestamp.fromDate(now),
       });
 
@@ -368,19 +565,24 @@ class NotificationsRemoteDataSource {
         {
           'id': txId,
           'ownerId': userId,
-          'walletId': defaultWalletId,
+          'walletId': targetWalletId,
           if (resolvedWalletName != null) 'walletName': resolvedWalletName,
           if (newWalletBal != null) 'balanceAfterMinor': newWalletBal,
-          'categoryName': signal.categorySuggestion,
+          'categoryName': matchedOrder != null ? 'Thu tiền QR' : signal.categorySuggestion,
           'kind': signal.direction == 'credit' ? 'income' : 'expense',
           'direction': signal.direction,
           'amountMinor': signal.amountMinor,
           'currencyCode': 'VND',
-          'merchant': '${signal.bankCode}: ${signal.merchant}',
+          'merchant': matchedOrder != null
+              ? '${matchedOrder.description} (${matchedOrder.paymentCode})'
+              : '${signal.bankCode}: ${signal.merchant}',
+          if (matchedOrder != null) 'note': 'Tự động đối soát mã QR ${matchedOrder.paymentCode}',
           'occurredAt': Timestamp.fromDate(signal.occurredAt),
           'monthKey': monthKey,
           'sourceKind': 'androidNotification',
-          'verification': autoConfirm ? 'userConfirmed' : 'provisional',
+          'verification': matchedOrder != null
+              ? 'verified'
+              : (autoConfirm ? 'userConfirmed' : 'provisional'),
           'crossSourceFingerprint': signal.crossSourceFingerprint,
           'softWindowFingerprint': softFp,
           'isVehicleMaintenanceHint': signal.isVehicleMaintenanceHint,
@@ -394,14 +596,57 @@ class NotificationsRemoteDataSource {
     if (isDuplicate) {
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.duplicateIgnored,
-        message: 'Giao dịch trùng lặp đã được khử tự động.',
+        message: 'Giao dịch trùng lặp đã được bỏ qua.',
+      );
+    }
+
+    // Step 6: Auto-settle Family / Group Split Debt if incoming memo carries `LIFEOS SPLIT...`!
+    if (signal.direction == 'credit' &&
+        signal.matchedPaymentCode != null &&
+        signal.matchedPaymentCode!.startsWith('LIFEOS SPLIT')) {
+      try {
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        final activeFamId = (userDoc.data()?['activeFamilyId'] as String?)?.trim();
+        final receiverName = (userDoc.data()?['fullName'] as String?) ?? 'Thành viên';
+        if (activeFamId != null && activeFamId.isNotEmpty) {
+          final settleId = 'auto_st_${signal.sourceEventKey.substring(0, 16)}';
+          await _firestore
+              .collection('families')
+              .doc(activeFamId)
+              .collection('settlements')
+              .doc(settleId)
+              .set({
+            'id': settleId,
+            'familyId': activeFamId,
+            'fromUserId': 'bank_transfer',
+            'fromUserName': signal.merchant,
+            'toUserId': userId,
+            'toUserName': receiverName,
+            'amountMinor': signal.amountMinor,
+            'paymentCode': signal.matchedPaymentCode,
+            'createdAt': Timestamp.fromDate(DateTime.now()),
+          });
+        }
+      } catch (_) {}
+    }
+
+    if (matchedOrder != null) {
+      return IngestionOutcome(
+        kind: IngestionOutcomeKind.autoReconciledOrder,
+        transactionId: txId,
+        matchedOrderId: matchedOrder.id,
+        matchedPaymentCode: matchedOrder.paymentCode,
+        message:
+            'Đã nhận ${VndAmount.format(signal.amountMinor)} · Tự động gạch nợ mã ${matchedOrder.paymentCode}!',
       );
     }
 
     return IngestionOutcome(
       kind: IngestionOutcomeKind.createdProvisional,
       transactionId: txId,
-      message: 'Đã tạo gợi ý giao dịch PROVISIONAL chờ xác nhận.',
+      message: autoConfirm
+          ? 'Đã tự động ghi nhận ${VndAmount.format(signal.amountMinor)} vào ví.'
+          : 'Đã nhận diện giao dịch mới chờ xác nhận.',
     );
   }
 
@@ -435,7 +680,6 @@ class NotificationsRemoteDataSource {
       occurredAt: occurredAt,
     );
 
-    // Look for an unconfirmed PROVISIONAL transaction within ±15m sliding window to upgrade (Scenario T07)!
     final provMatches = await _firestore
         .collection('users')
         .doc(userId)
@@ -486,7 +730,6 @@ class NotificationsRemoteDataSource {
       }
 
       if (matchingProvDoc != null) {
-        // Upgrade provisional -> verified without creating a second transaction!
         tx.update(matchingProvDoc.reference, {
           'verification': 'verified',
           'sourceKind': 'bankApi',
@@ -539,14 +782,16 @@ class NotificationsRemoteDataSource {
       kind: outcomeKind,
       transactionId: targetTxId,
       message: outcomeKind == IngestionOutcomeKind.duplicateIgnored
-          ? 'Sự kiện ngân hàng trùng lặp đã bỏ qua (idempotent).'
-          : 'Đã xác thực giao dịch VERIFIED và cập nhật số dư.',
+          ? 'Giao dịch trùng lặp đã bỏ qua.'
+          : 'Đã xác nhận giao dịch và cập nhật số dư ví.',
     );
   }
 
   Future<String> exportPersonalDataJson(String userId) async {
     final userDoc = await _firestore.collection('users').doc(userId).get();
     final wallets = await _firestore.collection('users').doc(userId).collection('wallets').get();
+    final bankAccounts = await _bankAccountsCol(userId).get();
+    final paymentOrders = await _paymentOrdersCol(userId).limit(100).get();
     final txs = await _firestore
         .collection('users')
         .doc(userId)
@@ -566,9 +811,10 @@ class NotificationsRemoteDataSource {
 
     final payload = {
       'exportedAt': DateTime.now().toIso8601String(),
-      'compliance': 'Vietnam PDPL 91/2025/QH15',
       'profile': sanitizeMap(userDoc.data()),
       'wallets': wallets.docs.map((d) => sanitizeMap(d.data())).toList(),
+      'bankAccounts': bankAccounts.docs.map((d) => sanitizeMap(d.data())).toList(),
+      'paymentOrders': paymentOrders.docs.map((d) => sanitizeMap(d.data())).toList(),
       'transactions': txs.docs.map((d) => sanitizeMap(d.data())).toList(),
       'privateEvents': privEvents.docs.map((d) => sanitizeMap(d.data())).toList(),
     };
@@ -591,7 +837,6 @@ class NotificationsRemoteDataSource {
     var importedCount = 0;
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
-      // Skip CSV header line if present
       if (i == 0 && RegExp(r'(date|ngay|amount|so_tien|description)', caseSensitive: false).hasMatch(line)) {
         continue;
       }
@@ -599,7 +844,6 @@ class NotificationsRemoteDataSource {
         continue;
       }
 
-      // Expected columns: YYYY-MM-DD, direction(debit|credit|-|+), amount, description
       final cols = line.split(',').map((c) => c.trim()).toList();
       if (cols.length < 3) continue;
 
@@ -682,12 +926,15 @@ class NotificationsRemoteDataSource {
   }
 
   Future<void> deleteAccountAndPersonalData(String userId) async {
-    await _bridge.syncConsentConfig(enabled: false, allowedPackages: const []);
+    await _bridge.syncConsentConfig(
+      enabled: false,
+      allowedPackages: const [],
+      voiceSoundboxEnabled: false,
+    );
     await NativeSecureVaultBridge.instance.clearAllSecrets();
     await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
 
     final userDocRef = _firestore.collection('users').doc(userId);
-    // Mark account deletion active so Cloud Firestore Security Rules allow purging append-only ledgers
     await userDocRef.set(
       {
         'id': userId,
@@ -697,7 +944,6 @@ class NotificationsRemoteDataSource {
       SetOptions(merge: true),
     );
 
-    // Revoke any published Busy/Free slots & remove user from shared families without deleting family ledgers
     final famSnap = await _firestore
         .collection('families')
         .where('memberIds', arrayContains: userId)
@@ -727,7 +973,6 @@ class NotificationsRemoteDataSource {
       });
     }
 
-    // Purge nested subcollections inside personal_funds & vehicles first
     final pFundsSnap = await userDocRef.collection('personal_funds').get();
     for (final fundDoc in pFundsSnap.docs) {
       for (final nested in const ['contributions', 'expenses']) {
@@ -745,9 +990,10 @@ class NotificationsRemoteDataSource {
       }
     }
 
-    // Purge ALL 28 personal subcollections (including transactions, audits, health, kitchen, notes & vault metadata)
     const allPersonalSubcollections = [
       'wallets',
+      'bank_accounts',
+      'payment_orders',
       'ledger_audits',
       'net_worth_snapshots',
       'categories',
@@ -821,6 +1067,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
     required bool enabled,
     required List<String> allowedPackages,
     bool? autoConfirmSignals,
+    bool? voiceSoundboxEnabled,
+    bool? syncObservedBalance,
   }) async {
     try {
       await _remoteDataSource.updateConsent(
@@ -828,6 +1076,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
         enabled: enabled,
         allowedPackages: allowedPackages,
         autoConfirmSignals: autoConfirmSignals,
+        voiceSoundboxEnabled: voiceSoundboxEnabled,
+        syncObservedBalance: syncObservedBalance,
       );
       return const Success(null);
     } catch (e) {
@@ -890,6 +1140,125 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   }
 
   @override
+  Stream<Result<List<LinkedBankAccountEntity>>> watchLinkedBankAccounts(String userId) {
+    return _remoteDataSource
+        .watchLinkedBankAccounts(userId)
+        .map<Result<List<LinkedBankAccountEntity>>>((list) => Success(list))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (Object e, StackTrace _, EventSink<Result<List<LinkedBankAccountEntity>>> sink) {
+              sink.add(Err(ErrorMapper.map(e)));
+            },
+          ),
+        );
+  }
+
+  @override
+  Future<Result<LinkedBankAccountEntity>> saveLinkedBankAccount({
+    required String userId,
+    required String walletId,
+    required String bankBin,
+    required String bankCode,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    bool isDefault = true,
+  }) async {
+    try {
+      final saved = await _remoteDataSource.saveLinkedBankAccount(
+        userId: userId,
+        walletId: walletId,
+        bankBin: bankBin,
+        bankCode: bankCode,
+        bankName: bankName,
+        accountNumber: accountNumber,
+        accountHolderName: accountHolderName,
+        isDefault: isDefault,
+      );
+      return Success(saved);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteLinkedBankAccount({
+    required String userId,
+    required String accountId,
+  }) async {
+    try {
+      await _remoteDataSource.deleteLinkedBankAccount(userId: userId, accountId: accountId);
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Stream<Result<List<PaymentOrderEntity>>> watchPaymentOrders(String userId) {
+    return _remoteDataSource
+        .watchPaymentOrders(userId)
+        .map<Result<List<PaymentOrderEntity>>>((list) => Success(list))
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError:
+                (Object e, StackTrace _, EventSink<Result<List<PaymentOrderEntity>>> sink) {
+              sink.add(Err(ErrorMapper.map(e)));
+            },
+          ),
+        );
+  }
+
+  @override
+  Future<Result<PaymentOrderEntity>> createPaymentOrder({
+    required String userId,
+    required String walletId,
+    required String bankBin,
+    required String bankCode,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    required int amountMinor,
+    required String description,
+  }) async {
+    try {
+      final order = await _remoteDataSource.createPaymentOrder(
+        userId: userId,
+        walletId: walletId,
+        bankBin: bankBin,
+        bankCode: bankCode,
+        bankName: bankName,
+        accountNumber: accountNumber,
+        accountHolderName: accountHolderName,
+        amountMinor: amountMinor,
+        description: description,
+      );
+      return Success(order);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> markPaymentOrderStatus({
+    required String userId,
+    required String orderId,
+    required PaymentOrderStatus status,
+  }) async {
+    try {
+      await _remoteDataSource.markPaymentOrderStatus(
+        userId: userId,
+        orderId: orderId,
+        status: status,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
   Future<Result<int>> importCsvStatement({
     required String userId,
     required String walletId,
@@ -936,40 +1305,14 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
       _remoteDataSource.openNativePermissionSettings();
 
   @override
+  Future<void> speakSoundboxTest(String message) =>
+      _remoteDataSource.speakSoundboxTest(message);
+
+  @override
   Stream<Map<String, dynamic>> watchLiveAndroidBankSignals() =>
       _remoteDataSource.watchLiveNativeSignals();
 
   @override
   Future<List<Map<String, dynamic>>> drainQueuedAndroidBankSignals() =>
       _remoteDataSource.drainQueuedNativeSignals();
-
-  @override
-  Future<Result<String?>> getSavedSePayMaskedToken(String userId) async {
-    try {
-      final masked = await _remoteDataSource.getSavedSePayMaskedToken(userId);
-      return Success(masked);
-    } catch (e) {
-      return Err(ErrorMapper.map(e));
-    }
-  }
-
-  @override
-  Future<Result<int>> syncSePayTransactions({
-    required String userId,
-    required String walletId,
-    String? apiTokenOverride,
-    int limit = 40,
-  }) async {
-    try {
-      final count = await _remoteDataSource.syncSePayTransactions(
-        userId: userId,
-        walletId: walletId,
-        apiTokenOverride: apiTokenOverride,
-        limit: limit,
-      );
-      return Success(count);
-    } catch (e) {
-      return Err(ErrorMapper.map(e));
-    }
-  }
 }

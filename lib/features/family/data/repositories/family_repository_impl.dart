@@ -122,7 +122,7 @@ class FamilyRemoteDataSource {
       toUserId: (d['toUserId'] as String?) ?? '',
       toUserName: (d['toUserName'] as String?) ?? 'Thành viên',
       amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
-      paymentCode: (d['paymentCode'] as String?) ?? 'SEVQR LIFEOS',
+      paymentCode: (d['paymentCode'] as String?) ?? 'LIFEOS',
       note: d['note'] as String?,
       createdAt: createdTs is Timestamp ? createdTs.toDate() : DateTime.now(),
     );

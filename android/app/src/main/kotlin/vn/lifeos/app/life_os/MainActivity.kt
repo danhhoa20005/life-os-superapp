@@ -112,16 +112,25 @@ class MainActivity : FlutterActivity() {
                     }
                     "updateConfig" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: false
+                        val soundbox = call.argument<Boolean>("voiceSoundboxEnabled")
                         val packages = call.argument<List<String>>("allowedPackages") ?: emptyList()
                         val prefs = applicationContext.getSharedPreferences(
                             BankNotificationListenerService.PREFS_NAME,
                             Context.MODE_PRIVATE
                         )
-                        prefs.edit()
+                        val editor = prefs.edit()
                             .putBoolean(BankNotificationListenerService.KEY_ENABLED, enabled)
                             .putStringSet(BankNotificationListenerService.KEY_PACKAGES, packages.toSet())
-                            .apply()
+                        if (soundbox != null) {
+                            editor.putBoolean(BankNotificationListenerService.KEY_SOUNDBOX_ENABLED, soundbox)
+                        }
+                        editor.apply()
                         result.success(null)
+                    }
+                    "speakSoundbox" -> {
+                        val msg = call.argument<String>("message") ?: "Đã nhận 250.000 đồng vào tài khoản"
+                        LifeOsSoundboxSpeaker.speak(applicationContext, msg)
+                        result.success(true)
                     }
                     "drainQueuedNotifications" -> {
                         val prefs = applicationContext.getSharedPreferences(

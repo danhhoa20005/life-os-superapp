@@ -21,6 +21,7 @@ class BankNotificationListenerService : NotificationListenerService() {
     companion object {
         const val PREFS_NAME = "lifeos_bank_listener_prefs"
         const val KEY_ENABLED = "consent_enabled"
+        const val KEY_SOUNDBOX_ENABLED = "voice_soundbox_enabled"
         const val KEY_PACKAGES = "allowed_packages"
         const val KEY_QUEUED_JSON = "queued_notifications_json"
 
@@ -48,12 +49,24 @@ class BankNotificationListenerService : NotificationListenerService() {
 
         val extras = sbn.notification?.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim().orEmpty()
+        val shortText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim().orEmpty()
+        val baseBody = if (bigText.length >= shortText.length && bigText.isNotEmpty()) bigText else shortText
+        val text = if (subText.isNotEmpty() && !baseBody.contains(subText)) "$baseBody $subText".trim() else baseBody
         if (title.isEmpty() && text.isEmpty()) return
 
         // Strict on-device OTP/secret block — never leaves the listener or enters local queue
         if (containsOtpOrSecrets("$title $text")) {
             return
+        }
+
+        // Optional Native Vietnamese "Loa Báo Tiền Về" (works even when app is closed!)
+        if (prefs.getBoolean(KEY_SOUNDBOX_ENABLED, false)) {
+            try {
+                LifeOsSoundboxSpeaker.onBankNotificationCaptured(applicationContext, pkg, "$title $text")
+            } catch (_: Exception) {
+            }
         }
 
         val notifKey = sbn.key ?: "${pkg}_${sbn.postTime}"

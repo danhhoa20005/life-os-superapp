@@ -61,11 +61,11 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'finance',
       domainTitle: 'Tài chính · Ngân hàng · Thuế Lương',
-      shortLabel: 'SePay Tự động',
-      keywords: 'ngân hàng tự động biến động số dư',
-      icon: Icons.auto_awesome_rounded,
+      shortLabel: 'Ngân hàng & QR',
+      keywords: 'ngân hàng tự động biến động số dư mã qr thu tiền',
+      icon: Icons.qr_code_2_rounded,
       tone: LifeOsAccentTone.emerald,
-      route: '/auto-tx-review',
+      route: '/notifications-privacy',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',

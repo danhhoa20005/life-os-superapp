@@ -257,7 +257,7 @@ void main() {
       expect(summaryBefore.suggestedTransfers.first.amountMinor, 200000);
       expect(
         summaryBefore.suggestedTransfers.first.sePayTransferCode,
-        startsWith('SEVQR LIFEOS SPLIT'),
+        startsWith('LIFEOS SPLIT'),
       );
 
       // Chi settles 200,000 VND to Bình -> Only An -> Bình (50,000 VND) remains!

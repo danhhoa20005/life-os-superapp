@@ -122,8 +122,8 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   showBackButton: true,
                   trailingAction: TextButton.icon(
                     onPressed: () => context.push('/notifications-privacy'),
-                    icon: const Icon(Icons.tune_rounded, size: 17),
-                    label: const Text('SePay'),
+                    icon: const Icon(Icons.qr_code_2_rounded, size: 17),
+                    label: const Text('Cổng QR'),
                   ),
                 ),
                 Expanded(

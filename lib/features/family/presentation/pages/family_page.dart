@@ -664,7 +664,7 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                                   Clipboard.setData(ClipboardData(text: tr.sePayTransferCode));
                                   LifeOsTopToast.fromSnackBar(context, 
                                     const SnackBar(
-                                      content: Text('✓ Đã sao chép mã chuyển khoản SEVQR.'),
+                                      content: Text('✓ Đã sao chép mã chuyển khoản.'),
                                     ),
                                   );
                                 },

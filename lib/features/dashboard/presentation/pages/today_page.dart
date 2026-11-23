@@ -264,7 +264,7 @@ class _TodayPageState extends State<TodayPage> {
     final bankConnected = context.select(
       (NotificationIngestionBloc b) =>
           (b.state.consent?.enabled ?? false) ||
-          (b.state.savedSePayMaskedToken != null),
+          b.state.linkedBankAccounts.isNotEmpty,
     );
 
     final firstName = (user?.fullName ?? 'bạn').trim().split(' ').last;

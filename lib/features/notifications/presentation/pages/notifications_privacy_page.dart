@@ -1,5 +1,5 @@
-import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,12 +10,16 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
+import '../../../../core/utils/vietqr_emv_builder.dart';
+import '../../../../core/utils/vnd_amount.dart';
+import '../../../../core/widgets/lifeos_top_toast.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
+import '../../domain/entities/notification_entities.dart';
 import '../bloc/notification_ingestion_bloc.dart';
 
 class NotificationsPrivacyPage extends StatefulWidget {
@@ -27,10 +31,9 @@ class NotificationsPrivacyPage extends StatefulWidget {
 
 class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
     with WidgetsBindingObserver {
-  final TextEditingController _sePayTokenCtrl = TextEditingController();
   final TextEditingController _sampleBodyCtrl = TextEditingController(
     text:
-        'TK 1029***88 GD: -85.000VND 22/11/2026 12:15. ND: Quan Com Tam Cali. SD: 9.200.000VND',
+        'TK 1029***88 GD: +250.000VND 23/11/2026 12:15. ND: Nguyen Van B chuyen khoan. SD: 9.450.000VND',
   );
   final TextEditingController _csvCtrl = TextEditingController(
     text: 'date,direction,amount,description\n'
@@ -39,7 +42,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
   );
   String _selectedPkg = kSupportedVnBanks.first.packageName;
   String? _selectedWalletId;
-  bool _obscureToken = true;
+  String? _lastShownOrderId;
 
   @override
   void initState() {
@@ -59,10 +62,458 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _sePayTokenCtrl.dispose();
     _sampleBodyCtrl.dispose();
     _csvCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _showLinkBankAccountSheet({
+    required BuildContext context,
+    required String userId,
+    required String userFullName,
+    required List<WalletEntity> wallets,
+    required String defaultWalletId,
+  }) async {
+    var selectedBin = kLifeOsVietQrBanks.first.bin;
+    var pickedWalletId = defaultWalletId;
+    final accNumberCtrl = TextEditingController();
+    final holderCtrl = TextEditingController(
+      text: VietQrEmvBuilder.toBankSafeAscii(userFullName),
+    );
+    final bloc = context.read<NotificationIngestionBloc>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Thêm tài khoản ngân hàng nhận tiền',
+                        style: Theme.of(ctx).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Chỉ cần số tài khoản để tạo mã VietQR và tự định tuyến biến động số dư (không cần mật khẩu).',
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: selectedBin,
+                        decoration: const InputDecoration(labelText: 'Ngân hàng'),
+                        items: kLifeOsVietQrBanks
+                            .map(
+                              (b) => DropdownMenuItem(
+                                value: b.bin,
+                                child: Text(
+                                  '${b.shortName} · ${b.fullName}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) setModalState(() => selectedBin = v);
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        key: const Key('link_bank_account_number_input'),
+                        controller: accNumberCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Số tài khoản nhận tiền',
+                          hintText: 'VD: 0071000886868',
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        key: const Key('link_bank_holder_input'),
+                        controller: holderCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Tên chủ tài khoản (không dấu)',
+                        ),
+                      ),
+                      if (wallets.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: pickedWalletId,
+                          decoration: const InputDecoration(labelText: 'Cộng tiền vào ví'),
+                          items: wallets
+                              .map(
+                                (w) => DropdownMenuItem(
+                                  value: w.id,
+                                  child: Text(w.name, overflow: TextOverflow.ellipsis),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) setModalState(() => pickedWalletId = v);
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      FilledButton.icon(
+                        key: const Key('save_linked_bank_account_button'),
+                        onPressed: () {
+                          final bank = kLifeOsVietQrBanks.firstWhere(
+                            (b) => b.bin == selectedBin,
+                            orElse: () => kLifeOsVietQrBanks.first,
+                          );
+                          bloc.add(
+                            LinkedBankAccountSaved(
+                              userId: userId,
+                              walletId: pickedWalletId,
+                              bankBin: bank.bin,
+                              bankCode: bank.shortName,
+                              bankName: bank.fullName,
+                              accountNumber: accNumberCtrl.text,
+                              accountHolderName: holderCtrl.text,
+                            ),
+                          );
+                          Navigator.of(sheetCtx).pop();
+                        },
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('Lưu tài khoản'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    accNumberCtrl.dispose();
+    holderCtrl.dispose();
+  }
+
+  Future<void> _showCreateQrOrderSheet({
+    required BuildContext context,
+    required String userId,
+    required LinkedBankAccountEntity account,
+  }) async {
+    final amountCtrl = TextEditingController(text: '250000');
+    final descCtrl = TextEditingController(text: 'Thu tiền nhóm');
+    final bloc = context.read<NotificationIngestionBloc>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              MediaQuery.of(sheetCtx).viewInsets.bottom + AppSpacing.lg,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Tạo mã QR thu tiền tự động',
+                    style: Theme.of(sheetCtx).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Nhận về ${account.bankName} (${account.maskedAccount}) · Tự gạch nợ khi tiền vào.',
+                    style: Theme.of(sheetCtx).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    key: const Key('qr_order_amount_input'),
+                    controller: amountCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Số tiền cần thu (VND)',
+                      suffixText: '₫',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    key: const Key('qr_order_desc_input'),
+                    controller: descCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nội dung khoản thu',
+                      hintText: 'VD: Tiền điện tháng 11 / Quỹ ăn trưa',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  FilledButton.icon(
+                    key: const Key('submit_create_qr_order_button'),
+                    onPressed: () {
+                      final amt = VndAmount.tryParseInput(amountCtrl.text) ?? 0;
+                      if (amt <= 0) {
+                        LifeOsTopToast.show(
+                          sheetCtx,
+                          'Vui lòng nhập số tiền lớn hơn 0 ₫.',
+                          kind: LifeOsToastKind.warning,
+                        );
+                        return;
+                      }
+                      bloc.add(
+                        PaymentOrderCreated(
+                          userId: userId,
+                          walletId: account.walletId,
+                          bankBin: account.bankBin,
+                          bankCode: account.bankCode,
+                          bankName: account.bankName,
+                          accountNumber: account.accountNumber,
+                          accountHolderName: account.accountHolderName,
+                          amountMinor: amt,
+                          description: descCtrl.text,
+                        ),
+                      );
+                      Navigator.of(sheetCtx).pop();
+                    },
+                    icon: const Icon(Icons.qr_code_2_rounded),
+                    label: const Text('Sinh mã QR thu tiền'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    amountCtrl.dispose();
+    descCtrl.dispose();
+  }
+
+  Future<void> _showOrderQrDetailSheet({
+    required BuildContext context,
+    required String userId,
+    required PaymentOrderEntity order,
+  }) async {
+    final bloc = context.read<NotificationIngestionBloc>();
+    final memoText =
+        '${order.paymentCode} ${VietQrEmvBuilder.toBankSafeAscii(order.description, maxLength: 28)}'
+            .trim();
+    final qrUrl = VietQrEmvBuilder.buildVisualQrUrl(
+      bankBin: order.bankBin,
+      accountNumber: order.accountNumber,
+      accountHolderName: order.accountHolderName,
+      amountVnd: order.amountMinor,
+      memo: memoText,
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        final c = TammySemanticColors.of(sheetCtx);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              order.description,
+                              style: Theme.of(sheetCtx).textTheme.titleLarge,
+                            ),
+                            Text(
+                              '${order.bankName} · ${order.accountNumber} (${order.accountHolderName})',
+                              style: Theme.of(sheetCtx).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SemanticStatusBadge(
+                        kind: order.isPaid
+                            ? SemanticStatusKind.success
+                            : SemanticStatusKind.warning,
+                        label: order.status.displayLabel,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: c.surfaceRaised,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: c.separator),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          VndAmount.format(order.amountMinor),
+                          style: Theme.of(sheetCtx).textTheme.headlineMedium?.copyWith(
+                                color: c.primary,
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: const [FontFeature.tabularFigures()],
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: order.paymentCode));
+                            LifeOsTopToast.show(
+                              sheetCtx,
+                              'Đã sao chép mã nội dung ${order.paymentCode}',
+                              kind: LifeOsToastKind.success,
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.copy_rounded, size: 14, color: c.secondary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Mã đối soát: ${order.paymentCode}',
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                    color: c.secondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Center(
+                    child: Container(
+                      width: 220,
+                      height: 220,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: c.separator),
+                      ),
+                      child: Image.network(
+                        qrUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: SelectableText(
+                            order.emvQrPayload,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontFamily: 'monospace',
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: order.emvQrPayload));
+                      LifeOsTopToast.show(
+                        sheetCtx,
+                        'Đã sao chép chuỗi VietQR chuẩn NAPAS 247.',
+                        kind: LifeOsToastKind.info,
+                      );
+                    },
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 17),
+                    label: const Text('Sao chép mã EMVCo NAPAS 247'),
+                  ),
+                  if (!order.isPaid) ...[
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      key: const Key('simulate_qr_incoming_payment_button'),
+                      onPressed: () {
+                        final currentConsent = bloc.state.consent;
+                        if (!(currentConsent?.enabled ?? false)) {
+                          bloc.add(
+                            ConsentConfigUpdated(
+                              userId: userId,
+                              enabled: true,
+                              allowedPackages: kSupportedVnBanks
+                                  .map((b) => b.packageName)
+                                  .toList(),
+                              autoConfirmSignals: true,
+                            ),
+                          );
+                        }
+                        final bankPkg = kSupportedVnBanks
+                                .where((b) => b.bankCode == order.bankCode)
+                                .firstOrNull
+                                ?.packageName ??
+                            kSupportedVnBanks.first.packageName;
+                        Navigator.of(sheetCtx).pop();
+                        Future<void>.delayed(const Duration(milliseconds: 60), () {
+                          bloc.add(
+                            BankNotificationSignalReceived(
+                              userId: userId,
+                              defaultWalletId: order.walletId,
+                              packageName: bankPkg,
+                              title: 'Biến động số dư ${order.bankName}',
+                              body:
+                                  'TK ${order.maskedAccountLabel} GD: +${order.amountMinor}VND. ND: Chuyen khoan ${order.paymentCode}',
+                            ),
+                          );
+                        });
+                      },
+                      icon: const Icon(Icons.bolt_rounded, size: 18),
+                      label: const Text('Mô phỏng nhận tiền tự động ngay'),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed: () {
+                        bloc.add(
+                          PaymentOrderStatusMarked(
+                            userId: userId,
+                            orderId: order.id,
+                            status: PaymentOrderStatus.paid,
+                          ),
+                        );
+                        Navigator.of(sheetCtx).pop();
+                      },
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      label: const Text('Đánh dấu đã nhận tiền'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -83,31 +534,56 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
             (wallets.isNotEmpty ? wallets.first.id : 'wallet_cash_default'));
 
     return BlocListener<NotificationIngestionBloc, NotificationIngestionState>(
-      listenWhen: (p, c) =>
-          p.infoMessage != c.infoMessage ||
-          p.failure != c.failure ||
-          p.accountDeleted != c.accountDeleted,
+      listenWhen: (p, n) =>
+          p.infoMessage != n.infoMessage ||
+          p.failure != n.failure ||
+          p.accountDeleted != n.accountDeleted ||
+          p.latestCreatedOrder?.id != n.latestCreatedOrder?.id,
       listener: (context, state) {
         if (state.accountDeleted) {
           context.go('/login');
           return;
         }
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
+          LifeOsTopToast.show(
+            context,
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
+          );
         } else if (state.infoMessage != null) {
-          LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.infoMessage!}')));
+          LifeOsTopToast.show(
+            context,
+            state.infoMessage!,
+            kind: LifeOsToastKind.success,
+          );
+        }
+        final created = state.latestCreatedOrder;
+        if (created != null && created.id != _lastShownOrderId) {
+          _lastShownOrderId = created.id;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _showOrderQrDetailSheet(
+                context: context,
+                userId: user.id,
+                order: created,
+              );
+            }
+          });
         }
       },
       child: Scaffold(
         appBar: const LiquidGlassBar(
-          title: Text('Ngân hàng & Quyền riêng tư'),
+          title: Text('Ngân hàng Tự động & Cổng QR'),
         ),
         body: SafeArea(
           child: BlocBuilder<NotificationIngestionBloc, NotificationIngestionState>(
             builder: (context, state) {
               final consent = state.consent;
               final enabled = consent?.enabled ?? false;
+              final autoConfirm = consent?.autoConfirmSignals ?? false;
+              final soundboxEnabled = consent?.voiceSoundboxEnabled ?? false;
               final allowedSet = (consent?.allowedPackages ?? const <String>[]).toSet();
+              final defaultAccount = state.defaultBankAccount;
 
               return Center(
                 child: ConstrainedBox(
@@ -115,33 +591,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                   child: ListView(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
-                      // 1. Account Security & Profile Shortcut
-                      Card(
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: 6,
-                          ),
-                          leading: CircleAvatar(
-                            backgroundColor: c.primarySubtle,
-                            child: Icon(Icons.manage_accounts_rounded, color: c.primary),
-                          ),
-                          title: Text(
-                            'Tài khoản (${user.fullName})',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          subtitle: Text(user.email),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () => context.push('/account-profile'),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // 2. SEPAY LIVE SYNC CARD
+                      // 1. NATIVE IN-APP VIETQR PAYMENT GATEWAY & RECEIVING ACCOUNT HERO
                       ProHeroGradientCard(
                         gradientColors: const [
                           Color(0xFF0A2240),
-                          Color(0xFF14427A),
+                          Color(0xFF124634),
                           Color(0xFF0B7A2A),
                         ],
                         child: Column(
@@ -151,7 +605,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               children: [
                                 const BananaGlassIcon(
                                   assetPath: AppAssets.icSysVietQr,
-                                  fallbackIcon: Icons.sync_lock_rounded,
+                                  fallbackIcon: Icons.qr_code_2_rounded,
                                   fallbackColor: Colors.white,
                                   size: 42,
                                   borderRadius: 12,
@@ -162,7 +616,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const Text(
-                                        'Kết nối ngân hàng tự động (SePay)',
+                                        'Cổng QR Thu Tiền & Tự Động Gạch Nợ',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
@@ -170,11 +624,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                         ),
                                       ),
                                       Text(
-                                        state.savedSePayMaskedToken != null
-                                            ? 'Đã kết nối: ${state.savedSePayMaskedToken}'
-                                            : 'Tự động cập nhật giao dịch ngân hàng mới vào ví',
+                                        defaultAccount != null
+                                            ? '${defaultAccount.bankName} · ${defaultAccount.maskedAccount} · ${defaultAccount.accountHolderName}'
+                                            : 'Tích hợp trực tiếp trong ứng dụng — không cần tài khoản bên thứ ba',
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.82),
+                                          color: Colors.white.withValues(alpha: 0.85),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -184,109 +638,129 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               ],
                             ),
                             const SizedBox(height: 14),
-                            if (wallets.isNotEmpty) ...[
-                              DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                initialValue: activeWalletId,
-                                dropdownColor: const Color(0xFF0F294A),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                            if (defaultAccount == null)
+                              FilledButton.icon(
+                                key: const Key('open_link_bank_account_button'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF0B3B24),
+                                  minimumSize: const Size.fromHeight(46),
                                 ),
-                                decoration: InputDecoration(
-                                  labelText: 'Ví nhận giao dịch',
-                                  labelStyle:
-                                      TextStyle(color: Colors.white.withValues(alpha: 0.85)),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(alpha: 0.12),
-                                  isDense: true,
+                                onPressed: () => _showLinkBankAccountSheet(
+                                  context: context,
+                                  userId: user.id,
+                                  userFullName: user.fullName,
+                                  wallets: wallets,
+                                  defaultWalletId: activeWalletId,
                                 ),
-                                items: wallets
-                                    .map(
-                                      (w) => DropdownMenuItem(
-                                        value: w.id,
-                                        child: Text(
-                                          w.name,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                icon: const Icon(Icons.add_card_rounded),
+                                label: const Text('Thêm tài khoản ngân hàng nhận tiền'),
+                              )
+                            else
+                              Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: FilledButton.icon(
+                                      key: const Key('open_create_qr_order_button'),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: const Color(0xFF0B3B24),
+                                        minimumSize: const Size.fromHeight(46),
                                       ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) setState(() => _selectedWalletId = v);
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                            TextField(
-                              key: const Key('sepay_api_token_field'),
-                              controller: _sePayTokenCtrl,
-                              obscureText: _obscureToken,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                labelText: state.savedSePayMaskedToken != null
-                                    ? 'Đổi mã kết nối (để trống nếu giữ nguyên)'
-                                    : 'Mã kết nối SePay',
-                                labelStyle:
-                                    TextStyle(color: Colors.white.withValues(alpha: 0.82)),
-                                filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.12),
-                                isDense: true,
-                                suffixIcon: IconButton(
-                                  onPressed: () =>
-                                      setState(() => _obscureToken = !_obscureToken),
-                                  icon: Icon(
-                                    _obscureToken
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                    color: Colors.white70,
+                                      onPressed: () => _showCreateQrOrderSheet(
+                                        context: context,
+                                        userId: user.id,
+                                        account: defaultAccount,
+                                      ),
+                                      icon: const Icon(Icons.qr_code_2_rounded, size: 19),
+                                      label: const Text('Tạo mã QR thu tiền'),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton.icon(
-                              key: const Key('sepay_sync_now_button'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF10B981),
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(46),
-                              ),
-                              onPressed: state.isSyncingSePay
-                                  ? null
-                                  : () {
-                                      context.read<NotificationIngestionBloc>().add(
-                                            SePayLiveSyncSubmitted(
-                                              userId: user.id,
-                                              walletId: activeWalletId,
-                                              apiTokenOverride:
-                                                  _sePayTokenCtrl.text.trim().isEmpty
-                                                      ? null
-                                                      : _sePayTokenCtrl.text.trim(),
-                                            ),
-                                          );
-                                      _sePayTokenCtrl.clear();
-                                    },
-                              icon: state.isSyncingSePay
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    flex: 2,
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        side: BorderSide(
+                                          color: Colors.white.withValues(alpha: 0.4),
+                                        ),
+                                        minimumSize: const Size.fromHeight(46),
                                       ),
-                                    )
-                                  : const Icon(Icons.cloud_sync_rounded),
-                              label: Text(
-                                state.isSyncingSePay ? 'Đang đồng bộ...' : 'Đồng bộ ngay',
+                                      onPressed: () => _showLinkBankAccountSheet(
+                                        context: context,
+                                        userId: user.id,
+                                        userFullName: user.fullName,
+                                        wallets: wallets,
+                                        defaultWalletId: defaultAccount.walletId,
+                                      ),
+                                      icon: const Icon(Icons.swap_horiz_rounded, size: 17),
+                                      label: const Text('Đổi TK'),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 3. ANDROID BANK NOTIFICATION CARD
+                      // 2. RECENT QR COLLECTION ORDERS ("Chờ nhận tiền" -> "Đã nhận đủ")
+                      if (state.paymentOrders.isNotEmpty) ...[
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mã QR thu tiền gần đây (${state.paymentOrders.length})',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                ...state.paymentOrders.take(6).map((order) {
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: CircleAvatar(
+                                      backgroundColor: order.isPaid
+                                          ? c.successSubtle
+                                          : c.warningSubtle,
+                                      child: Icon(
+                                        order.isPaid
+                                            ? Icons.check_circle_rounded
+                                            : Icons.qr_code_2_rounded,
+                                        color: order.isPaid ? c.success : c.warning,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      '${order.description} · ${VndAmount.format(order.amountMinor)}',
+                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                    subtitle: Text(
+                                      'Mã: ${order.paymentCode} · ${order.bankName} ${order.maskedAccountLabel}',
+                                    ),
+                                    trailing: SemanticStatusBadge(
+                                      kind: order.isPaid
+                                          ? SemanticStatusKind.success
+                                          : SemanticStatusKind.warning,
+                                      label: order.status.displayLabel,
+                                    ),
+                                    onTap: () => _showOrderQrDetailSheet(
+                                      context: context,
+                                      userId: user.id,
+                                      order: order,
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+
+                      // 3. NATIVE BANK NOTIFICATION RECOGNITION & VOICE SOUNDBOX CARD
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -303,12 +777,12 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               ),
                               const SizedBox(height: AppSpacing.sm),
                               Text(
-                                'Đọc thông báo biến động số dư',
+                                'Tự động nhận diện tiền ra vào & Loa báo tiền',
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Tự động ghi nhận chi tiêu từ ứng dụng ngân hàng và bỏ qua tin nhắn chứa mã OTP.',
+                                'Đọc thông báo từ 18 ngân hàng, MoMo, ZaloPay và SMS để tự cộng trừ ví, đồng bộ số dư và gạch nợ mã QR.',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               const SizedBox(height: 12),
@@ -328,11 +802,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                       : 'Cấp quyền đọc thông báo',
                                 ),
                               ),
-                              const Divider(height: 24),
-                              SwitchListTile(
+                              const Divider(height: 22),
+                              SwitchListTile.adaptive(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Tự động nhận diện giao dịch mới'),
-                                subtitle: Text(enabled ? 'Đang bật' : 'Đang tắt'),
+                                title: const Text('Bật nhận diện giao dịch ngân hàng'),
+                                subtitle: Text(enabled ? 'Đang hoạt động' : 'Đang tắt'),
                                 value: enabled,
                                 onChanged: (next) {
                                   final pkgs = next && allowedSet.isEmpty
@@ -343,11 +817,65 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                           userId: user.id,
                                           enabled: next,
                                           allowedPackages: pkgs,
+                                          autoConfirmSignals: autoConfirm,
+                                          voiceSoundboxEnabled: soundboxEnabled,
                                         ),
                                       );
                                 },
                               ),
-                              const SizedBox(height: 8),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Tự động cộng/trừ thẳng vào số dư ví'),
+                                subtitle: const Text('Tự đồng bộ cả số dư thực tế sau giao dịch'),
+                                value: autoConfirm,
+                                onChanged: (next) {
+                                  final pkgs = allowedSet.isEmpty
+                                      ? kSupportedVnBanks.map((b) => b.packageName).toList()
+                                      : allowedSet.toList();
+                                  context.read<NotificationIngestionBloc>().add(
+                                        ConsentConfigUpdated(
+                                          userId: user.id,
+                                          enabled: next ? true : enabled,
+                                          allowedPackages: pkgs,
+                                          autoConfirmSignals: next,
+                                          voiceSoundboxEnabled: soundboxEnabled,
+                                        ),
+                                      );
+                                },
+                              ),
+                              SwitchListTile.adaptive(
+                                key: const Key('voice_soundbox_switch'),
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Loa đọc số tiền khi nhận chuyển khoản'),
+                                subtitle: const Text('Phát giọng đọc Tiếng Việt ngay cả khi tắt màn hình'),
+                                value: soundboxEnabled,
+                                onChanged: (next) {
+                                  final pkgs = allowedSet.isEmpty
+                                      ? kSupportedVnBanks.map((b) => b.packageName).toList()
+                                      : allowedSet.toList();
+                                  context.read<NotificationIngestionBloc>().add(
+                                        ConsentConfigUpdated(
+                                          userId: user.id,
+                                          enabled: next ? true : enabled,
+                                          allowedPackages: pkgs,
+                                          autoConfirmSignals: autoConfirm,
+                                          voiceSoundboxEnabled: next,
+                                        ),
+                                      );
+                                },
+                              ),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  key: const Key('test_voice_soundbox_button'),
+                                  onPressed: () => context
+                                      .read<NotificationIngestionBloc>()
+                                      .add(const SoundboxTestRequested()),
+                                  icon: const Icon(Icons.volume_up_rounded, size: 18),
+                                  label: const Text('Nghe thử loa báo tiền về'),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
@@ -370,6 +898,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                                     userId: user.id,
                                                     enabled: enabled,
                                                     allowedPackages: updated.toList(),
+                                                    autoConfirmSignals: autoConfirm,
+                                                    voiceSoundboxEnabled: soundboxEnabled,
                                                   ),
                                                 );
                                           },
@@ -382,7 +912,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 4. Advanced Tools (CSV Import & Notification Test) — Cleanly Collapsed
+                      // 4. Advanced Tools (CSV Import & Notification Test)
                       Card(
                         child: ExpansionTile(
                           shape: const Border(),
@@ -592,5 +1122,13 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
         ),
       ),
     );
+  }
+}
+
+extension on PaymentOrderEntity {
+  String get maskedAccountLabel {
+    final clean = accountNumber.trim();
+    if (clean.length <= 4) return clean;
+    return '•••• ${clean.substring(clean.length - 4)}';
   }
 }

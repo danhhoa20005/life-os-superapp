@@ -12,11 +12,11 @@ import 'package:life_os/core/services/android_notification_bridge.dart';
 import 'package:life_os/core/services/file_storage_service.dart';
 import 'package:life_os/core/services/native_alarm_scheduler_bridge.dart';
 import 'package:life_os/core/services/native_secure_vault_bridge.dart';
+import 'package:life_os/core/utils/vnd_amount.dart';
 import 'package:life_os/features/calendar/data/datasources/google_calendar_api_datasource.dart';
 import 'package:life_os/features/calendar/data/repositories/calendar_repository_impl.dart';
 import 'package:life_os/features/calendar/domain/entities/calendar_entities.dart';
 import 'package:life_os/features/daily_life/domain/entities/daily_life_entities.dart';
-import 'package:life_os/features/notifications/data/datasources/sepay_api_datasource.dart';
 import 'package:life_os/features/notifications/data/repositories/notifications_repository_impl.dart';
 
 void main() {
@@ -58,39 +58,42 @@ void main() {
       expect(rules, contains('isAccountDeletionActive(userId)'));
     });
 
-    test('P0-3 & Account Erasure: SePay token stored in Hardware Vault (never Firestore) & full erasure wipes all 28 collections', () async {
+    test('P0-3 & Account Erasure: Zero external partner API tokens & full erasure wipes all 30 collections', () async {
       final firestore = FakeFirebaseFirestore();
       final auth = MockFirebaseAuth(
         signedIn: true,
         mockUser: MockUser(uid: 'u_sec_1', email: 'sec@lifeos.vn'),
       );
-      final sePayClient = MockClient((req) async {
-        expect(req.headers['Authorization'], 'Bearer SEPAY_SECRET_TOKEN_9988');
-        return http.Response(jsonEncode({'transactions': []}), 200);
-      });
       final remote = NotificationsRemoteDataSource(
         firestore: firestore,
         firebaseAuth: auth,
         bridge: AndroidNotificationBridge(),
-        sePayApi: SePayApiDataSource(httpClient: sePayClient),
       );
 
-      await remote.syncSePayTransactions(
+      await NativeSecureVaultBridge.instance.writeSecret(
+        key: 'vault_key_u_sec_1',
+        value: 'LOCAL_SECRET_9988',
+      );
+      await remote.saveLinkedBankAccount(
         userId: 'u_sec_1',
         walletId: 'wallet_1',
-        apiTokenOverride: 'SEPAY_SECRET_TOKEN_9988',
+        bankBin: '970436',
+        bankCode: 'VCB',
+        bankName: 'Vietcombank',
+        accountNumber: '0071000886868',
+        accountHolderName: 'NGUYEN VAN A',
       );
-
-      // Verify Firestore doc NEVER contains plaintext `apiToken`
-      final consentDoc = await firestore
-          .collection('users')
-          .doc('u_sec_1')
-          .collection('consents')
-          .doc('sepay_api')
-          .get();
-      expect(consentDoc.data()!.containsKey('apiToken'), isFalse);
-      expect(consentDoc.data()!['hasTokenConfigured'], isTrue);
-      expect(await remote.getSavedSePayMaskedToken('u_sec_1'), endsWith('9988'));
+      await remote.createPaymentOrder(
+        userId: 'u_sec_1',
+        walletId: 'wallet_1',
+        bankBin: '970436',
+        bankCode: 'VCB',
+        bankName: 'Vietcombank',
+        accountNumber: '0071000886868',
+        accountHolderName: 'NGUYEN VAN A',
+        amountMinor: 250000,
+        description: 'Tiền điện',
+      );
 
       // Seed personal data across new 360° Daily Life + immutable transactions + family availability
       final uRef = firestore.collection('users').doc('u_sec_1');
@@ -113,6 +116,8 @@ void main() {
       await remote.deleteAccountAndPersonalData('u_sec_1');
 
       expect((await uRef.collection('transactions').get()).docs, isEmpty);
+      expect((await uRef.collection('bank_accounts').get()).docs, isEmpty);
+      expect((await uRef.collection('payment_orders').get()).docs, isEmpty);
       expect((await uRef.collection('medications').get()).docs, isEmpty);
       expect((await uRef.collection('life_notes').get()).docs, isEmpty);
       expect((await uRef.collection('documents').get()).docs, isEmpty);
@@ -120,7 +125,7 @@ void main() {
         (await firestore.collection('families').doc('fam1').collection('availability').get()).docs,
         isEmpty,
       );
-      expect(await NativeSecureVaultBridge.instance.readSecret('sepay_api_token_u_sec_1'), isNull);
+      expect(await NativeSecureVaultBridge.instance.readSecret('vault_key_u_sec_1'), isNull);
     });
 
     test('P0-4: Release signing config loads key.properties with documented template', () {
@@ -221,9 +226,9 @@ void main() {
       expect(cals.last.isReadOnly, isTrue);
 
       // 4. Exact integer decimal VND parser without IEEE-754 double drift
-      expect(SePayApiDataSource.parseExactDecimalVnd('500,000.00'), 500000);
-      expect(SePayApiDataSource.parseExactDecimalVnd('123456.75'), 123457);
-      expect(SePayApiDataSource.parseExactDecimalVnd('9007199254740993.00'), 9007199254740993);
+      expect(VndAmount.parseExactDecimalVnd('500,000.00'), 500000);
+      expect(VndAmount.parseExactDecimalVnd('123456.75'), 123457);
+      expect(VndAmount.parseExactDecimalVnd('9007199254740993.00'), 9007199254740993);
 
       // 5. Private On-Device Document Vault stores & verifies bytes cleanly
       final tempVault = Directory.systemTemp.createTempSync('lifeos_vault_test_');
