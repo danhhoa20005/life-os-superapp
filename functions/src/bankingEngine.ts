@@ -165,6 +165,7 @@ export interface NotificationOutboxRecord {
     | "FAILED_PERMANENT";
   readonly attemptCount: number;
   readonly lastError?: string;
+  readonly nextRetryAtMs?: number;
   readonly createdAtMs: number;
   readonly updatedAtMs: number;
 }
@@ -257,6 +258,7 @@ export interface BankingBackendStore {
   getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null>;
   createDurableInboxIfAbsent(record: InboxEventRecord): Promise<{ created: boolean; existing?: InboxEventRecord }>;
   claimOutboxForDelivery(notificationId: string, nowMs: number): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }>;
+  listDueRetryableOutboxRecords(nowMs: number, limit?: number): Promise<NotificationOutboxRecord[]>;
   getOutboxRecord(notificationId: string): Promise<NotificationOutboxRecord | null>;
   updateOutboxRecord(record: NotificationOutboxRecord): Promise<void>;
   getUserNotificationPreferences(ownerId: string): Promise<UserNotificationPreferences>;
@@ -911,27 +913,200 @@ export class RealtimeBankingCoordinator {
         return delivered;
       }
 
-      const nextState = outbox.attemptCount + 1 >= 5 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
+      const nextAttempt = outbox.attemptCount + 1;
+      const nextState = nextAttempt >= 5 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
       const failed: NotificationOutboxRecord = {
         ...outbox,
         state: nextState,
-        attemptCount: outbox.attemptCount + 1,
+        attemptCount: nextAttempt,
         lastError: sendRes.retryableError ?? "FCM_ALL_TOKENS_FAILED",
+        nextRetryAtMs: nextState === "FAILED_RETRYABLE" ? nowMs + RealtimeBankingCoordinator.computeOutboxRetryDelayMs(nextAttempt) : undefined,
         updatedAtMs: nowMs
       };
       await this.store.updateOutboxRecord(failed);
       return failed;
     } catch (err) {
+      const nextAttempt = outbox.attemptCount + 1;
+      const nextState = nextAttempt >= 5 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
       const failed: NotificationOutboxRecord = {
         ...outbox,
-        state: outbox.attemptCount + 1 >= 5 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE",
-        attemptCount: outbox.attemptCount + 1,
+        state: nextState,
+        attemptCount: nextAttempt,
         lastError: err instanceof Error ? err.message : "FCM_TRANSPORT_ERROR",
+        nextRetryAtMs: nextState === "FAILED_RETRYABLE" ? nowMs + RealtimeBankingCoordinator.computeOutboxRetryDelayMs(nextAttempt) : undefined,
         updatedAtMs: nowMs
       };
       await this.store.updateOutboxRecord(failed);
       return failed;
     }
+  }
+
+  /**
+   * Exponential backoff schedule for `FAILED_RETRYABLE` FCM outbox records:
+   * Attempt 1 -> 30s, Attempt 2 -> 2m, Attempt 3 -> 8m, Attempt 4 -> 30m, Attempt >= 5 -> FAILED_PERMANENT.
+   */
+  static computeOutboxRetryDelayMs(attemptCount: number): number {
+    switch (attemptCount) {
+      case 1:
+        return 30_000;
+      case 2:
+        return 120_000;
+      case 3:
+        return 480_000;
+      default:
+        return 1_800_000;
+    }
+  }
+
+  /**
+   * F12 / BG-02: Autonomous scheduled retry sweep for `FAILED_RETRYABLE` outbox notifications.
+   * Never creates duplicate `financial_notifications` and guarantees at-most-once delivery per attempt window.
+   */
+  async retryDueNotificationOutboxBatch(
+    nowMs = Date.now(),
+    limit = 50
+  ): Promise<{
+    attempted: number;
+    delivered: number;
+    stillRetryable: number;
+    permanentFailures: number;
+  }> {
+    const due = await this.store.listDueRetryableOutboxRecords(nowMs, limit);
+    let attempted = 0;
+    let delivered = 0;
+    let stillRetryable = 0;
+    let permanentFailures = 0;
+
+    for (const item of due) {
+      attempted += 1;
+      const updated = await this.dispatchNotificationOutbox(item.id, nowMs);
+      if (updated?.state === "DELIVERED") {
+        delivered += 1;
+      } else if (updated?.state === "FAILED_PERMANENT") {
+        permanentFailures += 1;
+      } else if (updated?.state === "FAILED_RETRYABLE") {
+        stillRetryable += 1;
+      }
+    }
+
+    return { attempted, delivered, stillRetryable, permanentFailures };
+  }
+
+  /**
+   * F13 / FIN-05: Multi-page idempotent SePay REST reconciliation engine (supports 100-1,000+ transactions,
+   * watermark early-stop, and mid-flight network interruption resume without duplicate ledger entries).
+   */
+  async reconcilePaginatedSePayPages(params: {
+    ownerId: string;
+    connectionId: string;
+    accountNumber: string;
+    subAccount?: string;
+    bankName: string;
+    fetchPage: (pageIndex: number, pageLimit: number) => Promise<Array<Record<string, unknown>>>;
+    pageSize?: number;
+    maxPages?: number;
+    stopAtExternalTxId?: string;
+    nowMs?: number;
+  }): Promise<{
+    pagesFetched: number;
+    fetchedCount: number;
+    processedCount: number;
+    duplicateCount: number;
+    newestExternalTxId?: string;
+  }> {
+    const pageSize = Math.max(1, Math.min(params.pageSize ?? 100, 200));
+    const maxPages = Math.max(1, Math.min(params.maxPages ?? 10, 25));
+    const nowMs = params.nowMs ?? Date.now();
+
+    let pagesFetched = 0;
+    let fetchedCount = 0;
+    let processedCount = 0;
+    let duplicateCount = 0;
+    let newestExternalTxId: string | undefined;
+
+    for (let page = 0; page < maxPages; page++) {
+      const items = await params.fetchPage(page, pageSize);
+      pagesFetched += 1;
+      if (!Array.isArray(items) || items.length === 0) {
+        break;
+      }
+
+      let hitWatermark = false;
+      for (const raw of items) {
+        const extId = String(raw.id ?? "").trim();
+        if (!newestExternalTxId && extId) {
+          newestExternalTxId = extId;
+        }
+        if (params.stopAtExternalTxId && extId === params.stopAtExternalTxId) {
+          hitWatermark = true;
+          break;
+        }
+
+        const amountIn = Number(raw.amount_in ?? 0);
+        const amountOut = Number(raw.amount_out ?? 0);
+        const transferType = amountIn > 0 ? "in" : "out";
+        const transferAmount = Math.round(amountIn > 0 ? amountIn : amountOut);
+        if (transferAmount <= 0) continue;
+
+        fetchedCount += 1;
+
+        const normalizedPayload = Buffer.from(
+          JSON.stringify({
+            id: Number(raw.id),
+            gateway: String(raw.bank_brand_name ?? params.bankName),
+            transactionDate: String(raw.transaction_date ?? ""),
+            accountNumber: params.accountNumber,
+            subAccount: String(raw.sub_account ?? params.subAccount ?? ""),
+            code: raw.code ?? null,
+            content: String(raw.transaction_content ?? ""),
+            transferType,
+            description: String(raw.transaction_content ?? ""),
+            transferAmount,
+            accumulated: Number(raw.accumulated ?? 0),
+            referenceCode: String(raw.reference_number ?? "")
+          }),
+          "utf8"
+        );
+
+        const validated = parseAndValidateSePayPayload(normalizedPayload);
+        if (!validated.valid || !validated.payload) continue;
+
+        const providerEventKey = `sepay_${params.connectionId}_${validated.payload.id}`;
+        await this.store.createDurableInboxIfAbsent({
+          providerEventKey,
+          provider: "sepay",
+          externalTransactionId: String(validated.payload.id),
+          connectionId: params.connectionId,
+          ownerId: params.ownerId,
+          state: "PENDING_PROCESSING",
+          payload: validated.payload,
+          receivedAtMs: nowMs,
+          updatedAtMs: nowMs
+        });
+
+        const out = await this.processInboxEvent(providerEventKey, nowMs);
+        if (out.state === "DUPLICATE") {
+          duplicateCount += 1;
+        } else if (out.state === "PROCESSED" || out.state === "NEEDS_REVIEW") {
+          processedCount += 1;
+          if (out.notificationId) {
+            await this.dispatchNotificationOutbox(out.notificationId, nowMs);
+          }
+        }
+      }
+
+      if (hitWatermark || items.length < pageSize) {
+        break;
+      }
+    }
+
+    return {
+      pagesFetched,
+      fetchedCount,
+      processedCount,
+      duplicateCount,
+      newestExternalTxId
+    };
   }
 
   /**

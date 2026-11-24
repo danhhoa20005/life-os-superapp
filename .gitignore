@@ -20,15 +20,26 @@ firebase/emulator_data/
 !*env.example
 *service-account*.json
 google-services.json.secret
+/google-services.json
+/GoogleService-Info.plist
 android/key.properties
 *.jks
 *.keystore
 
-# Node modules & compiled Functions artifacts
+# Node modules, Python cache & compiled artifacts
 node_modules/
 functions/node_modules/
 functions/lib/
 firebase/rules_tests/node_modules/
+__pycache__/
+*.pyc
+tools/financial_ai/artifacts/model_fp32.json
+
+# Local release bundles & scratch exports
+/*.zip
+/LifeOS_*.jpg
+/life-os-*.apk
+/life-os-*.apk.sha256
 
 # OS metadata
 .DS_Store

@@ -146,6 +146,26 @@ final class VehicleMaintenanceHistoryWatched extends VehicleEvent {
   List<Object?> get props => [vehicle];
 }
 
+final class VehicleDeleted extends VehicleEvent {
+  final String actorUserId;
+  final VehicleEntity vehicle;
+
+  const VehicleDeleted({required this.actorUserId, required this.vehicle});
+
+  @override
+  List<Object?> get props => [actorUserId, vehicle];
+}
+
+final class RecurringBillDeleted extends VehicleEvent {
+  final String actorUserId;
+  final RecurringBillEntity bill;
+
+  const RecurringBillDeleted({required this.actorUserId, required this.bill});
+
+  @override
+  List<Object?> get props => [actorUserId, bill];
+}
+
 final class RecurringBillCreated extends VehicleEvent {
   final String userId;
   final String? familyId;
@@ -269,8 +289,10 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
       _onMaintenanceLogged,
       transformer: sequential(),
     );
+    on<VehicleDeleted>(_onDeleteVehicle, transformer: sequential());
     on<RecurringBillCreated>(_onCreateBill, transformer: sequential());
     on<RecurringBillPaid>(_onPayBill, transformer: sequential());
+    on<RecurringBillDeleted>(_onDeleteBill, transformer: sequential());
   }
 
   Future<void> _onWatchMaintenanceHistory(
@@ -428,6 +450,31 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     );
   }
 
+  Future<void> _onDeleteVehicle(
+    VehicleDeleted event,
+    Emitter<VehicleState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.deleteVehicle(
+      actorUserId: event.actorUserId,
+      vehicle: event.vehicle,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) {
+        final nextHistory = Map<String, List<MaintenanceRecordEntity>>.from(
+          state.maintenanceHistoryByVehicleId,
+        )..remove(event.vehicle.id);
+        emit(
+          state.copyWith(
+            maintenanceHistoryByVehicleId: nextHistory,
+            message: 'Đã xóa phương tiện "${event.vehicle.name}".',
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _onCreateBill(
     RecurringBillCreated event,
     Emitter<VehicleState> emit,
@@ -484,6 +531,23 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
               ? '⚠ Đã thanh toán hóa đơn — Cảnh báo: kỳ này cao hơn >= 25% mức trung bình!'
               : 'Đã thanh toán hóa đơn và đẩy kỳ hạn sang tháng tới.',
         ),
+      ),
+    );
+  }
+
+  Future<void> _onDeleteBill(
+    RecurringBillDeleted event,
+    Emitter<VehicleState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.deleteRecurringBill(
+      actorUserId: event.actorUserId,
+      bill: event.bill,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(message: 'Đã xóa hóa đơn "${event.bill.title}".'),
       ),
     );
   }

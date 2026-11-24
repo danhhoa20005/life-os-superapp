@@ -28,7 +28,14 @@ final class VoiceErrorSignal extends VoiceAssistantSignal {
   const VoiceErrorSignal(this.message);
 }
 
-class NativeVoiceAssistantBridge {
+abstract interface class VoiceAssistantDriver {
+  bool get isSupportedPlatform;
+  Future<String> startListening();
+  Future<void> stopListening();
+  Stream<VoiceAssistantSignal> watchSignals();
+}
+
+class MethodChannelVoiceAssistantDriver implements VoiceAssistantDriver {
   static const MethodChannel _methodChannel = MethodChannel(
     'vn.lifeos.app/voice_assistant',
   );
@@ -36,8 +43,9 @@ class NativeVoiceAssistantBridge {
     'vn.lifeos.app/voice_events',
   );
 
-  const NativeVoiceAssistantBridge();
+  const MethodChannelVoiceAssistantDriver();
 
+  @override
   bool get isSupportedPlatform =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -50,6 +58,7 @@ class NativeVoiceAssistantBridge {
     }
   }
 
+  @override
   Future<String> startListening() async {
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return 'UNSUPPORTED';
@@ -64,6 +73,7 @@ class NativeVoiceAssistantBridge {
     }
   }
 
+  @override
   Future<void> stopListening() async {
     if (!isSupportedPlatform || !_hasServicesBinding) return;
     try {
@@ -71,6 +81,7 @@ class NativeVoiceAssistantBridge {
     } catch (_) {}
   }
 
+  @override
   Stream<VoiceAssistantSignal> watchSignals() {
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return const Stream<VoiceAssistantSignal>.empty();
@@ -109,7 +120,7 @@ class NativeVoiceAssistantBridge {
               controller.add(
                 VoiceErrorSignal(
                   (map['message'] ??
-                          'Không nghe rõ giọng nói. Bạn có thể bấm mic nói lại.')
+                          'Không nghe rõ giọng nói. Bạn có thể bấm Nói lại.')
                       .toString(),
                 ),
               );
@@ -126,4 +137,24 @@ class NativeVoiceAssistantBridge {
       };
     });
   }
+}
+
+class NativeVoiceAssistantBridge {
+  static VoiceAssistantDriver _driver =
+      const MethodChannelVoiceAssistantDriver();
+
+  const NativeVoiceAssistantBridge();
+
+  @visibleForTesting
+  static void setDriverOverride(VoiceAssistantDriver? overrideDriver) {
+    _driver = overrideDriver ?? const MethodChannelVoiceAssistantDriver();
+  }
+
+  bool get isSupportedPlatform => _driver.isSupportedPlatform;
+
+  Future<String> startListening() => _driver.startListening();
+
+  Future<void> stopListening() => _driver.stopListening();
+
+  Stream<VoiceAssistantSignal> watchSignals() => _driver.watchSignals();
 }

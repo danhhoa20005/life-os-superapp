@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -24,7 +25,15 @@ class SocialLedgerTravelPage extends StatefulWidget {
 
 class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
   bool _showPackingTab = false;
+  final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  String _directionFilter = 'all'; // 'all' | 'gave' | 'received'
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   static const Map<String, List<String>> _tripTemplates = {
     'Du lịch Biển 3N2Đ': [
@@ -153,17 +162,23 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
     DateFormat dateFmt,
     String? defaultWalletId,
   ) {
-    final q = _searchQuery.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? state.giftEntries
-        : state.giftEntries
-              .where(
-                (g) =>
-                    g.contactName.toLowerCase().contains(q) ||
-                    g.relationshipGroup.toLowerCase().contains(q) ||
-                    g.occasion.labelVi.toLowerCase().contains(q),
-              )
-              .toList();
+    final hasActiveFilter =
+        _directionFilter != 'all' || _searchQuery.trim().isNotEmpty;
+    final filtered = state.giftEntries.where((g) {
+      if (_directionFilter == 'gave' && g.direction != GiftDirection.gave) {
+        return false;
+      }
+      if (_directionFilter == 'received' &&
+          g.direction != GiftDirection.received) {
+        return false;
+      }
+      return VietnameseSearchMatcher.matchesAny(_searchQuery, [
+        g.contactName,
+        g.relationshipGroup,
+        g.occasion.labelVi,
+        g.note,
+      ]);
+    }).toList();
 
     final netReciprocity =
         state.totalGiftReceivedMinor - state.totalGiftGaveMinor;
@@ -185,11 +200,15 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Đã đi mừng',
-                        style: TextStyle(
-                          fontSize: 11.8,
-                          color: c.textSecondary,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Đã đi mừng',
+                          style: TextStyle(
+                            fontSize: 11.8,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -214,11 +233,15 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Đã nhận mừng',
-                        style: TextStyle(
-                          fontSize: 11.8,
-                          color: c.textSecondary,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Đã nhận mừng',
+                          style: TextStyle(
+                            fontSize: 11.8,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -243,11 +266,15 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Chênh lệch',
-                        style: TextStyle(
-                          fontSize: 11.8,
-                          color: c.textSecondary,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Chênh lệch',
+                          style: TextStyle(
+                            fontSize: 11.8,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -275,11 +302,62 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
 
         // 2. Instant Contact Reciprocity Search
         TextField(
-          decoration: const InputDecoration(
-            hintText: 'Tìm tên bạn bè, đồng nghiệp để tra mức mừng cũ...',
-            prefixIcon: Icon(Icons.search_rounded),
+          key: const Key('gift_ledger_search_field'),
+          controller: _searchCtrl,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Tìm bạn bè, dịp mừng',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    key: const Key('gift_ledger_clear_btn'),
+                    tooltip: 'Xóa tìm kiếm',
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
           ),
           onChanged: (v) => setState(() => _searchQuery = v),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ChoiceChip(
+              key: const Key('gift_filter_all'),
+              label: Text('Tất cả (${state.giftEntries.length})'),
+              selected: _directionFilter == 'all' && _searchQuery.trim().isEmpty,
+              onSelected: (_) {
+                _searchCtrl.clear();
+                setState(() {
+                  _directionFilter = 'all';
+                  _searchQuery = '';
+                });
+              },
+            ),
+            ChoiceChip(
+              key: const Key('gift_filter_gave'),
+              label: Text(
+                'Đi mừng (${state.giftEntries.where((g) => g.direction == GiftDirection.gave).length})',
+              ),
+              selected: _directionFilter == 'gave',
+              onSelected: (sel) =>
+                  setState(() => _directionFilter = sel ? 'gave' : 'all'),
+            ),
+            ChoiceChip(
+              key: const Key('gift_filter_received'),
+              label: Text(
+                'Nhận mừng (${state.giftEntries.where((g) => g.direction == GiftDirection.received).length})',
+              ),
+              selected: _directionFilter == 'received',
+              onSelected: (sel) =>
+                  setState(() => _directionFilter = sel ? 'received' : 'all'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
 
@@ -287,14 +365,18 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
           LifeOsSoftCard(
             child: Column(
               children: [
-                const LifeOsIconSquircle(
-                  icon: Icons.volunteer_activism_outlined,
+                LifeOsIconSquircle(
+                  icon: hasActiveFilter && state.giftEntries.isNotEmpty
+                      ? Icons.search_off_rounded
+                      : Icons.volunteer_activism_outlined,
                   tone: LifeOsAccentTone.purple,
                   size: 48,
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Chưa có mục ghi Hiếu Hỷ nào',
+                  hasActiveFilter && state.giftEntries.isNotEmpty
+                      ? 'Không tìm thấy mục ghi khớp bộ lọc'
+                      : 'Chưa có mục ghi Hiếu Hỷ nào',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
@@ -303,10 +385,27 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Ghi lại tiền mừng cưới, tân gia, đầy tháng và lễ Tết hai chiều để dễ dàng tra cứu khi cần đáp lễ.',
+                  hasActiveFilter && state.giftEntries.isNotEmpty
+                      ? 'Hãy xóa từ khóa tìm kiếm hoặc chọn Tất cả để xem lại toàn bộ sổ mừng.'
+                      : 'Ghi lại tiền mừng cưới, tân gia, đầy tháng và lễ Tết hai chiều để dễ dàng tra cứu khi cần đáp lễ.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),
+                if (hasActiveFilter && state.giftEntries.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  FilledButton.tonalIcon(
+                    key: const Key('gift_ledger_reset_filter_btn'),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() {
+                        _directionFilter = 'all';
+                        _searchQuery = '';
+                      });
+                    },
+                    icon: const Icon(Icons.filter_alt_off_rounded, size: 17),
+                    label: const Text('Xóa bộ lọc'),
+                  ),
+                ],
               ],
             ),
           )
@@ -607,7 +706,7 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                 if (defaultWalletId != null)
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Đồng thời ghi Thu/Chi vào Ví Sổ cái'),
+                    title: const Text('Đồng thời ghi Thu/Chi vào Ví'),
                     value: recordToWallet,
                     onChanged: (v) => setDialogState(() => recordToWallet = v),
                   ),
@@ -622,16 +721,25 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
             FilledButton(
               key: const Key('submit_gift_button'),
               onPressed: () {
+                final contact = nameCtrl.text.trim();
                 final amt = VndAmount.tryParseInput(amtCtrl.text) ?? 0;
+                if (contact.length < 2 || amt <= 0) {
+                  LifeOsTopToast.show(
+                    ctx,
+                    'Vui lòng nhập tên người mừng (tối thiểu 2 ký tự) và số tiền > 0 ₫.',
+                    kind: LifeOsToastKind.warning,
+                  );
+                  return;
+                }
                 proBloc.add(
                   GiftLedgerEntrySubmitted(
                     userId: userId,
-                    contactName: nameCtrl.text,
+                    contactName: contact,
                     relationshipGroup: group,
                     direction: direction,
                     occasion: occasion,
                     amountMinor: amt,
-                    note: noteCtrl.text,
+                    note: noteCtrl.text.trim(),
                   ),
                 );
                 if (recordToWallet && defaultWalletId != null && amt > 0) {
@@ -645,8 +753,8 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                           ? TransactionKind.income
                           : TransactionKind.expense,
                       amountMinor: amt,
-                      merchant: '${occasion.labelVi} - ${nameCtrl.text}',
-                      note: noteCtrl.text,
+                      merchant: '${occasion.labelVi} - $contact',
+                      note: noteCtrl.text.trim(),
                       occurredAt: DateTime.now(),
                     ),
                   );

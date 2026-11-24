@@ -1,28 +1,55 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/services/health_reminder_scheduler_service.dart';
+import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../domain/entities/daily_life_entities.dart';
 import '../../domain/repositories/daily_life_repository.dart';
 
 class DailyLifeRepositoryImpl implements DailyLifeRepository {
   final FirebaseFirestore _firestore;
+  final HealthReminderSchedulerService _reminderScheduler;
   static const Uuid _uuid = Uuid();
 
-  const DailyLifeRepositoryImpl(this._firestore);
+  DailyLifeRepositoryImpl(
+    this._firestore, {
+    HealthReminderSchedulerService? reminderScheduler,
+  }) : _reminderScheduler =
+           reminderScheduler ?? HealthReminderSchedulerService();
 
   DocumentReference<Map<String, dynamic>> _userRef(String userId) =>
       _firestore.collection('users').doc(userId);
 
   @override
   Stream<DailyLifeSnapshot> watchAll({required String userId}) {
+    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     return Stream<DailyLifeSnapshot>.multi((controller) {
       var meds = <MedicationCabinetItemEntity>[];
       var healthLogs = <HealthVitalLogEntity>[];
       var emergencyCard = EmergencyMedicalCardEntity(ownerId: userId);
+      var waterMl = 0;
+      int? dailyTargetWaterMl;
+      int? profileTargetWaterMl;
+      var lastCupMl = 250;
+      var waterReminderEnabled = false;
+      var waterIntervalMinutes = 90;
+      var waterStartHour = 7;
+      var waterStartMinute = 0;
+      var waterEndHour = 21;
+      var waterEndMinute = 0;
+      double? profileWeightKg;
+      double? profileHeightCm;
+      var activityLevel = HydrationActivityLevel.sedentary;
+      var autoSyncTargetByBody = true;
+      var preferredCupMl = 250;
+      DateTime? snoozedUntil;
+      var hydrationProfileLoaded = false;
+      var todayEntries = <WaterIntakeLogEntry>[];
       var groceries = <SmartGroceryItemEntity>[];
       var mealPlans = <DailyMealPlanEntity>[];
       var readings = <UtilityMeterReadingEntity>[];
@@ -31,11 +58,67 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
 
       void emitNow() {
         if (controller.isClosed) return;
+        final resolvedWeight =
+            profileWeightKg ??
+            (healthLogs.isNotEmpty ? healthLogs.first.weightKg : 63.0);
+        final resolvedHeight =
+            profileHeightCm ??
+            (healthLogs.isNotEmpty ? healthLogs.first.heightCm : 168.0);
+        final computedBodyTarget =
+            AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
+              weightKg: resolvedWeight,
+              heightCm: resolvedHeight,
+              activityLevel: activityLevel,
+            );
+        final resolvedTarget =
+            profileTargetWaterMl ??
+            dailyTargetWaterMl ??
+            ((profileWeightKg != null || healthLogs.isNotEmpty) &&
+                    autoSyncTargetByBody
+                ? computedBodyTarget
+                : 2000);
+
+        if (hydrationProfileLoaded) {
+          unawaited(
+            NativeAlarmSchedulerBridge.instance.syncHydrationDaemon(
+              enabled: waterReminderEnabled,
+              intervalMinutes: waterIntervalMinutes,
+              startHour: waterStartHour,
+              startMinute: waterStartMinute,
+              endHour: waterEndHour,
+              endMinute: waterEndMinute,
+              targetWaterMl: resolvedTarget,
+              waterMl: waterMl,
+              preferredCupMl: preferredCupMl,
+              dayKey: todayKey,
+            ),
+          );
+        }
+
         controller.add(
           DailyLifeSnapshot(
             medications: meds,
             healthLogs: healthLogs,
             emergencyCard: emergencyCard,
+            hydration: HydrationReminderStatusEntity(
+              dayKey: todayKey,
+              waterMl: waterMl,
+              targetWaterMl: resolvedTarget,
+              lastCupMl: lastCupMl,
+              reminderEnabled: waterReminderEnabled,
+              intervalMinutes: waterIntervalMinutes,
+              startHour: waterStartHour,
+              startMinute: waterStartMinute,
+              endHour: waterEndHour,
+              endMinute: waterEndMinute,
+              weightKg: resolvedWeight,
+              heightCm: resolvedHeight,
+              activityLevel: activityLevel,
+              autoSyncTargetByBody: autoSyncTargetByBody,
+              preferredCupMl: preferredCupMl,
+              snoozedUntil: snoozedUntil,
+              todayEntries: todayEntries,
+            ),
             groceryItems: groceries,
             mealPlans: mealPlans,
             utilityReadings: readings,
@@ -52,18 +135,28 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           .listen((snap) {
             meds = snap.docs.map((doc) {
               final d = doc.data();
+              final slot = MedicationScheduleSlot.fromName(
+                d['slot'] as String?,
+              );
               return MedicationCabinetItemEntity(
                 id: doc.id,
                 ownerId: userId,
                 name: (d['name'] ?? 'Thuốc / Vitamin') as String,
                 dosage: (d['dosage'] ?? '1 viên') as String,
-                slot: MedicationScheduleSlot.fromName(d['slot'] as String?),
+                slot: slot,
                 remainingPills: (d['remainingPills'] as num?)?.toInt() ?? 0,
                 expiryDate:
                     DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
                     DateTime.now().add(const Duration(days: 180)),
                 lastTakenDayKey: d['lastTakenDayKey'] as String?,
                 memberName: (d['memberName'] ?? 'Cả gia đình') as String,
+                reminderEnabled: d['reminderEnabled'] is bool
+                    ? d['reminderEnabled'] as bool
+                    : slot.isScheduledDaily,
+                reminderHour: (d['reminderHour'] as num?)?.toInt() ??
+                    slot.defaultHour,
+                reminderMinute: (d['reminderMinute'] as num?)?.toInt() ??
+                    slot.defaultMinute,
               );
             }).toList()..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
             emitNow();
@@ -249,6 +342,68 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
             emitNow();
           });
 
+      final s9 = _userRef(userId)
+          .collection('wellness_daily')
+          .doc(todayKey)
+          .snapshots()
+          .listen((doc) {
+            final d = doc.data();
+            if (d != null) {
+              waterMl = (d['waterMl'] as num?)?.toInt() ?? 0;
+              dailyTargetWaterMl = (d['targetWaterMl'] as num?)?.toInt();
+              if (d['lastCupMl'] != null) {
+                lastCupMl = (d['lastCupMl'] as num).toInt();
+              }
+              final rawEntries = d['entries'];
+              if (rawEntries is List) {
+                todayEntries =
+                    rawEntries
+                        .map(WaterIntakeLogEntry.fromMap)
+                        .whereType<WaterIntakeLogEntry>()
+                        .toList()
+                      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+              } else {
+                todayEntries = <WaterIntakeLogEntry>[];
+              }
+            } else {
+              waterMl = 0;
+              dailyTargetWaterMl = null;
+              todayEntries = <WaterIntakeLogEntry>[];
+            }
+            emitNow();
+          });
+
+      final s10 = _userRef(userId)
+          .collection('medical_profiles')
+          .doc('hydration_reminder')
+          .snapshots()
+          .listen((doc) {
+            final d = doc.data();
+            hydrationProfileLoaded = d != null;
+            if (d != null) {
+              waterReminderEnabled = d['reminderEnabled'] == true;
+              waterIntervalMinutes =
+                  (d['intervalMinutes'] as num?)?.toInt() ?? 90;
+              waterStartHour = (d['startHour'] as num?)?.toInt() ?? 7;
+              waterStartMinute = (d['startMinute'] as num?)?.toInt() ?? 0;
+              waterEndHour = (d['endHour'] as num?)?.toInt() ?? 21;
+              waterEndMinute = (d['endMinute'] as num?)?.toInt() ?? 0;
+              profileTargetWaterMl = (d['targetWaterMl'] as num?)?.toInt();
+              profileWeightKg = (d['weightKg'] as num?)?.toDouble();
+              profileHeightCm = (d['heightCm'] as num?)?.toDouble();
+              activityLevel = HydrationActivityLevel.fromName(
+                d['activityLevel'] as String?,
+              );
+              autoSyncTargetByBody = d['autoSyncTargetByBody'] != false;
+              preferredCupMl = ((d['preferredCupMl'] as num?)?.toInt() ?? 250)
+                  .clamp(100, 600);
+              snoozedUntil = d['snoozedUntil'] != null
+                  ? DateTime.tryParse(d['snoozedUntil'].toString())
+                  : null;
+            }
+            emitNow();
+          });
+
       controller.onCancel = () async {
         await Future.wait([
           s1.cancel(),
@@ -259,6 +414,8 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           s6.cancel(),
           s7.cancel(),
           s8.cancel(),
+          s9.cancel(),
+          s10.cancel(),
         ]);
       };
     });
@@ -273,9 +430,16 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     required int remainingPills,
     required DateTime expiryDate,
     String memberName = 'Cả gia đình',
+    bool? reminderEnabled,
+    int? reminderHour,
+    int? reminderMinute,
   }) async {
     try {
       final id = 'med_${_uuid.v4().substring(0, 8)}';
+      final resolvedEnabled = reminderEnabled ?? slot.isScheduledDaily;
+      final resolvedHour = reminderHour ?? slot.defaultHour;
+      final resolvedMin = reminderMinute ?? slot.defaultMinute;
+
       await _userRef(userId).collection('medications').doc(id).set({
         'id': id,
         'ownerId': userId,
@@ -286,10 +450,70 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'expiryDate': expiryDate.toIso8601String(),
         'lastTakenDayKey': null,
         'memberName': memberName.trim(),
+        'reminderEnabled': resolvedEnabled,
+        'reminderHour': resolvedHour,
+        'reminderMinute': resolvedMin,
       });
+
+      final entity = MedicationCabinetItemEntity(
+        id: id,
+        ownerId: userId,
+        name: name.trim(),
+        dosage: dosage.trim(),
+        slot: slot,
+        remainingPills: remainingPills,
+        expiryDate: expiryDate,
+        memberName: memberName.trim(),
+        reminderEnabled: resolvedEnabled,
+        reminderHour: resolvedHour,
+        reminderMinute: resolvedMin,
+      );
+      await _reminderScheduler.syncMedicationAlarm(entity);
       return const Success(null);
     } catch (e) {
       return Err(UnexpectedFailure(message: 'Không thể lưu thuốc/vitamin: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> updateMedicationReminder({
+    required String userId,
+    required MedicationCabinetItemEntity item,
+    required bool reminderEnabled,
+    required int reminderHour,
+    required int reminderMinute,
+  }) async {
+    try {
+      await _userRef(userId).collection('medications').doc(item.id).update({
+        'reminderEnabled': reminderEnabled,
+        'reminderHour': reminderHour,
+        'reminderMinute': reminderMinute,
+      });
+      final updated = item.copyWith(
+        reminderEnabled: reminderEnabled,
+        reminderHour: reminderHour,
+        reminderMinute: reminderMinute,
+      );
+      await _reminderScheduler.syncMedicationAlarm(updated);
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể cập nhật giờ nhắc thuốc: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> snoozeMedication15Min({
+    required MedicationCabinetItemEntity item,
+  }) async {
+    try {
+      await _reminderScheduler.snoozeMedication15Min(item);
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể dời chuông nhắc thuốc: $e'),
+      );
     }
   }
 
@@ -308,6 +532,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'lastTakenDayKey': alreadyTaken ? null : dayKey,
         'remainingPills': nextRemaining,
       });
+      final updated = item.copyWith(
+        lastTakenDayKey: dayKey,
+        clearLastTaken: alreadyTaken,
+        remainingPills: nextRemaining,
+      );
+      await _reminderScheduler.syncMedicationAlarm(updated, todayKey: dayKey);
       return const Success(null);
     } catch (e) {
       return Err(
@@ -323,9 +553,400 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
   }) async {
     try {
       await _userRef(userId).collection('medications').doc(medId).delete();
+      await _reminderScheduler.cancelMedicationAlarm(medId);
       return const Success(null);
     } catch (e) {
       return Err(UnexpectedFailure(message: 'Không thể xóa mục tủ thuốc: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> logWaterIntake({
+    required String userId,
+    required int deltaMl,
+    int? targetWaterMl,
+    String beverageLabel = 'Nước lọc',
+    String? deleteEntryId,
+  }) async {
+    try {
+      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final docRef = _userRef(
+        userId,
+      ).collection('wellness_daily').doc(todayKey);
+      final snap = await docRef.get();
+      final existing = snap.data() ?? const <String, dynamic>{};
+      final remRef = _userRef(
+        userId,
+      ).collection('medical_profiles').doc('hydration_reminder');
+      final remDoc = await remRef.get();
+      final remData = remDoc.data();
+
+      final currentMl = (existing['waterMl'] as num?)?.toInt() ?? 0;
+      final resolvedTarget =
+          targetWaterMl ??
+          (remData?['targetWaterMl'] as num?)?.toInt() ??
+          (existing['targetWaterMl'] as num?)?.toInt() ??
+          2000;
+
+      final entries = <WaterIntakeLogEntry>[
+        if (existing['entries'] is List)
+          ...(existing['entries'] as List)
+              .map(WaterIntakeLogEntry.fromMap)
+              .whereType<WaterIntakeLogEntry>(),
+      ]..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+
+      int nextMl;
+      if (deleteEntryId != null) {
+        final idx = entries.indexWhere((e) => e.id == deleteEntryId);
+        final removedMl = idx >= 0 ? entries[idx].ml : deltaMl.abs();
+        if (idx >= 0) entries.removeAt(idx);
+        nextMl = (currentMl - removedMl).clamp(0, 10000);
+      } else if (deltaMl > 0) {
+        nextMl = (currentMl + deltaMl).clamp(0, 10000);
+        entries.add(
+          WaterIntakeLogEntry(
+            id: 'cup_${_uuid.v4().substring(0, 8)}',
+            ml: deltaMl,
+            beverageLabel: beverageLabel.trim().isEmpty
+                ? 'Nước lọc'
+                : beverageLabel.trim(),
+            loggedAt: DateTime.now(),
+          ),
+        );
+      } else {
+        nextMl = (currentMl + deltaMl).clamp(0, 10000);
+        if (entries.isNotEmpty) {
+          entries.removeLast();
+        }
+      }
+
+      final nextLastCup = deltaMl > 0
+          ? deltaMl
+          : (entries.isNotEmpty
+                ? entries.last.ml
+                : ((existing['lastCupMl'] as num?)?.toInt() ?? 250));
+
+      await docRef.set(<String, dynamic>{
+        ...existing,
+        'dateKey': todayKey,
+        'waterMl': nextMl,
+        'targetWaterMl': resolvedTarget,
+        'lastCupMl': nextLastCup,
+        'entries': entries.map((e) => e.toMap()).toList(),
+      }, SetOptions(merge: true));
+
+      if (remData != null) {
+        if (deltaMl > 0 && remData['snoozedUntil'] != null) {
+          await remRef.set(<String, dynamic>{
+            'snoozedUntil': null,
+          }, SetOptions(merge: true));
+        }
+        if (remData['reminderEnabled'] == true) {
+          await _reminderScheduler.syncHydrationReminders(
+            HydrationReminderStatusEntity(
+              dayKey: todayKey,
+              waterMl: nextMl,
+              targetWaterMl: resolvedTarget,
+              lastCupMl: nextLastCup,
+              reminderEnabled: true,
+              intervalMinutes:
+                  (remData['intervalMinutes'] as num?)?.toInt() ?? 90,
+              startHour: (remData['startHour'] as num?)?.toInt() ?? 7,
+              startMinute: (remData['startMinute'] as num?)?.toInt() ?? 0,
+              endHour: (remData['endHour'] as num?)?.toInt() ?? 21,
+              endMinute: (remData['endMinute'] as num?)?.toInt() ?? 0,
+              preferredCupMl:
+                  ((remData['preferredCupMl'] as num?)?.toInt() ?? 250).clamp(
+                    100,
+                    600,
+                  ),
+              todayEntries: entries,
+            ),
+          );
+        }
+      }
+
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu lượng nước uống: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> saveHydrationReminderSettings({
+    required String userId,
+    required bool reminderEnabled,
+    required int intervalMinutes,
+    required int startHour,
+    int startMinute = 0,
+    required int endHour,
+    int endMinute = 0,
+    required int targetWaterMl,
+    double? weightKg,
+    double? heightCm,
+    HydrationActivityLevel? activityLevel,
+    bool? autoSyncTargetByBody,
+    int? preferredCupMl,
+    DateTime? snoozedUntil,
+    bool clearSnooze = false,
+  }) async {
+    try {
+      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final remRef = _userRef(
+        userId,
+      ).collection('medical_profiles').doc('hydration_reminder');
+      final prevSnap = await remRef.get();
+      final prev = prevSnap.data() ?? const <String, dynamic>{};
+
+      final resolvedWeight =
+          weightKg ?? (prev['weightKg'] as num?)?.toDouble() ?? 63.0;
+      final resolvedHeight =
+          heightCm ?? (prev['heightCm'] as num?)?.toDouble() ?? 168.0;
+      final resolvedActivity =
+          activityLevel ??
+          HydrationActivityLevel.fromName(prev['activityLevel'] as String?);
+      final resolvedAutoSync =
+          autoSyncTargetByBody ?? (prev['autoSyncTargetByBody'] != false);
+      final resolvedCup =
+          (preferredCupMl ?? (prev['preferredCupMl'] as num?)?.toInt() ?? 250)
+              .clamp(100, 600);
+      final resolvedSnooze = clearSnooze
+          ? null
+          : (snoozedUntil ??
+                (prev['snoozedUntil'] != null
+                    ? DateTime.tryParse(prev['snoozedUntil'].toString())
+                    : null));
+
+      await remRef.set(<String, dynamic>{
+        'reminderEnabled': reminderEnabled,
+        'intervalMinutes': intervalMinutes,
+        'startHour': startHour,
+        'startMinute': startMinute,
+        'endHour': endHour,
+        'endMinute': endMinute,
+        'targetWaterMl': targetWaterMl,
+        'weightKg': resolvedWeight,
+        'heightCm': resolvedHeight,
+        'activityLevel': resolvedActivity.name,
+        'autoSyncTargetByBody': resolvedAutoSync,
+        'preferredCupMl': resolvedCup,
+        'snoozedUntil': resolvedSnooze?.toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
+
+      final dailyRef = _userRef(
+        userId,
+      ).collection('wellness_daily').doc(todayKey);
+      final dailySnap = await dailyRef.get();
+      final currentWater = (dailySnap.data()?['waterMl'] as num?)?.toInt() ?? 0;
+      await dailyRef.set(<String, dynamic>{
+        'dateKey': todayKey,
+        'targetWaterMl': targetWaterMl,
+      }, SetOptions(merge: true));
+
+      await _reminderScheduler.syncHydrationReminders(
+        HydrationReminderStatusEntity(
+          dayKey: todayKey,
+          waterMl: currentWater,
+          targetWaterMl: targetWaterMl,
+          reminderEnabled: reminderEnabled,
+          intervalMinutes: intervalMinutes,
+          startHour: startHour,
+          startMinute: startMinute,
+          endHour: endHour,
+          endMinute: endMinute,
+          weightKg: resolvedWeight,
+          heightCm: resolvedHeight,
+          activityLevel: resolvedActivity,
+          autoSyncTargetByBody: resolvedAutoSync,
+          preferredCupMl: resolvedCup,
+          snoozedUntil: resolvedSnooze,
+        ),
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể lưu lịch nhắc uống nước: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> snoozeHydrationReminder({
+    required String userId,
+    required HydrationReminderStatusEntity status,
+    int minutes = 15,
+  }) async {
+    try {
+      final safeMins = minutes.clamp(5, 120);
+      final until = DateTime.now().add(Duration(minutes: safeMins));
+      await _userRef(
+        userId,
+      ).collection('medical_profiles').doc('hydration_reminder').set(
+        <String, dynamic>{
+          'reminderEnabled': true,
+          'snoozedUntil': until.toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
+      final updatedStatus = HydrationReminderStatusEntity(
+        dayKey: status.dayKey,
+        waterMl: status.waterMl,
+        targetWaterMl: status.targetWaterMl,
+        lastCupMl: status.lastCupMl,
+        reminderEnabled: true,
+        intervalMinutes: status.intervalMinutes,
+        startHour: status.startHour,
+        startMinute: status.startMinute,
+        endHour: status.endHour,
+        endMinute: status.endMinute,
+        weightKg: status.weightKg,
+        heightCm: status.heightCm,
+        activityLevel: status.activityLevel,
+        autoSyncTargetByBody: status.autoSyncTargetByBody,
+        preferredCupMl: status.preferredCupMl,
+        snoozedUntil: until,
+        todayEntries: status.todayEntries,
+      );
+      await _reminderScheduler.syncHydrationReminders(updatedStatus);
+      await _reminderScheduler.snoozeWaterReminder(
+        updatedStatus,
+        minutes: safeMins,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể dời chuông nhắc uống nước: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<int>> syncQueuedBackgroundHealthActions({
+    required String userId,
+  }) async {
+    try {
+      final actions = await NativeAlarmSchedulerBridge.instance
+          .drainBackgroundHealthActions();
+      if (actions.isEmpty) return const Success(0);
+
+      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      var processed = 0;
+
+      for (final act in actions) {
+        final actDayKey = DateFormat('yyyy-MM-dd').format(act.loggedAt);
+        if (act.type == 'water_logged' && act.ml > 0) {
+          if (actDayKey == todayKey) {
+            final res = await logWaterIntake(
+              userId: userId,
+              deltaMl: act.ml,
+              beverageLabel: 'Từ thông báo',
+            );
+            res.fold((_) {}, (_) => processed++);
+          } else {
+            final docRef = _userRef(
+              userId,
+            ).collection('wellness_daily').doc(actDayKey);
+            final snap = await docRef.get();
+            final existing = snap.data() ?? const <String, dynamic>{};
+            final currentMl = (existing['waterMl'] as num?)?.toInt() ?? 0;
+            final entries = <WaterIntakeLogEntry>[
+              if (existing['entries'] is List)
+                ...(existing['entries'] as List)
+                    .map(WaterIntakeLogEntry.fromMap)
+                    .whereType<WaterIntakeLogEntry>(),
+              WaterIntakeLogEntry(
+                id: 'cup_${_uuid.v4().substring(0, 8)}',
+                ml: act.ml,
+                beverageLabel: 'Từ thông báo',
+                loggedAt: act.loggedAt,
+              ),
+            ];
+            await docRef.set(<String, dynamic>{
+              ...existing,
+              'dateKey': actDayKey,
+              'waterMl': (currentMl + act.ml).clamp(0, 10000),
+              'lastCupMl': act.ml,
+              'entries': entries.map((e) => e.toMap()).toList(),
+            }, SetOptions(merge: true));
+            processed++;
+          }
+        } else if (act.type == 'med_taken' && act.medId.isNotEmpty) {
+          final medRef = _userRef(
+            userId,
+          ).collection('medications').doc(act.medId);
+          final medSnap = await medRef.get();
+          final d = medSnap.data();
+          if (medSnap.exists && d != null) {
+            final prevTaken = d['lastTakenDayKey'] as String?;
+            if (prevTaken != actDayKey) {
+              final remPills = (d['remainingPills'] as num?)?.toInt() ?? 0;
+              final nextRemaining = remPills > 0 ? remPills - 1 : 0;
+              await medRef.update({
+                'lastTakenDayKey': actDayKey,
+                'remainingPills': nextRemaining,
+              });
+              final slot = MedicationScheduleSlot.fromName(
+                d['slot'] as String?,
+              );
+              final updatedEntity = MedicationCabinetItemEntity(
+                id: medSnap.id,
+                ownerId: userId,
+                name: (d['name'] ?? 'Thuốc / Vitamin') as String,
+                dosage: (d['dosage'] ?? '1 viên') as String,
+                slot: slot,
+                remainingPills: nextRemaining,
+                expiryDate:
+                    DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
+                    DateTime.now().add(const Duration(days: 180)),
+                lastTakenDayKey: actDayKey,
+                memberName: (d['memberName'] ?? 'Cả gia đình') as String,
+                reminderEnabled: d['reminderEnabled'] is bool
+                    ? d['reminderEnabled'] as bool
+                    : slot.isScheduledDaily,
+                reminderHour:
+                    (d['reminderHour'] as num?)?.toInt() ?? slot.defaultHour,
+                reminderMinute:
+                    (d['reminderMinute'] as num?)?.toInt() ??
+                    slot.defaultMinute,
+              );
+              await _reminderScheduler.syncMedicationAlarm(
+                updatedEntity,
+                todayKey: todayKey,
+              );
+              processed++;
+            }
+          }
+        }
+      }
+      return Success(processed);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(
+          message: 'Không thể đồng bộ thao tác thông báo nền: $e',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<bool>> sendTestHydrationNotification({
+    required HydrationReminderStatusEntity status,
+    int delaySeconds = 0,
+  }) async {
+    try {
+      final ok = await _reminderScheduler.sendTestWaterNotification(
+        status,
+        delaySeconds: delaySeconds,
+      );
+      return Success(ok);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể gửi thông báo thử nghiệm: $e'),
+      );
     }
   }
 
@@ -354,6 +975,40 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'recordedAt': DateTime.now().toIso8601String(),
         'note': note.trim(),
       });
+
+      // Keep hydration body profile synced when autoSyncTargetByBody is active
+      final remRef = _userRef(
+        userId,
+      ).collection('medical_profiles').doc('hydration_reminder');
+      final remSnap = await remRef.get();
+      final remData = remSnap.data();
+      final autoSync = remData == null || remData['autoSyncTargetByBody'] != false;
+      final activity = HydrationActivityLevel.fromName(
+        remData?['activityLevel'] as String?,
+      );
+      final recomputedTarget =
+          AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
+            weightKg: weightKg,
+            heightCm: heightCm,
+            activityLevel: activity,
+          );
+      await remRef.set(<String, dynamic>{
+        'weightKg': weightKg,
+        'heightCm': heightCm,
+        if (autoSync) 'targetWaterMl': recomputedTarget,
+        'updatedAt': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
+
+      if (autoSync) {
+        final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        await _userRef(
+          userId,
+        ).collection('wellness_daily').doc(todayKey).set(<String, dynamic>{
+          'dateKey': todayKey,
+          'targetWaterMl': recomputedTarget,
+        }, SetOptions(merge: true));
+      }
+
       return const Success(null);
     } catch (e) {
       return Err(

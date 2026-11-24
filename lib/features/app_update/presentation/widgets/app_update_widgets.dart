@@ -1,6 +1,6 @@
-import 'package:life_os/core/widgets/lifeos_top_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:life_os/core/widgets/lifeos_design_system.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -212,15 +212,13 @@ class AppUpdateSettingsCard extends StatelessWidget {
           p.infoMessage != n.infoMessage || p.failure != n.failure,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
           );
         } else if (state.infoMessage != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text('✓ ${state.infoMessage!}')),
-          );
+          LifeOsTopToast.show(context, state.infoMessage!);
         }
       },
       builder: (context, state) {
@@ -228,62 +226,77 @@ class AppUpdateSettingsCard extends StatelessWidget {
         final isDownloading = state.status == AppUpdateStatus.downloading;
         final manifest = state.manifest;
 
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    BananaGlassIcon(
-                      assetPath: AppAssets.icSysOtaUpdate,
-                      fallbackIcon: Icons.rocket_launch_rounded,
-                      fallbackColor: c.primary,
-                      size: 42,
-                      borderRadius: 12,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Phiên bản ứng dụng',
-                            style: Theme.of(context).textTheme.titleMedium,
+        return LifeOsSoftCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  BananaGlassIcon(
+                    assetPath: AppAssets.icSysOtaUpdate,
+                    fallbackIcon: Icons.rocket_launch_rounded,
+                    fallbackColor: c.primary,
+                    size: 40,
+                    borderRadius: 12,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phiên bản ứng dụng',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
                           ),
-                          Text(
-                            'Đang dùng: v${state.installedVersion}',
-                            style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        Text(
+                          'Đang dùng: v${state.installedVersion}',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 12.2,
+                            color: c.textSecondary,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures(),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                SemanticStatusBadge(
-                  kind: state.hasUpdate
-                      ? SemanticStatusKind.warning
-                      : SemanticStatusKind.success,
-                  label: state.hasUpdate
-                      ? 'Có bản cập nhật mới: v${manifest?.latestVersion}'
-                      : 'Bạn đang sử dụng phiên bản mới nhất',
-                ),
-                if (state.hasUpdate && manifest != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Container(
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SemanticStatusBadge(
+                kind: state.hasUpdate
+                    ? SemanticStatusKind.warning
+                    : SemanticStatusKind.success,
+                label: state.hasUpdate
+                    ? 'Có bản cập nhật mới: v${manifest?.latestVersion}'
+                    : 'Bạn đang sử dụng phiên bản mới nhất',
+              ),
+              if (state.hasUpdate && manifest != null) ...[
+                const SizedBox(height: 8),
+                Material(
+                  color: c.surfaceRaised,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: c.surfaceRaised,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           manifest.releaseTitle,
-                          style: Theme.of(context).textTheme.titleSmall,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: c.textPrimary,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         ...manifest.changelog.map(
@@ -291,66 +304,74 @@ class AppUpdateSettingsCard extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 2),
                             child: Text(
                               '• $item',
-                              style: Theme.of(context).textTheme.bodySmall,
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: c.textSecondary,
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-                if (isDownloading) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  LinearProgressIndicator(
-                    value: (state.downloadProgress?.totalBytes ?? 0) > 0
-                        ? state.downloadProgress!.fraction
-                        : null,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Đang tải bản cập nhật... ${state.downloadProgress?.percent ?? 0}%',
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    if (state.hasUpdate)
-                      FilledButton.icon(
-                        key: const Key('profile_download_update_button'),
-                        onPressed: isDownloading
-                            ? null
-                            : () => context.read<AppUpdateBloc>().add(
-                                const AppUpdateDownloadRequested(),
-                              ),
-                        icon: const Icon(
-                          Icons.system_update_alt_rounded,
-                          size: 18,
-                        ),
-                        label: const Text('Tải & Cài đặt bản mới'),
-                      ),
-                    OutlinedButton.icon(
-                      key: const Key('check_app_update_button'),
-                      onPressed: isChecking || isDownloading
-                          ? null
-                          : () => context.read<AppUpdateBloc>().add(
-                              const AppUpdateCheckRequested(silent: false),
-                            ),
-                      icon: isChecking
-                          ? const SizedBox(
-                              width: 15,
-                              height: 15,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.sync_rounded, size: 18),
-                      label: const Text('Kiểm tra bản mới'),
-                    ),
-                  ],
                 ),
               ],
-            ),
+              if (isDownloading) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: (state.downloadProgress?.totalBytes ?? 0) > 0
+                      ? state.downloadProgress!.fraction
+                      : null,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Đang tải bản cập nhật... ${state.downloadProgress?.percent ?? 0}%',
+                  style: TextStyle(
+                    fontSize: 11.8,
+                    color: c.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  if (state.hasUpdate)
+                    FilledButton.icon(
+                      key: const Key('profile_download_update_button'),
+                      onPressed: isDownloading
+                          ? null
+                          : () => context.read<AppUpdateBloc>().add(
+                              const AppUpdateDownloadRequested(),
+                            ),
+                      icon: const Icon(
+                        Icons.system_update_alt_rounded,
+                        size: 18,
+                      ),
+                      label: const Text('Tải & Cài đặt bản mới'),
+                    ),
+                  OutlinedButton.icon(
+                    key: const Key('check_app_update_button'),
+                    onPressed: isChecking || isDownloading
+                        ? null
+                        : () => context.read<AppUpdateBloc>().add(
+                            const AppUpdateCheckRequested(silent: false),
+                          ),
+                    icon: isChecking
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync_rounded, size: 18),
+                    label: const Text('Kiểm tra bản mới'),
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       },

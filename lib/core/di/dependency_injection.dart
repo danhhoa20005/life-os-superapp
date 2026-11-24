@@ -35,6 +35,20 @@ import '../../features/family/data/repositories/family_repository_impl.dart';
 import '../../features/family/domain/repositories/family_repository.dart';
 import '../../features/family/domain/usecases/family_usecases.dart';
 import '../../features/family/presentation/bloc/family_bloc.dart';
+import '../../features/financial_ai/data/datasources/financial_ai_local_sync_datasource.dart';
+import '../../features/financial_ai/data/datasources/gemini_remote_datasource.dart';
+import '../../features/financial_ai/data/extraction/financial_entity_extractor.dart';
+import '../../features/financial_ai/data/inference/fasttext_classifier.dart';
+import '../../features/financial_ai/data/normalization/financial_text_normalizer.dart';
+import '../../features/financial_ai/data/repositories/financial_ai_repository_impl.dart';
+import '../../features/financial_ai/data/repositories/gemini_copilot_repository_impl.dart';
+import '../../features/financial_ai/domain/entities/financial_ai_entities.dart';
+import '../../features/financial_ai/domain/repositories/financial_ai_repository.dart';
+import '../../features/financial_ai/domain/repositories/gemini_copilot_repository.dart';
+import '../../features/financial_ai/domain/services/financial_classifier.dart';
+import '../../features/financial_ai/domain/usecases/financial_ai_usecases.dart';
+import '../../features/financial_ai/presentation/bloc/financial_ai_bloc.dart';
+import '../../features/financial_ai/presentation/bloc/gemini_copilot_bloc.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
 import '../../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
@@ -71,6 +85,8 @@ Future<void> configureDependencies({
   FcmPlatformDriver? fcmDriverOverride,
   CloudFunctionsInvoker? functionsInvokerOverride,
   http.Client? httpClientOverride,
+  FinancialClassifier? financialClassifierOverride,
+  FinancialClock? financialClockOverride,
 }) async {
   await sl.reset();
 
@@ -78,6 +94,22 @@ Future<void> configureDependencies({
   sl.registerSingleton<FirebaseAuth>(authOverride ?? FirebaseAuth.instance);
   sl.registerSingleton<FirebaseFirestore>(
     firestoreOverride ?? FirebaseFirestore.instance,
+  );
+  sl.registerSingleton<FinancialClock>(
+    financialClockOverride ?? const SystemFinancialClock(),
+  );
+  sl.registerLazySingleton<FinancialTextNormalizer>(
+    () => FinancialTextNormalizer(clock: sl<FinancialClock>()),
+  );
+  sl.registerLazySingleton<FinancialEntityExtractor>(
+    () => FinancialEntityExtractor(sl<FinancialTextNormalizer>()),
+  );
+  sl.registerLazySingleton<FinancialClassifier>(
+    () => financialClassifierOverride ?? FastTextClassifier(),
+    dispose: (c) => c.dispose(),
+  );
+  sl.registerLazySingleton<FinancialAiLocalSyncDataSource>(
+    () => FinancialAiLocalSyncDataSource(sl<FirebaseFirestore>()),
   );
   sl.registerSingleton<AndroidNotificationBridge>(
     bridgeOverride ?? AndroidNotificationBridge(),
@@ -102,6 +134,9 @@ Future<void> configureDependencies({
   );
 
   // 2. Remote Data Sources
+  sl.registerLazySingleton<GeminiRemoteDataSource>(
+    () => GeminiRemoteDataSource(httpClient: httpClientOverride),
+  );
   sl.registerLazySingleton<AppUpdateRemoteDataSource>(
     () => AppUpdateRemoteDataSource(
       firestore: sl<FirebaseFirestore>(),
@@ -150,10 +185,24 @@ Future<void> configureDependencies({
       firebaseAuth: sl<FirebaseAuth>(),
       bridge: sl<AndroidNotificationBridge>(),
       functionsInvokerOverride: functionsInvokerOverride,
+      financialAiRepository: sl<FinancialAiRepository>(),
     ),
   );
 
   // 3. Domain Repository Implementations
+  sl.registerLazySingleton<GeminiCopilotRepository>(
+    () => GeminiCopilotRepositoryImpl(sl<GeminiRemoteDataSource>()),
+  );
+  sl.registerLazySingleton<FinancialAiRepository>(
+    () => FinancialAiRepositoryImpl(
+      classifier: sl<FinancialClassifier>(),
+      normalizer: sl<FinancialTextNormalizer>(),
+      extractor: sl<FinancialEntityExtractor>(),
+      localSync: sl<FinancialAiLocalSyncDataSource>(),
+      transactionRepository: sl<TransactionRepository>(),
+      firestore: sl<FirebaseFirestore>(),
+    ),
+  );
   sl.registerLazySingleton<AppUpdateRepository>(
     () => AppUpdateRepositoryImpl(sl<AppUpdateRemoteDataSource>()),
   );
@@ -389,5 +438,43 @@ Future<void> configureDependencies({
   );
   sl.registerFactory<DailyLifeBloc>(
     () => DailyLifeBloc(sl<DailyLifeRepository>()),
+  );
+
+  // Offline Financial AI UseCases & BLoC
+  sl.registerLazySingleton(
+    () => AnalyzeFinancialTextUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ExtractTransactionsUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ClassifyTransactionUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ResolveUserCategoryUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ConfirmTransactionDraftUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => SaveCategoryCorrectionUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => DetectDuplicateTransactionUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => GetPendingTransactionsUseCase(sl<FinancialAiRepository>()),
+  );
+  sl.registerFactory<FinancialAiBloc>(
+    () => FinancialAiBloc(
+      repository: sl<FinancialAiRepository>(),
+      analyzeText: sl<AnalyzeFinancialTextUseCase>(),
+      confirmDraft: sl<ConfirmTransactionDraftUseCase>(),
+      saveCorrection: sl<SaveCategoryCorrectionUseCase>(),
+      getPendingDrafts: sl<GetPendingTransactionsUseCase>(),
+    ),
+  );
+  sl.registerFactory<GeminiCopilotBloc>(
+    () => GeminiCopilotBloc(repository: sl<GeminiCopilotRepository>()),
   );
 }

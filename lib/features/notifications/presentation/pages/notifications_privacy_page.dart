@@ -734,7 +734,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
       },
       child: Scaffold(
         appBar: const LiquidGlassBar(
-          title: Text('Ngân hàng & Đồng bộ giao dịch'),
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text('Ngân hàng & Đồng bộ giao dịch'),
+          ),
         ),
         body: SafeArea(
           child: BlocBuilder<NotificationIngestionBloc, NotificationIngestionState>(
@@ -928,40 +932,83 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 ),
                                 const SizedBox(height: 8),
                                 ...state.paymentOrders.take(6).map((order) {
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: CircleAvatar(
-                                      backgroundColor: order.isPaid
-                                          ? c.successSubtle
-                                          : c.warningSubtle,
-                                      child: Icon(
-                                        order.isPaid
-                                            ? Icons.check_circle_rounded
-                                            : Icons.qr_code_2_rounded,
-                                        color: order.isPaid
-                                            ? c.success
-                                            : c.warning,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      '${order.description} · ${VndAmount.format(order.amountMinor)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      'Mã: ${order.paymentCode} · ${order.bankName} ${order.maskedAccountLabel}',
-                                    ),
-                                    trailing: SemanticStatusBadge(
-                                      kind: order.isPaid
-                                          ? SemanticStatusKind.success
-                                          : SemanticStatusKind.warning,
-                                      label: order.status.displayLabel,
-                                    ),
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(12),
                                     onTap: () => _showOrderQrDetailSheet(
                                       context: context,
                                       userId: user.id,
                                       order: order,
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 19,
+                                            backgroundColor: order.isPaid
+                                                ? c.successSubtle
+                                                : c.warningSubtle,
+                                            child: Icon(
+                                              order.isPaid
+                                                  ? Icons.check_circle_rounded
+                                                  : Icons.qr_code_2_rounded,
+                                              color: order.isPaid
+                                                  ? c.success
+                                                  : c.warning,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Wrap(
+                                                  spacing: 8,
+                                                  runSpacing: 4,
+                                                  alignment: WrapAlignment
+                                                      .spaceBetween,
+                                                  crossAxisAlignment:
+                                                      WrapCrossAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      '${order.description} · ${VndAmount.format(order.amountMinor)}',
+                                                      softWrap: true,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    SemanticStatusBadge(
+                                                      kind: order.isPaid
+                                                          ? SemanticStatusKind
+                                                                .success
+                                                          : SemanticStatusKind
+                                                                .warning,
+                                                      label: order
+                                                          .status
+                                                          .displayLabel,
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 3),
+                                                Text(
+                                                  'Mã: ${order.paymentCode} · ${order.bankName} ${order.maskedAccountLabel}',
+                                                  softWrap: true,
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.bodySmall,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   );
                                 }),
@@ -979,19 +1026,21 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      'NGÂN HÀNG ĐÃ KẾT NỐI',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.4,
-                                          ),
-                                    ),
+                                  Text(
+                                    'NGÂN HÀNG ĐÃ KẾT NỐI',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.4,
+                                        ),
                                   ),
                                   SemanticStatusBadge(
                                     kind:
@@ -1144,6 +1193,38 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                                 ? 'Qua Android & QR'
                                                 : 'Chỉ tạo mã QR',
                                           ),
+                                          IconButton(
+                                            key: Key('delete_bank_acc_${acc.id}'),
+                                            tooltip: 'Gỡ tài khoản ngân hàng',
+                                            visualDensity: VisualDensity.compact,
+                                            onPressed: () async {
+                                              final ok =
+                                                  await showDestructiveConfirmDialog(
+                                                    context: context,
+                                                    title: 'Gỡ tài khoản này?',
+                                                    message:
+                                                        'Tài khoản ${acc.bankName} ${acc.maskedAccount} sẽ được gỡ khỏi danh sách nhận QR.',
+                                                    confirmLabel: 'Gỡ tài khoản',
+                                                  );
+                                              if (ok && context.mounted) {
+                                                context
+                                                    .read<
+                                                      NotificationIngestionBloc
+                                                    >()
+                                                    .add(
+                                                      LinkedBankAccountDeleted(
+                                                        userId: user.id,
+                                                        accountId: acc.id,
+                                                      ),
+                                                    );
+                                              }
+                                            },
+                                            icon: Icon(
+                                              Icons.delete_outline_rounded,
+                                              size: 19,
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
@@ -1241,12 +1322,14 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   };
                                   final verText = switch (tx.verification) {
                                     TransactionVerification.verified =>
-                                      'Đã xác minh',
+                                      'Đã đối soát ngân hàng',
+                                    TransactionVerification.matchedPaymentOrder =>
+                                      'Đã khớp đơn QR',
                                     TransactionVerification.userConfirmed =>
                                       'Đã xác nhận',
                                     TransactionVerification.needsReview =>
                                       'Cần kiểm tra',
-                                    _ => 'Chờ đối soát',
+                                    _ => 'Tạm ghi nhận',
                                   };
                                   return ListTile(
                                     contentPadding: EdgeInsets.zero,

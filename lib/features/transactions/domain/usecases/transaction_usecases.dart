@@ -212,6 +212,8 @@ final class DecideProvisionalParams {
   final bool approve;
   final String? updatedCategoryName;
   final String? updatedMerchant;
+  final int? updatedAmountMinor;
+  final String? updatedNote;
 
   const DecideProvisionalParams({
     required this.userId,
@@ -219,6 +221,8 @@ final class DecideProvisionalParams {
     required this.approve,
     this.updatedCategoryName,
     this.updatedMerchant,
+    this.updatedAmountMinor,
+    this.updatedNote,
   });
 }
 
@@ -235,6 +239,8 @@ class DecideProvisionalTransactionUseCase
       approve: params.approve,
       updatedCategoryName: params.updatedCategoryName?.trim(),
       updatedMerchant: params.updatedMerchant?.trim(),
+      updatedAmountMinor: params.updatedAmountMinor,
+      updatedNote: params.updatedNote?.trim(),
     );
   }
 }

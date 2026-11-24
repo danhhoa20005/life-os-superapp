@@ -1,0 +1,681 @@
+{"label": "food.meals", "raw_text": "ăn sáng bánh đa cua", "normalized_text": "ăn bánh cua", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an sang banh da cua", "normalized_text": "an banh cua", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan ăn sáng bánh đa cua 35k", "normalized_text": "thanh toan ăn bánh cua", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "15tr cho khoản ăn sáng bánh đa cua", "normalized_text": "cho khoản ăn bánh cua", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "15tr cho khoan an sang banh da cua", "normalized_text": "cho khoan an banh cua", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "ăn trưa bún đậu mắm tôm", "normalized_text": "ăn bún đậu mắm tôm", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an trua bun dau mam tom", "normalized_text": "an bun dau mam tom", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan ăn trưa bún đậu mắm tôm 120k", "normalized_text": "thanh toan ăn bún đậu mắm tôm", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan an trua bun dau mam tom 120k", "normalized_text": "thanh toan an bun dau mam tom", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "45 nghìn cho khoản ăn trưa bún đậu mắm tôm", "normalized_text": "cho khoản ăn bún đậu mắm tôm", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "cơm sườn bì chả", "normalized_text": "cơm sườn bì chả", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "com suon bi cha", "normalized_text": "com suon bi cha", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan cơm sườn bì chả 85.000đ", "normalized_text": "thanh toan cơm sườn bì chả", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "45 nghìn cho khoản cơm sườn bì chả", "normalized_text": "cho khoản cơm sườn bì chả", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "ăn tối mì ý jollibee", "normalized_text": "ăn mì ý jollibee", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an toi mi y jollibee", "normalized_text": "an mi y jollibee", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan ăn tối mì ý jollibee 450k", "normalized_text": "thanh toan ăn mì ý jollibee", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan an toi mi y jollibee 450k", "normalized_text": "thanh toan an mi y jollibee", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "25k cho khoản ăn tối mì ý jollibee", "normalized_text": "cho khoản ăn mì ý jollibee", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "25k cho khoan an toi mi y jollibee", "normalized_text": "cho khoan an mi y jollibee", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "phở gà ta", "normalized_text": "phở gà ta", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "pho ga ta", "normalized_text": "pho ga ta", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan phở gà ta 65k", "normalized_text": "thanh toan phở gà ta", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan pho ga ta 65k", "normalized_text": "thanh toan pho ga ta", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "25k cho khoản phở gà ta", "normalized_text": "cho khoản phở gà ta", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "25k cho khoan pho ga ta", "normalized_text": "cho khoan pho ga ta", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "ăn buffet lẩu nướng", "normalized_text": "ăn buffet lẩu nướng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an buffet lau nuong", "normalized_text": "an buffet lau nuong", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan ăn buffet lẩu nướng 120k", "normalized_text": "thanh toan ăn buffet lẩu nướng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan an buffet lau nuong 120k", "normalized_text": "thanh toan an buffet lau nuong", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "2,5 triệu cho khoản ăn buffet lẩu nướng", "normalized_text": "cho khoản ăn buffet lẩu nướng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "2,5 trieu cho khoan an buffet lau nuong", "normalized_text": "cho khoan an buffet lau nuong", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "suất cơm trưa công sở", "normalized_text": "suất cơm công", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "suat com trua cong so", "normalized_text": "suat com cong", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan suất cơm trưa công sở 45 nghìn", "normalized_text": "thanh toan suất cơm công", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "TCB: Thanh toan suat com trua cong so 45 nghin", "normalized_text": "thanh toan suat com cong", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "15tr cho khoản suất cơm trưa công sở", "normalized_text": "cho khoản suất cơm công", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "15tr cho khoan suat com trua cong so", "normalized_text": "cho khoan suat com cong", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "uống cf trung nguyên", "normalized_text": "uống cà phê trung nguyên", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "uong cf trung nguyen", "normalized_text": "uong cà phê trung nguyen", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan uống cf trung nguyên 45 nghìn", "normalized_text": "thanh toan uống cà phê trung nguyên", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan uong cf trung nguyen 45 nghin", "normalized_text": "thanh toan uong cà phê trung nguyen", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "85.000đ cho khoản uống cf trung nguyên", "normalized_text": "cho khoản uống cà phê trung nguyên", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "mua nước uống đóng chai", "normalized_text": "mua nước uống đóng chai", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "mua nuoc uong dong chai", "normalized_text": "mua nuoc uong dong chai", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan mua nước uống đóng chai 15tr", "normalized_text": "thanh toan mua nước uống đóng chai", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan mua nuoc uong dong chai 15tr", "normalized_text": "thanh toan mua nuoc uong dong chai", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "85.000đ cho khoản mua nước uống đóng chai", "normalized_text": "cho khoản mua nước uống đóng chai", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "85.000d cho khoan mua nuoc uong dong chai", "normalized_text": "cho khoan mua nuoc uong dong chai", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "trà ô long kem phô mai", "normalized_text": "trà ô long kem phô mai", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "tra o long kem pho mai", "normalized_text": "tra o long kem pho mai", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan trà ô long kem phô mai 250 nghìn", "normalized_text": "thanh toan trà ô long kem phô mai", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan tra o long kem pho mai 250 nghin", "normalized_text": "thanh toan tra o long kem pho mai", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "65k cho khoản trà ô long kem phô mai", "normalized_text": "cho khoản trà ô long kem phô mai", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "65k cho khoan tra o long kem pho mai", "normalized_text": "cho khoan tra o long kem pho mai", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "cafe starbucks", "normalized_text": "cà phê starbucks", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan cafe starbucks 35k", "normalized_text": "thanh toan cà phê starbucks", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "85.000đ cho khoản cafe starbucks", "normalized_text": "cho khoản cà phê starbucks", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "85.000d cho khoan cafe starbucks", "normalized_text": "cho khoan cà phê starbucks", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "nước dừa tươi", "normalized_text": "nước dừa tươi", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "nuoc dua tuoi", "normalized_text": "nuoc dua tuoi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan nước dừa tươi 1tr2", "normalized_text": "thanh toan nước dừa tươi", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan nuoc dua tuoi 1tr2", "normalized_text": "thanh toan nuoc dua tuoi", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "45 nghìn cho khoản nước dừa tươi", "normalized_text": "cho khoản nước dừa tươi", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "trà chanh giã tay", "normalized_text": "trà chanh giã tay", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "tra chanh gia tay", "normalized_text": "tra chanh gia tay", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan trà chanh giã tay 1tr2", "normalized_text": "thanh toan trà chanh giã tay", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "TCB: Thanh toan tra chanh gia tay 1tr2", "normalized_text": "thanh toan tra chanh gia tay", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "35k cho khoản trà chanh giã tay", "normalized_text": "cho khoản trà chanh giã tay", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "35k cho khoan tra chanh gia tay", "normalized_text": "cho khoan tra chanh gia tay", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "mua rau sạch và trứng gà", "normalized_text": "mua rau sạch và trứng gà", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua rau sach va trung ga", "normalized_text": "mua rau sach va trung ga", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan mua rau sạch và trứng gà 250 nghìn", "normalized_text": "thanh toan mua rau sạch và trứng gà", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "1tr2 cho khoản mua rau sạch và trứng gà", "normalized_text": "cho khoản mua rau sạch và trứng gà", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "1tr2 cho khoan mua rau sach va trung ga", "normalized_text": "cho khoan mua rau sach va trung ga", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "đi siêu thị coopmart mua thực phẩm", "normalized_text": "đi siêu thị coopmart mua thực phẩm", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "di sieu thi coopmart mua thuc pham", "normalized_text": "di sieu thi coopmart mua thuc pham", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan đi siêu thị coopmart mua thực phẩm 25k", "normalized_text": "thanh toan đi siêu thị coopmart mua thực phẩm", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "450k cho khoản đi siêu thị coopmart mua thực phẩm", "normalized_text": "cho khoản đi siêu thị coopmart mua thực phẩm", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "450k cho khoan di sieu thi coopmart mua thuc pham", "normalized_text": "cho khoan di sieu thi coopmart mua thuc pham", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "mua sườn non về kho", "normalized_text": "mua sườn non về kho", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua suon non ve kho", "normalized_text": "mua suon non ve kho", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan mua sườn non về kho 1tr2", "normalized_text": "thanh toan mua sườn non về kho", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan mua suon non ve kho 1tr2", "normalized_text": "thanh toan mua suon non ve kho", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "15tr cho khoản mua sườn non về kho", "normalized_text": "cho khoản mua sườn non về kho", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "15tr cho khoan mua suon non ve kho", "normalized_text": "cho khoan mua suon non ve kho", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "mua trái cây tráng miệng ngoài chợ", "normalized_text": "mua trái cây tráng miệng ngoài chợ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua trai cay trang mieng ngoai cho", "normalized_text": "mua trai cay trang mieng ngoai cho", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan mua trái cây tráng miệng ngoài chợ 45 nghìn", "normalized_text": "thanh toan mua trái cây tráng miệng ngoài chợ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "2,5 triệu cho khoản mua trái cây tráng miệng ngoài chợ", "normalized_text": "cho khoản mua trái cây tráng miệng ngoài chợ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "thực phẩm nấu cơm gia đình", "normalized_text": "thực phẩm nấu cơm gia đình", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "thuc pham nau com gia dinh", "normalized_text": "thuc pham nau com gia dinh", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan thực phẩm nấu cơm gia đình 65k", "normalized_text": "thanh toan thực phẩm nấu cơm gia đình", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "TCB: Thanh toan thuc pham nau com gia dinh 65k", "normalized_text": "thanh toan thuc pham nau com gia dinh", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "15tr cho khoản thực phẩm nấu cơm gia đình", "normalized_text": "cho khoản thực phẩm nấu cơm gia đình", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "15tr cho khoan thuc pham nau com gia dinh", "normalized_text": "cho khoan thuc pham nau com gia dinh", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "đổ xăng đầy bình air blade", "normalized_text": "đổ xăng đầy bình air blade", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "do xang day binh air blade", "normalized_text": "do xang day binh air blade", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan đổ xăng đầy bình air blade 25k", "normalized_text": "thanh toan đổ xăng đầy bình air blade", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan do xang day binh air blade 25k", "normalized_text": "thanh toan do xang day binh air blade", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "85.000đ cho khoản đổ xăng đầy bình air blade", "normalized_text": "cho khoản đổ xăng đầy bình air blade", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "85.000d cho khoan do xang day binh air blade", "normalized_text": "cho khoan do xang day binh air blade", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "thanh toán xăng petrolimex", "normalized_text": "thanh toán xăng petrolimex", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "thanh toan xang petrolimex", "normalized_text": "thanh toan xang petrolimex", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan thanh toán xăng petrolimex 65k", "normalized_text": "thanh toan thanh toán xăng petrolimex", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan thanh toan xang petrolimex 65k", "normalized_text": "thanh toan thanh toan xang petrolimex", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "120k cho khoản thanh toán xăng petrolimex", "normalized_text": "cho khoản thanh toán xăng petrolimex", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "120k cho khoan thanh toan xang petrolimex", "normalized_text": "cho khoan thanh toan xang petrolimex", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "tiền đổ xăng tuần này", "normalized_text": "tiền đổ xăng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "tien do xang tuan nay", "normalized_text": "tien do xang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan tiền đổ xăng tuần này 1tr2", "normalized_text": "thanh toan tiền đổ xăng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "1tr2 cho khoản tiền đổ xăng tuần này", "normalized_text": "cho khoản tiền đổ xăng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "trạm xăng pvoil quốc lộ", "normalized_text": "trạm xăng pvoil quốc lộ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "tram xang pvoil quoc lo", "normalized_text": "tram xang pvoil quoc lo", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan trạm xăng pvoil quốc lộ 1tr2", "normalized_text": "thanh toan trạm xăng pvoil quốc lộ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan tram xang pvoil quoc lo 1tr2", "normalized_text": "thanh toan tram xang pvoil quoc lo", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "2,5 triệu cho khoản trạm xăng pvoil quốc lộ", "normalized_text": "cho khoản trạm xăng pvoil quốc lộ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "2,5 trieu cho khoan tram xang pvoil quoc lo", "normalized_text": "cho khoan tram xang pvoil quoc lo", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "nạp điện xe điện trạm sạc", "normalized_text": "nạp điện xe điện trạm sạc", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "nap dien xe dien tram sac", "normalized_text": "nap dien xe dien tram sac", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan nạp điện xe điện trạm sạc 2,5 triệu", "normalized_text": "thanh toan nạp điện xe điện trạm sạc", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "TCB: Thanh toan nap dien xe dien tram sac 2,5 trieu", "normalized_text": "thanh toan nap dien xe dien tram sac", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "2,5 triệu cho khoản nạp điện xe điện trạm sạc", "normalized_text": "cho khoản nạp điện xe điện trạm sạc", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "đi taxi ra bến xe", "normalized_text": "đi taxi ra bến xe", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "di taxi ra ben xe", "normalized_text": "di taxi ra ben xe", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan đi taxi ra bến xe 15tr", "normalized_text": "thanh toan đi taxi ra bến xe", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan di taxi ra ben xe 15tr", "normalized_text": "thanh toan di taxi ra ben xe", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "65k cho khoản đi taxi ra bến xe", "normalized_text": "cho khoản đi taxi ra bến xe", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "65k cho khoan di taxi ra ben xe", "normalized_text": "cho khoan di taxi ra ben xe", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "đặt xanh sm bike", "normalized_text": "đặt xanh sm bike", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "dat xanh sm bike", "normalized_text": "dat xanh sm bike", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan đặt xanh sm bike 25k", "normalized_text": "thanh toan đặt xanh sm bike", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan dat xanh sm bike 25k", "normalized_text": "thanh toan dat xanh sm bike", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "120k cho khoản đặt xanh sm bike", "normalized_text": "cho khoản đặt xanh sm bike", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "120k cho khoan dat xanh sm bike", "normalized_text": "cho khoan dat xanh sm bike", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "cước grabcar đi mưa", "normalized_text": "cước grab taxi đi mưa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "cuoc grabcar di mua", "normalized_text": "cuoc grab taxi di mua", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan cước grabcar đi mưa 15tr", "normalized_text": "thanh toan cước grab taxi đi mưa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "25k cho khoản cước grabcar đi mưa", "normalized_text": "cho khoản cước grab taxi đi mưa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "25k cho khoan cuoc grabcar di mua", "normalized_text": "cho khoan cuoc grab taxi di mua", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "gọi xe ôm be đi công việc", "normalized_text": "gọi xe ôm be đi công việc", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "goi xe om be di cong viec", "normalized_text": "goi xe om be di cong viec", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan gọi xe ôm be đi công việc 120k", "normalized_text": "thanh toan gọi xe ôm be đi công việc", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan goi xe om be di cong viec 120k", "normalized_text": "thanh toan goi xe om be di cong viec", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "35k cho khoản gọi xe ôm be đi công việc", "normalized_text": "cho khoản gọi xe ôm be đi công việc", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "35k cho khoan goi xe om be di cong viec", "normalized_text": "cho khoan goi xe om be di cong viec", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "thanh toán chuyến taxi mai linh", "normalized_text": "thanh toán chuyến taxi mai linh", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "thanh toan chuyen taxi mai linh", "normalized_text": "thanh toan chuyen taxi mai linh", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "TCB: Thanh toan thanh toán chuyến taxi mai linh 35k", "normalized_text": "thanh toan thanh toán chuyến taxi mai linh", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "1tr2 cho khoản thanh toán chuyến taxi mai linh", "normalized_text": "cho khoản thanh toán chuyến taxi mai linh", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "1tr2 cho khoan thanh toan chuyen taxi mai linh", "normalized_text": "cho khoan thanh toan chuyen taxi mai linh", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "nạp tiền thẻ thu phí epass", "normalized_text": "nạp tiền thu phí epass", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "nap tien the thu phi epass", "normalized_text": "nap tien thu phi epass", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan nạp tiền thẻ thu phí epass 15tr", "normalized_text": "thanh toan nạp tiền thu phí epass", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan nap tien the thu phi epass 15tr", "normalized_text": "thanh toan nap tien thu phi epass", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "250 nghìn cho khoản nạp tiền thẻ thu phí epass", "normalized_text": "cho khoản nạp tiền thu phí epass", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "250 nghin cho khoan nap tien the thu phi epass", "normalized_text": "cho khoan nap tien thu phi epass", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "phí gửi xe máy cả ngày", "normalized_text": "phí gửi xe máy cả ngày", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "phi gui xe may ca ngay", "normalized_text": "phi gui xe may ca ngay", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan phí gửi xe máy cả ngày 35k", "normalized_text": "thanh toan phí gửi xe máy cả ngày", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan phi gui xe may ca ngay 35k", "normalized_text": "thanh toan phi gui xe may ca ngay", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "250 nghìn cho khoản phí gửi xe máy cả ngày", "normalized_text": "cho khoản phí gửi xe máy cả ngày", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "250 nghin cho khoan phi gui xe may ca ngay", "normalized_text": "cho khoan phi gui xe may ca ngay", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "mua vé xe buýt đi học", "normalized_text": "mua vé xe buýt đi học", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "mua ve xe buyt di hoc", "normalized_text": "mua ve xe buyt di hoc", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan mua vé xe buýt đi học 65k", "normalized_text": "thanh toan mua vé xe buýt đi học", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "45 nghìn cho khoản mua vé xe buýt đi học", "normalized_text": "cho khoản mua vé xe buýt đi học", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "45 nghin cho khoan mua ve xe buyt di hoc", "normalized_text": "cho khoan mua ve xe buyt di hoc", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "tiền vé tàu hỏa", "normalized_text": "tiền vé tàu hỏa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "tien ve tau hoa", "normalized_text": "tien ve tau hoa", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan tiền vé tàu hỏa 15tr", "normalized_text": "thanh toan tiền vé tàu hỏa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan tien ve tau hoa 15tr", "normalized_text": "thanh toan tien ve tau hoa", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "65k cho khoản tiền vé tàu hỏa", "normalized_text": "cho khoản tiền vé tàu hỏa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "65k cho khoan tien ve tau hoa", "normalized_text": "cho khoan tien ve tau hoa", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "phí qua trạm cao tốc", "normalized_text": "phí trạm cao tốc", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "phi qua tram cao toc", "normalized_text": "phi tram cao toc", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "TCB: Thanh toan phí qua trạm cao tốc 2,5 triệu", "normalized_text": "thanh toan phí trạm cao tốc", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "2,5 triệu cho khoản phí qua trạm cao tốc", "normalized_text": "cho khoản phí trạm cao tốc", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "thay nhớt xe vision và nhớt hộp số", "normalized_text": "thay nhớt xe vision và nhớt hộp", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "thay nhot xe vision va nhot hop so", "normalized_text": "thay nhot xe vision va nhot hop", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "TCB: Thanh toan thay nhớt xe vision và nhớt hộp số 25k", "normalized_text": "thanh toan thay nhớt xe vision và nhớt hộp", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "250 nghìn cho khoản thay nhớt xe vision và nhớt hộp số", "normalized_text": "cho khoản thay nhớt xe vision và nhớt hộp", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "vá vỏ xe tay ga", "normalized_text": "vá vỏ xe tay ga", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "va vo xe tay ga", "normalized_text": "va vo xe tay ga", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "TCB: Thanh toan vá vỏ xe tay ga 65k", "normalized_text": "thanh toan vá vỏ xe tay ga", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "120k cho khoản vá vỏ xe tay ga", "normalized_text": "cho khoản vá vỏ xe tay ga", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "120k cho khoan va vo xe tay ga", "normalized_text": "cho khoan va vo xe tay ga", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "bảo dưỡng nhông sên dĩa", "normalized_text": "bảo dưỡng nhông sên dĩa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "bao duong nhong sen dia", "normalized_text": "bao duong nhong sen dia", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "TCB: Thanh toan bảo dưỡng nhông sên dĩa 25k", "normalized_text": "thanh toan bảo dưỡng nhông sên dĩa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "TCB: Thanh toan bao duong nhong sen dia 25k", "normalized_text": "thanh toan bao duong nhong sen dia", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "250 nghìn cho khoản bảo dưỡng nhông sên dĩa", "normalized_text": "cho khoản bảo dưỡng nhông sên dĩa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "250 nghin cho khoan bao duong nhong sen dia", "normalized_text": "cho khoan bao duong nhong sen dia", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "rửa xe chăm sóc xe", "normalized_text": "rửa xe chăm sóc xe", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "rua xe cham soc xe", "normalized_text": "rua xe cham soc xe", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "TCB: Thanh toan rửa xe chăm sóc xe 65k", "normalized_text": "thanh toan rửa xe chăm sóc xe", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "2,5 triệu cho khoản rửa xe chăm sóc xe", "normalized_text": "cho khoản rửa xe chăm sóc xe", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "2,5 trieu cho khoan rua xe cham soc xe", "normalized_text": "cho khoan rua xe cham soc xe", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "thay ắc quy xe máy", "normalized_text": "thay ắc quy xe máy", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "thay ac quy xe may", "normalized_text": "thay ac quy xe may", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "TCB: Thanh toan thay ắc quy xe máy 2,5 triệu", "normalized_text": "thanh toan thay ắc quy xe máy", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "120k cho khoản thay ắc quy xe máy", "normalized_text": "cho khoản thay ắc quy xe máy", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "120k cho khoan thay ac quy xe may", "normalized_text": "cho khoan thay ac quy xe may", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "trả tiền thuê nhà đầu tháng", "normalized_text": "trả tiền thuê nhà đầu tháng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "tra tien thue nha dau thang", "normalized_text": "tra tien thue nha dau thang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan trả tiền thuê nhà đầu tháng 250 nghìn", "normalized_text": "thanh toan trả tiền thuê nhà đầu tháng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan tra tien thue nha dau thang 250 nghin", "normalized_text": "thanh toan tra tien thue nha dau thang", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "65k cho khoản trả tiền thuê nhà đầu tháng", "normalized_text": "cho khoản trả tiền thuê nhà đầu tháng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "đóng tiền phòng trọ", "normalized_text": "đóng tiền phòng trọ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "dong tien phong tro", "normalized_text": "dong tien phong tro", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan đóng tiền phòng trọ 1tr2", "normalized_text": "thanh toan đóng tiền phòng trọ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan dong tien phong tro 1tr2", "normalized_text": "thanh toan dong tien phong tro", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "65k cho khoản đóng tiền phòng trọ", "normalized_text": "cho khoản đóng tiền phòng trọ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "65k cho khoan dong tien phong tro", "normalized_text": "cho khoan dong tien phong tro", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "phí ban quản lý chung cư", "normalized_text": "phí ban quản lý chung cư", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "phi ban quan ly chung cu", "normalized_text": "phi ban quan ly chung cu", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan phí ban quản lý chung cư 250 nghìn", "normalized_text": "thanh toan phí ban quản lý chung cư", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "2,5 triệu cho khoản phí ban quản lý chung cư", "normalized_text": "cho khoản phí ban quản lý chung cư", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "2,5 trieu cho khoan phi ban quan ly chung cu", "normalized_text": "cho khoan phi ban quan ly chung cu", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "tiền thuê mặt bằng ở ghép", "normalized_text": "tiền thuê bằng ở ghép", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "tien thue mat bang o ghep", "normalized_text": "tien thue bang o ghep", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan tiền thuê mặt bằng ở ghép 450k", "normalized_text": "thanh toan tiền thuê bằng ở ghép", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "TCB: Thanh toan tien thue mat bang o ghep 450k", "normalized_text": "thanh toan tien thue bang o ghep", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "15tr cho khoản tiền thuê mặt bằng ở ghép", "normalized_text": "cho khoản tiền thuê bằng ở ghép", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "15tr cho khoan tien thue mat bang o ghep", "normalized_text": "cho khoan tien thue bang o ghep", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "trả tiền điện tháng 10 evn", "normalized_text": "trả tiền điện tháng tiền điện evn", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "tra tien dien thang 10 evn", "normalized_text": "tra tien dien thang tiền điện evn", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan trả tiền điện tháng 10 evn 85.000đ", "normalized_text": "thanh toan trả tiền điện tháng tiền điện evn", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "120k cho khoản trả tiền điện tháng 10 evn", "normalized_text": "cho khoản trả tiền điện tháng tiền điện evn", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "cước internet fpt telecom", "normalized_text": "cước internet internet fpt telecom", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "cuoc internet fpt telecom", "normalized_text": "cuoc internet internet fpt telecom", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan cước internet fpt telecom 2,5 triệu", "normalized_text": "thanh toan cước internet internet fpt telecom", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan cuoc internet fpt telecom 2,5 trieu", "normalized_text": "thanh toan cuoc internet internet fpt telecom", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "450k cho khoản cước internet fpt telecom", "normalized_text": "cho khoản cước internet internet fpt telecom", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "450k cho khoan cuoc internet fpt telecom", "normalized_text": "cho khoan cuoc internet internet fpt telecom", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "thanh toán hóa đơn tiền nước", "normalized_text": "thanh toán hóa đơn tiền nước", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "thanh toan hoa don tien nuoc", "normalized_text": "thanh toan hoa don tien nuoc", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan thanh toán hóa đơn tiền nước 1tr2", "normalized_text": "thanh toan thanh toán hóa đơn tiền nước", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan thanh toan hoa don tien nuoc 1tr2", "normalized_text": "thanh toan thanh toan hoa don tien nuoc", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "85.000đ cho khoản thanh toán hóa đơn tiền nước", "normalized_text": "cho khoản thanh toán hóa đơn tiền nước", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "nạp tiền điện thoại di động", "normalized_text": "nạp tiền điện thoại di động", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "nap tien dien thoai di dong", "normalized_text": "nap tien dien thoai di dong", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan nạp tiền điện thoại di động 65k", "normalized_text": "thanh toan nạp tiền điện thoại di động", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "TCB: Thanh toan nap tien dien thoai di dong 65k", "normalized_text": "thanh toan nap tien dien thoai di dong", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "450k cho khoản nạp tiền điện thoại di động", "normalized_text": "cho khoản nạp tiền điện thoại di động", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "450k cho khoan nap tien dien thoai di dong", "normalized_text": "cho khoan nap tien dien thoai di dong", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "mua nước giặt cửa trước", "normalized_text": "mua nước giặt cửa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "mua nuoc giat cua truoc", "normalized_text": "mua nuoc giat cua", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan mua nước giặt cửa trước 65k", "normalized_text": "thanh toan mua nước giặt cửa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan mua nuoc giat cua truoc 65k", "normalized_text": "thanh toan mua nuoc giat cua", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "2,5 triệu cho khoản mua nước giặt cửa trước", "normalized_text": "cho khoản mua nước giặt cửa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "2,5 trieu cho khoan mua nuoc giat cua truoc", "normalized_text": "cho khoan mua nuoc giat cua", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "thanh toán dọn dẹp nhà cửa", "normalized_text": "thanh toán dọn dẹp nhà cửa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "thanh toan don dep nha cua", "normalized_text": "thanh toan don dep nha cua", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan thanh toán dọn dẹp nhà cửa 85.000đ", "normalized_text": "thanh toan thanh toán dọn dẹp nhà cửa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "85.000đ cho khoản thanh toán dọn dẹp nhà cửa", "normalized_text": "cho khoản thanh toán dọn dẹp nhà cửa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "mua viên rửa bát và khăn bếp", "normalized_text": "mua viên rửa bát và khăn bếp", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "mua vien rua bat va khan bep", "normalized_text": "mua vien rua bat va khan bep", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan mua viên rửa bát và khăn bếp 1tr2", "normalized_text": "thanh toan mua viên rửa bát và khăn bếp", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan mua vien rua bat va khan bep 1tr2", "normalized_text": "thanh toan mua vien rua bat va khan bep", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "25k cho khoản mua viên rửa bát và khăn bếp", "normalized_text": "cho khoản mua viên rửa bát và khăn bếp", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "mua cuộn túi rác gia đình", "normalized_text": "mua cuộn túi rác gia đình", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "mua cuon tui rac gia dinh", "normalized_text": "mua cuon tui rac gia dinh", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan mua cuộn túi rác gia đình 1tr2", "normalized_text": "thanh toan mua cuộn túi rác gia đình", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "TCB: Thanh toan mua cuon tui rac gia dinh 1tr2", "normalized_text": "thanh toan mua cuon tui rac gia dinh", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "35k cho khoản mua cuộn túi rác gia đình", "normalized_text": "cho khoản mua cuộn túi rác gia đình", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "35k cho khoan mua cuon tui rac gia dinh", "normalized_text": "cho khoan mua cuon tui rac gia dinh", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "mua bộ quần áo thể thao", "normalized_text": "mua bộ quần áo thao", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "mua bo quan ao the thao", "normalized_text": "mua bo quan ao thao", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan mua bộ quần áo thể thao 1tr2", "normalized_text": "thanh toan mua bộ quần áo thao", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan mua bo quan ao the thao 1tr2", "normalized_text": "thanh toan mua bo quan ao thao", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "25k cho khoản mua bộ quần áo thể thao", "normalized_text": "cho khoản mua bộ quần áo thao", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "sắm giày sneaker mới", "normalized_text": "sắm giày sneaker", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "sam giay sneaker moi", "normalized_text": "sam giay sneaker", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan sắm giày sneaker mới 65k", "normalized_text": "thanh toan sắm giày sneaker", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan sam giay sneaker moi 65k", "normalized_text": "thanh toan sam giay sneaker", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "35k cho khoản sắm giày sneaker mới", "normalized_text": "cho khoản sắm giày sneaker", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "35k cho khoan sam giay sneaker moi", "normalized_text": "cho khoan sam giay sneaker", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "mua áo polo uniqlo", "normalized_text": "mua áo polo uniqlo", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "mua ao polo uniqlo", "normalized_text": "mua ao polo uniqlo", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan mua áo polo uniqlo 65k", "normalized_text": "thanh toan mua áo polo uniqlo", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan mua ao polo uniqlo 65k", "normalized_text": "thanh toan mua ao polo uniqlo", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "35k cho khoản mua áo polo uniqlo", "normalized_text": "cho khoản mua áo polo uniqlo", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "35k cho khoan mua ao polo uniqlo", "normalized_text": "cho khoan mua ao polo uniqlo", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "mua thắt lưng và vớ", "normalized_text": "mua thắt lưng và vớ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "mua that lung va vo", "normalized_text": "mua that lung va vo", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "TCB: Thanh toan mua thắt lưng và vớ 45 nghìn", "normalized_text": "thanh toan mua thắt lưng và vớ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "1tr2 cho khoản mua thắt lưng và vớ", "normalized_text": "cho khoản mua thắt lưng và vớ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "mua sạc dự phòng anker", "normalized_text": "mua sạc dự phòng anker", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "mua sac du phong anker", "normalized_text": "mua sac du phong anker", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "TCB: Thanh toan mua sạc dự phòng anker 1tr2", "normalized_text": "thanh toan mua sạc dự phòng anker", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "TCB: Thanh toan mua sac du phong anker 1tr2", "normalized_text": "thanh toan mua sac du phong anker", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "2,5 triệu cho khoản mua sạc dự phòng anker", "normalized_text": "cho khoản mua sạc dự phòng anker", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "2,5 trieu cho khoan mua sac du phong anker", "normalized_text": "cho khoan mua sac du phong anker", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "mua chuột không dây văn phòng", "normalized_text": "mua chuột không dây văn phòng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "mua chuot khong day van phong", "normalized_text": "mua chuot khong day van phong", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "TCB: Thanh toan mua chuột không dây văn phòng 250 nghìn", "normalized_text": "thanh toan mua chuột không dây văn phòng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "45 nghìn cho khoản mua chuột không dây văn phòng", "normalized_text": "cho khoản mua chuột không dây văn phòng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "45 nghin cho khoan mua chuot khong day van phong", "normalized_text": "cho khoan mua chuot khong day van phong", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "dán màn hình và mua ốp điện thoại", "normalized_text": "dán màn hình và mua ốp điện thoại", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "dan man hinh va mua op dien thoai", "normalized_text": "dan man hinh va mua op dien thoai", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "TCB: Thanh toan dán màn hình và mua ốp điện thoại 65k", "normalized_text": "thanh toan dán màn hình và mua ốp điện thoại", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "1tr2 cho khoản dán màn hình và mua ốp điện thoại", "normalized_text": "cho khoản dán màn hình và mua ốp điện thoại", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "mua loa bluetooth mini", "normalized_text": "mua loa bluetooth mini", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "TCB: Thanh toan mua loa bluetooth mini 65k", "normalized_text": "thanh toan mua loa bluetooth mini", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "15tr cho khoản mua loa bluetooth mini", "normalized_text": "cho khoản mua loa bluetooth mini", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "mua sắm cuối tuần aeon", "normalized_text": "mua sắm cuối aeon", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "mua sam cuoi tuan aeon", "normalized_text": "mua sam cuoi aeon", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan mua sắm cuối tuần aeon 85.000đ", "normalized_text": "thanh toan mua sắm cuối aeon", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan mua sam cuoi tuan aeon 85.000d", "normalized_text": "thanh toan mua sam cuoi aeon", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "15tr cho khoản mua sắm cuối tuần aeon", "normalized_text": "cho khoản mua sắm cuối aeon", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "15tr cho khoan mua sam cuoi tuan aeon", "normalized_text": "cho khoan mua sam cuoi aeon", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "trả tiền đơn ship cod shopee", "normalized_text": "trả tiền đơn ship cod shopee", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "tra tien don ship cod shopee", "normalized_text": "tra tien don ship cod shopee", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan trả tiền đơn ship cod shopee 35k", "normalized_text": "thanh toan trả tiền đơn ship cod shopee", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "120k cho khoản trả tiền đơn ship cod shopee", "normalized_text": "cho khoản trả tiền đơn ship cod shopee", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "120k cho khoan tra tien don ship cod shopee", "normalized_text": "cho khoan tra tien don ship cod shopee", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "mua đồ cá nhân ở gs25", "normalized_text": "mua đồ cá nhân ở siêu thị gs25", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "mua do ca nhan o gs25", "normalized_text": "mua do ca nhan o siêu thị gs25", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan mua đồ cá nhân ở gs25 15tr", "normalized_text": "thanh toan mua đồ cá nhân ở siêu thị gs25", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan mua do ca nhan o gs25 15tr", "normalized_text": "thanh toan mua do ca nhan o siêu thị gs25", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "2,5 triệu cho khoản mua đồ cá nhân ở gs25", "normalized_text": "cho khoản mua đồ cá nhân ở siêu thị gs25", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "đặt đơn hàng tiktok", "normalized_text": "đặt đơn hàng tiktok", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "dat don hang tiktok", "normalized_text": "dat don hang tiktok", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan đặt đơn hàng tiktok 1tr2", "normalized_text": "thanh toan đặt đơn hàng tiktok", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "TCB: Thanh toan dat don hang tiktok 1tr2", "normalized_text": "thanh toan dat don hang tiktok", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "85.000đ cho khoản đặt đơn hàng tiktok", "normalized_text": "cho khoản đặt đơn hàng tiktok", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "85.000d cho khoan dat don hang tiktok", "normalized_text": "cho khoan dat don hang tiktok", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "mua thuốc kháng sinh theo toa", "normalized_text": "mua thuốc kháng sinh theo toa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "mua thuoc khang sinh theo toa", "normalized_text": "mua thuoc khang sinh theo toa", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuốc kháng sinh theo toa 85.000đ", "normalized_text": "thanh toan mua thuốc kháng sinh theo toa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuoc khang sinh theo toa 85.000d", "normalized_text": "thanh toan mua thuoc khang sinh theo toa", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "1tr2 cho khoản mua thuốc kháng sinh theo toa", "normalized_text": "cho khoản mua thuốc kháng sinh theo toa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "1tr2 cho khoan mua thuoc khang sinh theo toa", "normalized_text": "cho khoan mua thuoc khang sinh theo toa", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "mua thực phẩm chức năng nhà thuốc long châu", "normalized_text": "mua thực phẩm chức năng nhà thuốc long châu", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "mua thuc pham chuc nang nha thuoc long chau", "normalized_text": "mua thuc pham chuc nang nha thuoc long chau", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thực phẩm chức năng nhà thuốc long châu 1tr2", "normalized_text": "thanh toan mua thực phẩm chức năng nhà thuốc long châu", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuc pham chuc nang nha thuoc long chau 1tr2", "normalized_text": "thanh toan mua thuc pham chuc nang nha thuoc long chau", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "450k cho khoản mua thực phẩm chức năng nhà thuốc long châu", "normalized_text": "cho khoản mua thực phẩm chức năng nhà thuốc long châu", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "450k cho khoan mua thuc pham chuc nang nha thuoc long chau", "normalized_text": "cho khoan mua thuc pham chuc nang nha thuoc long chau", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "mua thuốc nhỏ mắt tại pharmacity", "normalized_text": "mua thuốc nhỏ tại pharmacity", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "mua thuoc nho mat tai pharmacity", "normalized_text": "mua thuoc nho tai pharmacity", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuốc nhỏ mắt tại pharmacity 65k", "normalized_text": "thanh toan mua thuốc nhỏ tại pharmacity", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuoc nho mat tai pharmacity 65k", "normalized_text": "thanh toan mua thuoc nho tai pharmacity", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "250 nghìn cho khoản mua thuốc nhỏ mắt tại pharmacity", "normalized_text": "cho khoản mua thuốc nhỏ tại pharmacity", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "250 nghin cho khoan mua thuoc nho mat tai pharmacity", "normalized_text": "cho khoan mua thuoc nho tai pharmacity", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "mua thuốc cảm sốt", "normalized_text": "mua thuốc cảm sốt", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "mua thuoc cam sot", "normalized_text": "mua thuoc cam sot", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuốc cảm sốt 250 nghìn", "normalized_text": "thanh toan mua thuốc cảm sốt", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "TCB: Thanh toan mua thuoc cam sot 250 nghin", "normalized_text": "thanh toan mua thuoc cam sot", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "45 nghìn cho khoản mua thuốc cảm sốt", "normalized_text": "cho khoản mua thuốc cảm sốt", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "45 nghin cho khoan mua thuoc cam sot", "normalized_text": "cho khoan mua thuoc cam sot", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "phí khám bệnh tại phòng khám", "normalized_text": "phí khám bệnh tại phòng khám", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "phi kham benh tai phong kham", "normalized_text": "phi kham benh tai phong kham", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan phí khám bệnh tại phòng khám 450k", "normalized_text": "thanh toan phí khám bệnh tại phòng khám", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan phi kham benh tai phong kham 450k", "normalized_text": "thanh toan phi kham benh tai phong kham", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "250 nghìn cho khoản phí khám bệnh tại phòng khám", "normalized_text": "cho khoản phí khám bệnh tại phòng khám", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "nhổ răng khôn nha khoa", "normalized_text": "nhổ răng khôn nha khoa", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "nho rang khon nha khoa", "normalized_text": "nho rang khon nha khoa", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan nhổ răng khôn nha khoa 450k", "normalized_text": "thanh toan nhổ răng khôn nha khoa", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan nho rang khon nha khoa 450k", "normalized_text": "thanh toan nho rang khon nha khoa", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "65k cho khoản nhổ răng khôn nha khoa", "normalized_text": "cho khoản nhổ răng khôn nha khoa", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "gia hạn hội viên phòng gym", "normalized_text": "gia hạn hội viên phòng gym", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "gia han hoi vien phong gym", "normalized_text": "gia han hoi vien phong gym", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan gia hạn hội viên phòng gym 2,5 triệu", "normalized_text": "thanh toan gia hạn hội viên phòng gym", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan gia han hoi vien phong gym 2,5 trieu", "normalized_text": "thanh toan gia han hoi vien phong gym", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "250 nghìn cho khoản gia hạn hội viên phòng gym", "normalized_text": "cho khoản gia hạn hội viên phòng gym", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "250 nghin cho khoan gia han hoi vien phong gym", "normalized_text": "cho khoan gia han hoi vien phong gym", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "xét nghiệm kiểm tra định kỳ", "normalized_text": "xét nghiệm kiểm tra định kỳ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "xet nghiem kiem tra dinh ky", "normalized_text": "xet nghiem kiem tra dinh ky", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "TCB: Thanh toan xét nghiệm kiểm tra định kỳ 2,5 triệu", "normalized_text": "thanh toan xét nghiệm kiểm tra định kỳ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "120k cho khoản xét nghiệm kiểm tra định kỳ", "normalized_text": "cho khoản xét nghiệm kiểm tra định kỳ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "120k cho khoan xet nghiem kiem tra dinh ky", "normalized_text": "cho khoan xet nghiem kiem tra dinh ky", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "mua sách đọc cuối tuần", "normalized_text": "mua sách đọc cuối", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "mua sach doc cuoi tuan", "normalized_text": "mua sach doc cuoi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "TCB: Thanh toan mua sách đọc cuối tuần 25k", "normalized_text": "thanh toan mua sách đọc cuối", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "TCB: Thanh toan mua sach doc cuoi tuan 25k", "normalized_text": "thanh toan mua sach doc cuoi", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "45 nghìn cho khoản mua sách đọc cuối tuần", "normalized_text": "cho khoản mua sách đọc cuối", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "45 nghin cho khoan mua sach doc cuoi tuan", "normalized_text": "cho khoan mua sach doc cuoi", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "thanh toán học phí khóa học online", "normalized_text": "thanh toán học phí khóa học online", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "thanh toan hoc phi khoa hoc online", "normalized_text": "thanh toan hoc phi khoa hoc online", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "TCB: Thanh toan thanh toán học phí khóa học online 450k", "normalized_text": "thanh toan thanh toán học phí khóa học online", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "25k cho khoản thanh toán học phí khóa học online", "normalized_text": "cho khoản thanh toán học phí khóa học online", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "25k cho khoan thanh toan hoc phi khoa hoc online", "normalized_text": "cho khoan thanh toan hoc phi khoa hoc online", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "lệ phí đăng ký thi chứng chỉ", "normalized_text": "lệ phí đăng ký thi chứng chỉ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "le phi dang ky thi chung chi", "normalized_text": "le phi dang ky thi chung chi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "TCB: Thanh toan lệ phí đăng ký thi chứng chỉ 85.000đ", "normalized_text": "thanh toan lệ phí đăng ký thi chứng chỉ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "TCB: Thanh toan le phi dang ky thi chung chi 85.000d", "normalized_text": "thanh toan le phi dang ky thi chung chi", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "450k cho khoản lệ phí đăng ký thi chứng chỉ", "normalized_text": "cho khoản lệ phí đăng ký thi chứng chỉ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "mua sổ tay và bút bi", "normalized_text": "mua tay và bút bi", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "mua so tay va but bi", "normalized_text": "mua tay va but bi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "TCB: Thanh toan mua sổ tay và bút bi 45 nghìn", "normalized_text": "thanh toan mua tay và bút bi", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "TCB: Thanh toan mua so tay va but bi 45 nghin", "normalized_text": "thanh toan mua tay va but bi", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "15tr cho khoản mua sổ tay và bút bi", "normalized_text": "cho khoản mua tay và bút bi", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "15tr cho khoan mua so tay va but bi", "normalized_text": "cho khoan mua tay va but bi", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "đặt vé xem phim cuối tuần cgv", "normalized_text": "đặt vé xem phim cuối rạp phim cgv", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "dat ve xem phim cuoi tuan cgv", "normalized_text": "dat ve xem phim cuoi rạp phim cgv", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "TCB: Thanh toan đặt vé xem phim cuối tuần cgv 15tr", "normalized_text": "thanh toan đặt vé xem phim cuối rạp phim cgv", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "25k cho khoản đặt vé xem phim cuối tuần cgv", "normalized_text": "cho khoản đặt vé xem phim cuối rạp phim cgv", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "25k cho khoan dat ve xem phim cuoi tuan cgv", "normalized_text": "cho khoan dat ve xem phim cuoi rạp phim cgv", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "chia tiền sân pickleball cầu lông", "normalized_text": "chia tiền sân pickleball cầu lông", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "chia tien san pickleball cau long", "normalized_text": "chia tien san pickleball cau long", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "TCB: Thanh toan chia tiền sân pickleball cầu lông 15tr", "normalized_text": "thanh toan chia tiền sân pickleball cầu lông", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "TCB: Thanh toan chia tien san pickleball cau long 15tr", "normalized_text": "thanh toan chia tien san pickleball cau long", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "250 nghìn cho khoản chia tiền sân pickleball cầu lông", "normalized_text": "cho khoản chia tiền sân pickleball cầu lông", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "vé khu vui chơi giải trí", "normalized_text": "vé khu vui chơi giải trí", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "ve khu vui choi giai tri", "normalized_text": "ve khu vui choi giai tri", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "TCB: Thanh toan vé khu vui chơi giải trí 1tr2", "normalized_text": "thanh toan vé khu vui chơi giải trí", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "TCB: Thanh toan ve khu vui choi giai tri 1tr2", "normalized_text": "thanh toan ve khu vui choi giai tri", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "2,5 triệu cho khoản vé khu vui chơi giải trí", "normalized_text": "cho khoản vé khu vui chơi giải trí", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "khách sạn chuyến du lịch ngắn ngày", "normalized_text": "khách sạn chuyến du lịch ngắn ngày", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "khach san chuyen du lich ngan ngay", "normalized_text": "khach san chuyen du lich ngan ngay", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "TCB: Thanh toan khách sạn chuyến du lịch ngắn ngày 1tr2", "normalized_text": "thanh toan khách sạn chuyến du lịch ngắn ngày", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "1tr2 cho khoản khách sạn chuyến du lịch ngắn ngày", "normalized_text": "cho khoản khách sạn chuyến du lịch ngắn ngày", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "1tr2 cho khoan khach san chuyen du lich ngan ngay", "normalized_text": "cho khoan khach san chuyen du lich ngan ngay", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "cước thuê bao tháng spotify", "normalized_text": "cước thuê bao tháng spotify", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "cuoc thue bao thang spotify", "normalized_text": "cuoc thue bao thang spotify", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "TCB: Thanh toan cước thuê bao tháng spotify 35k", "normalized_text": "thanh toan cước thuê bao tháng spotify", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "TCB: Thanh toan cuoc thue bao thang spotify 35k", "normalized_text": "thanh toan cuoc thue bao thang spotify", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "65k cho khoản cước thuê bao tháng spotify", "normalized_text": "cho khoản cước thuê bao tháng spotify", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "65k cho khoan cuoc thue bao thang spotify", "normalized_text": "cho khoan cuoc thue bao thang spotify", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "thanh toán tự động google one", "normalized_text": "thanh toán tự động google one", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "thanh toan tu dong google one", "normalized_text": "thanh toan tu dong google one", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "TCB: Thanh toan thanh toán tự động google one 250 nghìn", "normalized_text": "thanh toan thanh toán tự động google one", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "TCB: Thanh toan thanh toan tu dong google one 250 nghin", "normalized_text": "thanh toan thanh toan tu dong google one", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "15tr cho khoản thanh toán tự động google one", "normalized_text": "cho khoản thanh toán tự động google one", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "gia hạn tài khoản netflix gia đình", "normalized_text": "gia hạn tài khoản netflix gia đình", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "gia han tai khoan netflix gia dinh", "normalized_text": "gia han tai khoan netflix gia dinh", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "TCB: Thanh toan gia hạn tài khoản netflix gia đình 450k", "normalized_text": "thanh toan gia hạn tài khoản netflix gia đình", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "85.000đ cho khoản gia hạn tài khoản netflix gia đình", "normalized_text": "cho khoản gia hạn tài khoản netflix gia đình", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "phí lưu trữ icloud hàng tháng", "normalized_text": "phí lưu trữ icloud hàng tháng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "phi luu tru icloud hang thang", "normalized_text": "phi luu tru icloud hang thang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "TCB: Thanh toan phí lưu trữ icloud hàng tháng 85.000đ", "normalized_text": "thanh toan phí lưu trữ icloud hàng tháng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "15tr cho khoản phí lưu trữ icloud hàng tháng", "normalized_text": "cho khoản phí lưu trữ icloud hàng tháng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "15tr cho khoan phi luu tru icloud hang thang", "normalized_text": "cho khoan phi luu tru icloud hang thang", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "mua sữa công thức cho bé", "normalized_text": "mua sữa công thức cho bé", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "mua sua cong thuc cho be", "normalized_text": "mua sua cong thuc cho be", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "TCB: Thanh toan mua sữa công thức cho bé 2,5 triệu", "normalized_text": "thanh toan mua sữa công thức cho bé", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "TCB: Thanh toan mua sua cong thuc cho be 2,5 trieu", "normalized_text": "thanh toan mua sua cong thuc cho be", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "2,5 triệu cho khoản mua sữa công thức cho bé", "normalized_text": "cho khoản mua sữa công thức cho bé", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "2,5 trieu cho khoan mua sua cong thuc cho be", "normalized_text": "cho khoan mua sua cong thuc cho be", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "chuyển khoản biếu bố mẹ hàng tháng", "normalized_text": "chuyển khoản biếu bố mẹ hàng tháng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "chuyen khoan bieu bo me hang thang", "normalized_text": "chuyen khoan bieu bo me hang thang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "TCB: Thanh toan chuyển khoản biếu bố mẹ hàng tháng 45 nghìn", "normalized_text": "thanh toan chuyển khoản biếu bố mẹ hàng tháng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "TCB: Thanh toan chuyen khoan bieu bo me hang thang 45 nghin", "normalized_text": "thanh toan chuyen khoan bieu bo me hang thang", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "450k cho khoản chuyển khoản biếu bố mẹ hàng tháng", "normalized_text": "cho khoản chuyển khoản biếu bố mẹ hàng tháng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "450k cho khoan chuyen khoan bieu bo me hang thang", "normalized_text": "cho khoan chuyen khoan bieu bo me hang thang", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "tiền học thêm của con", "normalized_text": "tiền học thêm của con", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "tien hoc them cua con", "normalized_text": "tien hoc them cua con", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "TCB: Thanh toan tiền học thêm của con 65k", "normalized_text": "thanh toan tiền học thêm của con", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "TCB: Thanh toan tien hoc them cua con 65k", "normalized_text": "thanh toan tien hoc them cua con", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "25k cho khoản tiền học thêm của con", "normalized_text": "cho khoản tiền học thêm của con", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "sắm đồ sơ sinh con cưng", "normalized_text": "sắm đồ sinh con cưng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "sam do so sinh con cung", "normalized_text": "sam do sinh con cung", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "TCB: Thanh toan sắm đồ sơ sinh con cưng 250 nghìn", "normalized_text": "thanh toan sắm đồ sinh con cưng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "TCB: Thanh toan sam do so sinh con cung 250 nghin", "normalized_text": "thanh toan sam do sinh con cung", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "1tr2 cho khoản sắm đồ sơ sinh con cưng", "normalized_text": "cho khoản sắm đồ sinh con cưng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "phong bì mừng đám cưới cuối tuần", "normalized_text": "phong bì mừng đám cưới cuối", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "phong bi mung dam cuoi cuoi tuan", "normalized_text": "phong bi mung dam cuoi cuoi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "TCB: Thanh toan phong bì mừng đám cưới cuối tuần 65k", "normalized_text": "thanh toan phong bì mừng đám cưới cuối", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "65k cho khoản phong bì mừng đám cưới cuối tuần", "normalized_text": "cho khoản phong bì mừng đám cưới cuối", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "65k cho khoan phong bi mung dam cuoi cuoi tuan", "normalized_text": "cho khoan phong bi mung dam cuoi cuoi", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "mua bó hoa và bánh kem tặng sinh nhật", "normalized_text": "mua bó hoa và bánh kem tặng sinh nhật", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "mua bo hoa va banh kem tang sinh nhat", "normalized_text": "mua bo hoa va banh kem tang sinh nhat", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "TCB: Thanh toan mua bó hoa và bánh kem tặng sinh nhật 15tr", "normalized_text": "thanh toan mua bó hoa và bánh kem tặng sinh nhật", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "45 nghìn cho khoản mua bó hoa và bánh kem tặng sinh nhật", "normalized_text": "cho khoản mua bó hoa và bánh kem tặng sinh nhật", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "45 nghin cho khoan mua bo hoa va banh kem tang sinh nhat", "normalized_text": "cho khoan mua bo hoa va banh kem tang sinh nhat", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "mừng đầy tháng cháu", "normalized_text": "mừng đầy tháng cháu", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "mung day thang chau", "normalized_text": "mung day thang chau", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "TCB: Thanh toan mừng đầy tháng cháu 250 nghìn", "normalized_text": "thanh toan mừng đầy tháng cháu", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "TCB: Thanh toan mung day thang chau 250 nghin", "normalized_text": "thanh toan mung day thang chau", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "25k cho khoản mừng đầy tháng cháu", "normalized_text": "cho khoản mừng đầy tháng cháu", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "25k cho khoan mung day thang chau", "normalized_text": "cho khoan mung day thang chau", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "quà biếu đối tác khách hàng", "normalized_text": "biếu đối tác khách hàng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "qua bieu doi tac khach hang", "normalized_text": "bieu doi tac khach hang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "TCB: Thanh toan quà biếu đối tác khách hàng 120k", "normalized_text": "thanh toan biếu đối tác khách hàng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "250 nghìn cho khoản quà biếu đối tác khách hàng", "normalized_text": "cho khoản biếu đối tác khách hàng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "250 nghin cho khoan qua bieu doi tac khach hang", "normalized_text": "cho khoan bieu doi tac khach hang", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "đóng tiền trả góp máy tính", "normalized_text": "đóng tiền trả góp máy", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "dong tien tra gop may tinh", "normalized_text": "dong tien tra gop may", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "TCB: Thanh toan đóng tiền trả góp máy tính 85.000đ", "normalized_text": "thanh toan đóng tiền trả góp máy", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "120k cho khoản đóng tiền trả góp máy tính", "normalized_text": "cho khoản đóng tiền trả góp máy", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "120k cho khoan dong tien tra gop may tinh", "normalized_text": "cho khoan dong tien tra gop may", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "trả lãi vay tín chấp ngân hàng", "normalized_text": "trả lãi vay tín chấp ngân hàng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "tra lai vay tin chap ngan hang", "normalized_text": "tra lai vay tin chap ngan hang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "TCB: Thanh toan trả lãi vay tín chấp ngân hàng 45 nghìn", "normalized_text": "thanh toan trả lãi vay tín chấp ngân hàng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "TCB: Thanh toan tra lai vay tin chap ngan hang 45 nghin", "normalized_text": "thanh toan tra lai vay tin chap ngan hang", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "120k cho khoản trả lãi vay tín chấp ngân hàng", "normalized_text": "cho khoản trả lãi vay tín chấp ngân hàng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "thanh toán khoản nợ đến hạn", "normalized_text": "thanh toán khoản nợ đến hạn", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "thanh toan khoan no den han", "normalized_text": "thanh toan khoan no den han", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "TCB: Thanh toan thanh toán khoản nợ đến hạn 120k", "normalized_text": "thanh toan thanh toán khoản nợ đến hạn", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "45 nghìn cho khoản thanh toán khoản nợ đến hạn", "normalized_text": "cho khoản thanh toán khoản nợ đến hạn", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "góp kỳ hạn home credit", "normalized_text": "góp kỳ hạn home credit", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "gop ky han home credit", "normalized_text": "gop ky han home credit", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "TCB: Thanh toan góp kỳ hạn home credit 25k", "normalized_text": "thanh toan góp kỳ hạn home credit", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "TCB: Thanh toan gop ky han home credit 25k", "normalized_text": "thanh toan gop ky han home credit", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "65k cho khoản góp kỳ hạn home credit", "normalized_text": "cho khoản góp kỳ hạn home credit", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "trừ phí thông báo biến động sms", "normalized_text": "trừ phí thông báo biến động sms", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "tru phi thong bao bien dong sms", "normalized_text": "tru phi thong bao bien dong sms", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "TCB: Thanh toan trừ phí thông báo biến động sms 250 nghìn", "normalized_text": "thanh toan trừ phí thông báo biến động sms", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "45 nghìn cho khoản trừ phí thông báo biến động sms", "normalized_text": "cho khoản trừ phí thông báo biến động sms", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "45 nghin cho khoan tru phi thong bao bien dong sms", "normalized_text": "cho khoan tru phi thong bao bien dong sms", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "phí duy trì thẻ thanh toán quốc tế", "normalized_text": "phí duy trì thanh toán quốc tế", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "phi duy tri the thanh toan quoc te", "normalized_text": "phi duy tri thanh toan quoc te", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "TCB: Thanh toan phí duy trì thẻ thanh toán quốc tế 85.000đ", "normalized_text": "thanh toan phí duy trì thanh toán quốc tế", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "250 nghìn cho khoản phí duy trì thẻ thanh toán quốc tế", "normalized_text": "cho khoản phí duy trì thanh toán quốc tế", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "250 nghin cho khoan phi duy tri the thanh toan quoc te", "normalized_text": "cho khoan phi duy tri thanh toan quoc te", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "phí thường niên thẻ ngân hàng", "normalized_text": "phí thường niên ngân hàng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "phi thuong nien the ngan hang", "normalized_text": "phi thuong nien ngan hang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "TCB: Thanh toan phí thường niên thẻ ngân hàng 85.000đ", "normalized_text": "thanh toan phí thường niên ngân hàng", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "TCB: Thanh toan phi thuong nien the ngan hang 85.000d", "normalized_text": "thanh toan phi thuong nien ngan hang", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "2,5 triệu cho khoản phí thường niên thẻ ngân hàng", "normalized_text": "cho khoản phí thường niên ngân hàng", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "2,5 trieu cho khoan phi thuong nien the ngan hang", "normalized_text": "cho khoan phi thuong nien ngan hang", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "thu phí quản lý tài khoản định kỳ", "normalized_text": "thu phí quản lý tài khoản định kỳ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "thu phi quan ly tai khoan dinh ky", "normalized_text": "thu phi quan ly tai khoan dinh ky", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "TCB: Thanh toan thu phí quản lý tài khoản định kỳ 120k", "normalized_text": "thanh toan thu phí quản lý tài khoản định kỳ", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "TCB: Thanh toan thu phi quan ly tai khoan dinh ky 120k", "normalized_text": "thanh toan thu phi quan ly tai khoan dinh ky", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "1tr2 cho khoản thu phí quản lý tài khoản định kỳ", "normalized_text": "cho khoản thu phí quản lý tài khoản định kỳ", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "chi phí phát sinh đột xuất", "normalized_text": "chi phí phát sinh đột xuất", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "chi phi phat sinh dot xuat", "normalized_text": "chi phi phat sinh dot xuat", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "TCB: Thanh toan chi phí phát sinh đột xuất 25k", "normalized_text": "thanh toan chi phí phát sinh đột xuất", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "25k cho khoản chi phí phát sinh đột xuất", "normalized_text": "cho khoản chi phí phát sinh đột xuất", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "tiền công chứng giấy tờ cá nhân", "normalized_text": "tiền công chứng giấy tờ cá nhân", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "tien cong chung giay to ca nhan", "normalized_text": "tien cong chung giay to ca nhan", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "TCB: Thanh toan tiền công chứng giấy tờ cá nhân 250 nghìn", "normalized_text": "thanh toan tiền công chứng giấy tờ cá nhân", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "TCB: Thanh toan tien cong chung giay to ca nhan 250 nghin", "normalized_text": "thanh toan tien cong chung giay to ca nhan", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "65k cho khoản tiền công chứng giấy tờ cá nhân", "normalized_text": "cho khoản tiền công chứng giấy tờ cá nhân", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "khoản chi tiêu khác trong ngày", "normalized_text": "khoản chi tiêu khác trong ngày", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "khoan chi tieu khac trong ngay", "normalized_text": "khoan chi tieu khac trong ngay", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "TCB: Thanh toan khoản chi tiêu khác trong ngày 2,5 triệu", "normalized_text": "thanh toan khoản chi tiêu khác trong ngày", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "TCB: Thanh toan khoan chi tieu khac trong ngay 2,5 trieu", "normalized_text": "thanh toan khoan chi tieu khac trong ngay", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "65k cho khoản khoản chi tiêu khác trong ngày", "normalized_text": "cho khoản khoản chi tiêu khác trong ngày", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "65k cho khoan khoan chi tieu khac trong ngay", "normalized_text": "cho khoan khoan chi tieu khac trong ngay", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "chi lặt vặt ngoài kế hoạch", "normalized_text": "chi lặt vặt ngoài kế hoạch", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "chi lat vat ngoai ke hoach", "normalized_text": "chi lat vat ngoai ke hoach", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "TCB: Thanh toan chi lặt vặt ngoài kế hoạch 65k", "normalized_text": "thanh toan chi lặt vặt ngoài kế hoạch", "template_id": "te_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "TCB: Thanh toan chi lat vat ngoai ke hoach 65k", "normalized_text": "thanh toan chi lat vat ngoai ke hoach", "template_id": "te_w3_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "65k cho khoản chi lặt vặt ngoài kế hoạch", "normalized_text": "cho khoản chi lặt vặt ngoài kế hoạch", "template_id": "te_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "65k cho khoan chi lat vat ngoai ke hoach", "normalized_text": "cho khoan chi lat vat ngoai ke hoach", "template_id": "te_w4_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "nhận lương chuyển khoản từ công ty", "normalized_text": "nhận lương chuyển khoản từ công ty", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "nhan luong chuyen khoan tu cong ty", "normalized_text": "nhan luong chuyen khoan tu cong ty", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.salary", "raw_text": "BIDV +25k noi dung nhận lương chuyển khoản từ công ty", "normalized_text": "noi dung nhận lương chuyển khoản từ công ty", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "nhận lương chuyển khoản từ công ty được 35k", "normalized_text": "nhận lương chuyển khoản từ công ty được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "nhan luong chuyen khoan tu cong ty duoc 35k", "normalized_text": "nhan luong chuyen khoan tu cong ty duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "tiền lương tháng mới về", "normalized_text": "tiền lương tháng về", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "tien luong thang moi ve", "normalized_text": "tien luong thang ve", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.salary", "raw_text": "BIDV +35k noi dung tiền lương tháng mới về", "normalized_text": "noi dung tiền lương tháng về", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "BIDV +35k noi dung tien luong thang moi ve", "normalized_text": "noi dung tien luong thang ve", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "tiền lương tháng mới về được 65k", "normalized_text": "tiền lương tháng về được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "thanh toán bảng lương nhân sự", "normalized_text": "thanh toán bảng lương nhân sự", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "thanh toan bang luong nhan su", "normalized_text": "thanh toan bang luong nhan su", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.salary", "raw_text": "BIDV +120k noi dung thanh toán bảng lương nhân sự", "normalized_text": "noi dung thanh toán bảng lương nhân sự", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "BIDV +120k noi dung thanh toan bang luong nhan su", "normalized_text": "noi dung thanh toan bang luong nhan su", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "thanh toán bảng lương nhân sự được 35k", "normalized_text": "thanh toán bảng lương nhân sự được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "thanh toan bang luong nhan su duoc 35k", "normalized_text": "thanh toan bang luong nhan su duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "nhan luong thang 11", "normalized_text": "nhan luong thang", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "BIDV +85.000đ noi dung nhan luong thang 11", "normalized_text": "noi dung nhan luong thang", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "nhan luong thang 11 được 1tr2", "normalized_text": "nhan luong thang được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "nhan luong thang 11 duoc 1tr2", "normalized_text": "nhan luong thang duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "được thưởng vượt chỉ tiêu kpi", "normalized_text": "được thưởng vượt chỉ tiêu kpi", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "duoc thuong vuot chi tieu kpi", "normalized_text": "duoc thuong vuot chi tieu kpi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "BIDV +35k noi dung được thưởng vượt chỉ tiêu kpi", "normalized_text": "noi dung được thưởng vượt chỉ tiêu kpi", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "BIDV +35k noi dung duoc thuong vuot chi tieu kpi", "normalized_text": "noi dung duoc thuong vuot chi tieu kpi", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "được thưởng vượt chỉ tiêu kpi được 1tr2", "normalized_text": "được thưởng vượt chỉ tiêu kpi được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "duoc thuong vuot chi tieu kpi duoc 1tr2", "normalized_text": "duoc thuong vuot chi tieu kpi duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "tiền thưởng lễ từ công ty", "normalized_text": "tiền thưởng lễ từ công ty", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "tien thuong le tu cong ty", "normalized_text": "tien thuong le tu cong ty", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "BIDV +1tr2 noi dung tiền thưởng lễ từ công ty", "normalized_text": "noi dung tiền thưởng lễ từ công ty", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "tiền thưởng lễ từ công ty được 120k", "normalized_text": "tiền thưởng lễ từ công ty được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "tien thuong le tu cong ty duoc 120k", "normalized_text": "tien thuong le tu cong ty duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "nhận khoản thưởng hoàn thành công việc", "normalized_text": "nhận khoản thưởng hoàn thành công việc", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "nhan khoan thuong hoan thanh cong viec", "normalized_text": "nhan khoan thuong hoan thanh cong viec", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "BIDV +15tr noi dung nhận khoản thưởng hoàn thành công việc", "normalized_text": "noi dung nhận khoản thưởng hoàn thành công việc", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "BIDV +15tr noi dung nhan khoan thuong hoan thanh cong viec", "normalized_text": "noi dung nhan khoan thuong hoan thanh cong viec", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "nhận khoản thưởng hoàn thành công việc được 120k", "normalized_text": "nhận khoản thưởng hoàn thành công việc được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "nhan khoan thuong hoan thanh cong viec duoc 120k", "normalized_text": "nhan khoan thuong hoan thanh cong viec duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "thuong du an 500k", "normalized_text": "thuong du an", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "sáng nay tinh tinh thuong du an 500k 250 nghìn", "normalized_text": "thuong du an nghìn", "template_id": "ite_w1", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "sang nay tinh tinh thuong du an 500k 250 nghin", "normalized_text": "thuong du an nghin", "template_id": "ite_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "BIDV +35k noi dung thuong du an 500k", "normalized_text": "noi dung thuong du an", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "thuong du an 500k được 2,5 triệu", "normalized_text": "thuong du an được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "tiền công thiết kế banner ngoài giờ", "normalized_text": "tiền công thiết kế banner ngoài giờ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "tien cong thiet ke banner ngoai gio", "normalized_text": "tien cong thiet ke banner ngoai gio", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "BIDV +45 nghìn noi dung tiền công thiết kế banner ngoài giờ", "normalized_text": "noi dung tiền công thiết kế banner ngoài giờ", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "tiền công thiết kế banner ngoài giờ được 450k", "normalized_text": "tiền công thiết kế banner ngoài giờ được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "nhận thanh toán job freelance", "normalized_text": "nhận thanh toán job freelance", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "nhan thanh toan job freelance", "normalized_text": "nhan thanh toan job freelance", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "BIDV +85.000đ noi dung nhận thanh toán job freelance", "normalized_text": "noi dung nhận thanh toán job freelance", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "nhận thanh toán job freelance được 65k", "normalized_text": "nhận thanh toán job freelance được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "nhan thanh toan job freelance duoc 65k", "normalized_text": "nhan thanh toan job freelance duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "thù lao dạy thêm buổi tối", "normalized_text": "thù lao dạy thêm buổi", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "thu lao day them buoi toi", "normalized_text": "thu lao day them buoi", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "BIDV +85.000đ noi dung thù lao dạy thêm buổi tối", "normalized_text": "noi dung thù lao dạy thêm buổi", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "thù lao dạy thêm buổi tối được 250 nghìn", "normalized_text": "thù lao dạy thêm buổi được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "khách trả tiền code dự án riêng", "normalized_text": "khách trả tiền code dự án riêng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "khach tra tien code du an rieng", "normalized_text": "khach tra tien code du an rieng", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "BIDV +25k noi dung khách trả tiền code dự án riêng", "normalized_text": "noi dung khách trả tiền code dự án riêng", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "BIDV +25k noi dung khach tra tien code du an rieng", "normalized_text": "noi dung khach tra tien code du an rieng", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "khách trả tiền code dự án riêng được 250 nghìn", "normalized_text": "khách trả tiền code dự án riêng được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "khach tra tien code du an rieng duoc 250 nghin", "normalized_text": "khach tra tien code du an rieng duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "nhận tiền khách mua đơn sỉ", "normalized_text": "nhận tiền khách mua đơn sỉ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "nhan tien khach mua don si", "normalized_text": "nhan tien khach mua don si", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "BIDV +1tr2 noi dung nhận tiền khách mua đơn sỉ", "normalized_text": "noi dung nhận tiền khách mua đơn sỉ", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "BIDV +1tr2 noi dung nhan tien khach mua don si", "normalized_text": "noi dung nhan tien khach mua don si", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "nhận tiền khách mua đơn sỉ được 120k", "normalized_text": "nhận tiền khách mua đơn sỉ được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "nhan tien khach mua don si duoc 120k", "normalized_text": "nhan tien khach mua don si duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "đối soát tiền cod giao hàng nhanh", "normalized_text": "đối soát tiền cod giao hàng nhanh", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "doi soat tien cod giao hang nhanh", "normalized_text": "doi soat tien cod giao hang nhanh", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "BIDV +45 nghìn noi dung đối soát tiền cod giao hàng nhanh", "normalized_text": "noi dung đối soát tiền cod giao hàng nhanh", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "BIDV +45 nghin noi dung doi soat tien cod giao hang nhanh", "normalized_text": "noi dung doi soat tien cod giao hang nhanh", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "đối soát tiền cod giao hàng nhanh được 1tr2", "normalized_text": "đối soát tiền cod giao hàng nhanh được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "doi soat tien cod giao hang nhanh duoc 1tr2", "normalized_text": "doi soat tien cod giao hang nhanh duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "doanh thu bán online về tài khoản", "normalized_text": "doanh thu bán online về tài khoản", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "doanh thu ban online ve tai khoan", "normalized_text": "doanh thu ban online ve tai khoan", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "BIDV +25k noi dung doanh thu bán online về tài khoản", "normalized_text": "noi dung doanh thu bán online về tài khoản", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "BIDV +25k noi dung doanh thu ban online ve tai khoan", "normalized_text": "noi dung doanh thu ban online ve tai khoan", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "doanh thu bán online về tài khoản được 35k", "normalized_text": "doanh thu bán online về tài khoản được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "doanh thu ban online ve tai khoan duoc 35k", "normalized_text": "doanh thu ban online ve tai khoan duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "khách thanh toán hóa đơn mua hàng", "normalized_text": "khách thanh toán hóa đơn mua hàng", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "khach thanh toan hoa don mua hang", "normalized_text": "khach thanh toan hoa don mua hang", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "BIDV +45 nghìn noi dung khách thanh toán hóa đơn mua hàng", "normalized_text": "noi dung khách thanh toán hóa đơn mua hàng", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "BIDV +45 nghin noi dung khach thanh toan hoa don mua hang", "normalized_text": "noi dung khach thanh toan hoa don mua hang", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "khách thanh toán hóa đơn mua hàng được 35k", "normalized_text": "khách thanh toán hóa đơn mua hàng được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lãi tiền gửi tiết kiệm về tài khoản", "normalized_text": "lãi tiền gửi tiết kiệm về tài khoản", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "lai tien gui tiet kiem ve tai khoan", "normalized_text": "lai tien gui tiet kiem ve tai khoan", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "BIDV +45 nghìn noi dung lãi tiền gửi tiết kiệm về tài khoản", "normalized_text": "noi dung lãi tiền gửi tiết kiệm về tài khoản", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lãi tiền gửi tiết kiệm về tài khoản được 120k", "normalized_text": "lãi tiền gửi tiết kiệm về tài khoản được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lai tien gui tiet kiem ve tai khoan duoc 120k", "normalized_text": "lai tien gui tiet kiem ve tai khoan duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "nhận tiền chia cổ tức năm", "normalized_text": "nhận tiền chia cổ tức năm", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "nhan tien chia co tuc nam", "normalized_text": "nhan tien chia co tuc nam", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "BIDV +1tr2 noi dung nhận tiền chia cổ tức năm", "normalized_text": "noi dung nhận tiền chia cổ tức năm", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "nhận tiền chia cổ tức năm được 45 nghìn", "normalized_text": "nhận tiền chia cổ tức năm được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lợi nhuận rút từ quỹ đầu tư", "normalized_text": "lợi nhuận rút từ quỹ đầu tư", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "loi nhuan rut tu quy dau tu", "normalized_text": "loi nhuan rut tu quy dau tu", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "BIDV +2,5 triệu noi dung lợi nhuận rút từ quỹ đầu tư", "normalized_text": "noi dung lợi nhuận rút từ quỹ đầu tư", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lợi nhuận rút từ quỹ đầu tư được 85.000đ", "normalized_text": "lợi nhuận rút từ quỹ đầu tư được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "loi nhuan rut tu quy dau tu duoc 85.000d", "normalized_text": "loi nhuan rut tu quy dau tu duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "lai tiet kiem ngan hang", "normalized_text": "lai tiet kiem ngan hang", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "BIDV +15tr noi dung lai tiet kiem ngan hang", "normalized_text": "noi dung lai tiet kiem ngan hang", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lai tiet kiem ngan hang được 450k", "normalized_text": "lai tiet kiem ngan hang được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "lai tiet kiem ngan hang duoc 450k", "normalized_text": "lai tiet kiem ngan hang duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "nhận lì xì may mắn", "normalized_text": "nhận lì xì may mắn", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "nhan li xi may man", "normalized_text": "nhan li xi may man", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "BIDV +120k noi dung nhận lì xì may mắn", "normalized_text": "noi dung nhận lì xì may mắn", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "BIDV +120k noi dung nhan li xi may man", "normalized_text": "noi dung nhan li xi may man", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "nhận lì xì may mắn được 250 nghìn", "normalized_text": "nhận lì xì may mắn được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "nhan li xi may man duoc 250 nghin", "normalized_text": "nhan li xi may man duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "gia đình gửi cho tiền sinh hoạt", "normalized_text": "gia đình gửi cho tiền sinh hoạt", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "gia dinh gui cho tien sinh hoat", "normalized_text": "gia dinh gui cho tien sinh hoat", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "BIDV +85.000đ noi dung gia đình gửi cho tiền sinh hoạt", "normalized_text": "noi dung gia đình gửi cho tiền sinh hoạt", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "BIDV +85.000d noi dung gia dinh gui cho tien sinh hoat", "normalized_text": "noi dung gia dinh gui cho tien sinh hoat", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "gia đình gửi cho tiền sinh hoạt được 35k", "normalized_text": "gia đình gửi cho tiền sinh hoạt được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "được bạn tặng quà tiền mặt", "normalized_text": "được bạn tặng tiền", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "duoc ban tang qua tien mat", "normalized_text": "duoc ban tang tien", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "BIDV +120k noi dung được bạn tặng quà tiền mặt", "normalized_text": "noi dung được bạn tặng tiền", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "BIDV +120k noi dung duoc ban tang qua tien mat", "normalized_text": "noi dung duoc ban tang tien", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "được bạn tặng quà tiền mặt được 250 nghìn", "normalized_text": "được bạn tặng tiền được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "duoc ban tang qua tien mat duoc 250 nghin", "normalized_text": "duoc ban tang tien duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "nhan tien mung sinh nhat", "normalized_text": "nhan tien mung sinh nhat", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "BIDV +1tr2 noi dung nhan tien mung sinh nhat", "normalized_text": "noi dung nhan tien mung sinh nhat", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "nhan tien mung sinh nhat được 450k", "normalized_text": "nhan tien mung sinh nhat được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "bán lại tai nghe cũ", "normalized_text": "bán lại tai nghe cũ", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "ban lai tai nghe cu", "normalized_text": "ban lai tai nghe cu", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "BIDV +250 nghìn noi dung bán lại tai nghe cũ", "normalized_text": "noi dung bán lại tai nghe cũ", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "BIDV +250 nghin noi dung ban lai tai nghe cu", "normalized_text": "noi dung ban lai tai nghe cu", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "bán lại tai nghe cũ được 25k", "normalized_text": "bán lại tai nghe cũ được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "nhận tiền bạn gửi trả", "normalized_text": "nhận tiền bạn gửi trả", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "nhan tien ban gui tra", "normalized_text": "nhan tien ban gui tra", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "BIDV +45 nghìn noi dung nhận tiền bạn gửi trả", "normalized_text": "noi dung nhận tiền bạn gửi trả", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "BIDV +45 nghin noi dung nhan tien ban gui tra", "normalized_text": "noi dung nhan tien ban gui tra", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "nhận tiền bạn gửi trả được 1tr2", "normalized_text": "nhận tiền bạn gửi trả được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "nhan tien ban gui tra duoc 1tr2", "normalized_text": "nhan tien ban gui tra duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "khoản thu phát sinh khác", "normalized_text": "khoản thu phát sinh khác", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "khoan thu phat sinh khac", "normalized_text": "khoan thu phat sinh khac", "template_id": "test_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "BIDV +25k noi dung khoản thu phát sinh khác", "normalized_text": "noi dung khoản thu phát sinh khác", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "BIDV +25k noi dung khoan thu phat sinh khac", "normalized_text": "noi dung khoan thu phat sinh khac", "template_id": "ite_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "khoản thu phát sinh khác được 250 nghìn", "normalized_text": "khoản thu phát sinh khác được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "nhan 200k tu ban", "normalized_text": "nhan tu ban", "template_id": "test_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "BIDV +450k noi dung nhan 200k tu ban", "normalized_text": "noi dung nhan tu ban", "template_id": "ite_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "nhan 200k tu ban được 25k", "normalized_text": "nhan tu ban được", "template_id": "ite_w3", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "nhan 200k tu ban duoc 25k", "normalized_text": "nhan tu ban duoc", "template_id": "ite_w3_noacc", "style": "unaccented_sentence"}

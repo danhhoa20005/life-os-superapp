@@ -44,6 +44,17 @@ extension DocumentFolderCategoryX on DocumentFolderCategory {
   }
 }
 
+enum DocumentStorageLifecycle {
+  /// Metadata synced to Firestore; no binary file attached.
+  metadataCloudSynced,
+
+  /// Metadata synced to Firestore; encrypted binary stored ONLY on the originating device (`F19` / `DOC-01`).
+  localDeviceOnlyBinary,
+
+  /// Encrypted binary backed up & restorable across devices.
+  cloudEncryptedBackup,
+}
+
 class DocumentVaultEntity extends Equatable {
   final String id;
   final String ownerId;
@@ -56,6 +67,8 @@ class DocumentVaultEntity extends Equatable {
   final String uploadedByName;
   final DateTime? expiryDate;
   final DateTime createdAt;
+  final DocumentStorageLifecycle storageLifecycle;
+  final String? localAttachmentPath;
 
   const DocumentVaultEntity({
     required this.id,
@@ -69,7 +82,22 @@ class DocumentVaultEntity extends Equatable {
     required this.uploadedByName,
     this.expiryDate,
     required this.createdAt,
+    this.storageLifecycle = DocumentStorageLifecycle.metadataCloudSynced,
+    this.localAttachmentPath,
   });
+
+  /// Honest multi-device backup status label (`F19` / `DOC-01`).
+  String get syncStatusLabelVi => switch (storageLifecycle) {
+    DocumentStorageLifecycle.metadataCloudSynced =>
+      'Thông tin đã đồng bộ đám mây',
+    DocumentStorageLifecycle.localDeviceOnlyBinary =>
+      'Tệp đính kèm chỉ lưu trên thiết bị gốc (chưa sao lưu đám mây)',
+    DocumentStorageLifecycle.cloudEncryptedBackup =>
+      'Đã sao lưu mã hóa đa thiết bị',
+  };
+
+  bool get isRestorableOnNewDevice =>
+      storageLifecycle != DocumentStorageLifecycle.localDeviceOnlyBinary;
 
   bool isExpiringSoon(DateTime now) {
     if (expiryDate == null) return false;
@@ -95,5 +123,7 @@ class DocumentVaultEntity extends Equatable {
     uploadedByName,
     expiryDate,
     createdAt,
+    storageLifecycle,
+    localAttachmentPath,
   ];
 }

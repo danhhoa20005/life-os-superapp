@@ -37,6 +37,26 @@ final class TransactionsKindFilterChanged extends TransactionListEvent {
   List<Object?> get props => [kind];
 }
 
+final class TransactionsWalletFilterChanged extends TransactionListEvent {
+  final String? walletId;
+  const TransactionsWalletFilterChanged(this.walletId);
+
+  @override
+  List<Object?> get props => [walletId];
+}
+
+final class TransactionsCategoryFilterChanged extends TransactionListEvent {
+  final String? categoryName;
+  const TransactionsCategoryFilterChanged(this.categoryName);
+
+  @override
+  List<Object?> get props => [categoryName];
+}
+
+final class TransactionsFiltersReset extends TransactionListEvent {
+  const TransactionsFiltersReset();
+}
+
 sealed class TransactionActionEvent extends Equatable {
   const TransactionActionEvent();
 
@@ -140,6 +160,8 @@ final class ProvisionalTransactionDecisionSubmitted
   final bool approve;
   final String? updatedCategoryName;
   final String? updatedMerchant;
+  final int? updatedAmountMinor;
+  final String? updatedNote;
 
   const ProvisionalTransactionDecisionSubmitted({
     required this.userId,
@@ -147,6 +169,8 @@ final class ProvisionalTransactionDecisionSubmitted
     required this.approve,
     this.updatedCategoryName,
     this.updatedMerchant,
+    this.updatedAmountMinor,
+    this.updatedNote,
   });
 
   @override
@@ -156,5 +180,7 @@ final class ProvisionalTransactionDecisionSubmitted
     approve,
     updatedCategoryName,
     updatedMerchant,
+    updatedAmountMinor,
+    updatedNote,
   ];
 }

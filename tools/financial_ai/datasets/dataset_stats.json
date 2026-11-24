@@ -1,0 +1,23 @@
+{
+  "train": {
+    "count": 1361,
+    "unique_templates": 11,
+    "num_classes": 30,
+    "min_per_class": 29,
+    "max_per_class": 96
+  },
+  "val": {
+    "count": 699,
+    "unique_templates": 10,
+    "num_classes": 30,
+    "min_per_class": 18,
+    "max_per_class": 42
+  },
+  "test": {
+    "count": 681,
+    "unique_templates": 12,
+    "num_classes": 30,
+    "min_per_class": 18,
+    "max_per_class": 38
+  }
+}

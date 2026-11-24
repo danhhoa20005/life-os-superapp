@@ -1,0 +1,8 @@
+# Optional accelerators when training directly with Meta's fastText C++ binding on Linux/macOS:
+# fasttext-wheel>=0.9.2
+# numpy>=2.0.0
+# scikit-learn>=1.5.0
+#
+# Note: All scripts in `tools/financial_ai/` run out-of-the-box on standard Python 3.10+
+# (including Python 3.14 on Windows) with ZERO external binary wheel compilation blockers,
+# while also exporting standard `__label__<key>` files compatible with Meta `fasttext` CLI.

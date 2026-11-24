@@ -211,7 +211,8 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                 maxLines: 5,
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
-                  hintText: 'Dán nội dung hóa đơn hoặc tin nhắn đặt đồ ăn...',
+                  hintMaxLines: 3,
+                  hintText: 'Dán nội dung hóa đơn',
                 ),
               ),
             ],
@@ -224,40 +225,41 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          parsed.merchant,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        LifeOsStatusPill(
-                          icon: Icons.auto_awesome_rounded,
-                          label:
-                              '${parsed.suggestedCategory} · ${parsed.items.length} món bóc tách',
-                          tone: LifeOsAccentTone.emerald,
-                        ),
-                      ],
+                  Text(
+                    parsed.merchant,
+                    softWrap: true,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: c.textPrimary,
                     ),
                   ),
-                  Text(
-                    VndAmount.format(parsed.totalMinor),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: c.primary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      VndAmount.format(parsed.totalMinor),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: c.primary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 6),
+              LifeOsStatusPill(
+                icon: Icons.auto_awesome_rounded,
+                label:
+                    '${parsed.suggestedCategory} · ${parsed.items.length} món bóc tách',
+                tone: LifeOsAccentTone.emerald,
               ),
               if (parsed.items.isNotEmpty) ...[
                 const Divider(height: 22),
@@ -302,9 +304,15 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
               child: SizedBox(
                 height: 48,
                 child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                   onPressed: () => context.go('/family'),
-                  icon: const Icon(Icons.call_split_rounded, size: 18),
-                  label: const Text('Chia nhóm'),
+                  icon: const Icon(Icons.call_split_rounded, size: 17),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Chia nhóm'),
+                  ),
                 ),
               ),
             ),
@@ -314,6 +322,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                 height: 48,
                 child: FilledButton.icon(
                   key: const Key('commit_scanned_receipt_button'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                   onPressed: (defaultWalletId == null || parsed.totalMinor <= 0)
                       ? null
                       : () {
@@ -339,8 +350,11 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                             ),
                           );
                         },
-                  icon: const Icon(Icons.check_rounded, size: 19),
-                  label: const Text('Ghi vào Ví'),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Ghi vào Ví'),
+                  ),
                 ),
               ),
             ),

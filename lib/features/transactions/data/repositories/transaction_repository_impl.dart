@@ -64,7 +64,44 @@ class TransactionRepositoryImpl implements TransactionRepository {
           (models) => Success(models.map((m) => m.entity).toList()),
         )
         .transform(
-          StreamTransformer.fromHandlers(
+          StreamTransformer<
+            Result<List<TransactionEntity>>,
+            Result<List<TransactionEntity>>
+          >.fromHandlers(
+            handleError:
+                (
+                  Object error,
+                  StackTrace _,
+                  EventSink<Result<List<TransactionEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(error)));
+                },
+          ),
+        );
+  }
+
+  @override
+  Stream<Result<List<TransactionEntity>>> watchTransactionsRange({
+    required String userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+    int limit = 600,
+  }) {
+    return _remoteDataSource
+        .watchTransactionsRange(
+          userId: userId,
+          startInclusive: startInclusive,
+          endExclusive: endExclusive,
+          limit: limit,
+        )
+        .map<Result<List<TransactionEntity>>>(
+          (models) => Success(models.map((m) => m.entity).toList()),
+        )
+        .transform(
+          StreamTransformer<
+            Result<List<TransactionEntity>>,
+            Result<List<TransactionEntity>>
+          >.fromHandlers(
             handleError:
                 (
                   Object error,
@@ -162,6 +199,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     required bool approve,
     String? updatedCategoryName,
     String? updatedMerchant,
+    int? updatedAmountMinor,
+    String? updatedNote,
   }) async {
     try {
       await _remoteDataSource.decideProvisionalTransaction(
@@ -170,6 +209,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         approve: approve,
         updatedCategoryName: updatedCategoryName,
         updatedMerchant: updatedMerchant,
+        updatedAmountMinor: updatedAmountMinor,
+        updatedNote: updatedNote,
       );
       return const Success(null);
     } catch (e) {

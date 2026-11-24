@@ -205,6 +205,45 @@ class TaskRemoteDataSource {
 
     await batch.commit();
   }
+
+  Future<void> updateTask({
+    required String actorUserId,
+    required TaskEntity task,
+    required String title,
+    String? description,
+    DateTime? dueAt,
+    bool clearDueAt = false,
+    required TaskPriorityLevel priority,
+    required TaskRecurrence recurrence,
+  }) async {
+    final cleanTitle = title.trim();
+    if (cleanTitle.length < 2) {
+      throw const AppException(
+        code: 'VALIDATION',
+        message: 'Tên công việc cần ít nhất 2 ký tự.',
+      );
+    }
+    final ownerId = task.createdBy.isNotEmpty ? task.createdBy : actorUserId;
+    final ref = _taskRef(ownerId, task.familyId, task.id);
+    final nextDue = clearDueAt ? null : (dueAt ?? task.dueAt);
+    await ref.update({
+      'title': cleanTitle,
+      'description': description?.trim(),
+      'dueAt': nextDue != null ? Timestamp.fromDate(nextDue) : null,
+      'priority': priority.name,
+      'recurrence': recurrence.name,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
+  Future<void> deleteTask({
+    required String actorUserId,
+    required TaskEntity task,
+  }) async {
+    final ownerId = task.createdBy.isNotEmpty ? task.createdBy : actorUserId;
+    final ref = _taskRef(ownerId, task.familyId, task.id);
+    await ref.delete();
+  }
 }
 
 class TaskRepositoryImpl implements TaskRepository {
@@ -296,6 +335,50 @@ class TaskRepositoryImpl implements TaskRepository {
         actorUserId: actorUserId,
         task: task,
         nextStatus: nextStatus,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> updateTask({
+    required String actorUserId,
+    required TaskEntity task,
+    required String title,
+    String? description,
+    DateTime? dueAt,
+    bool clearDueAt = false,
+    required TaskPriorityLevel priority,
+    required TaskRecurrence recurrence,
+  }) async {
+    try {
+      await _remoteDataSource.updateTask(
+        actorUserId: actorUserId,
+        task: task,
+        title: title,
+        description: description,
+        dueAt: dueAt,
+        clearDueAt: clearDueAt,
+        priority: priority,
+        recurrence: recurrence,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteTask({
+    required String actorUserId,
+    required TaskEntity task,
+  }) async {
+    try {
+      await _remoteDataSource.deleteTask(
+        actorUserId: actorUserId,
+        task: task,
       );
       return const Success(null);
     } catch (e) {

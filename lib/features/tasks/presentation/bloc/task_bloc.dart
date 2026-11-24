@@ -55,6 +55,53 @@ final class TaskStatusChanged extends TaskEvent {
   List<Object?> get props => [actorUserId, task, nextStatus];
 }
 
+final class TaskUpdated extends TaskEvent {
+  final String actorUserId;
+  final TaskEntity task;
+  final String title;
+  final String? description;
+  final DateTime? dueAt;
+  final bool clearDueAt;
+  final TaskPriorityLevel priority;
+  final TaskRecurrence recurrence;
+
+  const TaskUpdated({
+    required this.actorUserId,
+    required this.task,
+    required this.title,
+    this.description,
+    this.dueAt,
+    this.clearDueAt = false,
+    required this.priority,
+    required this.recurrence,
+  });
+
+  @override
+  List<Object?> get props => [
+    actorUserId,
+    task,
+    title,
+    description,
+    dueAt,
+    clearDueAt,
+    priority,
+    recurrence,
+  ];
+}
+
+final class TaskDeleted extends TaskEvent {
+  final String actorUserId;
+  final TaskEntity task;
+
+  const TaskDeleted({
+    required this.actorUserId,
+    required this.task,
+  });
+
+  @override
+  List<Object?> get props => [actorUserId, task];
+}
+
 final class TaskState extends Equatable {
   final bool isLoading;
   final List<TaskEntity> tasks;
@@ -105,19 +152,25 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     on<TaskCreateSubmitted>(_onCreateTask, transformer: sequential());
     on<TaskResponseSubmitted>(_onRespondTask, transformer: sequential());
     on<TaskStatusChanged>(_onStatusChanged, transformer: sequential());
+    on<TaskUpdated>(_onTaskUpdated, transformer: sequential());
+    on<TaskDeleted>(_onTaskDeleted, transformer: sequential());
   }
 
   Future<void> _onWatchStarted(
     TasksWatchStarted event,
     Emitter<TaskState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, clearFailure: true));
+    emit(state.copyWith(isLoading: true, clearFailure: true, clearMessage: true));
     await emit.forEach<Result<List<TaskEntity>>>(
       _repository.watchTasks(userId: event.userId, familyId: event.familyId),
       onData: (res) => res.fold(
-        (f) => state.copyWith(isLoading: false, failure: f),
-        (items) =>
-            state.copyWith(isLoading: false, tasks: items, clearFailure: true),
+        (f) => state.copyWith(isLoading: false, failure: f, clearMessage: true),
+        (items) => state.copyWith(
+          isLoading: false,
+          tasks: items,
+          clearFailure: true,
+          clearMessage: true,
+        ),
       ),
     );
   }
@@ -126,9 +179,10 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     TaskCreateSubmitted event,
     Emitter<TaskState> emit,
   ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _createTask(event.params);
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
       (_) => emit(state.copyWith(message: 'Đã tạo công việc mới.')),
     );
   }
@@ -137,9 +191,10 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     TaskResponseSubmitted event,
     Emitter<TaskState> emit,
   ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _respondToTask(event.params);
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
       (_) => emit(
         state.copyWith(
           message: event.params.accept
@@ -154,13 +209,14 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     TaskStatusChanged event,
     Emitter<TaskState> emit,
   ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _repository.updateTaskStatus(
       actorUserId: event.actorUserId,
       task: event.task,
       nextStatus: event.nextStatus,
     );
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
       (_) => emit(
         state.copyWith(
           message:
@@ -169,6 +225,44 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
               ? 'Đã hoàn thành và tự động tạo kỳ lặp tiếp theo.'
               : 'Đã cập nhật tiến độ công việc.',
         ),
+      ),
+    );
+  }
+
+  Future<void> _onTaskUpdated(
+    TaskUpdated event,
+    Emitter<TaskState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.updateTask(
+      actorUserId: event.actorUserId,
+      task: event.task,
+      title: event.title,
+      description: event.description,
+      dueAt: event.dueAt,
+      clearDueAt: event.clearDueAt,
+      priority: event.priority,
+      recurrence: event.recurrence,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+      (_) => emit(state.copyWith(message: 'Đã cập nhật công việc.')),
+    );
+  }
+
+  Future<void> _onTaskDeleted(
+    TaskDeleted event,
+    Emitter<TaskState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.deleteTask(
+      actorUserId: event.actorUserId,
+      task: event.task,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+      (_) => emit(
+        state.copyWith(message: 'Đã xóa công việc "${event.task.title}".'),
       ),
     );
   }

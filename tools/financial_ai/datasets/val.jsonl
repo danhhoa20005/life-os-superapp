@@ -1,0 +1,699 @@
+{"label": "food.meals", "raw_text": "ăn sáng bún riêu", "normalized_text": "ăn bún riêu", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an sang bun rieu", "normalized_text": "an bun rieu", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền ăn sáng bún riêu 250 nghìn", "normalized_text": "trả tiền ăn bún riêu", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: ăn sáng bún riêu số tiền 45 nghìn", "normalized_text": "ăn bún riêu tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: an sang bun rieu so tien 45 nghin", "normalized_text": "an bun rieu tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "cơm gà xối mỡ", "normalized_text": "cơm gà xối mỡ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "com ga xoi mo", "normalized_text": "com ga xoi mo", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền cơm gà xối mỡ 250 nghìn", "normalized_text": "trả tiền cơm gà xối mỡ", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "moi tra tien com ga xoi mo 250 nghin", "normalized_text": "tra tien com ga xoi mo", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: cơm gà xối mỡ số tiền 2,5 triệu", "normalized_text": "cơm gà xối mỡ tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: com ga xoi mo so tien 2,5 trieu", "normalized_text": "com ga xoi mo tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "ăn trưa mì cay", "normalized_text": "ăn mì cay", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an trua mi cay", "normalized_text": "an mi cay", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền ăn trưa mì cay 15tr", "normalized_text": "trả tiền ăn mì cay", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "moi tra tien an trua mi cay 15tr", "normalized_text": "tra tien an mi cay", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: ăn trưa mì cay số tiền 1tr2", "normalized_text": "ăn mì cay tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: an trua mi cay so tien 1tr2", "normalized_text": "an mi cay tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "ăn lẩu bò nhúng dấm", "normalized_text": "ăn lẩu bò nhúng dấm", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "an lau bo nhung dam", "normalized_text": "an lau bo nhung dam", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền ăn lẩu bò nhúng dấm 120k", "normalized_text": "trả tiền ăn lẩu bò nhúng dấm", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "moi tra tien an lau bo nhung dam 120k", "normalized_text": "tra tien an lau bo nhung dam", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: ăn lẩu bò nhúng dấm số tiền 85.000đ", "normalized_text": "ăn lẩu bò nhúng dấm tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "bánh cuốn nóng", "normalized_text": "bánh cuốn nóng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "banh cuon nong", "normalized_text": "banh cuon nong", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền bánh cuốn nóng 45 nghìn", "normalized_text": "trả tiền bánh cuốn nóng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "moi tra tien banh cuon nong 45 nghin", "normalized_text": "tra tien banh cuon nong", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: bánh cuốn nóng số tiền 35k", "normalized_text": "bánh cuốn nóng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: banh cuon nong so tien 35k", "normalized_text": "banh cuon nong tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "cháo sườn buổi sáng", "normalized_text": "cháo sườn buổi", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "chao suon buoi sang", "normalized_text": "chao suon buoi", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền cháo sườn buổi sáng 250 nghìn", "normalized_text": "trả tiền cháo sườn buổi", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "moi tra tien chao suon buoi sang 250 nghin", "normalized_text": "tra tien chao suon buoi", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: cháo sườn buổi sáng số tiền 35k", "normalized_text": "cháo sườn buổi tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: chao suon buoi sang so tien 35k", "normalized_text": "chao suon buoi tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.meals", "raw_text": "quán phở thìn", "normalized_text": "quán phở thìn", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "quan pho thin", "normalized_text": "quan pho thin", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền quán phở thìn 65k", "normalized_text": "trả tiền quán phở thìn", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: quán phở thìn số tiền 2,5 triệu", "normalized_text": "quán phở thìn tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "nướng bbq hàn quốc", "normalized_text": "nướng bbq hàn quốc", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.meals", "raw_text": "nuong bbq han quoc", "normalized_text": "nuong bbq han quoc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.meals", "raw_text": "mới trả tiền nướng bbq hàn quốc 45 nghìn", "normalized_text": "trả tiền nướng bbq hàn quốc", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.meals", "raw_text": "VCB Digibank: nướng bbq hàn quốc số tiền 120k", "normalized_text": "nướng bbq hàn quốc tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "ly bạc xỉu đá", "normalized_text": "ly bạc xỉu", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "ly bac xiu da", "normalized_text": "ly bac xiu", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền ly bạc xỉu đá 25k", "normalized_text": "trả tiền ly bạc xỉu", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "moi tra tien ly bac xiu da 25k", "normalized_text": "tra tien ly bac xiu", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: ly bạc xỉu đá số tiền 120k", "normalized_text": "ly bạc xỉu tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: ly bac xiu da so tien 120k", "normalized_text": "ly bac xiu tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "uống trà sữa koi", "normalized_text": "uống trà sữa koi", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "uong tra sua koi", "normalized_text": "uong tra sua koi", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền uống trà sữa koi 2,5 triệu", "normalized_text": "trả tiền uống trà sữa koi", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: uống trà sữa koi số tiền 85.000đ", "normalized_text": "uống trà sữa koi tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "cà phê katinat", "normalized_text": "cà phê katinat", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "ca phe katinat", "normalized_text": "ca phe katinat", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền cà phê katinat 65k", "normalized_text": "trả tiền cà phê katinat", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: cà phê katinat số tiền 120k", "normalized_text": "cà phê katinat tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: ca phe katinat so tien 120k", "normalized_text": "ca phe katinat tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "mua chai nước khoáng", "normalized_text": "mua chai nước", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "mua chai nuoc khoang", "normalized_text": "mua chai nuoc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền mua chai nước khoáng 35k", "normalized_text": "trả tiền mua chai nước", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: mua chai nước khoáng số tiền 25k", "normalized_text": "mua chai nước tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: mua chai nuoc khoang so tien 25k", "normalized_text": "mua chai nuoc tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "nước mía vỉa hè", "normalized_text": "nước mía vỉa hè", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "nuoc mia via he", "normalized_text": "nuoc mia via he", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền nước mía vỉa hè 1tr2", "normalized_text": "trả tiền nước mía vỉa hè", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "moi tra tien nuoc mia via he 1tr2", "normalized_text": "tra tien nuoc mia via he", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: nước mía vỉa hè số tiền 15tr", "normalized_text": "nước mía vỉa hè tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: nuoc mia via he so tien 15tr", "normalized_text": "nuoc mia via he tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "matcha đá xay", "normalized_text": "matcha xay", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền matcha đá xay 45 nghìn", "normalized_text": "trả tiền matcha xay", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "moi tra tien matcha da xay 45 nghin", "normalized_text": "tra tien matcha xay", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: matcha đá xay số tiền 15tr", "normalized_text": "matcha xay tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: matcha da xay so tien 15tr", "normalized_text": "matcha xay tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.drinks", "raw_text": "cf sáng cùng đồng nghiệp", "normalized_text": "cà phê cùng đồng nghiệp", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.drinks", "raw_text": "cf sang cung dong nghiep", "normalized_text": "cà phê cung dong nghiep", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.drinks", "raw_text": "mới trả tiền cf sáng cùng đồng nghiệp 85.000đ", "normalized_text": "trả tiền cà phê cùng đồng nghiệp", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.drinks", "raw_text": "VCB Digibank: cf sáng cùng đồng nghiệp số tiền 450k", "normalized_text": "cà phê cùng đồng nghiệp tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "đi chợ sáng mua rau thịt", "normalized_text": "đi chợ mua rau thịt", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "di cho sang mua rau thit", "normalized_text": "di cho mua rau thit", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "mới trả tiền đi chợ sáng mua rau thịt 250 nghìn", "normalized_text": "trả tiền đi chợ mua rau thịt", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "moi tra tien di cho sang mua rau thit 250 nghin", "normalized_text": "tra tien di cho mua rau thit", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: đi chợ sáng mua rau thịt số tiền 2,5 triệu", "normalized_text": "đi chợ mua rau thịt tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: di cho sang mua rau thit so tien 2,5 trieu", "normalized_text": "di cho mua rau thit tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "mua cá hồi ở winmart", "normalized_text": "mua cá hồi ở winmart", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua ca hoi o winmart", "normalized_text": "mua ca hoi o winmart", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "mới trả tiền mua cá hồi ở winmart 65k", "normalized_text": "trả tiền mua cá hồi ở winmart", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "moi tra tien mua ca hoi o winmart 65k", "normalized_text": "tra tien mua ca hoi o winmart", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: mua cá hồi ở winmart số tiền 1tr2", "normalized_text": "mua cá hồi ở winmart tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: mua ca hoi o winmart so tien 1tr2", "normalized_text": "mua ca hoi o winmart tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "mua hoa quả bách hóa xanh", "normalized_text": "mua hoa bách hóa xanh", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua hoa qua bach hoa xanh", "normalized_text": "mua hoa bach hoa xanh", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "mới trả tiền mua hoa quả bách hóa xanh 15tr", "normalized_text": "trả tiền mua hoa bách hóa xanh", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "moi tra tien mua hoa qua bach hoa xanh 15tr", "normalized_text": "tra tien mua hoa bach hoa xanh", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: mua hoa quả bách hóa xanh số tiền 15tr", "normalized_text": "mua hoa bách hóa xanh tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: mua hoa qua bach hoa xanh so tien 15tr", "normalized_text": "mua hoa bach hoa xanh tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "đồ tươi nấu bữa tối", "normalized_text": "đồ tươi nấu bữa", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "do tuoi nau bua toi", "normalized_text": "do tuoi nau bua", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "mới trả tiền đồ tươi nấu bữa tối 1tr2", "normalized_text": "trả tiền đồ tươi nấu bữa", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "moi tra tien do tuoi nau bua toi 1tr2", "normalized_text": "tra tien do tuoi nau bua", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: đồ tươi nấu bữa tối số tiền 45 nghìn", "normalized_text": "đồ tươi nấu bữa tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "mua thịt bò và nấm", "normalized_text": "mua thịt bò và nấm", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua thit bo va nam", "normalized_text": "mua thit bo va nam", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "mới trả tiền mua thịt bò và nấm 35k", "normalized_text": "trả tiền mua thịt bò và nấm", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: mua thịt bò và nấm số tiền 45 nghìn", "normalized_text": "mua thịt bò và nấm tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "mua gia vị nấu ăn", "normalized_text": "mua gia vị nấu ăn", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "food.groceries", "raw_text": "mua gia vi nau an", "normalized_text": "mua gia vi nau an", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "food.groceries", "raw_text": "mới trả tiền mua gia vị nấu ăn 120k", "normalized_text": "trả tiền mua gia vị nấu ăn", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "food.groceries", "raw_text": "VCB Digibank: mua gia vị nấu ăn số tiền 1tr2", "normalized_text": "mua gia vị nấu ăn tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "ghé petrolimex đổ xăng", "normalized_text": "ghé petrolimex đổ xăng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "ghe petrolimex do xang", "normalized_text": "ghe petrolimex do xang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "mới trả tiền ghé petrolimex đổ xăng 1tr2", "normalized_text": "trả tiền ghé petrolimex đổ xăng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "moi tra tien ghe petrolimex do xang 1tr2", "normalized_text": "tra tien ghe petrolimex do xang", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: ghé petrolimex đổ xăng số tiền 85.000đ", "normalized_text": "ghé petrolimex đổ xăng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: ghe petrolimex do xang so tien 85.000d", "normalized_text": "ghe petrolimex do xang tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "đổ xăng xe tay ga", "normalized_text": "đổ xăng xe tay ga", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "do xang xe tay ga", "normalized_text": "do xang xe tay ga", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "mới trả tiền đổ xăng xe tay ga 65k", "normalized_text": "trả tiền đổ xăng xe tay ga", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: đổ xăng xe tay ga số tiền 1tr2", "normalized_text": "đổ xăng xe tay ga tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: do xang xe tay ga so tien 1tr2", "normalized_text": "do xang xe tay ga tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "tiền nhiên liệu xăng dầu", "normalized_text": "tiền nhiên liệu xăng dầu", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "tien nhien lieu xang dau", "normalized_text": "tien nhien lieu xang dau", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "mới trả tiền tiền nhiên liệu xăng dầu 65k", "normalized_text": "trả tiền tiền nhiên liệu xăng dầu", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "moi tra tien tien nhien lieu xang dau 65k", "normalized_text": "tra tien tien nhien lieu xang dau", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: tiền nhiên liệu xăng dầu số tiền 15tr", "normalized_text": "tiền nhiên liệu xăng dầu tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: tien nhien lieu xang dau so tien 15tr", "normalized_text": "tien nhien lieu xang dau tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "sạc pin trạm vinfast", "normalized_text": "sạc pin trạm vinfast", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "sac pin tram vinfast", "normalized_text": "sac pin tram vinfast", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "mới trả tiền sạc pin trạm vinfast 120k", "normalized_text": "trả tiền sạc pin trạm vinfast", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "moi tra tien sac pin tram vinfast 120k", "normalized_text": "tra tien sac pin tram vinfast", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: sạc pin trạm vinfast số tiền 120k", "normalized_text": "sạc pin trạm vinfast tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: sac pin tram vinfast so tien 120k", "normalized_text": "sac pin tram vinfast tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.fuel", "raw_text": "đổ xăng e5 ron92", "normalized_text": "đổ xăng e5 ron92", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.fuel", "raw_text": "do xang e5 ron92", "normalized_text": "do xang e5 ron92", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.fuel", "raw_text": "mới trả tiền đổ xăng e5 ron92 250 nghìn", "normalized_text": "trả tiền đổ xăng e5 ron92", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: đổ xăng e5 ron92 số tiền 15tr", "normalized_text": "đổ xăng e5 ron92 tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.fuel", "raw_text": "VCB Digibank: do xang e5 ron92 so tien 15tr", "normalized_text": "do xang e5 ron92 tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "bắt grabbike qua quận 1", "normalized_text": "bắt grab xe ôm quận", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "bat grabbike qua quan 1", "normalized_text": "bat grab xe ôm quan", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "mới trả tiền bắt grabbike qua quận 1 35k", "normalized_text": "trả tiền bắt grab xe ôm quận", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "moi tra tien bat grabbike qua quan 1 35k", "normalized_text": "tra tien bat grab xe ôm quan", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: bắt grabbike qua quận 1 số tiền 450k", "normalized_text": "bắt grab xe ôm quận tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "gọi taxi xanh sm về nhà", "normalized_text": "gọi taxi xanh sm về nhà", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "goi taxi xanh sm ve nha", "normalized_text": "goi taxi xanh sm ve nha", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "mới trả tiền gọi taxi xanh sm về nhà 45 nghìn", "normalized_text": "trả tiền gọi taxi xanh sm về nhà", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "moi tra tien goi taxi xanh sm ve nha 45 nghin", "normalized_text": "tra tien goi taxi xanh sm ve nha", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: gọi taxi xanh sm về nhà số tiền 250 nghìn", "normalized_text": "gọi taxi xanh sm về nhà tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: goi taxi xanh sm ve nha so tien 250 nghin", "normalized_text": "goi taxi xanh sm ve nha tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "đi xe công nghệ beCar", "normalized_text": "đi xe công nghệ becar", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "di xe cong nghe beCar", "normalized_text": "di xe cong nghe becar", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "mới trả tiền đi xe công nghệ beCar 25k", "normalized_text": "trả tiền đi xe công nghệ becar", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: đi xe công nghệ beCar số tiền 85.000đ", "normalized_text": "đi xe công nghệ becar tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: di xe cong nghe beCar so tien 85.000d", "normalized_text": "di xe cong nghe becar tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "tiền taxi đi họp khách hàng", "normalized_text": "tiền taxi đi họp khách hàng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "tien taxi di hop khach hang", "normalized_text": "tien taxi di hop khach hang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "mới trả tiền tiền taxi đi họp khách hàng 120k", "normalized_text": "trả tiền tiền taxi đi họp khách hàng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: tiền taxi đi họp khách hàng số tiền 45 nghìn", "normalized_text": "tiền taxi đi họp khách hàng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: tien taxi di hop khach hang so tien 45 nghin", "normalized_text": "tien taxi di hop khach hang tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "cuốc grab buổi tối", "normalized_text": "cuốc grab buổi", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.ride_hailing", "raw_text": "cuoc grab buoi toi", "normalized_text": "cuoc grab buoi", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.ride_hailing", "raw_text": "mới trả tiền cuốc grab buổi tối 85.000đ", "normalized_text": "trả tiền cuốc grab buổi", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "moi tra tien cuoc grab buoi toi 85.000d", "normalized_text": "tra tien cuoc grab buoi", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.ride_hailing", "raw_text": "VCB Digibank: cuốc grab buổi tối số tiền 1tr2", "normalized_text": "cuốc grab buổi tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "tiền gửi xe trung tâm thương mại", "normalized_text": "tiền gửi xe trung tâm thương mại", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "tien gui xe trung tam thuong mai", "normalized_text": "tien gui xe trung tam thuong mai", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "mới trả tiền tiền gửi xe trung tâm thương mại 85.000đ", "normalized_text": "trả tiền tiền gửi xe trung tâm thương mại", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "VCB Digibank: tiền gửi xe trung tâm thương mại số tiền 450k", "normalized_text": "tiền gửi xe trung tâm thương mại tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "VCB Digibank: tien gui xe trung tam thuong mai so tien 450k", "normalized_text": "tien gui xe trung tam thuong mai tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "trạm thu phí tự động vetc", "normalized_text": "trạm thu phí tự động vetc", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "tram thu phi tu dong vetc", "normalized_text": "tram thu phi tu dong vetc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "mới trả tiền trạm thu phí tự động vetc 450k", "normalized_text": "trả tiền trạm thu phí tự động vetc", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "VCB Digibank: trạm thu phí tự động vetc số tiền 65k", "normalized_text": "trạm thu phí tự động vetc tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "mua vé tàu điện metro", "normalized_text": "mua vé tàu điện metro", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "mua ve tau dien metro", "normalized_text": "mua ve tau dien metro", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "mới trả tiền mua vé tàu điện metro 25k", "normalized_text": "trả tiền mua vé tàu điện metro", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "VCB Digibank: mua vé tàu điện metro số tiền 120k", "normalized_text": "mua vé tàu điện metro tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "vé xe khách về quê", "normalized_text": "vé xe khách về quê", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "ve xe khach ve que", "normalized_text": "ve xe khach ve que", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "mới trả tiền vé xe khách về quê 85.000đ", "normalized_text": "trả tiền vé xe khách về quê", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "moi tra tien ve xe khach ve que 85.000d", "normalized_text": "tra tien ve xe khach ve que", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "VCB Digibank: vé xe khách về quê số tiền 250 nghìn", "normalized_text": "vé xe khách về quê tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "phí đỗ xe bãi giữ xe", "normalized_text": "phí đỗ xe bãi giữ xe", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.public", "raw_text": "phi do xe bai giu xe", "normalized_text": "phi do xe bai giu xe", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.public", "raw_text": "mới trả tiền phí đỗ xe bãi giữ xe 450k", "normalized_text": "trả tiền phí đỗ xe bãi giữ xe", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.public", "raw_text": "moi tra tien phi do xe bai giu xe 450k", "normalized_text": "tra tien phi do xe bai giu xe", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.public", "raw_text": "VCB Digibank: phí đỗ xe bãi giữ xe số tiền 2,5 triệu", "normalized_text": "phí đỗ xe bãi giữ xe tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "thay dầu nhớt máy castrol", "normalized_text": "thay dầu nhớt máy castrol", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "thay dau nhot may castrol", "normalized_text": "thay dau nhot may castrol", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "mới trả tiền thay dầu nhớt máy castrol 15tr", "normalized_text": "trả tiền thay dầu nhớt máy castrol", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "moi tra tien thay dau nhot may castrol 15tr", "normalized_text": "tra tien thay dau nhot may castrol", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: thay dầu nhớt máy castrol số tiền 65k", "normalized_text": "thay dầu nhớt máy castrol tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: thay dau nhot may castrol so tien 65k", "normalized_text": "thay dau nhot may castrol tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "vệ sinh nồi dây curoa xe ga", "normalized_text": "vệ sinh nồi dây curoa xe ga", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "ve sinh noi day curoa xe ga", "normalized_text": "ve sinh noi day curoa xe ga", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "mới trả tiền vệ sinh nồi dây curoa xe ga 25k", "normalized_text": "trả tiền vệ sinh nồi dây curoa xe ga", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "moi tra tien ve sinh noi day curoa xe ga 25k", "normalized_text": "tra tien ve sinh noi day curoa xe ga", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: vệ sinh nồi dây curoa xe ga số tiền 250 nghìn", "normalized_text": "vệ sinh nồi dây curoa xe ga tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "rửa xe máy cuối tuần", "normalized_text": "rửa xe máy cuối", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "rua xe may cuoi tuan", "normalized_text": "rua xe may cuoi", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "mới trả tiền rửa xe máy cuối tuần 250 nghìn", "normalized_text": "trả tiền rửa xe máy cuối", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "moi tra tien rua xe may cuoi tuan 250 nghin", "normalized_text": "tra tien rua xe may cuoi", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: rửa xe máy cuối tuần số tiền 65k", "normalized_text": "rửa xe máy cuối tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: rua xe may cuoi tuan so tien 65k", "normalized_text": "rua xe may cuoi tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "sửa xe thay má phanh", "normalized_text": "sửa xe thay má phanh", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "sua xe thay ma phanh", "normalized_text": "sua xe thay ma phanh", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "mới trả tiền sửa xe thay má phanh 1tr2", "normalized_text": "trả tiền sửa xe thay má phanh", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "moi tra tien sua xe thay ma phanh 1tr2", "normalized_text": "tra tien sua xe thay ma phanh", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: sửa xe thay má phanh số tiền 65k", "normalized_text": "sửa xe thay má phanh tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "bảo dưỡng xe ở head", "normalized_text": "bảo dưỡng xe ở head", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "transport.maintenance", "raw_text": "bao duong xe o head", "normalized_text": "bao duong xe o head", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "transport.maintenance", "raw_text": "mới trả tiền bảo dưỡng xe ở head 2,5 triệu", "normalized_text": "trả tiền bảo dưỡng xe ở head", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "moi tra tien bao duong xe o head 2,5 trieu", "normalized_text": "tra tien bao duong xe o head", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: bảo dưỡng xe ở head số tiền 120k", "normalized_text": "bảo dưỡng xe ở head tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "transport.maintenance", "raw_text": "VCB Digibank: bao duong xe o head so tien 120k", "normalized_text": "bao duong xe o head tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "chuyển tiền trọ tháng 11", "normalized_text": "chuyển tiền trọ tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "chuyen tien tro thang 11", "normalized_text": "chuyen tien tro thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "mới trả tiền chuyển tiền trọ tháng 11 45 nghìn", "normalized_text": "trả tiền chuyển tiền trọ tháng nghìn", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: chuyển tiền trọ tháng 11 số tiền 85.000đ", "normalized_text": "chuyển tiền trọ tháng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: chuyen tien tro thang 11 so tien 85.000d", "normalized_text": "chuyen tien tro thang tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "đóng phí quản lý căn hộ", "normalized_text": "đóng phí quản lý căn hộ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "dong phi quan ly can ho", "normalized_text": "dong phi quan ly can ho", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "mới trả tiền đóng phí quản lý căn hộ 45 nghìn", "normalized_text": "trả tiền đóng phí quản lý căn hộ", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: đóng phí quản lý căn hộ số tiền 45 nghìn", "normalized_text": "đóng phí quản lý căn hộ tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: dong phi quan ly can ho so tien 45 nghin", "normalized_text": "dong phi quan ly can ho tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "tiền thuê phòng hàng tháng", "normalized_text": "tiền thuê phòng hàng tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "tien thue phong hang thang", "normalized_text": "tien thue phong hang thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "mới trả tiền tiền thuê phòng hàng tháng 45 nghìn", "normalized_text": "trả tiền tiền thuê phòng hàng tháng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "moi tra tien tien thue phong hang thang 45 nghin", "normalized_text": "tra tien tien thue phong hang thang", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: tiền thuê phòng hàng tháng số tiền 85.000đ", "normalized_text": "tiền thuê phòng hàng tháng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "thanh toán tiền thuê chung cư", "normalized_text": "thanh toán tiền thuê chung cư", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.rent", "raw_text": "thanh toan tien thue chung cu", "normalized_text": "thanh toan tien thue chung cu", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.rent", "raw_text": "mới trả tiền thanh toán tiền thuê chung cư 250 nghìn", "normalized_text": "trả tiền thanh toán tiền thuê chung cư", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: thanh toán tiền thuê chung cư số tiền 450k", "normalized_text": "thanh toán tiền thuê chung cư tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.rent", "raw_text": "VCB Digibank: thanh toan tien thue chung cu so tien 450k", "normalized_text": "thanh toan tien thue chung cu tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "hóa đơn tiền điện lực evn", "normalized_text": "hóa đơn tiền điện lực tiền điện evn", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "hoa don tien dien luc evn", "normalized_text": "hoa don tien dien luc tiền điện evn", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "mới trả tiền hóa đơn tiền điện lực evn 450k", "normalized_text": "trả tiền hóa đơn tiền điện lực tiền điện evn", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "VCB Digibank: hóa đơn tiền điện lực evn số tiền 120k", "normalized_text": "hóa đơn tiền điện lực tiền điện evn tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "đóng cước mạng wifi vnpt", "normalized_text": "đóng cước mạng wifi viễn thông vnpt", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "dong cuoc mang wifi vnpt", "normalized_text": "dong cuoc mang wifi viễn thông vnpt", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "mới trả tiền đóng cước mạng wifi vnpt 450k", "normalized_text": "trả tiền đóng cước mạng wifi viễn thông vnpt", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "moi tra tien dong cuoc mang wifi vnpt 450k", "normalized_text": "tra tien dong cuoc mang wifi viễn thông vnpt", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "VCB Digibank: đóng cước mạng wifi vnpt số tiền 1tr2", "normalized_text": "đóng cước mạng wifi viễn thông vnpt tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "tiền nước sạch hàng tháng", "normalized_text": "tiền nước sạch hàng tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "tien nuoc sach hang thang", "normalized_text": "tien nuoc sach hang thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "mới trả tiền tiền nước sạch hàng tháng 65k", "normalized_text": "trả tiền tiền nước sạch hàng tháng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "moi tra tien tien nuoc sach hang thang 65k", "normalized_text": "tra tien tien nuoc sach hang thang", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "VCB Digibank: tiền nước sạch hàng tháng số tiền 85.000đ", "normalized_text": "tiền nước sạch hàng tháng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "gia hạn gói cước 5g viettel", "normalized_text": "gia hạn gói cước 5g viettel", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.utilities", "raw_text": "gia han goi cuoc 5g viettel", "normalized_text": "gia han goi cuoc 5g viettel", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.utilities", "raw_text": "mới trả tiền gia hạn gói cước 5g viettel 2,5 triệu", "normalized_text": "trả tiền gia hạn gói cước 5g viettel", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.utilities", "raw_text": "moi tra tien gia han goi cuoc 5g viettel 2,5 trieu", "normalized_text": "tra tien gia han goi cuoc 5g viettel", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.utilities", "raw_text": "VCB Digibank: gia hạn gói cước 5g viettel số tiền 450k", "normalized_text": "gia hạn gói cước 5g viettel tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "mua nước xả vải comfort", "normalized_text": "mua nước xả vải comfort", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "mua nuoc xa vai comfort", "normalized_text": "mua nuoc xa vai comfort", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "mới trả tiền mua nước xả vải comfort 2,5 triệu", "normalized_text": "trả tiền mua nước xả vải comfort", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "moi tra tien mua nuoc xa vai comfort 2,5 trieu", "normalized_text": "tra tien mua nuoc xa vai comfort", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: mua nước xả vải comfort số tiền 2,5 triệu", "normalized_text": "mua nước xả vải comfort tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: mua nuoc xa vai comfort so tien 2,5 trieu", "normalized_text": "mua nuoc xa vai comfort tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "dịch vụ giúp việc dọn phòng btaskee", "normalized_text": "dịch vụ giúp việc dọn phòng btaskee", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "dich vu giup viec don phong btaskee", "normalized_text": "dich vu giup viec don phong btaskee", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "mới trả tiền dịch vụ giúp việc dọn phòng btaskee 250 nghìn", "normalized_text": "trả tiền dịch vụ giúp việc dọn phòng btaskee", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "moi tra tien dich vu giup viec don phong btaskee 250 nghin", "normalized_text": "tra tien dich vu giup viec don phong btaskee", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: dịch vụ giúp việc dọn phòng btaskee số tiền 45 nghìn", "normalized_text": "dịch vụ giúp việc dọn phòng btaskee tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: dich vu giup viec don phong btaskee so tien 45 nghin", "normalized_text": "dich vu giup viec don phong btaskee tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "mua giấy ăn và nước rửa tay", "normalized_text": "mua giấy ăn và nước rửa tay", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "mua giay an va nuoc rua tay", "normalized_text": "mua giay an va nuoc rua tay", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "mới trả tiền mua giấy ăn và nước rửa tay 1tr2", "normalized_text": "trả tiền mua giấy ăn và nước rửa tay", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "moi tra tien mua giay an va nuoc rua tay 1tr2", "normalized_text": "tra tien mua giay an va nuoc rua tay", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: mua giấy ăn và nước rửa tay số tiền 250 nghìn", "normalized_text": "mua giấy ăn và nước rửa tay tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: mua giay an va nuoc rua tay so tien 250 nghin", "normalized_text": "mua giay an va nuoc rua tay tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "đồ gia dụng nhà bếp", "normalized_text": "đồ gia dụng nhà bếp", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "housing.housework", "raw_text": "do gia dung nha bep", "normalized_text": "do gia dung nha bep", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "housing.housework", "raw_text": "mới trả tiền đồ gia dụng nhà bếp 15tr", "normalized_text": "trả tiền đồ gia dụng nhà bếp", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "moi tra tien do gia dung nha bep 15tr", "normalized_text": "tra tien do gia dung nha bep", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: đồ gia dụng nhà bếp số tiền 45 nghìn", "normalized_text": "đồ gia dụng nhà bếp tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "housing.housework", "raw_text": "VCB Digibank: do gia dung nha bep so tien 45 nghin", "normalized_text": "do gia dung nha bep tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "mua áo thun mặc nhà", "normalized_text": "mua áo thun mặc nhà", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "mua ao thun mac nha", "normalized_text": "mua ao thun mac nha", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "mới trả tiền mua áo thun mặc nhà 120k", "normalized_text": "trả tiền mua áo thun mặc nhà", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "moi tra tien mua ao thun mac nha 120k", "normalized_text": "tra tien mua ao thun mac nha", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "VCB Digibank: mua áo thun mặc nhà số tiền 15tr", "normalized_text": "mua áo thun mặc nhà tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "VCB Digibank: mua ao thun mac nha so tien 15tr", "normalized_text": "mua ao thun mac nha tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "sắm đôi giày da đi làm", "normalized_text": "sắm đôi giày đi làm", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "sam doi giay da di lam", "normalized_text": "sam doi giay di lam", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "mới trả tiền sắm đôi giày da đi làm 65k", "normalized_text": "trả tiền sắm đôi giày đi làm", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "VCB Digibank: sắm đôi giày da đi làm số tiền 35k", "normalized_text": "sắm đôi giày đi làm tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "mua quần tây công sở", "normalized_text": "mua quần tây công", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "mua quan tay cong so", "normalized_text": "mua quan tay cong", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "mới trả tiền mua quần tây công sở 120k", "normalized_text": "trả tiền mua quần tây công", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "moi tra tien mua quan tay cong so 120k", "normalized_text": "tra tien mua quan tay cong", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "VCB Digibank: mua quần tây công sở số tiền 120k", "normalized_text": "mua quần tây công tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "VCB Digibank: mua quan tay cong so so tien 120k", "normalized_text": "mua quan tay cong tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "đặt áo khoác thời trang", "normalized_text": "đặt áo khoác thời trang", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.clothes", "raw_text": "dat ao khoac thoi trang", "normalized_text": "dat ao khoac thoi trang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.clothes", "raw_text": "mới trả tiền đặt áo khoác thời trang 25k", "normalized_text": "trả tiền đặt áo khoác thời trang", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.clothes", "raw_text": "moi tra tien dat ao khoac thoi trang 25k", "normalized_text": "tra tien dat ao khoac thoi trang", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.clothes", "raw_text": "VCB Digibank: đặt áo khoác thời trang số tiền 2,5 triệu", "normalized_text": "đặt áo khoác thời trang tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "mua củ sạc nhanh iphone", "normalized_text": "mua củ sạc nhanh iphone", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "mua cu sac nhanh iphone", "normalized_text": "mua cu sac nhanh iphone", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "mới trả tiền mua củ sạc nhanh iphone 15tr", "normalized_text": "trả tiền mua củ sạc nhanh iphone", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "moi tra tien mua cu sac nhanh iphone 15tr", "normalized_text": "tra tien mua cu sac nhanh iphone", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "VCB Digibank: mua củ sạc nhanh iphone số tiền 45 nghìn", "normalized_text": "mua củ sạc nhanh iphone tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "VCB Digibank: mua cu sac nhanh iphone so tien 45 nghin", "normalized_text": "mua cu sac nhanh iphone tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "sắm tai nghe chụp tai", "normalized_text": "sắm tai nghe chụp tai", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "sam tai nghe chup tai", "normalized_text": "sam tai nghe chup tai", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "mới trả tiền sắm tai nghe chụp tai 1tr2", "normalized_text": "trả tiền sắm tai nghe chụp tai", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "moi tra tien sam tai nghe chup tai 1tr2", "normalized_text": "tra tien sam tai nghe chup tai", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "VCB Digibank: sắm tai nghe chụp tai số tiền 85.000đ", "normalized_text": "sắm tai nghe chụp tai tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "mua ổ cứng ssd lưu trữ", "normalized_text": "mua ổ cứng ssd lưu trữ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "mua o cung ssd luu tru", "normalized_text": "mua o cung ssd luu tru", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "mới trả tiền mua ổ cứng ssd lưu trữ 2,5 triệu", "normalized_text": "trả tiền mua ổ cứng ssd lưu trữ", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "moi tra tien mua o cung ssd luu tru 2,5 trieu", "normalized_text": "tra tien mua o cung ssd luu tru", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "VCB Digibank: mua ổ cứng ssd lưu trữ số tiền 85.000đ", "normalized_text": "mua ổ cứng ssd lưu trữ tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "mua phụ kiện máy tính ở tgdd", "normalized_text": "mua phụ kiện máy ở giới di động", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.electronics", "raw_text": "mua phu kien may tinh o tgdd", "normalized_text": "mua phu kien may o giới di động", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.electronics", "raw_text": "mới trả tiền mua phụ kiện máy tính ở tgdd 85.000đ", "normalized_text": "trả tiền mua phụ kiện máy ở giới di động", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.electronics", "raw_text": "moi tra tien mua phu kien may tinh o tgdd 85.000d", "normalized_text": "tra tien mua phu kien may o giới di động", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.electronics", "raw_text": "VCB Digibank: mua phụ kiện máy tính ở tgdd số tiền 85.000đ", "normalized_text": "mua phụ kiện máy ở giới di động tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "thanh toán giỏ hàng shopee", "normalized_text": "thanh toán giỏ hàng shopee", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "thanh toan gio hang shopee", "normalized_text": "thanh toan gio hang shopee", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "mới trả tiền thanh toán giỏ hàng shopee 450k", "normalized_text": "trả tiền thanh toán giỏ hàng shopee", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: thanh toán giỏ hàng shopee số tiền 25k", "normalized_text": "thanh toán giỏ hàng shopee tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: thanh toan gio hang shopee so tien 25k", "normalized_text": "thanh toan gio hang shopee tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "mua đồ lặt vặt ở circle k", "normalized_text": "mua đồ lặt vặt ở circle k", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "mua do lat vat o circle k", "normalized_text": "mua do lat vat o circle k", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "mới trả tiền mua đồ lặt vặt ở circle k 25k", "normalized_text": "trả tiền mua đồ lặt vặt ở circle k", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: mua đồ lặt vặt ở circle k số tiền 120k", "normalized_text": "mua đồ lặt vặt ở circle k tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "đặt hàng online lazada", "normalized_text": "đặt hàng online lazada", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "dat hang online lazada", "normalized_text": "dat hang online lazada", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "mới trả tiền đặt hàng online lazada 250 nghìn", "normalized_text": "trả tiền đặt hàng online lazada", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "moi tra tien dat hang online lazada 250 nghin", "normalized_text": "tra tien dat hang online lazada", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: đặt hàng online lazada số tiền 15tr", "normalized_text": "đặt hàng online lazada tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: dat hang online lazada so tien 15tr", "normalized_text": "dat hang online lazada tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "mua sữa rửa mặt chăm sóc da", "normalized_text": "mua sữa rửa chăm sóc", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "shopping.general", "raw_text": "mua sua rua mat cham soc da", "normalized_text": "mua sua rua cham soc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "shopping.general", "raw_text": "mới trả tiền mua sữa rửa mặt chăm sóc da 15tr", "normalized_text": "trả tiền mua sữa rửa chăm sóc", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "moi tra tien mua sua rua mat cham soc da 15tr", "normalized_text": "tra tien mua sua rua cham soc", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: mua sữa rửa mặt chăm sóc da số tiền 25k", "normalized_text": "mua sữa rửa chăm sóc tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "shopping.general", "raw_text": "VCB Digibank: mua sua rua mat cham soc da so tien 25k", "normalized_text": "mua sua rua cham soc tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "ghé long châu mua thuốc ho", "normalized_text": "ghé long châu mua thuốc ho", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "ghe long chau mua thuoc ho", "normalized_text": "ghe long chau mua thuoc ho", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "mới trả tiền ghé long châu mua thuốc ho 65k", "normalized_text": "trả tiền ghé long châu mua thuốc ho", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "VCB Digibank: ghé long châu mua thuốc ho số tiền 1tr2", "normalized_text": "ghé long châu mua thuốc ho tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "mua viên uống bổ sung kẽm", "normalized_text": "mua viên uống bổ sung kẽm", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "mua vien uong bo sung kem", "normalized_text": "mua vien uong bo sung kem", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "mới trả tiền mua viên uống bổ sung kẽm 45 nghìn", "normalized_text": "trả tiền mua viên uống bổ sung kẽm", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "moi tra tien mua vien uong bo sung kem 45 nghin", "normalized_text": "tra tien mua vien uong bo sung kem", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "VCB Digibank: mua viên uống bổ sung kẽm số tiền 15tr", "normalized_text": "mua viên uống bổ sung kẽm tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "tiệm thuốc pharmacity mua bông băng", "normalized_text": "tiệm thuốc pharmacity mua bông băng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "tiem thuoc pharmacity mua bong bang", "normalized_text": "tiem thuoc pharmacity mua bong bang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "mới trả tiền tiệm thuốc pharmacity mua bông băng 25k", "normalized_text": "trả tiền tiệm thuốc pharmacity mua bông băng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "moi tra tien tiem thuoc pharmacity mua bong bang 25k", "normalized_text": "tra tien tiem thuoc pharmacity mua bong bang", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.medicine", "raw_text": "VCB Digibank: tiệm thuốc pharmacity mua bông băng số tiền 85.000đ", "normalized_text": "tiệm thuốc pharmacity mua bông băng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "mua thuốc dị ứng thời tiết", "normalized_text": "mua thuốc dị ứng thời tiết", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.medicine", "raw_text": "mua thuoc di ung thoi tiet", "normalized_text": "mua thuoc di ung thoi tiet", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.medicine", "raw_text": "mới trả tiền mua thuốc dị ứng thời tiết 65k", "normalized_text": "trả tiền mua thuốc dị ứng thời tiết", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.medicine", "raw_text": "VCB Digibank: mua thuốc dị ứng thời tiết số tiền 1tr2", "normalized_text": "mua thuốc dị ứng thời tiết tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "khám răng trám răng nha khoa", "normalized_text": "khám răng trám răng nha khoa", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "kham rang tram rang nha khoa", "normalized_text": "kham rang tram rang nha khoa", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "mới trả tiền khám răng trám răng nha khoa 45 nghìn", "normalized_text": "trả tiền khám răng trám răng nha khoa", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "moi tra tien kham rang tram rang nha khoa 45 nghin", "normalized_text": "tra tien kham rang tram rang nha khoa", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: khám răng trám răng nha khoa số tiền 85.000đ", "normalized_text": "khám răng trám răng nha khoa tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: kham rang tram rang nha khoa so tien 85.000d", "normalized_text": "kham rang tram rang nha khoa tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "đóng phí phòng tập yoga", "normalized_text": "đóng phí phòng tập yoga", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "dong phi phong tap yoga", "normalized_text": "dong phi phong tap yoga", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "mới trả tiền đóng phí phòng tập yoga 15tr", "normalized_text": "trả tiền đóng phí phòng tập yoga", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: đóng phí phòng tập yoga số tiền 1tr2", "normalized_text": "đóng phí phòng tập yoga tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: dong phi phong tap yoga so tien 1tr2", "normalized_text": "dong phi phong tap yoga tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "siêu âm kiểm tra sức khỏe bệnh viện", "normalized_text": "siêu âm kiểm tra sức khỏe bệnh viện", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "sieu am kiem tra suc khoe benh vien", "normalized_text": "sieu am kiem tra suc khoe benh vien", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "mới trả tiền siêu âm kiểm tra sức khỏe bệnh viện 2,5 triệu", "normalized_text": "trả tiền siêu âm kiểm tra sức khỏe bệnh viện", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: siêu âm kiểm tra sức khỏe bệnh viện số tiền 25k", "normalized_text": "siêu âm kiểm tra sức khỏe bệnh viện tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: sieu am kiem tra suc khoe benh vien so tien 25k", "normalized_text": "sieu am kiem tra suc khoe benh vien tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "health.hospital", "raw_text": "tiêm phòng tại vnvc", "normalized_text": "tiêm phòng tại vnvc", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "health.hospital", "raw_text": "tiem phong tai vnvc", "normalized_text": "tiem phong tai vnvc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "health.hospital", "raw_text": "mới trả tiền tiêm phòng tại vnvc 35k", "normalized_text": "trả tiền tiêm phòng tại vnvc", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: tiêm phòng tại vnvc số tiền 25k", "normalized_text": "tiêm phòng tại vnvc tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "health.hospital", "raw_text": "VCB Digibank: tiem phong tai vnvc so tien 25k", "normalized_text": "tiem phong tai vnvc tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "mua sách kỹ năng tại nhà sách", "normalized_text": "mua sách kỹ năng tại nhà sách", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "mua sach ky nang tai nha sach", "normalized_text": "mua sach ky nang tai nha sach", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "mới trả tiền mua sách kỹ năng tại nhà sách 1tr2", "normalized_text": "trả tiền mua sách kỹ năng tại nhà sách", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "moi tra tien mua sach ky nang tai nha sach 1tr2", "normalized_text": "tra tien mua sach ky nang tai nha sach", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: mua sách kỹ năng tại nhà sách số tiền 120k", "normalized_text": "mua sách kỹ năng tại nhà sách tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: mua sach ky nang tai nha sach so tien 120k", "normalized_text": "mua sach ky nang tai nha sach tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "đóng tiền học ngoại ngữ", "normalized_text": "đóng tiền học ngoại ngữ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "dong tien hoc ngoai ngu", "normalized_text": "dong tien hoc ngoai ngu", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "mới trả tiền đóng tiền học ngoại ngữ 2,5 triệu", "normalized_text": "trả tiền đóng tiền học ngoại ngữ", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "moi tra tien dong tien hoc ngoai ngu 2,5 trieu", "normalized_text": "tra tien dong tien hoc ngoai ngu", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: đóng tiền học ngoại ngữ số tiền 85.000đ", "normalized_text": "đóng tiền học ngoại ngữ tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: dong tien hoc ngoai ngu so tien 85.000d", "normalized_text": "dong tien hoc ngoai ngu tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "đăng ký khóa học kỹ năng coursera", "normalized_text": "đăng ký khóa học kỹ năng coursera", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "dang ky khoa hoc ky nang coursera", "normalized_text": "dang ky khoa hoc ky nang coursera", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "mới trả tiền đăng ký khóa học kỹ năng coursera 35k", "normalized_text": "trả tiền đăng ký khóa học kỹ năng coursera", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "moi tra tien dang ky khoa hoc ky nang coursera 35k", "normalized_text": "tra tien dang ky khoa hoc ky nang coursera", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: đăng ký khóa học kỹ năng coursera số tiền 120k", "normalized_text": "đăng ký khóa học kỹ năng coursera tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "mua dụng cụ học tập", "normalized_text": "mua dụng cụ học tập", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "education", "raw_text": "mua dung cu hoc tap", "normalized_text": "mua dung cu hoc tap", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "education", "raw_text": "mới trả tiền mua dụng cụ học tập 85.000đ", "normalized_text": "trả tiền mua dụng cụ học tập", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: mua dụng cụ học tập số tiền 15tr", "normalized_text": "mua dụng cụ học tập tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "education", "raw_text": "VCB Digibank: mua dung cu hoc tap so tien 15tr", "normalized_text": "mua dung cu hoc tap tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "xem phim rạp lotte cinema", "normalized_text": "xem phim rạp siêu thị lotte cinema", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "xem phim rap lotte cinema", "normalized_text": "xem phim rap siêu thị lotte cinema", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "mới trả tiền xem phim rạp lotte cinema 250 nghìn", "normalized_text": "trả tiền xem phim rạp siêu thị lotte cinema", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "moi tra tien xem phim rap lotte cinema 250 nghin", "normalized_text": "tra tien xem phim rap siêu thị lotte cinema", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: xem phim rạp lotte cinema số tiền 15tr", "normalized_text": "xem phim rạp siêu thị lotte cinema tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: xem phim rap lotte cinema so tien 15tr", "normalized_text": "xem phim rap siêu thị lotte cinema tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "tiền sân bóng đá nhân tạo", "normalized_text": "tiền sân bóng nhân tạo", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "tien san bong da nhan tao", "normalized_text": "tien san bong nhan tao", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "mới trả tiền tiền sân bóng đá nhân tạo 25k", "normalized_text": "trả tiền tiền sân bóng nhân tạo", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: tiền sân bóng đá nhân tạo số tiền 45 nghìn", "normalized_text": "tiền sân bóng nhân tạo tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: tien san bong da nhan tao so tien 45 nghin", "normalized_text": "tien san bong nhan tao tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "vé tham quan bảo tàng du lịch", "normalized_text": "vé tham quan bảo tàng du lịch", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "ve tham quan bao tang du lich", "normalized_text": "ve tham quan bao tang du lich", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "mới trả tiền vé tham quan bảo tàng du lịch 1tr2", "normalized_text": "trả tiền vé tham quan bảo tàng du lịch", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "moi tra tien ve tham quan bao tang du lich 1tr2", "normalized_text": "tra tien ve tham quan bao tang du lich", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: vé tham quan bảo tàng du lịch số tiền 15tr", "normalized_text": "vé tham quan bảo tàng du lịch tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: ve tham quan bao tang du lich so tien 15tr", "normalized_text": "ve tham quan bao tang du lich tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "entertainment", "raw_text": "đi chơi công viên nước", "normalized_text": "đi chơi công viên nước", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "entertainment", "raw_text": "di choi cong vien nuoc", "normalized_text": "di choi cong vien nuoc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "entertainment", "raw_text": "mới trả tiền đi chơi công viên nước 25k", "normalized_text": "trả tiền đi chơi công viên nước", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "entertainment", "raw_text": "VCB Digibank: đi chơi công viên nước số tiền 35k", "normalized_text": "đi chơi công viên nước tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "trừ tiền gói cước netflix", "normalized_text": "trừ tiền gói cước netflix", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "tru tien goi cuoc netflix", "normalized_text": "tru tien goi cuoc netflix", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "mới trả tiền trừ tiền gói cước netflix 2,5 triệu", "normalized_text": "trả tiền trừ tiền gói cước netflix", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: trừ tiền gói cước netflix số tiền 120k", "normalized_text": "trừ tiền gói cước netflix tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: tru tien goi cuoc netflix so tien 120k", "normalized_text": "tru tien goi cuoc netflix tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "gia hạn nhạc bản quyền spotify", "normalized_text": "gia hạn nhạc bản quyền spotify", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "gia han nhac ban quyen spotify", "normalized_text": "gia han nhac ban quyen spotify", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "mới trả tiền gia hạn nhạc bản quyền spotify 250 nghìn", "normalized_text": "trả tiền gia hạn nhạc bản quyền spotify", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "moi tra tien gia han nhac ban quyen spotify 250 nghin", "normalized_text": "tra tien gia han nhac ban quyen spotify", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: gia hạn nhạc bản quyền spotify số tiền 450k", "normalized_text": "gia hạn nhạc bản quyền spotify tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "thanh toán dung lượng đám mây icloud", "normalized_text": "thanh toán dung lượng đám mây icloud", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "thanh toan dung luong dam may icloud", "normalized_text": "thanh toan dung luong dam may icloud", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "mới trả tiền thanh toán dung lượng đám mây icloud 15tr", "normalized_text": "trả tiền thanh toán dung lượng đám mây icloud", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "moi tra tien thanh toan dung luong dam may icloud 15tr", "normalized_text": "tra tien thanh toan dung luong dam may icloud", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: thanh toán dung lượng đám mây icloud số tiền 15tr", "normalized_text": "thanh toán dung lượng đám mây icloud tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: thanh toan dung luong dam may icloud so tien 15tr", "normalized_text": "thanh toan dung luong dam may icloud tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "subscriptions", "raw_text": "phí định kỳ youtube premium", "normalized_text": "phí định kỳ youtube premium", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "subscriptions", "raw_text": "phi dinh ky youtube premium", "normalized_text": "phi dinh ky youtube premium", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "subscriptions", "raw_text": "mới trả tiền phí định kỳ youtube premium 120k", "normalized_text": "trả tiền phí định kỳ youtube premium", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: phí định kỳ youtube premium số tiền 250 nghìn", "normalized_text": "phí định kỳ youtube premium tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "subscriptions", "raw_text": "VCB Digibank: phi dinh ky youtube premium so tien 250 nghin", "normalized_text": "phi dinh ky youtube premium tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "biếu tiền tiêu vặt ông bà", "normalized_text": "biếu tiền tiêu vặt ông bà", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "bieu tien tieu vat ong ba", "normalized_text": "bieu tien tieu vat ong ba", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "mới trả tiền biếu tiền tiêu vặt ông bà 2,5 triệu", "normalized_text": "trả tiền biếu tiền tiêu vặt ông bà", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "moi tra tien bieu tien tieu vat ong ba 2,5 trieu", "normalized_text": "tra tien bieu tien tieu vat ong ba", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: biếu tiền tiêu vặt ông bà số tiền 120k", "normalized_text": "biếu tiền tiêu vặt ông bà tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: bieu tien tieu vat ong ba so tien 120k", "normalized_text": "bieu tien tieu vat ong ba tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "mua tã giấy và sữa cho con ở con cưng", "normalized_text": "mua tã giấy và sữa cho con ở con cưng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "mua ta giay va sua cho con o con cung", "normalized_text": "mua ta giay va sua cho con o con cung", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "mới trả tiền mua tã giấy và sữa cho con ở con cưng 250 nghìn", "normalized_text": "trả tiền mua tã giấy và sữa cho con ở con cưng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "moi tra tien mua ta giay va sua cho con o con cung 250 nghin", "normalized_text": "tra tien mua ta giay va sua cho con o con cung", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: mua tã giấy và sữa cho con ở con cưng số tiền 2,5 triệu", "normalized_text": "mua tã giấy và sữa cho con ở con cưng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "đóng tiền bán trú cho bé", "normalized_text": "đóng tiền bán trú cho bé", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "dong tien ban tru cho be", "normalized_text": "dong tien ban tru cho be", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "mới trả tiền đóng tiền bán trú cho bé 450k", "normalized_text": "trả tiền đóng tiền bán trú cho bé", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "moi tra tien dong tien ban tru cho be 450k", "normalized_text": "tra tien dong tien ban tru cho be", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: đóng tiền bán trú cho bé số tiền 45 nghìn", "normalized_text": "đóng tiền bán trú cho bé tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: dong tien ban tru cho be so tien 45 nghin", "normalized_text": "dong tien ban tru cho be tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "gửi tiền về quê cho mẹ", "normalized_text": "gửi tiền về quê cho mẹ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "family", "raw_text": "gui tien ve que cho me", "normalized_text": "gui tien ve que cho me", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "family", "raw_text": "mới trả tiền gửi tiền về quê cho mẹ 250 nghìn", "normalized_text": "trả tiền gửi tiền về quê cho mẹ", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "family", "raw_text": "moi tra tien gui tien ve que cho me 250 nghin", "normalized_text": "tra tien gui tien ve que cho me", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: gửi tiền về quê cho mẹ số tiền 35k", "normalized_text": "gửi tiền về quê cho mẹ tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "family", "raw_text": "VCB Digibank: gui tien ve que cho me so tien 35k", "normalized_text": "gui tien ve que cho me tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "mừng cưới bạn đại học", "normalized_text": "mừng cưới bạn đại học", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "mung cuoi ban dai hoc", "normalized_text": "mung cuoi ban dai hoc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "mới trả tiền mừng cưới bạn đại học 45 nghìn", "normalized_text": "trả tiền mừng cưới bạn đại học", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "moi tra tien mung cuoi ban dai hoc 45 nghin", "normalized_text": "tra tien mung cuoi ban dai hoc", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "VCB Digibank: mừng cưới bạn đại học số tiền 45 nghìn", "normalized_text": "mừng cưới bạn đại học tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "VCB Digibank: mung cuoi ban dai hoc so tien 45 nghin", "normalized_text": "mung cuoi ban dai hoc tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "mua quà kỷ niệm tặng người thân", "normalized_text": "mua kỷ niệm tặng người thân", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "mua qua ky niem tang nguoi than", "normalized_text": "mua ky niem tang nguoi than", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "mới trả tiền mua quà kỷ niệm tặng người thân 15tr", "normalized_text": "trả tiền mua kỷ niệm tặng người thân", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "VCB Digibank: mua quà kỷ niệm tặng người thân số tiền 25k", "normalized_text": "mua kỷ niệm tặng người thân tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "VCB Digibank: mua qua ky niem tang nguoi than so tien 25k", "normalized_text": "mua ky niem tang nguoi than tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "đi thăm bệnh đồng nghiệp", "normalized_text": "đi thăm bệnh đồng nghiệp", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "di tham benh dong nghiep", "normalized_text": "di tham benh dong nghiep", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "mới trả tiền đi thăm bệnh đồng nghiệp 45 nghìn", "normalized_text": "trả tiền đi thăm bệnh đồng nghiệp", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "VCB Digibank: đi thăm bệnh đồng nghiệp số tiền 2,5 triệu", "normalized_text": "đi thăm bệnh đồng nghiệp tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "tiền mừng tân gia nhà mới", "normalized_text": "tiền mừng tân gia nhà", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "gifts", "raw_text": "tien mung tan gia nha moi", "normalized_text": "tien mung tan gia nha", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "gifts", "raw_text": "mới trả tiền tiền mừng tân gia nhà mới 120k", "normalized_text": "trả tiền tiền mừng tân gia nhà", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "gifts", "raw_text": "moi tra tien tien mung tan gia nha moi 120k", "normalized_text": "tra tien tien mung tan gia nha", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "gifts", "raw_text": "VCB Digibank: tiền mừng tân gia nhà mới số tiền 120k", "normalized_text": "tiền mừng tân gia nhà tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "trả góp hàng tháng hd saison", "normalized_text": "trả góp hàng tháng hd saison", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "tra gop hang thang hd saison", "normalized_text": "tra gop hang thang hd saison", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "mới trả tiền trả góp hàng tháng hd saison 85.000đ", "normalized_text": "trả tiền trả góp hàng tháng hd saison", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: trả góp hàng tháng hd saison số tiền 15tr", "normalized_text": "trả góp hàng tháng hd saison tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "thanh toán tiền lãi vay cá nhân", "normalized_text": "thanh toán tiền lãi vay cá nhân", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "thanh toan tien lai vay ca nhan", "normalized_text": "thanh toan tien lai vay ca nhan", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "mới trả tiền thanh toán tiền lãi vay cá nhân 65k", "normalized_text": "trả tiền thanh toán tiền lãi vay cá nhân", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: thanh toán tiền lãi vay cá nhân số tiền 35k", "normalized_text": "thanh toán tiền lãi vay cá nhân tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: thanh toan tien lai vay ca nhan so tien 35k", "normalized_text": "thanh toan tien lai vay ca nhan tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "trả bớt nợ cũ cho anh bạn", "normalized_text": "trả bớt nợ cũ cho bạn", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "tra bot no cu cho anh ban", "normalized_text": "tra bot no cu cho ban", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "mới trả tiền trả bớt nợ cũ cho anh bạn 250 nghìn", "normalized_text": "trả tiền trả bớt nợ cũ cho bạn", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "moi tra tien tra bot no cu cho anh ban 250 nghin", "normalized_text": "tra tien tra bot no cu cho ban", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: trả bớt nợ cũ cho anh bạn số tiền 65k", "normalized_text": "trả bớt nợ cũ cho bạn tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: tra bot no cu cho anh ban so tien 65k", "normalized_text": "tra bot no cu cho ban tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "debt.interest", "raw_text": "kỳ góp fe credit tháng này", "normalized_text": "kỳ góp fe credit tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "debt.interest", "raw_text": "ky gop fe credit thang nay", "normalized_text": "ky gop fe credit thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "debt.interest", "raw_text": "mới trả tiền kỳ góp fe credit tháng này 85.000đ", "normalized_text": "trả tiền kỳ góp fe credit tháng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: kỳ góp fe credit tháng này số tiền 15tr", "normalized_text": "kỳ góp fe credit tháng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "debt.interest", "raw_text": "VCB Digibank: ky gop fe credit thang nay so tien 15tr", "normalized_text": "ky gop fe credit thang tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "ngân hàng trừ phí sms banking", "normalized_text": "ngân hàng trừ phí sms banking", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "ngan hang tru phi sms banking", "normalized_text": "ngan hang tru phi sms banking", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "mới trả tiền ngân hàng trừ phí sms banking 35k", "normalized_text": "trả tiền ngân hàng trừ phí sms banking", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "moi tra tien ngan hang tru phi sms banking 35k", "normalized_text": "tra tien ngan hang tru phi sms banking", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: ngân hàng trừ phí sms banking số tiền 85.000đ", "normalized_text": "ngân hàng trừ phí sms banking tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: ngan hang tru phi sms banking so tien 85.000d", "normalized_text": "ngan hang tru phi sms banking tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "phí thường niên thẻ visa", "normalized_text": "phí thường niên visa", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "phi thuong nien the visa", "normalized_text": "phi thuong nien visa", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "mới trả tiền phí thường niên thẻ visa 1tr2", "normalized_text": "trả tiền phí thường niên visa", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "moi tra tien phi thuong nien the visa 1tr2", "normalized_text": "tra tien phi thuong nien visa", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: phí thường niên thẻ visa số tiền 85.000đ", "normalized_text": "phí thường niên visa tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "phí dịch vụ ngân hàng điện tử", "normalized_text": "phí dịch vụ ngân hàng điện tử", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "phi dich vu ngan hang dien tu", "normalized_text": "phi dich vu ngan hang dien tu", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "mới trả tiền phí dịch vụ ngân hàng điện tử 450k", "normalized_text": "trả tiền phí dịch vụ ngân hàng điện tử", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "moi tra tien phi dich vu ngan hang dien tu 450k", "normalized_text": "tra tien phi dich vu ngan hang dien tu", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: phí dịch vụ ngân hàng điện tử số tiền 85.000đ", "normalized_text": "phí dịch vụ ngân hàng điện tử tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: phi dich vu ngan hang dien tu so tien 85.000d", "normalized_text": "phi dich vu ngan hang dien tu tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "phí rút tiền khác ngân hàng", "normalized_text": "phí rút tiền khác ngân hàng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "bank.fee", "raw_text": "phi rut tien khac ngan hang", "normalized_text": "phi rut tien khac ngan hang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "bank.fee", "raw_text": "mới trả tiền phí rút tiền khác ngân hàng 2,5 triệu", "normalized_text": "trả tiền phí rút tiền khác ngân hàng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "moi tra tien phi rut tien khac ngan hang 2,5 trieu", "normalized_text": "tra tien phi rut tien khac ngan hang", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: phí rút tiền khác ngân hàng số tiền 1tr2", "normalized_text": "phí rút tiền khác ngân hàng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "bank.fee", "raw_text": "VCB Digibank: phi rut tien khac ngan hang so tien 1tr2", "normalized_text": "phi rut tien khac ngan hang tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "chi phí hành chính sao y công chứng", "normalized_text": "chi phí hành chính sao y công chứng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "chi phi hanh chinh sao y cong chung", "normalized_text": "chi phi hanh chinh sao y cong chung", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "mới trả tiền chi phí hành chính sao y công chứng 250 nghìn", "normalized_text": "trả tiền chi phí hành chính sao y công chứng", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: chi phí hành chính sao y công chứng số tiền 65k", "normalized_text": "chi phí hành chính sao y công chứng tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: chi phi hanh chinh sao y cong chung so tien 65k", "normalized_text": "chi phi hanh chinh sao y cong chung tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "khoản chi lẻ phát sinh", "normalized_text": "khoản chi lẻ phát sinh", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "khoan chi le phat sinh", "normalized_text": "khoan chi le phat sinh", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "mới trả tiền khoản chi lẻ phát sinh 65k", "normalized_text": "trả tiền khoản chi lẻ phát sinh", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "moi tra tien khoan chi le phat sinh 65k", "normalized_text": "tra tien khoan chi le phat sinh", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: khoản chi lẻ phát sinh số tiền 85.000đ", "normalized_text": "khoản chi lẻ phát sinh tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "chi tiêu vặt chưa rõ mục", "normalized_text": "chi tiêu vặt chưa rõ mục", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "chi tieu vat chua ro muc", "normalized_text": "chi tieu vat chua ro muc", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "mới trả tiền chi tiêu vặt chưa rõ mục 45 nghìn", "normalized_text": "trả tiền chi tiêu vặt chưa rõ mục", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "moi tra tien chi tieu vat chua ro muc 45 nghin", "normalized_text": "tra tien chi tieu vat chua ro muc", "template_id": "va_w3_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: chi tiêu vặt chưa rõ mục số tiền 45 nghìn", "normalized_text": "chi tiêu vặt chưa rõ mục tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: chi tieu vat chua ro muc so tien 45 nghin", "normalized_text": "chi tieu vat chua ro muc tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "other", "raw_text": "lệ phí nộp hồ sơ giấy tờ", "normalized_text": "lệ phí nộp hồ giấy tờ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "other", "raw_text": "le phi nop ho so giay to", "normalized_text": "le phi nop ho giay to", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "other", "raw_text": "mới trả tiền lệ phí nộp hồ sơ giấy tờ 15tr", "normalized_text": "trả tiền lệ phí nộp hồ giấy tờ", "template_id": "va_w3", "style": "accented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: lệ phí nộp hồ sơ giấy tờ số tiền 25k", "normalized_text": "lệ phí nộp hồ giấy tờ tiền", "template_id": "va_w4", "style": "accented_sentence"}
+{"label": "other", "raw_text": "VCB Digibank: le phi nop ho so giay to so tien 25k", "normalized_text": "le phi nop ho giay to tien", "template_id": "va_w4_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "lương cứng về tài khoản", "normalized_text": "lương cứng về tài khoản", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "luong cung ve tai khoan", "normalized_text": "luong cung ve tai khoan", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.salary", "raw_text": "mới được cộng 1tr2 lương cứng về tài khoản", "normalized_text": "được cộng lương cứng về tài khoản", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "moi duoc cong 1tr2 luong cung ve tai khoan", "normalized_text": "duoc cong luong cung ve tai khoan", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "tài khoản nhận lương cứng về tài khoản 1tr2", "normalized_text": "tài khoản nhận lương cứng về tài khoản", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "tai khoan nhan luong cung ve tai khoan 1tr2", "normalized_text": "tai khoan nhan luong cung ve tai khoan", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "thanh toán lương tháng 10", "normalized_text": "thanh toán lương tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "thanh toan luong thang 10", "normalized_text": "thanh toan luong thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.salary", "raw_text": "mới được cộng 85.000đ thanh toán lương tháng 10", "normalized_text": "được cộng thanh toán lương tháng", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "moi duoc cong 85.000d thanh toan luong thang 10", "normalized_text": "duoc cong thanh toan luong thang", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "tài khoản nhận thanh toán lương tháng 10 15tr", "normalized_text": "tài khoản nhận thanh toán lương tháng", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "công ty trả lương định kỳ", "normalized_text": "công ty trả lương định kỳ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "cong ty tra luong dinh ky", "normalized_text": "cong ty tra luong dinh ky", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.salary", "raw_text": "mới được cộng 65k công ty trả lương định kỳ", "normalized_text": "được cộng công ty trả lương định kỳ", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "tài khoản nhận công ty trả lương định kỳ 120k", "normalized_text": "tài khoản nhận công ty trả lương định kỳ", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "PAYROLL SALARY THANG NAY", "normalized_text": "payroll salary thang", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.salary", "raw_text": "mới được cộng 35k PAYROLL SALARY THANG NAY", "normalized_text": "được cộng payroll salary thang", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "moi duoc cong 35k PAYROLL SALARY THANG NAY", "normalized_text": "duoc cong payroll salary thang", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.salary", "raw_text": "tài khoản nhận PAYROLL SALARY THANG NAY 450k", "normalized_text": "tài khoản nhận payroll salary thang", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.salary", "raw_text": "tai khoan nhan PAYROLL SALARY THANG NAY 450k", "normalized_text": "tai khoan nhan payroll salary thang", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "công ty thưởng hiệu suất quý", "normalized_text": "công ty thưởng hiệu suất quý", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "cong ty thuong hieu suat quy", "normalized_text": "cong ty thuong hieu suat quy", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "mới được cộng 250 nghìn công ty thưởng hiệu suất quý", "normalized_text": "được cộng công ty thưởng hiệu suất quý", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "moi duoc cong 250 nghin cong ty thuong hieu suat quy", "normalized_text": "duoc cong cong ty thuong hieu suat quy", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "tài khoản nhận công ty thưởng hiệu suất quý 45 nghìn", "normalized_text": "tài khoản nhận công ty thưởng hiệu suất quý", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "tai khoan nhan cong ty thuong hieu suat quy 45 nghin", "normalized_text": "tai khoan nhan cong ty thuong hieu suat quy", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "nhận thưởng dự án phần mềm", "normalized_text": "nhận thưởng dự án phần mềm", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "nhan thuong du an phan mem", "normalized_text": "nhan thuong du an phan mem", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "mới được cộng 2,5 triệu nhận thưởng dự án phần mềm", "normalized_text": "được cộng nhận thưởng dự án phần mềm", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "moi duoc cong 2,5 trieu nhan thuong du an phan mem", "normalized_text": "duoc cong nhan thuong du an phan mem", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "tài khoản nhận nhận thưởng dự án phần mềm 85.000đ", "normalized_text": "tài khoản nhận nhận thưởng dự án phần mềm", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "tai khoan nhan nhan thuong du an phan mem 85.000d", "normalized_text": "tai khoan nhan nhan thuong du an phan mem", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "tiền thưởng tết dương lịch", "normalized_text": "tiền thưởng tết dương lịch", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "tien thuong tet duong lich", "normalized_text": "tien thuong tet duong lich", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "mới được cộng 450k tiền thưởng tết dương lịch", "normalized_text": "được cộng tiền thưởng tết dương lịch", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "moi duoc cong 450k tien thuong tet duong lich", "normalized_text": "duoc cong tien thuong tet duong lich", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "tài khoản nhận tiền thưởng tết dương lịch 85.000đ", "normalized_text": "tài khoản nhận tiền thưởng tết dương lịch", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "tai khoan nhan tien thuong tet duong lich 85.000d", "normalized_text": "tai khoan nhan tien thuong tet duong lich", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "phụ cấp trách nhiệm tháng", "normalized_text": "phụ cấp trách nhiệm tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.bonus", "raw_text": "phu cap trach nhiem thang", "normalized_text": "phu cap trach nhiem thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.bonus", "raw_text": "mới được cộng 35k phụ cấp trách nhiệm tháng", "normalized_text": "được cộng phụ cấp trách nhiệm tháng", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "moi duoc cong 35k phu cap trach nhiem thang", "normalized_text": "duoc cong phu cap trach nhiem thang", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.bonus", "raw_text": "tài khoản nhận phụ cấp trách nhiệm tháng 450k", "normalized_text": "tài khoản nhận phụ cấp trách nhiệm tháng", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.bonus", "raw_text": "tai khoan nhan phu cap trach nhiem thang 450k", "normalized_text": "tai khoan nhan phu cap trach nhiem thang", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "nhận tiền job ngoài lập trình app", "normalized_text": "nhận tiền job ngoài lập trình app", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "nhan tien job ngoai lap trinh app", "normalized_text": "nhan tien job ngoai lap trinh app", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "mới được cộng 15tr nhận tiền job ngoài lập trình app", "normalized_text": "được cộng nhận tiền job ngoài lập trình app", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "moi duoc cong 15tr nhan tien job ngoai lap trinh app", "normalized_text": "duoc cong nhan tien job ngoai lap trinh app", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "tài khoản nhận nhận tiền job ngoài lập trình app 65k", "normalized_text": "tài khoản nhận nhận tiền job ngoài lập trình app", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "tai khoan nhan nhan tien job ngoai lap trinh app 65k", "normalized_text": "tai khoan nhan nhan tien job ngoai lap trinh app", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "học viên đóng tiền gia sư", "normalized_text": "học viên đóng tiền gia sư", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "hoc vien dong tien gia su", "normalized_text": "hoc vien dong tien gia su", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "mới được cộng 450k học viên đóng tiền gia sư", "normalized_text": "được cộng học viên đóng tiền gia sư", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "tài khoản nhận học viên đóng tiền gia sư 85.000đ", "normalized_text": "tài khoản nhận học viên đóng tiền gia sư", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "khách tất toán hợp đồng freelance", "normalized_text": "khách tất toán hợp đồng freelance", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "khach tat toan hop dong freelance", "normalized_text": "khach tat toan hop dong freelance", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "mới được cộng 45 nghìn khách tất toán hợp đồng freelance", "normalized_text": "được cộng khách tất toán hợp đồng freelance", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "moi duoc cong 45 nghin khach tat toan hop dong freelance", "normalized_text": "duoc cong khach tat toan hop dong freelance", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "tài khoản nhận khách tất toán hợp đồng freelance 15tr", "normalized_text": "tài khoản nhận khách tất toán hợp đồng freelance", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "tai khoan nhan khach tat toan hop dong freelance 15tr", "normalized_text": "tai khoan nhan khach tat toan hop dong freelance", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "thù lao dịch thuật tài liệu", "normalized_text": "thù lao dịch thuật tài liệu", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.freelance", "raw_text": "thu lao dich thuat tai lieu", "normalized_text": "thu lao dich thuat tai lieu", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.freelance", "raw_text": "mới được cộng 45 nghìn thù lao dịch thuật tài liệu", "normalized_text": "được cộng thù lao dịch thuật tài liệu", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "moi duoc cong 45 nghin thu lao dich thuat tai lieu", "normalized_text": "duoc cong thu lao dich thuat tai lieu", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.freelance", "raw_text": "tài khoản nhận thù lao dịch thuật tài liệu 15tr", "normalized_text": "tài khoản nhận thù lao dịch thuật tài liệu", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.freelance", "raw_text": "tai khoan nhan thu lao dich thuat tai lieu 15tr", "normalized_text": "tai khoan nhan thu lao dich thuat tai lieu", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "sàn thương mại đối soát tiền bán hàng", "normalized_text": "sàn thương mại đối soát tiền bán hàng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "san thuong mai doi soat tien ban hang", "normalized_text": "san thuong mai doi soat tien ban hang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "mới được cộng 15tr sàn thương mại đối soát tiền bán hàng", "normalized_text": "được cộng sàn thương mại đối soát tiền bán hàng", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "moi duoc cong 15tr san thuong mai doi soat tien ban hang", "normalized_text": "duoc cong san thuong mai doi soat tien ban hang", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "tài khoản nhận sàn thương mại đối soát tiền bán hàng 65k", "normalized_text": "tài khoản nhận sàn thương mại đối soát tiền bán hàng", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "khách chuyển khoản mua hàng", "normalized_text": "khách chuyển khoản mua hàng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "khach chuyen khoan mua hang", "normalized_text": "khach chuyen khoan mua hang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "mới được cộng 1tr2 khách chuyển khoản mua hàng", "normalized_text": "được cộng khách chuyển khoản mua hàng", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "moi duoc cong 1tr2 khach chuyen khoan mua hang", "normalized_text": "duoc cong khach chuyen khoan mua hang", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "tài khoản nhận khách chuyển khoản mua hàng 85.000đ", "normalized_text": "tài khoản nhận khách chuyển khoản mua hàng", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "tai khoan nhan khach chuyen khoan mua hang 85.000d", "normalized_text": "tai khoan nhan khach chuyen khoan mua hang", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "tiền hàng thu hộ đơn vị vận chuyển", "normalized_text": "tiền hàng thu hộ đơn vị vận chuyển", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "tien hang thu ho don vi van chuyen", "normalized_text": "tien hang thu ho don vi van chuyen", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "mới được cộng 65k tiền hàng thu hộ đơn vị vận chuyển", "normalized_text": "được cộng tiền hàng thu hộ đơn vị vận chuyển", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "moi duoc cong 65k tien hang thu ho don vi van chuyen", "normalized_text": "duoc cong tien hang thu ho don vi van chuyen", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "tài khoản nhận tiền hàng thu hộ đơn vị vận chuyển 45 nghìn", "normalized_text": "tài khoản nhận tiền hàng thu hộ đơn vị vận chuyển", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "doanh thu quán hôm nay", "normalized_text": "doanh thu quán", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.business", "raw_text": "doanh thu quan hom nay", "normalized_text": "doanh thu quan", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.business", "raw_text": "mới được cộng 85.000đ doanh thu quán hôm nay", "normalized_text": "được cộng doanh thu quán", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "moi duoc cong 85.000d doanh thu quan hom nay", "normalized_text": "duoc cong doanh thu quan", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.business", "raw_text": "tài khoản nhận doanh thu quán hôm nay 1tr2", "normalized_text": "tài khoản nhận doanh thu quán", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.business", "raw_text": "tai khoan nhan doanh thu quan hom nay 1tr2", "normalized_text": "tai khoan nhan doanh thu quan", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "ngân hàng trả lãi tiết kiệm kỳ hạn", "normalized_text": "ngân hàng trả lãi tiết kiệm kỳ hạn", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "ngan hang tra lai tiet kiem ky han", "normalized_text": "ngan hang tra lai tiet kiem ky han", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "mới được cộng 450k ngân hàng trả lãi tiết kiệm kỳ hạn", "normalized_text": "được cộng ngân hàng trả lãi tiết kiệm kỳ hạn", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "moi duoc cong 450k ngan hang tra lai tiet kiem ky han", "normalized_text": "duoc cong ngan hang tra lai tiet kiem ky han", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "tài khoản nhận ngân hàng trả lãi tiết kiệm kỳ hạn 450k", "normalized_text": "tài khoản nhận ngân hàng trả lãi tiết kiệm kỳ hạn", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "nhận cổ tức chứng khoán", "normalized_text": "nhận cổ tức chứng khoán", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "nhan co tuc chung khoan", "normalized_text": "nhan co tuc chung khoan", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "mới được cộng 1tr2 nhận cổ tức chứng khoán", "normalized_text": "được cộng nhận cổ tức chứng khoán", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "tài khoản nhận nhận cổ tức chứng khoán 450k", "normalized_text": "tài khoản nhận nhận cổ tức chứng khoán", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "tai khoan nhan nhan co tuc chung khoan 450k", "normalized_text": "tai khoan nhan nhan co tuc chung khoan", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "tiền lời đầu tư quỹ mở", "normalized_text": "tiền lời đầu tư quỹ mở", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "tien loi dau tu quy mo", "normalized_text": "tien loi dau tu quy mo", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "mới được cộng 2,5 triệu tiền lời đầu tư quỹ mở", "normalized_text": "được cộng tiền lời đầu tư quỹ mở", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "moi duoc cong 2,5 trieu tien loi dau tu quy mo", "normalized_text": "duoc cong tien loi dau tu quy mo", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "tài khoản nhận tiền lời đầu tư quỹ mở 2,5 triệu", "normalized_text": "tài khoản nhận tiền lời đầu tư quỹ mở", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "tai khoan nhan tien loi dau tu quy mo 2,5 trieu", "normalized_text": "tai khoan nhan tien loi dau tu quy mo", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "lãi suất sổ tiết kiệm tháng", "normalized_text": "lãi suất tiết kiệm tháng", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.interest", "raw_text": "lai suat so tiet kiem thang", "normalized_text": "lai suat tiet kiem thang", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.interest", "raw_text": "mới được cộng 35k lãi suất sổ tiết kiệm tháng", "normalized_text": "được cộng lãi suất tiết kiệm tháng", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.interest", "raw_text": "moi duoc cong 35k lai suat so tiet kiem thang", "normalized_text": "duoc cong lai suat tiet kiem thang", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.interest", "raw_text": "tài khoản nhận lãi suất sổ tiết kiệm tháng 15tr", "normalized_text": "tài khoản nhận lãi suất tiết kiệm tháng", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "được mừng tuổi dịp tết", "normalized_text": "được mừng tuổi dịp tết", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "duoc mung tuoi dip tet", "normalized_text": "duoc mung tuoi dip tet", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "mới được cộng 250 nghìn được mừng tuổi dịp tết", "normalized_text": "được cộng được mừng tuổi dịp tết", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "tài khoản nhận được mừng tuổi dịp tết 1tr2", "normalized_text": "tài khoản nhận được mừng tuổi dịp tết", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "tai khoan nhan duoc mung tuoi dip tet 1tr2", "normalized_text": "tai khoan nhan duoc mung tuoi dip tet", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "mẹ chuyển khoản cho tiền ăn", "normalized_text": "mẹ chuyển khoản cho tiền ăn", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "me chuyen khoan cho tien an", "normalized_text": "me chuyen khoan cho tien an", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "mới được cộng 35k mẹ chuyển khoản cho tiền ăn", "normalized_text": "được cộng mẹ chuyển khoản cho tiền ăn", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "moi duoc cong 35k me chuyen khoan cho tien an", "normalized_text": "duoc cong me chuyen khoan cho tien an", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "tài khoản nhận mẹ chuyển khoản cho tiền ăn 15tr", "normalized_text": "tài khoản nhận mẹ chuyển khoản cho tiền ăn", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "tai khoan nhan me chuyen khoan cho tien an 15tr", "normalized_text": "tai khoan nhan me chuyen khoan cho tien an", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "nhận tiền mừng tốt nghiệp", "normalized_text": "nhận tiền mừng tốt nghiệp", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "nhan tien mung tot nghiep", "normalized_text": "nhan tien mung tot nghiep", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "mới được cộng 2,5 triệu nhận tiền mừng tốt nghiệp", "normalized_text": "được cộng nhận tiền mừng tốt nghiệp", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "tài khoản nhận nhận tiền mừng tốt nghiệp 15tr", "normalized_text": "tài khoản nhận nhận tiền mừng tốt nghiệp", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "bác ruột cho tiền tiêu vặt", "normalized_text": "bác ruột cho tiền tiêu vặt", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.gift", "raw_text": "bac ruot cho tien tieu vat", "normalized_text": "bac ruot cho tien tieu vat", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.gift", "raw_text": "mới được cộng 450k bác ruột cho tiền tiêu vặt", "normalized_text": "được cộng bác ruột cho tiền tiêu vặt", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.gift", "raw_text": "moi duoc cong 450k bac ruot cho tien tieu vat", "normalized_text": "duoc cong bac ruot cho tien tieu vat", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.gift", "raw_text": "tài khoản nhận bác ruột cho tiền tiêu vặt 450k", "normalized_text": "tài khoản nhận bác ruột cho tiền tiêu vặt", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "thanh lý bàn ghế cũ trên chợ tốt", "normalized_text": "thanh lý bàn ghế cũ trên chợ tốt", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "thanh ly ban ghe cu tren cho tot", "normalized_text": "thanh ly ban ghe cu tren cho tot", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "mới được cộng 120k thanh lý bàn ghế cũ trên chợ tốt", "normalized_text": "được cộng thanh lý bàn ghế cũ trên chợ tốt", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "moi duoc cong 120k thanh ly ban ghe cu tren cho tot", "normalized_text": "duoc cong thanh ly ban ghe cu tren cho tot", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "tài khoản nhận thanh lý bàn ghế cũ trên chợ tốt 35k", "normalized_text": "tài khoản nhận thanh lý bàn ghế cũ trên chợ tốt", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "đồng nghiệp gửi lại tiền mua hộ", "normalized_text": "đồng nghiệp gửi lại tiền mua hộ", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "dong nghiep gui lai tien mua ho", "normalized_text": "dong nghiep gui lai tien mua ho", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "mới được cộng 15tr đồng nghiệp gửi lại tiền mua hộ", "normalized_text": "được cộng đồng nghiệp gửi lại tiền mua hộ", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "moi duoc cong 15tr dong nghiep gui lai tien mua ho", "normalized_text": "duoc cong dong nghiep gui lai tien mua ho", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "tài khoản nhận đồng nghiệp gửi lại tiền mua hộ 45 nghìn", "normalized_text": "tài khoản nhận đồng nghiệp gửi lại tiền mua hộ", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "khoản thu nhập vãng lai khác", "normalized_text": "khoản thu nhập vãng lai khác", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "khoan thu nhap vang lai khac", "normalized_text": "khoan thu nhap vang lai khac", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "mới được cộng 15tr khoản thu nhập vãng lai khác", "normalized_text": "được cộng khoản thu nhập vãng lai khác", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "moi duoc cong 15tr khoan thu nhap vang lai khac", "normalized_text": "duoc cong khoan thu nhap vang lai khac", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "tài khoản nhận khoản thu nhập vãng lai khác 35k", "normalized_text": "tài khoản nhận khoản thu nhập vãng lai khác", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "nhận tiền chi trả bảo hiểm", "normalized_text": "nhận tiền chi trả bảo hiểm", "template_id": "val_bare_acc", "style": "accented_short"}
+{"label": "income.other", "raw_text": "nhan tien chi tra bao hiem", "normalized_text": "nhan tien chi tra bao hiem", "template_id": "val_bare_noacc", "style": "unaccented_short"}
+{"label": "income.other", "raw_text": "mới được cộng 2,5 triệu nhận tiền chi trả bảo hiểm", "normalized_text": "được cộng nhận tiền chi trả bảo hiểm", "template_id": "iva_w1", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "moi duoc cong 2,5 trieu nhan tien chi tra bao hiem", "normalized_text": "duoc cong nhan tien chi tra bao hiem", "template_id": "iva_w1_noacc", "style": "unaccented_sentence"}
+{"label": "income.other", "raw_text": "tài khoản nhận nhận tiền chi trả bảo hiểm 85.000đ", "normalized_text": "tài khoản nhận nhận tiền chi trả bảo hiểm", "template_id": "iva_w2", "style": "accented_sentence"}
+{"label": "income.other", "raw_text": "tai khoan nhan nhan tien chi tra bao hiem 85.000d", "normalized_text": "tai khoan nhan nhan tien chi tra bao hiem", "template_id": "iva_w2_noacc", "style": "unaccented_sentence"}

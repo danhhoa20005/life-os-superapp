@@ -188,6 +188,9 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
       if (cur.state !== "PENDING_DELIVERY" && cur.state !== "FAILED_RETRYABLE") {
         return { claimed: false, record: cur };
       }
+      if (cur.state === "FAILED_RETRYABLE" && typeof cur.nextRetryAtMs === "number" && cur.nextRetryAtMs > nowMs) {
+        return { claimed: false, record: cur };
+      }
       const dispatching: NotificationOutboxRecord = {
         ...cur,
         state: "DISPATCHING",
@@ -196,6 +199,17 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
       this.outbox.set(notificationId, dispatching);
       return { claimed: true, record: dispatching };
     });
+  }
+
+  async listDueRetryableOutboxRecords(nowMs: number, limit = 50): Promise<NotificationOutboxRecord[]> {
+    const due: NotificationOutboxRecord[] = [];
+    for (const rec of this.outbox.values()) {
+      if (rec.state === "FAILED_RETRYABLE" && (typeof rec.nextRetryAtMs !== "number" || rec.nextRetryAtMs <= nowMs)) {
+        due.push(rec);
+        if (due.length >= limit) break;
+      }
+    }
+    return due;
   }
 
   async getOutboxRecord(notificationId: string): Promise<NotificationOutboxRecord | null> {

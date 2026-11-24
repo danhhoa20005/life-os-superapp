@@ -404,11 +404,26 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
       _repository.watchMyFamilies(event.userId),
       onData: (res) {
         return res.fold(
-          (failure) => state.copyWith(isLoading: false, failure: failure),
+          (failure) => state.copyWith(
+            isLoading: false,
+            failure: failure,
+            clearMessage: true,
+          ),
           (list) {
+            final validIds = list.map((f) => f.id).toSet();
+            final currentSelected =
+                (state.selectedFamilyId != null &&
+                    validIds.contains(state.selectedFamilyId))
+                ? state.selectedFamilyId
+                : null;
+            final preferred =
+                (event.preferredFamilyId != null &&
+                    validIds.contains(event.preferredFamilyId))
+                ? event.preferredFamilyId
+                : null;
             final chosenId =
-                event.preferredFamilyId ??
-                state.selectedFamilyId ??
+                currentSelected ??
+                preferred ??
                 (list.isNotEmpty ? list.first.id : null);
             if (chosenId != null && chosenId != state.selectedFamilyId) {
               add(FamilyShoppingWatchRequested(chosenId));
@@ -422,6 +437,7 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
               sharedBills: list.isEmpty ? const [] : state.sharedBills,
               settlements: list.isEmpty ? const [] : state.settlements,
               clearFailure: true,
+              clearMessage: true,
             );
           },
         );

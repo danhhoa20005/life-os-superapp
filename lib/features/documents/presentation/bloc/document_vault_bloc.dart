@@ -1,8 +1,10 @@
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../domain/entities/document_vault_entity.dart';
 import '../../domain/repositories/document_vault_repository.dart';
 
@@ -39,6 +41,10 @@ final class DocumentVaultSearchQueryChanged extends DocumentVaultEvent {
 
   @override
   List<Object?> get props => [query];
+}
+
+final class DocumentVaultFiltersCleared extends DocumentVaultEvent {
+  const DocumentVaultFiltersCleared();
 }
 
 final class DocumentVaultCreateSubmitted extends DocumentVaultEvent {
@@ -80,19 +86,27 @@ final class DocumentVaultState extends Equatable {
     this.message,
   });
 
+  bool get hasActiveFilters =>
+      selectedFolder != null || searchQuery.trim().isNotEmpty;
+
   int countForFolder(DocumentFolderCategory folder) {
     return documents.where((d) => d.folder == folder).length;
   }
 
   List<DocumentVaultEntity> get visibleDocuments {
-    final q = searchQuery.trim().toLowerCase();
+    final q = searchQuery.trim();
+    final dateFmt = DateFormat('dd/MM/yyyy');
     return documents.where((doc) {
       if (selectedFolder != null && doc.folder != selectedFolder) return false;
       if (q.isEmpty) return true;
-      return doc.title.toLowerCase().contains(q) ||
-          doc.referenceCode.toLowerCase().contains(q) ||
-          doc.note.toLowerCase().contains(q) ||
-          doc.folder.displayTitle.toLowerCase().contains(q);
+      return VietnameseSearchMatcher.matchesAny(q, [
+        doc.title,
+        doc.referenceCode,
+        doc.note,
+        doc.folder.displayTitle,
+        doc.uploadedByName,
+        doc.expiryDate != null ? dateFmt.format(doc.expiryDate!) : null,
+      ]);
     }).toList();
   }
 
@@ -139,6 +153,7 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
     on<DocumentVaultWatchStarted>(_onWatchStarted, transformer: restartable());
     on<DocumentVaultFolderFilterChanged>(_onFolderChanged);
     on<DocumentVaultSearchQueryChanged>(_onSearchChanged);
+    on<DocumentVaultFiltersCleared>(_onFiltersCleared);
     on<DocumentVaultCreateSubmitted>(
       _onCreateSubmitted,
       transformer: droppable(),
@@ -161,11 +176,16 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
         userId: event.userId,
         familyId: event.familyId,
       ),
-      onData: (docs) =>
-          state.copyWith(isLoading: false, documents: docs, clearFailure: true),
+      onData: (docs) => state.copyWith(
+        isLoading: false,
+        documents: docs,
+        clearFailure: true,
+        clearMessage: true,
+      ),
       onError: (err, _) => state.copyWith(
         isLoading: false,
         failure: UnexpectedFailure(message: 'Lỗi tải kho tài liệu: $err'),
+        clearMessage: true,
       ),
     );
   }
@@ -188,6 +208,13 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
     emit(state.copyWith(searchQuery: event.query));
   }
 
+  void _onFiltersCleared(
+    DocumentVaultFiltersCleared event,
+    Emitter<DocumentVaultState> emit,
+  ) {
+    emit(state.copyWith(clearSelectedFolder: true, searchQuery: ''));
+  }
+
   Future<void> _onCreateSubmitted(
     DocumentVaultCreateSubmitted event,
     Emitter<DocumentVaultState> emit,
@@ -195,7 +222,7 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _repository.createDocument(event.params);
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
       (doc) => emit(
         state.copyWith(
           message: 'Đã lưu "${doc.title}" vào ${doc.folder.displayTitle}.',
@@ -214,7 +241,7 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
       document: event.document,
     );
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
       (_) => emit(state.copyWith(message: 'Đã xóa "${event.document.title}".')),
     );
   }

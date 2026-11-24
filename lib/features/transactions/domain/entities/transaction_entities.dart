@@ -7,6 +7,7 @@ enum TransactionKind { expense, income, transfer, creditCardPayment, reversal }
 enum TransactionVerification {
   provisional,
   userConfirmed,
+  matchedPaymentOrder,
   verified,
   rejected,
   needsReview,
@@ -183,10 +184,12 @@ class TransactionEntity extends Equatable {
   }) : ledgerApplied =
            ledgerApplied ??
            (verification == TransactionVerification.userConfirmed ||
+               verification == TransactionVerification.matchedPaymentOrder ||
                verification == TransactionVerification.verified);
 
   bool get isConfirmedInLedger =>
       verification == TransactionVerification.userConfirmed ||
+      verification == TransactionVerification.matchedPaymentOrder ||
       verification == TransactionVerification.verified;
 
   bool get isReversed => reversedById != null && reversedById!.isNotEmpty;

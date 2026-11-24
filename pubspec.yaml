@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Real-Time Banking Webhook + FCM Push + Clean Architecture BLoC v3.8)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Interactive Home Widgets + Offline Financial AI + Hardened Security v3.16)"
 publish_to: 'none'
-version: 3.15.0+30
+version: 3.16.0+31
 
 environment:
   sdk: ^3.10.0
@@ -57,3 +57,4 @@ flutter:
     - assets/images/planning_assets_illustration.png
     - assets/icons/
     - assets/bank_cards/
+    - assets/models/

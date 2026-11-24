@@ -122,58 +122,58 @@ class FamilyFundsPage extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
+                                    Wrap(
+                                      spacing: 12,
+                                      runSpacing: 8,
+                                      alignment: WrapAlignment.spaceBetween,
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                          WrapCrossAlignment.start,
                                       children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.savings_outlined,
-                                                    size: 19,
-                                                    color: c.primary,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'Tổng quỹ hiện tại',
-                                                      softWrap: true,
-                                                      style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w800,
-                                                        fontSize: 14.5,
-                                                        color: c.textPrimary,
-                                                      ),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.savings_outlined,
+                                                  size: 19,
+                                                  color: c.primary,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    'Tổng quỹ hiện tại',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      fontSize: 14.5,
+                                                      color: c.textPrimary,
                                                     ),
                                                   ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 6),
-                                              FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                alignment: Alignment.centerLeft,
-                                                child: Text(
-                                                  VndAmount.format(
-                                                    totalBalance,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 28,
-                                                    fontWeight: FontWeight.w800,
-                                                    letterSpacing: -0.6,
-                                                    color: c.textPrimary,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
-                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 6),
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                VndAmount.format(totalBalance),
+                                                style: TextStyle(
+                                                  fontSize: 28,
+                                                  fontWeight: FontWeight.w800,
+                                                  letterSpacing: -0.6,
+                                                  color: c.textPrimary,
+                                                  fontFeatures: const [
+                                                    FontFeature.tabularFigures(),
+                                                  ],
                                                 ),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                         Column(
                                           crossAxisAlignment:
@@ -207,22 +207,27 @@ class FamilyFundsPage extends StatelessWidget {
                                                       .arrow_downward_rounded,
                                                   tone:
                                                       LifeOsAccentTone.emerald,
-                                                  size: 36,
-                                                  iconSize: 18,
+                                                  size: 32,
+                                                  iconSize: 16,
                                                 ),
-                                                const SizedBox(width: 10),
+                                                const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
                                                             .start,
                                                     children: [
-                                                      Text(
-                                                        'Tiền vào (Thu)',
-                                                        style: TextStyle(
-                                                          fontSize: 11.8,
-                                                          color:
-                                                              c.textSecondary,
+                                                      FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment
+                                                            .centerLeft,
+                                                        child: Text(
+                                                          'Tiền vào (Thu)',
+                                                          style: TextStyle(
+                                                            fontSize: 11.8,
+                                                            color:
+                                                                c.textSecondary,
+                                                          ),
                                                         ),
                                                       ),
                                                       FittedBox(
@@ -242,12 +247,17 @@ class FamilyFundsPage extends StatelessWidget {
                                                           ),
                                                         ),
                                                       ),
-                                                      Text(
-                                                        'Tháng này',
-                                                        style: TextStyle(
-                                                          fontSize: 11.2,
-                                                          color:
-                                                              c.textSecondary,
+                                                      FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment
+                                                            .centerLeft,
+                                                        child: Text(
+                                                          'Tháng này',
+                                                          style: TextStyle(
+                                                            fontSize: 11.2,
+                                                            color:
+                                                                c.textSecondary,
+                                                          ),
                                                         ),
                                                       ),
                                                     ],
@@ -257,7 +267,7 @@ class FamilyFundsPage extends StatelessWidget {
                                             ),
                                           ),
                                           VerticalDivider(
-                                            width: 16,
+                                            width: 14,
                                             color: c.separator,
                                           ),
                                           Expanded(
@@ -267,22 +277,27 @@ class FamilyFundsPage extends StatelessWidget {
                                                   icon: Icons
                                                       .arrow_upward_rounded,
                                                   tone: LifeOsAccentTone.coral,
-                                                  size: 36,
-                                                  iconSize: 18,
+                                                  size: 32,
+                                                  iconSize: 16,
                                                 ),
-                                                const SizedBox(width: 10),
+                                                const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
                                                             .start,
                                                     children: [
-                                                      Text(
-                                                        'Tiền ra (Chi)',
-                                                        style: TextStyle(
-                                                          fontSize: 11.8,
-                                                          color:
-                                                              c.textSecondary,
+                                                      FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment
+                                                            .centerLeft,
+                                                        child: Text(
+                                                          'Tiền ra (Chi)',
+                                                          style: TextStyle(
+                                                            fontSize: 11.8,
+                                                            color:
+                                                                c.textSecondary,
+                                                          ),
                                                         ),
                                                       ),
                                                       FittedBox(
@@ -302,12 +317,17 @@ class FamilyFundsPage extends StatelessWidget {
                                                           ),
                                                         ),
                                                       ),
-                                                      Text(
-                                                        'Tháng này',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color:
-                                                              c.textSecondary,
+                                                      FittedBox(
+                                                        fit: BoxFit.scaleDown,
+                                                        alignment: Alignment
+                                                            .centerLeft,
+                                                        child: Text(
+                                                          'Tháng này',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color:
+                                                                c.textSecondary,
+                                                          ),
                                                         ),
                                                       ),
                                                     ],
@@ -422,11 +442,14 @@ class FamilyFundsPage extends StatelessWidget {
                               const SizedBox(height: 14),
 
                               // 3. "Mục tiêu quỹ" Section Header + Cards
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.track_changes_rounded,
@@ -434,12 +457,15 @@ class FamilyFundsPage extends StatelessWidget {
                                         color: c.primary,
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        'Mục tiêu quỹ',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: c.textPrimary,
+                                      Flexible(
+                                        child: Text(
+                                          'Mục tiêu quỹ',
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.textPrimary,
+                                          ),
                                         ),
                                       ),
                                     ],

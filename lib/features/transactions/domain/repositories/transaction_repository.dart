@@ -12,6 +12,13 @@ abstract interface class TransactionRepository {
     int limit = 100,
   });
 
+  Stream<Result<List<TransactionEntity>>> watchTransactionsRange({
+    required String userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+    int limit = 600,
+  });
+
   Future<Result<WalletEntity>> createWallet({
     required String userId,
     required String name,
@@ -48,6 +55,8 @@ abstract interface class TransactionRepository {
     required bool approve,
     String? updatedCategoryName,
     String? updatedMerchant,
+    int? updatedAmountMinor,
+    String? updatedNote,
   });
 
   Future<Result<void>> saveNetWorthSnapshot({

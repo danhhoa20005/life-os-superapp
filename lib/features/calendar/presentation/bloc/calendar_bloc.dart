@@ -3,7 +3,9 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/utils/stream_combiner.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../../domain/repositories/calendar_repository.dart';
 
@@ -40,6 +42,19 @@ final class CalendarSearchChanged extends CalendarEvent {
   List<Object?> get props => [query];
 }
 
+final class CalendarFiltersReset extends CalendarEvent {
+  final String? userId;
+  final bool enableHiddenUserCalendars;
+
+  const CalendarFiltersReset({
+    this.userId,
+    this.enableHiddenUserCalendars = true,
+  });
+
+  @override
+  List<Object?> get props => [userId, enableHiddenUserCalendars];
+}
+
 final class ManagedCalendarCreateSubmitted extends CalendarEvent {
   final CreateManagedCalendarParams params;
   const ManagedCalendarCreateSubmitted(this.params);
@@ -61,6 +76,21 @@ final class ManagedCalendarVisibilityToggled extends CalendarEvent {
 
   @override
   List<Object?> get props => [userId, calendar, isSelected];
+}
+
+final class ManagedCalendarsBulkVisibilitySet extends CalendarEvent {
+  final String userId;
+  final bool isSelected;
+  final bool includeSystemFeeds;
+
+  const ManagedCalendarsBulkVisibilitySet({
+    required this.userId,
+    required this.isSelected,
+    this.includeSystemFeeds = false,
+  });
+
+  @override
+  List<Object?> get props => [userId, isSelected, includeSystemFeeds];
 }
 
 final class ManagedCalendarDeleteSubmitted extends CalendarEvent {
@@ -111,13 +141,13 @@ final class CalendarEventDeleted extends CalendarEvent {
 
   @override
   List<Object?> get props => [
-        userId,
-        familyId,
-        visibility,
-        eventId,
-        googleCalendarId,
-        googleEventId,
-      ];
+    userId,
+    familyId,
+    visibility,
+    eventId,
+    googleCalendarId,
+    googleEventId,
+  ];
 }
 
 final class GoogleCalendarSyncRequested extends CalendarEvent {
@@ -134,14 +164,19 @@ final class GoogleCalendarSyncRequested extends CalendarEvent {
   });
 
   @override
-  List<Object?> get props => [userId, userName, interactive, manualAccessTokenOverride];
+  List<Object?> get props => [
+    userId,
+    userName,
+    interactive,
+    manualAccessTokenOverride,
+  ];
 }
 
 final class CalendarState extends Equatable {
   final bool isLoading;
   final bool isSyncingGoogle;
   final bool isGoogleAuthorized;
-  final List<ManagedCalendarEntity> calendars;
+  final List<ManagedCalendarEntity>? _calendarsInternal;
   final List<CalendarEventEntity> events;
   final String? selectedCalendarId;
   final String searchQuery;
@@ -149,29 +184,67 @@ final class CalendarState extends Equatable {
   final Failure? failure;
   final String? message;
 
+  List<ManagedCalendarEntity> get calendars =>
+      _calendarsInternal ?? const <ManagedCalendarEntity>[];
+
   const CalendarState({
     this.isLoading = false,
     this.isSyncingGoogle = false,
     this.isGoogleAuthorized = false,
-    this.calendars = const [],
+    List<ManagedCalendarEntity> calendars = const [],
     this.events = const [],
     this.selectedCalendarId,
     this.searchQuery = '',
     this.lastSyncReport,
     this.failure,
     this.message,
-  });
+  }) : _calendarsInternal = calendars;
+
+  List<DeduplicatedCalendarGroup> get deduplicatedCalendars =>
+      CalendarListDeduplicator.group(calendars);
+
+  bool get hasHiddenUserCalendars =>
+      deduplicatedCalendars.any((g) => !g.isSystemFeed && !g.isSelected);
+
+  bool get hasActiveFilters =>
+      (selectedCalendarId != null && selectedCalendarId!.isNotEmpty) ||
+      searchQuery.trim().isNotEmpty ||
+      hasHiddenUserCalendars;
 
   List<CalendarEventEntity> get filteredEvents {
-    final activeCalIds = calendars.where((c) => c.isSelected).map((c) => c.id).toSet();
-    final q = searchQuery.trim().toLowerCase();
+    final groups = deduplicatedCalendars;
+    final activeCalIds = <String>{
+      for (final g in groups)
+        if (g.isSelected) ...g.memberIds,
+    };
+    final selectedGroup =
+        (selectedCalendarId != null &&
+            selectedCalendarId!.isNotEmpty &&
+            selectedCalendarId != '__family__')
+        ? groups
+              .where(
+                (g) =>
+                    g.canonicalId == selectedCalendarId ||
+                    g.matchesCalendarId(selectedCalendarId),
+              )
+              .firstOrNull
+        : null;
+    final q = searchQuery.trim();
 
-    return events.where((ev) {
+    final matched = events.where((ev) {
       if (selectedCalendarId != null && selectedCalendarId!.isNotEmpty) {
         if (selectedCalendarId == '__family__') {
-          if (ev.visibility != CalendarEventVisibility.sharedEvent) return false;
-        } else if (ev.calendarId != selectedCalendarId) {
-          return false;
+          if (ev.visibility != CalendarEventVisibility.sharedEvent) {
+            return false;
+          }
+        } else {
+          if (ev.visibility != CalendarEventVisibility.privateEvent) {
+            return false;
+          }
+          final matchesSelected = selectedGroup != null
+              ? selectedGroup.matchesCalendarId(ev.calendarId)
+              : ev.calendarId == selectedCalendarId;
+          if (!matchesSelected) return false;
         }
       } else if (ev.visibility == CalendarEventVisibility.privateEvent &&
           calendars.isNotEmpty &&
@@ -181,13 +254,17 @@ final class CalendarState extends Equatable {
       }
 
       if (q.isNotEmpty) {
-        final inTitle = ev.title.toLowerCase().contains(q);
-        final inLoc = (ev.location ?? '').toLowerCase().contains(q);
-        final inDesc = (ev.description ?? '').toLowerCase().contains(q);
-        if (!inTitle && !inLoc && !inDesc) return false;
+        final matchesText = VietnameseSearchMatcher.matchesAny(q, [
+          ev.title,
+          ev.location,
+          ev.description,
+        ]);
+        if (!matchesText) return false;
       }
       return true;
     }).toList();
+
+    return CalendarListDeduplicator.deduplicateEvents(matched);
   }
 
   CalendarState copyWith({
@@ -211,8 +288,9 @@ final class CalendarState extends Equatable {
       isGoogleAuthorized: isGoogleAuthorized ?? this.isGoogleAuthorized,
       calendars: calendars != null ? List.unmodifiable(calendars) : this.calendars,
       events: events != null ? List.unmodifiable(events) : this.events,
-      selectedCalendarId:
-          clearSelectedCalendar ? null : (selectedCalendarId ?? this.selectedCalendarId),
+      selectedCalendarId: clearSelectedCalendar
+          ? null
+          : (selectedCalendarId ?? this.selectedCalendarId),
       searchQuery: searchQuery ?? this.searchQuery,
       lastSyncReport: lastSyncReport ?? this.lastSyncReport,
       failure: clearFailure ? null : (failure ?? this.failure),
@@ -222,17 +300,17 @@ final class CalendarState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        isSyncingGoogle,
-        isGoogleAuthorized,
-        calendars,
-        events,
-        selectedCalendarId,
-        searchQuery,
-        lastSyncReport,
-        failure,
-        message,
-      ];
+    isLoading,
+    isSyncingGoogle,
+    isGoogleAuthorized,
+    calendars,
+    events,
+    selectedCalendarId,
+    searchQuery,
+    lastSyncReport,
+    failure,
+    message,
+  ];
 }
 
 class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
@@ -248,33 +326,60 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     required CreateCalendarEventUseCase createEvent,
     UpdateCalendarEventUseCase? updateEvent,
     SyncGoogleCalendarUseCase? syncGoogle,
-  })  : _repository = repository,
-        _createCalendar = createCalendar ?? CreateManagedCalendarUseCase(repository),
-        _createEvent = createEvent,
-        _updateEvent = updateEvent ?? UpdateCalendarEventUseCase(repository),
-        _syncGoogle = syncGoogle ?? SyncGoogleCalendarUseCase(repository),
-        super(CalendarState(isGoogleAuthorized: repository.isGoogleCalendarAuthorized)) {
+  }) : _repository = repository,
+       _createCalendar =
+           createCalendar ?? CreateManagedCalendarUseCase(repository),
+       _createEvent = createEvent,
+       _updateEvent = updateEvent ?? UpdateCalendarEventUseCase(repository),
+       _syncGoogle = syncGoogle ?? SyncGoogleCalendarUseCase(repository),
+       super(
+         CalendarState(
+           isGoogleAuthorized: repository.isGoogleCalendarAuthorized,
+         ),
+       ) {
     on<CalendarWatchStarted>(_onWatchStarted, transformer: restartable());
     on<CalendarFilterSelected>(_onFilterSelected);
     on<CalendarSearchChanged>(_onSearchChanged);
-    on<ManagedCalendarCreateSubmitted>(_onManagedCalendarCreated, transformer: sequential());
-    on<ManagedCalendarVisibilityToggled>(_onManagedCalendarToggled, transformer: sequential());
-    on<ManagedCalendarDeleteSubmitted>(_onManagedCalendarDeleted, transformer: sequential());
+    on<CalendarFiltersReset>(_onFiltersReset, transformer: sequential());
+    on<ManagedCalendarCreateSubmitted>(
+      _onManagedCalendarCreated,
+      transformer: sequential(),
+    );
+    on<ManagedCalendarVisibilityToggled>(
+      _onManagedCalendarToggled,
+      transformer: sequential(),
+    );
+    on<ManagedCalendarsBulkVisibilitySet>(
+      _onManagedCalendarsBulkVisibilitySet,
+      transformer: sequential(),
+    );
+    on<ManagedCalendarDeleteSubmitted>(
+      _onManagedCalendarDeleted,
+      transformer: sequential(),
+    );
     on<CalendarEventCreated>(_onEventCreated, transformer: sequential());
     on<CalendarEventUpdated>(_onEventUpdated, transformer: sequential());
     on<CalendarEventDeleted>(_onEventDeleted, transformer: sequential());
-    on<GoogleCalendarSyncRequested>(_onGoogleSyncRequested, transformer: droppable());
+    on<GoogleCalendarSyncRequested>(
+      _onGoogleSyncRequested,
+      transformer: droppable(),
+    );
   }
 
   Future<void> _onWatchStarted(
     CalendarWatchStarted event,
     Emitter<CalendarState> emit,
   ) async {
+    final orphanFamilyFilter =
+        (event.familyId == null || event.familyId!.isEmpty) &&
+        state.selectedCalendarId == '__family__';
     emit(
       state.copyWith(
         isLoading: true,
         isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
+        clearSelectedCalendar: orphanFamilyFilter,
         clearFailure: true,
+        clearMessage: true,
       ),
     );
 
@@ -291,14 +396,8 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
         var nextCalendars = state.calendars;
         var nextEvents = state.events;
 
-        pair.calRes.fold(
-          (f) => err = f,
-          (cals) => nextCalendars = cals,
-        );
-        pair.evRes.fold(
-          (f) => err = f,
-          (evs) => nextEvents = evs,
-        );
+        pair.calRes.fold((f) => err = f, (cals) => nextCalendars = cals);
+        pair.evRes.fold((f) => err = f, (evs) => nextEvents = evs);
 
         return state.copyWith(
           isLoading: false,
@@ -307,6 +406,7 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
           events: nextEvents,
           failure: err,
           clearFailure: err == null,
+          clearMessage: true,
         );
       },
     );
@@ -316,7 +416,9 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     CalendarFilterSelected event,
     Emitter<CalendarState> emit,
   ) {
-    if (event.calendarId == null || event.calendarId!.isEmpty) {
+    if (event.calendarId == null ||
+        event.calendarId!.isEmpty ||
+        event.calendarId == state.selectedCalendarId) {
       emit(state.copyWith(clearSelectedCalendar: true));
     } else {
       emit(state.copyWith(selectedCalendarId: event.calendarId));
@@ -330,6 +432,34 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     emit(state.copyWith(searchQuery: event.query));
   }
 
+  Future<void> _onFiltersReset(
+    CalendarFiltersReset event,
+    Emitter<CalendarState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        clearSelectedCalendar: true,
+        searchQuery: '',
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
+    final uid = event.userId;
+    if (uid != null && uid.isNotEmpty && event.enableHiddenUserCalendars) {
+      final groups = state.deduplicatedCalendars.where(
+        (g) => !g.isSystemFeed && !g.isSelected,
+      );
+      for (final g in groups) {
+        for (final member in g.members) {
+          await _repository.updateCalendar(
+            userId: uid,
+            calendar: member.copyWith(isSelected: true),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _onManagedCalendarCreated(
     ManagedCalendarCreateSubmitted event,
     Emitter<CalendarState> emit,
@@ -337,7 +467,7 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _createCalendar(event.params);
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
       (cal) => emit(
         state.copyWith(
           isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
@@ -353,14 +483,59 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     ManagedCalendarVisibilityToggled event,
     Emitter<CalendarState> emit,
   ) async {
-    final res = await _repository.updateCalendar(
-      userId: event.userId,
-      calendar: event.calendar.copyWith(isSelected: event.isSelected),
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final matchingGroup = state.deduplicatedCalendars
+        .where((g) => g.matchesCalendarId(event.calendar.id))
+        .firstOrNull;
+    final targets =
+        matchingGroup?.members ?? <ManagedCalendarEntity>[event.calendar];
+
+    Failure? firstFailure;
+    for (final target in targets) {
+      final res = await _repository.updateCalendar(
+        userId: event.userId,
+        calendar: target.copyWith(isSelected: event.isSelected),
+      );
+      res.fold((f) => firstFailure ??= f, (_) {});
+    }
+    if (firstFailure != null) {
+      emit(state.copyWith(failure: firstFailure, clearMessage: true));
+    }
+  }
+
+  Future<void> _onManagedCalendarsBulkVisibilitySet(
+    ManagedCalendarsBulkVisibilitySet event,
+    Emitter<CalendarState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final groups = state.deduplicatedCalendars.where(
+      (g) => event.includeSystemFeeds || !g.isSystemFeed,
     );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) {},
-    );
+    Failure? firstFailure;
+    for (final g in groups) {
+      for (final member in g.members) {
+        if (!event.isSelected && (member.isPrimary || member.id == 'primary')) {
+          continue;
+        }
+        if (member.isSelected == event.isSelected) continue;
+        final res = await _repository.updateCalendar(
+          userId: event.userId,
+          calendar: member.copyWith(isSelected: event.isSelected),
+        );
+        res.fold((f) => firstFailure ??= f, (_) {});
+      }
+    }
+    if (firstFailure != null) {
+      emit(state.copyWith(failure: firstFailure, clearMessage: true));
+    } else {
+      emit(
+        state.copyWith(
+          message: event.isSelected
+              ? 'Đã bật hiển thị tất cả bộ lịch.'
+              : 'Đã ẩn bớt các bộ lịch phụ.',
+        ),
+      );
+    }
   }
 
   Future<void> _onManagedCalendarDeleted(
@@ -368,18 +543,71 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     Emitter<CalendarState> emit,
   ) async {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
-    final res = await _repository.deleteCalendar(
-      userId: event.userId,
-      calendar: event.calendar,
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearSelectedCalendar: state.selectedCalendarId == event.calendar.id,
-          message: 'Đã xóa bộ lịch "${event.calendar.summary}".',
+    final matchingGroup = state.deduplicatedCalendars
+        .where((g) => g.matchesCalendarId(event.calendar.id))
+        .firstOrNull;
+    final targets =
+        (matchingGroup?.members ?? <ManagedCalendarEntity>[event.calendar])
+            .where((m) => !m.isPrimary && m.id != 'primary')
+            .toList();
+    if (targets.isEmpty) {
+      final res = await _repository.deleteCalendar(
+        userId: event.userId,
+        calendar: event.calendar,
+      );
+      res.fold(
+        (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+        (_) => emit(
+          state.copyWith(
+            clearSelectedCalendar: state.selectedCalendarId == event.calendar.id,
+            message: 'Đã xóa bộ lịch "${event.calendar.summary}".',
+          ),
         ),
-      ),
+      );
+      return;
+    }
+
+    Failure? firstFailure;
+    for (final target in targets) {
+      final res = await _repository.deleteCalendar(
+        userId: event.userId,
+        calendar: target,
+      );
+      res.fold((f) => firstFailure ??= f, (_) {});
+    }
+    if (firstFailure != null) {
+      emit(state.copyWith(failure: firstFailure, clearMessage: true));
+    } else {
+      final shouldClearFilter = matchingGroup != null
+          ? matchingGroup.matchesCalendarId(state.selectedCalendarId)
+          : state.selectedCalendarId == event.calendar.id;
+      emit(
+        state.copyWith(
+          clearSelectedCalendar: shouldClearFilter,
+          message:
+              'Đã xóa bộ lịch "${matchingGroup?.displayTitle ?? event.calendar.summary}".',
+        ),
+      );
+    }
+  }
+
+  Future<void> _syncEventReminderAlarm(CalendarEventEntity ev) async {
+    if (ev.isAllDay || ev.reminderMinutesBefore <= 0) {
+      return;
+    }
+    final now = DateTime.now();
+    if (!ev.startsAt.isAfter(now.add(const Duration(seconds: 30)))) {
+      return;
+    }
+    await NativeAlarmSchedulerBridge.instance.scheduleEventAlarm(
+      eventId: ev.id,
+      title: ev.title,
+      subtitle: (ev.location ?? '').trim().isNotEmpty
+          ? ev.location!.trim()
+          : 'Lịch hẹn sắp diễn ra',
+      eventStartsAt: ev.startsAt,
+      minutesBefore: ev.reminderMinutesBefore,
+      fullScreen: false,
     );
   }
 
@@ -389,19 +617,26 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
   ) async {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _createEvent(event.params);
+    CalendarEventEntity? created;
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (ev) => emit(
-        state.copyWith(
-          isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
-          message: ev.syncStatus == CalendarSyncStatus.synced
-              ? 'Đã lưu & đồng bộ sự kiện vào Lịch!'
-              : ev.visibility == CalendarEventVisibility.privateEvent
-                  ? 'Đã lưu sự kiện riêng tư${ev.isRecurring ? " (${ev.recurrence.humanReadableVi})" : ""}.'
-                  : 'Đã chia sẻ sự kiện lên lịch gia đình.',
-        ),
-      ),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+      (ev) {
+        created = ev;
+        emit(
+          state.copyWith(
+            isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
+            message: ev.syncStatus == CalendarSyncStatus.synced
+                ? 'Đã lưu & đồng bộ sự kiện vào Lịch!'
+                : ev.visibility == CalendarEventVisibility.privateEvent
+                ? 'Đã lưu sự kiện riêng tư${ev.isRecurring ? " (${ev.recurrence.humanReadableVi})" : ""}.'
+                : 'Đã chia sẻ sự kiện lên lịch gia đình.',
+          ),
+        );
+      },
     );
+    if (created != null) {
+      await _syncEventReminderAlarm(created!);
+    }
   }
 
   Future<void> _onEventUpdated(
@@ -410,17 +645,28 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
   ) async {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _updateEvent(event.params);
+    CalendarEventEntity? updated;
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (ev) => emit(
-        state.copyWith(
-          isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
-          message: ev.syncStatus == CalendarSyncStatus.synced
-              ? 'Đã cập nhật & đồng bộ sự kiện vào Lịch!'
-              : 'Đã cập nhật sự kiện "${ev.title}".',
-        ),
-      ),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+      (ev) {
+        updated = ev;
+        emit(
+          state.copyWith(
+            isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
+            message: ev.syncStatus == CalendarSyncStatus.synced
+                ? 'Đã cập nhật & đồng bộ sự kiện vào Lịch!'
+                : 'Đã cập nhật sự kiện "${ev.title}".',
+          ),
+        );
+      },
     );
+    if (updated != null) {
+      if (updated!.reminderMinutesBefore <= 0) {
+        await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(updated!.id);
+      } else {
+        await _syncEventReminderAlarm(updated!);
+      }
+    }
   }
 
   Future<void> _onEventDeleted(
@@ -436,17 +682,30 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
       googleCalendarId: event.googleCalendarId,
       googleEventId: event.googleEventId,
     );
+    var deletedOk = false;
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(message: 'Đã xóa sự kiện khỏi lịch.')),
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+      (_) {
+        deletedOk = true;
+        emit(state.copyWith(message: 'Đã xóa sự kiện khỏi lịch.'));
+      },
     );
+    if (deletedOk) {
+      await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(event.eventId);
+    }
   }
 
   Future<void> _onGoogleSyncRequested(
     GoogleCalendarSyncRequested event,
     Emitter<CalendarState> emit,
   ) async {
-    emit(state.copyWith(isSyncingGoogle: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        isSyncingGoogle: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
     final res = await _syncGoogle(
       SyncGoogleCalendarParams(
         userId: event.userId,
@@ -462,6 +721,7 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
           isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
           failure: event.interactive ? f : null,
           clearFailure: !event.interactive,
+          clearMessage: true,
         ),
       ),
       (report) => emit(

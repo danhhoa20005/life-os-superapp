@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
+import '../../../../core/utils/vnd_amount.dart';
 import '../../domain/entities/transaction_entities.dart';
 
 enum LoadStatus { initial, loading, loaded, failure }
@@ -12,6 +14,8 @@ final class TransactionListState extends Equatable {
   final List<TransactionEntity> allTransactions;
   final String searchQuery;
   final TransactionKind? kindFilter;
+  final String? selectedWalletId;
+  final String? categoryFilter;
   final FinanceOverviewSummary summary;
   final Failure? failure;
 
@@ -23,6 +27,8 @@ final class TransactionListState extends Equatable {
     this.allTransactions = const [],
     this.searchQuery = '',
     this.kindFilter,
+    this.selectedWalletId,
+    this.categoryFilter,
     this.summary = const FinanceOverviewSummary(
       netWorthMinor: 0,
       monthlyIncomeMinor: 0,
@@ -34,17 +40,53 @@ final class TransactionListState extends Equatable {
     this.failure,
   });
 
+  bool get hasActiveFilters =>
+      searchQuery.trim().isNotEmpty ||
+      kindFilter != null ||
+      selectedWalletId != null ||
+      categoryFilter != null;
+
   List<TransactionEntity> get filteredTransactions {
-    final q = searchQuery.trim().toLowerCase();
+    final q = searchQuery.trim();
     return allTransactions
         .where((tx) {
-          if (tx.verification == TransactionVerification.rejected) return false;
-          if (kindFilter != null && tx.kind != kindFilter) return false;
+          if (!tx.isConfirmedInLedger) return false;
+          if (selectedWalletId != null &&
+              tx.walletId != selectedWalletId &&
+              tx.targetWalletId != selectedWalletId) {
+            return false;
+          }
+          if (kindFilter != null) {
+            if (kindFilter == TransactionKind.transfer) {
+              if (tx.kind != TransactionKind.transfer &&
+                  tx.kind != TransactionKind.creditCardPayment) {
+                return false;
+              }
+            } else if (tx.kind != kindFilter) {
+              return false;
+            }
+          }
+          if (categoryFilter != null) {
+            final foldedCat = VietnameseSearchMatcher.fold(categoryFilter!);
+            final matchesPrimary =
+                VietnameseSearchMatcher.fold(tx.categoryName) == foldedCat;
+            final matchesSplit = tx.splitLines.any(
+              (l) => VietnameseSearchMatcher.fold(l.categoryName) == foldedCat,
+            );
+            if (!matchesPrimary && !matchesSplit) return false;
+          }
           if (q.isNotEmpty) {
-            final matchMerchant = tx.merchant.toLowerCase().contains(q);
-            final matchCategory = tx.categoryName.toLowerCase().contains(q);
-            final matchNote = (tx.note ?? '').toLowerCase().contains(q);
-            if (!matchMerchant && !matchCategory && !matchNote) return false;
+            final matched = VietnameseSearchMatcher.matchesAny(q, [
+              tx.merchant,
+              tx.categoryName,
+              ...tx.splitLines.map((l) => l.categoryName),
+              tx.note,
+              tx.walletName,
+              tx.referenceCode,
+              tx.amountMinor.toString(),
+              VndAmount.format(tx.amountMinor),
+            ]);
+            if (!matched) return false;
           }
           return true;
         })
@@ -70,6 +112,10 @@ final class TransactionListState extends Equatable {
     String? searchQuery,
     TransactionKind? kindFilter,
     bool clearKindFilter = false,
+    String? selectedWalletId,
+    bool clearWalletFilter = false,
+    String? categoryFilter,
+    bool clearCategoryFilter = false,
     FinanceOverviewSummary? summary,
     Failure? failure,
     bool clearFailure = false,
@@ -86,6 +132,12 @@ final class TransactionListState extends Equatable {
           : this.allTransactions,
       searchQuery: searchQuery ?? this.searchQuery,
       kindFilter: clearKindFilter ? null : (kindFilter ?? this.kindFilter),
+      selectedWalletId: clearWalletFilter
+          ? null
+          : (selectedWalletId ?? this.selectedWalletId),
+      categoryFilter: clearCategoryFilter
+          ? null
+          : (categoryFilter ?? this.categoryFilter),
       summary: summary ?? this.summary,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -100,6 +152,8 @@ final class TransactionListState extends Equatable {
     allTransactions,
     searchQuery,
     kindFilter,
+    selectedWalletId,
+    categoryFilter,
     summary,
     failure,
   ];

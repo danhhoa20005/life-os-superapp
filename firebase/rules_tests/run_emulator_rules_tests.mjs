@@ -224,7 +224,92 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       403,
     );
 
-    // user_2 leaves family -> immediately denied reading shared fund (403)!
+    // SEC-04: 3rd-party member cannot forge a settlement between two other members!
+    const invCode3 = `FAM-M3-${Date.now()}`;
+    await firestoreRequest('PATCH', `family_invites/${invCode3}`, {
+      uid: 'owner_1',
+      data: {
+        inviteCode: invCode3,
+        familyId: 'fam_1',
+        createdBy: 'owner_1',
+        expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+      },
+    });
+    // SEC-03: Join with valid invite code BUT tampering family name -> DENIED (403)!
+    assert.equal(
+      await firestoreRequest('PATCH', 'families/fam_1', {
+        uid: 'user_3',
+        data: {
+          id: 'fam_1',
+          name: 'TÊN BỊ GIẢ MẠO',
+          createdBy: 'owner_1',
+          memberIds: ['owner_1', 'user_2', 'user_3'],
+          memberRoles: { owner_1: 'owner', user_2: 'member', user_3: 'member' },
+          lastJoinedInviteCode: invCode3,
+        },
+      }),
+      403,
+    );
+    // Clean join for user_3 -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', 'families/fam_1', {
+        uid: 'user_3',
+        data: {
+          id: 'fam_1',
+          name: 'Tổ ấm 1',
+          createdBy: 'owner_1',
+          memberIds: ['owner_1', 'user_2', 'user_3'],
+          memberRoles: { owner_1: 'owner', user_2: 'member', user_3: 'member' },
+          lastJoinedInviteCode: invCode3,
+        },
+      }),
+      200,
+    );
+    // SEC-04: user_3 tries to forge settlement between owner_1 and user_2 -> DENIED (403)!
+    assert.equal(
+      await firestoreRequest('PATCH', 'families/fam_1/settlements/st_forged', {
+        uid: 'user_3',
+        data: {
+          id: 'st_forged',
+          familyId: 'fam_1',
+          fromUserId: 'owner_1',
+          toUserId: 'user_2',
+          amountMinor: 120000,
+          paymentCode: 'FORGED',
+        },
+      }),
+      403,
+    );
+
+    // SEC-02: Owner promotes user_3 to 'admin', then user_3 tries to self-escalate to 'owner' or demote owner_1 -> DENIED (403)!
+    assert.equal(
+      await firestoreRequest('PATCH', 'families/fam_1', {
+        uid: 'owner_1',
+        data: {
+          id: 'fam_1',
+          name: 'Tổ ấm 1',
+          createdBy: 'owner_1',
+          memberIds: ['owner_1', 'user_2', 'user_3'],
+          memberRoles: { owner_1: 'owner', user_2: 'member', user_3: 'admin' },
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', 'families/fam_1', {
+        uid: 'user_3',
+        data: {
+          id: 'fam_1',
+          name: 'Tổ ấm 1',
+          createdBy: 'owner_1',
+          memberIds: ['owner_1', 'user_2', 'user_3'],
+          memberRoles: { owner_1: 'member', user_2: 'member', user_3: 'owner' },
+        },
+      }),
+      403,
+    );
+
+    // SEC-01: user_2 leaves family AND tries to tamper user_3's role -> DENIED (403)!
     assert.equal(
       await firestoreRequest('PATCH', 'families/fam_1', {
         uid: 'user_2',
@@ -232,8 +317,23 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           id: 'fam_1',
           name: 'Tổ ấm 1',
           createdBy: 'owner_1',
-          memberIds: ['owner_1'],
-          memberRoles: { owner_1: 'owner' },
+          memberIds: ['owner_1', 'user_3'],
+          memberRoles: { owner_1: 'owner', user_3: 'member' },
+        },
+      }),
+      403,
+    );
+
+    // Legitimate user_2 voluntary leave -> immediately denied reading shared fund (403)!
+    assert.equal(
+      await firestoreRequest('PATCH', 'families/fam_1', {
+        uid: 'user_2',
+        data: {
+          id: 'fam_1',
+          name: 'Tổ ấm 1',
+          createdBy: 'owner_1',
+          memberIds: ['owner_1', 'user_3'],
+          memberRoles: { owner_1: 'owner', user_3: 'admin' },
         },
       }),
       200,

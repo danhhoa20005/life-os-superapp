@@ -12,6 +12,9 @@ import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
+import '../../../financial_ai/data/normalization/financial_text_normalizer.dart';
+import '../../../financial_ai/domain/entities/financial_ai_entities.dart';
+import '../../../financial_ai/domain/repositories/financial_ai_repository.dart';
 import '../../domain/entities/notification_entities.dart';
 import '../../domain/repositories/notifications_repository.dart';
 
@@ -26,16 +29,19 @@ class NotificationsRemoteDataSource {
   final FirebaseAuth _firebaseAuth;
   final AndroidNotificationBridge _bridge;
   final CloudFunctionsInvoker? _functionsInvokerOverride;
+  final FinancialAiRepository? _financialAiRepository;
 
   NotificationsRemoteDataSource({
     required FirebaseFirestore firestore,
     required FirebaseAuth firebaseAuth,
     required AndroidNotificationBridge bridge,
     CloudFunctionsInvoker? functionsInvokerOverride,
+    FinancialAiRepository? financialAiRepository,
   }) : _firestore = firestore,
        _firebaseAuth = firebaseAuth,
        _bridge = bridge,
-       _functionsInvokerOverride = functionsInvokerOverride;
+       _functionsInvokerOverride = functionsInvokerOverride,
+       _financialAiRepository = financialAiRepository;
 
   Future<Map<String, dynamic>> _invokeBackendFunction(
     String functionName,
@@ -470,6 +476,9 @@ class NotificationsRemoteDataSource {
     );
 
     if (parsed.dropReason == BankSignalDropReason.otpOrSecret) {
+      if (notificationId != null && notificationId.isNotEmpty) {
+        await _bridge.acknowledgeQueuedNotification(notificationId);
+      }
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.blockedOtpOrSecret,
         message: 'Đã chặn thông báo chứa mã xác thực.',
@@ -477,30 +486,70 @@ class NotificationsRemoteDataSource {
     }
     final signal = parsed.signal;
     if (signal == null) {
+      if (notificationId != null && notificationId.isNotEmpty) {
+        await _bridge.acknowledgeQueuedNotification(notificationId);
+      }
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.ignoredPackageOrFormat,
         message: 'Thông báo không phải biến động số dư.',
       );
     }
 
-    // Step 4: Smart Linked Bank Account -> Wallet Routing (matches accountTail or bankCode)
+    // Step 4 (F08 / FIN-03): Safe Multi-Account Bank -> Wallet Routing (NEVER guess when >= 2 accounts share bankCode!)
     var targetWalletId = defaultWalletId;
+    var isAmbiguousWalletRouting = false;
     final bankAccSnap = await _bankAccountsCol(userId).get();
-    if (bankAccSnap.docs.isNotEmpty) {
-      final accounts = bankAccSnap.docs
-          .map((d) => _mapBankAccount(d.id, d.data()))
+    final walletsSnap = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('wallets')
+        .get();
+    final accounts = bankAccSnap.docs
+        .map((d) => _mapBankAccount(d.id, d.data()))
+        .toList();
+    final bankWalletsForCode = walletsSnap.docs.where((d) {
+      final data = d.data();
+      return (data['bankCode'] as String?)?.toUpperCase() ==
+          signal.bankCode.toUpperCase();
+    }).toList();
+
+    final tail = signal.accountTail?.trim() ?? '';
+    if (tail.isNotEmpty) {
+      final matchingAccs = accounts
+          .where((a) => a.accountTail.endsWith(tail) && a.walletId.isNotEmpty)
           .toList();
-      LinkedBankAccountEntity? routed;
-      if (signal.accountTail != null && signal.accountTail!.isNotEmpty) {
-        routed = accounts
-            .where((a) => a.accountTail.endsWith(signal.accountTail!))
-            .firstOrNull;
+      final matchingWalletIds = <String>{
+        ...matchingAccs.map((a) => a.walletId),
+        ...bankWalletsForCode
+            .where(
+              (w) => ((w.data()['maskedAccount'] as String?) ?? '').endsWith(
+                tail,
+              ),
+            )
+            .map((w) => w.id),
+      };
+      if (matchingWalletIds.length == 1) {
+        targetWalletId = matchingWalletIds.first;
+      } else if (matchingWalletIds.length > 1) {
+        isAmbiguousWalletRouting = true;
       }
-      routed ??= accounts
-          .where((a) => a.bankCode == signal.bankCode)
-          .firstOrNull;
-      if (routed != null && routed.walletId.isNotEmpty) {
-        targetWalletId = routed.walletId;
+    } else {
+      final candidateWalletIds = <String>{
+        ...accounts
+            .where(
+              (a) =>
+                  a.bankCode.toUpperCase() == signal.bankCode.toUpperCase() &&
+                  a.walletId.isNotEmpty,
+            )
+            .map((a) => a.walletId),
+        ...bankWalletsForCode.map((w) => w.id),
+      };
+      if (candidateWalletIds.length == 1) {
+        targetWalletId = candidateWalletIds.first;
+      } else if (candidateWalletIds.length > 1) {
+        // FIN-03: Multiple accounts at the same bank and notification lacks accountTail -> require user review!
+        isAmbiguousWalletRouting = true;
+        targetWalletId = candidateWalletIds.first;
       }
     }
 
@@ -519,6 +568,7 @@ class NotificationsRemoteDataSource {
                 upperCombined.contains(codeUpper))) {
           matchedOrder = order;
           targetWalletId = order.walletId;
+          isAmbiguousWalletRouting = false;
           break;
         }
       }
@@ -550,19 +600,117 @@ class NotificationsRemoteDataSource {
         .collection('transactions')
         .where('softWindowFingerprint', whereIn: candidateWindowFps)
         .get();
+
+    // F07 / FIN-01 / FIN-02: Never merge two distinct same-amount purchases within 15m!
+    // Only deduplicate against:
+    //  1) Exact same `sourceEventKey`
+    //  2) An authoritative `bankWebhook` / `bankApi` canonical record within ±15m (`FIN-02`)
+    //  3) Duplicate OS notification repost within 45s carrying identical post-tx `observedBalanceMinor` & merchant
     final matchingExistingDocs = existingTxQuery.docs.where((d) {
+      final data = d.data();
+      if (data['verification'] == 'rejected') return false;
+      if (data['sourceEventKey'] == signal.sourceEventKey) return true;
       if (matchedOrder != null) {
-        // Distinct QR payment codes are distinct payments even if same amount within 15 minutes
-        return d.data()['crossSourceFingerprint'] ==
-            signal.crossSourceFingerprint;
+        return data['crossSourceFingerprint'] == signal.crossSourceFingerprint &&
+            (data['sourceKind'] == 'bankWebhook' ||
+                data['sourceKind'] == 'bankApi');
       }
-      final ts = d.data()['occurredAt'];
-      if (ts is! Timestamp) return true;
-      return ts.toDate().difference(signal.occurredAt).abs() <=
-          const Duration(minutes: 15);
+      final ts = data['occurredAt'];
+      final dtDiff = ts is Timestamp
+          ? ts.toDate().difference(signal.occurredAt).abs()
+          : Duration.zero;
+      if (dtDiff > const Duration(minutes: 15)) return false;
+
+      final existingSource = data['sourceKind'] as String?;
+      if (existingSource == 'bankWebhook' || existingSource == 'bankApi') {
+        final existingMasked = (data['accountMasked'] as String?) ?? '';
+        if (tail.isNotEmpty &&
+            existingMasked.isNotEmpty &&
+            !existingMasked.endsWith(tail)) {
+          return false;
+        }
+        return true;
+      }
+
+      if (existingSource == 'androidNotification' &&
+          dtDiff <= const Duration(seconds: 45) &&
+          data['merchant'] == '${signal.bankCode}: ${signal.merchant}') {
+        final existingObsBal =
+            (data['observedBalanceMinor'] as num?)?.toInt() ??
+            (data['balanceAfterMinor'] as num?)?.toInt();
+        if (signal.observedBalanceMinor != null && existingObsBal != null) {
+          return existingObsBal == signal.observedBalanceMinor;
+        }
+        return signal.observedBalanceMinor == null && existingObsBal == null;
+      }
+      return false;
     }).toList();
 
-    final shouldAutoCommitToLedger = autoConfirm || matchedOrder != null;
+    // Step 5.5: Offline Financial AI + Personalization Category Enrichment (Phase 12)
+    var resolvedCategoryName = signal.categorySuggestion;
+    String? resolvedCategoryId;
+    var aiAllowsAutoConfirm = true;
+
+    if (matchedOrder == null && _financialAiRepository != null) {
+      try {
+        final prefsRes = await _financialAiRepository
+            .watchPreferences(userId)
+            .first;
+        final prefs = prefsRes.fold(
+          (_) => UserAiClassificationPreferences(userId: userId),
+          (p) => p,
+        );
+        if (prefs.autoClassifyBankNotifications) {
+          final norm = FinancialTextNormalizer().toClassifierInput(
+            signal.merchant,
+          );
+          final classRes = await _financialAiRepository
+              .classifyNormalizedSegment(norm);
+          String topSemKey = signal.direction == 'credit'
+              ? 'income.other'
+              : 'other';
+          double topProb = signal.confidence;
+          classRes.fold((_) {}, (cr) {
+            final dirAligned = cr.predictions.where((p) {
+              final isInc = p.semanticKey.startsWith('income.');
+              return signal.direction == 'credit' ? isInc : !isInc;
+            }).firstOrNull;
+            if (dirAligned != null) {
+              topSemKey = dirAligned.semanticKey;
+              topProb = dirAligned.probability;
+            }
+          });
+
+          final canonicalKey = FinancialTextNormalizer.canonicalizeMerchant(
+            signal.merchant,
+          );
+          final catRes = await _financialAiRepository.resolveUserCategory(
+            userId: userId,
+            semanticKey: topSemKey,
+            direction: signal.direction,
+            merchantCanonicalKey: canonicalKey,
+            source: FinancialInputSource.androidBankNotification,
+            amountMinor: signal.amountMinor,
+          );
+          catRes.fold((_) {}, (match) {
+            if (match.hasExactUserCategory || topProb >= 0.45) {
+              resolvedCategoryId = match.categoryId;
+              resolvedCategoryName = match.displayCategoryName;
+            }
+            if (match.hasMultipleMatches || topProb < 0.35) {
+              aiAllowsAutoConfirm = false;
+            }
+          });
+        }
+      } catch (_) {
+        // Fallback seamlessly to deterministic signal.categorySuggestion
+      }
+    }
+
+    final effectiveAutoConfirm =
+        autoConfirm && aiAllowsAutoConfirm && !isAmbiguousWalletRouting;
+    final shouldAutoCommitToLedger =
+        effectiveAutoConfirm || matchedOrder != null;
     var isDuplicate = false;
     final txId = matchedOrder != null
         ? 'qr_${signal.sourceEventKey.substring(0, 20)}'
@@ -575,14 +723,24 @@ class NotificationsRemoteDataSource {
         return;
       }
 
+      // F11 / FIN-04: Re-verify candidate inside transaction boundary for concurrency isolation
+      String? liveDuplicateTxId;
+      for (final cand in matchingExistingDocs) {
+        final liveSnap = await tx.get(cand.reference);
+        if (liveSnap.exists && liveSnap.data()?['verification'] != 'rejected') {
+          liveDuplicateTxId = liveSnap.id;
+          break;
+        }
+      }
+
       final now = DateTime.now();
-      if (matchingExistingDocs.isNotEmpty) {
+      if (liveDuplicateTxId != null) {
         isDuplicate = true;
         tx.set(eventRef, {
           'eventKey': signal.sourceEventKey,
           'source': 'android_notification',
           'status': 'duplicate_linked',
-          'linkedTransactionId': matchingExistingDocs.first.id,
+          'linkedTransactionId': liveDuplicateTxId,
           'receivedAt': Timestamp.fromDate(now),
         });
         return;
@@ -636,13 +794,16 @@ class NotificationsRemoteDataSource {
         'source': 'android_notification',
         'status': matchedOrder != null
             ? 'qr_order_reconciled'
-            : (autoConfirm ? 'auto_confirmed' : 'provisional_created'),
+            : isAmbiguousWalletRouting
+            ? 'ambiguous_wallet_needs_review'
+            : (effectiveAutoConfirm ? 'auto_confirmed' : 'provisional_created'),
         'linkedTransactionId': txId,
         if (matchedOrder != null) 'matchedOrderId': matchedOrder.id,
         'receivedAt': Timestamp.fromDate(now),
       });
 
       final hasObservedBankBal =
+          shouldAutoCommitToLedger &&
           syncObservedBalance &&
           signal.observedBalanceMinor != null &&
           signal.observedBalanceMinor! > 0;
@@ -651,12 +812,19 @@ class NotificationsRemoteDataSource {
           : (shouldAutoCommitToLedger
                 ? 'estimatedWalletBalance'
                 : 'unknownBalance');
+
+      // F09 & F08: QR match from Android notification uses `matchedPaymentOrder` (NEVER claims bank-verified `VERIFIED`),
+      // and ambiguous multi-account bank routing uses `needsReview`!
       final verifStr = matchedOrder != null
-          ? 'verified'
-          : (autoConfirm ? 'userConfirmed' : 'provisional');
+          ? 'matchedPaymentOrder'
+          : isAmbiguousWalletRouting
+          ? 'needsReview'
+          : (effectiveAutoConfirm ? 'userConfirmed' : 'provisional');
       final verifUpper = matchedOrder != null
-          ? 'VERIFIED'
-          : (autoConfirm ? 'USER_CONFIRMED' : 'PROVISIONAL');
+          ? 'MATCHED_PAYMENT_ORDER'
+          : isAmbiguousWalletRouting
+          ? 'NEEDS_REVIEW'
+          : (effectiveAutoConfirm ? 'USER_CONFIRMED' : 'PROVISIONAL');
 
       tx.set(
         _firestore
@@ -670,11 +838,15 @@ class NotificationsRemoteDataSource {
           'walletId': targetWalletId,
           if (resolvedWalletName != null) 'walletName': resolvedWalletName,
           if (newWalletBal != null) 'balanceAfterMinor': newWalletBal,
+          if (signal.observedBalanceMinor != null)
+            'observedBalanceMinor': signal.observedBalanceMinor,
           'balanceType': balanceType,
           'ledgerApplied': shouldAutoCommitToLedger,
+          if (matchedOrder == null && resolvedCategoryId != null)
+            'categoryId': resolvedCategoryId,
           'categoryName': matchedOrder != null
               ? 'Thu tiền QR'
-              : signal.categorySuggestion,
+              : resolvedCategoryName,
           'kind': signal.direction == 'credit' ? 'income' : 'expense',
           'direction': signal.direction,
           'amountMinor': signal.amountMinor,
@@ -686,7 +858,10 @@ class NotificationsRemoteDataSource {
               ? '${matchedOrder.description} (${matchedOrder.paymentCode})'
               : '${signal.bankCode}: ${signal.merchant}',
           if (matchedOrder != null)
-            'note': 'Tự động đối soát mã QR ${matchedOrder.paymentCode}',
+            'note': 'Khớp mã đơn QR ${matchedOrder.paymentCode} từ thông báo thiết bị',
+          if (isAmbiguousWalletRouting)
+            'note':
+                'Có nhiều tài khoản ${signal.bankCode} nhưng thông báo thiếu số đuôi TK — vui lòng chọn đúng ví.',
           'occurredAt': Timestamp.fromDate(signal.occurredAt),
           'receivedAt': Timestamp.fromDate(now),
           'monthKey': monthKey,
@@ -695,7 +870,9 @@ class NotificationsRemoteDataSource {
           'verification': verifStr,
           'verificationStatus': verifUpper,
           'reconciliationStatus': matchedOrder != null
-              ? 'canonical_verified'
+              ? 'matched_qr_order'
+              : isAmbiguousWalletRouting
+              ? 'ambiguous_wallet_needs_review'
               : 'unreconciled_provisional',
           'sourceEventKey': signal.sourceEventKey,
           'crossSourceFingerprint': signal.crossSourceFingerprint,
@@ -715,13 +892,18 @@ class NotificationsRemoteDataSource {
 
       final notifId = 'notif_${signal.sourceEventKey.substring(0, 24)}';
       final sign = signal.direction == 'credit' ? '+' : '-';
-      final notifTitle = matchedOrder != null || autoConfirm
+      final notifTitle = matchedOrder != null || effectiveAutoConfirm
           ? (signal.direction == 'credit'
                 ? '💰 Life OS — Tiền vừa về!'
                 : '💸 Life OS — Giao dịch chi tiêu')
           : '🔔 Life OS — Phát hiện biến động ngân hàng';
+      final statusVi = matchedOrder != null
+          ? 'Đã khớp đơn QR'
+          : isAmbiguousWalletRouting
+          ? 'Cần chọn đúng ví'
+          : (effectiveAutoConfirm ? 'Đã xác nhận' : 'Tạm ghi nhận');
       final notifBody =
-          '$sign${VndAmount.format(signal.amountMinor)}\nNguồn: Thông báo Android\nTrạng thái: ${matchedOrder != null ? "Đã xác minh QR" : (autoConfirm ? "Đã xác nhận" : "Chờ đối soát")}';
+          '$sign${VndAmount.format(signal.amountMinor)}\nNguồn: Thông báo Android\nTrạng thái: $statusVi';
       tx.set(_financialNotifsCol(userId).doc(notifId), {
         'id': notifId,
         'ownerId': userId,
@@ -746,6 +928,11 @@ class NotificationsRemoteDataSource {
         'createdAt': Timestamp.fromDate(now),
       });
     });
+
+    // F10 / BG-01: Explicitly ACK durable Android SQLite queue ONLY AFTER Firestore transaction succeeds!
+    if (notificationId != null && notificationId.isNotEmpty) {
+      await _bridge.acknowledgeQueuedNotification(notificationId);
+    }
 
     if (isDuplicate) {
       return const IngestionOutcome(
@@ -800,7 +987,9 @@ class NotificationsRemoteDataSource {
     return IngestionOutcome(
       kind: IngestionOutcomeKind.createdProvisional,
       transactionId: txId,
-      message: autoConfirm
+      message: isAmbiguousWalletRouting
+          ? 'Có nhiều tài khoản ${signal.bankCode} — vui lòng kiểm tra và chọn ví.'
+          : effectiveAutoConfirm
           ? 'Đã tự động ghi nhận ${VndAmount.format(signal.amountMinor)} vào ví.'
           : 'Đã nhận diện giao dịch mới chờ xác nhận.',
     );
@@ -856,9 +1045,8 @@ class NotificationsRemoteDataSource {
       return ext != null && ext == externalTransactionId;
     }).firstOrNull;
 
-    // Cross-source reconciliation candidates (T05, T06, T24):
-    // Matches BOTH `provisional` AND `userConfirmed` unlinked Android signals within ±15m,
-    // while keeping distinct `referenceCode` transactions separate!
+    // Cross-source reconciliation candidates (T05, T06, T24, F09):
+    // Upgrades `provisional`, `userConfirmed`, `matchedPaymentOrder`, or `needsReview` Android signals within ±15m!
     final reconcilableCandidates = provMatches.docs.where((d) {
       final data = d.data();
       if (data['verification'] == 'rejected') return false;
@@ -893,11 +1081,35 @@ class NotificationsRemoteDataSource {
         matchingAndroidDoc?.id ??
         'ver_${eventKey.substring(0, 20)}';
 
+    // F11 / FIN-04: Deterministic external transaction claim inside runTransaction blocks burst race conditions!
+    final claimRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('source_claims')
+        .doc('ext_$externalTransactionId');
+
     await _firestore.runTransaction((tx) async {
       final evSnap = await tx.get(eventRef);
-      if (evSnap.exists || exactExternalMatch != null) {
+      final claimSnap = await tx.get(claimRef);
+      if (evSnap.exists || claimSnap.exists || exactExternalMatch != null) {
         outcomeKind = IngestionOutcomeKind.duplicateIgnored;
         return;
+      }
+
+      DocumentSnapshot<Map<String, dynamic>>? liveAndroidSnap;
+      if (matchingAndroidDoc != null) {
+        final snap = await tx.get(matchingAndroidDoc.reference);
+        if (snap.exists && snap.data()?['externalTransactionId'] == null) {
+          liveAndroidSnap = snap;
+        } else if (snap.exists) {
+          // Another worker already upgraded this Android doc; create standalone verified or skip if same extId
+          if (snap.data()?['externalTransactionId']?.toString() ==
+              externalTransactionId) {
+            outcomeKind = IngestionOutcomeKind.duplicateIgnored;
+            return;
+          }
+          targetTxId = 'ver_${eventKey.substring(0, 20)}';
+        }
       }
 
       final walletRef = _firestore
@@ -911,11 +1123,18 @@ class NotificationsRemoteDataSource {
       final delta = direction == 'credit' ? amountMinor : -amountMinor;
       final now = DateTime.now();
 
-      final matchedData = matchingAndroidDoc?.data();
+      tx.set(claimRef, {
+        'externalTransactionId': externalTransactionId,
+        'linkedTransactionId': targetTxId,
+        'claimedAt': Timestamp.fromDate(now),
+      });
+
+      final matchedData = liveAndroidSnap?.data();
       final alreadyAppliedInLedger =
           matchedData != null &&
           ((matchedData['ledgerApplied'] as bool?) ??
               (matchedData['verification'] == 'userConfirmed' ||
+                  matchedData['verification'] == 'matchedPaymentOrder' ||
                   matchedData['verification'] == 'verified'));
 
       // T15: NEVER treat accumulatedBalanceMinor == 0 as zero bank balance!
@@ -1329,6 +1548,10 @@ class NotificationsRemoteDataSource {
       'utility_readings',
       'home_contracts',
       'life_notes',
+      'ai_personalization_rules',
+      'ai_category_corrections',
+      'ai_pending_drafts',
+      'ai_preferences',
     ];
     for (final sub in allPersonalSubcollections) {
       final subSnap = await userDocRef.collection(sub).get();

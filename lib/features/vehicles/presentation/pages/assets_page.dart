@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
@@ -474,117 +475,18 @@ class AssetsPage extends StatelessWidget {
   }
 
   static Future<void> _showSpecEncyclopediaSheet(BuildContext context) async {
-    final numFmt = NumberFormat('#,###', 'vi_VN');
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final c = TammySemanticColors.of(ctx);
         return DraggableScrollableSheet(
-          initialChildSize: 0.84,
+          initialChildSize: 0.86,
           minChildSize: 0.55,
           maxChildSize: 0.94,
           expand: false,
           builder: (ctx, scrollCtrl) => LiquidGlassSheetFrame(
-            child: ListView(
-              controller: scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-              children: [
-                Text(
-                  'Cẩm nang Thông số Bảo dưỡng Chuẩn hãng',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: c.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tổng hợp định mức từ Honda Việt Nam (HEAD), Yamaha Town, Piaggio/Vespa (i-Get) và VinFast giúp bạn đi bảo dưỡng không lo đổ sai nhớt hay thay thừa phụ tùng.',
-                  softWrap: true,
-                  style: TextStyle(fontSize: 12.8, color: c.textSecondary),
-                ),
-                const SizedBox(height: 14),
-                ...MotorcycleSpecCatalog.allProfiles.map(
-                  (p) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: LifeOsSoftCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              LifeOsStatusPill(
-                                icon: p.category.isMotorcycle
-                                    ? Icons.two_wheeler_rounded
-                                    : Icons.directions_car_filled_outlined,
-                                label: p.category.displayLabel,
-                                tone: LifeOsAccentTone.emerald,
-                              ),
-                              Text(
-                                p.modelLineTitle,
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: c.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            p.engineTechSummary,
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 12.2,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _SpecKeyValueLine(
-                            label: 'Chuẩn nhớt',
-                            value: p.oilGradeSpec,
-                          ),
-                          _SpecKeyValueLine(
-                            label: 'Dung tích nhớt máy',
-                            value: p.engineOilCapacity,
-                          ),
-                          if (p.gearOilCapacity != null)
-                            _SpecKeyValueLine(
-                              label: 'Dung tích nhớt láp',
-                              value: p.gearOilCapacity!,
-                            ),
-                          _SpecKeyValueLine(
-                            label: 'Làm mát',
-                            value: p.coolingSystem,
-                          ),
-                          _SpecKeyValueLine(
-                            label: 'Chu kỳ chính',
-                            value:
-                                'Mỗi ${numFmt.format(p.recommendedOilIntervalKm)} km (${p.recommendedIntervalDays} ngày)',
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '• ${p.firstBreakInNote}',
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: c.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _SpecEncyclopediaSheetBody(scrollController: scrollCtrl),
           ),
         );
       },
@@ -841,9 +743,14 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                   children: List.generate(widget.vehicles.length, (i) {
                     final v = widget.vehicles[i];
                     final picked = i == _selectedIdx;
+                    final canDelete =
+                        !v.isFamilyShared ||
+                        v.ownerId.isEmpty ||
+                        v.ownerId == widget.userId;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8, bottom: 10),
-                      child: ChoiceChip(
+                      child: InputChip(
+                        key: Key('vehicle_chip_${v.id}'),
                         selected: picked,
                         avatar: Icon(
                           v.isMotorcycle
@@ -858,6 +765,13 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                             _watchedHistoryVehicleId = null;
                           });
                         },
+                        deleteIcon: canDelete
+                            ? const Icon(Icons.close_rounded, size: 16)
+                            : null,
+                        deleteButtonTooltipMessage: 'Xóa xe này',
+                        onDeleted: canDelete
+                            ? () => _confirmDeleteVehicle(context, v)
+                            : null,
                       ),
                     );
                   }),
@@ -986,7 +900,6 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                             : VehicleDueState.healthy);
 
                   final remDays = activeVehicle.remainingDaysFrom(now);
-                  final nextServiceDate = activeVehicle.nextDueDate;
                   final insuranceDate = activeVehicle.insuranceExpiryDate;
                   final insuranceRemDays = insuranceDate
                       ?.difference(now)
@@ -1094,6 +1007,23 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                     ],
                                   ),
                                 ),
+                                if (!activeVehicle.isFamilyShared ||
+                                    activeVehicle.ownerId.isEmpty ||
+                                    activeVehicle.ownerId == widget.userId)
+                                  IconButton(
+                                    key: const Key('vehicle_delete_btn'),
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: 'Xóa xe này',
+                                    onPressed: () => _confirmDeleteVehicle(
+                                      context,
+                                      activeVehicle,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 20,
+                                      color: Color(0xFFDC2626),
+                                    ),
+                                  ),
                               ],
                             ),
                             const Divider(height: 24),
@@ -1112,14 +1042,17 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                           color: c.primary,
                                         ),
                                         const SizedBox(height: 6),
-                                        Text(
-                                          activeVehicle.isMotorcycle
-                                              ? 'Thay nhớt kế tiếp'
-                                              : 'Bảo dưỡng kế tiếp',
-                                          softWrap: true,
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            color: c.textSecondary,
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            activeVehicle.isMotorcycle
+                                                ? 'Thay nhớt kế tiếp'
+                                                : 'Bảo dưỡng kế tiếp',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              color: c.textSecondary,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 2),
@@ -1138,26 +1071,30 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                             ),
                                           ),
                                         ),
-                                        Text(
-                                          activeVehicle.remainingKm >= 0
-                                              ? 'Còn ${numFmt.format(activeVehicle.remainingKm)} km (${dateFmt.format(nextServiceDate)})'
-                                              : 'Quá hạn ${numFmt.format(-activeVehicle.remainingKm)} km',
-                                          softWrap: true,
-                                          style: TextStyle(
-                                            fontSize: 11.4,
-                                            color:
-                                                remDays < 0 ||
-                                                    activeVehicle.remainingKm <
-                                                        0
-                                                ? const Color(0xFFC92A2A)
-                                                : c.textSecondary,
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            activeVehicle.remainingKm >= 0
+                                                ? 'Còn ${numFmt.format(activeVehicle.remainingKm)} km'
+                                                : 'Quá hạn ${numFmt.format(-activeVehicle.remainingKm)} km',
+                                            style: TextStyle(
+                                              fontSize: 11.4,
+                                              color:
+                                                  remDays < 0 ||
+                                                      activeVehicle
+                                                              .remainingKm <
+                                                          0
+                                                  ? const Color(0xFFC92A2A)
+                                                  : c.textSecondary,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  VerticalDivider(
-                                    width: 16,
+                                   VerticalDivider(
+                                    width: 12,
                                     color: c.separator,
                                   ),
                                   Expanded(
@@ -1178,12 +1115,15 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                             color: c.primary,
                                           ),
                                           const SizedBox(height: 6),
-                                          Text(
-                                            'Số ODO (chạm sửa)',
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: c.textSecondary,
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              'Số ODO (chạm sửa)',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: c.textSecondary,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(height: 2),
@@ -1215,7 +1155,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                     ),
                                   ),
                                   VerticalDivider(
-                                    width: 16,
+                                    width: 12,
                                     color: c.separator,
                                   ),
                                   Expanded(
@@ -1235,12 +1175,15 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                             color: c.primary,
                                           ),
                                           const SizedBox(height: 6),
-                                          Text(
-                                            'Bảo hiểm TNDS',
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: c.textSecondary,
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              'Bảo hiểm TNDS',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: c.textSecondary,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(height: 2),
@@ -1260,16 +1203,19 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                               ),
                                             ),
                                           ),
-                                          Text(
-                                            insuranceRemDays != null
-                                                ? (insuranceRemDays >= 0
-                                                      ? 'Còn $insuranceRemDays ngày'
-                                                      : 'Quá hạn ${-insuranceRemDays} ngày')
-                                                : 'Chạm cập nhật',
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 11.4,
-                                              color: c.textSecondary,
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              insuranceRemDays != null
+                                                  ? (insuranceRemDays >= 0
+                                                        ? 'Còn $insuranceRemDays ngày'
+                                                        : 'Quá hạn ${-insuranceRemDays} ngày')
+                                                  : 'Chạm cập nhật',
+                                              style: TextStyle(
+                                                fontSize: 11.4,
+                                                color: c.textSecondary,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1868,33 +1814,96 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: FilledButton(
-                          onPressed: () {
-                            bloc.add(
-                              VehicleSpecProfileUpdated(
-                                vehicle: vehicle,
-                                category: selectedCategory,
-                                modelProfileKey: selectedProfile.profileKey,
-                                insuranceExpiryDate: insuranceExpiry,
-                                inspectionExpiryDate: inspectionExpiry,
-                              ),
-                            );
-                            Navigator.of(ctx).pop();
-                          },
-                          child: const Text('Áp dụng thông số'),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            onPressed: () {
+                              bloc.add(
+                                VehicleSpecProfileUpdated(
+                                  vehicle: vehicle,
+                                  category: selectedCategory,
+                                  modelProfileKey: selectedProfile.profileKey,
+                                  insuranceExpiryDate: insuranceExpiry,
+                                  inspectionExpiryDate: inspectionExpiry,
+                                ),
+                              );
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Text('Áp dụng thông số'),
+                          ),
                         ),
+                      ],
+                    ),
+                    if (!vehicle.isFamilyShared ||
+                        vehicle.ownerId.isEmpty ||
+                        vehicle.ownerId == widget.userId) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        key: const Key('edit_sheet_delete_vehicle_btn'),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _confirmDeleteVehicle(context, vehicle);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFDC2626),
+                        ),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Xóa phương tiện này khỏi danh sách'),
                       ),
                     ],
-                  ),
-                ],
+                  ],
+                ),
               ),
+            );
+          },
+        ),
+      );
+    }
+
+  Future<void> _confirmDeleteVehicle(
+    BuildContext context,
+    VehicleEntity vehicle,
+  ) async {
+    final bloc = context.read<VehicleBloc>();
+    final plateText = vehicle.plateNumber.trim().isEmpty
+        ? 'chưa cập nhật biển số'
+        : vehicle.displayPlateForViewer(widget.userId);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Xóa xe "${vehicle.name}"?'),
+        content: Text(
+          'Hồ sơ xe ($plateText) và các mốc nhắc bảo dưỡng của xe này sẽ được xóa khỏi danh sách. Các giao dịch chi tiêu đã lưu trong Sổ thu chi không bị ảnh hưởng.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Giữ lại'),
+          ),
+          FilledButton(
+            key: const Key('confirm_delete_vehicle_dialog_btn'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
             ),
-          );
-        },
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Xóa xe'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _selectedIdx = 0;
+        _watchedHistoryVehicleId = null;
+      });
+      bloc.add(VehicleDeleted(actorUserId: widget.userId, vehicle: vehicle));
+    }
   }
 
   Future<void> _showMaintenanceSheet(
@@ -2411,20 +2420,74 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (defaultWalletId != null)
-                          FilledButton.tonal(
-                            onPressed: () {
-                              context.read<VehicleBloc>().add(
-                                RecurringBillPaid(
-                                  userId: userId,
-                                  bill: b,
-                                  paidAmountMinor: b.estimatedAmountMinor,
-                                  walletId: defaultWalletId!,
+                            if (defaultWalletId != null)
+                              FilledButton.tonal(
+                                onPressed: () {
+                                  context.read<VehicleBloc>().add(
+                                    RecurringBillPaid(
+                                      userId: userId,
+                                      bill: b,
+                                      paidAmountMinor: b.estimatedAmountMinor,
+                                      walletId: defaultWalletId!,
+                                    ),
+                                  );
+                                },
+                                child: const Text('Thanh toán'),
+                              ),
+                            if (b.familyId == null ||
+                                b.ownerId.isEmpty ||
+                                b.ownerId == userId)
+                              IconButton(
+                                key: Key('bill_delete_btn_${b.id}'),
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Xóa hóa đơn',
+                                onPressed: () async {
+                                  final bloc = context.read<VehicleBloc>();
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dCtx) => AlertDialog(
+                                      title: Text('Xóa "${b.title}"?'),
+                                      content: const Text(
+                                        'Hóa đơn định kỳ này sẽ được gỡ khỏi danh sách nhắc hạn hằng tháng.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(dCtx).pop(false),
+                                          child: const Text('Giữ lại'),
+                                        ),
+                                        FilledButton(
+                                          key: const Key(
+                                            'confirm_delete_bill_dialog_btn',
+                                          ),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFFDC2626,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.of(dCtx).pop(true),
+                                          child: const Text('Xóa'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) {
+                                    bloc.add(
+                                      RecurringBillDeleted(
+                                        actorUserId: userId,
+                                        bill: b,
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 19,
+                                  color: c.textSecondary,
                                 ),
-                              );
-                            },
-                            child: const Text('Thanh toán'),
-                          ),
+                              ),
                       ],
                     ),
                   ),
@@ -2433,6 +2496,226 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SpecEncyclopediaSheetBody extends StatefulWidget {
+  final ScrollController scrollController;
+
+  const _SpecEncyclopediaSheetBody({required this.scrollController});
+
+  @override
+  State<_SpecEncyclopediaSheetBody> createState() =>
+      _SpecEncyclopediaSheetBodyState();
+}
+
+class _SpecEncyclopediaSheetBodyState
+    extends State<_SpecEncyclopediaSheetBody> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  VehicleCategory? _selectedCategory;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final numFmt = NumberFormat('#,###', 'vi_VN');
+    final hasActiveFilter =
+        _selectedCategory != null || _searchQuery.trim().isNotEmpty;
+    final filteredProfiles = MotorcycleSpecCatalog.allProfiles.where((p) {
+      if (_selectedCategory != null && p.category != _selectedCategory) {
+        return false;
+      }
+      return VietnameseSearchMatcher.matchesAny(_searchQuery, [
+        p.modelLineTitle,
+        p.category.displayLabel,
+        p.engineTechSummary,
+        p.oilGradeSpec,
+        p.coolingSystem,
+      ]);
+    }).toList();
+
+    return ListView(
+      controller: widget.scrollController,
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      children: [
+        Text(
+          'Cẩm nang Thông số Bảo dưỡng Chuẩn hãng',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: c.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tổng hợp định mức từ Honda Việt Nam (HEAD), Yamaha Town, Piaggio/Vespa (i-Get) và VinFast giúp bạn đi bảo dưỡng không lo đổ sai nhớt hay thay thừa phụ tùng.',
+          softWrap: true,
+          style: TextStyle(fontSize: 12.8, color: c.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('vehicle_spec_search_field'),
+          controller: _searchCtrl,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Tìm dòng xe, chuẩn nhớt',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    key: const Key('vehicle_spec_clear_btn'),
+                    tooltip: 'Xóa tìm kiếm',
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ChoiceChip(
+              key: const Key('vehicle_spec_filter_all'),
+              label: Text('Tất cả (${MotorcycleSpecCatalog.allProfiles.length})'),
+              selected: !hasActiveFilter,
+              onSelected: (_) {
+                _searchCtrl.clear();
+                setState(() {
+                  _selectedCategory = null;
+                  _searchQuery = '';
+                });
+              },
+            ),
+            for (final cat in VehicleCategory.values)
+              ChoiceChip(
+                label: Text(cat.displayLabel),
+                selected: _selectedCategory == cat,
+                onSelected: (sel) =>
+                    setState(() => _selectedCategory = sel ? cat : null),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (filteredProfiles.isEmpty)
+          LifeOsSoftCard(
+            child: Column(
+              children: [
+                Icon(Icons.search_off_rounded, size: 36, color: c.primary),
+                const SizedBox(height: 8),
+                Text(
+                  'Không tìm thấy dòng xe khớp bộ lọc',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: c.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  key: const Key('vehicle_spec_reset_btn'),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() {
+                      _selectedCategory = null;
+                      _searchQuery = '';
+                    });
+                  },
+                  icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                  label: const Text('Xem tất cả'),
+                ),
+              ],
+            ),
+          )
+        else
+          ...filteredProfiles.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: LifeOsSoftCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        LifeOsStatusPill(
+                          icon: p.category.isMotorcycle
+                              ? Icons.two_wheeler_rounded
+                              : Icons.directions_car_filled_outlined,
+                          label: p.category.displayLabel,
+                          tone: LifeOsAccentTone.emerald,
+                        ),
+                        Text(
+                          p.modelLineTitle,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      p.engineTechSummary,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 12.2,
+                        color: c.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _SpecKeyValueLine(
+                      label: 'Chuẩn nhớt',
+                      value: p.oilGradeSpec,
+                    ),
+                    _SpecKeyValueLine(
+                      label: 'Dung tích nhớt máy',
+                      value: p.engineOilCapacity,
+                    ),
+                    if (p.gearOilCapacity != null)
+                      _SpecKeyValueLine(
+                        label: 'Dung tích nhớt láp',
+                        value: p.gearOilCapacity!,
+                      ),
+                    _SpecKeyValueLine(
+                      label: 'Làm mát',
+                      value: p.coolingSystem,
+                    ),
+                    _SpecKeyValueLine(
+                      label: 'Chu kỳ chính',
+                      value:
+                          'Mỗi ${numFmt.format(p.recommendedOilIntervalKm)} km (${p.recommendedIntervalDays} ngày)',
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '• ${p.firstBreakInNote}',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: c.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

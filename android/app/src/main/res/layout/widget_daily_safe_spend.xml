@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget 4: Google Digital Wellbeing / Calendar Material 3 Daily Safe Spend Card (3x2 / 4x2) -->
+<!-- Widget 4: Interactive On-Home-Screen Daily Safe Spend & Hydration +250ml Card (3x2 / 4x2) -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="12dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -21,12 +21,14 @@
             android:orientation="horizontal">
 
             <ImageView
-                android:layout_width="19dp"
-                android:layout_height="19dp"
+                android:id="@+id/img_safe_open_app"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:contentDescription="Hạn mức an toàn"
                 android:src="@drawable/ic_widget_shield_check" />
 
             <TextView
+                android:id="@+id/tv_safe_mode_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="6dp"
@@ -36,42 +38,41 @@
                 android:maxLines="1"
                 android:text="Hạn mức hôm nay"
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="12sp" />
+                android:textSize="11.5sp" />
 
             <TextView
                 android:id="@+id/tv_safe_pct_badge"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="24dp"
                 android:background="@drawable/bg_widget_m3_tonal_pill"
                 android:fontFamily="sans-serif-medium"
+                android:gravity="center"
                 android:paddingLeft="8dp"
-                android:paddingTop="2dp"
                 android:paddingRight="8dp"
-                android:paddingBottom="2dp"
                 android:text="Đã dùng 15%"
                 android:textColor="@color/widget_primary_tonal_fg"
-                android:textSize="10.5sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/tv_safe_daily_amount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="3dp"
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="2.373.375 ₫"
             android:textColor="@color/widget_text_primary"
-            android:textSize="22sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <ProgressBar
             android:id="@+id/pb_safe_daily"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
-            android:layout_marginTop="10dp"
+            android:layout_height="8dp"
+            android:layout_marginTop="5dp"
             android:max="100"
             android:progress="15"
             android:progressDrawable="@drawable/bg_widget_m3_progress" />
@@ -80,11 +81,70 @@
             android:id="@+id/tv_safe_runway"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:text="Quỹ dự phòng ổn định · Tự động cập nhật"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="11.5sp" />
+            android:textSize="10.5sp" />
+
+        <!-- Direct On-Home-Screen Broadcast Buttons (-20k / -50k OR +250ml / +350ml + Mode Toggle) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="6dp"
+            android:layout_weight="1"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btn_safe_action_1"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
+                android:text="-20k Nhanh"
+                android:textColor="@color/widget_primary_tonal_fg"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_safe_action_2"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_marginLeft="5dp"
+                android:layout_weight="1.05"
+                android:background="@drawable/bg_widget_m3_primary_pill"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
+                android:text="-50k Ăn uống"
+                android:textColor="@color/widget_on_primary"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_safe_switch_mode"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginLeft="5dp"
+                android:background="@drawable/bg_widget_m3_tonal_box"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:text="Nước"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="10.5sp" />
+        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

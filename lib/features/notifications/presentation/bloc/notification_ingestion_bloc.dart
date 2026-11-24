@@ -443,6 +443,7 @@ final class NotificationIngestionState extends Equatable {
     bool clearLatestCreatedOrder = false,
     IngestionOutcome? lastOutcome,
     String? infoMessage,
+    bool clearInfoMessage = false,
     String? exportedJson,
     bool? accountDeleted,
     Failure? failure,
@@ -468,7 +469,7 @@ final class NotificationIngestionState extends Equatable {
           ? null
           : (latestCreatedOrder ?? this.latestCreatedOrder),
       lastOutcome: lastOutcome ?? this.lastOutcome,
-      infoMessage: infoMessage ?? this.infoMessage,
+      infoMessage: clearInfoMessage ? null : (infoMessage ?? this.infoMessage),
       exportedJson: exportedJson ?? this.exportedJson,
       accountDeleted: accountDeleted ?? this.accountDeleted,
       failure: clearFailure ? null : (failure ?? this.failure),

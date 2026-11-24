@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -6,14 +9,17 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/error/app_exception.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../notifications/domain/entities/notification_entities.dart';
 import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dart';
 import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../domain/entities/transaction_entities.dart';
+import '../../domain/repositories/transaction_repository.dart';
 import '../bloc/transaction_bloc.dart';
 import '../bloc/transaction_event.dart';
 import '../bloc/transaction_state.dart';
@@ -43,6 +49,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     'Di chuyển',
     'Gia đình',
     'Hóa đơn',
+    'Điện/Nước/Internet',
+    'Sức khỏe & Y tế',
+    'Bảo dưỡng & Sửa xe',
+    'Lương & Thu nhập',
   ];
 
   late String _selectedCategory;
@@ -52,6 +62,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   String? _boundTxId;
   int _pendingCountAtAction = 0;
   bool _isEditing = false;
+  bool _userChangedCategory = false;
   bool _dismissedVehiclePrompt = false;
   bool _dismissedRecurringPrompt = false;
 
@@ -59,10 +70,8 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   void initState() {
     super.initState();
     final tx = widget.initialTransaction;
-    final initialCat = tx?.categoryName ?? 'Ăn uống';
-    _selectedCategory = _categories.contains(initialCat)
-        ? initialCat
-        : 'Ăn uống';
+    final initialCat = (tx?.categoryName ?? '').trim();
+    _selectedCategory = initialCat.isNotEmpty ? initialCat : 'Ăn uống';
     _merchantCtrl = TextEditingController(text: tx?.merchant ?? '');
     _amountCtrl = TextEditingController(
       text: tx != null ? '${tx.amountMinor}' : '',
@@ -74,13 +83,15 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   void _syncControllersFromTransaction(TransactionEntity tx) {
     if (_boundTxId == tx.id) return;
     _boundTxId = tx.id;
-    _selectedCategory = _categories.contains(tx.categoryName)
-        ? tx.categoryName
-        : 'Ăn uống';
+    final cat = tx.categoryName.trim();
+    _selectedCategory = cat.isNotEmpty ? cat : 'Ăn uống';
     _merchantCtrl.text = tx.merchant;
     _amountCtrl.text = '${tx.amountMinor}';
     _noteCtrl.text = tx.note ?? '';
     _isEditing = false;
+    _userChangedCategory = false;
+    _dismissedVehiclePrompt = false;
+    _dismissedRecurringPrompt = false;
   }
 
   @override
@@ -379,18 +390,20 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Thông báo ngân hàng (đã nhận diện)',
-                            softWrap: true,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13.8,
-                              height: 1.22,
-                              color: c.textPrimary,
-                            ),
+                        Text(
+                          'Thông báo ngân hàng (đã nhận diện)',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13.8,
+                            height: 1.22,
+                            color: c.textPrimary,
                           ),
                         ),
                         Text(
@@ -439,19 +452,33 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Icon(Icons.auto_awesome_rounded, size: 18, color: c.primary),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Đã nhận diện giao dịch',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: c.textPrimary,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 18,
+                        color: c.primary,
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Đã nhận diện giao dịch',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const LifeOsStatusPill(
                     icon: Icons.rule_folder_outlined,
@@ -479,62 +506,73 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   onChanged: (_) => setState(() {}),
                 ),
               ] else
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isCredit ? c.primary : const Color(0xFFDC2626),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _merchantCtrl.text.trim().isEmpty
-                            ? 'G'
-                            : _merchantCtrl.text
-                                  .trim()
-                                  .characters
-                                  .first
-                                  .toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: isCredit
+                                ? c.primary
+                                : const Color(0xFFDC2626),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            _merchantCtrl.text.trim().isEmpty
+                                ? 'G'
+                                : _merchantCtrl.text
+                                      .trim()
+                                      .characters
+                                      .first
+                                      .toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _merchantCtrl.text,
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 17,
-                              height: 1.2,
-                              fontWeight: FontWeight.w800,
-                              color: c.textPrimary,
-                            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _merchantCtrl.text,
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 16.5,
+                                  height: 1.22,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _selectedCategory,
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            _selectedCategory,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 10),
                     FittedBox(
                       fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         '${isCredit ? "+" : "-"}${VndAmount.format(parsedAmt)}',
                         style: TextStyle(
-                          fontSize: 21,
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: isCredit ? c.primary : c.textPrimary,
                           fontFeatures: const [FontFeature.tabularFigures()],
@@ -556,19 +594,26 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 value: sourceLabel,
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Icon(
-                    Icons.verified_outlined,
-                    size: 18,
-                    color: c.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Xác minh',
-                      style: TextStyle(fontSize: 13.5, color: c.textSecondary),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.verified_outlined,
+                        size: 18,
+                        color: c.textSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Xác minh',
+                        style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+                      ),
+                    ],
                   ),
                   const LifeOsStatusPill(
                     icon: Icons.check_circle_outline_rounded,
@@ -591,21 +636,34 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 children: [
                   Icon(Icons.layers_outlined, size: 19, color: c.primary),
                   const SizedBox(width: 8),
-                  Text(
-                    'Danh mục chi tiêu',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: c.textPrimary,
+                  Expanded(
+                    child: Text(
+                      'Danh mục chi tiêu',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: c.textPrimary,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
+                key: ValueKey('auto_tx_cat_${tx.id}_$_selectedCategory'),
                 isExpanded: true,
                 initialValue: _selectedCategory,
-                items: _categories
+                items: <String>{
+                  ..._categories,
+                  ...context
+                      .watch<TransactionListBloc>()
+                      .state
+                      .categories
+                      .map((e) => e.name.trim())
+                      .where((s) => s.isNotEmpty),
+                  if (_selectedCategory.trim().isNotEmpty) _selectedCategory.trim(),
+                }
                     .map(
                       (cat) => DropdownMenuItem(
                         value: cat,
@@ -617,7 +675,12 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                     )
                     .toList(),
                 onChanged: (v) {
-                  if (v != null) setState(() => _selectedCategory = v);
+                  if (v != null) {
+                    setState(() {
+                      _selectedCategory = v;
+                      _userChangedCategory = true;
+                    });
+                  }
                 },
               ),
               const SizedBox(height: 10),
@@ -898,6 +961,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
               height: 50,
               child: OutlinedButton(
                 key: const Key('reject_auto_tx_button'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
                 onPressed: userId == null
                     ? null
                     : () {
@@ -910,7 +976,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           ),
                         );
                       },
-                child: const Text('Bỏ qua'),
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text('Bỏ qua'),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -918,10 +987,13 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
               child: SizedBox(
                 height: 50,
                 child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                   onPressed: () => setState(() => _isEditing = !_isEditing),
                   icon: Icon(
                     _isEditing ? Icons.check_rounded : Icons.edit_outlined,
-                    size: 18,
+                    size: 17,
                   ),
                   label: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -936,12 +1008,16 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 height: 50,
                 child: FilledButton.icon(
                   key: const Key('confirm_auto_tx_button'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                   onPressed: userId == null
                       ? null
                       : () {
                           _pendingCountAtAction = pendingCount;
-                          // Remember user's category correction as an explainable merchant rule (Section 17)
-                          if (_selectedCategory != tx.categoryName &&
+                          // Remember user's explicit category correction as an explainable merchant rule (Section 17)
+                          if (_userChangedCategory &&
+                              _selectedCategory != tx.categoryName &&
                               tx.merchant.trim().length >= 3) {
                             try {
                               context.read<NotificationIngestionBloc>().add(
@@ -961,6 +1037,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                                   TransactionVerification.provisional ||
                               tx.verification ==
                                   TransactionVerification.needsReview) {
+                            final editedAmt =
+                                VndAmount.tryParseInput(_amountCtrl.text) ??
+                                tx.amountMinor;
                             context.read<TransactionActionBloc>().add(
                               ProvisionalTransactionDecisionSubmitted(
                                 userId: userId,
@@ -968,6 +1047,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                                 approve: true,
                                 updatedCategoryName: _selectedCategory,
                                 updatedMerchant: _merchantCtrl.text.trim(),
+                                updatedAmountMinor: editedAmt > 0
+                                    ? editedAmt
+                                    : tx.amountMinor,
+                                updatedNote: _noteCtrl.text.trim(),
                               ),
                             );
                           } else {
@@ -1015,26 +1098,30 @@ class _TxMetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Icon(icon, size: 18, color: c.textSecondary),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 13.5, color: c.textSecondary),
-          ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            softWrap: true,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: c.textPrimary,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: c.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(fontSize: 13.5, color: c.textSecondary),
             ),
+          ],
+        ),
+        Text(
+          value,
+          softWrap: true,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: c.textPrimary,
           ),
         ),
       ],
@@ -1042,9 +1129,11 @@ class _TxMetaLine extends StatelessWidget {
   }
 }
 
-/// Screen 18: "Báo cáo chi tiêu / Báo cáo gia đình" (`W1–W4` Bar Chart + CSV Export).
+/// Screen 18: "Báo cáo chi tiêu / Báo cáo gia đình" (Multi-Period `Tuần · Tháng · Năm` Dual-Bar + Donut + CSV Export).
 class FinanceReportPage extends StatefulWidget {
-  const FinanceReportPage({super.key});
+  final DateTime? referenceDate;
+
+  const FinanceReportPage({super.key, this.referenceDate});
 
   @override
   State<FinanceReportPage> createState() => _FinanceReportPageState();
@@ -1052,31 +1141,300 @@ class FinanceReportPage extends StatefulWidget {
 
 class _FinanceReportPageState extends State<FinanceReportPage> {
   String _period = 'month';
+  int? _selectedBucketIdx;
+  String? _cachedRangeKey;
+  Stream<Result<List<TransactionEntity>>>? _cachedRangeStream;
+
+  String? _resolveUserId(BuildContext context, TransactionListState listState) {
+    try {
+      final authUser = context.read<AuthBloc>().state.user;
+      if (authUser != null && authUser.id.isNotEmpty) return authUser.id;
+    } catch (_) {
+      // Standalone widget test without AuthBloc provider.
+    }
+    if (listState.allTransactions.isNotEmpty) {
+      return listState.allTransactions.first.ownerId;
+    }
+    if (listState.wallets.isNotEmpty) {
+      return listState.wallets.first.ownerId;
+    }
+    return null;
+  }
+
+  Stream<Result<List<TransactionEntity>>>? _resolveRangeStream({
+    required String? userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+  }) {
+    if (userId == null ||
+        userId.isEmpty ||
+        !sl.isRegistered<TransactionRepository>()) {
+      return null;
+    }
+    final key =
+        '$userId|${startInclusive.millisecondsSinceEpoch}|${endExclusive.millisecondsSinceEpoch}';
+    if (_cachedRangeKey != key || _cachedRangeStream == null) {
+      _cachedRangeKey = key;
+      _cachedRangeStream = sl<TransactionRepository>().watchTransactionsRange(
+        userId: userId,
+        startInclusive: startInclusive,
+        endExclusive: endExclusive,
+        limit: 800,
+      );
+    }
+    return _cachedRangeStream;
+  }
+
+  static String _ddMm(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+  void _selectBucketFromDx(
+    double dx,
+    double width,
+    int bucketCount, {
+    required bool toggle,
+  }) {
+    if (width <= 0 || bucketCount <= 0) return;
+    final idx = ((dx / width) * bucketCount).floor().clamp(0, bucketCount - 1);
+    if (toggle && _selectedBucketIdx == idx) {
+      HapticFeedback.selectionClick();
+      setState(() => _selectedBucketIdx = null);
+      return;
+    }
+    if (_selectedBucketIdx != idx) {
+      HapticFeedback.selectionClick();
+      setState(() => _selectedBucketIdx = idx);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
     final listState = context.watch<TransactionListBloc>().state;
-    final txs = listState.filteredTransactions
-        .where((t) => !t.isReversed)
-        .toList();
+    final refNow = widget.referenceDate ?? DateTime.now();
+
+    final mkParts = listState.monthKey.split('-');
+    final selectedYear = mkParts.isNotEmpty
+        ? (int.tryParse(mkParts[0]) ?? refNow.year)
+        : refNow.year;
+    final selectedMonth = mkParts.length > 1
+        ? (int.tryParse(mkParts[1]) ?? refNow.month)
+        : refNow.month;
+
+    late final DateTime startInclusive;
+    late final DateTime endExclusive;
+    late final String periodHeaderLabel;
+    late final String exportTag;
+
+    if (_period == 'week') {
+      final anchorDay = DateTime(refNow.year, refNow.month, refNow.day);
+      startInclusive = anchorDay.subtract(
+        Duration(days: anchorDay.weekday - DateTime.monday),
+      );
+      endExclusive = startInclusive.add(const Duration(days: 7));
+      final sunday = startInclusive.add(const Duration(days: 6));
+      periodHeaderLabel =
+          'Kỳ tuần: ${_ddMm(startInclusive)}–${_ddMm(sunday)}';
+      exportTag =
+          'Tuan_${startInclusive.year}${startInclusive.month.toString().padLeft(2, '0')}${startInclusive.day.toString().padLeft(2, '0')}';
+    } else if (_period == 'year') {
+      startInclusive = DateTime(selectedYear, 1, 1);
+      endExclusive = DateTime(selectedYear + 1, 1, 1);
+      periodHeaderLabel = 'Kỳ năm: $selectedYear';
+      exportTag = 'Nam_$selectedYear';
+    } else {
+      startInclusive = DateTime(selectedYear, selectedMonth, 1);
+      endExclusive = DateTime(selectedYear, selectedMonth + 1, 1);
+      periodHeaderLabel = 'Kỳ báo cáo: ${listState.monthKey}';
+      exportTag = listState.monthKey;
+    }
+
+    List<TransactionEntity> filterInWindow(List<TransactionEntity> source) {
+      return source
+          .where(
+            (t) =>
+                t.isConfirmedInLedger &&
+                !t.isReversed &&
+                !t.occurredAt.isBefore(startInclusive) &&
+                t.occurredAt.isBefore(endExclusive),
+          )
+          .toList(growable: false);
+    }
+
+    if (_period == 'month') {
+      final monthTxs = listState.allTransactions
+          .where((t) => t.isConfirmedInLedger && !t.isReversed)
+          .toList(growable: false);
+      return _buildReportScaffold(
+        context: context,
+        periodTxs: monthTxs,
+        startInclusive: startInclusive,
+        selectedYear: selectedYear,
+        periodHeaderLabel: periodHeaderLabel,
+        exportTag: exportTag,
+      );
+    }
+
+    final userId = _resolveUserId(context, listState);
+    final rangeStream = _resolveRangeStream(
+      userId: userId,
+      startInclusive: startInclusive,
+      endExclusive: endExclusive,
+    );
+    final fallbackTxs = filterInWindow(listState.allTransactions);
+
+    if (rangeStream == null) {
+      return _buildReportScaffold(
+        context: context,
+        periodTxs: fallbackTxs,
+        startInclusive: startInclusive,
+        selectedYear: selectedYear,
+        periodHeaderLabel: periodHeaderLabel,
+        exportTag: exportTag,
+      );
+    }
+
+    return StreamBuilder<Result<List<TransactionEntity>>>(
+      stream: rangeStream,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        final resolvedTxs = data is Success<List<TransactionEntity>>
+            ? filterInWindow(data.value)
+            : fallbackTxs;
+        return _buildReportScaffold(
+          context: context,
+          periodTxs: resolvedTxs,
+          startInclusive: startInclusive,
+          selectedYear: selectedYear,
+          periodHeaderLabel: periodHeaderLabel,
+          exportTag: exportTag,
+        );
+      },
+    );
+  }
+
+  Widget _buildReportScaffold({
+    required BuildContext context,
+    required List<TransactionEntity> periodTxs,
+    required DateTime startInclusive,
+    required int selectedYear,
+    required String periodHeaderLabel,
+    required String exportTag,
+  }) {
+    final c = TammySemanticColors.of(context);
+    const expenseBarColor = Color(0xFFF59F00);
+
+    late final List<String> axisLabels;
+    late final List<String> fullBucketTitles;
+    if (_period == 'week') {
+      const wdShort = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+      const wdFull = [
+        'Thứ 2',
+        'Thứ 3',
+        'Thứ 4',
+        'Thứ 5',
+        'Thứ 6',
+        'Thứ 7',
+        'Chủ nhật',
+      ];
+      axisLabels = wdShort;
+      fullBucketTitles = List<String>.generate(7, (i) {
+        final d = startInclusive.add(Duration(days: i));
+        return '${wdFull[i]} (${_ddMm(d)})';
+      });
+    } else if (_period == 'year') {
+      axisLabels = List<String>.generate(12, (i) => 'T${i + 1}');
+      fullBucketTitles = List<String>.generate(
+        12,
+        (i) => 'Tháng ${(i + 1).toString().padLeft(2, '0')}/$selectedYear',
+      );
+    } else {
+      axisLabels = const ['01–07', '08–14', '15–21', '22–28', '29+'];
+      fullBucketTitles = const [
+        'Tuần 1 (01–07)',
+        'Tuần 2 (08–14)',
+        'Tuần 3 (15–21)',
+        'Tuần 4 (22–28)',
+        'Cuối tháng (29+)',
+      ];
+    }
+
+    final bucketCount = axisLabels.length;
+    final incomeBuckets = List<int>.filled(bucketCount, 0);
+    final expenseBuckets = List<int>.filled(bucketCount, 0);
+    final expenseByCat = <String, int>{};
 
     var totalIncome = 0;
     var totalExpense = 0;
-    final weekBuckets = <int>[0, 0, 0, 0];
 
-    for (final t in txs) {
+    for (final t in periodTxs) {
+      final int bIdx;
+      if (_period == 'week') {
+        final txDay = DateTime(
+          t.occurredAt.year,
+          t.occurredAt.month,
+          t.occurredAt.day,
+        );
+        bIdx = txDay.difference(startInclusive).inDays.clamp(0, bucketCount - 1);
+      } else if (_period == 'year') {
+        bIdx = (t.occurredAt.month - 1).clamp(0, bucketCount - 1);
+      } else {
+        bIdx = ((t.occurredAt.day - 1) ~/ 7).clamp(0, bucketCount - 1);
+      }
+
       if (t.kind == TransactionKind.income) {
         totalIncome += t.amountMinor;
+        incomeBuckets[bIdx] += t.amountMinor;
       } else if (t.kind == TransactionKind.expense) {
         totalExpense += t.amountMinor;
-        final wIdx = ((t.occurredAt.day - 1) ~/ 7).clamp(0, 3);
-        weekBuckets[wIdx] += t.amountMinor;
+        expenseBuckets[bIdx] += t.amountMinor;
+        if (t.splitLines.isNotEmpty) {
+          for (final sl in t.splitLines) {
+            expenseByCat[sl.categoryName] =
+                (expenseByCat[sl.categoryName] ?? 0) + sl.amountMinor;
+          }
+        } else {
+          expenseByCat[t.categoryName] =
+              (expenseByCat[t.categoryName] ?? 0) + t.amountMinor;
+        }
       }
     }
 
     final netDiff = totalIncome - totalExpense;
-    final maxBucket = weekBuckets.fold<int>(1, (a, b) => a > b ? a : b);
+    var maxBucketVal = 0;
+    for (final v in incomeBuckets) {
+      if (v > maxBucketVal) maxBucketVal = v;
+    }
+    for (final v in expenseBuckets) {
+      if (v > maxBucketVal) maxBucketVal = v;
+    }
+
+    final sel = (_selectedBucketIdx != null && _selectedBucketIdx! < bucketCount)
+        ? _selectedBucketIdx
+        : null;
+    final selInc = sel != null ? incomeBuckets[sel] : 0;
+    final selExp = sel != null ? expenseBuckets[sel] : 0;
+
+    final sortedCatEntries = expenseByCat.entries
+        .where((e) => e.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final donutSlices = sortedCatEntries
+        .map(
+          (e) => ProDonutSlice(
+            label: e.key,
+            amountMinor: e.value,
+            pct: totalExpense > 0 ? (e.value * 100.0) / totalExpense : 0.0,
+            color: ProCategoryStyle.resolve(e.key).color,
+          ),
+        )
+        .toList(growable: false);
+
+    final savingsRatePct = totalIncome > 0
+        ? (((totalIncome - totalExpense) * 100.0) / totalIncome).clamp(
+            -999.0,
+            100.0,
+          )
+        : 0.0;
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -1094,6 +1452,7 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                       maxWidth: AppSpacing.maxContentWidth,
                     ),
                     child: ListView(
+                      key: const Key('finance_report_list_view'),
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         4,
@@ -1108,100 +1467,388 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                             ('week', 'Tuần', null),
                             ('year', 'Năm', null),
                           ],
-                          onChanged: (v) => setState(() => _period = v),
+                          onChanged: (v) => setState(() {
+                            _period = v;
+                            _selectedBucketIdx = null;
+                          }),
                         ),
                         const SizedBox(height: 12),
 
-                        // Weekly W1–W4 Bar Chart Card
+                        // Multi-Period Dual Income vs Expense Bar Chart Card
                         LifeOsSoftCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
-                                    'Kỳ báo cáo: ${listState.monthKey}',
+                                    periodHeaderLabel,
                                     style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 15.5,
                                       fontWeight: FontWeight.w800,
                                       color: c.textPrimary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                   LifeOsStatusPill(
-                                    label: '${txs.length} giao dịch',
+                                    label: '${periodTxs.length} giao dịch',
                                     tone: LifeOsAccentTone.emerald,
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 18),
-                              SizedBox(
-                                height: 156,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: List.generate(4, (i) {
-                                    final val = weekBuckets[i];
-                                    final ratio = totalExpense == 0
-                                        ? (0.28 + i * 0.14)
-                                        : (val / maxBucket).clamp(0.12, 1.0);
-                                    final isPeak = val > 0 && val == maxBucket;
-                                    return Expanded(
-                                      child: Padding(
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _ReportLegendBadge(
+                                        color: c.success,
+                                        label: 'Thu',
+                                      ),
+                                      const SizedBox(width: 10),
+                                      const _ReportLegendBadge(
+                                        color: expenseBarColor,
+                                        label: 'Chi',
+                                      ),
+                                    ],
+                                  ),
+                                  if (sel != null)
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(10),
+                                      onTap: () => setState(
+                                        () => _selectedBucketIdx = null,
+                                      ),
+                                      child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: c.primary.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${fullBucketTitles[sel]}: '
+                                          'Thu +${VndAmount.formatCompact(selInc)} · '
+                                          'Chi -${VndAmount.formatCompact(selExp)}',
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: c.textPrimary,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      maxBucketVal > 0
+                                          ? 'Đỉnh: ${VndAmount.formatCompact(maxBucketVal)}'
+                                          : 'Chưa phát sinh',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: c.textSecondary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 158,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    SizedBox(
+                                      width: 44,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 22,
                                         ),
                                         child: Column(
                                           mainAxisAlignment:
-                                              MainAxisAlignment.end,
+                                              MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             FittedBox(
                                               fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
                                               child: Text(
-                                                val > 0
+                                                maxBucketVal > 0
                                                     ? VndAmount.formatCompact(
-                                                        val,
+                                                        maxBucketVal,
                                                       )
                                                     : '0 ₫',
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  fontSize: 10,
                                                   fontWeight: FontWeight.w700,
                                                   color: c.textSecondary,
+                                                  fontFeatures: const [
+                                                    FontFeature
+                                                        .tabularFigures(),
+                                                  ],
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(height: 6),
-                                            AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 240,
+                                            if (maxBucketVal > 0)
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  VndAmount.formatCompact(
+                                                    maxBucketVal ~/ 2,
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: c.textSecondary
+                                                        .withValues(alpha: 0.8),
+                                                    fontFeatures: const [
+                                                      FontFeature
+                                                          .tabularFigures(),
+                                                    ],
+                                                  ),
+                                                ),
                                               ),
-                                              height: 108 * ratio,
-                                              decoration: BoxDecoration(
-                                                color: isPeak
-                                                    ? c.primary
-                                                    : c.primary.withValues(
-                                                        alpha: 0.48,
-                                                      ),
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
                                             Text(
-                                              'W${i + 1}',
+                                              '0 ₫',
                                               style: TextStyle(
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.w700,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
                                                 color: c.textSecondary,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    );
-                                  }),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: LayoutBuilder(
+                                              builder: (context, constraints) {
+                                                return GestureDetector(
+                                                  key: const Key(
+                                                    'report_dual_bar_canvas',
+                                                  ),
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
+                                                  onTapUp: (d) =>
+                                                      _selectBucketFromDx(
+                                                        d.localPosition.dx,
+                                                        constraints.maxWidth,
+                                                        bucketCount,
+                                                        toggle: true,
+                                                      ),
+                                                  onHorizontalDragUpdate: (d) =>
+                                                      _selectBucketFromDx(
+                                                        d.localPosition.dx,
+                                                        constraints.maxWidth,
+                                                        bucketCount,
+                                                        toggle: false,
+                                                      ),
+                                                  child: Stack(
+                                                    alignment: Alignment.center,
+                                                    children: [
+                                                      SizedBox.expand(
+                                                        child: CustomPaint(
+                                                          painter: _ReportDualBarChartPainter(
+                                                            incomes:
+                                                                incomeBuckets,
+                                                            expenses:
+                                                                expenseBuckets,
+                                                            selectedIdx: sel,
+                                                            incomeColor:
+                                                                c.success,
+                                                            expenseColor:
+                                                                expenseBarColor,
+                                                            highlightBg: c
+                                                                .primary
+                                                                .withValues(
+                                                                  alpha: 0.08,
+                                                                ),
+                                                            gridColor: c
+                                                                .separator
+                                                                .withValues(
+                                                                  alpha: 0.65,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (maxBucketVal == 0)
+                                                        IgnorePointer(
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      10,
+                                                                  vertical: 4,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color: c.surface
+                                                                  .withValues(
+                                                                    alpha: 0.90,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    10,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color:
+                                                                    c.separator,
+                                                              ),
+                                                            ),
+                                                            child: Text(
+                                                              'Chưa có giao dịch thu chi trong kỳ',
+                                                              softWrap: true,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color: c
+                                                                    .textSecondary,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          SizedBox(
+                                            height: 16,
+                                            child: Row(
+                                              children: List.generate(
+                                                bucketCount,
+                                                (i) {
+                                                  final isSelected = sel == i;
+                                                  return Expanded(
+                                                    child: InkWell(
+                                                      key: Key(
+                                                        'report_bucket_label_$i',
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            4,
+                                                          ),
+                                                      onTap: () {
+                                                        HapticFeedback
+                                                            .selectionClick();
+                                                        setState(() {
+                                                          _selectedBucketIdx =
+                                                              isSelected
+                                                                  ? null
+                                                                  : i;
+                                                        });
+                                                      },
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 1,
+                                                            ),
+                                                        child: Center(
+                                                          child: FittedBox(
+                                                            fit: BoxFit
+                                                                .scaleDown,
+                                                            child: Text(
+                                                              axisLabels[i],
+                                                              style: TextStyle(
+                                                                fontSize: 10.5,
+                                                                fontWeight:
+                                                                    isSelected
+                                                                        ? FontWeight
+                                                                            .w800
+                                                                        : FontWeight
+                                                                            .w700,
+                                                                color: isSelected
+                                                                    ? c.primary
+                                                                    : c.textSecondary,
+                                                                fontFeatures: const [
+                                                                  FontFeature
+                                                                      .tabularFigures(),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Category Composition Donut Card for active period
+                        LifeOsSoftCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Cơ cấu danh mục chi tiêu',
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (donutSlices.isEmpty)
+                                Text(
+                                  'Chưa có khoản chi tiêu theo danh mục trong kỳ này.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: c.textSecondary,
+                                  ),
+                                )
+                              else
+                                RepaintBoundary(
+                                  child: ProDonutChart(
+                                    totalExpenseMinor: totalExpense,
+                                    slices: donutSlices,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -1214,7 +1861,7 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                               _ReportSummaryRow(
                                 label: 'Tổng thu',
                                 value: VndAmount.format(totalIncome),
-                                valueColor: c.primary,
+                                valueColor: c.success,
                               ),
                               const Divider(height: 22),
                               _ReportSummaryRow(
@@ -1231,6 +1878,17 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                 ),
                                 valueColor: netDiff >= 0 ? c.primary : c.error,
                               ),
+                              if (totalIncome > 0) ...[
+                                const Divider(height: 22),
+                                _ReportSummaryRow(
+                                  label: 'Tỷ lệ tích lũy',
+                                  value:
+                                      '${savingsRatePct.toStringAsFixed(1)}%',
+                                  valueColor: savingsRatePct >= 0
+                                      ? c.primary
+                                      : c.error,
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1240,17 +1898,25 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                         LifeOsMintHeroCard(
                           child: Row(
                             children: [
-                              const LifeOsIconSquircle(
-                                icon: Icons.check_circle_rounded,
-                                tone: LifeOsAccentTone.emerald,
+                              LifeOsIconSquircle(
+                                icon: totalIncome == 0 && totalExpense == 0
+                                    ? Icons.insights_rounded
+                                    : (netDiff >= 0
+                                          ? Icons.check_circle_rounded
+                                          : Icons.warning_amber_rounded),
+                                tone: netDiff >= 0
+                                    ? LifeOsAccentTone.emerald
+                                    : LifeOsAccentTone.amber,
                                 size: 38,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  netDiff >= 0
-                                      ? 'Dòng tiền thặng dư tích cực trong kỳ này! Hãy trích một phần sang Quỹ gia đình.'
-                                      : 'Chi tiêu đang vượt thu nhập trong kỳ. Kiểm tra các danh mục lớn để cân đối.',
+                                  totalIncome == 0 && totalExpense == 0
+                                      ? 'Chưa có phát sinh thu chi trong kỳ đang chọn. Ghi giao dịch mới để xem phân tích tự động.'
+                                      : (netDiff >= 0
+                                            ? 'Dòng tiền thặng dư tích cực trong kỳ này! Hãy trích một phần sang Quỹ gia đình.'
+                                            : 'Chi tiêu đang vượt thu nhập trong kỳ. Kiểm tra các danh mục lớn để cân đối.'),
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -1271,7 +1937,7 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                               ..writeln(
                                 'ThoiGian,HangMuc,DonVi,Loai,SoTienVND',
                               );
-                            for (final tx in txs) {
+                            for (final tx in periodTxs) {
                               final signed = tx.direction == 'credit'
                                   ? tx.amountMinor
                                   : -tx.amountMinor;
@@ -1279,14 +1945,13 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                 '"${tx.occurredAt.toIso8601String()}","${tx.categoryName}","${tx.merchant}","${tx.kind.name}",$signed',
                               );
                             }
-                            final fileName =
-                                'BaoCao_LifeOS_${listState.monthKey}.csv';
+                            final fileName = 'BaoCao_LifeOS_$exportTag.csv';
                             await sl<NativeAppUpdaterBridge>().shareTextFile(
                               fileName: fileName,
                               content: buf.toString(),
                               mimeType: 'text/csv',
                               title:
-                                  'Báo cáo Tài chính LifeOS (${listState.monthKey})',
+                                  'Báo cáo Tài chính LifeOS ($periodHeaderLabel)',
                             );
                             if (context.mounted) {
                               LifeOsTopToast.fromSnackBar(
@@ -1311,6 +1976,211 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
   }
 }
 
+class _ReportLegendBadge extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _ReportLegendBadge({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8.5,
+          height: 8.5,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: c.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportDualBarChartPainter extends CustomPainter {
+  final List<int> incomes;
+  final List<int> expenses;
+  final int? selectedIdx;
+  final Color incomeColor;
+  final Color expenseColor;
+  final Color highlightBg;
+  final Color gridColor;
+
+  const _ReportDualBarChartPainter({
+    required this.incomes,
+    required this.expenses,
+    required this.selectedIdx,
+    required this.incomeColor,
+    required this.expenseColor,
+    required this.highlightBg,
+    required this.gridColor,
+  });
+
+  void _drawDashedLine(Canvas canvas, double y, double width, Paint paint) {
+    const dashW = 4.0;
+    const gapW = 4.0;
+    var x = 0.0;
+    while (x < width) {
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(math.min(width, x + dashW), y),
+        paint,
+      );
+      x += dashW + gapW;
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.85;
+
+    _drawDashedLine(canvas, 3.0, size.width, gridPaint);
+    _drawDashedLine(canvas, size.height * 0.5, size.width, gridPaint);
+    canvas.drawLine(
+      Offset(0, size.height - 1),
+      Offset(size.width, size.height - 1),
+      gridPaint,
+    );
+
+    final count = math.min(incomes.length, expenses.length);
+    if (count <= 0) return;
+
+    var maxVal = 0;
+    for (var i = 0; i < count; i++) {
+      if (incomes[i] > maxVal) maxVal = incomes[i];
+      if (expenses[i] > maxVal) maxVal = expenses[i];
+    }
+
+    final slotW = size.width / count;
+    final pairGap = count >= 10 ? 1.5 : 2.5;
+    final barW = math.min(
+      14.0,
+      math.max(4.0, (slotW * (count >= 10 ? 0.68 : 0.56) - pairGap) / 2),
+    );
+    final usableH = math.max(14.0, size.height - 8.0);
+
+    if (selectedIdx != null && selectedIdx! >= 0 && selectedIdx! < count) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            slotW * selectedIdx! + 1.5,
+            0,
+            math.max(6.0, slotW - 3.0),
+            size.height,
+          ),
+          const Radius.circular(8),
+        ),
+        Paint()..color = highlightBg,
+      );
+    }
+
+    double heightFor(int val) {
+      if (maxVal <= 0 || val <= 0) return 2.0;
+      final ratio = (val / maxVal).clamp(0.0, 1.0);
+      return math.max(6.0, math.pow(ratio, 0.72).toDouble() * usableH);
+    }
+
+    for (var i = 0; i < count; i++) {
+      final inc = incomes[i];
+      final exp = expenses[i];
+      final cx = slotW * i + slotW / 2;
+      final dimmed = selectedIdx != null && selectedIdx != i;
+
+      final incH = heightFor(inc);
+      final expH = heightFor(exp);
+
+      final incRect = Rect.fromLTWH(
+        cx - pairGap / 2 - barW,
+        size.height - 1 - incH,
+        barW,
+        incH,
+      );
+      final expRect = Rect.fromLTWH(
+        cx + pairGap / 2,
+        size.height - 1 - expH,
+        barW,
+        expH,
+      );
+
+      final incPaint = Paint();
+      if (inc > 0 && maxVal > 0) {
+        final a = dimmed ? 0.36 : 0.96;
+        incPaint.shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            incomeColor.withValues(alpha: a),
+            incomeColor.withValues(alpha: a * 0.65),
+          ],
+        ).createShader(incRect);
+      } else {
+        incPaint.color = gridColor;
+      }
+
+      final expPaint = Paint();
+      if (exp > 0 && maxVal > 0) {
+        final a = dimmed ? 0.36 : 0.96;
+        expPaint.shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            expenseColor.withValues(alpha: a),
+            expenseColor.withValues(alpha: a * 0.65),
+          ],
+        ).createShader(expRect);
+      } else {
+        expPaint.color = gridColor;
+      }
+
+      final cornerR = Radius.circular(count >= 10 ? 3.2 : 5.0);
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          incRect,
+          topLeft: cornerR,
+          topRight: cornerR,
+          bottomLeft: const Radius.circular(1.5),
+          bottomRight: const Radius.circular(1.5),
+        ),
+        incPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          expRect,
+          topLeft: cornerR,
+          topRight: cornerR,
+          bottomLeft: const Radius.circular(1.5),
+          bottomRight: const Radius.circular(1.5),
+        ),
+        expPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ReportDualBarChartPainter oldDelegate) {
+    return oldDelegate.incomes != incomes ||
+        oldDelegate.expenses != expenses ||
+        oldDelegate.selectedIdx != selectedIdx ||
+        oldDelegate.incomeColor != incomeColor ||
+        oldDelegate.expenseColor != expenseColor;
+  }
+}
+
 class _ReportSummaryRow extends StatelessWidget {
   final String label;
   final String value;
@@ -1325,8 +2195,11 @@ class _ReportSummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           label,

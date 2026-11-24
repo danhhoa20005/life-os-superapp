@@ -39,6 +39,18 @@ service cloud.firestore {
         );
     }
 
+    function unchangedMapExceptSelfJoin(oldMap, newMap, uid) {
+      return newMap.diff(oldMap).removedKeys().size() == 0
+        && newMap.diff(oldMap).changedKeys().size() == 0
+        && newMap.diff(oldMap).addedKeys().hasOnly([uid]);
+    }
+
+    function unchangedMapExceptSelfLeave(oldMap, newMap, uid) {
+      return newMap.diff(oldMap).addedKeys().size() == 0
+        && newMap.diff(oldMap).changedKeys().size() == 0
+        && newMap.diff(oldMap).removedKeys().hasOnly([uid]);
+    }
+
     // =========================================================================
     // 1. PERSONAL USER SPACE — STRICT OWNER ISOLATION (NO FAMILY ADMIN ACCESS!)
     // =========================================================================
@@ -57,9 +69,22 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.balanceMinor is int;
+        // F06: Balance updates must preserve identity, carry server/client timestamp, and verify linked ledger_audit when present
         allow update: if isOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.balanceMinor is int;
+          && request.resource.data.get('id', walletId) == resource.data.get('id', walletId)
+          && request.resource.data.balanceMinor is int
+          && (
+            request.resource.data.balanceMinor == resource.data.balanceMinor
+            || (
+              'updatedAt' in request.resource.data
+              && request.resource.data.updatedAt is timestamp
+              && (
+                !('lastAuditId' in request.resource.data)
+                || existsAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId))
+              )
+            )
+          );
         allow delete: if isOwner(userId);
       }
 
@@ -165,6 +190,11 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
+      match /source_claims/{claimId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if isAccountDeletionActive(userId);
+      }
+
       // NATIVE IN-APP BANK RECEIVING ACCOUNTS & DYNAMIC VIETQR PAYMENT ORDERS
       match /bank_accounts/{accountId} {
         allow read, write: if isOwner(userId);
@@ -222,6 +252,23 @@ service cloud.firestore {
 
       // User-taught explainable merchant -> category mapping rules (Section 17)
       match /merchant_rules/{ruleId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // OFFLINE FINANCIAL AI PERSONALIZATION, CORRECTIONS, DRAFTS & PREFERENCES (STRICT OWNER ISOLATION)
+      match /ai_personalization_rules/{ruleId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /ai_category_corrections/{correctionId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /ai_pending_drafts/{draftId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /ai_preferences/{prefId} {
         allow read, write: if isOwner(userId);
       }
 
@@ -323,24 +370,59 @@ service cloud.firestore {
         && request.resource.data.memberRoles[request.auth.uid] == 'owner';
 
       allow update: if isSignedIn() && (
-        // 1. Owner/Admin manages family metadata or member roles without forging creator
+        // 1a. Owner manages family metadata & member roles while keeping creator & own owner role intact (F03)
         (
-          (resource.data.memberRoles[request.auth.uid] == 'owner'
-            || resource.data.memberRoles[request.auth.uid] == 'admin')
+          resource.data.memberRoles[request.auth.uid] == 'owner'
           && request.resource.data.createdBy == resource.data.createdBy
+          && request.auth.uid in request.resource.data.memberIds
+          && request.resource.data.memberRoles[request.auth.uid] == 'owner'
+          && request.resource.data.memberRoles[resource.data.createdBy] == 'owner'
         )
-        // 2. Member leaves voluntarily: cannot alter other members' roles
+        // 1b. Admin manages invites/metadata or removes ONLY a plain 'member'; NEVER alters owner/admin roles or escalates self (F03 / SEC-02)
+        || (
+          resource.data.memberRoles[request.auth.uid] == 'admin'
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.auth.uid in request.resource.data.memberIds
+          && request.resource.data.memberRoles[request.auth.uid] == 'admin'
+          && request.resource.data.memberRoles[resource.data.createdBy] == resource.data.memberRoles[resource.data.createdBy]
+          && (
+            (
+              request.resource.data.memberIds == resource.data.memberIds
+              && request.resource.data.memberRoles == resource.data.memberRoles
+            )
+            || (
+              request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
+              && resource.data.memberIds.hasAll(request.resource.data.memberIds)
+              && request.resource.data.lastRemovedMemberId is string
+              && resource.data.memberRoles[request.resource.data.lastRemovedMemberId] == 'member'
+              && !(request.resource.data.lastRemovedMemberId in request.resource.data.memberIds)
+              && unchangedMapExceptSelfLeave(resource.data.memberRoles, request.resource.data.memberRoles, request.resource.data.lastRemovedMemberId)
+            )
+          )
+        )
+        // 2. Member leaves voluntarily: strictly isolated to removing own UID; all other members & fields immutable (F02 / SEC-01)
         || (
           request.auth.uid in resource.data.memberIds
           && !(request.auth.uid in request.resource.data.memberIds)
+          && (resource.data.memberRoles[request.auth.uid] != 'owner' || request.resource.data.memberIds.size() == 0)
           && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
+          && resource.data.memberIds.hasAll(request.resource.data.memberIds)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberRoles', 'memberNames', 'updatedAt'])
+          && unchangedMapExceptSelfLeave(resource.data.memberRoles, request.resource.data.memberRoles, request.auth.uid)
+          && (!('memberNames' in request.resource.data) || unchangedMapExceptSelfLeave(resource.data.get('memberNames', {}), request.resource.data.memberNames, request.auth.uid))
         )
-        // 3. New user joins with a valid, UNEXPIRED invite code ONLY as 'member'
+        // 3. New user joins with a valid, UNEXPIRED, UNREVOKED invite code ONLY as 'member'; other fields strictly immutable (F02 / SEC-03)
         || (
           !(request.auth.uid in resource.data.memberIds)
           && request.auth.uid in request.resource.data.memberIds
           && request.resource.data.memberRoles[request.auth.uid] == 'member'
           && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
+          && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberRoles', 'memberNames', 'pendingInvites', 'lastJoinedInviteCode', 'updatedAt'])
+          && unchangedMapExceptSelfJoin(resource.data.memberRoles, request.resource.data.memberRoles, request.auth.uid)
+          && (!('memberNames' in request.resource.data) || unchangedMapExceptSelfJoin(resource.data.get('memberNames', {}), request.resource.data.memberNames, request.auth.uid))
           && request.resource.data.lastJoinedInviteCode is string
           && exists(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode))
           && get(/databases/$(database)/documents/family_invites/$(request.resource.data.lastJoinedInviteCode)).data.familyId == familyId
@@ -437,25 +519,61 @@ service cloud.firestore {
           || (isFamilyMember(familyId) && resource.data.uploadedBy == request.auth.uid);
       }
 
-      // SHARED BILL SPLITTING (Eating out, Housework, Utilities, Rent, Trips)
+      // SHARED BILL SPLITTING (F05: Locked payer/creator authority, immutable paidByUserId & post-lock protection)
       match /split_bills/{billId} {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
           && request.resource.data.familyId == familyId
-          && isPositiveInt(request.resource.data.totalAmountMinor);
+          && isPositiveInt(request.resource.data.totalAmountMinor)
+          && request.resource.data.paidByUserId is string
+          && (request.resource.data.paidByUserId == request.auth.uid || isFamilyManager(familyId));
         allow update: if isFamilyMember(familyId)
+          && (resource.data.paidByUserId == request.auth.uid || isFamilyManager(familyId))
+          && resource.data.get('status', 'open') != 'locked'
+          && resource.data.get('status', 'open') != 'settled'
           && request.resource.data.familyId == resource.data.familyId
+          && request.resource.data.paidByUserId == resource.data.paidByUserId
           && isPositiveInt(request.resource.data.totalAmountMinor);
         allow delete: if isFamilyManager(familyId)
-          || (isFamilyMember(familyId) && resource.data.paidByUserId == request.auth.uid);
+          || (isFamilyMember(familyId) && resource.data.paidByUserId == request.auth.uid && resource.data.get('status', 'open') == 'open');
       }
 
-      // DEBT SETTLEMENT LEDGER (Immutable audit trail of member-to-member repayments)
+      // TWO-STEP DEBT SETTLEMENT CONSENT REQUESTS (F04: Debtor initiates 'pending', Creditor confirms/rejects)
+      match /settlement_requests/{requestId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.familyId == familyId
+          && isPositiveInt(request.resource.data.amountMinor)
+          && request.resource.data.fromUserId is string
+          && request.resource.data.toUserId is string
+          && request.resource.data.fromUserId != request.resource.data.toUserId
+          && request.resource.data.fromUserId == request.auth.uid
+          && request.resource.data.fromUserId in familyDoc(familyId).data.memberIds
+          && request.resource.data.toUserId in familyDoc(familyId).data.memberIds
+          && request.resource.data.status == 'pending';
+        allow update: if isFamilyMember(familyId)
+          && resource.data.status == 'pending'
+          && request.auth.uid == resource.data.toUserId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedBy', 'confirmedAt', 'disputeReason'])
+          && request.resource.data.status in ['confirmed', 'rejected'];
+        allow delete: if false;
+      }
+
+      // DEBT SETTLEMENT LEDGER (F04 / SEC-04: Append-only; strictly forbids 3rd-party forgery or self-settlement)
       match /settlements/{settlementId} {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
           && request.resource.data.familyId == familyId
-          && isPositiveInt(request.resource.data.amountMinor);
+          && isPositiveInt(request.resource.data.amountMinor)
+          && request.resource.data.fromUserId is string
+          && request.resource.data.toUserId is string
+          && request.resource.data.fromUserId != request.resource.data.toUserId
+          && request.resource.data.toUserId in familyDoc(familyId).data.memberIds
+          && (
+            request.resource.data.fromUserId in familyDoc(familyId).data.memberIds
+            || (request.auth.uid == request.resource.data.toUserId && request.resource.data.fromUserId == 'bank_transfer')
+          )
+          && (request.auth.uid == request.resource.data.fromUserId || request.auth.uid == request.resource.data.toUserId);
         allow update, delete: if false;
       }
     }

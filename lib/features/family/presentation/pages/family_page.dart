@@ -163,24 +163,36 @@ class FamilyPage extends StatelessWidget {
                             const ProPillTabContainer(
                               tabBar: TabBar(
                                 labelPadding: EdgeInsets.symmetric(
-                                  horizontal: 6,
+                                  horizontal: 4,
                                 ),
                                 tabs: [
                                   Tab(
                                     key: Key('family_split_tab'),
-                                    text: 'Chia tiền',
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Chia tiền'),
+                                    ),
                                   ),
                                   Tab(
                                     key: Key('family_assets_life_tab'),
-                                    text: 'Tiện ích nhà',
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Tiện ích nhà'),
+                                    ),
                                   ),
                                   Tab(
                                     key: Key('family_members_tab'),
-                                    text: 'Thành viên',
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Thành viên'),
+                                    ),
                                   ),
                                   Tab(
                                     key: Key('family_shopping_tab'),
-                                    text: 'Mua sắm',
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Mua sắm'),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -595,25 +607,34 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(
-                            Icons.groups_outlined,
-                            size: 20,
-                            color: c.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              family.name,
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: 17,
-                                height: 1.2,
-                                fontWeight: FontWeight.w800,
-                                color: c.textPrimary,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.groups_outlined,
+                                size: 20,
+                                color: c.primary,
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  family.name,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    height: 1.2,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const LifeOsStatusPill(
                             icon: Icons.verified_user_outlined,
@@ -668,31 +689,47 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         child: Row(
                           children: [
                             Expanded(
+                              flex: 3,
                               child: InkWell(
                                 onTap: () => context.push('/tasks-board'),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Việc chung',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: c.textSecondary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Việc chung',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ),
-                                    Text(
-                                      '$taskCount',
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.primary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '$taskCount',
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.primary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    Text(
-                                      'việc cần làm',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: c.textSecondary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'việc cần làm',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -701,31 +738,47 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                             ),
                             VerticalDivider(width: 12, color: c.separator),
                             Expanded(
+                              flex: 3,
                               child: InkWell(
                                 onTap: () => context.go('/planning'),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Lịch chung',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: c.textSecondary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Lịch chung',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ),
-                                    Text(
-                                      '$eventCount',
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.primary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '$eventCount',
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.primary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    Text(
-                                      'sự kiện',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: c.textSecondary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'sự kiện',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -734,17 +787,21 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                             ),
                             VerticalDivider(width: 12, color: c.separator),
                             Expanded(
-                              flex: 2,
+                              flex: 4,
                               child: InkWell(
                                 onTap: () => context.push('/family-funds'),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Quỹ & Chi chung',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: c.textSecondary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Quỹ & Chi chung',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ),
                                     FittedBox(
@@ -762,12 +819,16 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                                         ),
                                       ),
                                     ),
-                                    Text(
-                                      'Nhấn mở Quỹ chung >',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: c.primary,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Nhấn mở Quỹ chung >',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: c.primary,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -841,25 +902,66 @@ class _SplitBillsAndSettlementTabView extends StatelessWidget {
                         ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
                         : 'Đã cân bằng';
 
-                    return ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        child: Text(
-                          mb.fullName.isNotEmpty
-                              ? mb.fullName[0].toUpperCase()
-                              : '?',
-                        ),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 7,
                       ),
-                      title: Text(mb.fullName),
-                      subtitle: Text(
-                        'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
-                      ),
-                      trailing: Text(
-                        statusLabel,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: statusColor,
-                        ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            child: Text(
+                              mb.fullName.isNotEmpty
+                                  ? mb.fullName[0].toUpperCase()
+                                  : '?',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      mb.fullName,
+                                      softWrap: true,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    Text(
+                                      statusLabel,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: statusColor,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
+                                  softWrap: true,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }).toList(),
@@ -1760,14 +1862,27 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    inv.displayInviteeTitle,
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.textPrimary,
-                                    ),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    alignment: WrapAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        inv.displayInviteeTitle,
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                      const SemanticStatusBadge(
+                                        kind: SemanticStatusKind.warning,
+                                        label: 'Đang chờ',
+                                      ),
+                                    ],
                                   ),
                                   if (inv.inviteeContact != null &&
                                       inv.inviteeContact!.isNotEmpty) ...[
@@ -1793,11 +1908,6 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            const SemanticStatusBadge(
-                              kind: SemanticStatusKind.warning,
-                              label: 'Đang chờ',
                             ),
                           ],
                         ),
@@ -2060,7 +2170,7 @@ class _MembersAndGovernanceTabView extends StatelessWidget {
   }
 }
 
-class _SharedShoppingTabView extends StatelessWidget {
+class _SharedShoppingTabView extends StatefulWidget {
   final FamilyEntity family;
   final FamilyState state;
   final String currentUserName;
@@ -2072,7 +2182,23 @@ class _SharedShoppingTabView extends StatelessWidget {
   });
 
   @override
+  State<_SharedShoppingTabView> createState() => _SharedShoppingTabViewState();
+}
+
+class _SharedShoppingTabViewState extends State<_SharedShoppingTabView> {
+  String _statusFilter = 'all'; // 'all' | 'todo' | 'done'
+
+  @override
   Widget build(BuildContext context) {
+    final allItems = widget.state.shoppingItems;
+    final todoCount = allItems.where((i) => !i.isPurchased).length;
+    final doneCount = allItems.where((i) => i.isPurchased).length;
+    final visibleItems = switch (_statusFilter) {
+      'todo' => allItems.where((i) => !i.isPurchased).toList(),
+      'done' => allItems.where((i) => i.isPurchased).toList(),
+      _ => allItems,
+    };
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -2092,30 +2218,83 @@ class _SharedShoppingTabView extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  'Danh sách Mua sắm Chung (${state.shoppingItems.length})',
+                  'Danh sách Mua sắm Chung (${allItems.length})',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 FilledButton.tonalIcon(
                   onPressed: () => _showAddShoppingDialog(
                     context,
-                    familyId: family.id,
-                    userName: currentUserName,
+                    familyId: widget.family.id,
+                    userName: widget.currentUserName,
                   ),
                   icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
                   label: const Text('Thêm món'),
                 ),
               ],
             ),
+            if (allItems.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text('Tất cả (${allItems.length})'),
+                      selected: _statusFilter == 'all',
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(() => _statusFilter = 'all'),
+                    ),
+                    const SizedBox(width: 6),
+                    ChoiceChip(
+                      label: Text('Cần mua ($todoCount)'),
+                      selected: _statusFilter == 'todo',
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(
+                        () => _statusFilter =
+                            _statusFilter == 'todo' ? 'all' : 'todo',
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    ChoiceChip(
+                      label: Text('Đã mua ($doneCount)'),
+                      selected: _statusFilter == 'done',
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(
+                        () => _statusFilter =
+                            _statusFilter == 'done' ? 'all' : 'done',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.sm),
-            if (state.shoppingItems.isEmpty)
+            if (allItems.isEmpty)
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(AppSpacing.md),
                   child: Text('Danh sách mua sắm chung đang trống.'),
                 ),
               )
+            else if (visibleItems.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    children: [
+                      const Text('Không có món đồ nào trong bộ lọc này.'),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => setState(() => _statusFilter = 'all'),
+                        icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                        label: const Text('Xem tất cả món đồ'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
             else
-              ...state.shoppingItems.map(
+              ...visibleItems.map(
                 (item) => Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: Card(
@@ -2124,7 +2303,7 @@ class _SharedShoppingTabView extends StatelessWidget {
                       onChanged: (checked) {
                         context.read<FamilyBloc>().add(
                           ShoppingItemToggled(
-                            familyId: family.id,
+                            familyId: widget.family.id,
                             itemId: item.id,
                             isPurchased: checked ?? false,
                           ),

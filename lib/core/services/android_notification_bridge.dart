@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// Platform bridge for Android native `NotificationListenerService`.
+/// Platform bridge for Android native `NotificationListenerService` + Durable SQLite ACK Queue (`F10` / `BG-01`).
 /// Strictly inactive by default until the user explicitly grants consent and enables packages.
 class AndroidNotificationBridge {
   static const MethodChannel _methodChannel = MethodChannel(
@@ -12,11 +14,46 @@ class AndroidNotificationBridge {
     'vn.lifeos.app/bank_listener_events',
   );
 
-  bool get isSupportedPlatform =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  /// Test-only durable queue simulation supporting crash-before-ACK & 100+ burst verification (`BG-01`).
+  final Map<String, Map<String, dynamic>> _simulatedDurableQueue =
+      <String, Map<String, dynamic>>{};
+
+  bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
+
+  bool get _hasServicesBinding {
+    try {
+      ServicesBinding.instance;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @visibleForTesting
+  void simulateBackgroundBankSignal({
+    required String notificationKey,
+    required String packageName,
+    required String title,
+    required String body,
+    required int postedAtEpochMs,
+  }) {
+    _simulatedDurableQueue.putIfAbsent(
+      notificationKey,
+      () => <String, dynamic>{
+        'notificationKey': notificationKey,
+        'packageName': packageName,
+        'title': title,
+        'body': body,
+        'postedAtEpochMs': postedAtEpochMs,
+      },
+    );
+  }
+
+  @visibleForTesting
+  int get debugPendingUnacknowledgedCount => _simulatedDurableQueue.length;
 
   Future<bool> isNotificationAccessGranted() async {
-    if (!isSupportedPlatform) return false;
+    if (!isSupportedPlatform || !_hasServicesBinding) return false;
     try {
       final granted = await _methodChannel.invokeMethod<bool>(
         'isPermissionGranted',
@@ -61,12 +98,10 @@ class AndroidNotificationBridge {
   }
 
   Future<void> openNotificationAccessSettings() async {
-    if (!isSupportedPlatform) return;
+    if (!isSupportedPlatform || !_hasServicesBinding) return;
     try {
       await _methodChannel.invokeMethod<void>('openPermissionSettings');
-    } catch (_) {
-      // Safe no-op when running in headless test harness or non-native host
-    }
+    } catch (_) {}
   }
 
   Future<void> syncConsentConfig({
@@ -74,7 +109,7 @@ class AndroidNotificationBridge {
     required List<String> allowedPackages,
     bool? voiceSoundboxEnabled,
   }) async {
-    if (!isSupportedPlatform) return;
+    if (!isSupportedPlatform || !_hasServicesBinding) return;
     try {
       await _methodChannel.invokeMethod<void>('updateConfig', {
         'enabled': enabled,
@@ -82,9 +117,7 @@ class AndroidNotificationBridge {
         if (voiceSoundboxEnabled != null)
           'voiceSoundboxEnabled': voiceSoundboxEnabled,
       });
-    } catch (_) {
-      // Safe no-op in headless unit tests without ServicesBinding
-    }
+    } catch (_) {}
   }
 
   Future<void> speakSoundboxAnnouncement(String message) async {
@@ -93,37 +126,49 @@ class AndroidNotificationBridge {
       await _methodChannel.invokeMethod<bool>('speakSoundbox', {
         'message': message,
       });
-    } catch (_) {
-      // Safe no-op in headless unit tests
-    }
+    } catch (_) {}
   }
 
+  /// Claims unacknowledged background notifications WITHOUT deleting them from persistent storage.
+  /// Items are deleted ONLY when [acknowledgeQueuedNotification] is called after Firestore commit!
   Future<List<Map<String, dynamic>>>
   drainQueuedBackgroundNotifications() async {
+    final results = <Map<String, dynamic>>[
+      ..._simulatedDurableQueue.values.map(
+        (m) => Map<String, dynamic>.from(m),
+      ),
+    ];
     if (!isSupportedPlatform || !_hasServicesBinding) {
-      return const <Map<String, dynamic>>[];
+      return results;
     }
     try {
       final rawList = await _methodChannel.invokeMethod<List<dynamic>>(
         'drainQueuedNotifications',
       );
-      if (rawList == null) return const <Map<String, dynamic>>[];
-      return rawList
-          .whereType<Map<dynamic, dynamic>>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .toList();
-    } catch (_) {
-      return const <Map<String, dynamic>>[];
-    }
+      if (rawList != null) {
+        results.addAll(
+          rawList
+              .whereType<Map<dynamic, dynamic>>()
+              .map((m) => Map<String, dynamic>.from(m)),
+        );
+      }
+    } catch (_) {}
+    return results;
   }
 
-  bool get _hasServicesBinding {
+  /// Explicitly acknowledges and removes committed notifications from the durable SQLite queue (`F10` / `BG-01`).
+  Future<void> acknowledgeQueuedNotification(String notificationKey) async {
+    if (notificationKey.isEmpty) return;
+    _simulatedDurableQueue.remove(notificationKey);
+    if (!isSupportedPlatform || !_hasServicesBinding) return;
     try {
-      ServicesBinding.instance;
-      return true;
-    } catch (_) {
-      return false;
-    }
+      await _methodChannel.invokeMethod<int>(
+        'acknowledgeQueuedNotifications',
+        <String, dynamic>{
+          'keys': <String>[notificationKey],
+        },
+      );
+    } catch (_) {}
   }
 
   Stream<Map<String, dynamic>> watchIncomingBankNotifications() {

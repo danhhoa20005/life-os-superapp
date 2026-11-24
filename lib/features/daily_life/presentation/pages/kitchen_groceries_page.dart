@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -21,6 +22,7 @@ class KitchenGroceriesPage extends StatefulWidget {
 
 class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
   String _tab = 'basket';
+  String _basketFilter = 'all'; // 'all' | 'pending' | 'bought'
   int _featuredComboIndex = 0;
 
   static const List<
@@ -71,23 +73,24 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
     final user = context.watch<AuthBloc>().state.user;
     final userId = user?.id ?? '';
     final wallets = context.watch<TransactionListBloc>().state.wallets;
-    final primaryWalletId = wallets.isNotEmpty
-        ? wallets.first.id
-        : 'wallet_cash_default';
+    final primaryWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
+      wallets.map((w) => w.id),
+    );
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
       listenWhen: (p, n) =>
-          p.successBanner != n.successBanner || p.failure != n.failure,
+          (n.failure != null && p.failure != n.failure) ||
+          (n.successBanner != null && p.successBanner != n.successBanner),
       listener: (context, state) {
-        if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text(state.successBanner!)),
-          );
-        } else if (state.failure != null) {
+        if (state.failure != null) {
           LifeOsTopToast.fromSnackBar(
             context,
             SnackBar(content: Text(state.failure!.message)),
+          );
+        } else if (state.successBanner != null) {
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text(state.successBanner!)),
           );
         }
       },
@@ -166,7 +169,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                     ],
                                   ),
                                   const SizedBox(height: 14),
-                                  IntrinsicHeight(
+                                   IntrinsicHeight(
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -174,29 +177,37 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                '${snap.pendingGroceriesCount} món',
-                                                style: TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: c.primary,
-                                                  fontFeatures: const [
-                                                    FontFeature.tabularFigures(),
-                                                  ],
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  '${snap.pendingGroceriesCount} món',
+                                                  style: TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: c.primary,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                              Text(
-                                                'Cần mua thêm',
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  color: c.textSecondary,
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  'Cần mua thêm',
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    color: c.textSecondary,
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
                                         VerticalDivider(
-                                          width: 16,
+                                          width: 14,
                                           color: c.separator,
                                         ),
                                         Expanded(
@@ -204,33 +215,40 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                VndAmount.format(
-                                                  snap.pendingGroceriesMinor +
-                                                      snap.boughtGroceriesMinor,
-                                                ),
-                                                softWrap: true,
-                                                style: TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: c.textPrimary,
-                                                  fontFeatures: const [
-                                                    FontFeature.tabularFigures(),
-                                                  ],
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  VndAmount.format(
+                                                    snap.pendingGroceriesMinor +
+                                                        snap.boughtGroceriesMinor,
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontSize: 17,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: c.textPrimary,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                              Text(
-                                                'Dự toán giỏ chợ',
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  color: c.textSecondary,
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  'Dự toán giỏ chợ',
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    color: c.textSecondary,
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
                                         VerticalDivider(
-                                          width: 16,
+                                          width: 14,
                                           color: c.separator,
                                         ),
                                         Expanded(
@@ -238,22 +256,30 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                '${fridgeList.length} món',
-                                                style: const TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Color(0xFF0EA5E9),
-                                                  fontFeatures: [
-                                                    FontFeature.tabularFigures(),
-                                                  ],
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  '${fridgeList.length} món',
+                                                  style: const TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Color(0xFF0EA5E9),
+                                                    fontFeatures: [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                              Text(
-                                                'Trong tủ lạnh',
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  color: c.textSecondary,
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  'Trong tủ lạnh',
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    color: c.textSecondary,
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -317,10 +343,18 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
     BuildContext context,
     TammySemanticColors c,
     String userId,
-    String primaryWalletId,
+    String? primaryWalletId,
     List<SmartGroceryItemEntity> shoppingList,
     int boughtMinor,
   ) {
+    final pendingCount = shoppingList.where((g) => !g.isBought).length;
+    final boughtCount = shoppingList.where((g) => g.isBought).length;
+    final visibleList = shoppingList.where((g) {
+      if (_basketFilter == 'pending') return !g.isBought;
+      if (_basketFilter == 'bought') return g.isBought;
+      return true;
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -389,6 +423,14 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                   onPressed: userId.isEmpty
                       ? null
                       : () {
+                          if (primaryWalletId == null) {
+                            LifeOsTopToast.show(
+                              context,
+                              'Vui lòng tạo ít nhất 1 Ví trong tab Tài chính trước khi ghi chi tiêu đi chợ.',
+                              kind: LifeOsToastKind.warning,
+                            );
+                            return;
+                          }
                           context.read<TransactionActionBloc>().add(
                             TransactionCreateSubmitted(
                               operationId:
@@ -418,6 +460,35 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
             ],
           ],
         ),
+        if (shoppingList.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              ChoiceChip(
+                key: const Key('grocery_filter_all'),
+                label: Text('Tất cả (${shoppingList.length})'),
+                selected: _basketFilter == 'all',
+                onSelected: (_) => setState(() => _basketFilter = 'all'),
+              ),
+              ChoiceChip(
+                key: const Key('grocery_filter_pending'),
+                label: Text('Cần mua ($pendingCount)'),
+                selected: _basketFilter == 'pending',
+                onSelected: (sel) =>
+                    setState(() => _basketFilter = sel ? 'pending' : 'all'),
+              ),
+              ChoiceChip(
+                key: const Key('grocery_filter_bought'),
+                label: Text('Đã mua ($boughtCount)'),
+                selected: _basketFilter == 'bought',
+                onSelected: (sel) =>
+                    setState(() => _basketFilter = sel ? 'bought' : 'all'),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
 
         if (shoppingList.isEmpty)
@@ -442,8 +513,33 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
               ],
             ),
           )
+        else if (visibleList.isEmpty)
+          LifeOsSoftCard(
+            child: Column(
+              children: [
+                Icon(Icons.filter_list_off_rounded, size: 36, color: c.primary),
+                const SizedBox(height: 8),
+                Text(
+                  _basketFilter == 'pending'
+                      ? 'Bạn đã mua đủ tất cả các món trong giỏ!'
+                      : 'Chưa có món nào được đánh dấu đã mua',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: c.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  key: const Key('grocery_reset_filter_btn'),
+                  onPressed: () => setState(() => _basketFilter = 'all'),
+                  icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                  label: const Text('Xem tất cả'),
+                ),
+              ],
+            ),
+          )
         else
-          ...shoppingList.map((item) {
+          ...visibleList.map((item) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: LifeOsSoftCard(

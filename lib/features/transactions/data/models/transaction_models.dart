@@ -130,6 +130,7 @@ class TransactionModel {
 
     final verification = switch (d['verification'] as String?) {
       'provisional' => TransactionVerification.provisional,
+      'matchedPaymentOrder' => TransactionVerification.matchedPaymentOrder,
       'verified' => TransactionVerification.verified,
       'rejected' => TransactionVerification.rejected,
       'needsReview' => TransactionVerification.needsReview,
@@ -267,6 +268,7 @@ class TransactionModel {
           : 'unknownBalance',
       'ledgerApplied':
           verification == TransactionVerification.userConfirmed ||
+          verification == TransactionVerification.matchedPaymentOrder ||
           verification == TransactionVerification.verified,
       if (walletName != null && walletName.isNotEmpty) 'walletName': walletName,
       'splitLines': splitLines

@@ -513,8 +513,8 @@ class GoogleCalendarSyncReport extends Equatable {
   });
 
   String get summaryVi {
-    return 'Đã đồng bộ $sourceLabel: $calendarsSynced bộ lịch · '
-        'cập nhật $pulledUpserted sự kiện, gửi lên $pushedUpserted sự kiện.';
+    return 'Đã đồng bộ $sourceLabel: cập nhật $pulledUpserted sự kiện, '
+        'gửi lên $pushedUpserted sự kiện.';
   }
 
   @override
@@ -528,6 +528,272 @@ class GoogleCalendarSyncReport extends Equatable {
     syncedAt,
     sourceLabel,
   ];
+}
+
+/// Canonical merged calendar group that collapses duplicate / identical calendars
+/// across LifeOS local, Android `CalendarContract` (`devcal_*`), and Google Calendar API.
+class DeduplicatedCalendarGroup extends Equatable {
+  final String groupKey;
+  final String displayTitle;
+  final ManagedCalendarEntity representative;
+  final List<ManagedCalendarEntity> members;
+  final Set<String> memberIds;
+  final bool isPrimaryGroup;
+  final bool isSystemFeed;
+
+  const DeduplicatedCalendarGroup({
+    required this.groupKey,
+    required this.displayTitle,
+    required this.representative,
+    required this.members,
+    required this.memberIds,
+    required this.isPrimaryGroup,
+    required this.isSystemFeed,
+  });
+
+  String get canonicalId => representative.id;
+
+  bool get isSelected => members.any((m) => m.isSelected);
+
+  bool get isReadOnly =>
+      !isPrimaryGroup && members.every((m) => m.isReadOnly);
+
+  bool get isDeletable =>
+      !isPrimaryGroup &&
+      !isSystemFeed &&
+      members.any((m) => !m.isPrimary && m.id != 'primary' && !m.isReadOnly);
+
+  bool matchesCalendarId(String? calendarId) {
+    if (calendarId == null || calendarId.isEmpty) return false;
+    if (isPrimaryGroup && calendarId == 'primary') return true;
+    return memberIds.contains(calendarId);
+  }
+
+  @override
+  List<Object?> get props => [
+    groupKey,
+    displayTitle,
+    representative,
+    members,
+    memberIds,
+    isPrimaryGroup,
+    isSystemFeed,
+  ];
+}
+
+class CalendarListDeduplicator {
+  const CalendarListDeduplicator._();
+
+  static const Set<String> _genericPersonalSummaries = <String>{
+    'lich ca nhan',
+    'lich ca nhan chinh',
+    'lich ca nhan tren dien thoai',
+    'ca nhan',
+    'lich cua toi',
+    'my calendar',
+    'calendar',
+    'lich',
+    'events',
+    'su kien',
+    'lich thiet bi',
+    'lich lifeos',
+    'lich google',
+    'pc sync',
+    'samsung calendar',
+  };
+
+  static const Map<String, String> _viFoldMap = <String, String>{
+    'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a',
+    'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a',
+    'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ặ': 'a', 'ẳ': 'a', 'ẵ': 'a',
+    'è': 'e', 'é': 'e', 'ẹ': 'e', 'ẻ': 'e', 'ẽ': 'e',
+    'ê': 'e', 'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ể': 'e', 'ễ': 'e',
+    'ì': 'i', 'í': 'i', 'ị': 'i', 'ỉ': 'i', 'ĩ': 'i',
+    'ò': 'o', 'ó': 'o', 'ọ': 'o', 'ỏ': 'o', 'õ': 'o',
+    'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ộ': 'o', 'ổ': 'o', 'ỗ': 'o',
+    'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ợ': 'o', 'ở': 'o', 'ỡ': 'o',
+    'ù': 'u', 'ú': 'u', 'ụ': 'u', 'ủ': 'u', 'ũ': 'u',
+    'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ự': 'u', 'ử': 'u', 'ữ': 'u',
+    'ỳ': 'y', 'ý': 'y', 'ỵ': 'y', 'ỷ': 'y', 'ỹ': 'y',
+    'đ': 'd',
+  };
+
+  static String normalizeText(String raw) {
+    final lower = raw.trim().toLowerCase();
+    if (lower.isEmpty) return '';
+    final sb = StringBuffer();
+    for (var i = 0; i < lower.length; i++) {
+      final ch = lower[i];
+      sb.write(_viFoldMap[ch] ?? ch);
+    }
+    return sb
+        .toString()
+        .replaceAll(RegExp(r'[^a-z0-9@._]+'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static bool _isHolidayCalendar(ManagedCalendarEntity cal, String norm) {
+    final gId = (cal.googleCalendarId ?? '').toLowerCase();
+    if (gId.contains('holiday@group.v.calendar.google.com')) return true;
+    return norm.contains('ngay le') ||
+        norm.contains('holidays in') ||
+        norm.contains('public holiday') ||
+        norm == 'le tet';
+  }
+
+  static bool _isBirthdayCalendar(ManagedCalendarEntity cal, String norm) {
+    final gId = (cal.googleCalendarId ?? '').toLowerCase();
+    if (gId.contains('contacts@group.v.calendar.google.com')) return true;
+    return norm == 'sinh nhat' ||
+        norm.contains('sinh nhat ') ||
+        norm == 'birthdays' ||
+        norm == 'birthday' ||
+        norm == 'contacts' ||
+        norm == 'danh ba';
+  }
+
+  static String canonicalGroupKey(
+    ManagedCalendarEntity cal, {
+    Set<String> primaryEmails = const <String>{},
+  }) {
+    final norm = normalizeText(cal.summary);
+    if (_isHolidayCalendar(cal, norm)) return '__holiday__';
+    if (_isBirthdayCalendar(cal, norm)) return '__birthday__';
+
+    if (cal.isPrimary || cal.id == 'primary') return '__primary__';
+    if (!cal.isReadOnly && _genericPersonalSummaries.contains(norm)) {
+      return '__primary__';
+    }
+    final rawTrimmed = cal.summary.trim().toLowerCase();
+    if (!cal.isReadOnly &&
+        rawTrimmed.contains('@') &&
+        (primaryEmails.isEmpty || primaryEmails.contains(rawTrimmed))) {
+      return '__primary__';
+    }
+    return 'custom:${norm.isEmpty ? cal.id : norm}';
+  }
+
+  static int _sourcePriority(ManagedCalendarEntity cal) {
+    if (cal.id == 'primary') return 0;
+    if (cal.isPrimary) return 1;
+    return switch (cal.source) {
+      CalendarProviderSource.googleCalendar => 2,
+      CalendarProviderSource.lifeOsPrivate => 3,
+      CalendarProviderSource.lifeOsFamily => 4,
+      CalendarProviderSource.deviceCalendar => 5,
+    };
+  }
+
+  /// Collapses duplicate / equivalent calendars into clean canonical groups.
+  static List<DeduplicatedCalendarGroup> group(
+    List<ManagedCalendarEntity> rawCalendars,
+  ) {
+    if (rawCalendars.isEmpty) return const <DeduplicatedCalendarGroup>[];
+
+    final primaryEmails = <String>{};
+    for (final cal in rawCalendars) {
+      if (cal.isPrimary || cal.id == 'primary') {
+        final s = cal.summary.trim().toLowerCase();
+        final d = (cal.description ?? '').trim().toLowerCase();
+        if (s.contains('@')) primaryEmails.add(s);
+        if (d.contains('@')) primaryEmails.add(d);
+      }
+    }
+    // If no explicit email was on `primary`, adopt the first writable email calendar as primary alias
+    if (primaryEmails.isEmpty) {
+      for (final cal in rawCalendars) {
+        final s = cal.summary.trim().toLowerCase();
+        if (!cal.isReadOnly && s.contains('@')) {
+          primaryEmails.add(s);
+          break;
+        }
+      }
+    }
+
+    final buckets = <String, List<ManagedCalendarEntity>>{};
+    for (final cal in rawCalendars) {
+      final key = canonicalGroupKey(cal, primaryEmails: primaryEmails);
+      buckets.putIfAbsent(key, () => <ManagedCalendarEntity>[]).add(cal);
+    }
+
+    final groups = <DeduplicatedCalendarGroup>[];
+    for (final entry in buckets.entries) {
+      final key = entry.key;
+      final members = List<ManagedCalendarEntity>.from(entry.value)
+        ..sort((a, b) => _sourcePriority(a).compareTo(_sourcePriority(b)));
+      final rep = members.first;
+      final isPrimaryGroup = key == '__primary__';
+      final isHoliday = key == '__holiday__';
+      final isBirthday = key == '__birthday__';
+      final isSystemFeed =
+          isHoliday || isBirthday || (!isPrimaryGroup && rep.isReadOnly);
+
+      final displayTitle = switch (key) {
+        '__primary__' => 'Lịch cá nhân',
+        '__holiday__' => 'Ngày lễ Việt Nam',
+        '__birthday__' => 'Sinh nhật',
+        _ => rep.summary.trim().isEmpty ? 'Bộ lịch riêng' : rep.summary.trim(),
+      };
+
+      final ids = <String>{
+        for (final m in members) m.id,
+        if (isPrimaryGroup) 'primary',
+      };
+
+      groups.add(
+        DeduplicatedCalendarGroup(
+          groupKey: key,
+          displayTitle: displayTitle,
+          representative: rep,
+          members: List<ManagedCalendarEntity>.unmodifiable(members),
+          memberIds: Set<String>.unmodifiable(ids),
+          isPrimaryGroup: isPrimaryGroup,
+          isSystemFeed: isSystemFeed,
+        ),
+      );
+    }
+
+    groups.sort((a, b) {
+      if (a.isPrimaryGroup != b.isPrimaryGroup) {
+        return a.isPrimaryGroup ? -1 : 1;
+      }
+      if (a.isSystemFeed != b.isSystemFeed) {
+        return a.isSystemFeed ? 1 : -1;
+      }
+      return a.displayTitle.compareTo(b.displayTitle);
+    });
+
+    return groups;
+  }
+
+  /// Removes duplicate events pulled from identical calendars (e.g., two Holiday feeds).
+  static List<CalendarEventEntity> deduplicateEvents(
+    List<CalendarEventEntity> source,
+  ) {
+    if (source.length <= 1) return source;
+    final bySignature = <String, CalendarEventEntity>{};
+    for (final ev in source) {
+      final normTitle = normalizeText(ev.title);
+      final startBucket = ev.isAllDay
+          ? '${ev.startsAt.year}-${ev.startsAt.month}-${ev.startsAt.day}-allday'
+          : '${ev.startsAt.year}-${ev.startsAt.month}-${ev.startsAt.day}-${ev.startsAt.hour}:${ev.startsAt.minute}';
+      final sig = '${ev.visibility.name}|$normTitle|$startBucket';
+      final existing = bySignature[sig];
+      if (existing == null) {
+        bySignature[sig] = ev;
+      } else {
+        // Prefer Google-linked or LifeOS-authored record over raw `devcal_*` clone
+        final preferCurrent =
+            (!existing.isLinkedWithGoogle && ev.isLinkedWithGoogle) ||
+            (existing.id.startsWith('devcal_') && !ev.id.startsWith('devcal_'));
+        if (preferCurrent) {
+          bySignature[sig] = ev;
+        }
+      }
+    }
+    return bySignature.values.toList();
+  }
 }
 
 class BusySlotEntity extends Equatable {

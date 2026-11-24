@@ -4,7 +4,7 @@ import '../entities/daily_life_entities.dart';
 abstract interface class DailyLifeRepository {
   Stream<DailyLifeSnapshot> watchAll({required String userId});
 
-  // 1. Health & Medication Cabinet
+  // 1. Health, Hydration & Medication Cabinet
   Future<Result<void>> addMedication({
     required String userId,
     required String name,
@@ -13,6 +13,21 @@ abstract interface class DailyLifeRepository {
     required int remainingPills,
     required DateTime expiryDate,
     String memberName = 'Cả gia đình',
+    bool? reminderEnabled,
+    int? reminderHour,
+    int? reminderMinute,
+  });
+
+  Future<Result<void>> updateMedicationReminder({
+    required String userId,
+    required MedicationCabinetItemEntity item,
+    required bool reminderEnabled,
+    required int reminderHour,
+    required int reminderMinute,
+  });
+
+  Future<Result<void>> snoozeMedication15Min({
+    required MedicationCabinetItemEntity item,
   });
 
   Future<Result<void>> toggleMedicationToday({
@@ -24,6 +39,47 @@ abstract interface class DailyLifeRepository {
   Future<Result<void>> deleteMedication({
     required String userId,
     required String medId,
+  });
+
+  Future<Result<void>> logWaterIntake({
+    required String userId,
+    required int deltaMl,
+    int? targetWaterMl,
+    String beverageLabel = 'Nước lọc',
+    String? deleteEntryId,
+  });
+
+  Future<Result<void>> saveHydrationReminderSettings({
+    required String userId,
+    required bool reminderEnabled,
+    required int intervalMinutes,
+    required int startHour,
+    int startMinute = 0,
+    required int endHour,
+    int endMinute = 0,
+    required int targetWaterMl,
+    double? weightKg,
+    double? heightCm,
+    HydrationActivityLevel? activityLevel,
+    bool? autoSyncTargetByBody,
+    int? preferredCupMl,
+    DateTime? snoozedUntil,
+    bool clearSnooze = false,
+  });
+
+  Future<Result<void>> snoozeHydrationReminder({
+    required String userId,
+    required HydrationReminderStatusEntity status,
+    int minutes = 15,
+  });
+
+  Future<Result<int>> syncQueuedBackgroundHealthActions({
+    required String userId,
+  });
+
+  Future<Result<bool>> sendTestHydrationNotification({
+    required HydrationReminderStatusEntity status,
+    int delaySeconds = 0,
   });
 
   Future<Result<void>> addHealthVitalLog({

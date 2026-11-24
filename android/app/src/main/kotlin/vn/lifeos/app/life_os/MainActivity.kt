@@ -108,9 +108,20 @@ class MainActivity : FlutterActivity() {
     private fun captureAlarmIntent(intent: Intent?): Boolean {
         val action = intent?.action ?: return false
         if (action == LifeOsAlarmScheduler.ACTION_OPEN_RINGING_UI) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                        android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                )
+            }
             pendingAlarmPayload = mapOf(
                 "eventId" to (intent.getStringExtra("eventId") ?: ""),
-                "title" to (intent.getStringExtra("title") ?: "Nhắc lịch trình LifeOS"),
+                "title" to (intent.getStringExtra("title") ?: "Báo thức LifeOS"),
                 "subtitle" to (intent.getStringExtra("subtitle") ?: "")
             )
             return true
@@ -157,30 +168,17 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "drainQueuedNotifications" -> {
-                        val prefs = applicationContext.getSharedPreferences(
-                            BankNotificationListenerService.PREFS_NAME,
-                            Context.MODE_PRIVATE
-                        )
-                        val raw = prefs.getString(BankNotificationListenerService.KEY_QUEUED_JSON, "[]") ?: "[]"
-                        prefs.edit().putString(BankNotificationListenerService.KEY_QUEUED_JSON, "[]").apply()
-                        val list = mutableListOf<Map<String, Any>>()
-                        try {
-                            val arr = JSONArray(raw)
-                            for (i in 0 until arr.length()) {
-                                val obj = arr.getJSONObject(i)
-                                list.add(
-                                    mapOf(
-                                        "packageName" to obj.optString("packageName"),
-                                        "title" to obj.optString("title"),
-                                        "body" to obj.optString("body"),
-                                        "postedAtEpochMs" to obj.optLong("postedAtEpochMs"),
-                                        "notificationKey" to obj.optString("notificationKey")
-                                    )
-                                )
-                            }
-                        } catch (_: Exception) {
-                        }
+                        val list = LifeOsBankSignalQueueDb
+                            .getInstance(applicationContext)
+                            .claimDrainableBatch(200)
                         result.success(list)
+                    }
+                    "acknowledgeQueuedNotifications" -> {
+                        val keys = call.argument<List<String>>("keys") ?: emptyList()
+                        val acked = LifeOsBankSignalQueueDb
+                            .getInstance(applicationContext)
+                            .acknowledgeKeys(keys)
+                        result.success(acked)
                     }
                     "isPostNotificationsGranted" -> {
                         val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -227,9 +225,17 @@ class MainActivity : FlutterActivity() {
                 }
             })
 
-        // 2. Native Home Screen Widgets Bridge (4 Purpose-Built Widgets + 1-Tap Pinning)
+        // 2. Native Home Screen Widgets Bridge (4 Interactive Home-Screen Widgets + Background Queue Drain)
         val widgetsCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, homeWidgetsChannelName)
         homeWidgetsMethodChannel = widgetsCh
+        LifeOsWidgetStore.onBackgroundWidgetCommandPing = {
+            runOnUiThread {
+                try {
+                    homeWidgetsMethodChannel?.invokeMethod("onBackgroundWidgetCommand", null)
+                } catch (_: Exception) {
+                }
+            }
+        }
         widgetsCh.setMethodCallHandler { call, result ->
             when (call.method) {
                 "updateWidgets" -> {
@@ -237,21 +243,37 @@ class MainActivity : FlutterActivity() {
                         LifeOsWidgetStore.PREFS_NAME,
                         Context.MODE_PRIVATE
                     )
-                    prefs.edit()
+                    val editor = prefs.edit()
                         .putString("net_worth_formatted", call.argument<String>("netWorth") ?: "0 ₫")
                         .putString("monthly_income_formatted", call.argument<String>("monthlyIncome") ?: "+0 ₫")
                         .putString("monthly_expense_formatted", call.argument<String>("monthlyExpense") ?: "-0 ₫")
                         .putString("today_expense_formatted", call.argument<String>("todayExpense") ?: "0 ₫")
                         .putString("safe_daily_formatted", call.argument<String>("safeDaily") ?: "0 ₫")
                         .putString("wealth_badge", call.argument<String>("wealthBadge") ?: "Auto-Sync")
-                        .putString("group_title", call.argument<String>("groupTitle") ?: "HỘI NHÓM & GIA ĐÌNH · CHIA TIỀN NHANH")
-                        .putString("group_status", call.argument<String>("groupStatus") ?: "Nói câu chia ăn uống, việc nhà, điện nước")
-                        .putString("runway_label", call.argument<String>("runwayLabel") ?: "Quỹ dự phòng ổn định · Tự động bắt số dư")
+                        .putString("group_title", call.argument<String>("groupTitle") ?: "Tổ ấm & Hội nhóm")
+                        .putString("group_status", call.argument<String>("groupStatus") ?: "Chọn số người rồi chạm mức chia nhanh bên dưới")
+                        .putString("runway_label", call.argument<String>("runwayLabel") ?: "Quỹ dự phòng ổn định · Tự động cập nhật")
                         .putInt("daily_used_pct", call.argument<Int>("dailyUsedPct") ?: 15)
                         .putInt("pending_auto_signals", 0)
-                        .apply()
+
+                    call.argument<Number>("netWorthMinor")?.toLong()?.let { editor.putLong("net_worth_minor", it) }
+                    call.argument<Number>("monthlyIncomeMinor")?.toLong()?.let { editor.putLong("monthly_income_minor", it) }
+                    call.argument<Number>("monthlyExpenseMinor")?.toLong()?.let { editor.putLong("monthly_expense_minor", it) }
+                    call.argument<Number>("todayExpenseMinor")?.toLong()?.let { editor.putLong("today_expense_minor", it) }
+                    call.argument<Number>("safeDailyMinor")?.toLong()?.let { editor.putLong("safe_daily_minor", it) }
+                    call.argument<Int>("groupMemberCount")?.let {
+                        editor.putInt("group_member_count", it.coerceIn(2, 20))
+                    }
+                    call.argument<Boolean>("hideBalances")?.let {
+                        editor.putBoolean("hide_balances", it)
+                    }
+                    editor.apply()
+
                     LifeOsWidgetStore.refreshAllWidgets(applicationContext)
                     result.success(true)
+                }
+                "drainQueuedWidgetCommands" -> {
+                    result.success(LifeOsWidgetStore.drainQueuedCommands(applicationContext))
                 }
                 "requestPinWidget" -> {
                     val kind = call.argument<String>("widgetKind") ?: "voice"
@@ -384,6 +406,16 @@ class MainActivity : FlutterActivity() {
                             result.error("FILE_NOT_FOUND", "Không tìm thấy tệp APK đã tải.", null)
                             return@setMethodCallHandler
                         }
+                        // APP-03: Verify APK packageName & signing certificate lineage BEFORE launching installer!
+                        val certError = verifyApkPackageAndSigningCert(apkFile)
+                        if (certError != null) {
+                            try {
+                                apkFile.delete()
+                            } catch (_: Exception) {
+                            }
+                            result.error("CERT_MISMATCH", certError, null)
+                            return@setMethodCallHandler
+                        }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                             !packageManager.canRequestPackageInstalls()
                         ) {
@@ -508,9 +540,15 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        // 6. Native OS Calendar Alarm & Reminder Scheduler (`AlarmManager` + Boot Persistence)
+        // 6. Native OS Calendar Alarm & Background Reminder Engine (`AlarmManager` + Lock-Screen Actions + Boot Persistence)
         val alarmCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, alarmSchedulerChannelName)
         alarmMethodChannel = alarmCh
+        LifeOsAlarmScheduler.onBackgroundHealthActionPing = {
+            try {
+                alarmMethodChannel?.invokeMethod("onBackgroundHealthAction", null)
+            } catch (_: Exception) {
+            }
+        }
         alarmCh.setMethodCallHandler { call, result ->
             when (call.method) {
                 "scheduleAlarm" -> {
@@ -529,6 +567,7 @@ class MainActivity : FlutterActivity() {
                     val triggerAtEpochMs = call.argument<Number>("triggerAtEpochMs")?.toLong() ?: 0L
                     val minutesBefore = call.argument<Int>("minutesBefore") ?: 15
                     val fullScreen = call.argument<Boolean>("fullScreen") ?: false
+                    val cupMl = call.argument<Int>("cupMl") ?: 250
                     if (eventId.isBlank() || triggerAtEpochMs <= 0L) {
                         result.error("INVALID_ALARM", "Thiếu mã sự kiện hoặc thời gian nhắc.", null)
                     } else {
@@ -539,10 +578,105 @@ class MainActivity : FlutterActivity() {
                             subtitle = subtitle,
                             triggerAtEpochMs = triggerAtEpochMs,
                             minutesBefore = minutesBefore,
-                            fullScreen = fullScreen
+                            fullScreen = fullScreen,
+                            cupMl = cupMl
                         )
                         result.success(scheduled)
                     }
+                }
+                "showImmediateReminderNotification" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            REQ_POST_NOTIFICATIONS
+                        )
+                        result.success(false)
+                    } else {
+                        val eventId = call.argument<String>("eventId") ?: "water_test_now"
+                        val title = call.argument<String>("title") ?: "Đến giờ uống nước"
+                        val subtitle = call.argument<String>("subtitle") ?: "Uống 1 cốc nước để cơ thể khỏe khoắn nhé!"
+                        val cupMl = call.argument<Int>("cupMl") ?: 250
+                        LifeOsAlarmScheduler.showStandardReminderNotification(
+                            context = applicationContext,
+                            eventId = eventId,
+                            title = title,
+                            subtitle = subtitle,
+                            fullScreen = false,
+                            cupMl = cupMl
+                        )
+                        result.success(true)
+                    }
+                }
+                "syncHydrationDaemon" -> {
+                    LifeOsAlarmScheduler.syncHydrationDaemonConfig(
+                        context = applicationContext,
+                        enabled = call.argument<Boolean>("enabled") ?: false,
+                        intervalMinutes = call.argument<Int>("intervalMinutes") ?: 90,
+                        startHour = call.argument<Int>("startHour") ?: 7,
+                        startMinute = call.argument<Int>("startMinute") ?: 0,
+                        endHour = call.argument<Int>("endHour") ?: 21,
+                        endMinute = call.argument<Int>("endMinute") ?: 0,
+                        targetWaterMl = call.argument<Int>("targetWaterMl") ?: 2000,
+                        waterMl = call.argument<Int>("waterMl") ?: 0,
+                        preferredCupMl = call.argument<Int>("preferredCupMl") ?: 250,
+                        dayKey = call.argument<String>("dayKey") ?: ""
+                    )
+                    result.success(true)
+                }
+                "syncMedicationDaemon" -> {
+                    val medId = call.argument<String>("medId") ?: ""
+                    if (medId.isNotBlank()) {
+                        LifeOsAlarmScheduler.syncMedicationDaemonItem(
+                            context = applicationContext,
+                            medId = medId,
+                            enabled = call.argument<Boolean>("enabled") ?: false,
+                            name = call.argument<String>("name") ?: "Thuốc",
+                            dosage = call.argument<String>("dosage") ?: "1 liều",
+                            hour = call.argument<Int>("hour") ?: 8,
+                            minute = call.argument<Int>("minute") ?: 0
+                        )
+                    }
+                    result.success(true)
+                }
+                "drainBackgroundHealthActions" -> {
+                    result.success(LifeOsAlarmScheduler.drainQueuedBackgroundHealthActions(applicationContext))
+                }
+                "getBackgroundReadiness" -> {
+                    result.success(
+                        mapOf(
+                            "notificationsGranted" to LifeOsAlarmScheduler.isPostNotificationsGranted(applicationContext),
+                            "exactAlarmGranted" to LifeOsAlarmScheduler.canScheduleExact(applicationContext),
+                            "batteryOptimizationIgnored" to LifeOsAlarmScheduler.isBatteryOptimizationIgnored(applicationContext)
+                        )
+                    )
+                }
+                "requestNotificationPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            REQ_POST_NOTIFICATIONS
+                        )
+                        result.success(true)
+                    } else if (!LifeOsAlarmScheduler.isPostNotificationsGranted(applicationContext)) {
+                        LifeOsAlarmScheduler.openAppNotificationSettings(applicationContext)
+                        result.success(false)
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "openNotificationSettings" -> {
+                    LifeOsAlarmScheduler.openAppNotificationSettings(applicationContext)
+                    result.success(true)
+                }
+                "requestIgnoreBatteryOptimizations" -> {
+                    LifeOsAlarmScheduler.requestIgnoreBatteryOptimizations(applicationContext)
+                    result.success(true)
                 }
                 "cancelAlarm" -> {
                     val eventId = call.argument<String>("eventId") ?: ""
@@ -565,6 +699,18 @@ class MainActivity : FlutterActivity() {
                 "openExactAlarmSettings" -> {
                     LifeOsAlarmScheduler.openExactAlarmSettings(applicationContext)
                     result.success(true)
+                }
+                "stopRingingAlarm" -> {
+                    val eventId = call.argument<String>("eventId")
+                    LifeOsAlarmRinger.stopRinging(applicationContext, eventId)
+                    result.success(true)
+                }
+                "startTestRinging" -> {
+                    LifeOsAlarmRinger.startRinging(applicationContext)
+                    result.success(true)
+                }
+                "listScheduledAlarms" -> {
+                    result.success(LifeOsAlarmScheduler.listAllScheduledAlarms(applicationContext))
                 }
                 "consumeInitialAlarmPayload" -> {
                     val p = pendingAlarmPayload
@@ -694,7 +840,10 @@ class MainActivity : FlutterActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói khoản thu/chi hoặc câu chia tiền...")
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1100L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Hãy nói tự nhiên, hệ thống sẽ tự dừng để bạn xác nhận...")
         }
 
         if (SpeechRecognizer.isRecognitionAvailable(this)) {
@@ -702,6 +851,7 @@ class MainActivity : FlutterActivity() {
                 speechRecognizer?.destroy()
                 val sr = SpeechRecognizer.createSpeechRecognizer(this)
                 speechRecognizer = sr
+                var lastPartialTranscript = ""
                 sr.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         voiceEventSink?.success(mapOf("type" to "state", "status" to "listening"))
@@ -720,12 +870,38 @@ class MainActivity : FlutterActivity() {
                     }
 
                     override fun onError(error: Int) {
-                        voiceEventSink?.success(mapOf("type" to "error", "code" to error))
+                        // Preserve already-captured speech when OEM recognizer ends on silence timeout!
+                        if (lastPartialTranscript.isNotBlank() &&
+                            (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
+                                error == SpeechRecognizer.ERROR_NO_MATCH ||
+                                error == SpeechRecognizer.ERROR_CLIENT)
+                        ) {
+                            val captured = lastPartialTranscript
+                            lastPartialTranscript = ""
+                            voiceEventSink?.success(mapOf("type" to "final", "text" to captured))
+                            return
+                        }
+                        val friendlyMsg = when (error) {
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+                                "Vui lòng cấp quyền Micro để thu âm giọng nói."
+                            SpeechRecognizer.ERROR_NO_MATCH,
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+                                "Chưa nghe rõ giọng nói. Bấm Nói lại để thử lại nhé."
+                            SpeechRecognizer.ERROR_NETWORK,
+                            SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
+                                "Kết nối nhận diện giọng nói gián đoạn. Hãy thử nói lại hoặc kiểm tra gói giọng nói tiếng Việt offline."
+                            else ->
+                                "Tạm ngưng thu âm. Bấm Nói lại khi bạn sẵn sàng."
+                        }
+                        voiceEventSink?.success(
+                            mapOf("type" to "error", "code" to error, "message" to friendlyMsg)
+                        )
                     }
 
                     override fun onResults(results: Bundle?) {
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull().orEmpty()
+                        val text = matches?.firstOrNull()?.takeIf { it.isNotBlank() } ?: lastPartialTranscript
+                        lastPartialTranscript = ""
                         voiceEventSink?.success(mapOf("type" to "final", "text" to text))
                     }
 
@@ -733,6 +909,7 @@ class MainActivity : FlutterActivity() {
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull().orEmpty()
                         if (text.isNotEmpty()) {
+                            lastPartialTranscript = text
                             voiceEventSink?.success(mapOf("type" to "partial", "text" to text))
                         }
                     }
@@ -795,6 +972,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        LifeOsAlarmScheduler.onBackgroundHealthActionPing = null
+        LifeOsWidgetStore.onBackgroundWidgetCommandPing = null
         try {
             speechRecognizer?.destroy()
         } catch (_: Exception) {
@@ -806,5 +985,79 @@ class MainActivity : FlutterActivity() {
         val cn = ComponentName(this, BankNotificationListenerService::class.java)
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
         return flat != null && flat.contains(cn.flattenToString())
+    }
+
+    /**
+     * APP-03: Validates that a downloaded OTA APK matches this app's `packageName` AND is signed
+     * by the exact same signing certificate SHA-256 before handing off to Android PackageInstaller.
+     */
+    private fun verifyApkPackageAndSigningCert(apkFile: File): String? {
+        return try {
+            val archiveInfo = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageArchiveInfo(
+                    apkFile.absolutePath,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNATURES)
+            }) ?: return "Tệp APK không hợp lệ hoặc bị hỏng."
+
+            if (archiveInfo.packageName != packageName) {
+                return "Tên gói APK (${archiveInfo.packageName}) không khớp với ứng dụng LifeOS ($packageName)."
+            }
+
+            val installedBytes = getSigningCertBytesForInstalledApp()
+            val archiveBytes = extractCertBytes(archiveInfo)
+            if (installedBytes != null && archiveBytes != null) {
+                val md = java.security.MessageDigest.getInstance("SHA-256")
+                val installedHash = md.digest(installedBytes)
+                val archiveHash = java.security.MessageDigest.getInstance("SHA-256").digest(archiveBytes)
+                if (!installedHash.contentEquals(archiveHash)) {
+                    return "Chứng chỉ ký của gói APK mới không khớp với phiên bản đang cài đặt (APP-03)."
+                }
+            }
+            null
+        } catch (e: Exception) {
+            "Không thể xác minh chữ ký số của tệp APK: ${e.message}"
+        }
+    }
+
+    private fun getSigningCertBytesForInstalledApp(): ByteArray? {
+        return try {
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(
+                    packageName,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            }
+            extractCertBytes(info)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun extractCertBytes(pkgInfo: android.content.pm.PackageInfo): ByteArray? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signingInfo = pkgInfo.signingInfo ?: return null
+            val sigs = if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners
+            } else {
+                signingInfo.signingCertificateHistory
+            }
+            sigs?.firstOrNull()?.toByteArray()
+        } else {
+            @Suppress("DEPRECATION")
+            pkgInfo.signatures?.firstOrNull()?.toByteArray()
+        }
     }
 }

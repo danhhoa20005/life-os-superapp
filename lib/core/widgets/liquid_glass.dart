@@ -65,29 +65,29 @@ abstract final class LiquidGlassTokens {
 
     return switch (material) {
       LiquidGlassMaterial.floatingDock => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: isDark
             ? [
-                const Color(0xFF18241D).withValues(alpha: 0.78),
-                const Color(0xFF0E1612).withValues(alpha: 0.70),
+                const Color(0xFF242D38).withValues(alpha: 0.90),
+                const Color(0xFF1C242E).withValues(alpha: 0.86),
               ]
             : [
-                Colors.white.withValues(alpha: 0.80),
-                const Color(0xFFF3FAF5).withValues(alpha: 0.70),
+                Colors.white.withValues(alpha: 0.92),
+                const Color(0xFFF8FAFC).withValues(alpha: 0.86),
               ],
       ),
       LiquidGlassMaterial.navigationChrome => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: isDark
             ? [
-                const Color(0xFF1A261F).withValues(alpha: 0.78),
-                const Color(0xFF111915).withValues(alpha: 0.68),
+                const Color(0xFF252E3A).withValues(alpha: 0.90),
+                const Color(0xFF1E2630).withValues(alpha: 0.84),
               ]
             : [
-                Colors.white.withValues(alpha: 0.82),
-                const Color(0xFFF5FAF7).withValues(alpha: 0.72),
+                Colors.white.withValues(alpha: 0.94),
+                const Color(0xFFF9FAFB).withValues(alpha: 0.88),
               ],
       ),
       LiquidGlassMaterial.floatingToast => LinearGradient(
@@ -95,12 +95,12 @@ abstract final class LiquidGlassTokens {
         end: Alignment.bottomRight,
         colors: isDark
             ? [
-                const Color(0xFF18241D).withValues(alpha: 0.88),
-                const Color(0xFF101813).withValues(alpha: 0.82),
+                const Color(0xFF2C3542).withValues(alpha: 0.95),
+                const Color(0xFF222A35).withValues(alpha: 0.92),
               ]
             : [
-                Colors.white.withValues(alpha: 0.88),
-                const Color(0xFFF6FBF8).withValues(alpha: 0.82),
+                const Color(0xFFFFFFFF).withValues(alpha: 0.97),
+                const Color(0xFFF8FAFC).withValues(alpha: 0.94),
               ],
       ),
       LiquidGlassMaterial.modalSheet => LinearGradient(
@@ -108,12 +108,12 @@ abstract final class LiquidGlassTokens {
         end: Alignment.bottomCenter,
         colors: isDark
             ? [
-                const Color(0xFF16211B).withValues(alpha: 0.90),
-                const Color(0xFF0D1410).withValues(alpha: 0.95),
+                const Color(0xFF222A34).withValues(alpha: 0.96),
+                const Color(0xFF1A2129).withValues(alpha: 0.98),
               ]
             : [
-                Colors.white.withValues(alpha: 0.90),
-                const Color(0xFFF4F8F6).withValues(alpha: 0.95),
+                Colors.white.withValues(alpha: 0.97),
+                const Color(0xFFF8FAFC).withValues(alpha: 0.99),
               ],
       ),
       LiquidGlassMaterial.segmentedTrough => LinearGradient(
@@ -121,25 +121,25 @@ abstract final class LiquidGlassTokens {
         end: Alignment.bottomCenter,
         colors: isDark
             ? [
-                const Color(0xFF0D1410).withValues(alpha: 0.78),
-                const Color(0xFF16201A).withValues(alpha: 0.72),
+                const Color(0xFF171D24),
+                const Color(0xFF1B222A),
               ]
             : [
-                const Color(0xFFE4ECE7).withValues(alpha: 0.76),
-                const Color(0xFFF1F6F3).withValues(alpha: 0.82),
+                const Color(0xFFEAEEF3),
+                const Color(0xFFEEF2F6),
               ],
       ),
       LiquidGlassMaterial.card => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: isDark
             ? [
-                const Color(0xFF17211B).withValues(alpha: 0.92),
-                const Color(0xFF111814).withValues(alpha: 0.88),
+                const Color(0xFF222A34),
+                const Color(0xFF1E252E),
               ]
             : [
-                Colors.white.withValues(alpha: 0.92),
-                const Color(0xFFF9FCFA).withValues(alpha: 0.86),
+                const Color(0xFFFFFFFF),
+                const Color(0xFFFFFFFF),
               ],
       ),
       LiquidGlassMaterial.mintHero => LinearGradient(
@@ -147,12 +147,12 @@ abstract final class LiquidGlassTokens {
         end: Alignment.bottomRight,
         colors: isDark
             ? [
-                const Color(0xFF133320).withValues(alpha: 0.92),
-                const Color(0xFF0E2116).withValues(alpha: 0.88),
+                const Color(0xFF1B3326),
+                const Color(0xFF192822),
               ]
             : [
-                const Color(0xFFE6FAEE).withValues(alpha: 0.92),
-                const Color(0xFFF5FCF8).withValues(alpha: 0.86),
+                const Color(0xFFF3FCF6),
+                const Color(0xFFFFFFFF),
               ],
       ),
     };
@@ -337,6 +337,23 @@ class LiquidGlassRimPainter extends CustomPainter {
       ).createShader(rect);
 
     canvas.drawRRect(rrect, rimPaint);
+
+    // 3. Subtle bottom 3D thickness chamfer (gives cards & docks tactile Apple 3D relief)
+    if (!topCornersOnly && size.height >= 28) {
+      final bottomEdgePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..isAntiAlias = true
+        ..color = isDark
+            ? Colors.black.withValues(alpha: 0.22 * k.clamp(0.0, 1.0))
+            : const Color(0xFFD2DFD8).withValues(alpha: 0.55 * k.clamp(0.0, 1.0));
+      final pad = (borderRadius * 0.65).clamp(6.0, size.width * 0.3);
+      canvas.drawLine(
+        Offset(pad, size.height - 0.6),
+        Offset(size.width - pad, size.height - 0.6),
+        bottomEdgePaint,
+      );
+    }
   }
 
   @override

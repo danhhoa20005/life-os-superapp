@@ -3,6 +3,7 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/utils/stream_combiner.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../domain/entities/transaction_entities.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../../domain/usecases/transaction_usecases.dart';
@@ -28,6 +29,18 @@ class TransactionListBloc
     on<TransactionsSearchChanged>(_onSearchChanged, transformer: restartable());
     on<TransactionsKindFilterChanged>(
       _onKindFilterChanged,
+      transformer: restartable(),
+    );
+    on<TransactionsWalletFilterChanged>(
+      _onWalletFilterChanged,
+      transformer: restartable(),
+    );
+    on<TransactionsCategoryFilterChanged>(
+      _onCategoryFilterChanged,
+      transformer: restartable(),
+    );
+    on<TransactionsFiltersReset>(
+      _onFiltersReset,
       transformer: restartable(),
     );
   }
@@ -84,6 +97,9 @@ class TransactionListBloc
               wallets: wallets,
               transactions: txs,
             );
+            final walletStillExists =
+                state.selectedWalletId == null ||
+                wallets.any((w) => w.id == state.selectedWalletId);
             return state.copyWith(
               status: LoadStatus.loaded,
               monthKey: targetMonth,
@@ -91,6 +107,7 @@ class TransactionListBloc
               categories: categories,
               allTransactions: txs,
               summary: summary,
+              clearWalletFilter: !walletStillExists,
               clearFailure: true,
             );
           },
@@ -113,11 +130,52 @@ class TransactionListBloc
     TransactionsKindFilterChanged event,
     Emitter<TransactionListState> emit,
   ) {
-    if (event.kind == null) {
+    if (event.kind == null || event.kind == state.kindFilter) {
       emit(state.copyWith(clearKindFilter: true));
     } else {
       emit(state.copyWith(kindFilter: event.kind));
     }
+  }
+
+  void _onWalletFilterChanged(
+    TransactionsWalletFilterChanged event,
+    Emitter<TransactionListState> emit,
+  ) {
+    if (event.walletId == null || event.walletId == state.selectedWalletId) {
+      emit(state.copyWith(clearWalletFilter: true));
+    } else {
+      emit(state.copyWith(selectedWalletId: event.walletId));
+    }
+  }
+
+  void _onCategoryFilterChanged(
+    TransactionsCategoryFilterChanged event,
+    Emitter<TransactionListState> emit,
+  ) {
+    final next = event.categoryName?.trim();
+    if (next == null ||
+        next.isEmpty ||
+        (state.categoryFilter != null &&
+            VietnameseSearchMatcher.fold(state.categoryFilter!) ==
+                VietnameseSearchMatcher.fold(next))) {
+      emit(state.copyWith(clearCategoryFilter: true));
+    } else {
+      emit(state.copyWith(categoryFilter: next));
+    }
+  }
+
+  void _onFiltersReset(
+    TransactionsFiltersReset event,
+    Emitter<TransactionListState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        clearKindFilter: true,
+        clearWalletFilter: true,
+        clearCategoryFilter: true,
+      ),
+    );
   }
 }
 
@@ -250,7 +308,7 @@ class TransactionActionBloc
       (_) => emit(
         const TransactionActionState(
           status: ActionStatus.success,
-          successMessage: 'Đã tạo bút toán đảo và hoàn lại số dư ví.',
+          successMessage: 'Đã hoàn tác giao dịch và cập nhật lại số dư ví.',
         ),
       ),
     );
@@ -268,6 +326,8 @@ class TransactionActionBloc
         approve: event.approve,
         updatedCategoryName: event.updatedCategoryName,
         updatedMerchant: event.updatedMerchant,
+        updatedAmountMinor: event.updatedAmountMinor,
+        updatedNote: event.updatedNote,
       ),
     );
     res.fold(
@@ -278,7 +338,7 @@ class TransactionActionBloc
         TransactionActionState(
           status: ActionStatus.success,
           successMessage: event.approve
-              ? 'Đã xác nhận giao dịch vào sổ cái.'
+              ? 'Đã xác nhận giao dịch vào sổ thu chi.'
               : 'Đã bỏ qua gợi ý giao dịch.',
         ),
       ),

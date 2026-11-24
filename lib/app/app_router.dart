@@ -9,7 +9,10 @@ import '../core/di/dependency_injection.dart';
 import '../core/services/fcm_banking_messaging_service.dart';
 import '../core/services/native_alarm_scheduler_bridge.dart';
 import '../core/services/native_home_widget_bridge.dart';
+import '../core/utils/omni_action_executor.dart';
+import '../core/utils/smart_omni_intent_parser.dart';
 import '../core/utils/smart_quick_entry_parser.dart';
+import '../core/utils/user_behavior_prefs.dart';
 import '../core/utils/vnd_amount.dart';
 import '../core/widgets/lifeos_design_system.dart';
 import '../core/widgets/voice_smart_capture_sheet.dart';
@@ -37,6 +40,11 @@ import '../features/documents/presentation/pages/family_documents_page.dart';
 import '../features/family/presentation/bloc/family_bloc.dart';
 import '../features/family/presentation/pages/family_funds_page.dart';
 import '../features/family/presentation/pages/family_page.dart';
+import '../features/financial_ai/domain/entities/financial_ai_entities.dart';
+import '../features/financial_ai/presentation/bloc/financial_ai_bloc.dart';
+import '../features/financial_ai/presentation/bloc/gemini_copilot_bloc.dart';
+import '../features/financial_ai/presentation/pages/financial_ai_assistant_page.dart';
+import '../features/financial_ai/presentation/pages/financial_ai_settings_page.dart';
 import '../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
 import '../features/notifications/presentation/pages/activity_and_settings_pages.dart';
 import '../features/notifications/presentation/pages/notifications_privacy_page.dart';
@@ -165,7 +173,14 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: '/planning',
-                builder: (_, __) => const PlanningPage(),
+                builder: (_, state) => PlanningPage(
+                  initialViewMode: state.uri.queryParameters['view'],
+                  initialTabIndex: switch (state.uri.queryParameters['tab']) {
+                    'tasks' => 1,
+                    'tools' => 2,
+                    _ => 0,
+                  },
+                ),
               ),
             ],
           ),
@@ -241,10 +256,14 @@ GoRouter createAppRouter(
         builder: (context, state) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
-          return EventAlarmPage(
-            event: state.extra is CalendarEventEntity
-                ? state.extra as CalendarEventEntity
-                : null,
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: EventAlarmPage(
+              event: state.extra is CalendarEventEntity
+                  ? state.extra as CalendarEventEntity
+                  : null,
+            ),
           );
         },
       ),
@@ -411,13 +430,15 @@ GoRouter createAppRouter(
       ),
       GoRoute(
         path: '/health-hub',
-        builder: (context, _) {
+        builder: (context, state) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
             userId: user.id,
             familyId: user.activeFamilyId,
-            child: const HealthMedicalHubPage(),
+            child: HealthMedicalHubPage(
+              initialTab: state.uri.queryParameters['tab'],
+            ),
           );
         },
       ),
@@ -457,6 +478,46 @@ GoRouter createAppRouter(
           );
         },
       ),
+      GoRoute(
+        path: '/financial-ai',
+        builder: (context, state) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          String? initialText;
+          var initialSource = FinancialInputSource.manualText;
+          final extra = state.extra;
+          if (extra is String) {
+            initialText = extra;
+          } else if (extra is Map<String, dynamic>) {
+            final rawText = extra['initialText'];
+            if (rawText is String) initialText = rawText;
+            final rawSource = extra['initialSource'];
+            if (rawSource is FinancialInputSource) {
+              initialSource = rawSource;
+            }
+          }
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: FinancialAiAssistantPage(
+              initialText: initialText,
+              initialSource: initialSource,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/financial-ai-settings',
+        builder: (context, _) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const FinancialAiSettingsPage(),
+          );
+        },
+      ),
     ],
   );
 }
@@ -482,6 +543,14 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
         BlocProvider<DashboardBloc>(
           create: (_) => sl<DashboardBloc>()
             ..add(DashboardWatchStarted(userId: userId, familyId: familyId)),
+        ),
+        BlocProvider<FinancialAiBloc>(
+          create: (_) =>
+              sl<FinancialAiBloc>()..add(FinancialAiInitialized(userId)),
+        ),
+        BlocProvider<GeminiCopilotBloc>(
+          create: (_) =>
+              sl<GeminiCopilotBloc>()..add(const GeminiCopilotInitialized()),
         ),
         BlocProvider<TransactionListBloc>(
           create: (_) => sl<TransactionListBloc>()
@@ -644,7 +713,24 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 12, bottom: 8),
                         child: Column(
                           children: [
-                            const LifeOsLeafMark(size: 38, borderRadius: 12),
+                            Tooltip(
+                              message: 'Bảng tính năng LifeOS',
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  key: const Key(
+                                    'open_logo_side_drawer_rail_button',
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () =>
+                                      showLifeOsLogoSideDrawer(context),
+                                  child: const LifeOsLeafMark(
+                                    size: 38,
+                                    borderRadius: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             IconButton.filled(
                               tooltip: 'Tạo nhanh LifeOS',
@@ -711,9 +797,28 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
 
             return Scaffold(
               extendBody: true,
-              body: _SlidingShellViewport(
-                currentIndex: navigationShell.currentIndex,
-                child: navigationShell,
+              body: Stack(
+                children: [
+                  _SlidingShellViewport(
+                    currentIndex: navigationShell.currentIndex,
+                    child: navigationShell,
+                  ),
+                  Positioned(
+                    key: const Key('shell_left_edge_drawer_swipe_zone'),
+                    left: 0,
+                    top: 0,
+                    bottom: 96,
+                    width: 14,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onHorizontalDragEnd: (details) {
+                        if ((details.primaryVelocity ?? 0) > 260) {
+                          showLifeOsLogoSideDrawer(context);
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
               bottomNavigationBar: RepaintBoundary(
                 child: SafeArea(
@@ -829,17 +934,25 @@ class _HomeWidgetSyncAndIntentHost extends StatefulWidget {
 }
 
 class _HomeWidgetSyncAndIntentHostState
-    extends State<_HomeWidgetSyncAndIntentHost> {
+    extends State<_HomeWidgetSyncAndIntentHost>
+    with WidgetsBindingObserver {
   StreamSubscription<String>? _widgetActionSub;
+  StreamSubscription<void>? _bgWidgetCmdSub;
   StreamSubscription<IncomingBankingPushPayload>? _fcmForegroundSub;
   StreamSubscription<IncomingBankingPushPayload>? _fcmDeepLinkSub;
+  bool _isDrainingWidgetCommands = false;
+  static final Map<String, String> _syncedWidgetCmdToTxId = <String, String>{};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final bridge = sl<NativeHomeWidgetBridge>();
     final fcmService = sl<FcmBankingMessagingService>();
     _widgetActionSub = bridge.widgetActions.listen(_handleWidgetAction);
+    _bgWidgetCmdSub = bridge.backgroundCommandSignals.listen(
+      (_) => _drainHomeScreenWidgetCommands(),
+    );
     _fcmForegroundSub = fcmService.foregroundNotifications.listen(
       _handleForegroundBankingPush,
     );
@@ -849,7 +962,12 @@ class _HomeWidgetSyncAndIntentHostState
     NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(
       _handleRingingAlarm,
     );
+    NativeAlarmSchedulerBridge.instance.setOnBackgroundHealthActionListener(
+      _drainBackgroundHealthActions,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _drainBackgroundHealthActions();
+      await _drainHomeScreenWidgetCommands();
       final pending = await bridge.consumePendingWidgetAction();
       if (pending != null && mounted) {
         _handleWidgetAction(pending);
@@ -864,6 +982,173 @@ class _HomeWidgetSyncAndIntentHostState
         _handleBankingPushDeepLink(coldStartPush);
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _drainBackgroundHealthActions();
+      _drainHomeScreenWidgetCommands();
+    }
+  }
+
+  void _drainBackgroundHealthActions() {
+    if (!mounted) return;
+    final uid = context.read<AuthBloc>().state.user?.id;
+    if (uid != null && uid.isNotEmpty) {
+      context.read<DailyLifeBloc>().add(
+        BackgroundHealthActionsSynced(userId: uid),
+      );
+    }
+  }
+
+  Future<void> _drainHomeScreenWidgetCommands() async {
+    if (!mounted || _isDrainingWidgetCommands) return;
+    _isDrainingWidgetCommands = true;
+    try {
+      final commands = await sl<NativeHomeWidgetBridge>()
+          .drainQueuedWidgetCommands();
+      if (!mounted || commands.isEmpty) return;
+
+      final user = context.read<AuthBloc>().state.user;
+      if (user == null) return;
+
+      final txActionBloc = context.read<TransactionActionBloc>();
+      final familyBloc = context.read<FamilyBloc>();
+      final wallets = context.read<TransactionListBloc>().state.wallets;
+      final walletId = UserBehaviorPrefs.resolvePreferredWalletId(
+        wallets.map((w) => w.id),
+      );
+
+      var appliedCount = 0;
+      for (final cmd in commands) {
+        if (!mounted) break;
+        if (cmd.kind == 'undo') {
+          final txId =
+              _syncedWidgetCmdToTxId[cmd.targetCommandId] ??
+              cmd.targetCommandId;
+          if (txId.isNotEmpty) {
+            txActionBloc.add(
+              TransactionReverseRequested(
+                userId: user.id,
+                transactionId: txId,
+                reason: 'Hoàn tác từ Widget màn hình chính',
+              ),
+            );
+            appliedCount++;
+          }
+          continue;
+        }
+
+        if (cmd.kind == 'expense' || cmd.kind == 'income') {
+          final parsed = SmartQuickEntryParser.tryParse(cmd.commandText);
+          final amount = cmd.amountMinor > 0
+              ? cmd.amountMinor
+              : (parsed?.amountMinor ?? 0);
+          if (amount <= 0) continue;
+          final opId = cmd.id.isNotEmpty
+              ? cmd.id
+              : 'widget_tx_${DateTime.now().microsecondsSinceEpoch}';
+          _syncedWidgetCmdToTxId[cmd.id] = opId;
+          final txKind = cmd.kind == 'income'
+              ? TransactionKind.income
+              : TransactionKind.expense;
+          final catId =
+              parsed?.categoryId ??
+              (txKind == TransactionKind.income
+                  ? 'cat_other_inc'
+                  : 'cat_other_exp');
+          final catName =
+              parsed?.categoryName ??
+              (txKind == TransactionKind.income
+                  ? 'Thu nhập khác'
+                  : 'Chi tiêu khác');
+          final title = cmd.label.trim().isNotEmpty
+              ? cmd.label.trim()
+              : (parsed?.merchant ?? 'Ghi từ Widget');
+
+          txActionBloc.add(
+            TransactionCreateSubmitted(
+              operationId: opId,
+              userId: user.id,
+              walletId: walletId,
+              categoryId: catId,
+              categoryName: catName,
+              kind: txKind,
+              amountMinor: amount,
+              merchant: title,
+              note: 'Ghi trực tiếp ngoài Widget màn hình chính',
+              occurredAt: cmd.createdAtEpochMs > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(cmd.createdAtEpochMs)
+                  : DateTime.now(),
+            ),
+          );
+          await UserBehaviorPrefs.recordHabitExecution(
+            label: '$title ${(amount / 1000).round()}k',
+            commandText: '$title ${(amount / 1000).round()}k',
+            categoryName: catName,
+            amountMinor: amount,
+          );
+          appliedCount++;
+          continue;
+        }
+
+        if (cmd.kind == 'group_split' && cmd.amountMinor > 0) {
+          final ok = await OmniActionExecutor.executeDraft(
+            toastContext: context,
+            draft: OmniActionDraft(
+              id: cmd.id.isNotEmpty ? cmd.id : 'widget_split_$appliedCount',
+              kind: OmniActionKind.groupSplit,
+              title: cmd.label.trim().isNotEmpty
+                  ? cmd.label.trim()
+                  : 'Khoản chia chung',
+              amountMinor: cmd.amountMinor,
+              participantCount: cmd.memberCount.clamp(2, 20),
+              originLabel: 'Widget màn hình chính',
+            ),
+            user: user,
+            walletId: walletId,
+            familyBloc: familyBloc,
+            showSuccessToast: false,
+          );
+          if (ok) appliedCount++;
+          continue;
+        }
+
+        if (cmd.commandText.trim().isNotEmpty) {
+          final calBloc = context.read<CalendarBloc>();
+          final taskBloc = context.read<TaskBloc>();
+          final dailyBloc = context.read<DailyLifeBloc>();
+          final drafts = SmartOmniIntentParser.parseMulti(cmd.commandText);
+          for (final draft in drafts) {
+            if (!mounted) break;
+            final ok = await OmniActionExecutor.executeDraft(
+              toastContext: context,
+              draft: draft,
+              user: user,
+              walletId: walletId,
+              txActionBloc: txActionBloc,
+              calBloc: calBloc,
+              taskBloc: taskBloc,
+              familyBloc: familyBloc,
+              dailyBloc: dailyBloc,
+              showSuccessToast: false,
+            );
+            if (ok) appliedCount++;
+          }
+        }
+      }
+
+      if (appliedCount > 0 && mounted) {
+        LifeOsTopToast.show(
+          context,
+          'Đã đồng bộ $appliedCount thao tác từ Widget ngoài màn hình chính.',
+          kind: LifeOsToastKind.success,
+        );
+      }
+    } finally {
+      _isDrainingWidgetCommands = false;
+    }
   }
 
   void _handleForegroundBankingPush(IncomingBankingPushPayload payload) {
@@ -887,6 +1172,41 @@ class _HomeWidgetSyncAndIntentHostState
     if (!mounted) return;
     final now = DateTime.now();
     final eventId = payload['eventId'] ?? '';
+    if (eventId.startsWith('water_')) {
+      final user = context.read<AuthBloc>().state.user;
+      final hyd = context.read<DailyLifeBloc>().state.snapshot.hydration;
+      final cup = hyd.preferredCupMl;
+      context.push('/health-hub?tab=water');
+      LifeOsTopToast.show(
+        context,
+        payload['title'] ?? 'Đến giờ uống nước rồi!',
+        kind: LifeOsToastKind.info,
+        actionLabel: user != null ? '+${cup}ml' : null,
+        onAction: user == null
+            ? null
+            : () {
+                context.read<DailyLifeBloc>().add(
+                  WaterIntakeLogged(
+                    userId: user.id,
+                    deltaMl: cup,
+                    targetWaterMl: hyd.targetWaterMl,
+                  ),
+                );
+              },
+        duration: const Duration(milliseconds: 5000),
+      );
+      return;
+    }
+    if (eventId.startsWith('med_')) {
+      context.push('/health-hub?tab=meds');
+      LifeOsTopToast.show(
+        context,
+        payload['title'] ?? 'Đến giờ uống thuốc!',
+        kind: LifeOsToastKind.warning,
+        duration: const Duration(milliseconds: 4500),
+      );
+      return;
+    }
     final existing = context
         .read<CalendarBloc>()
         .state
@@ -901,10 +1221,11 @@ class _HomeWidgetSyncAndIntentHostState
           ownerName: 'LifeOS',
           calendarId: 'primary',
           visibility: CalendarEventVisibility.privateEvent,
-          title: payload['title'] ?? 'Nhắc lịch trình LifeOS',
+          title: payload['title'] ?? 'Báo thức LifeOS',
           location: payload['subtitle'],
           startsAt: now,
           endsAt: now.add(const Duration(hours: 1)),
+          reminderMinutesBefore: 0,
         );
     context.push('/event-alarm', extra: ev);
   }
@@ -956,21 +1277,34 @@ class _HomeWidgetSyncAndIntentHostState
       monthlyExpense: '-${VndAmount.format(dash.monthlyExpenseMinor)}',
       todayExpense: VndAmount.format(dash.todayExpenseMinor),
       safeDaily: VndAmount.format(dash.dailySafeToSpendMinor),
-      wealthBadge: autoConfirm ? 'Auto-Ledger BẬT' : 'Auto-Sync',
+      wealthBadge: autoConfirm ? 'Auto-Ledger BẬT' : 'Đổi góc nhìn',
       groupTitle: fam != null
-          ? '${fam.name.toUpperCase()} · ${fam.members.length} THÀNH VIÊN'
-          : 'HỘI NHÓM & GIA ĐÌNH · CHIA TIỀN NHANH',
-      groupStatus: 'Nói câu chia ăn uống, việc nhà, điện nước',
+          ? '${fam.name} · ${fam.members.length} thành viên'
+          : 'Tổ ấm & Hội nhóm',
+      groupStatus: 'Chọn số người rồi chạm mức chia nhanh bên dưới',
       runwayLabel:
           'Quỹ dự phòng: ${runway.monthsOfRunway.toStringAsFixed(1)} tháng · ${runway.statusBadge}',
       dailyUsedPct: usedPct,
+      netWorthMinor: dash.netWorthMinor,
+      monthlyIncomeMinor: dash.monthlyIncomeMinor,
+      monthlyExpenseMinor: dash.monthlyExpenseMinor,
+      todayExpenseMinor: dash.todayExpenseMinor,
+      safeDailyMinor: dash.dailySafeToSpendMinor,
+      groupMemberCount: fam != null && fam.members.length >= 2
+          ? fam.members.length
+          : null,
     );
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     NativeAlarmSchedulerBridge.instance.setOnAlarmRingingListener(null);
+    NativeAlarmSchedulerBridge.instance.setOnBackgroundHealthActionListener(
+      null,
+    );
     _widgetActionSub?.cancel();
+    _bgWidgetCmdSub?.cancel();
     _fcmForegroundSub?.cancel();
     _fcmDeepLinkSub?.cancel();
     super.dispose();

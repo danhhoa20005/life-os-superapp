@@ -270,8 +270,19 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       final docRef = _userRef(userId).collection('wellness_daily').doc(dateKey);
       final snap = await docRef.get();
       final curr = snap.data() ?? const <String, dynamic>{};
+      int? profileTarget;
+      Map<String, dynamic>? remData;
+      if (curr['targetWaterMl'] == null || addWaterMl != 0) {
+        final remSnap = await _userRef(
+          userId,
+        ).collection('medical_profiles').doc('hydration_reminder').get();
+        remData = remSnap.data();
+        profileTarget = (remData?['targetWaterMl'] as num?)?.toInt();
+      }
+      final preservedTarget =
+          (curr['targetWaterMl'] as num?)?.toInt() ?? profileTarget ?? 2000;
       final nextWater = (((curr['waterMl'] as num?)?.toInt() ?? 0) + addWaterMl)
-          .clamp(0, 6000);
+          .clamp(0, 10000);
       final nextFocus =
           (((curr['focusMinutes'] as num?)?.toInt() ?? 0) + addFocusMinutes)
               .clamp(0, 1440);
@@ -279,14 +290,33 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
           (((curr['completedPomodoros'] as num?)?.toInt() ?? 0) + addPomodoros)
               .clamp(0, 50);
 
+      final rawEntries = curr['entries'];
+      final entries = <Map<String, dynamic>>[
+        if (rawEntries is List)
+          for (final item in rawEntries)
+            if (item is Map) Map<String, dynamic>.from(item),
+      ];
+      if (addWaterMl > 0) {
+        final now = DateTime.now();
+        entries.add(<String, dynamic>{
+          'id': 'cup_${now.microsecondsSinceEpoch}',
+          'ml': addWaterMl,
+          'beverageLabel': 'Nước lọc',
+          'loggedAt': now.toIso8601String(),
+        });
+      }
+
       await docRef.set({
         'dateKey': dateKey,
         'ownerId': userId,
         'waterMl': nextWater,
-        'targetWaterMl': 2000,
+        'targetWaterMl': preservedTarget,
+        if (addWaterMl > 0) 'lastCupMl': addWaterMl,
+        if (addWaterMl > 0) 'entries': entries,
         'focusMinutes': nextFocus,
         'completedPomodoros': nextPomo,
-      });
+      }, SetOptions(merge: true));
+
       return const Success(null);
     } catch (e) {
       return Err(

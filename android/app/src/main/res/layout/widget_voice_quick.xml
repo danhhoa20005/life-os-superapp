@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget 1: Google Pixel Search & Voice Quick Bar (4x1 / 4x2 Resizable Material 3) -->
+<!-- Widget 1: Interactive On-Home-Screen Voice & 1-Tap Expense Quick Bar (4x2 Material 3) -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
@@ -12,80 +12,167 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:paddingLeft="12dp"
-        android:paddingTop="8dp"
-        android:paddingRight="10dp"
-        android:paddingBottom="8dp">
+        android:paddingTop="10dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="10dp">
 
-        <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:contentDescription="LifeOS"
-            android:src="@drawable/ic_widget_leaf" />
-
+        <!-- Top Row: Floating Voice & Quick Input Bar (Never launches MainActivity unless Leaf icon tapped) -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="10dp"
-            android:layout_marginRight="8dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_widget_m3_tonal_box"
-            android:orientation="vertical"
-            android:paddingLeft="12dp"
-            android:paddingTop="6dp"
-            android:paddingRight="12dp"
-            android:paddingBottom="6dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/img_voice_open_app"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="Mở LifeOS"
+                android:src="@drawable/ic_widget_leaf" />
+
+            <LinearLayout
+                android:id="@+id/box_voice_prompt"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
+                android:layout_marginRight="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_widget_m3_tonal_box"
+                android:orientation="vertical"
+                android:paddingLeft="11dp"
+                android:paddingTop="5dp"
+                android:paddingRight="11dp"
+                android:paddingBottom="5dp">
+
+                <TextView
+                    android:id="@+id/tv_voice_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="Chạm nói, gõ nhanh hoặc bấm mức bên dưới"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="11.5sp" />
+
+                <TextView
+                    android:id="@+id/tv_voice_today_spend"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="Chi hôm nay: 0 ₫"
+                    android:textColor="@color/widget_text_secondary"
+                    android:textSize="10.5sp" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/btn_widget_voice_mic"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_widget_m3_primary_pill">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Nói ghi chi tiêu ngay ngoài màn hình"
+                    android:src="@drawable/ic_widget_mic" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/btn_widget_voice_split"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginLeft="6dp"
+                android:background="@drawable/bg_widget_m3_tonal_pill">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Chia tiền nhóm ngay ngoài màn hình"
+                    android:src="@drawable/ic_widget_split" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Bottom Row: Direct 1-Tap Broadcast Chips (Executes right on Home Screen with ZERO popup!) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/tv_voice_hint"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:id="@+id/btn_voice_chip_35k"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1.15"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
+                android:gravity="center"
                 android:maxLines="1"
-                android:text="Nói chi tiêu hoặc chia tiền..."
-                android:textColor="@color/widget_text_primary"
-                android:textSize="12.5sp" />
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
+                android:text="+Cà phê 35k"
+                android:textColor="@color/widget_primary_tonal_fg"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_voice_today_spend"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:id="@+id/btn_voice_chip_50k"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_marginLeft="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
                 android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
                 android:maxLines="1"
-                android:text="Chi hôm nay: 0 ₫"
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
+                android:text="+Ăn 50k"
+                android:textColor="@color/widget_primary_tonal_fg"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_voice_chip_80k"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_marginLeft="5dp"
+                android:layout_weight="1.05"
+                android:background="@drawable/bg_widget_m3_tonal_pill"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingLeft="6dp"
+                android:paddingRight="6dp"
+                android:text="+Xăng 80k"
+                android:textColor="@color/widget_primary_tonal_fg"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_voice_undo"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginLeft="5dp"
+                android:background="@drawable/bg_widget_m3_tonal_box"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:maxLines="1"
+                android:paddingLeft="9dp"
+                android:paddingRight="9dp"
+                android:text="Hoàn tác"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="10.5sp" />
         </LinearLayout>
-
-        <FrameLayout
-            android:id="@+id/btn_widget_voice_mic"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="@drawable/bg_widget_m3_primary_pill">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_gravity="center"
-                android:contentDescription="Nói ghi chi tiêu"
-                android:src="@drawable/ic_widget_mic" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/btn_widget_voice_split"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:layout_marginLeft="6dp"
-            android:background="@drawable/bg_widget_m3_tonal_pill">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_gravity="center"
-                android:contentDescription="Chia tiền nhóm"
-                android:src="@drawable/ic_widget_split" />
-        </FrameLayout>
     </LinearLayout>
 </FrameLayout>

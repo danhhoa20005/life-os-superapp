@@ -5,70 +5,156 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/constants/app_assets.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
-import '../../../../core/widgets/status_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/pages/auth_pages.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../tasks/domain/entities/task_entities.dart';
-import '../../../tasks/domain/repositories/task_repository.dart';
 import '../../../tasks/presentation/bloc/task_bloc.dart';
 import '../../../tasks/presentation/pages/tasks_board_page.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../../domain/repositories/calendar_repository.dart';
 import '../bloc/calendar_bloc.dart';
 
-class PlanningPage extends StatelessWidget {
-  const PlanningPage({super.key});
+class PlanningPage extends StatefulWidget {
+  final String? initialViewMode;
+  final int initialTabIndex;
+
+  const PlanningPage({
+    super.key,
+    this.initialViewMode,
+    this.initialTabIndex = 0,
+  });
+
+  @override
+  State<PlanningPage> createState() => _PlanningPageState();
+}
+
+class _PlanningPageState extends State<PlanningPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    )..addListener(_handleTabChanged);
+  }
+
+  void _handleTabChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant PlanningPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex) {
+      final nextIdx = widget.initialTabIndex.clamp(0, 2);
+      if (_tabController.index != nextIdx) {
+        _tabController.animateTo(nextIdx);
+      }
+    } else if (widget.initialViewMode != null &&
+        widget.initialViewMode != oldWidget.initialViewMode &&
+        _tabController.index != 0) {
+      _tabController.animateTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthBloc>().state.user;
     final activeFamily = context.watch<FamilyBloc>().state.activeFamily;
+    final isSyncingCal = context.select<CalendarBloc, bool>(
+      (b) => b.state.isSyncingGoogle,
+    );
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final isCalendarTab = _tabController.index == 0;
+
     return MultiBlocListener(
       listeners: [
         BlocListener<CalendarBloc, CalendarState>(
-          listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
+          listenWhen: (p, c) =>
+              (c.failure != null && p.failure != c.failure) ||
+              (c.message != null && p.message != c.message),
           listener: (context, state) {
             if (state.failure != null) {
-              LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
+              LifeOsTopToast.fromSnackBar(
+                context,
+                SnackBar(content: Text('⚠ ${state.failure!.message}')),
+              );
             } else if (state.message != null) {
-              LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.message!}')));
+              LifeOsTopToast.fromSnackBar(
+                context,
+                SnackBar(content: Text('✓ ${state.message!}')),
+              );
             }
           },
         ),
         BlocListener<TaskBloc, TaskState>(
-          listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
+          listenWhen: (p, c) =>
+              (c.failure != null && p.failure != c.failure) ||
+              (c.message != null && p.message != c.message),
           listener: (context, state) {
             if (state.failure != null) {
-              LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('⚠ ${state.failure!.message}')));
+              LifeOsTopToast.fromSnackBar(
+                context,
+                SnackBar(content: Text('⚠ ${state.failure!.message}')),
+              );
             } else if (state.message != null) {
-              LifeOsTopToast.fromSnackBar(context, SnackBar(content: Text('✓ ${state.message!}')));
+              LifeOsTopToast.fromSnackBar(
+                context,
+                SnackBar(content: Text('✓ ${state.message!}')),
+              );
             }
           },
         ),
       ],
-      child: DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          body: LifeOsMintWaveCanvas(
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  LifeOsTopBrandHeader(
-                    title: 'Lịch & Việc',
-                    extraBrandActions: [
+      child: Scaffold(
+        body: LifeOsMintWaveCanvas(
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                LifeOsTopBrandHeader(
+                  title: 'Lịch & Việc',
+                  extraBrandActions: [
+                    if (isCalendarTab)
+                      LifeOsHeaderCircleButton(
+                        buttonKey: const Key('header_sync_calendar_button'),
+                        icon: isSyncingCal
+                            ? Icons.autorenew_rounded
+                            : Icons.sync_rounded,
+                        tooltip: 'Đồng bộ Lịch Google & điện thoại',
+                        onTap: isSyncingCal
+                            ? () {}
+                            : () => context.read<CalendarBloc>().add(
+                                  GoogleCalendarSyncRequested(
+                                    userId: user.id,
+                                    userName: user.fullName,
+                                  ),
+                                ),
+                      )
+                    else
                       LifeOsHeaderCircleButton(
                         buttonKey: const Key('open_create_event_button'),
                         icon: Icons.edit_calendar_rounded,
-                        tooltip: 'Thêm sự kiện lịch mới',
+                        tooltip: 'Thêm lịch hẹn mới',
                         onTap: () => showUpsertCalendarEventDialog(
                           context,
                           userId: user.id,
@@ -77,200 +163,571 @@ class PlanningPage extends StatelessWidget {
                           availabilityOptIn: user.availabilityOptIn,
                         ),
                       ),
+                  ],
+                  trailingAction: isCalendarTab
+                      ? FilledButton.icon(
+                          key: const Key('open_create_event_button'),
+                          onPressed: () => showUpsertCalendarEventDialog(
+                            context,
+                            userId: user.id,
+                            userName: user.fullName,
+                            familyId: activeFamily?.id,
+                            availabilityOptIn: user.availabilityOptIn,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Thêm lịch'),
+                        )
+                      : FilledButton.icon(
+                          key: const Key('open_create_task_header_button'),
+                          onPressed: () => showUnifiedCreateTaskDialog(
+                            context,
+                            userId: user.id,
+                            userName: user.fullName,
+                            familyId: activeFamily?.id,
+                            members: activeFamily?.members ?? const [],
+                          ),
+                          icon: const Icon(Icons.add_task_rounded, size: 18),
+                          label: const Text('Thêm việc'),
+                        ),
+                ),
+                ProPillTabContainer(
+                  tabBar: TabBar(
+                    controller: _tabController,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                    tabs: const [
+                      Tab(
+                        key: Key('planning_calendar_tab'),
+                        text: 'Lịch trình',
+                      ),
+                      Tab(
+                        key: Key('planning_tasks_tab'),
+                        text: 'Công việc',
+                      ),
+                      Tab(
+                        key: Key('planning_tools_tab'),
+                        text: 'Tiện ích',
+                      ),
                     ],
-                    trailingAction: FilledButton.icon(
-                      onPressed: () => _showCreateTaskDialog(
-                        context,
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _UnifiedWorkScheduleTab(
                         userId: user.id,
                         userName: user.fullName,
                         familyId: activeFamily?.id,
-                        members: activeFamily?.members ?? const [],
+                        familyMembers: activeFamily?.members ?? const [],
+                        availabilityOptIn: user.availabilityOptIn,
+                        initialViewMode: widget.initialViewMode,
                       ),
-                      icon: const Icon(Icons.add_task_rounded, size: 18),
-                      label: const Text('Giao việc'),
-                    ),
+                      UnifiedTasksBoardView(userId: user.id),
+                      _PlanningHabitsAndNotesTabView(
+                        userId: user.id,
+                        onSwitchToTab: (idx) => _tabController.animateTo(idx),
+                      ),
+                    ],
                   ),
-                  const ProPillTabContainer(
-                    tabBar: TabBar(
-                      labelPadding: EdgeInsets.symmetric(horizontal: 6),
-                      tabs: [
-                        Tab(
-                          key: Key('planning_calendar_tab'),
-                          text: 'Lịch trình',
-                        ),
-                        Tab(
-                          key: Key('planning_tasks_tab'),
-                          text: 'Việc làm',
-                        ),
-                        Tab(
-                          key: Key('planning_tools_tab'),
-                          text: 'Thói quen & Sổ',
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _GoogleAndLifeOsCalendarTab(
-                          userId: user.id,
-                          userName: user.fullName,
-                          familyId: activeFamily?.id,
-                          availabilityOptIn: user.availabilityOptIn,
-                        ),
-                        UnifiedTasksBoardView(userId: user.id),
-                        const _PlanningHabitsAndNotesTabView(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showCreateTaskDialog(
-    BuildContext context, {
-    required String userId,
-    required String userName,
-    String? familyId,
-    required List<dynamic> members,
-  }) async {
-    final titleCtrl = TextEditingController();
-    var assigneeId = userId;
-    var assigneeName = userName;
-    var recurrence = TaskRecurrence.none;
-    final taskBloc = context.read<TaskBloc>();
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Giao Nhiệm vụ (Cơ chế Đồng thuận)'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('Nội dung công việc'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(hintText: 'VD: Đón bé lúc 17h / Đóng tiền điện'),
-                ),
-                if (members.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  const Text('Giao cho thành viên'),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: assigneeId,
-                    items: members
-                        .map<DropdownMenuItem<String>>(
-                          (m) => DropdownMenuItem(
-                            value: m.userId as String,
-                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                              '${m.fullName} (${m.userId == userId ? "Bản thân" : "Cần đồng ý"})',
-                            )),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        final found = members.where((m) => m.userId == val).first;
-                        setDialogState(() {
-                          assigneeId = val;
-                          assigneeName = found.fullName as String;
-                        });
-                      }
-                    },
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.sm),
-                const Text('Chu kỳ lặp lại'),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<TaskRecurrence>(
-                  isExpanded: true,
-                  initialValue: recurrence,
-                  items: const [
-                    DropdownMenuItem(value: TaskRecurrence.none, child: Text('Không lặp')),
-                    DropdownMenuItem(value: TaskRecurrence.daily, child: Text('Hằng ngày')),
-                    DropdownMenuItem(value: TaskRecurrence.weekly, child: Text('Hằng tuần')),
-                    DropdownMenuItem(value: TaskRecurrence.monthly, child: Text('Hằng tháng')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setDialogState(() => recurrence = v);
-                  },
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
-            FilledButton(
-              onPressed: () {
-                taskBloc.add(
-                  TaskCreateSubmitted(
-                    CreateTaskParams(
-                      createdBy: userId,
-                      creatorName: userName,
-                      familyId: familyId,
-                      assigneeId: assigneeId,
-                      assigneeName: assigneeName,
-                      title: titleCtrl.text,
-                      dueAt: DateTime.now().add(const Duration(days: 1)),
-                      recurrence: recurrence,
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> showCreateManagedCalendarDialog(
+  BuildContext context, {
+  required String userId,
+}) async {
+  final calBloc = context.read<CalendarBloc>();
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _CreateManagedCalendarDialog(
+      calBloc: calBloc,
+      userId: userId,
+    ),
+  );
+}
+
+class _CreateManagedCalendarDialog extends StatefulWidget {
+  final CalendarBloc calBloc;
+  final String userId;
+
+  const _CreateManagedCalendarDialog({
+    required this.calBloc,
+    required this.userId,
+  });
+
+  @override
+  State<_CreateManagedCalendarDialog> createState() =>
+      _CreateManagedCalendarDialogState();
+}
+
+class _CreateManagedCalendarDialogState
+    extends State<_CreateManagedCalendarDialog> {
+  static const List<String> _palette = <String>[
+    '#0B7A2A',
+    '#1971C2',
+    '#6741D9',
+    '#D9480F',
+    '#C92A2A',
+    '#087F5B',
+  ];
+
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _descCtrl = TextEditingController();
+  String _selectedColor = '#0B7A2A';
+  bool _createOnGoogle = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  static Color _parseHex(String hex) {
+    final clean = hex.replaceFirst('#', '');
+    final v = int.tryParse('FF$clean', radix: 16);
+    return v != null ? Color(v) : Colors.green;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tạo bộ lịch mới'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('new_calendar_name_field'),
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tên bộ lịch',
+                hintText: 'VD: Lịch Làm việc / Tập luyện / Học tập',
+                prefixIcon: Icon(Icons.calendar_today_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _descCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Mô tả ngắn (tùy chọn)',
+                prefixIcon: Icon(Icons.notes_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Màu nhận diện',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              children: _palette.map((hex) {
+                final color = _parseHex(hex);
+                final isPicked = _selectedColor == hex;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => setState(() => _selectedColor = hex),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: isPicked
+                          ? Border.all(color: Colors.black87, width: 2.5)
+                          : null,
                     ),
+                    child: isPicked
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          )
+                        : null,
                   ),
                 );
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Tạo nhiệm vụ'),
+              }).toList(),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Đồng bộ lên Google Calendar'),
+              value: _createOnGoogle,
+              onChanged: (v) => setState(() => _createOnGoogle = v),
             ),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton.icon(
+          key: const Key('submit_create_calendar_button'),
+          onPressed: () {
+            widget.calBloc.add(
+              ManagedCalendarCreateSubmitted(
+                CreateManagedCalendarParams(
+                  userId: widget.userId,
+                  summary: _nameCtrl.text,
+                  description: _descCtrl.text,
+                  colorHex: _selectedColor,
+                  createOnGoogle: _createOnGoogle,
+                ),
+              ),
+            );
+            Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Tạo lịch'),
+        ),
+      ],
     );
-    titleCtrl.dispose();
   }
 }
 
-class _GoogleAndLifeOsCalendarTab extends StatefulWidget {
+Future<void> showManageCalendarsSheet(
+  BuildContext context, {
+  required String userId,
+}) async {
+  final calBloc = context.read<CalendarBloc>();
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => BlocProvider<CalendarBloc>.value(
+      value: calBloc,
+      child: _ManageCalendarsBottomSheet(userId: userId),
+    ),
+  );
+}
+
+class _ManageCalendarsBottomSheet extends StatelessWidget {
+  final String userId;
+
+  const _ManageCalendarsBottomSheet({required this.userId});
+
+  static Color _parseColor(String? hex, Color fallback) {
+    if (hex == null || hex.isEmpty) return fallback;
+    final clean = hex.replaceFirst('#', '');
+    if (clean.length == 6) {
+      final v = int.tryParse('FF$clean', radix: 16);
+      if (v != null) return Color(v);
+    }
+    return fallback;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return BlocBuilder<CalendarBloc, CalendarState>(
+      builder: (context, state) {
+        final groups = state.deduplicatedCalendars;
+        final userGroups = groups.where((g) => !g.isSystemFeed).toList();
+        final systemGroups = groups.where((g) => g.isSystemFeed).toList();
+
+        Widget buildGroupRow(DeduplicatedCalendarGroup group) {
+          final dotColor = _parseColor(group.representative.colorHex, c.primary);
+          final isFilteredOnly =
+              state.selectedCalendarId != null &&
+              group.matchesCalendarId(state.selectedCalendarId);
+          final mergedCount = group.members.length;
+
+          return Padding(
+            key: Key('calendar_group_tile_${group.canonicalId}'),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: isFilteredOnly
+                  ? c.primary.withValues(alpha: 0.09)
+                  : c.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: isFilteredOnly ? c.primary : c.separator,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  context.read<CalendarBloc>().add(
+                        CalendarFilterSelected(
+                          isFilteredOnly ? null : group.canonicalId,
+                        ),
+                      );
+                  Navigator.of(context).pop();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: dotColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              group.displayTitle,
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                            if (mergedCount > 1)
+                              Text(
+                                'Đã gộp $mergedCount bộ lịch trùng tên',
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (group.isDeletable)
+                        IconButton(
+                          key: Key('delete_calendar_group_${group.canonicalId}'),
+                          tooltip: 'Xóa bộ lịch',
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.delete_outline_rounded,
+                            size: 19,
+                            color: c.error,
+                          ),
+                          onPressed: () => context.read<CalendarBloc>().add(
+                                ManagedCalendarDeleteSubmitted(
+                                  userId: userId,
+                                  calendar: group.representative,
+                                ),
+                              ),
+                        ),
+                      if (!group.isPrimaryGroup)
+                        Switch(
+                          key: Key('toggle_calendar_group_${group.canonicalId}'),
+                          value: group.isSelected,
+                          onChanged: (val) => context.read<CalendarBloc>().add(
+                                ManagedCalendarVisibilityToggled(
+                                  userId: userId,
+                                  calendar: group.representative,
+                                  isSelected: val,
+                                ),
+                              ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+          ),
+          child: Material(
+            color: c.background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: c.separator,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        'Bộ lịch hiển thị',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      FilledButton.tonalIcon(
+                        key: const Key('create_calendar_button'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          showCreateManagedCalendarDialog(
+                            context,
+                            userId: userId,
+                          );
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 17),
+                        label: const Text('Tạo bộ lịch'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Các lịch trùng tên từ điện thoại và Google đã được tự động gộp gọn. Chạm vào một lịch để chỉ lọc riêng lịch đó.',
+                    softWrap: true,
+                    style: TextStyle(
+                      fontSize: 12.2,
+                      height: 1.35,
+                      color: c.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (state.selectedCalendarId != null ||
+                      userGroups.any((g) => !g.isSelected))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: OutlinedButton.icon(
+                        key: const Key('sheet_show_all_calendars_btn'),
+                        onPressed: () {
+                          context.read<CalendarBloc>().add(
+                            CalendarFiltersReset(
+                              userId: userId,
+                              enableHiddenUserCalendars: true,
+                            ),
+                          );
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.done_all_rounded, size: 17),
+                        label: const Text('Hiển thị lại tất cả lịch'),
+                      ),
+                    ),
+                  ...userGroups.map(buildGroupRow),
+                  if (systemGroups.isNotEmpty)
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                      ),
+                      child: ExpansionTile(
+                        key: const Key('system_calendars_expansion_tile'),
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                        childrenPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Lịch ngày lễ & hệ thống (${systemGroups.length})',
+                          style: TextStyle(
+                            fontSize: 13.2,
+                            fontWeight: FontWeight.w700,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                        children: systemGroups.map(buildGroupRow).toList(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UnifiedWorkScheduleTab extends StatefulWidget {
   final String userId;
   final String userName;
   final String? familyId;
+  final List<dynamic> familyMembers;
   final bool availabilityOptIn;
+  final String? initialViewMode;
 
-  const _GoogleAndLifeOsCalendarTab({
+  const _UnifiedWorkScheduleTab({
     required this.userId,
     required this.userName,
     required this.familyId,
+    required this.familyMembers,
     required this.availabilityOptIn,
+    this.initialViewMode,
   });
 
   @override
-  State<_GoogleAndLifeOsCalendarTab> createState() => _GoogleAndLifeOsCalendarTabState();
+  State<_UnifiedWorkScheduleTab> createState() =>
+      _UnifiedWorkScheduleTabState();
 }
 
-class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab>
+class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
     with WidgetsBindingObserver {
-  String get userId => widget.userId;
-  String get userName => widget.userName;
-  String? get familyId => widget.familyId;
-  bool get availabilityOptIn => widget.availabilityOptIn;
+  static const Set<String> _validModes = {'day', 'week', 'month', 'year'};
+
+  String _viewMode = 'day';
+  late DateTime _focusedMonth;
+  late DateTime _selectedDate;
+  bool _showSearchBar = false;
+  bool _expandMonthInWeekMode = false;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final now = DateTime.now();
+    _focusedMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    final initQuery = context.read<CalendarBloc>().state.searchQuery;
+    if (initQuery.isNotEmpty) {
+      _searchCtrl.text = initQuery;
+      _showSearchBar = true;
+    }
+    final initMode = widget.initialViewMode;
+    if (initMode != null && _validModes.contains(initMode)) {
+      _viewMode = initMode;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _UnifiedWorkScheduleTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextMode = widget.initialViewMode;
+    if (nextMode != null &&
+        nextMode != oldWidget.initialViewMode &&
+        _validModes.contains(nextMode)) {
+      _viewMode = nextMode;
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -279,8 +736,8 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<CalendarBloc>().add(
             GoogleCalendarSyncRequested(
-              userId: userId,
-              userName: userName,
+              userId: widget.userId,
+              userName: widget.userName,
               interactive: false,
             ),
           );
@@ -297,1033 +754,18 @@ class _GoogleAndLifeOsCalendarTabState extends State<_GoogleAndLifeOsCalendarTab
     return fallback;
   }
 
-  Future<void> _showCreateCalendarDialog(BuildContext context) async {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    var selectedColor = '#0B7A2A';
-    var createOnGoogle = false;
-    final calBloc = context.read<CalendarBloc>();
-
-    const palette = <String>[
-      '#0B7A2A',
-      '#1971C2',
-      '#6741D9',
-      '#D9480F',
-      '#C92A2A',
-      '#087F5B',
-    ];
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => AlertDialog(
-          title: const Text('Tạo Bộ Lịch Mới'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  key: const Key('new_calendar_name_field'),
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên bộ lịch',
-                    hintText: 'VD: Lịch Dự án / Lịch Tập Gym / Học tập',
-                    prefixIcon: Icon(Icons.calendar_today_rounded),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Mô tả (Tùy chọn)',
-                    prefixIcon: Icon(Icons.notes_rounded),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text('Màu nhận diện lịch', style: Theme.of(ctx).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  children: palette.map((hex) {
-                    final color = _parseHexColor(hex, Colors.green);
-                    final isPicked = selectedColor == hex;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => setModalState(() => selectedColor = hex),
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: isPicked
-                              ? Border.all(color: Colors.black87, width: 2.5)
-                              : null,
-                        ),
-                        child: isPicked
-                            ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Đồng bộ lên Google Calendar'),
-                  value: createOnGoogle,
-                  onChanged: (v) => setModalState(() => createOnGoogle = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
-            FilledButton.icon(
-              key: const Key('submit_create_calendar_button'),
-              onPressed: () {
-                calBloc.add(
-                  ManagedCalendarCreateSubmitted(
-                    CreateManagedCalendarParams(
-                      userId: userId,
-                      summary: nameCtrl.text,
-                      description: descCtrl.text,
-                      colorHex: selectedColor,
-                      createOnGoogle: createOnGoogle,
-                    ),
-                  ),
-                );
-                Navigator.of(ctx).pop();
-              },
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Tạo lịch'),
-            ),
-          ],
-        ),
-      ),
-    );
-    nameCtrl.dispose();
-    descCtrl.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    final dtFmt = DateFormat('dd/MM/yyyy HH:mm');
-    final dayFmt = DateFormat('dd/MM/yyyy');
-    final timeFmt = DateFormat('HH:mm');
-
-    return BlocBuilder<CalendarBloc, CalendarState>(
-      builder: (context, state) {
-        final calById = <String, ManagedCalendarEntity>{
-          for (final cal in state.calendars) cal.id: cal,
-        };
-        final syncedCount =
-            state.events.where((e) => e.syncStatus == CalendarSyncStatus.synced).length;
-
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
-            child: ListView(
-              key: const Key('calendar_events_list_view'),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.dockClearance,
-              ),
-              children: [
-                // 0. Unified LifeOS Month Grid + Day/Week/Month Real Timeline (Zero Mock Data)
-                _LifeOsInteractiveCalendarDeck(
-                  events: state.filteredEvents,
-                  isSyncing: state.isSyncingGoogle,
-                  onSyncRequested: () => context.read<CalendarBloc>().add(
-                        GoogleCalendarSyncRequested(
-                          userId: userId,
-                          userName: userName,
-                        ),
-                      ),
-                  onAddEventForDate: (selectedDate) => showUpsertCalendarEventDialog(
-                    context,
-                    userId: userId,
-                    userName: userName,
-                    familyId: familyId,
-                    availabilityOptIn: availabilityOptIn,
-                    initialDate: selectedDate,
-                  ),
-                ),
-
-                // Clearly Separated Section: Đồng bộ Google Calendar & Lịch máy
-                const LifeOsSectionHeader(
-                  title: 'Đồng bộ Lịch & Nguồn sự kiện',
-                  tone: LifeOsAccentTone.blue,
-                  padding: EdgeInsets.only(top: 12, bottom: 6, left: 2, right: 2),
-                ),
-
-                // 1. Device & Google Calendar 2-Way Sync Card
-                LifeOsMintHeroCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(11),
-                              border: Border.all(color: c.separator),
-                            ),
-                            child: const GoogleBrandMark(size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Đồng bộ Lịch thiết bị & Google Calendar',
-                                  style: TextStyle(
-                                    color: c.textPrimary,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                Text(
-                                  state.lastSyncReport != null
-                                      ? 'Cập nhật lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)} · ${state.calendars.length} bộ lịch · ${state.events.length} sự kiện'
-                                      : '${state.calendars.length} bộ lịch · $syncedCount sự kiện đã đồng bộ',
-                                  style: TextStyle(
-                                    color: c.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.icon(
-                            key: const Key('sync_google_calendar_button'),
-                            onPressed: state.isSyncingGoogle
-                                ? null
-                                : () => context.read<CalendarBloc>().add(
-                                      GoogleCalendarSyncRequested(
-                                        userId: userId,
-                                        userName: userName,
-                                      ),
-                                    ),
-                            icon: state.isSyncingGoogle
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.sync_rounded, size: 18),
-                            label: Text(
-                              state.isSyncingGoogle
-                                  ? 'Đang đồng bộ Lịch...'
-                                  : 'Đồng bộ Lịch ngay',
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _showCreateCalendarDialog(context),
-                            icon: const Icon(Icons.create_new_folder_outlined, size: 17),
-                            label: const Text('Tạo bộ lịch'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => showUpsertCalendarEventDialog(
-                              context,
-                              userId: userId,
-                              userName: userName,
-                              familyId: familyId,
-                              availabilityOptIn: availabilityOptIn,
-                            ),
-                            icon: const Icon(Icons.add_circle_outline_rounded, size: 17),
-                            label: const Text('Thêm sự kiện / Lịch lặp'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // 2. Multi-Calendar Selector & Management Strip
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Danh sách Bộ lịch (${state.calendars.length})',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    TextButton.icon(
-                      key: const Key('create_calendar_button'),
-                      onPressed: () => _showCreateCalendarDialog(context),
-                      icon: const Icon(Icons.add_rounded, size: 17),
-                      label: const Text('Thêm lịch'),
-                    ),
-                  ],
-                ),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: const Text('Tất cả lịch'),
-                          selected: state.selectedCalendarId == null,
-                          onSelected: (_) => context
-                              .read<CalendarBloc>()
-                              .add(const CalendarFilterSelected(null)),
-                        ),
-                      ),
-                      if (familyId != null)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            avatar: Icon(Icons.groups_rounded, size: 16, color: c.secondary),
-                            label: const Text('Lịch Chung Gia đình'),
-                            selected: state.selectedCalendarId == '__family__',
-                            onSelected: (_) => context
-                                .read<CalendarBloc>()
-                                .add(const CalendarFilterSelected('__family__')),
-                          ),
-                        ),
-                      ...state.calendars.map((cal) {
-                        final dotColor = _parseHexColor(cal.colorHex, c.primary);
-                        final isFiltered = state.selectedCalendarId == cal.id;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: InputChip(
-                            avatar: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: dotColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            label: Text(
-                              cal.isGoogleSynced
-                                  ? '${cal.summary} · GCal'
-                                  : (cal.isDeviceSynced ? '${cal.summary} · Máy' : cal.summary),
-                            ),
-                            selected: isFiltered,
-                            onSelected: (_) => context.read<CalendarBloc>().add(
-                                  CalendarFilterSelected(isFiltered ? null : cal.id),
-                                ),
-                            onDeleted: cal.isPrimary
-                                ? null
-                                : () => context.read<CalendarBloc>().add(
-                                      ManagedCalendarDeleteSubmitted(
-                                        userId: userId,
-                                        calendar: cal,
-                                      ),
-                                    ),
-                            deleteButtonTooltipMessage: 'Xóa bộ lịch này',
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: AppSpacing.sm),
-
-                // 3. Search Events Bar
-                TextField(
-                  key: const Key('calendar_search_field'),
-                  onChanged: (q) =>
-                      context.read<CalendarBloc>().add(CalendarSearchChanged(q)),
-                  decoration: const InputDecoration(
-                    labelText: 'Tìm sự kiện, địa điểm',
-                    prefixIcon: Icon(Icons.search_rounded),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-
-                // 4. Events & Recurring Series List
-                if (state.filteredEvents.isEmpty)
-                  EmptyStateView(
-                    icon: Icons.sync_rounded,
-                    imageAsset: AppAssets.planningAssetsIllustration,
-                    title: 'Chưa có sự kiện nào trong danh sách',
-                    subtitle:
-                        'Nhấn "Đồng bộ Lịch ngay" để tải lịch trình thật từ điện thoại & Google Calendar, hoặc tạo sự kiện mới.',
-                    actionLabel: 'Đồng bộ Lịch ngay',
-                    onAction: () => context.read<CalendarBloc>().add(
-                          GoogleCalendarSyncRequested(
-                            userId: userId,
-                            userName: userName,
-                          ),
-                        ),
-                  )
-                else
-                  ...state.filteredEvents.map((ev) {
-                    final isPrivate = ev.visibility == CalendarEventVisibility.privateEvent;
-                    final calMeta = calById[ev.calendarId];
-                    final accent = _parseHexColor(
-                      ev.colorHex ?? calMeta?.colorHex,
-                      isPrivate ? c.primary : c.secondary,
-                    );
-                    final timeText = ev.isAllDay
-                        ? '${dayFmt.format(ev.startsAt)} · Cả ngày'
-                        : '${dtFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}';
-
-                    final upcomingInstances = ev.isRecurring
-                        ? ev.recurrence.expandOccurrences(
-                            firstStart: ev.startsAt,
-                            windowStart: DateTime.now().subtract(const Duration(days: 1)),
-                            windowEnd: DateTime.now().add(const Duration(days: 60)),
-                            maxInstances: 3,
-                          )
-                        : const <DateTime>[];
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 46,
-                                    decoration: BoxDecoration(
-                                      color: accent,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          ev.title,
-                                          style: Theme.of(context).textTheme.titleMedium,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          timeText,
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    key: Key('edit_event_${ev.id}'),
-                                    tooltip: 'Cập nhật sự kiện',
-                                    onPressed: () => showUpsertCalendarEventDialog(
-                                      context,
-                                      userId: userId,
-                                      userName: userName,
-                                      familyId: familyId,
-                                      availabilityOptIn: availabilityOptIn,
-                                      existingEvent: ev,
-                                    ),
-                                    icon: const Icon(Icons.edit_outlined, size: 20),
-                                  ),
-                                  IconButton(
-                                    key: Key('delete_event_${ev.id}'),
-                                    tooltip: 'Xóa sự kiện',
-                                    onPressed: () => context.read<CalendarBloc>().add(
-                                          CalendarEventDeleted(
-                                            userId: userId,
-                                            familyId: familyId,
-                                            visibility: ev.visibility,
-                                            eventId: ev.id,
-                                            googleCalendarId: ev.googleCalendarId,
-                                            googleEventId: ev.googleEventId,
-                                          ),
-                                        ),
-                                    icon: Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 20,
-                                      color: c.error,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (ev.location != null && ev.location!.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Icon(Icons.place_outlined, size: 15, color: c.textSecondary),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        ev.location!,
-                                        style: Theme.of(context).textTheme.bodySmall,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                              if (ev.description != null && ev.description!.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  ev.description!,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  SemanticStatusBadge(
-                                    kind: isPrivate
-                                        ? SemanticStatusKind.info
-                                        : SemanticStatusKind.success,
-                                    label: isPrivate
-                                        ? (calMeta?.summary ?? 'Lịch Riêng')
-                                        : 'Lịch Chung Gia đình',
-                                  ),
-                                  if (ev.isRecurring)
-                                    SemanticStatusBadge(
-                                      kind: SemanticStatusKind.warning,
-                                      label: '🔁 ${ev.recurrence.humanReadableVi}',
-                                    ),
-                                  SemanticStatusBadge(
-                                    kind: switch (ev.syncStatus) {
-                                      CalendarSyncStatus.synced => SemanticStatusKind.success,
-                                      CalendarSyncStatus.pendingUpload =>
-                                        SemanticStatusKind.provisional,
-                                      _ => SemanticStatusKind.info,
-                                    },
-                                    label: switch (ev.syncStatus) {
-                                      CalendarSyncStatus.synced => '☁ Đã đồng bộ Lịch',
-                                      CalendarSyncStatus.pendingUpload => '⏳ Chờ đồng bộ',
-                                      _ => 'Lưu nội bộ',
-                                    },
-                                  ),
-                                ],
-                              ),
-                              if (upcomingInstances.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Lần lặp kế tiếp: ${upcomingInstances.map((d) => dayFmt.format(d)).join(" · ")}',
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: c.textSecondary,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                      ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Unified Create & Update Event Dialog supporting RFC 5545 RRULE recurring events & Google Sync.
-Future<void> showUpsertCalendarEventDialog(
-  BuildContext context, {
-  required String userId,
-  required String userName,
-  String? familyId,
-  required bool availabilityOptIn,
-  CalendarEventEntity? existingEvent,
-  DateTime? initialDate,
-}) async {
-  final isEditing = existingEvent != null;
-  final calBloc = context.read<CalendarBloc>();
-  final calendars = calBloc.state.calendars;
-
-  final titleCtrl = TextEditingController(text: existingEvent?.title ?? '');
-  final locCtrl = TextEditingController(text: existingEvent?.location ?? '');
-  final descCtrl = TextEditingController(text: existingEvent?.description ?? '');
-  final intervalCtrl = TextEditingController(
-    text: '${existingEvent?.recurrence.interval ?? 1}',
-  );
-  final countCtrl = TextEditingController(
-    text: existingEvent?.recurrence.count?.toString() ?? '',
-  );
-
-  var visibility = existingEvent?.visibility ?? CalendarEventVisibility.privateEvent;
-  var selectedCalendarId = existingEvent?.calendarId ??
-      (calendars.isNotEmpty ? calendars.first.id : 'primary');
-  if (calendars.isNotEmpty && !calendars.any((c) => c.id == selectedCalendarId)) {
-    selectedCalendarId = calendars.first.id;
-  }
-
-  final now = DateTime.now();
-  final baseStart = initialDate != null
-      ? DateTime(initialDate.year, initialDate.month, initialDate.day, now.hour + 1, 0)
-      : now.add(const Duration(hours: 1));
-  var isAllDay = existingEvent?.isAllDay ?? false;
-  var startsAt = existingEvent?.startsAt ?? baseStart;
-  var endsAt = existingEvent?.endsAt ?? startsAt.add(const Duration(hours: 1));
-  var reminderMinutes = existingEvent?.reminderMinutesBefore ?? 30;
-  var syncToGoogle = existingEvent != null
-      ? (existingEvent.isLinkedWithGoogle ||
-          existingEvent.isLinkedWithDeviceCalendar ||
-          existingEvent.syncStatus == CalendarSyncStatus.pendingUpload)
-      : true;
-
-  var frequency = existingEvent?.recurrence.frequency ?? RecurrenceFrequency.none;
-  final selectedWeekDays = <String>{
-    ...(existingEvent?.recurrence.byWeekDays ?? const <String>[]),
-  };
-
-  final dtLabelFmt = DateFormat('dd/MM/yyyy HH:mm');
-  final dLabelFmt = DateFormat('dd/MM/yyyy');
-
-  await showDialog<void>(
-    context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setDialogState) {
-        Future<void> pickDateTime({required bool isStart}) async {
-          final initial = isStart ? startsAt : endsAt;
-          final pickedDate = await showDatePicker(
-            context: ctx,
-            initialDate: initial,
-            firstDate: DateTime(2020),
-            lastDate: DateTime(2035),
-          );
-          if (pickedDate == null || !ctx.mounted) return;
-
-          if (isAllDay) {
-            setDialogState(() {
-              if (isStart) {
-                startsAt = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, 0, 0);
-                if (endsAt.isBefore(startsAt)) {
-                  endsAt = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, 23, 59);
-                }
-              } else {
-                endsAt = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, 23, 59);
-              }
-            });
-            return;
-          }
-
-          final pickedTime = await showTimePicker(
-            context: ctx,
-            initialTime: TimeOfDay.fromDateTime(initial),
-          );
-          if (pickedTime == null) return;
-
-          final combined = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-          setDialogState(() {
-            if (isStart) {
-              startsAt = combined;
-              if (!endsAt.isAfter(startsAt)) {
-                endsAt = startsAt.add(const Duration(hours: 1));
-              }
-            } else {
-              endsAt = combined;
-            }
-          });
-        }
-
-        return AlertDialog(
-          title: Text(isEditing ? 'Cập nhật Sự kiện Lịch' : 'Thêm Sự kiện & Lịch lặp'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  key: const Key('event_title_field'),
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tiêu đề sự kiện *',
-                    hintText: 'VD: Họp Sprint / Đóng tiền trọ / Tập Yoga',
-                    prefixIcon: Icon(Icons.event_rounded),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                if (!isEditing) ...[
-                  DropdownButtonFormField<CalendarEventVisibility>(
-                    isExpanded: true,
-                    initialValue: visibility,
-                    decoration: const InputDecoration(
-                      labelText: 'Không gian hiển thị',
-                      isDense: true,
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: CalendarEventVisibility.privateEvent,
-                        child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                          'Chỉ mình tôi & Lịch cá nhân',
-                        )),
-                      ),
-                      if (familyId != null)
-                        const DropdownMenuItem(
-                          value: CalendarEventVisibility.sharedEvent,
-                          child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                            'Chia sẻ với Gia đình / Nhóm',
-                          )),
-                        ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setDialogState(() => visibility = v);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                ],
-                if (visibility == CalendarEventVisibility.privateEvent &&
-                    calendars.isNotEmpty) ...[
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: selectedCalendarId,
-                    decoration: const InputDecoration(
-                      labelText: 'Thuộc bộ lịch',
-                      isDense: true,
-                    ),
-                    items: calendars
-                        .map(
-                          (cal) => DropdownMenuItem(
-                            value: cal.id,
-                            child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(cal.summary)),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setDialogState(() => selectedCalendarId = v);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                ],
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: const Text('Sự kiện cả ngày (All-day)'),
-                  value: isAllDay,
-                  onChanged: (v) => setDialogState(() => isAllDay = v),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => pickDateTime(isStart: true),
-                        icon: const Icon(Icons.schedule_rounded, size: 16),
-                        label: Text(
-                          isAllDay ? dLabelFmt.format(startsAt) : dtLabelFmt.format(startsAt),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => pickDateTime(isStart: false),
-                        icon: const Icon(Icons.flag_outlined, size: 16),
-                        label: Text(
-                          isAllDay ? dLabelFmt.format(endsAt) : dtLabelFmt.format(endsAt),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                DropdownButtonFormField<RecurrenceFrequency>(
-                  key: const Key('event_recurrence_dropdown'),
-                  isExpanded: true,
-                  initialValue: frequency,
-                  decoration: const InputDecoration(
-                    labelText: 'Lịch lặp tự động',
-                    prefixIcon: Icon(Icons.repeat_rounded),
-                    isDense: true,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: RecurrenceFrequency.none, child: Text('Không lặp')),
-                    DropdownMenuItem(
-                      value: RecurrenceFrequency.daily,
-                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng ngày')),
-                    ),
-                    DropdownMenuItem(
-                      value: RecurrenceFrequency.weekly,
-                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng tuần theo thứ')),
-                    ),
-                    DropdownMenuItem(
-                      value: RecurrenceFrequency.monthly,
-                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng tháng')),
-                    ),
-                    DropdownMenuItem(
-                      value: RecurrenceFrequency.yearly,
-                      child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Lặp hằng năm / Giỗ Tết / Sinh nhật')),
-                    ),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      setDialogState(() {
-                        frequency = v;
-                        if (frequency == RecurrenceFrequency.weekly &&
-                            selectedWeekDays.isEmpty) {
-                          selectedWeekDays.add(
-                            CalendarRecurrenceRule.weekDayCodeForDate(startsAt),
-                          );
-                        }
-                      });
-                    }
-                  },
-                ),
-                if (frequency != RecurrenceFrequency.none) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: intervalCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Khoảng cách lặp',
-                            hintText: '1',
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: countCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Giới hạn số lần (Tùy chọn)',
-                            hintText: 'Trống = Mãi mãi',
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (frequency == RecurrenceFrequency.weekly) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: CalendarRecurrenceRule.allWeekDayCodes.map((code) {
-                        final selected = selectedWeekDays.contains(code);
-                        return FilterChip(
-                          label: Text(CalendarRecurrenceRule.weekDayLabelVi(code)),
-                          selected: selected,
-                          visualDensity: VisualDensity.compact,
-                          onSelected: (val) {
-                            setDialogState(() {
-                              if (val) {
-                                selectedWeekDays.add(code);
-                              } else if (selectedWeekDays.length > 1) {
-                                selectedWeekDays.remove(code);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ],
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  key: const Key('event_location_field'),
-                  controller: locCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Địa điểm / Link Google Meet',
-                    hintText: 'Phòng họp / Quận 1',
-                    prefixIcon: Icon(Icons.place_outlined),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  key: const Key('event_description_field'),
-                  controller: descCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú chi tiết',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: reminderMinutes,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhắc trước giờ diễn ra',
-                    prefixIcon: Icon(Icons.notifications_active_outlined),
-                    isDense: true,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Không nhắc')),
-                    DropdownMenuItem(value: 10, child: Text('Trước 10 phút')),
-                    DropdownMenuItem(value: 30, child: Text('Trước 30 phút')),
-                    DropdownMenuItem(value: 60, child: Text('Trước 1 giờ')),
-                    DropdownMenuItem(value: 1440, child: Text('Trước 1 ngày')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setDialogState(() => reminderMinutes = v);
-                  },
-                ),
-                if (visibility == CalendarEventVisibility.privateEvent)
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: const Text('Đồng bộ vào Lịch thiết bị & Google Calendar'),
-                    subtitle: const Text('Tự động tạo và cập nhật hai chiều trên ứng dụng Lịch'),
-                    value: syncToGoogle,
-                    onChanged: (v) => setDialogState(() => syncToGoogle = v),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
-            FilledButton.icon(
-              key: const Key('submit_event_dialog_button'),
-              onPressed: () {
-                final parsedInterval = int.tryParse(intervalCtrl.text.trim()) ?? 1;
-                final parsedCount = int.tryParse(countCtrl.text.trim());
-                final rule = CalendarRecurrenceRule(
-                  frequency: frequency,
-                  interval: parsedInterval < 1 ? 1 : parsedInterval,
-                  byWeekDays: frequency == RecurrenceFrequency.weekly
-                      ? selectedWeekDays.toList()
-                      : const <String>[],
-                  count: (parsedCount != null && parsedCount > 0) ? parsedCount : null,
-                );
-
-                if (isEditing) {
-                  calBloc.add(
-                    CalendarEventUpdated(
-                      UpdateCalendarEventParams(
-                        userId: userId,
-                        userName: userName,
-                        existingEvent: existingEvent,
-                        title: titleCtrl.text,
-                        description: descCtrl.text,
-                        location: locCtrl.text,
-                        startsAt: startsAt,
-                        endsAt: endsAt,
-                        isAllDay: isAllDay,
-                        calendarId: selectedCalendarId,
-                        reminderMinutesBefore: reminderMinutes,
-                        recurrence: rule,
-                        publishBusySlot: availabilityOptIn,
-                        syncToGoogle: syncToGoogle,
-                      ),
-                    ),
-                  );
-                } else {
-                  calBloc.add(
-                    CalendarEventCreated(
-                      CreateCalendarEventParams(
-                        userId: userId,
-                        userName: userName,
-                        calendarId: selectedCalendarId,
-                        familyId: familyId,
-                        visibility: visibility,
-                        title: titleCtrl.text,
-                        description: descCtrl.text,
-                        location: locCtrl.text,
-                        startsAt: startsAt,
-                        endsAt: endsAt,
-                        isAllDay: isAllDay,
-                        reminderMinutesBefore: reminderMinutes,
-                        recurrence: rule,
-                        publishBusySlot: availabilityOptIn,
-                        syncToGoogle: syncToGoogle,
-                      ),
-                    ),
-                  );
-                }
-                Navigator.of(ctx).pop();
-              },
-              icon: Icon(isEditing ? Icons.save_outlined : Icons.check_rounded, size: 18),
-              label: Text(isEditing ? 'Lưu cập nhật' : 'Lưu sự kiện'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-
-  titleCtrl.dispose();
-  locCtrl.dispose();
-  descCtrl.dispose();
-  intervalCtrl.dispose();
-  countCtrl.dispose();
-}
-
-/// Interactive Month Grid + Day/Week/Month Real Timeline (100% Real Synced Events — Zero Mock Data).
-class _LifeOsInteractiveCalendarDeck extends StatefulWidget {
-  final List<CalendarEventEntity> events;
-  final bool isSyncing;
-  final VoidCallback onSyncRequested;
-  final ValueChanged<DateTime> onAddEventForDate;
-
-  const _LifeOsInteractiveCalendarDeck({
-    required this.events,
-    required this.isSyncing,
-    required this.onSyncRequested,
-    required this.onAddEventForDate,
-  });
-
-  @override
-  State<_LifeOsInteractiveCalendarDeck> createState() =>
-      _LifeOsInteractiveCalendarDeckState();
-}
-
-class _LifeOsInteractiveCalendarDeckState
-    extends State<_LifeOsInteractiveCalendarDeck> {
-  String _viewMode = 'day';
-  late DateTime _focusedMonth;
-  late DateTime _selectedDate;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _focusedMonth = DateTime(now.year, now.month, 1);
-    _selectedDate = DateTime(now.year, now.month, now.day);
-  }
-
-  bool _sameDay(DateTime a, DateTime b) =>
+  static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  /// Expands single, multi-day, and RRULE-recurring events that actually fall inside `[winStart, winEnd]`.
-  List<CalendarEventEntity> _eventsInWindow(DateTime winStart, DateTime winEnd) {
+  /// Expands single, multi-day, and recurring events falling inside `[winStart, winEnd]`.
+  static List<CalendarEventEntity> _eventsInWindow(
+    List<CalendarEventEntity> source,
+    DateTime winStart,
+    DateTime winEnd,
+  ) {
     final matches = <CalendarEventEntity>[];
-    for (final ev in widget.events) {
+    final maxOccs = winEnd.difference(winStart).inDays > 62 ? 400 : 40;
+    for (final ev in source) {
       final duration = ev.endsAt.isAfter(ev.startsAt)
           ? ev.endsAt.difference(ev.startsAt)
           : const Duration(hours: 1);
@@ -1333,7 +775,7 @@ class _LifeOsInteractiveCalendarDeckState
           firstStart: ev.startsAt,
           windowStart: winStart.subtract(duration),
           windowEnd: winEnd,
-          maxInstances: 40,
+          maxInstances: maxOccs,
         );
         for (final occStart in occs) {
           final occEnd = occStart.add(duration);
@@ -1351,377 +793,1370 @@ class _LifeOsInteractiveCalendarDeckState
     return matches;
   }
 
-  bool _dateHasRealEvent(DateTime day) {
-    final dayStart = DateTime(day.year, day.month, day.day);
-    final dayEnd = DateTime(day.year, day.month, day.day, 23, 59, 59, 999);
-    return _eventsInWindow(dayStart, dayEnd).isNotEmpty;
+  void _stepPeriod(int delta) {
+    setState(() {
+      if (_viewMode == 'week') {
+        _selectedDate = _selectedDate.add(Duration(days: 7 * delta));
+        _focusedMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+      } else if (_viewMode == 'year') {
+        final nextYear = _focusedMonth.year + delta;
+        final maxDay = DateTime(nextYear, _selectedDate.month + 1, 0).day;
+        final clampedDay = _selectedDate.day > maxDay
+            ? maxDay
+            : _selectedDate.day;
+        _focusedMonth = DateTime(nextYear, _focusedMonth.month, 1);
+        _selectedDate = DateTime(nextYear, _selectedDate.month, clampedDay);
+      } else {
+        final nextMonth = DateTime(
+          _focusedMonth.year,
+          _focusedMonth.month + delta,
+          1,
+        );
+        final maxDay = DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
+        final clampedDay = _selectedDate.day > maxDay
+            ? maxDay
+            : _selectedDate.day;
+        _focusedMonth = nextMonth;
+        _selectedDate = DateTime(
+          nextMonth.year,
+          nextMonth.month,
+          clampedDay,
+        );
+      }
+    });
+  }
+
+  void _jumpToToday() {
+    final now = DateTime.now();
+    setState(() {
+      _selectedDate = DateTime(now.year, now.month, now.day);
+      _focusedMonth = DateTime(now.year, now.month, 1);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final taskState = context.watch<TaskBloc>().state;
     final timeFmt = DateFormat('HH:mm');
     final shortDateFmt = DateFormat('dd/MM');
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
 
-    final firstOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-    final startOffset = firstOfMonth.weekday - 1; // Monday = 0
-    final gridStart = firstOfMonth.subtract(Duration(days: startOffset));
+    return BlocConsumer<CalendarBloc, CalendarState>(
+      listenWhen: (p, c) => p.searchQuery != c.searchQuery,
+      listener: (_, state) {
+        if (state.searchQuery.isEmpty && _searchCtrl.text.isNotEmpty) {
+          _searchCtrl.clear();
+        }
+      },
+      builder: (context, state) {
+        final dedupedGroups = state.deduplicatedCalendars;
+        final groupByCalId = <String, DeduplicatedCalendarGroup>{
+          for (final g in dedupedGroups)
+            for (final memberId in g.memberIds) memberId: g,
+        };
+        final activeFilteredGroup =
+            (state.selectedCalendarId != null &&
+                state.selectedCalendarId != '__family__')
+            ? dedupedGroups
+                  .where(
+                    (g) =>
+                        g.canonicalId == state.selectedCalendarId ||
+                        g.matchesCalendarId(state.selectedCalendarId),
+                  )
+                  .firstOrNull
+            : null;
+        final userCalendarCount = dedupedGroups
+            .where((g) => !g.isSystemFeed)
+            .length;
+        final syncedCount = state.events
+            .where((e) => e.syncStatus == CalendarSyncStatus.synced)
+            .length;
+        final events = state.filteredEvents;
 
-    const weekdaysVi = <int, String>{
-      DateTime.monday: 'Thứ Hai',
-      DateTime.tuesday: 'Thứ Ba',
-      DateTime.wednesday: 'Thứ Tư',
-      DateTime.thursday: 'Thứ Năm',
-      DateTime.friday: 'Thứ Sáu',
-      DateTime.saturday: 'Thứ Bảy',
-      DateTime.sunday: 'Chủ Nhật',
-    };
+        final isViewingToday = _sameDay(_selectedDate, todayDate) &&
+            _focusedMonth.year == todayDate.year &&
+            (_viewMode == 'year' || _focusedMonth.month == todayDate.month);
 
-    final (DateTime winStart, DateTime winEnd, String periodHeader) = switch (_viewMode) {
-      'week' => () {
-          final monday = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
-          final start = DateTime(monday.year, monday.month, monday.day);
-          final sunday = start.add(const Duration(days: 6));
-          final end = DateTime(sunday.year, sunday.month, sunday.day, 23, 59, 59, 999);
-          return (
-            start,
-            end,
-            'Tuần ${shortDateFmt.format(start)} – ${shortDateFmt.format(sunday)}',
+        const weekdaysVi = <int, String>{
+          DateTime.monday: 'Thứ Hai',
+          DateTime.tuesday: 'Thứ Ba',
+          DateTime.wednesday: 'Thứ Tư',
+          DateTime.thursday: 'Thứ Năm',
+          DateTime.friday: 'Thứ Sáu',
+          DateTime.saturday: 'Thứ Bảy',
+          DateTime.sunday: 'Chủ Nhật',
+        };
+
+        final isSearching = state.searchQuery.trim().isNotEmpty;
+        final (DateTime winStart, DateTime winEnd, String periodHeader) =
+            isSearching
+            ? (
+                todayDate.subtract(const Duration(days: 365)),
+                todayDate.add(const Duration(days: 365)),
+                'Kết quả tìm kiếm "${state.searchQuery.trim()}"',
+              )
+            : switch (_viewMode) {
+          'week' => () {
+              final monday = _selectedDate.subtract(
+                Duration(days: _selectedDate.weekday - 1),
+              );
+              final start = DateTime(monday.year, monday.month, monday.day);
+              final sunday = start.add(const Duration(days: 6));
+              final end = DateTime(
+                sunday.year,
+                sunday.month,
+                sunday.day,
+                23,
+                59,
+                59,
+                999,
+              );
+              return (
+                start,
+                end,
+                'Tuần ${shortDateFmt.format(start)} – ${shortDateFmt.format(sunday)}',
+              );
+            }(),
+          'month' => () {
+              final start =
+                  DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+              final nextM =
+                  DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+              final end = nextM.subtract(const Duration(milliseconds: 1));
+              return (
+                start,
+                end,
+                'Lịch tháng ${_focusedMonth.month}/${_focusedMonth.year}',
+              );
+            }(),
+          'year' => () {
+              final start = DateTime(_focusedMonth.year, 1, 1);
+              final end =
+                  DateTime(_focusedMonth.year, 12, 31, 23, 59, 59, 999);
+              return (
+                start,
+                end,
+                'Lịch cả năm ${_focusedMonth.year}',
+              );
+            }(),
+          _ => (
+              DateTime(
+                _selectedDate.year,
+                _selectedDate.month,
+                _selectedDate.day,
+              ),
+              DateTime(
+                _selectedDate.year,
+                _selectedDate.month,
+                _selectedDate.day,
+                23,
+                59,
+                59,
+                999,
+              ),
+              _sameDay(_selectedDate, todayDate)
+                  ? 'Hôm nay · ${_selectedDate.day}/${_selectedDate.month}'
+                  : '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day}/${_selectedDate.month}',
+            ),
+        };
+
+        final periodEvents = _eventsInWindow(events, winStart, winEnd);
+        final searchTrimmed = state.searchQuery.trim();
+        final dueTasks = taskState.tasks.where((t) {
+          if (t.status == TaskWorkflowStatus.declined) return false;
+          if (state.selectedCalendarId == '__family__' && t.isPersonal) {
+            return false;
+          }
+          if (t.dueAt == null) return false;
+          if (t.dueAt!.isBefore(winStart) || t.dueAt!.isAfter(winEnd)) {
+            return false;
+          }
+          if (searchTrimmed.isNotEmpty &&
+              !VietnameseSearchMatcher.matchesAny(searchTrimmed, [
+                t.title,
+                t.description,
+                t.assigneeName,
+              ])) {
+            return false;
+          }
+          return true;
+        }).toList()
+          ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+
+        bool dateHasEvent(DateTime day) {
+          final s = DateTime(day.year, day.month, day.day);
+          final e = DateTime(day.year, day.month, day.day, 23, 59, 59, 999);
+          return _eventsInWindow(events, s, e).isNotEmpty;
+        }
+
+        bool dateHasTask(DateTime day) {
+          return taskState.tasks.any(
+            (t) =>
+                t.status != TaskWorkflowStatus.done &&
+                t.status != TaskWorkflowStatus.declined &&
+                t.dueAt != null &&
+                _sameDay(t.dueAt!, day),
           );
-        }(),
-      'month' => () {
-          final start = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-          final nextM = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
-          final end = nextM.subtract(const Duration(milliseconds: 1));
-          return (
-            start,
-            end,
-            'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}',
-          );
-        }(),
-      _ => (
-          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day),
-          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59, 999),
-          '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day} tháng ${_selectedDate.month}',
-        ),
-    };
+        }
 
-    final periodEvents = _eventsInWindow(winStart, winEnd);
+        final totalAgendaCount = periodEvents.length + dueTasks.length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 1. Segmented Bar: Ngày | Tuần | Tháng
-        LifeOsSegmentedPills<String>(
-          selected: _viewMode,
-          options: const [
-            ('day', 'Ngày', null),
-            ('week', 'Tuần', null),
-            ('month', 'Tháng', null),
-          ],
-          onChanged: (v) => setState(() => _viewMode = v),
-        ),
-        const SizedBox(height: 12),
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
+            child: ListView(
+              key: const Key('calendar_events_list_view'),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                6,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
+              ),
+              children: [
+                // 1. Clean View Horizon Switcher: Ngày · Tuần · Tháng · Năm
+                LifeOsSegmentedPills<String>(
+                  selected: _viewMode,
+                  options: const [
+                    ('day', 'Ngày', null),
+                    ('week', 'Tuần', null),
+                    ('month', 'Tháng', null),
+                    ('year', 'Năm', null),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _viewMode = v;
+                    if (v != 'week') _expandMonthInWeekMode = false;
+                  }),
+                ),
+                const SizedBox(height: 8),
 
-        // 2. Interactive Month Calendar Card
-        LifeOsSoftCard(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  LifeOsHeaderCircleButton(
-                    icon: Icons.chevron_left_rounded,
-                    tooltip: 'Tháng trước',
-                    onTap: () => setState(() {
-                      _focusedMonth =
-                          DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
-                    }),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
+                // 2. Clean Filter & Search Strip (inline calendar list hidden into compact sheet!)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          key: const Key('toggle_calendar_search_chip'),
+                          avatar: Icon(
+                            Icons.search_rounded,
+                            size: 16,
+                            color: (_showSearchBar ||
+                                    state.searchQuery.isNotEmpty)
+                                ? c.primary
+                                : c.textSecondary,
+                          ),
+                          label: Text(
+                            state.searchQuery.isNotEmpty
+                                ? 'Tìm: "${state.searchQuery}"'
+                                : 'Tìm lịch',
+                          ),
+                          selected:
+                              _showSearchBar || state.searchQuery.isNotEmpty,
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) {
+                            if (state.searchQuery.isNotEmpty) {
+                              _searchCtrl.clear();
+                              context.read<CalendarBloc>().add(
+                                const CalendarSearchChanged(''),
+                              );
+                              setState(() => _showSearchBar = false);
+                            } else {
+                              setState(
+                                () => _showSearchBar = !_showSearchBar,
+                              );
+                            }
+                          },
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  LifeOsHeaderCircleButton(
-                    icon: Icons.chevron_right_rounded,
-                    tooltip: 'Tháng sau',
-                    onTap: () => setState(() {
-                      _focusedMonth =
-                          DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
-                    }),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-                    .map(
-                      (lbl) => Expanded(
-                        child: Center(
-                          child: Text(
-                            lbl,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF667085),
-                            ),
+                      if (widget.familyId != null || state.hasActiveFilters)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            key: const Key('calendar_filter_all_chip'),
+                            label: const Text('Tất cả'),
+                            selected: !state.hasActiveFilters,
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (_) {
+                              _searchCtrl.clear();
+                              context.read<CalendarBloc>().add(
+                                CalendarFiltersReset(
+                                  userId: widget.userId,
+                                  enableHiddenUserCalendars: true,
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 8),
-              for (var week = 0; week < 6; week++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: List.generate(7, (dow) {
-                      final cellDate =
-                          gridStart.add(Duration(days: week * 7 + dow));
-                      final inMonth = cellDate.month == _focusedMonth.month;
-                      final isSelected = _sameDay(cellDate, _selectedDate);
-                      final hasEvent = _dateHasRealEvent(cellDate);
-
-                      return Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() {
-                            _selectedDate = cellDate;
-                            if (cellDate.month != _focusedMonth.month ||
-                                cellDate.year != _focusedMonth.year) {
-                              _focusedMonth = DateTime(cellDate.year, cellDate.month, 1);
-                            }
-                          }),
-                          child: Container(
-                            height: 40,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              color: isSelected ? c.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
+                      if (widget.familyId != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            avatar: Icon(
+                              Icons.groups_rounded,
+                              size: 15,
+                              color: c.secondary,
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${cellDate.day}',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : inMonth
-                                            ? c.textPrimary
-                                            : c.textSecondary
-                                                .withValues(alpha: 0.45),
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
+                            label: const Text('Gia đình'),
+                            selected: state.selectedCalendarId == '__family__',
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (_) => context
+                                .read<CalendarBloc>()
+                                .add(
+                                  CalendarFilterSelected(
+                                    state.selectedCalendarId == '__family__'
+                                        ? null
+                                        : '__family__',
                                   ),
                                 ),
-                                if (hasEvent) ...[
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    width: 5,
-                                    height: 5,
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? Colors.white : c.primary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
                           ),
                         ),
-                      );
-                    }),
+                      if (activeFilteredGroup != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InputChip(
+                            key: const Key('active_calendar_filter_chip'),
+                            visualDensity: VisualDensity.compact,
+                            avatar: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: _parseHexColor(
+                                  activeFilteredGroup.representative.colorHex,
+                                  c.primary,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            label: Text(activeFilteredGroup.displayTitle),
+                            selected: true,
+                            onSelected: (_) => showManageCalendarsSheet(
+                              context,
+                              userId: widget.userId,
+                            ),
+                            onDeleted: () => context
+                                .read<CalendarBloc>()
+                                .add(const CalendarFilterSelected(null)),
+                            deleteButtonTooltipMessage: 'Bỏ lọc bộ lịch',
+                          ),
+                        ),
+                      ActionChip(
+                        key: const Key('open_calendars_sheet_chip'),
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(
+                          Icons.layers_outlined,
+                          size: 16,
+                          color: c.primary,
+                        ),
+                        label: Text(
+                          userCalendarCount > 1
+                              ? 'Bộ lịch ($userCalendarCount)'
+                              : 'Bộ lịch',
+                        ),
+                        onPressed: () => showManageCalendarsSheet(
+                          context,
+                          userId: widget.userId,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
 
-        // 3. Real Synced Events Card (Zero Mock Fallbacks)
-        LifeOsSoftCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.calendar_today_rounded, size: 19, color: c.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      periodHeader,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        height: 1.2,
-                        fontWeight: FontWeight.w800,
-                        color: c.textPrimary,
-                      ),
+                if (_showSearchBar || state.searchQuery.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('calendar_search_field'),
+                    controller: _searchCtrl,
+                    onChanged: (q) => context
+                        .read<CalendarBloc>()
+                        .add(CalendarSearchChanged(q)),
+                    decoration: InputDecoration(
+                      hintText: 'Nhập tên lịch hẹn, công việc hoặc địa điểm...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      isDense: true,
+                      suffixIcon: state.searchQuery.isNotEmpty
+                          ? IconButton(
+                              tooltip: 'Xóa từ khóa',
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                context
+                                    .read<CalendarBloc>()
+                                    .add(const CalendarSearchChanged(''));
+                              },
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                            )
+                          : null,
                     ),
                   ),
-                  LifeOsStatusPill(
-                    label: '${periodEvents.length} sự kiện',
-                    tone: LifeOsAccentTone.emerald,
-                  ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              if (widget.events.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: c.surfaceRaised,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: c.separator),
-                  ),
+                const SizedBox(height: 10),
+
+                // 3. Adaptive Calendar Card (Week Strip | Month Grid | 12-Month Year Grid)
+                _buildAdaptiveCalendarCard(
+                  context: context,
+                  c: c,
+                  todayDate: todayDate,
+                  isViewingToday: isViewingToday,
+                  allFilteredEvents: events,
+                  dateHasEvent: dateHasEvent,
+                  dateHasTask: dateHasTask,
+                ),
+                const SizedBox(height: 12),
+
+                // 4. ONE Unified Chronological Work Schedule Card (Events + Task Deadlines!)
+                LifeOsSoftCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Chưa đồng bộ sự kiện nào',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Đồng bộ trực tiếp với Lịch trên điện thoại & Google Calendar để hiển thị đúng lịch trình thật của bạn.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.35,
-                          color: c.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
-                        runSpacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          FilledButton.icon(
-                            key: const Key('deck_sync_calendar_btn'),
-                            onPressed: widget.isSyncing ? null : widget.onSyncRequested,
-                            icon: const Icon(Icons.sync_rounded, size: 17),
-                            label: Text(
-                              widget.isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Lịch ngay',
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.event_note_rounded,
+                                size: 19,
+                                color: c.primary,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  periodHeader,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 15.5,
+                                    height: 1.2,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          OutlinedButton.icon(
-                            onPressed: () => widget.onAddEventForDate(_selectedDate),
-                            icon: const Icon(Icons.add_rounded, size: 17),
-                            label: const Text('Thêm sự kiện'),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              LifeOsStatusPill(
+                                label: totalAgendaCount == 0
+                                    ? 'Trống lịch'
+                                    : '$totalAgendaCount mục',
+                                tone: totalAgendaCount == 0
+                                    ? LifeOsAccentTone.blue
+                                    : LifeOsAccentTone.emerald,
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                key: const Key('agenda_quick_add_event_btn'),
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () => showUpsertCalendarEventDialog(
+                                  context,
+                                  userId: widget.userId,
+                                  userName: widget.userName,
+                                  familyId: widget.familyId,
+                                  availabilityOptIn: widget.availabilityOptIn,
+                                  initialDate: _selectedDate,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: c.primary.withValues(alpha: 0.11),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.add_rounded,
+                                        size: 16,
+                                        color: c.primary,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        'Thêm',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+
+                      if (periodEvents.isEmpty && dueTasks.isEmpty)
+                        _buildEmptyAgendaPrompt(
+                          context: context,
+                          c: c,
+                          hasAnySyncedEvents: state.events.isNotEmpty,
+                          isSyncing: state.isSyncingGoogle,
+                          hasActiveFilters: state.hasActiveFilters,
+                        )
+                      else ...[
+                        // 4a. Calendar Events in Period
+                        ...periodEvents.take(30).map((ev) {
+                          final isShared = ev.visibility ==
+                              CalendarEventVisibility.sharedEvent;
+                          final calGroup = groupByCalId[ev.calendarId];
+                          final barColor = _parseHexColor(
+                            ev.colorHex ?? calGroup?.representative.colorHex,
+                            isShared ? c.secondary : c.primary,
+                          );
+                          final datePrefix = _viewMode == 'day'
+                              ? ''
+                              : '${shortDateFmt.format(ev.startsAt)} · ';
+                          final timeLabel = ev.isAllDay
+                              ? '${datePrefix}Cả ngày'
+                              : '$datePrefix${timeFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}';
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _UnifiedAgendaEventTile(
+                              event: ev,
+                              barColor: barColor,
+                              timeRangeLabel: timeLabel,
+                              scopeLabel: isShared
+                                  ? 'Gia đình'
+                                  : (calGroup == null || calGroup.isPrimaryGroup
+                                        ? 'Cá nhân'
+                                        : calGroup.displayTitle),
+                              tone: isShared
+                                  ? LifeOsAccentTone.emerald
+                                  : LifeOsAccentTone.blue,
+                              onTap: () =>
+                                  context.push('/event-detail', extra: ev),
+                              onEdit: () => showUpsertCalendarEventDialog(
+                                context,
+                                userId: widget.userId,
+                                userName: widget.userName,
+                                familyId: widget.familyId,
+                                availabilityOptIn: widget.availabilityOptIn,
+                                existingEvent: ev,
+                              ),
+                              onSetAlarm: () =>
+                                  context.push('/event-alarm', extra: ev),
+                              onDelete: () => context.read<CalendarBloc>().add(
+                                    CalendarEventDeleted(
+                                      userId: widget.userId,
+                                      familyId: widget.familyId,
+                                      visibility: ev.visibility,
+                                      eventId: ev.id,
+                                      googleCalendarId: ev.googleCalendarId,
+                                      googleEventId: ev.googleEventId,
+                                    ),
+                                  ),
+                            ),
+                          );
+                        }),
+
+                        // 4b. Tasks with Deadlines in Period (Unified Work View!)
+                        if (dueTasks.isNotEmpty) ...[
+                          if (periodEvents.isNotEmpty)
+                            const Divider(height: 18),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.task_alt_rounded,
+                                  size: 16,
+                                  color: c.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Công việc đến hạn (${dueTasks.length})',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...dueTasks.take(15).map((task) {
+                            final isDone =
+                                task.status == TaskWorkflowStatus.done;
+                            final dueText = _viewMode == 'day'
+                                ? timeFmt.format(task.dueAt!)
+                                : '${shortDateFmt.format(task.dueAt!)} ${timeFmt.format(task.dueAt!)}';
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: isDone
+                                    ? null
+                                    : () => context.read<TaskBloc>().add(
+                                          TaskStatusChanged(
+                                            actorUserId: widget.userId,
+                                            task: task,
+                                            nextStatus: TaskWorkflowStatus.done,
+                                          ),
+                                        ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: c.surface,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: c.separator),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 21,
+                                        height: 21,
+                                        decoration: BoxDecoration(
+                                          color: isDone
+                                              ? c.primary
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: c.primary,
+                                            width: 1.8,
+                                          ),
+                                        ),
+                                        child: isDone
+                                            ? const Icon(
+                                                Icons.check_rounded,
+                                                size: 14,
+                                                color: Colors.white,
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          task.title,
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 13.8,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDone
+                                                ? c.textSecondary
+                                                : c.textPrimary,
+                                            decoration: isDone
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        dueText,
+                                        style: TextStyle(
+                                          fontSize: 11.8,
+                                          fontWeight: FontWeight.w700,
+                                          color: c.textSecondary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
                     ],
                   ),
-                )
-              else if (periodEvents.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: c.surfaceRaised,
-                    borderRadius: BorderRadius.circular(14),
+                ),
+                const SizedBox(height: 12),
+
+                // 5. Compact, Unobtrusive 2-Way Google & Device Sync Footer Bar
+                LifeOsSoftCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
                   child: Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
                     alignment: WrapAlignment.spaceBetween,
                     crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
                     children: [
-                      Text(
-                        _viewMode == 'day'
-                            ? 'Không có sự kiện nào trong ngày này.'
-                            : 'Không có sự kiện nào trong khoảng thời gian này.',
-                        style: TextStyle(fontSize: 13, color: c.textSecondary),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: c.separator),
+                            ),
+                            child: const GoogleBrandMark(size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Lịch thiết bị & Google Calendar',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  state.lastSyncReport != null
+                                      ? 'Đã đồng bộ lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)}'
+                                      : (syncedCount > 0
+                                            ? '$syncedCount sự kiện đã kết nối'
+                                            : 'Chưa đồng bộ sự kiện nào'),
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                        onPressed: () => widget.onAddEventForDate(_selectedDate),
-                        icon: const Icon(Icons.add_rounded, size: 17),
-                        label: const Text('Thêm sự kiện'),
+                      OutlinedButton.icon(
+                        key: const Key('sync_google_calendar_button'),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: state.isSyncingGoogle
+                            ? null
+                            : () => context.read<CalendarBloc>().add(
+                                  GoogleCalendarSyncRequested(
+                                    userId: widget.userId,
+                                    userName: widget.userName,
+                                  ),
+                                ),
+                        icon: Icon(
+                          state.isSyncingGoogle
+                              ? Icons.hourglass_top_rounded
+                              : Icons.sync_rounded,
+                          size: 16,
+                        ),
+                        label: Text(
+                          state.isSyncingGoogle ? 'Đang tải...' : 'Đồng bộ',
+                        ),
                       ),
                     ],
                   ),
-                )
-              else
-                ...periodEvents.take(25).toList().asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final ev = entry.value;
-                  final isShared =
-                      ev.visibility == CalendarEventVisibility.sharedEvent;
-                  final datePrefix = _viewMode == 'day'
-                      ? ''
-                      : '${shortDateFmt.format(ev.startsAt)} · ';
-                  final timeLabel = ev.isAllDay
-                      ? '${datePrefix}Cả ngày'
-                      : '$datePrefix${timeFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}';
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _DayTimelineRow(
-                      barColor:
-                          idx.isEven ? c.primary : const Color(0xFF2563EB),
-                      icon: isShared
-                          ? Icons.groups_outlined
-                          : Icons.event_note_outlined,
-                      tone: isShared
-                          ? LifeOsAccentTone.emerald
-                          : LifeOsAccentTone.blue,
-                      title: ev.title,
-                      timeRange: timeLabel,
-                      tagLabel: isShared ? 'Gia đình' : 'Cá nhân',
-                      onTap: () => context.push('/event-detail', extra: ev),
+  Widget _buildAdaptiveCalendarCard({
+    required BuildContext context,
+    required TammySemanticColors c,
+    required DateTime todayDate,
+    required bool isViewingToday,
+    required List<CalendarEventEntity> allFilteredEvents,
+    required bool Function(DateTime) dateHasEvent,
+    required bool Function(DateTime) dateHasTask,
+  }) {
+    final headerTitle = _viewMode == 'year'
+        ? 'Năm ${_focusedMonth.year}'
+        : 'Tháng ${_focusedMonth.month}, ${_focusedMonth.year}';
+
+    return LifeOsSoftCard(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              LifeOsHeaderCircleButton(
+                icon: Icons.chevron_left_rounded,
+                tooltip: 'Kỳ trước',
+                onTap: () => _stepPeriod(-1),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      headerTitle,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
-                  );
-                }),
+                    if (!isViewingToday)
+                      InkWell(
+                        key: const Key('calendar_jump_today_button'),
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _jumpToToday,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Hôm nay',
+                            style: TextStyle(
+                              fontSize: 11.2,
+                              fontWeight: FontWeight.w800,
+                              color: c.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (_viewMode == 'week') ...[
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: _expandMonthInWeekMode
+                      ? 'Thu gọn về thanh tuần'
+                      : 'Xem lưới cả tháng',
+                  onPressed: () => setState(
+                    () => _expandMonthInWeekMode = !_expandMonthInWeekMode,
+                  ),
+                  icon: Icon(
+                    _expandMonthInWeekMode
+                        ? Icons.unfold_less_rounded
+                        : Icons.calendar_month_outlined,
+                    size: 19,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ],
+              const SizedBox(width: 4),
+              LifeOsHeaderCircleButton(
+                icon: Icons.chevron_right_rounded,
+                tooltip: 'Kỳ sau',
+                onTap: () => _stepPeriod(1),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+
+          if (_viewMode == 'year')
+            _buildYearMonthsOverview(
+              c: c,
+              todayDate: todayDate,
+              allFilteredEvents: allFilteredEvents,
+            )
+          else if (_viewMode == 'week' && !_expandMonthInWeekMode)
+            _buildCompactWeekStrip(
+              c: c,
+              todayDate: todayDate,
+              dateHasEvent: dateHasEvent,
+              dateHasTask: dateHasTask,
+            )
+          else
+            _buildMonthGrid(
+              c: c,
+              todayDate: todayDate,
+              dateHasEvent: dateHasEvent,
+              dateHasTask: dateHasTask,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactWeekStrip({
+    required TammySemanticColors c,
+    required DateTime todayDate,
+    required bool Function(DateTime) dateHasEvent,
+    required bool Function(DateTime) dateHasTask,
+  }) {
+    final monday = _selectedDate.subtract(
+      Duration(days: _selectedDate.weekday - 1),
+    );
+    const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+    return Row(
+      children: List.generate(7, (idx) {
+        final cellDate = DateTime(monday.year, monday.month, monday.day + idx);
+        final isSelected = _sameDay(cellDate, _selectedDate);
+        final isToday = _sameDay(cellDate, todayDate);
+        final hasEv = dateHasEvent(cellDate);
+        final hasTk = dateHasTask(cellDate);
+
+        return Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => setState(() {
+              _selectedDate = cellDate;
+              _focusedMonth = DateTime(cellDate.year, cellDate.month, 1);
+            }),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? c.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: (!isSelected && isToday)
+                    ? Border.all(color: c.primary, width: 1.4)
+                    : null,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    labels[idx],
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.88)
+                          : c.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${cellDate.day}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected ? Colors.white : c.textPrimary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 5,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (hasEv)
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.white : c.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        if (hasEv && hasTk) const SizedBox(width: 3),
+                        if (hasTk)
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.85)
+                                  : const Color(0xFFF59E0B),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildYearMonthsOverview({
+    required TammySemanticColors c,
+    required DateTime todayDate,
+    required List<CalendarEventEntity> allFilteredEvents,
+  }) {
+    final year = _focusedMonth.year;
+    final monthCounts = List<int>.generate(12, (idx) {
+      final m = idx + 1;
+      final s = DateTime(year, m, 1);
+      final e = DateTime(year, m + 1, 1).subtract(const Duration(milliseconds: 1));
+      return _eventsInWindow(allFilteredEvents, s, e).length;
+    });
+
+    return Column(
+      children: [
+        for (var row = 0; row < 3; row++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: List.generate(4, (col) {
+                final mIdx = row * 4 + col;
+                final monthNum = mIdx + 1;
+                final count = monthCounts[mIdx];
+                final isCurrentMonth =
+                    todayDate.year == year && todayDate.month == monthNum;
+
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: InkWell(
+                      key: Key('year_month_cell_$monthNum'),
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => setState(() {
+                        _focusedMonth = DateTime(year, monthNum, 1);
+                        _selectedDate = DateTime(year, monthNum, 1);
+                        _viewMode = 'month';
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 9,
+                          horizontal: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: count > 0 ? c.primarySubtle : c.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCurrentMonth ? c.primary : c.separator,
+                            width: isCurrentMonth ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Thg $monthNum',
+                                style: TextStyle(
+                                  fontSize: 12.2,
+                                  fontWeight: FontWeight.w800,
+                                  color: isCurrentMonth
+                                      ? c.primary
+                                      : c.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                count > 0 ? '$count lịch' : 'Trống',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: count > 0
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: count > 0
+                                      ? c.primary
+                                      : c.textSecondary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildMonthGrid({
+    required TammySemanticColors c,
+    required DateTime todayDate,
+    required bool Function(DateTime) dateHasEvent,
+    required bool Function(DateTime) dateHasTask,
+  }) {
+    final firstOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final startOffset = firstOfMonth.weekday - 1;
+    final gridStart = firstOfMonth.subtract(Duration(days: startOffset));
+    final sixthRowStart = gridStart.add(const Duration(days: 35));
+    final weekRows = sixthRowStart.month == _focusedMonth.month ? 6 : 5;
+
+    return Column(
+      children: [
+        Row(
+          children: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+              .map(
+                (lbl) => Expanded(
+                  child: Center(
+                    child: Text(
+                      lbl,
+                      style: TextStyle(
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w700,
+                        color: c.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 6),
+        for (var week = 0; week < weekRows; week++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.5),
+            child: Row(
+              children: List.generate(7, (dow) {
+                final cellDate =
+                    gridStart.add(Duration(days: week * 7 + dow));
+                final inMonth = cellDate.month == _focusedMonth.month;
+                final isSelected = _sameDay(cellDate, _selectedDate);
+                final isToday = _sameDay(cellDate, todayDate);
+                final hasEv = dateHasEvent(cellDate);
+                final hasTk = dateHasTask(cellDate);
+
+                return Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => setState(() {
+                      _selectedDate = cellDate;
+                      if (cellDate.month != _focusedMonth.month ||
+                          cellDate.year != _focusedMonth.year) {
+                        _focusedMonth =
+                            DateTime(cellDate.year, cellDate.month, 1);
+                      }
+                    }),
+                    child: Container(
+                      height: 39,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: isSelected ? c.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: (!isSelected && isToday)
+                            ? Border.all(color: c.primary, width: 1.4)
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${cellDate.day}',
+                            style: TextStyle(
+                              fontSize: 13.2,
+                              fontWeight: (isSelected || isToday)
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                              color: isSelected
+                                  ? Colors.white
+                                  : inMonth
+                                      ? (isToday ? c.primary : c.textPrimary)
+                                      : c.textSecondary.withValues(alpha: 0.42),
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          if (hasEv || hasTk) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (hasEv)
+                                  Container(
+                                    width: 4.5,
+                                    height: 4.5,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : c.primary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                if (hasEv && hasTk) const SizedBox(width: 2.5),
+                                if (hasTk)
+                                  Container(
+                                    width: 4.5,
+                                    height: 4.5,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.white.withValues(alpha: 0.85)
+                                          : const Color(0xFFF59E0B),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyAgendaPrompt({
+    required BuildContext context,
+    required TammySemanticColors c,
+    required bool hasAnySyncedEvents,
+    required bool isSyncing,
+    bool hasActiveFilters = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.surfaceRaised,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.separator),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hasActiveFilters
+                ? 'Không có lịch hẹn khớp bộ lọc / tìm kiếm'
+                : (hasAnySyncedEvents
+                      ? 'Khoảng thời gian này đang trống lịch'
+                      : 'Chưa có lịch hẹn hoặc công việc nào'),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: c.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasActiveFilters
+                ? 'Bấm "Xóa bộ lọc & tìm kiếm" để hiển thị lại toàn bộ các bộ lịch và sự kiện.'
+                : (hasAnySyncedEvents
+                      ? 'Bạn có thể thêm lịch hẹn mới hoặc tạo việc cần làm cho ngày đang chọn.'
+                      : 'Đồng bộ với Lịch trên điện thoại & Google Calendar hoặc tạo lịch hẹn đầu tiên của bạn.'),
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.35,
+              color: c.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (hasActiveFilters)
+                FilledButton.tonalIcon(
+                  key: const Key('calendar_reset_all_filters_btn'),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    context.read<CalendarBloc>().add(
+                      CalendarFiltersReset(
+                        userId: widget.userId,
+                        enableHiddenUserCalendars: true,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.filter_alt_off_rounded, size: 17),
+                  label: const Text('Xóa bộ lọc & tìm kiếm'),
+                ),
+              if (!hasAnySyncedEvents && !hasActiveFilters)
+                FilledButton.icon(
+                  key: const Key('deck_sync_calendar_btn'),
+                  onPressed: isSyncing
+                      ? null
+                      : () => context.read<CalendarBloc>().add(
+                            GoogleCalendarSyncRequested(
+                              userId: widget.userId,
+                              userName: widget.userName,
+                            ),
+                          ),
+                  icon: const Icon(Icons.sync_rounded, size: 17),
+                  label: Text(
+                    isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Lịch ngay',
+                  ),
+                ),
+              OutlinedButton.icon(
+                onPressed: () => showUpsertCalendarEventDialog(
+                  context,
+                  userId: widget.userId,
+                  userName: widget.userName,
+                  familyId: widget.familyId,
+                  availabilityOptIn: widget.availabilityOptIn,
+                  initialDate: _selectedDate,
+                ),
+                icon: const Icon(Icons.event_available_rounded, size: 17),
+                label: const Text('Thêm lịch hẹn'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => showUnifiedCreateTaskDialog(
+                  context,
+                  userId: widget.userId,
+                  userName: widget.userName,
+                  familyId: widget.familyId,
+                  members: widget.familyMembers,
+                  initialDueDate: _selectedDate,
+                ),
+                icon: const Icon(Icons.add_task_rounded, size: 17),
+                label: const Text('Giao việc ngày này'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _DayTimelineRow extends StatelessWidget {
+class _UnifiedAgendaEventTile extends StatelessWidget {
+  final CalendarEventEntity event;
   final Color barColor;
-  final IconData icon;
+  final String timeRangeLabel;
+  final String scopeLabel;
   final LifeOsAccentTone tone;
-  final String title;
-  final String timeRange;
-  final String tagLabel;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onSetAlarm;
+  final VoidCallback onDelete;
 
-  const _DayTimelineRow({
+  const _UnifiedAgendaEventTile({
+    required this.event,
     required this.barColor,
-    required this.icon,
+    required this.timeRangeLabel,
+    required this.scopeLabel,
     required this.tone,
-    required this.title,
-    required this.timeRange,
-    required this.tagLabel,
     required this.onTap,
+    required this.onEdit,
+    required this.onSetAlarm,
+    required this.onDelete,
   });
 
   @override
@@ -1731,7 +2166,7 @@ class _DayTimelineRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
         decoration: BoxDecoration(
           color: c.surface,
           borderRadius: BorderRadius.circular(16),
@@ -1748,14 +2183,12 @@ class _DayTimelineRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              LifeOsIconSquircle(icon: icon, tone: tone, size: 38, iconSize: 19),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      event.title,
                       softWrap: true,
                       style: TextStyle(
                         fontSize: 14.5,
@@ -1764,33 +2197,134 @@ class _DayTimelineRow extends StatelessWidget {
                         color: c.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 13,
-                          color: c.textSecondary,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 13,
+                              color: c.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                timeRangeLabel,
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: c.textSecondary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              timeRange,
-                              style: TextStyle(fontSize: 12, color: c.textSecondary),
+                        if (event.location != null &&
+                            event.location!.trim().isNotEmpty)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.place_outlined,
+                                size: 13,
+                                color: c.textSecondary,
+                              ),
+                              const SizedBox(width: 2),
+                              Flexible(
+                                child: Text(
+                                  event.location!.trim(),
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 11.8,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        LifeOsStatusPill(label: scopeLabel, tone: tone),
+                        if (event.isRecurring)
+                          Text(
+                            '🔁 ${event.recurrence.humanReadableVi}',
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 11.2,
+                              fontWeight: FontWeight.w700,
+                              color: c.primary,
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],
                 ),
               ),
-              LifeOsStatusPill(label: tagLabel, tone: tone),
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, size: 19, color: c.textSecondary),
+              PopupMenuButton<String>(
+                key: Key('event_menu_${event.id}'),
+                tooltip: 'Tùy chọn lịch hẹn',
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  size: 19,
+                  color: c.textSecondary,
+                ),
+                onSelected: (action) {
+                  switch (action) {
+                    case 'edit':
+                      onEdit();
+                    case 'alarm':
+                      onSetAlarm();
+                    case 'delete':
+                      onDelete();
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Sửa lịch hẹn'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'alarm',
+                    child: Row(
+                      children: [
+                        Icon(Icons.alarm_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Text('Đặt chuông báo thức'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                          color: c.error,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Xóa sự kiện',
+                          style: TextStyle(color: c.error),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -1799,11 +2333,705 @@ class _DayTimelineRow extends StatelessWidget {
   }
 }
 
-class _PlanningHabitsAndNotesTabView extends StatelessWidget {
-  const _PlanningHabitsAndNotesTabView();
+/// Progressive-Disclosure Create & Update Event Dialog: fast 3-second basic entry
+/// with expandable details (Location, Recurrence, Calendar & Google Sync).
+Future<void> showUpsertCalendarEventDialog(
+  BuildContext context, {
+  required String userId,
+  required String userName,
+  String? familyId,
+  required bool availabilityOptIn,
+  CalendarEventEntity? existingEvent,
+  DateTime? initialDate,
+}) async {
+  final calBloc = context.read<CalendarBloc>();
+  final calendars = calBloc.state.calendars;
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _UpsertCalendarEventDialog(
+      calBloc: calBloc,
+      calendars: calendars,
+      userId: userId,
+      userName: userName,
+      familyId: familyId,
+      availabilityOptIn: availabilityOptIn,
+      existingEvent: existingEvent,
+      initialDate: initialDate,
+    ),
+  );
+}
+
+class _UpsertCalendarEventDialog extends StatefulWidget {
+  final CalendarBloc calBloc;
+  final List<ManagedCalendarEntity> calendars;
+  final String userId;
+  final String userName;
+  final String? familyId;
+  final bool availabilityOptIn;
+  final CalendarEventEntity? existingEvent;
+  final DateTime? initialDate;
+
+  const _UpsertCalendarEventDialog({
+    required this.calBloc,
+    required this.calendars,
+    required this.userId,
+    required this.userName,
+    required this.familyId,
+    required this.availabilityOptIn,
+    required this.existingEvent,
+    required this.initialDate,
+  });
+
+  @override
+  State<_UpsertCalendarEventDialog> createState() =>
+      _UpsertCalendarEventDialogState();
+}
+
+class _UpsertCalendarEventDialogState
+    extends State<_UpsertCalendarEventDialog> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _locCtrl;
+  late final TextEditingController _descCtrl;
+  late final TextEditingController _intervalCtrl;
+  late final TextEditingController _countCtrl;
+
+  late CalendarEventVisibility _visibility;
+  late String _selectedCalendarId;
+  late bool _isAllDay;
+  late DateTime _startsAt;
+  late DateTime _endsAt;
+  late int _reminderMinutes;
+  late bool _syncToGoogle;
+  late RecurrenceFrequency _frequency;
+  late final Set<String> _selectedWeekDays;
+  late bool _showAdvanced;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existingEvent;
+    _titleCtrl = TextEditingController(text: existing?.title ?? '');
+    _locCtrl = TextEditingController(text: existing?.location ?? '');
+    _descCtrl = TextEditingController(text: existing?.description ?? '');
+    _intervalCtrl = TextEditingController(
+      text: '${existing?.recurrence.interval ?? 1}',
+    );
+    _countCtrl = TextEditingController(
+      text: existing?.recurrence.count?.toString() ?? '',
+    );
+
+    _visibility =
+        existing?.visibility ?? CalendarEventVisibility.privateEvent;
+    final writableGroups = CalendarListDeduplicator.group(
+      widget.calendars,
+    ).where((g) => !g.isReadOnly).toList();
+    final matchedExistingGroup = existing?.calendarId != null
+        ? writableGroups
+              .where((g) => g.matchesCalendarId(existing!.calendarId))
+              .firstOrNull
+        : null;
+    _selectedCalendarId =
+        matchedExistingGroup?.canonicalId ??
+        (writableGroups.isNotEmpty ? writableGroups.first.canonicalId : 'primary');
+
+    final now = DateTime.now();
+    final targetDay = widget.initialDate ?? now;
+    final startHour = (now.hour + 1).clamp(8, 22);
+    final baseStart = DateTime(
+      targetDay.year,
+      targetDay.month,
+      targetDay.day,
+      startHour,
+      0,
+    );
+    final baseEnd = DateTime(
+      targetDay.year,
+      targetDay.month,
+      targetDay.day,
+      (startHour + 1).clamp(9, 23),
+      30,
+    );
+
+    _isAllDay = existing?.isAllDay ?? false;
+    _startsAt = existing?.startsAt ?? baseStart;
+    _endsAt = existing?.endsAt ?? baseEnd;
+    _reminderMinutes = existing?.reminderMinutesBefore ?? 30;
+    _syncToGoogle = existing != null
+        ? (existing.isLinkedWithGoogle ||
+            existing.isLinkedWithDeviceCalendar ||
+            existing.syncStatus == CalendarSyncStatus.pendingUpload)
+        : true;
+
+    _frequency = existing?.recurrence.frequency ?? RecurrenceFrequency.none;
+    _selectedWeekDays = <String>{
+      ...(existing?.recurrence.byWeekDays ?? const <String>[]),
+    };
+
+    _showAdvanced = existing != null &&
+        ((existing.location ?? '').isNotEmpty ||
+            (existing.description ?? '').isNotEmpty ||
+            existing.isRecurring);
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _locCtrl.dispose();
+    _descCtrl.dispose();
+    _intervalCtrl.dispose();
+    _countCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDateTime({required bool isStart}) async {
+    final initial = isStart ? _startsAt : _endsAt;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    if (_isAllDay) {
+      setState(() {
+        if (isStart) {
+          _startsAt = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            0,
+            0,
+          );
+          if (_endsAt.isBefore(_startsAt)) {
+            _endsAt = DateTime(
+              pickedDate.year,
+              pickedDate.month,
+              pickedDate.day,
+              23,
+              59,
+            );
+          }
+        } else {
+          _endsAt = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            23,
+            59,
+          );
+        }
+      });
+      return;
+    }
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    setState(() {
+      if (isStart) {
+        _startsAt = combined;
+        if (!_endsAt.isAfter(_startsAt)) {
+          _endsAt = _startsAt.add(const Duration(hours: 1));
+        }
+      } else {
+        _endsAt = combined;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.existingEvent != null;
+    final dtLabelFmt = DateFormat('dd/MM HH:mm');
+    final dLabelFmt = DateFormat('dd/MM/yyyy');
+
+    const quickReminders = <(int mins, String label)>[
+      (0, 'Không nhắc'),
+      (15, '15 phút'),
+      (30, '30 phút'),
+      (60, '1 giờ'),
+      (1440, '1 ngày'),
+    ];
+
+    return AlertDialog(
+      title: Text(isEditing ? 'Sửa lịch hẹn' : 'Thêm lịch hẹn mới'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('event_title_field'),
+              controller: _titleCtrl,
+              autofocus: !isEditing,
+              decoration: const InputDecoration(
+                labelText: 'Tên sự kiện / Lịch làm việc *',
+                hintText: 'VD: Họp nhóm 9h / Khám răng / Đóng tiền nhà',
+                prefixIcon: Icon(Icons.event_rounded),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('Diễn ra cả ngày'),
+              value: _isAllDay,
+              onChanged: (v) => setState(() => _isAllDay = v),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickDateTime(isStart: true),
+                    icon: const Icon(Icons.schedule_rounded, size: 16),
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _isAllDay
+                            ? dLabelFmt.format(_startsAt)
+                            : dtLabelFmt.format(_startsAt),
+                        style: const TextStyle(
+                          fontSize: 12.2,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickDateTime(isStart: false),
+                    icon: const Icon(Icons.flag_outlined, size: 16),
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _isAllDay
+                            ? dLabelFmt.format(_endsAt)
+                            : dtLabelFmt.format(_endsAt),
+                        style: const TextStyle(
+                          fontSize: 12.2,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Nhắc trước giờ hẹn',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: quickReminders.map((r) {
+                return ChoiceChip(
+                  label: Text(r.$2),
+                  selected: _reminderMinutes == r.$1,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) => setState(() => _reminderMinutes = r.$1),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            Builder(
+              builder: (context) {
+                final writableGroups = CalendarListDeduplicator.group(
+                  widget.calendars,
+                ).where((g) => !g.isReadOnly).toList();
+                final hasMultipleWritable = writableGroups.length > 1;
+                final safeSelectedId = writableGroups.any(
+                  (g) => g.canonicalId == _selectedCalendarId,
+                )
+                    ? _selectedCalendarId
+                    : (writableGroups.isNotEmpty
+                          ? writableGroups.first.canonicalId
+                          : 'primary');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Progressive Disclosure Toggle for Advanced Options
+                    InkWell(
+                      key: const Key('toggle_event_advanced_options'),
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () =>
+                          setState(() => _showAdvanced = !_showAdvanced),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _showAdvanced
+                                  ? Icons.expand_less_rounded
+                                  : Icons.expand_more_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _showAdvanced
+                                    ? 'Ẩn tùy chọn chi tiết'
+                                    : (hasMultipleWritable
+                                          ? 'Thêm địa điểm, lặp lại & bộ lịch'
+                                          : 'Thêm địa điểm & lặp lại'),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_showAdvanced) ...[
+                      const SizedBox(height: 6),
+                      TextField(
+                        key: const Key('event_location_field'),
+                        controller: _locCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Địa điểm / Link họp trực tuyến',
+                          hintText: 'Phòng họp / Google Meet / Quận 1',
+                          prefixIcon: Icon(Icons.place_outlined),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (!isEditing && widget.familyId != null) ...[
+                        DropdownButtonFormField<CalendarEventVisibility>(
+                          isExpanded: true,
+                          initialValue: _visibility,
+                          decoration: const InputDecoration(
+                            labelText: 'Phạm vi hiển thị',
+                            isDense: true,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: CalendarEventVisibility.privateEvent,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text('Lịch cá nhân của tôi'),
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: CalendarEventVisibility.sharedEvent,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text('Chia sẻ với Gia đình / Nhóm'),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() => _visibility = v);
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
+                      if (_visibility == CalendarEventVisibility.privateEvent &&
+                          hasMultipleWritable) ...[
+                        DropdownButtonFormField<String>(
+                          key: const Key('event_calendar_dropdown'),
+                          isExpanded: true,
+                          initialValue: safeSelectedId,
+                          decoration: const InputDecoration(
+                            labelText: 'Thuộc bộ lịch',
+                            isDense: true,
+                          ),
+                          items: writableGroups
+                              .map(
+                                (g) => DropdownMenuItem(
+                                  value: g.canonicalId,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(g.displayTitle),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedCalendarId = v);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
+                    ],
+                  ],
+                );
+              },
+            ),
+            if (_showAdvanced) ...[
+              DropdownButtonFormField<RecurrenceFrequency>(
+                key: const Key('event_recurrence_dropdown'),
+                isExpanded: true,
+                initialValue: _frequency,
+                decoration: const InputDecoration(
+                  labelText: 'Lặp lại tự động',
+                  prefixIcon: Icon(Icons.repeat_rounded),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: RecurrenceFrequency.none,
+                    child: Text('Không lặp'),
+                  ),
+                  DropdownMenuItem(
+                    value: RecurrenceFrequency.daily,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('Hằng ngày'),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: RecurrenceFrequency.weekly,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('Hằng tuần theo thứ'),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: RecurrenceFrequency.monthly,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('Hằng tháng'),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: RecurrenceFrequency.yearly,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('Hằng năm (Sinh nhật / Kỷ niệm)'),
+                    ),
+                  ),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _frequency = v;
+                      if (_frequency == RecurrenceFrequency.weekly &&
+                          _selectedWeekDays.isEmpty) {
+                        _selectedWeekDays.add(
+                          CalendarRecurrenceRule.weekDayCodeForDate(_startsAt),
+                        );
+                      }
+                    });
+                  }
+                },
+              ),
+              if (_frequency != RecurrenceFrequency.none) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _intervalCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Mỗi (chu kỳ)',
+                          hintText: '1',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _countCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Số lần (tùy chọn)',
+                          hintText: 'Không giới hạn',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_frequency == RecurrenceFrequency.weekly) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: CalendarRecurrenceRule.allWeekDayCodes.map((code) {
+                      final selected = _selectedWeekDays.contains(code);
+                      return FilterChip(
+                        label: Text(
+                          CalendarRecurrenceRule.weekDayLabelVi(code),
+                        ),
+                        selected: selected,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (val) {
+                          setState(() {
+                            if (val) {
+                              _selectedWeekDays.add(code);
+                            } else if (_selectedWeekDays.length > 1) {
+                              _selectedWeekDays.remove(code);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                key: const Key('event_description_field'),
+                controller: _descCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú chi tiết',
+                  isDense: true,
+                ),
+              ),
+              if (_visibility == CalendarEventVisibility.privateEvent)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Đồng bộ Google & Lịch điện thoại'),
+                  value: _syncToGoogle,
+                  onChanged: (v) => setState(() => _syncToGoogle = v),
+                ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton.icon(
+          key: const Key('submit_event_dialog_button'),
+          onPressed: () {
+            final parsedInterval =
+                int.tryParse(_intervalCtrl.text.trim()) ?? 1;
+            final parsedCount = int.tryParse(_countCtrl.text.trim());
+            final rule = CalendarRecurrenceRule(
+              frequency: _frequency,
+              interval: parsedInterval < 1 ? 1 : parsedInterval,
+              byWeekDays: _frequency == RecurrenceFrequency.weekly
+                  ? _selectedWeekDays.toList()
+                  : const <String>[],
+              count: (parsedCount != null && parsedCount > 0)
+                  ? parsedCount
+                  : null,
+            );
+
+            if (isEditing) {
+              widget.calBloc.add(
+                CalendarEventUpdated(
+                  UpdateCalendarEventParams(
+                    userId: widget.userId,
+                    userName: widget.userName,
+                    existingEvent: widget.existingEvent!,
+                    title: _titleCtrl.text,
+                    description: _descCtrl.text,
+                    location: _locCtrl.text,
+                    startsAt: _startsAt,
+                    endsAt: _endsAt,
+                    isAllDay: _isAllDay,
+                    calendarId: _selectedCalendarId,
+                    reminderMinutesBefore: _reminderMinutes,
+                    recurrence: rule,
+                    publishBusySlot: widget.availabilityOptIn,
+                    syncToGoogle: _syncToGoogle,
+                  ),
+                ),
+              );
+            } else {
+              widget.calBloc.add(
+                CalendarEventCreated(
+                  CreateCalendarEventParams(
+                    userId: widget.userId,
+                    userName: widget.userName,
+                    calendarId: _selectedCalendarId,
+                    familyId: widget.familyId,
+                    visibility: _visibility,
+                    title: _titleCtrl.text,
+                    description: _descCtrl.text,
+                    location: _locCtrl.text,
+                    startsAt: _startsAt,
+                    endsAt: _endsAt,
+                    isAllDay: _isAllDay,
+                    reminderMinutesBefore: _reminderMinutes,
+                    recurrence: rule,
+                    publishBusySlot: widget.availabilityOptIn,
+                    syncToGoogle: _syncToGoogle,
+                  ),
+                ),
+              );
+            }
+            Navigator.of(context).pop();
+          },
+          icon: Icon(
+            isEditing ? Icons.save_outlined : Icons.check_rounded,
+            size: 18,
+          ),
+          label: Text(isEditing ? 'Lưu thay đổi' : 'Lưu lịch hẹn'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlanningHabitsAndNotesTabView extends StatelessWidget {
+  final String userId;
+  final ValueChanged<int> onSwitchToTab;
+
+  const _PlanningHabitsAndNotesTabView({
+    required this.userId,
+    required this.onSwitchToTab,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final calEvents = context.watch<CalendarBloc>().state.events;
+    final tasks = context.watch<TaskBloc>().state.tasks;
+    final now = DateTime.now();
+
+    final upcomingNext = calEvents
+        .where((e) => !e.endsAt.isBefore(now))
+        .toList()
+      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    final openTasks = tasks
+        .where(
+          (t) =>
+              t.status == TaskWorkflowStatus.proposed ||
+              t.status == TaskWorkflowStatus.accepted ||
+              t.status == TaskWorkflowStatus.inProgress,
+        )
+        .length;
+    final nextEv = upcomingNext.isNotEmpty ? upcomingNext.first : null;
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -1816,9 +3044,76 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
             AppSpacing.dockClearance,
           ),
           children: [
+            // Daily Focus & Schedule Pulse Card
+            LifeOsMintHeroCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const LifeOsIconSquircle(
+                        icon: Icons.wb_sunny_outlined,
+                        tone: LifeOsAccentTone.emerald,
+                        size: 38,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Nhịp làm việc hôm nay',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              nextEv != null
+                                  ? 'Sắp diễn ra: ${nextEv.title} (${DateFormat("HH:mm dd/MM").format(nextEv.startsAt)})'
+                                  : 'Chưa có lịch hẹn sắp tới · $openTasks việc đang mở',
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 12.2,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => onSwitchToTab(0),
+                        icon: const Icon(Icons.calendar_today_rounded, size: 15),
+                        label: const Text('Xem lịch trình'),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => onSwitchToTab(1),
+                        icon: const Icon(Icons.task_alt_rounded, size: 15),
+                        label: Text('Công việc ($openTasks)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
             const LifeOsSectionHeader(
-              title: 'Báo thức & Tập trung mỗi ngày',
-              subtitle: 'Chuông nhắc sự kiện, đồng hồ Pomodoro và uống nước',
+              title: 'Báo thức & Tập trung',
+              subtitle: 'Chuông nhắc hẹn hệ thống, Pomodoro và thói quen tốt',
               tone: LifeOsAccentTone.amber,
             ),
             IntrinsicHeight(
@@ -1831,7 +3126,7 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
                       icon: Icons.alarm_on_rounded,
                       tone: LifeOsAccentTone.blue,
                       title: 'Báo thức lịch',
-                      subtitle: 'Chuông nhắc hẹn',
+                      subtitle: 'Chuông nhắc đúng giờ',
                       onTap: () => context.push('/event-alarm'),
                     ),
                   ),
@@ -1841,8 +3136,8 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
                       tileKey: const Key('planning_hub_habits_tile'),
                       icon: Icons.local_fire_department_outlined,
                       tone: LifeOsAccentTone.amber,
-                      title: 'Thói quen & Nước',
-                      subtitle: 'Pomodoro tập trung',
+                      title: 'Pomodoro & Nước',
+                      subtitle: 'Đồng hồ tập trung',
                       onTap: () => context.push('/habits-focus'),
                     ),
                   ),
@@ -1850,8 +3145,8 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
               ),
             ),
             const LifeOsSectionHeader(
-              title: 'Sổ tay cá nhân & Nhiệm vụ',
-              subtitle: 'Ghi chú ghim nhanh, nhật ký cảm xúc và bảng việc làm',
+              title: 'Ghi chú & Bộ lịch',
+              subtitle: 'Sổ tay nhanh và quản lý ẩn/hiện bộ lịch gọn gàng',
               tone: LifeOsAccentTone.purple,
             ),
             IntrinsicHeight(
@@ -1863,20 +3158,23 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
                       tileKey: const Key('planning_hub_notes_tile'),
                       icon: Icons.sticky_note_2_outlined,
                       tone: LifeOsAccentTone.purple,
-                      title: 'Sổ tay & Cảm xúc',
-                      subtitle: 'Ghi chú & tâm trạng',
+                      title: 'Sổ tay & Ghi chú',
+                      subtitle: 'Ý tưởng & nhật ký',
                       onTap: () => context.push('/smart-notes-hub'),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: LifeOsFeatureBentoTile(
-                      tileKey: const Key('planning_hub_tasks_tile'),
-                      icon: Icons.task_alt_rounded,
+                      tileKey: const Key('planning_hub_new_calendar_tile'),
+                      icon: Icons.layers_outlined,
                       tone: LifeOsAccentTone.emerald,
-                      title: 'Bảng việc làm',
-                      subtitle: 'Việc cá nhân & nhóm',
-                      onTap: () => context.push('/tasks-board'),
+                      title: 'Bộ lịch hiển thị',
+                      subtitle: 'Ẩn/hiện & phân màu',
+                      onTap: () => showManageCalendarsSheet(
+                        context,
+                        userId: userId,
+                      ),
                     ),
                   ),
                 ],

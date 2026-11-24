@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/utils/vietnamese_search_matcher.dart';
+
 // ============================================================================
 // 1. SUBSCRIPTION & APPLIANCE WARRANTY RADAR (Replaces Rocket Money / Bobby)
 // ============================================================================
@@ -294,12 +296,12 @@ class ParsedReceiptResult extends Equatable {
 /// Pure-Dart Vietnamese Receipt & Invoice Text Parser (replaces paid OCR bill scanners).
 abstract final class SmartReceiptParserEngine {
   static final RegExp _totalKeywordRegex = RegExp(
-    r'(?:tổng\s*(?:cộng|tiền|thanh\s*toán)?|thành\s*tiền|total|thanh\s*toán)\s*[:=-]?\s*([\d.,]+)\s*(k|nghìn|ngàn|đ|₫|vnd)?',
+    r'(?:tổng\s*(?:cộng|tiền|thanh\s*toán)?|tong\s*(?:cong|tien|thanh\s*toan)?|thành\s*tiền|thanh\s*tien|total|thanh\s*toán|thanh\s*toan)\s*[:=-]?\s*([\d.,]+)\s*(k|nghìn|nghin|ngàn|ngan|đ|d|₫|vnd)?',
     caseSensitive: false,
   );
 
   static final RegExp _linePriceRegex = RegExp(
-    r'^(.+?)\s+([\d]{1,3}(?:[.,]\d{3})+|\d+)\s*(k|nghìn|ngàn|đ|₫|vnd)?$',
+    r'^(.+?)\s+([\d]{1,3}(?:[.,]\d{3})+|\d+)\s*(k|nghìn|nghin|ngàn|ngan|đ|d|₫|vnd)?$',
     caseSensitive: false,
   );
 
@@ -308,7 +310,7 @@ abstract final class SmartReceiptParserEngine {
     final digitsOnly = numPart.replaceAll(RegExp(r'[.,]'), '');
     final base = int.tryParse(digitsOnly) ?? 0;
     if (base <= 0) return 0;
-    if (u == 'k' || u == 'nghìn' || u == 'ngàn') {
+    if (u == 'k' || u == 'nghìn' || u == 'nghin' || u == 'ngàn' || u == 'ngan') {
       return base < 100000 ? base * 1000 : base;
     }
     // Without an explicit 'k'/'nghìn' unit, require >= 1,000 VND so street/district numbers ("Quận 7") are never misparsed as prices!
@@ -363,30 +365,32 @@ abstract final class SmartReceiptParserEngine {
     final sumItems = items.fold<int>(0, (s, it) => s + it.amountMinor);
     final total = explicitTotal > 0 ? explicitTotal : sumItems;
 
-    final lowerAll = rawText.toLowerCase();
+    final foldedAll = VietnameseSearchMatcher.fold(rawText);
     final category =
-        (lowerAll.contains('tiền điện') ||
-            lowerAll.contains('tiền nước') ||
-            lowerAll.contains('hóa đơn điện') ||
-            lowerAll.contains('internet') ||
-            lowerAll.contains('evn'))
+        (foldedAll.contains('tien dien') ||
+            foldedAll.contains('tien nuoc') ||
+            foldedAll.contains('hoa don dien') ||
+            foldedAll.contains('internet') ||
+            foldedAll.contains('evn'))
         ? 'Điện/Nước/Internet'
-        : (lowerAll.contains('siêu thị') ||
-              lowerAll.contains('co.opmart') ||
-              lowerAll.contains('winmart') ||
-              lowerAll.contains('rửa chén') ||
-              lowerAll.contains('bột giặt'))
+        : (foldedAll.contains('sieu thi') ||
+              foldedAll.contains('co.opmart') ||
+              foldedAll.contains('winmart') ||
+              foldedAll.contains('bach hoa xanh') ||
+              foldedAll.contains('rua chen') ||
+              foldedAll.contains('bot giat'))
         ? 'Việc nhà & Gia dụng'
-        : (lowerAll.contains('phở') ||
-              lowerAll.contains('cà phê') ||
-              lowerAll.contains('trà') ||
-              lowerAll.contains('cơm') ||
-              lowerAll.contains('bún') ||
-              lowerAll.contains('lẩu') ||
-              lowerAll.contains('grabfood') ||
-              lowerAll.contains('highlands'))
+        : (foldedAll.contains('pho') ||
+              foldedAll.contains('ca phe') ||
+              foldedAll.contains('tra ') ||
+              foldedAll.contains('tra sua') ||
+              foldedAll.contains('com') ||
+              foldedAll.contains('bun') ||
+              foldedAll.contains('lau') ||
+              foldedAll.contains('grabfood') ||
+              foldedAll.contains('highlands'))
         ? 'Ăn uống'
-        : (lowerAll.contains('xăng') || lowerAll.contains('grab'))
+        : (foldedAll.contains('xang') || foldedAll.contains('grab'))
         ? 'Xe cộ & Di chuyển'
         : 'Việc nhà & Gia dụng';
 

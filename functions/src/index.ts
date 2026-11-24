@@ -1,11 +1,11 @@
 import * as admin from "firebase-admin";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { BANK_CAPABILITY_CATALOG } from "./capabilities";
 import { RealtimeBankingCoordinator } from "./bankingEngine";
 import { FirebaseAdminFcmSender, FirestoreAdminBankingStore } from "./firestoreStore";
-import { parseAndValidateSePayPayload } from "./schema";
 import { sha256Hex } from "./security";
 
 if (admin.apps.length === 0) {
@@ -35,7 +35,6 @@ export const sepayWebhook = onRequest(
     cors: false
   },
   async (req, res) => {
-    // Accept `/webhooks/sepay` (when routed via Firebase Hosting rewrite) or `/` (direct Function URL)
     const normalizedPath = (req.path || "/").replace(/\/+$/, "") || "/";
     if (normalizedPath !== "/" && normalizedPath !== "/webhooks/sepay") {
       res.status(404).json({ success: false, error: "NOT_FOUND" });
@@ -94,6 +93,23 @@ export const dispatchNotificationOutboxWorker = onDocumentCreated(
 );
 
 /**
+ * 3b. F12 / BG-02 Scheduled Outbox Recovery Worker:
+ *     Every 5 minutes, sweeps `FAILED_RETRYABLE` outbox items whose exponential backoff
+ *     (`nextRetryAtMs`) has elapsed, retrying up to 5 total attempts before `FAILED_PERMANENT` dead-letter.
+ */
+export const retryFailedNotificationOutboxWorker = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    region: "asia-southeast1",
+    maxInstances: 1
+  },
+  async () => {
+    const coordinator = createProductionCoordinator();
+    await coordinator.retryDueNotificationOutboxBatch(Date.now(), 50);
+  }
+);
+
+/**
  * 4. Authenticated Callable: Verifies user bank ownership via user's SePay API credential on server
  *    (never storing raw token in user-readable Firestore!) and binds BankConnection -> Wallet.
  */
@@ -123,7 +139,6 @@ export const verifyAndLinkBankConnection = onCall(
       );
     }
 
-    // Verify ownership directly against SePay User API from trusted backend (Source B)
     let verifiedAccountFound = false;
     let providerConnectionId = "";
     try {
@@ -234,9 +249,10 @@ export const migrateLegacySePayToken = onCall(
 );
 
 /**
- * 7. Source B — Controlled Server-Side SePay REST API Reconciliation (`reconcileBankConnectionViaApi`).
- *    Fetches missed historical transactions on backend and routes each item through the exact same
- *    idempotent Canonical Ledger pipeline (T21 — zero duplicates with Webhook!).
+ * 7. Source B — Paginated Server-Side SePay REST API Reconciliation (`reconcileBankConnectionViaApi` — F13 / FIN-05).
+ *    Paginates across up to 10 pages × 100 items (1,000 transactions per backfill), supports optional
+ *    `transactionDateMin` / `transactionDateMax` & connection watermark (`lastReconciledExternalTxId`),
+ *    and routes every item through the idempotent Canonical Ledger pipeline!
  */
 export const reconcileBankConnectionViaApi = onCall(
   { region: "asia-southeast1" },
@@ -248,90 +264,67 @@ export const reconcileBankConnectionViaApi = onCall(
     const data = (request.data ?? {}) as Record<string, unknown>;
     const connectionId = String(data.connectionId ?? "").trim();
     const sepayApiToken = String(data.sepayApiToken ?? "").trim();
+    const dateMin = String(data.transactionDateMin ?? "").trim();
+    const dateMax = String(data.transactionDateMax ?? "").trim();
+    const ignoreWatermark = Boolean(data.ignoreWatermark);
+
     if (!connectionId || sepayApiToken.length < 16) {
       throw new HttpsError("invalid-argument", "Thiếu connectionId hoặc token đối soát.");
     }
 
     const db = admin.firestore();
-    const connSnap = await db.collection("server_bank_connections").doc(connectionId).get();
+    const connRef = db.collection("server_bank_connections").doc(connectionId);
+    const connSnap = await connRef.get();
     if (!connSnap.exists || connSnap.data()?.ownerId !== uid) {
       throw new HttpsError("permission-denied", "Không tìm thấy kết nối ngân hàng hợp lệ.");
     }
     const conn = connSnap.data()!;
     const accountNumber = String(conn.accountNumber ?? "");
+    const watermarkTxId = ignoreWatermark ? undefined : (conn.lastReconciledExternalTxId as string | undefined);
 
-    const resp = await fetch(
-      `https://my.sepay.vn/userapi/transactions/list?account_number=${encodeURIComponent(accountNumber)}&limit=20`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${sepayApiToken}`,
-          Accept: "application/json"
-        }
-      }
-    );
-    if (!resp.ok) {
-      throw new HttpsError("unavailable", "Không thể tải danh sách đối soát từ SePay API.");
-    }
-
-    const json = (await resp.json()) as { transactions?: Array<Record<string, unknown>> };
-    const items = Array.isArray(json.transactions) ? json.transactions : [];
-    const store = new FirestoreAdminBankingStore(db);
     const coordinator = createProductionCoordinator();
+    const summary = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: uid,
+      connectionId,
+      accountNumber,
+      subAccount: String(conn.subAccount ?? ""),
+      bankName: String(conn.bankName ?? conn.bankCode ?? "Bank"),
+      pageSize: 100,
+      maxPages: 10,
+      stopAtExternalTxId: watermarkTxId,
+      fetchPage: async (pageIndex, pageLimit) => {
+        const offset = pageIndex * pageLimit;
+        const params = new URLSearchParams({
+          account_number: accountNumber,
+          limit: String(pageLimit),
+          offset: String(offset)
+        });
+        if (dateMin) params.set("transaction_date_min", dateMin);
+        if (dateMax) params.set("transaction_date_max", dateMax);
 
-    let processed = 0;
-    let duplicates = 0;
-
-    for (const raw of items) {
-      const amountIn = Number(raw.amount_in ?? 0);
-      const amountOut = Number(raw.amount_out ?? 0);
-      const transferType = amountIn > 0 ? "in" : "out";
-      const transferAmount = Math.round(amountIn > 0 ? amountIn : amountOut);
-      if (transferAmount <= 0) continue;
-
-      const normalizedPayload = Buffer.from(
-        JSON.stringify({
-          id: Number(raw.id),
-          gateway: String(raw.bank_brand_name ?? conn.bankName),
-          transactionDate: String(raw.transaction_date ?? ""),
-          accountNumber,
-          subAccount: String(raw.sub_account ?? conn.subAccount ?? ""),
-          code: raw.code ?? null,
-          content: String(raw.transaction_content ?? ""),
-          transferType,
-          description: String(raw.transaction_content ?? ""),
-          transferAmount,
-          accumulated: Number(raw.accumulated ?? 0),
-          referenceCode: String(raw.reference_number ?? "")
-        }),
-        "utf8"
-      );
-
-      const validated = parseAndValidateSePayPayload(normalizedPayload);
-      if (!validated.valid || !validated.payload) continue;
-
-      const providerEventKey = `sepay_${connectionId}_${validated.payload.id}`;
-      await store.createDurableInboxIfAbsent({
-        providerEventKey,
-        provider: "sepay",
-        externalTransactionId: String(validated.payload.id),
-        connectionId,
-        ownerId: uid,
-        state: "PENDING_PROCESSING",
-        payload: validated.payload,
-        receivedAtMs: Date.now(),
-        updatedAtMs: Date.now()
-      });
-
-      const out = await coordinator.processInboxEvent(providerEventKey);
-      if (out.state === "DUPLICATE") {
-        duplicates += 1;
-      } else if (out.state === "PROCESSED" || out.state === "NEEDS_REVIEW") {
-        processed += 1;
-        if (out.notificationId) {
-          await coordinator.dispatchNotificationOutbox(out.notificationId);
+        const resp = await fetch(`https://my.sepay.vn/userapi/transactions/list?${params.toString()}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${sepayApiToken}`,
+            Accept: "application/json"
+          }
+        });
+        if (!resp.ok) {
+          throw new HttpsError("unavailable", `Không thể tải trang ${pageIndex + 1} danh sách đối soát từ SePay API.`);
         }
+        const json = (await resp.json()) as { transactions?: Array<Record<string, unknown>> };
+        return Array.isArray(json.transactions) ? json.transactions : [];
       }
+    });
+
+    if (summary.newestExternalTxId) {
+      await connRef.set(
+        {
+          lastReconciledExternalTxId: summary.newestExternalTxId,
+          lastReconciledAt: admin.firestore.Timestamp.now()
+        },
+        { merge: true }
+      );
     }
 
     const jobId = `rec_${connectionId}_${Date.now()}`;
@@ -339,13 +332,20 @@ export const reconcileBankConnectionViaApi = onCall(
       id: jobId,
       ownerId: uid,
       connectionId,
-      fetchedCount: items.length,
-      processedCount: processed,
-      duplicateCount: duplicates,
+      pagesFetched: summary.pagesFetched,
+      fetchedCount: summary.fetchedCount,
+      processedCount: summary.processedCount,
+      duplicateCount: summary.duplicateCount,
       completedAt: admin.firestore.Timestamp.now()
     });
 
-    return { ok: true, fetchedCount: items.length, processedCount: processed, duplicateCount: duplicates };
+    return {
+      ok: true,
+      pagesFetched: summary.pagesFetched,
+      fetchedCount: summary.fetchedCount,
+      processedCount: summary.processedCount,
+      duplicateCount: summary.duplicateCount
+    };
   }
 );
 

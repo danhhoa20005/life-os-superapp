@@ -362,6 +362,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     final currentUser = state.user;
     if (currentUser == null) return;
+    emit(state.copyWith(clearFailure: true, clearInfo: true));
     final result = await _updatePrivacySettings(
       UpdatePrivacyParams(
         userId: currentUser.id,
@@ -369,7 +370,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
     result.fold(
-      (failure) => emit(state.copyWith(failure: failure)),
+      (failure) => emit(state.copyWith(failure: failure, clearInfo: true)),
       (updated) => emit(state.copyWith(user: updated)),
     );
   }
@@ -380,6 +381,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     final currentUser = state.user;
     if (currentUser == null) return;
+    emit(state.copyWith(clearFailure: true, clearInfo: true));
     final result = await _updatePrivacySettings(
       UpdatePrivacyParams(
         userId: currentUser.id,
@@ -387,7 +389,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
     result.fold(
-      (failure) => emit(state.copyWith(failure: failure)),
+      (failure) => emit(state.copyWith(failure: failure, clearInfo: true)),
       (updated) => emit(state.copyWith(user: updated)),
     );
   }
@@ -402,6 +404,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         status: AuthStatus.unauthenticated,
         clearUser: true,
         isSubmitting: false,
+        clearFailure: true,
+        clearInfo: true,
       ),
     );
   }

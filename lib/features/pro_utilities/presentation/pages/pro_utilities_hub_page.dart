@@ -210,10 +210,13 @@ class _MiniHubMetric extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          softWrap: true,
-          style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+          ),
         ),
         const SizedBox(height: 3),
         FittedBox(

@@ -71,6 +71,24 @@ class TransactionRemoteDataSource {
         .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
   }
 
+  Stream<List<TransactionModel>> watchTransactionsRange({
+    required String userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+    int limit = 600,
+  }) {
+    return _txCol(userId)
+        .where(
+          'occurredAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startInclusive),
+        )
+        .where('occurredAt', isLessThan: Timestamp.fromDate(endExclusive))
+        .orderBy('occurredAt', descending: true)
+        .limit(limit)
+        .snapshots(includeMetadataChanges: true)
+        .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
+  }
+
   Future<WalletModel> createWallet({
     required String userId,
     required String name,
@@ -220,12 +238,14 @@ class TransactionRemoteDataSource {
             'maskedAccount': null,
             'balanceMinor': newSourceBal,
             'isEstimatedBalance': true,
+            'lastAuditId': 'aud_$operationId',
             'createdAt': Timestamp.fromDate(now),
             'updatedAt': Timestamp.fromDate(now),
           });
         } else {
           tx.update(sourceWalletRef, {
             'balanceMinor': newSourceBal,
+            'lastAuditId': 'aud_$operationId',
             'updatedAt': Timestamp.fromDate(now),
           });
         }
@@ -382,6 +402,8 @@ class TransactionRemoteDataSource {
     required bool approve,
     String? updatedCategoryName,
     String? updatedMerchant,
+    int? updatedAmountMinor,
+    String? updatedNote,
   }) async {
     final txRef = _txCol(userId).doc(transactionId);
     await _firestore.runTransaction((tx) async {
@@ -408,6 +430,11 @@ class TransactionRemoteDataSource {
         return;
       }
 
+      final effectiveAmount =
+          (updatedAmountMinor != null && updatedAmountMinor > 0)
+          ? updatedAmountMinor
+          : current.amountMinor;
+
       // Single-balance-effect guard: ONLY apply delta if ledgerApplied was false!
       if (!current.ledgerApplied) {
         final walletRef = _walletsCol(userId).doc(current.walletId);
@@ -416,8 +443,8 @@ class TransactionRemoteDataSource {
           final bal =
               (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
           final delta = current.direction == 'credit'
-              ? current.amountMinor
-              : -current.amountMinor;
+              ? effectiveAmount
+              : -effectiveAmount;
           tx.update(walletRef, {
             'balanceMinor': bal + delta,
             'updatedAt': Timestamp.fromDate(now),
@@ -429,10 +456,12 @@ class TransactionRemoteDataSource {
         'verification': TransactionVerification.userConfirmed.name,
         'verificationStatus': 'USER_CONFIRMED',
         'ledgerApplied': true,
+        'amountMinor': effectiveAmount,
         if (updatedCategoryName != null && updatedCategoryName.isNotEmpty)
           'categoryName': updatedCategoryName,
         if (updatedMerchant != null && updatedMerchant.isNotEmpty)
           'merchant': updatedMerchant,
+        if (updatedNote != null) 'note': updatedNote,
         'updatedAt': Timestamp.fromDate(now),
       });
     });

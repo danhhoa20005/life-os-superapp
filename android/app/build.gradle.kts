@@ -38,6 +38,12 @@ android {
         versionName = flutter.versionName
     }
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
+    }
+
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
@@ -55,12 +61,19 @@ android {
 
     buildTypes {
         release {
+            val requireReleaseKeystore =
+                System.getenv("LIFEOS_REQUIRE_RELEASE_SIGNING")?.equals("true", ignoreCase = true) == true ||
+                    System.getenv("GITHUB_REF")?.startsWith("refs/tags/v") == true
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
+            } else if (requireReleaseKeystore) {
+                throw org.gradle.api.GradleException(
+                    "F16 / APP-02 Security Gate: Tagged or CI production release build requires a valid release keystore " +
+                        "(android/key.properties or LIFEOS_RELEASE_STORE_FILE). Refusing to fall back to debug signing key."
+                )
             } else {
                 logger.lifecycle(
-                    "LifeOS Signing Notice: android/key.properties not found; falling back to local dev/OTA keystore. " +
-                        "Configure android/key.properties (see key.properties.example) before Google Play upload."
+                    "LifeOS Signing Notice: android/key.properties not found; falling back to local dev keystore for non-tagged local build only."
                 )
                 signingConfig = signingConfigs.getByName("debug")
             }

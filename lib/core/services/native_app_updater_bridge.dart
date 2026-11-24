@@ -30,18 +30,18 @@ class NativeAppUpdaterBridge {
 
   static const String compileTimeVersion = String.fromEnvironment(
     'APP_VERSION_NAME',
-    defaultValue: '1.0.0',
+    defaultValue: '3.16.0',
   );
   static const int compileTimeBuildNumber = int.fromEnvironment(
     'APP_BUILD_NUMBER',
-    defaultValue: 1,
+    defaultValue: 31,
   );
 
   Future<InstalledAppMeta> getInstalledAppVersion() async {
     if (fixedInstalledMeta != null) {
       return fixedInstalledMeta!;
     }
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (kIsWeb || !Platform.isAndroid) {
       return const InstalledAppMeta(
         versionName: compileTimeVersion,
         buildNumber: compileTimeBuildNumber,
@@ -92,7 +92,7 @@ class NativeAppUpdaterBridge {
   }
 
   Future<String> installApk(String filePath) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (kIsWeb || !Platform.isAndroid) {
       return 'UNSUPPORTED_PLATFORM';
     }
     final status = await _channel.invokeMethod<String>(
@@ -103,7 +103,7 @@ class NativeAppUpdaterBridge {
   }
 
   Future<bool> openExternalUrl(String url) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (kIsWeb || !Platform.isAndroid) {
       return false;
     }
     try {

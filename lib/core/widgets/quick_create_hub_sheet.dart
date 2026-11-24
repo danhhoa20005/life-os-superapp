@@ -10,13 +10,15 @@ import '../../features/calendar/presentation/pages/planning_page.dart';
 import '../../features/daily_life/domain/entities/daily_life_entities.dart';
 import '../../features/daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../features/family/presentation/bloc/family_bloc.dart';
+import '../../features/financial_ai/presentation/bloc/gemini_copilot_bloc.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/tasks/domain/repositories/task_repository.dart';
 import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
-import '../utils/smart_quick_entry_parser.dart';
+import '../utils/omni_action_executor.dart';
+import '../utils/smart_omni_intent_parser.dart';
 import '../utils/user_behavior_prefs.dart';
 import '../utils/vnd_amount.dart';
 import 'lifeos_design_system.dart';
@@ -44,6 +46,7 @@ Future<void> showLifeOsQuickCreateHubSheet(BuildContext context) async {
   final taskBloc = _tryReadBloc<TaskBloc>(context);
   final familyBloc = _tryReadBloc<FamilyBloc>(context);
   final dailyBloc = _tryReadBloc<DailyLifeBloc>(context);
+  final geminiBloc = _tryReadBloc<GeminiCopilotBloc>(context);
 
   await showModalBottomSheet<void>(
     context: context,
@@ -63,6 +66,7 @@ Future<void> showLifeOsQuickCreateHubSheet(BuildContext context) async {
           taskBloc: taskBloc,
           familyBloc: familyBloc,
           dailyBloc: dailyBloc,
+          geminiBloc: geminiBloc,
         ),
       );
     },
@@ -78,6 +82,7 @@ class _QuickCreateHubBody extends StatefulWidget {
   final TaskBloc? taskBloc;
   final FamilyBloc? familyBloc;
   final DailyLifeBloc? dailyBloc;
+  final GeminiCopilotBloc? geminiBloc;
 
   const _QuickCreateHubBody({
     required this.parentContext,
@@ -88,6 +93,7 @@ class _QuickCreateHubBody extends StatefulWidget {
     required this.taskBloc,
     required this.familyBloc,
     required this.dailyBloc,
+    required this.geminiBloc,
   });
 
   @override
@@ -96,12 +102,18 @@ class _QuickCreateHubBody extends StatefulWidget {
 
 class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
   final TextEditingController _quickInputCtrl = TextEditingController();
-  ParsedSmartEntry? _parsedDraft;
+  List<OmniActionDraft> _omniDrafts = const <OmniActionDraft>[];
 
   @override
   void initState() {
     super.initState();
-    UserBehaviorPrefs.loadLastWalletId();
+    _hydrateHabits();
+  }
+
+  Future<void> _hydrateHabits() async {
+    await UserBehaviorPrefs.loadLastWalletId();
+    await UserBehaviorPrefs.loadHabitShortcuts();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -115,47 +127,72 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
     return UserBehaviorPrefs.resolvePreferredWalletId(wallets.map((w) => w.id));
   }
 
-  void _saveInlineDraft() {
-    final draft =
-        _parsedDraft ?? SmartQuickEntryParser.tryParse(_quickInputCtrl.text);
-    final user = widget.authBloc?.state.user;
-    final actionBloc = widget.txActionBloc;
+  IconData _iconForOmniKind(OmniActionKind kind) => switch (kind) {
+    OmniActionKind.transaction => Icons.account_balance_wallet_outlined,
+    OmniActionKind.groupSplit => Icons.groups_outlined,
+    OmniActionKind.calendarEvent => Icons.event_available_rounded,
+    OmniActionKind.task => Icons.task_alt_rounded,
+    OmniActionKind.grocery => Icons.shopping_basket_outlined,
+    OmniActionKind.waterLog => Icons.water_drop_outlined,
+    OmniActionKind.medication => Icons.medication_outlined,
+  };
 
-    if (draft == null) {
+  Future<void> _saveInlineDraft() async {
+    final raw = _quickInputCtrl.text.trim();
+    final drafts = _omniDrafts.isNotEmpty
+        ? _omniDrafts
+        : SmartOmniIntentParser.parseMulti(raw);
+    final user = widget.authBloc?.state.user;
+
+    if (drafts.isEmpty) {
+      final geminiReady =
+          widget.geminiBloc?.state.config.isReadyForCloud ?? false;
+      if (raw.isNotEmpty && geminiReady) {
+        Navigator.of(context).pop();
+        widget.parentContext.push('/financial-ai', extra: raw);
+        return;
+      }
       LifeOsTopToast.show(
         widget.parentContext,
-        'Hãy nhập nội dung kèm số tiền, ví dụ: "Ăn sáng 45k" hoặc "Đổ xăng 80k".',
+        'Gõ nhanh thu chi, lịch hẹn hoặc việc làm (VD: "Ăn sáng 45k", "Họp 9h mai").',
         kind: LifeOsToastKind.warning,
       );
       return;
     }
 
-    if (user == null || actionBloc == null) {
+    if (user == null) {
       Navigator.of(context).pop();
       widget.parentContext.go('/finance');
       return;
     }
 
     final walletId = _defaultWalletId();
-    UserBehaviorPrefs.rememberWallet(walletId);
-    actionBloc.add(
-      TransactionCreateSubmitted(
-        operationId: const Uuid().v4(),
-        userId: user.id,
-        walletId: walletId,
-        categoryName: draft.categoryName,
-        kind: draft.kind,
-        amountMinor: draft.amountMinor,
-        merchant: draft.merchant,
-        occurredAt: DateTime.now(),
-      ),
-    );
-
     Navigator.of(context).pop();
-    LifeOsTopToast.show(
-      widget.parentContext,
-      'Đã lưu: ${draft.merchant} (${VndAmount.format(draft.amountMinor)})',
-    );
+
+    final isSingle = drafts.length == 1;
+    var executedCount = 0;
+    for (final d in drafts) {
+      final ok = await OmniActionExecutor.executeDraft(
+        toastContext: widget.parentContext,
+        draft: d,
+        user: user,
+        walletId: walletId,
+        txActionBloc: widget.txActionBloc,
+        calBloc: widget.calBloc,
+        taskBloc: widget.taskBloc,
+        familyBloc: widget.familyBloc,
+        dailyBloc: widget.dailyBloc,
+        showSuccessToast: isSingle,
+      );
+      if (ok) executedCount++;
+    }
+
+    if (!isSingle && executedCount > 0 && widget.parentContext.mounted) {
+      LifeOsTopToast.show(
+        widget.parentContext,
+        'Đã thực thi thông minh $executedCount tác vụ từ một câu lệnh!',
+      );
+    }
   }
 
   @override
@@ -346,12 +383,13 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                           textInputAction: TextInputAction.done,
                           onChanged: (v) {
                             setState(() {
-                              _parsedDraft = SmartQuickEntryParser.tryParse(v);
+                              _omniDrafts = SmartOmniIntentParser.parseMulti(v);
                             });
                           },
                           onSubmitted: (_) => _saveInlineDraft(),
                           decoration: InputDecoration(
-                            hintText: 'VD: ăn phở 55k',
+                            hintText: 'VD: phở 55k',
+                            hintMaxLines: 2,
                             isDense: true,
                             filled: true,
                             fillColor: c.surface,
@@ -359,6 +397,23 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                               horizontal: 12,
                               vertical: 11,
                             ),
+                            suffixIcon: _quickInputCtrl.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    key: const Key('quick_hub_clear_input_btn'),
+                                    tooltip: 'Xóa nội dung',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setState(() {
+                                        _quickInputCtrl.clear();
+                                        _omniDrafts = const [];
+                                      });
+                                    },
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 17,
+                                    ),
+                                  ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(color: c.separator),
@@ -411,28 +466,35 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  if (_parsedDraft != null)
-                    Row(
+                  if (_omniDrafts.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          size: 16,
-                          color: c.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${_parsedDraft!.kind == TransactionKind.income ? "Thu nhập" : "Chi tiêu"} · '
-                            '${_parsedDraft!.merchant} · ${_parsedDraft!.categoryName} · '
-                            '${VndAmount.format(_parsedDraft!.amountMinor)}',
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 12.2,
-                              fontWeight: FontWeight.w700,
-                              color: c.primary,
+                        for (final draft in _omniDrafts.take(3))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _iconForOmniKind(draft.kind),
+                                  size: 16,
+                                  color: c.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    draft.summaryLineVi,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12.2,
+                                      fontWeight: FontWeight.w700,
+                                      color: c.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
                       ],
                     )
                   else
@@ -440,26 +502,33 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        for (final sample in const [
-                          'Cà phê 35k',
-                          'Ăn trưa 55k',
-                          'Đổ xăng 80k',
-                        ])
+                        for (final chip
+                            in UserBehaviorPrefs.contextualSmartChips(
+                              DateTime.now(),
+                              maxCount: 4,
+                            ))
                           ActionChip(
                             visualDensity: VisualDensity.compact,
+                            avatar: chip.isPersonalHabit
+                                ? Icon(
+                                    Icons.history_rounded,
+                                    size: 14,
+                                    color: c.primary,
+                                  )
+                                : null,
                             label: Text(
-                              sample,
+                              chip.label,
                               style: const TextStyle(fontSize: 11.8),
                             ),
                             onPressed: () {
                               setState(() {
-                                _quickInputCtrl.text = sample;
+                                _quickInputCtrl.text = chip.command;
                                 _quickInputCtrl.selection =
                                     TextSelection.collapsed(
-                                      offset: sample.length,
+                                      offset: chip.command.length,
                                     );
-                                _parsedDraft = SmartQuickEntryParser.tryParse(
-                                  sample,
+                                _omniDrafts = SmartOmniIntentParser.parseMulti(
+                                  chip.command,
                                 );
                               });
                             },
@@ -494,6 +563,41 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
               tone: LifeOsAccentTone.blue,
               padding: EdgeInsets.only(top: 10, bottom: 6, left: 2, right: 2),
             ),
+            OutlinedButton.icon(
+              key: const Key('quick_hub_financial_ai_btn'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () {
+                final draftText = _quickInputCtrl.text.trim();
+                Navigator.of(context).pop();
+                widget.parentContext.push(
+                  '/financial-ai',
+                  extra: draftText.isEmpty ? null : draftText,
+                );
+              },
+              icon: Icon(
+                Icons.edit_note_rounded,
+                size: 18,
+                color: c.primary,
+              ),
+              label: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  (widget.geminiBloc?.state.config.isReadyForCloud ?? false)
+                      ? 'Nhập gộp nhiều việc & Gemini'
+                      : 'Nhập gộp nhiều khoản & lịch hẹn',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -562,6 +666,39 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('quick_hub_water_med_btn'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showQuickWaterAndMedSheet(
+                  widget.parentContext,
+                  authBloc: widget.authBloc,
+                  dailyBloc: widget.dailyBloc,
+                );
+              },
+              icon: const Icon(
+                Icons.water_drop_outlined,
+                size: 17,
+                color: Color(0xFF0284C7),
+              ),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Nhắc uống nước & Uống thuốc',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
@@ -663,8 +800,6 @@ Future<void> _showQuickTransactionSheet(
   var selectedWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
     wallets.map((w) => w.id),
   );
-  final amountCtrl = TextEditingController();
-  final noteCtrl = TextEditingController();
 
   const expenseCategories = <String>[
     'Ăn uống',
@@ -686,8 +821,11 @@ Future<void> _showQuickTransactionSheet(
     useSafeArea: true,
     showDragHandle: true,
     builder: (sheetCtx) {
-      return StatefulBuilder(
-        builder: (ctx, setModal) {
+      return _SheetControllersScope(
+        count: 2,
+        builder: (ctx, ctrls, setModal) {
+          final amountCtrl = ctrls[0];
+          final noteCtrl = ctrls[1];
           final c = TammySemanticColors.of(ctx);
           final cats = kind == TransactionKind.expense
               ? expenseCategories
@@ -890,10 +1028,17 @@ Future<void> _showQuickTransactionSheet(
                       final merchant = noteCtrl.text.trim().isEmpty
                           ? selectedCategory
                           : noteCtrl.text.trim();
+                      final opId = const Uuid().v4();
                       UserBehaviorPrefs.rememberWallet(selectedWalletId);
+                      UserBehaviorPrefs.recordHabitExecution(
+                        label: '$merchant ${(amt / 1000).round()}k',
+                        commandText: '$merchant ${(amt / 1000).round()}k',
+                        categoryName: selectedCategory,
+                        amountMinor: amt,
+                      );
                       txActionBloc.add(
                         TransactionCreateSubmitted(
-                          operationId: const Uuid().v4(),
+                          operationId: opId,
                           userId: user.id,
                           walletId: selectedWalletId,
                           categoryName: selectedCategory,
@@ -907,6 +1052,23 @@ Future<void> _showQuickTransactionSheet(
                       LifeOsTopToast.show(
                         context,
                         'Đã lưu: $merchant (${VndAmount.format(amt)})',
+                        actionLabel: 'Hoàn tác',
+                        onAction: () {
+                          txActionBloc.add(
+                            TransactionReverseRequested(
+                              userId: user.id,
+                              transactionId: opId,
+                              reason: 'Hoàn tác thao tác ghi nhanh',
+                            ),
+                          );
+                          if (context.mounted) {
+                            LifeOsTopToast.show(
+                              context,
+                              'Đã hoàn tác khoản "$merchant".',
+                              kind: LifeOsToastKind.info,
+                            );
+                          }
+                        },
                       );
                     },
                   ),
@@ -918,9 +1080,6 @@ Future<void> _showQuickTransactionSheet(
       );
     },
   );
-
-  amountCtrl.dispose();
-  noteCtrl.dispose();
 }
 
 /// Direct Quick Task Sheet opened right from `+ -> Thêm việc làm`.
@@ -938,7 +1097,6 @@ Future<void> _showQuickTaskSheet(
 
   final family = familyBloc?.state.activeFamily;
   final members = family?.members ?? const [];
-  final titleCtrl = TextEditingController();
   var dueChoice = 'today'; // 'today' | 'tomorrow' | 'weekend'
   var assigneeId = user.id;
   var assigneeName = user.fullName;
@@ -949,8 +1107,10 @@ Future<void> _showQuickTaskSheet(
     useSafeArea: true,
     showDragHandle: true,
     builder: (sheetCtx) {
-      return StatefulBuilder(
-        builder: (ctx, setModal) {
+      return _SheetControllersScope(
+        count: 1,
+        builder: (ctx, ctrls, setModal) {
+          final titleCtrl = ctrls[0];
           final c = TammySemanticColors.of(ctx);
           return Padding(
             padding: EdgeInsets.fromLTRB(
@@ -1115,8 +1275,6 @@ Future<void> _showQuickTaskSheet(
       );
     },
   );
-
-  titleCtrl.dispose();
 }
 
 /// Direct Quick Grocery & Note Sheet opened right from `+ -> Đi chợ & Ghi chú`.
@@ -1132,8 +1290,6 @@ Future<void> _showQuickGroceryAndNoteSheet(
   }
 
   var mode = 'grocery'; // 'grocery' | 'note'
-  final titleCtrl = TextEditingController();
-  final detailCtrl = TextEditingController();
 
   await showModalBottomSheet<void>(
     context: context,
@@ -1141,8 +1297,11 @@ Future<void> _showQuickGroceryAndNoteSheet(
     useSafeArea: true,
     showDragHandle: true,
     builder: (sheetCtx) {
-      return StatefulBuilder(
-        builder: (ctx, setModal) {
+      return _SheetControllersScope(
+        count: 2,
+        builder: (ctx, ctrls, setModal) {
+          final titleCtrl = ctrls[0];
+          final detailCtrl = ctrls[1];
           final c = TammySemanticColors.of(ctx);
           final isGrocery = mode == 'grocery';
           return Padding(
@@ -1264,7 +1423,308 @@ Future<void> _showQuickGroceryAndNoteSheet(
       );
     },
   );
+}
 
-  titleCtrl.dispose();
-  detailCtrl.dispose();
+class _SheetControllersScope extends StatefulWidget {
+  final int count;
+  final Widget Function(
+    BuildContext context,
+    List<TextEditingController> controllers,
+    StateSetter setModalState,
+  ) builder;
+
+  const _SheetControllersScope({
+    required this.count,
+    required this.builder,
+  });
+
+  @override
+  State<_SheetControllersScope> createState() => _SheetControllersScopeState();
+}
+
+class _SheetControllersScopeState extends State<_SheetControllersScope> {
+  late final List<TextEditingController> _controllers = List.generate(
+    widget.count,
+    (_) => TextEditingController(),
+  );
+
+  @override
+  void dispose() {
+    for (final ctrl in _controllers) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, _controllers, setState);
+}
+
+/// Direct Quick Water & Medication Reminder Sheet opened right from `+ -> Nhắc uống nước & Uống thuốc`.
+Future<void> _showQuickWaterAndMedSheet(
+  BuildContext context, {
+  required AuthBloc? authBloc,
+  required DailyLifeBloc? dailyBloc,
+}) async {
+  final user = authBloc?.state.user;
+  if (user == null || dailyBloc == null) {
+    context.push('/health-hub');
+    return;
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (_) => BlocProvider<DailyLifeBloc>.value(
+      value: dailyBloc,
+      child: _QuickWaterAndMedModal(
+        parentContext: context,
+        userId: user.id,
+      ),
+    ),
+  );
+}
+
+class _QuickWaterAndMedModal extends StatefulWidget {
+  final BuildContext parentContext;
+  final String userId;
+
+  const _QuickWaterAndMedModal({
+    required this.parentContext,
+    required this.userId,
+  });
+
+  @override
+  State<_QuickWaterAndMedModal> createState() => _QuickWaterAndMedModalState();
+}
+
+class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
+  String _mode = 'water'; // 'water' | 'med'
+  final TextEditingController _medNameCtrl = TextEditingController();
+  final TextEditingController _medDoseCtrl = TextEditingController(
+    text: '1 viên sau ăn',
+  );
+  MedicationScheduleSlot _slot = MedicationScheduleSlot.morning;
+  TimeOfDay _time = const TimeOfDay(hour: 7, minute: 30);
+
+  @override
+  void dispose() {
+    _medNameCtrl.dispose();
+    _medDoseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final hyd = context.watch<DailyLifeBloc>().state.snapshot.hydration;
+    final bloc = context.read<DailyLifeBloc>();
+    final hh = _time.hour.toString().padLeft(2, '0');
+    final mm = _time.minute.toString().padLeft(2, '0');
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _mode == 'water'
+                  ? 'Uống nước & Hẹn nhắc'
+                  : 'Đặt nhắc uống thuốc',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: c.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            LifeOsSegmentedPills<String>(
+              selected: _mode,
+              options: const [
+                ('water', 'Uống nước', Icons.water_drop_outlined),
+                ('med', 'Uống thuốc', Icons.medication_outlined),
+              ],
+              onChanged: (v) => setState(() => _mode = v),
+            ),
+            const SizedBox(height: 12),
+            if (_mode == 'water') ...[
+              Text(
+                'Hôm nay: ${hyd.waterMl} / ${hyd.targetWaterMl} ml (${hyd.progressPct}%)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: c.textPrimary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final ml in const [150, 250, 350, 500])
+                    FilledButton.tonalIcon(
+                      key: Key('quick_sheet_water_$ml'),
+                      onPressed: () {
+                        bloc.add(
+                          WaterIntakeLogged(
+                            userId: widget.userId,
+                            deltaMl: ml,
+                            targetWaterMl: hyd.targetWaterMl,
+                          ),
+                        );
+                        Navigator.of(context).pop();
+                        LifeOsTopToast.show(
+                          widget.parentContext,
+                          'Đã ghi nhận +$ml ml nước uống hôm nay.',
+                        );
+                      },
+                      icon: const Icon(Icons.local_drink_outlined, size: 16),
+                      label: Text('+$ml ml'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const Key('quick_sheet_water_reminder_switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Bật nhắc uống nước định kỳ'),
+                subtitle: Text(
+                  'Nhắc mỗi ${hyd.intervalMinutes} phút (${hyd.startHour.toString().padLeft(2, "0")}:00 – ${hyd.endHour.toString().padLeft(2, "0")}:00)',
+                ),
+                value: hyd.reminderEnabled,
+                onChanged: (val) {
+                  bloc.add(
+                    HydrationReminderSettingsSaved(
+                      userId: widget.userId,
+                      reminderEnabled: val,
+                      intervalMinutes: hyd.intervalMinutes,
+                      startHour: hyd.startHour,
+                      endHour: hyd.endHour,
+                      targetWaterMl: hyd.targetWaterMl,
+                    ),
+                  );
+                },
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.parentContext.push('/health-hub?tab=water');
+                },
+                icon: const Icon(Icons.tune_rounded, size: 17),
+                label: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text('Mở trang Theo dõi Nước & Chu kỳ'),
+                ),
+              ),
+            ] else ...[
+              TextField(
+                key: const Key('quick_sheet_med_name_input'),
+                controller: _medNameCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Tên thuốc',
+                  hintText: 'VD: Vitamin D3, Thuốc cảm',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _medDoseCtrl,
+                decoration: const InputDecoration(labelText: 'Liều dùng'),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<MedicationScheduleSlot>(
+                isExpanded: true,
+                initialValue: _slot,
+                decoration: const InputDecoration(labelText: 'Cữ uống'),
+                items: MedicationScheduleSlot.values
+                    .where((s) => s.isScheduledDaily)
+                    .map(
+                      (s) => DropdownMenuItem(
+                        value: s,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(s.label),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _slot = v;
+                      _time = TimeOfDay(
+                        hour: v.defaultHour,
+                        minute: v.defaultMinute,
+                      );
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: _time,
+                  );
+                  if (picked != null && mounted) {
+                    setState(() => _time = picked);
+                  }
+                },
+                icon: const Icon(Icons.alarm_rounded, size: 18),
+                label: Text('Giờ chuông nhắc: $hh:$mm'),
+              ),
+              const SizedBox(height: 12),
+              LifeOsPrimaryCtaButton(
+                key: const Key('quick_sheet_save_med_btn'),
+                icon: Icons.check_rounded,
+                label: 'Lưu & Đặt nhắc thuốc',
+                onPressed: () {
+                  final cleanName = _medNameCtrl.text.trim();
+                  if (cleanName.isEmpty) {
+                    LifeOsTopToast.show(
+                      widget.parentContext,
+                      'Vui lòng nhập tên thuốc cần nhắc.',
+                      kind: LifeOsToastKind.warning,
+                    );
+                    return;
+                  }
+                  bloc.add(
+                    MedicationCabinetAdded(
+                      userId: widget.userId,
+                      name: cleanName,
+                      dosage: _medDoseCtrl.text.trim(),
+                      slot: _slot,
+                      remainingPills: 30,
+                      expiryDate: DateTime.now().add(const Duration(days: 270)),
+                      reminderEnabled: true,
+                      reminderHour: _time.hour,
+                      reminderMinute: _time.minute,
+                    ),
+                  );
+                  Navigator.of(context).pop();
+                  LifeOsTopToast.show(
+                    widget.parentContext,
+                    'Đã đặt nhắc uống "$cleanName" lúc $hh:$mm.',
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

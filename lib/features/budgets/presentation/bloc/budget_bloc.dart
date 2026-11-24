@@ -161,7 +161,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     BudgetsSubscriptionRequested event,
     Emitter<BudgetState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, clearFailure: true));
+    emit(state.copyWith(isLoading: true, clearFailure: true, clearMessage: true));
     final stream =
         StreamCombiner.combine2<
           Result<List<BudgetEntity>>,
@@ -178,16 +178,25 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           ),
           (bRes, fRes) {
             if (bRes is Err<List<BudgetEntity>>) {
-              return state.copyWith(isLoading: false, failure: bRes.failure);
+              return state.copyWith(
+                isLoading: false,
+                failure: bRes.failure,
+                clearMessage: true,
+              );
             }
             if (fRes is Err<List<FundEntity>>) {
-              return state.copyWith(isLoading: false, failure: fRes.failure);
+              return state.copyWith(
+                isLoading: false,
+                failure: fRes.failure,
+                clearMessage: true,
+              );
             }
             return state.copyWith(
               isLoading: false,
               budgets: (bRes as Success<List<BudgetEntity>>).value,
               funds: (fRes as Success<List<FundEntity>>).value,
               clearFailure: true,
+              clearMessage: true,
             );
           },
         );

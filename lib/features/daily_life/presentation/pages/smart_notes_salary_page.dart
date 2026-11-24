@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -22,7 +24,9 @@ class SmartNotesSalaryPage extends StatefulWidget {
 
 class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
   String _tab = 'notes';
+  final TextEditingController _noteSearchCtrl = TextEditingController();
   String _noteSearch = '';
+  bool _pinnedOnly = false;
 
   // Vietnam Gross <-> Net & 5-Bracket 2026 PIT Salary Engine State (Luật 109/2025/QH15)
   bool _grossToNetMode = true;
@@ -40,14 +44,20 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
   ];
 
   @override
+  void dispose() {
+    _noteSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final user = context.watch<AuthBloc>().state.user;
     final userId = user?.id ?? '';
     final wallets = context.watch<TransactionListBloc>().state.wallets;
-    final primaryWalletId = wallets.isNotEmpty
-        ? wallets.first.id
-        : 'wallet_bank_default';
+    final primaryWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
+      wallets.map((w) => w.id),
+    );
 
     final salaryResult = _grossToNetMode
         ? VietnamGrossNetTaxEngine.fromGross(
@@ -65,17 +75,18 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
       listenWhen: (p, n) =>
-          p.successBanner != n.successBanner || p.failure != n.failure,
+          (n.failure != null && p.failure != n.failure) ||
+          (n.successBanner != null && p.successBanner != n.successBanner),
       listener: (context, state) {
-        if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text(state.successBanner!)),
-          );
-        } else if (state.failure != null) {
+        if (state.failure != null) {
           LifeOsTopToast.fromSnackBar(
             context,
             SnackBar(content: Text(state.failure!.message)),
+          );
+        } else if (state.successBanner != null) {
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text(state.successBanner!)),
           );
         }
       },
@@ -193,17 +204,16 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     List<SmartLifeNoteEntity> notes,
   ) {
     final dtFmt = DateFormat('dd/MM HH:mm');
-    final q = _noteSearch.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? notes
-        : notes
-              .where(
-                (n) =>
-                    n.title.toLowerCase().contains(q) ||
-                    n.content.toLowerCase().contains(q) ||
-                    n.categoryTag.toLowerCase().contains(q),
-              )
-              .toList();
+    final pinnedCount = notes.where((n) => n.isPinned).length;
+    final hasActiveFilter = _pinnedOnly || _noteSearch.trim().isNotEmpty;
+    final filtered = notes.where((n) {
+      if (_pinnedOnly && !n.isPinned) return false;
+      return VietnameseSearchMatcher.matchesAny(_noteSearch, [
+        n.title,
+        n.content,
+        n.categoryTag,
+      ]);
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,11 +266,50 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
         const SizedBox(height: 12),
 
         TextField(
-          decoration: const InputDecoration(
-            hintText: 'Tìm nhanh ghi chú, ý tưởng, mã số tủ, sách đọc...',
-            prefixIcon: Icon(Icons.search_rounded),
+          key: const Key('smart_notes_search_field'),
+          controller: _noteSearchCtrl,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Tìm ghi chú',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            suffixIcon: _noteSearch.isNotEmpty
+                ? IconButton(
+                    key: const Key('smart_notes_clear_btn'),
+                    tooltip: 'Xóa tìm kiếm',
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _noteSearchCtrl.clear();
+                      setState(() => _noteSearch = '');
+                    },
+                  )
+                : null,
           ),
           onChanged: (v) => setState(() => _noteSearch = v),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ChoiceChip(
+              key: const Key('smart_notes_filter_all'),
+              label: Text('Tất cả (${notes.length})'),
+              selected: !_pinnedOnly && _noteSearch.trim().isEmpty,
+              onSelected: (_) {
+                _noteSearchCtrl.clear();
+                setState(() {
+                  _pinnedOnly = false;
+                  _noteSearch = '';
+                });
+              },
+            ),
+            ChoiceChip(
+              key: const Key('smart_notes_filter_pinned'),
+              label: Text('Đã ghim ($pinnedCount)'),
+              selected: _pinnedOnly,
+              onSelected: (sel) => setState(() => _pinnedOnly = sel),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
 
@@ -279,13 +328,17 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
             child: Column(
               children: [
                 Icon(
-                  Icons.lightbulb_outline_rounded,
+                  hasActiveFilter
+                      ? Icons.search_off_rounded
+                      : Icons.lightbulb_outline_rounded,
                   size: 38,
                   color: c.primary,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Sổ tay Ghi chú đang sẵn sàng',
+                  hasActiveFilter
+                      ? 'Không tìm thấy ghi chú khớp bộ lọc'
+                      : 'Sổ tay Ghi chú đang sẵn sàng',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: c.textPrimary,
@@ -293,10 +346,27 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Lưu lại mã thẻ gửi xe, mật khẩu Wi-Fi văn phòng, danh sách sách hay hoặc ghim checklist quan trọng lên đầu.',
+                  hasActiveFilter
+                      ? 'Hãy xóa từ khóa hoặc chuyển về Tất cả để xem toàn bộ ghi chú đã lưu.'
+                      : 'Lưu lại mã thẻ gửi xe, mật khẩu Wi-Fi văn phòng, danh sách sách hay hoặc ghim checklist quan trọng lên đầu.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),
+                if (hasActiveFilter) ...[
+                  const SizedBox(height: 10),
+                  FilledButton.tonalIcon(
+                    key: const Key('smart_notes_reset_filter_btn'),
+                    onPressed: () {
+                      _noteSearchCtrl.clear();
+                      setState(() {
+                        _pinnedOnly = false;
+                        _noteSearch = '';
+                      });
+                    },
+                    icon: const Icon(Icons.filter_alt_off_rounded, size: 17),
+                    label: const Text('Xóa bộ lọc'),
+                  ),
+                ],
               ],
             ),
           )

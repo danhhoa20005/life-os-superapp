@@ -1,0 +1,1361 @@
+__label__food.meals ăn phở bò
+__label__food.meals an pho bo
+__label__food.meals chi ăn phở bò
+__label__food.meals chi an pho bo
+__label__food.meals thanh toán ăn phở bò
+__label__food.meals thanh toan an pho bo
+__label__food.meals ăn cơm tấm sườn
+__label__food.meals an com tam suon
+__label__food.meals chi ăn cơm tấm sườn
+__label__food.meals chi an com tam suon
+__label__food.meals thanh toán ăn cơm tấm sườn
+__label__food.meals thanh toan an com tam suon
+__label__food.meals bún chả hà nội
+__label__food.meals bun cha ha noi
+__label__food.meals chi bún chả hà nội
+__label__food.meals thanh toán bún chả hà nội
+__label__food.meals thanh toan bun cha ha noi
+__label__food.meals ăn lẩu thái
+__label__food.meals an lau thai
+__label__food.meals chi ăn lẩu thái
+__label__food.meals thanh toán ăn lẩu thái
+__label__food.meals thanh toan an lau thai
+__label__food.meals bánh mì thịt nướng
+__label__food.meals banh mi thit nuong
+__label__food.meals chi bánh mì thịt nướng
+__label__food.meals chi banh mi thit nuong
+__label__food.meals thanh toán bánh mì thịt nướng
+__label__food.meals mì quảng gà
+__label__food.meals mi quang ga
+__label__food.meals chi mì quảng gà
+__label__food.meals chi mi quang ga
+__label__food.meals thanh toán mì quảng gà
+__label__food.meals hủ tiếu nam vang
+__label__food.meals hu tieu nam vang
+__label__food.meals chi hủ tiếu nam vang
+__label__food.meals chi hu tieu nam vang
+__label__food.meals thanh toán hủ tiếu nam vang
+__label__food.meals thanh toan hu tieu nam vang
+__label__food.meals cơm văn phòng
+__label__food.meals com van phong
+__label__food.meals chi cơm văn phòng
+__label__food.meals chi com van phong
+__label__food.meals thanh toán cơm văn phòng
+__label__food.meals thanh toan com van phong
+__label__food.meals gà rán gà rán kfc
+__label__food.meals ga ran gà rán kfc
+__label__food.meals chi gà rán gà rán kfc
+__label__food.meals chi ga ran gà rán kfc
+__label__food.meals thanh toán gà rán gà rán kfc
+__label__food.meals thanh toan ga ran gà rán kfc
+__label__food.meals pizza company
+__label__food.meals chi pizza company
+__label__food.meals thanh toán pizza company
+__label__food.meals thanh toan pizza company
+__label__food.meals quán cơm bình dân
+__label__food.meals quan com binh dan
+__label__food.meals chi quán cơm bình dân
+__label__food.meals chi quan com binh dan
+__label__food.meals thanh toán quán cơm bình dân
+__label__food.meals thanh toan quan com binh dan
+__label__food.meals bún bò huế
+__label__food.meals bun bo hue
+__label__food.meals chi bún bò huế
+__label__food.meals chi bun bo hue
+__label__food.meals thanh toán bún bò huế
+__label__food.meals thanh toan bun bo hue
+__label__food.meals ăn vặt xiên que
+__label__food.meals an vat xien que
+__label__food.meals chi ăn vặt xiên que
+__label__food.meals thanh toán ăn vặt xiên que
+__label__food.meals thanh toan an vat xien que
+__label__food.meals ăn bún đậu thịt luộc
+__label__food.meals an bun dau thit luoc
+__label__food.meals chi ăn bún đậu thịt luộc
+__label__food.meals thanh toán ăn bún đậu thịt luộc
+__label__food.meals bánh trộn
+__label__food.meals banh tron
+__label__food.meals chi bánh trộn
+__label__food.meals thanh toán bánh trộn
+__label__food.meals thanh toan banh tron
+__label__food.meals ăn mì ý sốt bò
+__label__food.meals an mi y sot bo
+__label__food.meals chi ăn mì ý sốt bò
+__label__food.meals chi an mi y sot bo
+__label__food.meals thanh toán ăn mì ý sốt bò
+__label__food.meals thanh toan an mi y sot bo
+__label__food.meals ăn buffet nướng
+__label__food.meals an buffet nuong
+__label__food.meals chi ăn buffet nướng
+__label__food.meals thanh toán ăn buffet nướng
+__label__food.meals suất cơm
+__label__food.meals suat com
+__label__food.meals chi suất cơm
+__label__food.meals chi suat com
+__label__food.meals thanh toán suất cơm
+__label__food.meals thanh toan suat com
+__label__food.drinks uống cà phê sữa
+__label__food.drinks uong cà phê sua
+__label__food.drinks chi uống cà phê sữa
+__label__food.drinks chi uong cà phê sua
+__label__food.drinks thanh toán uống cà phê sữa
+__label__food.drinks thanh toan uong cà phê sua
+__label__food.drinks cà phê highlands coffee
+__label__food.drinks chi cà phê highlands coffee
+__label__food.drinks thanh toán cà phê highlands coffee
+__label__food.drinks thanh toan cà phê highlands coffee
+__label__food.drinks trà sữa phúc long
+__label__food.drinks tra sua phuc long
+__label__food.drinks chi trà sữa phúc long
+__label__food.drinks chi tra sua phuc long
+__label__food.drinks thanh toán trà sữa phúc long
+__label__food.drinks trà đào cam sả
+__label__food.drinks tra dao cam sa
+__label__food.drinks chi trà đào cam sả
+__label__food.drinks chi tra dao cam sa
+__label__food.drinks thanh toán trà đào cam sả
+__label__food.drinks mua nước suối
+__label__food.drinks mua nuoc suoi
+__label__food.drinks chi mua nước suối
+__label__food.drinks thanh toán mua nước suối
+__label__food.drinks thanh toan mua nuoc suoi
+__label__food.drinks cà phê muối
+__label__food.drinks ca phe muoi
+__label__food.drinks chi cà phê muối
+__label__food.drinks chi ca phe muoi
+__label__food.drinks thanh toán cà phê muối
+__label__food.drinks thanh toan ca phe muoi
+__label__food.drinks sinh tố bơ
+__label__food.drinks sinh to bo
+__label__food.drinks chi sinh tố bơ
+__label__food.drinks chi sinh to bo
+__label__food.drinks thanh toán sinh tố bơ
+__label__food.drinks thanh toan sinh to bo
+__label__food.drinks nước ép cam
+__label__food.drinks nuoc ep cam
+__label__food.drinks chi nước ép cam
+__label__food.drinks chi nuoc ep cam
+__label__food.drinks thanh toán nước ép cam
+__label__food.drinks thanh toan nuoc ep cam
+__label__food.drinks coffee house
+__label__food.drinks chi coffee house
+__label__food.drinks thanh toán coffee house
+__label__food.drinks trà sữa gong cha
+__label__food.drinks tra sua gong cha
+__label__food.drinks chi trà sữa gong cha
+__label__food.drinks thanh toán trà sữa gong cha
+__label__food.drinks thanh toan tra sua gong cha
+__label__food.drinks cà phê đen
+__label__food.drinks cà phê den
+__label__food.drinks chi cà phê đen
+__label__food.drinks chi cà phê den
+__label__food.drinks thanh toán cà phê đen
+__label__food.drinks nước ngọt giải khát
+__label__food.drinks nuoc ngot giai khat
+__label__food.drinks chi nước ngọt giải khát
+__label__food.drinks chi nuoc ngot giai khat
+__label__food.drinks thanh toán nước ngọt giải khát
+__label__food.drinks thanh toan nuoc ngot giai khat
+__label__food.drinks mua nước uống giải khát
+__label__food.drinks mua nuoc uong giai khat
+__label__food.drinks chi mua nước uống giải khát
+__label__food.drinks thanh toán mua nước uống giải khát
+__label__food.drinks thanh toan mua nuoc uong giai khat
+__label__food.drinks trà chanh tươi
+__label__food.drinks tra chanh tuoi
+__label__food.drinks chi trà chanh tươi
+__label__food.drinks chi tra chanh tuoi
+__label__food.drinks thanh toán trà chanh tươi
+__label__food.drinks nước dừa
+__label__food.drinks nuoc dua
+__label__food.drinks chi nước dừa
+__label__food.drinks thanh toán nước dừa
+__label__food.drinks thanh toan nuoc dua
+__label__food.drinks trà ô long sữa
+__label__food.drinks tra o long sua
+__label__food.drinks chi trà ô long sữa
+__label__food.drinks chi tra o long sua
+__label__food.drinks thanh toán trà ô long sữa
+__label__food.drinks thanh toan tra o long sua
+__label__food.groceries đi chợ mua rau củ
+__label__food.groceries di cho mua rau cu
+__label__food.groceries chi đi chợ mua rau củ
+__label__food.groceries thanh toán đi chợ mua rau củ
+__label__food.groceries thanh toan di cho mua rau cu
+__label__food.groceries mua thịt heo cá tươi
+__label__food.groceries mua thit heo ca tuoi
+__label__food.groceries chi mua thịt heo cá tươi
+__label__food.groceries chi mua thit heo ca tuoi
+__label__food.groceries thanh toán mua thịt heo cá tươi
+__label__food.groceries siêu thị bách hóa xanh
+__label__food.groceries sieu thi bach hoa xanh
+__label__food.groceries chi siêu thị bách hóa xanh
+__label__food.groceries chi sieu thi bach hoa xanh
+__label__food.groceries thanh toán siêu thị bách hóa xanh
+__label__food.groceries mua trứng sữa winmart
+__label__food.groceries mua trung sua winmart
+__label__food.groceries chi mua trứng sữa winmart
+__label__food.groceries chi mua trung sua winmart
+__label__food.groceries thanh toán mua trứng sữa winmart
+__label__food.groceries trái cây tươi ngoài chợ
+__label__food.groceries trai cay tuoi ngoai cho
+__label__food.groceries chi trái cây tươi ngoài chợ
+__label__food.groceries chi trai cay tuoi ngoai cho
+__label__food.groceries thanh toán trái cây tươi ngoài chợ
+__label__food.groceries thanh toan trai cay tuoi ngoai cho
+__label__food.groceries mua gạo mắm muối
+__label__food.groceries mua gao mam muoi
+__label__food.groceries chi mua gạo mắm muối
+__label__food.groceries chi mua gao mam muoi
+__label__food.groceries thanh toán mua gạo mắm muối
+__label__food.groceries thanh toan mua gao mam muoi
+__label__food.groceries thực phẩm tươi sống coopmart
+__label__food.groceries thuc pham tuoi song coopmart
+__label__food.groceries chi thực phẩm tươi sống coopmart
+__label__food.groceries chi thuc pham tuoi song coopmart
+__label__food.groceries thanh toán thực phẩm tươi sống coopmart
+__label__food.groceries thanh toan thuc pham tuoi song coopmart
+__label__food.groceries mua ức gà nấu ăn
+__label__food.groceries mua uc ga nau an
+__label__food.groceries chi mua ức gà nấu ăn
+__label__food.groceries chi mua uc ga nau an
+__label__food.groceries thanh toán mua ức gà nấu ăn
+__label__food.groceries mua hành gia vị
+__label__food.groceries mua hanh gia vi
+__label__food.groceries chi mua hành gia vị
+__label__food.groceries chi mua hanh gia vi
+__label__food.groceries thanh toán mua hành gia vị
+__label__food.groceries thanh toan mua hanh gia vi
+__label__food.groceries mua rau sạch trứng gà
+__label__food.groceries mua rau sach trung ga
+__label__food.groceries chi mua rau sạch trứng gà
+__label__food.groceries thanh toán mua rau sạch trứng gà
+__label__food.groceries mua sườn non nấu canh
+__label__food.groceries mua suon non nau canh
+__label__food.groceries chi mua sườn non nấu canh
+__label__food.groceries chi mua suon non nau canh
+__label__food.groceries thanh toán mua sườn non nấu canh
+__label__food.groceries thực phẩm nấu cơm
+__label__food.groceries thuc pham nau com
+__label__food.groceries chi thực phẩm nấu cơm
+__label__food.groceries chi thuc pham nau com
+__label__food.groceries thanh toán thực phẩm nấu cơm
+__label__food.groceries thanh toan thuc pham nau com
+__label__food.groceries tráng miệng ngoài chợ
+__label__food.groceries trang mieng ngoai cho
+__label__food.groceries chi tráng miệng ngoài chợ
+__label__food.groceries chi trang mieng ngoai cho
+__label__food.groceries thanh toán tráng miệng ngoài chợ
+__label__transport.fuel đổ xăng xe máy
+__label__transport.fuel do xang xe may
+__label__transport.fuel chi đổ xăng xe máy
+__label__transport.fuel chi do xang xe may
+__label__transport.fuel thanh toán đổ xăng xe máy
+__label__transport.fuel thanh toan do xang xe may
+__label__transport.fuel đổ xăng ron petrolimex
+__label__transport.fuel do xang ron petrolimex
+__label__transport.fuel chi đổ xăng ron petrolimex
+__label__transport.fuel chi do xang ron petrolimex
+__label__transport.fuel thanh toán đổ xăng ron petrolimex
+__label__transport.fuel tiền xăng đi làm
+__label__transport.fuel tien xang di lam
+__label__transport.fuel chi tiền xăng đi làm
+__label__transport.fuel chi tien xang di lam
+__label__transport.fuel thanh toán tiền xăng đi làm
+__label__transport.fuel cây xăng pvoil
+__label__transport.fuel cay xang pvoil
+__label__transport.fuel chi cây xăng pvoil
+__label__transport.fuel thanh toán cây xăng pvoil
+__label__transport.fuel đổ đầy bình xăng vision
+__label__transport.fuel do day binh xang vision
+__label__transport.fuel chi đổ đầy bình xăng vision
+__label__transport.fuel chi do day binh xang vision
+__label__transport.fuel thanh toán đổ đầy bình xăng vision
+__label__transport.fuel thanh toan do day binh xang vision
+__label__transport.fuel nạp điện trạm sạc xe máy
+__label__transport.fuel nap dien tram sac xe may
+__label__transport.fuel chi nạp điện trạm sạc xe máy
+__label__transport.fuel chi nap dien tram sac xe may
+__label__transport.fuel thanh toán nạp điện trạm sạc xe máy
+__label__transport.fuel đổ xăng a95
+__label__transport.fuel do xang a95
+__label__transport.fuel chi đổ xăng a95
+__label__transport.fuel chi do xang a95
+__label__transport.fuel thanh toán đổ xăng a95
+__label__transport.fuel thanh toan do xang a95
+__label__transport.fuel châm xăng dọc đường
+__label__transport.fuel cham xang doc duong
+__label__transport.fuel chi châm xăng dọc đường
+__label__transport.fuel chi cham xang doc duong
+__label__transport.fuel thanh toán châm xăng dọc đường
+__label__transport.fuel thanh toan cham xang doc duong
+__label__transport.ride_hailing đi taxi xanh sm
+__label__transport.ride_hailing di taxi xanh sm
+__label__transport.ride_hailing chi đi taxi xanh sm
+__label__transport.ride_hailing chi di taxi xanh sm
+__label__transport.ride_hailing thanh toán đi taxi xanh sm
+__label__transport.ride_hailing thanh toan di taxi xanh sm
+__label__transport.ride_hailing đặt xe grab xe ôm đi làm
+__label__transport.ride_hailing dat xe grab xe ôm di lam
+__label__transport.ride_hailing chi đặt xe grab xe ôm đi làm
+__label__transport.ride_hailing thanh toán đặt xe grab xe ôm đi làm
+__label__transport.ride_hailing thanh toan dat xe grab xe ôm di lam
+__label__transport.ride_hailing gọi grab taxi ra sân bay
+__label__transport.ride_hailing goi grab taxi ra san bay
+__label__transport.ride_hailing chi gọi grab taxi ra sân bay
+__label__transport.ride_hailing chi goi grab taxi ra san bay
+__label__transport.ride_hailing thanh toán gọi grab taxi ra sân bay
+__label__transport.ride_hailing thanh toan goi grab taxi ra san bay
+__label__transport.ride_hailing đi xe ôm công nghệ be
+__label__transport.ride_hailing di xe om cong nghe be
+__label__transport.ride_hailing chi đi xe ôm công nghệ be
+__label__transport.ride_hailing chi di xe om cong nghe be
+__label__transport.ride_hailing thanh toán đi xe ôm công nghệ be
+__label__transport.ride_hailing cuốc xe taxi mai linh
+__label__transport.ride_hailing cuoc xe taxi mai linh
+__label__transport.ride_hailing chi cuốc xe taxi mai linh
+__label__transport.ride_hailing thanh toán cuốc xe taxi mai linh
+__label__transport.ride_hailing thanh toan cuoc xe taxi mai linh
+__label__transport.ride_hailing đặt bebike về nhà
+__label__transport.ride_hailing dat bebike ve nha
+__label__transport.ride_hailing chi đặt bebike về nhà
+__label__transport.ride_hailing thanh toán đặt bebike về nhà
+__label__transport.ride_hailing cước xe grab
+__label__transport.ride_hailing cuoc xe grab
+__label__transport.ride_hailing chi cước xe grab
+__label__transport.ride_hailing thanh toán cước xe grab
+__label__transport.ride_hailing thanh toan cuoc xe grab
+__label__transport.ride_hailing đi taxi vinasun
+__label__transport.ride_hailing di taxi vinasun
+__label__transport.ride_hailing chi đi taxi vinasun
+__label__transport.ride_hailing chi di taxi vinasun
+__label__transport.ride_hailing thanh toán đi taxi vinasun
+__label__transport.ride_hailing thanh toan di taxi vinasun
+__label__transport.public gửi xe máy hầm chung cư
+__label__transport.public gui xe may ham chung cu
+__label__transport.public chi gửi xe máy hầm chung cư
+__label__transport.public chi gui xe may ham chung cu
+__label__transport.public thanh toán gửi xe máy hầm chung cư
+__label__transport.public thanh toan gui xe may ham chung cu
+__label__transport.public phí trạm thu phí epass
+__label__transport.public phi tram thu phi epass
+__label__transport.public chi phí trạm thu phí epass
+__label__transport.public thanh toán phí trạm thu phí epass
+__label__transport.public thanh toan phi tram thu phi epass
+__label__transport.public nạp tài khoản vetc
+__label__transport.public nap tai khoan vetc
+__label__transport.public chi nạp tài khoản vetc
+__label__transport.public thanh toán nạp tài khoản vetc
+__label__transport.public thanh toan nap tai khoan vetc
+__label__transport.public mua vé xe buýt tháng
+__label__transport.public mua ve xe buyt thang
+__label__transport.public chi mua vé xe buýt tháng
+__label__transport.public chi mua ve xe buyt thang
+__label__transport.public thanh toán mua vé xe buýt tháng
+__label__transport.public thanh toan mua ve xe buyt thang
+__label__transport.public vé tàu metro bến thành
+__label__transport.public ve tau metro ben thanh
+__label__transport.public chi vé tàu metro bến thành
+__label__transport.public thanh toán vé tàu metro bến thành
+__label__transport.public tiền giữ xe bệnh viện
+__label__transport.public tien giu xe benh vien
+__label__transport.public chi tiền giữ xe bệnh viện
+__label__transport.public chi tien giu xe benh vien
+__label__transport.public thanh toán tiền giữ xe bệnh viện
+__label__transport.public thanh toan tien giu xe benh vien
+__label__transport.public vé xe khách phương trang
+__label__transport.public ve xe khach phuong trang
+__label__transport.public chi vé xe khách phương trang
+__label__transport.public chi ve xe khach phuong trang
+__label__transport.public thanh toán vé xe khách phương trang
+__label__transport.public thanh toan ve xe khach phuong trang
+__label__transport.public phí cầu đường cao tốc
+__label__transport.public phi cau duong cao toc
+__label__transport.public chi phí cầu đường cao tốc
+__label__transport.public chi phi cau duong cao toc
+__label__transport.public thanh toán phí cầu đường cao tốc
+__label__transport.public thanh toan phi cau duong cao toc
+__label__transport.maintenance thay nhớt xe máy honda head
+__label__transport.maintenance thay nhot xe may honda head
+__label__transport.maintenance chi thay nhớt xe máy honda head
+__label__transport.maintenance chi thay nhot xe may honda head
+__label__transport.maintenance thanh toán thay nhớt xe máy honda head
+__label__transport.maintenance thanh toan thay nhot xe may honda head
+__label__transport.maintenance bảo dưỡng định kỳ yamaha town
+__label__transport.maintenance bao duong dinh ky yamaha town
+__label__transport.maintenance chi bảo dưỡng định kỳ yamaha town
+__label__transport.maintenance chi bao duong dinh ky yamaha town
+__label__transport.maintenance thanh toán bảo dưỡng định kỳ yamaha town
+__label__transport.maintenance thanh toan bao duong dinh ky yamaha town
+__label__transport.maintenance vá lốp xe không săm
+__label__transport.maintenance va lop xe khong sam
+__label__transport.maintenance chi vá lốp xe không săm
+__label__transport.maintenance thanh toán vá lốp xe không săm
+__label__transport.maintenance thay nhớt láp và lọc gió
+__label__transport.maintenance thay nhot lap va loc gio
+__label__transport.maintenance chi thay nhớt láp và lọc gió
+__label__transport.maintenance thanh toán thay nhớt láp và lọc gió
+__label__transport.maintenance rửa xe bọt tuyết
+__label__transport.maintenance rua xe bot tuyet
+__label__transport.maintenance chi rửa xe bọt tuyết
+__label__transport.maintenance chi rua xe bot tuyet
+__label__transport.maintenance thanh toán rửa xe bọt tuyết
+__label__transport.maintenance sửa phanh xe tay ga
+__label__transport.maintenance sua phanh xe tay ga
+__label__transport.maintenance chi sửa phanh xe tay ga
+__label__transport.maintenance chi sua phanh xe tay ga
+__label__transport.maintenance thanh toán sửa phanh xe tay ga
+__label__transport.maintenance thanh toan sua phanh xe tay ga
+__label__transport.maintenance thay bugi và vệ sinh nồi
+__label__transport.maintenance thay bugi va ve sinh noi
+__label__transport.maintenance chi thay bugi và vệ sinh nồi
+__label__transport.maintenance thanh toán thay bugi và vệ sinh nồi
+__label__transport.maintenance thay săm lốp xe máy
+__label__transport.maintenance thay sam lop xe may
+__label__transport.maintenance chi thay săm lốp xe máy
+__label__transport.maintenance chi thay sam lop xe may
+__label__transport.maintenance thanh toán thay săm lốp xe máy
+__label__transport.maintenance thanh toan thay sam lop xe may
+__label__housing.rent đóng tiền thuê nhà tháng
+__label__housing.rent dong tien thue nha thang
+__label__housing.rent chi đóng tiền thuê nhà tháng
+__label__housing.rent chi dong tien thue nha thang
+__label__housing.rent thanh toán đóng tiền thuê nhà tháng
+__label__housing.rent thanh toan dong tien thue nha thang
+__label__housing.rent tiền phòng trọ sinh viên
+__label__housing.rent tien phong tro sinh vien
+__label__housing.rent chi tiền phòng trọ sinh viên
+__label__housing.rent chi tien phong tro sinh vien
+__label__housing.rent thanh toán tiền phòng trọ sinh viên
+__label__housing.rent phí quản lý chung cư vinhomes
+__label__housing.rent phi quan ly chung cu vinhomes
+__label__housing.rent chi phí quản lý chung cư vinhomes
+__label__housing.rent chi phi quan ly chung cu vinhomes
+__label__housing.rent thanh toán phí quản lý chung cư vinhomes
+__label__housing.rent thanh toan phi quan ly chung cu vinhomes
+__label__housing.rent tiền thuê căn hộ
+__label__housing.rent tien thue can ho
+__label__housing.rent chi tiền thuê căn hộ
+__label__housing.rent chi tien thue can ho
+__label__housing.rent thanh toán tiền thuê căn hộ
+__label__housing.rent thanh toan tien thue can ho
+__label__housing.rent đặt cọc tiền trọ
+__label__housing.rent dat coc tien tro
+__label__housing.rent chi đặt cọc tiền trọ
+__label__housing.rent thanh toán đặt cọc tiền trọ
+__label__housing.rent thanh toan dat coc tien tro
+__label__housing.rent thanh toán tiền nhà cho chủ trọ
+__label__housing.rent thanh toan tien nha cho chu tro
+__label__housing.rent chi thanh toán tiền nhà cho chủ trọ
+__label__housing.rent chi thanh toan tien nha cho chu tro
+__label__housing.rent thanh toán thanh toán tiền nhà cho chủ trọ
+__label__housing.rent thanh toan thanh toan tien nha cho chu tro
+__label__housing.rent phí dịch vụ tòa nhà
+__label__housing.rent phi dich vu toa nha
+__label__housing.rent chi phí dịch vụ tòa nhà
+__label__housing.rent thanh toán phí dịch vụ tòa nhà
+__label__housing.utilities thanh toán tiền điện tiền điện evn
+__label__housing.utilities thanh toan tien dien tiền điện evn
+__label__housing.utilities chi thanh toán tiền điện tiền điện evn
+__label__housing.utilities thanh toán thanh toán tiền điện tiền điện evn
+__label__housing.utilities đóng tiền nước sinh hoạt sawaco
+__label__housing.utilities dong tien nuoc sinh hoat sawaco
+__label__housing.utilities chi đóng tiền nước sinh hoạt sawaco
+__label__housing.utilities chi dong tien nuoc sinh hoat sawaco
+__label__housing.utilities thanh toán đóng tiền nước sinh hoạt sawaco
+__label__housing.utilities cước internet wifi internet fpt
+__label__housing.utilities cuoc internet wifi internet fpt
+__label__housing.utilities chi cước internet wifi internet fpt
+__label__housing.utilities chi cuoc internet wifi internet fpt
+__label__housing.utilities thanh toán cước internet wifi internet fpt
+__label__housing.utilities thanh toan cuoc internet wifi internet fpt
+__label__housing.utilities nạp data 4g viettel
+__label__housing.utilities nap data 4g viettel
+__label__housing.utilities chi nạp data 4g viettel
+__label__housing.utilities chi nap data 4g viettel
+__label__housing.utilities thanh toán nạp data 4g viettel
+__label__housing.utilities tiền cáp quang viễn thông vnpt
+__label__housing.utilities tien cap quang viễn thông vnpt
+__label__housing.utilities chi tiền cáp quang viễn thông vnpt
+__label__housing.utilities thanh toán tiền cáp quang viễn thông vnpt
+__label__housing.utilities thanh toan tien cap quang viễn thông vnpt
+__label__housing.utilities nạp điện thoại mobifone
+__label__housing.utilities nap dien thoai mobifone
+__label__housing.utilities chi nạp điện thoại mobifone
+__label__housing.utilities chi nap dien thoai mobifone
+__label__housing.utilities thanh toán nạp điện thoại mobifone
+__label__housing.utilities thanh toan nap dien thoai mobifone
+__label__housing.utilities hóa đơn điện nước tháng
+__label__housing.utilities hoa don dien nuoc thang
+__label__housing.utilities chi hóa đơn điện nước tháng
+__label__housing.utilities chi hoa don dien nuoc thang
+__label__housing.utilities thanh toán hóa đơn điện nước tháng
+__label__housing.housework mua nước giặt ariel
+__label__housing.housework mua nuoc giat ariel
+__label__housing.housework chi mua nước giặt ariel
+__label__housing.housework thanh toán mua nước giặt ariel
+__label__housing.housework thanh toan mua nuoc giat ariel
+__label__housing.housework nước rửa chén sunlight
+__label__housing.housework nuoc rua chen sunlight
+__label__housing.housework chi nước rửa chén sunlight
+__label__housing.housework chi nuoc rua chen sunlight
+__label__housing.housework thanh toán nước rửa chén sunlight
+__label__housing.housework thuê dọn nhà theo giờ btaskee
+__label__housing.housework thue don nha theo gio btaskee
+__label__housing.housework chi thuê dọn nhà theo giờ btaskee
+__label__housing.housework chi thue don nha theo gio btaskee
+__label__housing.housework thanh toán thuê dọn nhà theo giờ btaskee
+__label__housing.housework mua túi đựng rác và giấy vệ sinh
+__label__housing.housework mua tui dung rac va giay ve sinh
+__label__housing.housework chi mua túi đựng rác và giấy vệ sinh
+__label__housing.housework chi mua tui dung rac va giay ve sinh
+__label__housing.housework thanh toán mua túi đựng rác và giấy vệ sinh
+__label__housing.housework nước lau sàn nhà
+__label__housing.housework nuoc lau san nha
+__label__housing.housework chi nước lau sàn nhà
+__label__housing.housework chi nuoc lau san nha
+__label__housing.housework thanh toán nước lau sàn nhà
+__label__housing.housework thanh toan nuoc lau san nha
+__label__housing.housework bột giặt omo
+__label__housing.housework bot giat omo
+__label__housing.housework chi bột giặt omo
+__label__housing.housework chi bot giat omo
+__label__housing.housework thanh toán bột giặt omo
+__label__housing.housework thanh toan bot giat omo
+__label__housing.housework mua chổi lau nhà gia dụng
+__label__housing.housework mua choi lau nha gia dung
+__label__housing.housework chi mua chổi lau nhà gia dụng
+__label__housing.housework chi mua choi lau nha gia dung
+__label__housing.housework thanh toán mua chổi lau nhà gia dụng
+__label__housing.housework thanh toan mua choi lau nha gia dung
+__label__housing.housework phí thu gom rác sinh hoạt
+__label__housing.housework phi thu gom rac sinh hoat
+__label__housing.housework chi phí thu gom rác sinh hoạt
+__label__housing.housework thanh toán phí thu gom rác sinh hoạt
+__label__housing.housework thanh toan phi thu gom rac sinh hoat
+__label__housing.housework nước giặt máy cửa ngang
+__label__housing.housework nuoc giat may cua ngang
+__label__housing.housework chi nước giặt máy cửa ngang
+__label__housing.housework chi nuoc giat may cua ngang
+__label__housing.housework thanh toán nước giặt máy cửa ngang
+__label__housing.housework thanh toan nuoc giat may cua ngang
+__label__housing.housework thuê dọn dẹp phòng ở
+__label__housing.housework thue don dep phong o
+__label__housing.housework chi thuê dọn dẹp phòng ở
+__label__housing.housework chi thue don dep phong o
+__label__housing.housework thanh toán thuê dọn dẹp phòng ở
+__label__housing.housework mua viên rửa bát đĩa
+__label__housing.housework mua vien rua bat dia
+__label__housing.housework chi mua viên rửa bát đĩa
+__label__housing.housework thanh toán mua viên rửa bát đĩa
+__label__housing.housework mua bịch túi rác đen
+__label__housing.housework mua bich tui rac den
+__label__housing.housework chi mua bịch túi rác đen
+__label__housing.housework chi mua bich tui rac den
+__label__housing.housework thanh toán mua bịch túi rác đen
+__label__housing.housework thanh toan mua bich tui rac den
+__label__shopping.clothes mua áo mi uniqlo
+__label__shopping.clothes mua ao mi uniqlo
+__label__shopping.clothes chi mua áo mi uniqlo
+__label__shopping.clothes chi mua ao mi uniqlo
+__label__shopping.clothes thanh toán mua áo mi uniqlo
+__label__shopping.clothes mua quần jean
+__label__shopping.clothes mua quan jean
+__label__shopping.clothes chi mua quần jean
+__label__shopping.clothes chi mua quan jean
+__label__shopping.clothes thanh toán mua quần jean
+__label__shopping.clothes giày thao chạy bộ
+__label__shopping.clothes giay thao chay bo
+__label__shopping.clothes chi giày thao chạy bộ
+__label__shopping.clothes thanh toán giày thao chạy bộ
+__label__shopping.clothes thanh toan giay thao chay bo
+__label__shopping.clothes mua váy công
+__label__shopping.clothes mua vay cong
+__label__shopping.clothes chi mua váy công
+__label__shopping.clothes chi mua vay cong
+__label__shopping.clothes thanh toán mua váy công
+__label__shopping.clothes áo khoác chống nắng
+__label__shopping.clothes ao khoac chong nang
+__label__shopping.clothes chi áo khoác chống nắng
+__label__shopping.clothes chi ao khoac chong nang
+__label__shopping.clothes thanh toán áo khoác chống nắng
+__label__shopping.clothes thanh toan ao khoac chong nang
+__label__shopping.clothes sắm quần áo mùa đông
+__label__shopping.clothes sam quan ao mua dong
+__label__shopping.clothes chi sắm quần áo mùa đông
+__label__shopping.clothes chi sam quan ao mua dong
+__label__shopping.clothes thanh toán sắm quần áo mùa đông
+__label__shopping.clothes mua dép sandal bitis
+__label__shopping.clothes mua dep sandal bitis
+__label__shopping.clothes chi mua dép sandal bitis
+__label__shopping.clothes thanh toán mua dép sandal bitis
+__label__shopping.clothes thanh toan mua dep sandal bitis
+__label__shopping.clothes quần áo thao
+__label__shopping.clothes quan ao thao
+__label__shopping.clothes chi quần áo thao
+__label__shopping.clothes chi quan ao thao
+__label__shopping.clothes thanh toán quần áo thao
+__label__shopping.clothes thanh toan quan ao thao
+__label__shopping.clothes giày sneaker
+__label__shopping.clothes giay sneaker
+__label__shopping.clothes chi giày sneaker
+__label__shopping.clothes chi giay sneaker
+__label__shopping.clothes thanh toán giày sneaker
+__label__shopping.clothes mua áo polo
+__label__shopping.clothes mua ao polo
+__label__shopping.clothes chi mua áo polo
+__label__shopping.clothes chi mua ao polo
+__label__shopping.clothes thanh toán mua áo polo
+__label__shopping.clothes thanh toan mua ao polo
+__label__shopping.clothes mua thắt lưng vớ
+__label__shopping.clothes mua that lung vo
+__label__shopping.clothes chi mua thắt lưng vớ
+__label__shopping.clothes thanh toán mua thắt lưng vớ
+__label__shopping.clothes thanh toan mua that lung vo
+__label__shopping.electronics mua cáp sạc type c anker
+__label__shopping.electronics mua cap sac type c anker
+__label__shopping.electronics chi mua cáp sạc type c anker
+__label__shopping.electronics chi mua cap sac type c anker
+__label__shopping.electronics thanh toán mua cáp sạc type c anker
+__label__shopping.electronics tai nghe bluetooth không dây
+__label__shopping.electronics tai nghe bluetooth khong day
+__label__shopping.electronics chi tai nghe bluetooth không dây
+__label__shopping.electronics thanh toán tai nghe bluetooth không dây
+__label__shopping.electronics chuột máy logitech
+__label__shopping.electronics chuot may logitech
+__label__shopping.electronics chi chuột máy logitech
+__label__shopping.electronics chi chuot may logitech
+__label__shopping.electronics thanh toán chuột máy logitech
+__label__shopping.electronics thanh toan chuot may logitech
+__label__shopping.electronics mua pin sạc dự phòng giới di động
+__label__shopping.electronics mua pin sac du phong gioi di dong
+__label__shopping.electronics chi mua pin sạc dự phòng giới di động
+__label__shopping.electronics chi mua pin sac du phong gioi di dong
+__label__shopping.electronics thanh toán mua pin sạc dự phòng giới di động
+__label__shopping.electronics thanh toan mua pin sac du phong gioi di dong
+__label__shopping.electronics ốp lưng kính cường lực điện thoại
+__label__shopping.electronics op lung kinh cuong luc dien thoai
+__label__shopping.electronics chi ốp lưng kính cường lực điện thoại
+__label__shopping.electronics chi op lung kinh cuong luc dien thoai
+__label__shopping.electronics thanh toán ốp lưng kính cường lực điện thoại
+__label__shopping.electronics thanh toan op lung kinh cuong luc dien thoai
+__label__shopping.electronics mua bàn phím cơ
+__label__shopping.electronics mua ban phim co
+__label__shopping.electronics chi mua bàn phím cơ
+__label__shopping.electronics thanh toán mua bàn phím cơ
+__label__shopping.electronics điện máy xanh mua quạt
+__label__shopping.electronics dien may xanh mua quat
+__label__shopping.electronics chi điện máy xanh mua quạt
+__label__shopping.electronics thanh toán điện máy xanh mua quạt
+__label__shopping.electronics thanh toan dien may xanh mua quat
+__label__shopping.general đặt đơn hàng shopee
+__label__shopping.general dat don hang shopee
+__label__shopping.general chi đặt đơn hàng shopee
+__label__shopping.general thanh toán đặt đơn hàng shopee
+__label__shopping.general thanh toan dat don hang shopee
+__label__shopping.general mua sắm trên lazada
+__label__shopping.general mua sam tren lazada
+__label__shopping.general chi mua sắm trên lazada
+__label__shopping.general thanh toán mua sắm trên lazada
+__label__shopping.general thanh toán đơn tiktok shop
+__label__shopping.general thanh toan don tiktok shop
+__label__shopping.general chi thanh toán đơn tiktok shop
+__label__shopping.general chi thanh toan don tiktok shop
+__label__shopping.general thanh toán thanh toán đơn tiktok shop
+__label__shopping.general thanh toan thanh toan don tiktok shop
+__label__shopping.general mua đồ dùng ở aeon mall
+__label__shopping.general mua do dung o aeon mall
+__label__shopping.general chi mua đồ dùng ở aeon mall
+__label__shopping.general chi mua do dung o aeon mall
+__label__shopping.general thanh toán mua đồ dùng ở aeon mall
+__label__shopping.general sắm đồ cá nhân siêu thị
+__label__shopping.general sam do ca nhan sieu thi
+__label__shopping.general chi sắm đồ cá nhân siêu thị
+__label__shopping.general chi sam do ca nhan sieu thi
+__label__shopping.general thanh toán sắm đồ cá nhân siêu thị
+__label__shopping.general mua mỹ phẩm kem chống nắng
+__label__shopping.general mua my pham kem chong nang
+__label__shopping.general chi mua mỹ phẩm kem chống nắng
+__label__shopping.general chi mua my pham kem chong nang
+__label__shopping.general thanh toán mua mỹ phẩm kem chống nắng
+__label__shopping.general mua dầu gội sữa tắm
+__label__shopping.general mua dau goi sua tam
+__label__shopping.general chi mua dầu gội sữa tắm
+__label__shopping.general chi mua dau goi sua tam
+__label__shopping.general thanh toán mua dầu gội sữa tắm
+__label__shopping.general thanh toan mua dau goi sua tam
+__label__health.medicine mua thuốc cảm cúm nhà thuốc long châu
+__label__health.medicine mua thuoc cam cum nha thuoc long chau
+__label__health.medicine chi mua thuốc cảm cúm nhà thuốc long châu
+__label__health.medicine chi mua thuoc cam cum nha thuoc long chau
+__label__health.medicine thanh toán mua thuốc cảm cúm nhà thuốc long châu
+__label__health.medicine thanh toan mua thuoc cam cum nha thuoc long chau
+__label__health.medicine mua vitamin tổng hợp pharmacity
+__label__health.medicine mua vitamin tong hop pharmacity
+__label__health.medicine chi mua vitamin tổng hợp pharmacity
+__label__health.medicine chi mua vitamin tong hop pharmacity
+__label__health.medicine thanh toán mua vitamin tổng hợp pharmacity
+__label__health.medicine thanh toan mua vitamin tong hop pharmacity
+__label__health.medicine thuốc đau dày tiệm thuốc tây
+__label__health.medicine thuoc dau day tiem thuoc tay
+__label__health.medicine chi thuốc đau dày tiệm thuốc tây
+__label__health.medicine chi thuoc dau day tiem thuoc tay
+__label__health.medicine thanh toán thuốc đau dày tiệm thuốc tây
+__label__health.medicine mua nước muối sinh lý khẩu trang y tế
+__label__health.medicine mua nuoc muoi sinh ly khau trang y te
+__label__health.medicine chi mua nước muối sinh lý khẩu trang y tế
+__label__health.medicine chi mua nuoc muoi sinh ly khau trang y te
+__label__health.medicine thanh toán mua nước muối sinh lý khẩu trang y tế
+__label__health.medicine mua thuốc hạ sốt giảm đau
+__label__health.medicine mua thuoc ha sot giam dau
+__label__health.medicine chi mua thuốc hạ sốt giảm đau
+__label__health.medicine chi mua thuoc ha sot giam dau
+__label__health.medicine thanh toán mua thuốc hạ sốt giảm đau
+__label__health.medicine nhà thuốc an khang mua men tiêu hóa
+__label__health.medicine nha thuoc an khang mua men tieu hoa
+__label__health.medicine chi nhà thuốc an khang mua men tiêu hóa
+__label__health.medicine chi nha thuoc an khang mua men tieu hoa
+__label__health.medicine thanh toán nhà thuốc an khang mua men tiêu hóa
+__label__health.medicine thanh toan nha thuoc an khang mua men tieu hoa
+__label__health.hospital khám tổng quát bệnh viện đại học y dược
+__label__health.hospital kham tong quat benh vien dai hoc y duoc
+__label__health.hospital chi khám tổng quát bệnh viện đại học y dược
+__label__health.hospital chi kham tong quat benh vien dai hoc y duoc
+__label__health.hospital thanh toán khám tổng quát bệnh viện đại học y dược
+__label__health.hospital thanh toan kham tong quat benh vien dai hoc y duoc
+__label__health.hospital lấy cao răng nha khoa
+__label__health.hospital lay cao rang nha khoa
+__label__health.hospital chi lấy cao răng nha khoa
+__label__health.hospital chi lay cao rang nha khoa
+__label__health.hospital thanh toán lấy cao răng nha khoa
+__label__health.hospital thanh toan lay cao rang nha khoa
+__label__health.hospital xét nghiệm máu phòng khám khoa
+__label__health.hospital xet nghiem mau phong kham khoa
+__label__health.hospital chi xét nghiệm máu phòng khám khoa
+__label__health.hospital chi xet nghiem mau phong kham khoa
+__label__health.hospital thanh toán xét nghiệm máu phòng khám khoa
+__label__health.hospital thanh toan xet nghiem mau phong kham khoa
+__label__health.hospital tiêm vắc xin cúm vnvc
+__label__health.hospital tiem vac xin cum vnvc
+__label__health.hospital chi tiêm vắc xin cúm vnvc
+__label__health.hospital thanh toán tiêm vắc xin cúm vnvc
+__label__health.hospital đóng tập gym tháng
+__label__health.hospital dong tap gym thang
+__label__health.hospital chi đóng tập gym tháng
+__label__health.hospital thanh toán đóng tập gym tháng
+__label__health.hospital thanh toan dong tap gym thang
+__label__health.hospital khám đo kính cận
+__label__health.hospital kham do kinh can
+__label__health.hospital chi khám đo kính cận
+__label__health.hospital chi kham do kinh can
+__label__health.hospital thanh toán khám đo kính cận
+__label__health.hospital thanh toan kham do kinh can
+__label__health.hospital viện phí khám chuyên khoa
+__label__health.hospital vien phi kham chuyen khoa
+__label__health.hospital chi viện phí khám chuyên khoa
+__label__health.hospital chi vien phi kham chuyen khoa
+__label__health.hospital thanh toán viện phí khám chuyên khoa
+__label__health.hospital thanh toan vien phi kham chuyen khoa
+__label__health.hospital phí khám bệnh phòng khám
+__label__health.hospital phi kham benh phong kham
+__label__health.hospital chi phí khám bệnh phòng khám
+__label__health.hospital thanh toán phí khám bệnh phòng khám
+__label__health.hospital nhổ răng nha khoa
+__label__health.hospital nho rang nha khoa
+__label__health.hospital chi nhổ răng nha khoa
+__label__health.hospital thanh toán nhổ răng nha khoa
+__label__health.hospital hội viên phòng gym
+__label__health.hospital hoi vien phong gym
+__label__health.hospital chi hội viên phòng gym
+__label__health.hospital chi hoi vien phong gym
+__label__health.hospital thanh toán hội viên phòng gym
+__label__health.hospital xét nghiệm định kỳ
+__label__health.hospital xet nghiem dinh ky
+__label__health.hospital chi xét nghiệm định kỳ
+__label__health.hospital chi xet nghiem dinh ky
+__label__health.hospital thanh toán xét nghiệm định kỳ
+__label__education mua sách chuyên ngành fahasa
+__label__education mua sach chuyen nganh fahasa
+__label__education chi mua sách chuyên ngành fahasa
+__label__education chi mua sach chuyen nganh fahasa
+__label__education thanh toán mua sách chuyên ngành fahasa
+__label__education thanh toan mua sach chuyen nganh fahasa
+__label__education đóng học phí tiếng ielts
+__label__education dong hoc phi tieng ielts
+__label__education chi đóng học phí tiếng ielts
+__label__education chi dong hoc phi tieng ielts
+__label__education thanh toán đóng học phí tiếng ielts
+__label__education mua khóa học lập trình online
+__label__education mua khoa hoc lap trinh online
+__label__education chi mua khóa học lập trình online
+__label__education chi mua khoa hoc lap trinh online
+__label__education thanh toán mua khóa học lập trình online
+__label__education thanh toan mua khoa hoc lap trinh online
+__label__education lệ phí thi chứng chỉ toeic
+__label__education le phi thi chung chi toeic
+__label__education chi lệ phí thi chứng chỉ toeic
+__label__education thanh toán lệ phí thi chứng chỉ toeic
+__label__education mua vở bút văn phòng phẩm
+__label__education mua vo but van phong pham
+__label__education chi mua vở bút văn phòng phẩm
+__label__education thanh toán mua vở bút văn phòng phẩm
+__label__education mua giáo trình đại học tiki
+__label__education mua giao trinh dai hoc tiki
+__label__education chi mua giáo trình đại học tiki
+__label__education chi mua giao trinh dai hoc tiki
+__label__education thanh toán mua giáo trình đại học tiki
+__label__education thanh toan mua giao trinh dai hoc tiki
+__label__education mua tay ghi chép
+__label__education mua tay ghi chep
+__label__education chi mua tay ghi chép
+__label__education chi mua tay ghi chep
+__label__education thanh toán mua tay ghi chép
+__label__education thanh toan mua tay ghi chep
+__label__education mua bút bi thước kẻ
+__label__education mua but bi thuoc ke
+__label__education chi mua bút bi thước kẻ
+__label__education thanh toán mua bút bi thước kẻ
+__label__education thanh toan mua but bi thuoc ke
+__label__education mua sách kỹ năng đọc
+__label__education mua sach ky nang doc
+__label__education chi mua sách kỹ năng đọc
+__label__education chi mua sach ky nang doc
+__label__education thanh toán mua sách kỹ năng đọc
+__label__education thanh toan mua sach ky nang doc
+__label__entertainment mua vé xem phim rạp phim cgv
+__label__entertainment mua ve xem phim rạp phim cgv
+__label__entertainment chi mua vé xem phim rạp phim cgv
+__label__entertainment chi mua ve xem phim rạp phim cgv
+__label__entertainment thanh toán mua vé xem phim rạp phim cgv
+__label__entertainment thanh toan mua ve xem phim rạp phim cgv
+__label__entertainment đi hát karaoke cùng bạn
+__label__entertainment di hat karaoke cung ban
+__label__entertainment chi đi hát karaoke cùng bạn
+__label__entertainment thanh toán đi hát karaoke cùng bạn
+__label__entertainment thanh toan di hat karaoke cung ban
+__label__entertainment vé cổng khu du lịch
+__label__entertainment ve cong khu du lich
+__label__entertainment chi vé cổng khu du lịch
+__label__entertainment thanh toán vé cổng khu du lịch
+__label__entertainment thanh toan ve cong khu du lich
+__label__entertainment thuê sân cầu lông cuối
+__label__entertainment thue san cau long cuoi
+__label__entertainment chi thuê sân cầu lông cuối
+__label__entertainment thanh toán thuê sân cầu lông cuối
+__label__entertainment thanh toan thue san cau long cuoi
+__label__entertainment đặt phòng homestay lạt
+__label__entertainment dat phong homestay lat
+__label__entertainment chi đặt phòng homestay lạt
+__label__entertainment chi dat phong homestay lat
+__label__entertainment thanh toán đặt phòng homestay lạt
+__label__entertainment thanh toan dat phong homestay lat
+__label__entertainment chơi bowling giải trí
+__label__entertainment choi bowling giai tri
+__label__entertainment chi chơi bowling giải trí
+__label__entertainment chi choi bowling giai tri
+__label__entertainment thanh toán chơi bowling giải trí
+__label__entertainment thanh toan choi bowling giai tri
+__label__entertainment mua vé xem kịch hòa nhạc
+__label__entertainment mua ve xem kich hoa nhac
+__label__entertainment chi mua vé xem kịch hòa nhạc
+__label__entertainment chi mua ve xem kich hoa nhac
+__label__entertainment thanh toán mua vé xem kịch hòa nhạc
+__label__entertainment vé khu vui chơi cuối
+__label__entertainment ve khu vui choi cuoi
+__label__entertainment chi vé khu vui chơi cuối
+__label__entertainment chi ve khu vui choi cuoi
+__label__entertainment thanh toán vé khu vui chơi cuối
+__label__entertainment thanh toan ve khu vui choi cuoi
+__label__entertainment đặt khách sạn chuyến du lịch
+__label__entertainment dat khach san chuyen du lich
+__label__entertainment chi đặt khách sạn chuyến du lịch
+__label__entertainment thanh toán đặt khách sạn chuyến du lịch
+__label__entertainment thanh toan dat khach san chuyen du lich
+__label__entertainment tiền sân thao cầu lông
+__label__entertainment tien san thao cau long
+__label__entertainment chi tiền sân thao cầu lông
+__label__entertainment thanh toán tiền sân thao cầu lông
+__label__entertainment thanh toan tien san thao cau long
+__label__subscriptions gia hạn gói netflix hàng tháng
+__label__subscriptions gia han goi netflix hang thang
+__label__subscriptions chi gia hạn gói netflix hàng tháng
+__label__subscriptions chi gia han goi netflix hang thang
+__label__subscriptions thanh toán gia hạn gói netflix hàng tháng
+__label__subscriptions thanh toan gia han goi netflix hang thang
+__label__subscriptions thanh toán spotify premium
+__label__subscriptions thanh toan spotify premium
+__label__subscriptions chi thanh toán spotify premium
+__label__subscriptions chi thanh toan spotify premium
+__label__subscriptions thanh toán thanh toán spotify premium
+__label__subscriptions gói dung lượng icloud apple
+__label__subscriptions goi dung luong icloud apple
+__label__subscriptions chi gói dung lượng icloud apple
+__label__subscriptions chi goi dung luong icloud apple
+__label__subscriptions thanh toán gói dung lượng icloud apple
+__label__subscriptions đăng ký youtube premium không quảng cáo
+__label__subscriptions dang ky youtube premium khong quang cao
+__label__subscriptions chi đăng ký youtube premium không quảng cáo
+__label__subscriptions chi dang ky youtube premium khong quang cao
+__label__subscriptions thanh toán đăng ký youtube premium không quảng cáo
+__label__subscriptions thanh toan dang ky youtube premium khong quang cao
+__label__subscriptions gia hạn google one 100gb
+__label__subscriptions gia han google one 100gb
+__label__subscriptions chi gia hạn google one 100gb
+__label__subscriptions thanh toán gia hạn google one 100gb
+__label__subscriptions thanh toan gia han google one 100gb
+__label__subscriptions thuê bao canva pro
+__label__subscriptions thue bao canva pro
+__label__subscriptions chi thuê bao canva pro
+__label__subscriptions chi thue bao canva pro
+__label__subscriptions thanh toán thuê bao canva pro
+__label__subscriptions thanh toan thue bao canva pro
+__label__subscriptions cước thuê bao spotify
+__label__subscriptions cuoc thue bao spotify
+__label__subscriptions chi cước thuê bao spotify
+__label__subscriptions chi cuoc thue bao spotify
+__label__subscriptions thanh toán cước thuê bao spotify
+__label__subscriptions phí lưu trữ icloud
+__label__subscriptions phi luu tru icloud
+__label__subscriptions chi phí lưu trữ icloud
+__label__subscriptions thanh toán phí lưu trữ icloud
+__label__subscriptions thanh toan phi luu tru icloud
+__label__family mua bỉm sữa cho bé
+__label__family mua bim sua cho be
+__label__family chi mua bỉm sữa cho bé
+__label__family thanh toán mua bỉm sữa cho bé
+__label__family thanh toan mua bim sua cho be
+__label__family gửi tiền phụng dưỡng bố mẹ
+__label__family gui tien phung duong bo me
+__label__family chi gửi tiền phụng dưỡng bố mẹ
+__label__family chi gui tien phung duong bo me
+__label__family thanh toán gửi tiền phụng dưỡng bố mẹ
+__label__family đóng tiền học mầm non cho con
+__label__family dong tien hoc mam non cho con
+__label__family chi đóng tiền học mầm non cho con
+__label__family thanh toán đóng tiền học mầm non cho con
+__label__family mua sữa bột trẻ concung
+__label__family mua sua bot tre concung
+__label__family chi mua sữa bột trẻ concung
+__label__family thanh toán mua sữa bột trẻ concung
+__label__family thanh toan mua sua bot tre concung
+__label__family chu cấp sinh hoạt phí gia đình
+__label__family chu cap sinh hoat phi gia dinh
+__label__family chi chu cấp sinh hoạt phí gia đình
+__label__family thanh toán chu cấp sinh hoạt phí gia đình
+__label__family thanh toan chu cap sinh hoat phi gia dinh
+__label__family mua đồ chơi trẻ cho bé
+__label__family mua do choi tre cho be
+__label__family chi mua đồ chơi trẻ cho bé
+__label__family chi mua do choi tre cho be
+__label__family thanh toán mua đồ chơi trẻ cho bé
+__label__family thanh toan mua do choi tre cho be
+__label__family mua sữa công thức bé
+__label__family mua sua cong thuc be
+__label__family chi mua sữa công thức bé
+__label__family chi mua sua cong thuc be
+__label__family thanh toán mua sữa công thức bé
+__label__family chuyển khoản biếu bố mẹ
+__label__family chuyen khoan bieu bo me
+__label__family chi chuyển khoản biếu bố mẹ
+__label__family thanh toán chuyển khoản biếu bố mẹ
+__label__family tiền học thêm cho con
+__label__family tien hoc them cho con
+__label__family chi tiền học thêm cho con
+__label__family thanh toán tiền học thêm cho con
+__label__family thanh toan tien hoc them cho con
+__label__family đồ sinh con cưng
+__label__family do sinh con cung
+__label__family chi đồ sinh con cưng
+__label__family chi do sinh con cung
+__label__family thanh toán đồ sinh con cưng
+__label__family thanh toan do sinh con cung
+__label__gifts đi tiền mừng đám cưới đồng nghiệp
+__label__gifts di tien mung dam cuoi dong nghiep
+__label__gifts chi đi tiền mừng đám cưới đồng nghiệp
+__label__gifts chi di tien mung dam cuoi dong nghiep
+__label__gifts thanh toán đi tiền mừng đám cưới đồng nghiệp
+__label__gifts thanh toan di tien mung dam cuoi dong nghiep
+__label__gifts mua sinh nhật tặng bạn
+__label__gifts mua sinh nhat tang ban
+__label__gifts chi mua sinh nhật tặng bạn
+__label__gifts chi mua sinh nhat tang ban
+__label__gifts thanh toán mua sinh nhật tặng bạn
+__label__gifts thanh toan mua sinh nhat tang ban
+__label__gifts mừng tuổi đầu xuân cho cháu
+__label__gifts mung tuoi dau xuan cho chau
+__label__gifts chi mừng tuổi đầu xuân cho cháu
+__label__gifts chi mung tuoi dau xuan cho chau
+__label__gifts thanh toán mừng tuổi đầu xuân cho cháu
+__label__gifts mua giỏ trái cây thăm người ốm
+__label__gifts mua gio trai cay tham nguoi om
+__label__gifts chi mua giỏ trái cây thăm người ốm
+__label__gifts thanh toán mua giỏ trái cây thăm người ốm
+__label__gifts thanh toan mua gio trai cay tham nguoi om
+__label__gifts phong bì đám giỗ hiếu hỉ
+__label__gifts phong bi dam gio hieu hi
+__label__gifts chi phong bì đám giỗ hiếu hỉ
+__label__gifts chi phong bi dam gio hieu hi
+__label__gifts thanh toán phong bì đám giỗ hiếu hỉ
+__label__gifts thanh toan phong bi dam gio hieu hi
+__label__gifts mua hoa tươi tặng ngày lễ
+__label__gifts mua hoa tuoi tang ngay le
+__label__gifts chi mua hoa tươi tặng ngày lễ
+__label__gifts thanh toán mua hoa tươi tặng ngày lễ
+__label__gifts phong bì mừng đám cưới
+__label__gifts phong bi mung dam cuoi
+__label__gifts chi phong bì mừng đám cưới
+__label__gifts thanh toán phong bì mừng đám cưới
+__label__gifts thanh toan phong bi mung dam cuoi
+__label__gifts mua bánh kem hoa tặng sinh nhật
+__label__gifts mua banh kem hoa tang sinh nhat
+__label__gifts chi mua bánh kem hoa tặng sinh nhật
+__label__gifts chi mua banh kem hoa tang sinh nhat
+__label__gifts thanh toán mua bánh kem hoa tặng sinh nhật
+__label__gifts thanh toan mua banh kem hoa tang sinh nhat
+__label__gifts mừng đầy tháng thôi nôi
+__label__gifts mung day thang thoi noi
+__label__gifts chi mừng đầy tháng thôi nôi
+__label__gifts chi mung day thang thoi noi
+__label__gifts thanh toán mừng đầy tháng thôi nôi
+__label__gifts thanh toan mung day thang thoi noi
+__label__gifts mua biếu khách hàng
+__label__gifts mua bieu khach hang
+__label__gifts chi mua biếu khách hàng
+__label__gifts thanh toán mua biếu khách hàng
+__label__gifts thanh toan mua bieu khach hang
+__label__debt.interest thanh toán kỳ trả góp fe credit
+__label__debt.interest thanh toan ky tra gop fe credit
+__label__debt.interest chi thanh toán kỳ trả góp fe credit
+__label__debt.interest chi thanh toan ky tra gop fe credit
+__label__debt.interest thanh toán thanh toán kỳ trả góp fe credit
+__label__debt.interest thanh toan thanh toan ky tra gop fe credit
+__label__debt.interest trả lãi khoản vay ngân hàng
+__label__debt.interest tra lai khoan vay ngan hang
+__label__debt.interest chi trả lãi khoản vay ngân hàng
+__label__debt.interest chi tra lai khoan vay ngan hang
+__label__debt.interest thanh toán trả lãi khoản vay ngân hàng
+__label__debt.interest đóng tiền trả góp điện thoại home credit
+__label__debt.interest dong tien tra gop dien thoai home credit
+__label__debt.interest chi đóng tiền trả góp điện thoại home credit
+__label__debt.interest thanh toán đóng tiền trả góp điện thoại home credit
+__label__debt.interest trả nợ tiền mượn bạn
+__label__debt.interest tra no tien muon ban
+__label__debt.interest chi trả nợ tiền mượn bạn
+__label__debt.interest chi tra no tien muon ban
+__label__debt.interest thanh toán trả nợ tiền mượn bạn
+__label__debt.interest thanh toán lãi tín dụng
+__label__debt.interest thanh toan lai tin dung
+__label__debt.interest chi thanh toán lãi tín dụng
+__label__debt.interest chi thanh toan lai tin dung
+__label__debt.interest thanh toán thanh toán lãi tín dụng
+__label__debt.interest thanh toan thanh toan lai tin dung
+__label__debt.interest đóng góp khoản vay tiêu dùng
+__label__debt.interest dong gop khoan vay tieu dung
+__label__debt.interest chi đóng góp khoản vay tiêu dùng
+__label__debt.interest chi dong gop khoan vay tieu dung
+__label__debt.interest thanh toán đóng góp khoản vay tiêu dùng
+__label__bank.fee phí duy trì tài khoản ngân hàng
+__label__bank.fee phi duy tri tai khoan ngan hang
+__label__bank.fee chi phí duy trì tài khoản ngân hàng
+__label__bank.fee chi phi duy tri tai khoan ngan hang
+__label__bank.fee thanh toán phí duy trì tài khoản ngân hàng
+__label__bank.fee thanh toan phi duy tri tai khoan ngan hang
+__label__bank.fee thu phí sms biến động dư
+__label__bank.fee thu phi sms bien dong du
+__label__bank.fee chi thu phí sms biến động dư
+__label__bank.fee chi thu phi sms bien dong du
+__label__bank.fee thanh toán thu phí sms biến động dư
+__label__bank.fee thanh toan thu phi sms bien dong du
+__label__bank.fee phí thường niên tín dụng
+__label__bank.fee phi thuong nien tin dung
+__label__bank.fee chi phí thường niên tín dụng
+__label__bank.fee chi phi thuong nien tin dung
+__label__bank.fee thanh toán phí thường niên tín dụng
+__label__bank.fee thanh toan phi thuong nien tin dung
+__label__bank.fee phí chuyển tiền liên ngân hàng
+__label__bank.fee phi chuyen tien lien ngan hang
+__label__bank.fee chi phí chuyển tiền liên ngân hàng
+__label__bank.fee thanh toán phí chuyển tiền liên ngân hàng
+__label__bank.fee phí phát hành lại atm
+__label__bank.fee phi phat hanh lai atm
+__label__bank.fee chi phí phát hành lại atm
+__label__bank.fee chi phi phat hanh lai atm
+__label__bank.fee thanh toán phí phát hành lại atm
+__label__bank.fee phí quản lý tài khoản tháng
+__label__bank.fee phi quan ly tai khoan thang
+__label__bank.fee chi phí quản lý tài khoản tháng
+__label__bank.fee thanh toán phí quản lý tài khoản tháng
+__label__bank.fee thanh toan phi quan ly tai khoan thang
+__label__other khoản chi phát sinh ngoài dự kiến
+__label__other khoan chi phat sinh ngoai du kien
+__label__other chi khoản chi phát sinh ngoài dự kiến
+__label__other chi khoan chi phat sinh ngoai du kien
+__label__other thanh toán khoản chi phát sinh ngoài dự kiến
+__label__other thanh toan khoan chi phat sinh ngoai du kien
+__label__other chi tiêu cá nhân lặt vặt
+__label__other chi tieu ca nhan lat vat
+__label__other chi chi tiêu cá nhân lặt vặt
+__label__other chi chi tieu ca nhan lat vat
+__label__other thanh toán chi tiêu cá nhân lặt vặt
+__label__other thanh toan chi tieu ca nhan lat vat
+__label__other thanh toán dịch vụ photocopy công chứng
+__label__other thanh toan dich vu photocopy cong chung
+__label__other chi thanh toán dịch vụ photocopy công chứng
+__label__other chi thanh toan dich vu photocopy cong chung
+__label__other thanh toán thanh toán dịch vụ photocopy công chứng
+__label__other thanh toan thanh toan dich vu photocopy cong chung
+__label__other phí làm hồ giấy tờ hành chính
+__label__other phi lam ho giay to hanh chinh
+__label__other chi phí làm hồ giấy tờ hành chính
+__label__other chi phi lam ho giay to hanh chinh
+__label__other thanh toán phí làm hồ giấy tờ hành chính
+__label__other chi khoản khác chưa phân nhóm
+__label__other chi khoan khac chua phan nhom
+__label__other chi chi khoản khác chưa phân nhóm
+__label__other chi chi khoan khac chua phan nhom
+__label__other thanh toán chi khoản khác chưa phân nhóm
+__label__other thanh toan chi khoan khac chua phan nhom
+__label__other tiền tip dịch vụ lẻ
+__label__other tien tip dich vu le
+__label__other chi tiền tip dịch vụ lẻ
+__label__other chi tien tip dich vu le
+__label__other thanh toán tiền tip dịch vụ lẻ
+__label__other thanh toan tien tip dich vu le
+__label__income.salary nhận lương tháng công ty chuyển
+__label__income.salary nhan luong thang cong ty chuyen
+__label__income.salary nhận nhận lương tháng công ty chuyển
+__label__income.salary nhan nhan luong thang cong ty chuyen
+__label__income.salary nhận lương tháng công ty chuyển về tài khoản
+__label__income.salary nhan luong thang cong ty chuyen ve tai khoan
+__label__income.salary lương chính thức tháng
+__label__income.salary luong chinh thuc thang
+__label__income.salary lương chính thức tháng nghìn
+__label__income.salary nhận lương chính thức tháng
+__label__income.salary nhan luong chinh thuc thang
+__label__income.salary lương chính thức tháng về tài khoản
+__label__income.salary luong chinh thuc thang ve tai khoan
+__label__income.salary công ty thanh toán tiền lương
+__label__income.salary cong ty thanh toan tien luong
+__label__income.salary nhận công ty thanh toán tiền lương
+__label__income.salary công ty thanh toán tiền lương về tài khoản
+__label__income.salary cong ty thanh toan tien luong ve tai khoan
+__label__income.salary ứng lương đợt
+__label__income.salary ung luong dot
+__label__income.salary nhận ứng lương đợt
+__label__income.salary ứng lương đợt về tài khoản
+__label__income.salary chuyển khoản lương nhân viên
+__label__income.salary chuyen khoan luong nhan vien
+__label__income.salary nhận chuyển khoản lương nhân viên
+__label__income.salary chuyển khoản lương nhân viên về tài khoản
+__label__income.salary chuyen khoan luong nhan vien ve tai khoan
+__label__income.salary sal t11 cong ty tnhh
+__label__income.salary nhận sal t11 cong ty tnhh
+__label__income.salary sal t11 cong ty tnhh về tài khoản
+__label__income.salary sal t11 cong ty tnhh ve tai khoan
+__label__income.bonus nhận tiền thưởng đạt kpi
+__label__income.bonus nhan tien thuong dat kpi
+__label__income.bonus nhận nhận tiền thưởng đạt kpi
+__label__income.bonus nhan nhan tien thuong dat kpi
+__label__income.bonus nhận tiền thưởng đạt kpi về tài khoản
+__label__income.bonus nhan tien thuong dat kpi ve tai khoan
+__label__income.bonus thưởng hoàn thành dự án sớm
+__label__income.bonus thuong hoan thanh du an som
+__label__income.bonus nhận thưởng hoàn thành dự án sớm
+__label__income.bonus nhan thuong hoan thanh du an som
+__label__income.bonus thưởng hoàn thành dự án sớm về tài khoản
+__label__income.bonus thuong hoan thanh du an som ve tai khoan
+__label__income.bonus thưởng lễ quốc khánh công ty
+__label__income.bonus thuong le quoc khanh cong ty
+__label__income.bonus nhận thưởng lễ quốc khánh công ty
+__label__income.bonus nhan thuong le quoc khanh cong ty
+__label__income.bonus thưởng lễ quốc khánh công ty về tài khoản
+__label__income.bonus thuong le quoc khanh cong ty ve tai khoan
+__label__income.bonus phụ cấp chuyên cần và ăn
+__label__income.bonus phu cap chuyen can va an
+__label__income.bonus nhận phụ cấp chuyên cần và ăn
+__label__income.bonus nhan phu cap chuyen can va an
+__label__income.bonus phụ cấp chuyên cần và ăn về tài khoản
+__label__income.bonus tiền thưởng doanh quý
+__label__income.bonus tien thuong doanh quy
+__label__income.bonus nhận tiền thưởng doanh quý
+__label__income.bonus nhan tien thuong doanh quy
+__label__income.bonus tiền thưởng doanh quý về tài khoản
+__label__income.bonus tien thuong doanh quy ve tai khoan
+__label__income.bonus thưởng nóng cuối năm
+__label__income.bonus thuong nong cuoi nam
+__label__income.bonus nhận thưởng nóng cuối năm
+__label__income.bonus thưởng nóng cuối năm về tài khoản
+__label__income.bonus thuong nong cuoi nam ve tai khoan
+__label__income.freelance nhận thù lao thiết kế logo freelance
+__label__income.freelance nhan thu lao thiet ke logo freelance
+__label__income.freelance nhận nhận thù lao thiết kế logo freelance
+__label__income.freelance nhan nhan thu lao thiet ke logo freelance
+__label__income.freelance nhận thù lao thiết kế logo freelance về tài khoản
+__label__income.freelance nhan thu lao thiet ke logo freelance ve tai khoan
+__label__income.freelance tiền job viết bài content
+__label__income.freelance tien job viet bai content
+__label__income.freelance nhận tiền job viết bài content
+__label__income.freelance tiền job viết bài content về tài khoản
+__label__income.freelance tien job viet bai content ve tai khoan
+__label__income.freelance khách chuyển khoản tiền làm web ngoài giờ
+__label__income.freelance khach chuyen khoan tien lam web ngoai gio
+__label__income.freelance nhận khách chuyển khoản tiền làm web ngoài giờ
+__label__income.freelance khách chuyển khoản tiền làm web ngoài giờ về tài khoản
+__label__income.freelance khach chuyen khoan tien lam web ngoai gio ve tai khoan
+__label__income.freelance tiền dạy kèm gia sư tiếng
+__label__income.freelance tien day kem gia su tieng
+__label__income.freelance nhận tiền dạy kèm gia sư tiếng
+__label__income.freelance nhan tien day kem gia su tieng
+__label__income.freelance tiền dạy kèm gia sư tiếng về tài khoản
+__label__income.freelance tien day kem gia su tieng ve tai khoan
+__label__income.freelance thanh toán dự án freelance thiết kế
+__label__income.freelance thanh toan du an freelance thiet ke
+__label__income.freelance nhận thanh toán dự án freelance thiết kế
+__label__income.freelance nhan thanh toan du an freelance thiet ke
+__label__income.freelance thanh toán dự án freelance thiết kế về tài khoản
+__label__income.freelance thù lao chỉnh sửa video
+__label__income.freelance thu lao chinh sua video
+__label__income.freelance nhận thù lao chỉnh sửa video
+__label__income.freelance nhan thu lao chinh sua video
+__label__income.freelance thù lao chỉnh sửa video về tài khoản
+__label__income.business khách thanh toán đơn hàng bán lẻ
+__label__income.business khach thanh toan don hang ban le
+__label__income.business nhận khách thanh toán đơn hàng bán lẻ
+__label__income.business nhan khach thanh toan don hang ban le
+__label__income.business khách thanh toán đơn hàng bán lẻ về tài khoản
+__label__income.business khach thanh toan don hang ban le ve tai khoan
+__label__income.business tiền đối soát doanh thu shopee về ví
+__label__income.business tien doi soat doanh thu shopee ve vi
+__label__income.business nhận tiền đối soát doanh thu shopee về ví
+__label__income.business tiền đối soát doanh thu shopee về ví về tài khoản
+__label__income.business tien doi soat doanh thu shopee ve vi ve tai khoan
+__label__income.business doanh thu bán hàng tại cửa hàng
+__label__income.business doanh thu ban hang tai cua hang
+__label__income.business nhận doanh thu bán hàng tại cửa hàng
+__label__income.business nhan doanh thu ban hang tai cua hang
+__label__income.business doanh thu bán hàng tại cửa hàng về tài khoản
+__label__income.business khách cọc đơn đặt hàng sỉ
+__label__income.business khach coc don dat hang si
+__label__income.business nhận khách cọc đơn đặt hàng sỉ
+__label__income.business khách cọc đơn đặt hàng sỉ về tài khoản
+__label__income.business tiền thu cod giao hàng tiết kiệm
+__label__income.business tien thu cod giao hang tiet kiem
+__label__income.business nhận tiền thu cod giao hàng tiết kiệm
+__label__income.business tiền thu cod giao hàng tiết kiệm về tài khoản
+__label__income.business lợi nhuận kinh doanh tháng
+__label__income.business loi nhuan kinh doanh thang
+__label__income.business nhận lợi nhuận kinh doanh tháng
+__label__income.business nhan loi nhuan kinh doanh thang
+__label__income.business lợi nhuận kinh doanh tháng về tài khoản
+__label__income.interest nhận tiền lãi tiết kiệm đáo hạn
+__label__income.interest nhan tien lai tiet kiem dao han
+__label__income.interest nhận nhận tiền lãi tiết kiệm đáo hạn
+__label__income.interest nhan nhan tien lai tiet kiem dao han
+__label__income.interest nhận tiền lãi tiết kiệm đáo hạn về tài khoản
+__label__income.interest nhan tien lai tiet kiem dao han ve tai khoan
+__label__income.interest cổ tức tiền cổ phiếu
+__label__income.interest co tuc tien co phieu
+__label__income.interest nhận cổ tức tiền cổ phiếu
+__label__income.interest nhan co tuc tien co phieu
+__label__income.interest cổ tức tiền cổ phiếu về tài khoản
+__label__income.interest co tuc tien co phieu ve tai khoan
+__label__income.interest lãi tiền gửi không kỳ hạn ngân hàng
+__label__income.interest lai tien gui khong ky han ngan hang
+__label__income.interest nhận lãi tiền gửi không kỳ hạn ngân hàng
+__label__income.interest nhan lai tien gui khong ky han ngan hang
+__label__income.interest lãi tiền gửi không kỳ hạn ngân hàng về tài khoản
+__label__income.interest lợi nhuận chứng chỉ quỹ đầu tư
+__label__income.interest loi nhuan chung chi quy dau tu
+__label__income.interest nhận lợi nhuận chứng chỉ quỹ đầu tư
+__label__income.interest nhan loi nhuan chung chi quy dau tu
+__label__income.interest lợi nhuận chứng chỉ quỹ đầu tư về tài khoản
+__label__income.interest loi nhuan chung chi quy dau tu ve tai khoan
+__label__income.interest tất toán lãi tiết kiệm online
+__label__income.interest tat toan lai tiet kiem online
+__label__income.interest nhận tất toán lãi tiết kiệm online
+__label__income.interest nhan tat toan lai tiet kiem online
+__label__income.interest tất toán lãi tiết kiệm online về tài khoản
+__label__income.interest tat toan lai tiet kiem online ve tai khoan
+__label__income.interest tiền lãi tích lũy hàng tháng
+__label__income.interest tien lai tich luy hang thang
+__label__income.interest nhận tiền lãi tích lũy hàng tháng
+__label__income.interest nhan tien lai tich luy hang thang
+__label__income.interest tiền lãi tích lũy hàng tháng về tài khoản
+__label__income.gift nhận tiền lì xì đầu năm
+__label__income.gift nhan tien li xi dau nam
+__label__income.gift nhận nhận tiền lì xì đầu năm
+__label__income.gift nhận tiền lì xì đầu năm về tài khoản
+__label__income.gift nhan tien li xi dau nam ve tai khoan
+__label__income.gift bố mẹ cho thêm tiền tiêu
+__label__income.gift bo me cho them tien tieu
+__label__income.gift nhận bố mẹ cho thêm tiền tiêu
+__label__income.gift bố mẹ cho thêm tiền tiêu về tài khoản
+__label__income.gift bo me cho them tien tieu ve tai khoan
+__label__income.gift được bạn tặng tiền mừng sinh nhật
+__label__income.gift duoc ban tang tien mung sinh nhat
+__label__income.gift nhận được bạn tặng tiền mừng sinh nhật
+__label__income.gift nhan duoc ban tang tien mung sinh nhat
+__label__income.gift được bạn tặng tiền mừng sinh nhật về tài khoản
+__label__income.gift nhận người thân biếu tiền
+__label__income.gift nhan nguoi than bieu tien
+__label__income.gift nhận nhận người thân biếu tiền
+__label__income.gift nhan nhan nguoi than bieu tien
+__label__income.gift nhận người thân biếu tiền về tài khoản
+__label__income.gift nhan nguoi than bieu tien ve tai khoan
+__label__income.gift nhận học bổng khuyến học
+__label__income.gift nhan hoc bong khuyen hoc
+__label__income.gift nhận nhận học bổng khuyến học
+__label__income.gift nhan nhan hoc bong khuyen hoc
+__label__income.gift nhận học bổng khuyến học về tài khoản
+__label__income.gift chị cho tiền mua sách
+__label__income.gift chi cho tien mua sach
+__label__income.gift nhận chị cho tiền mua sách
+__label__income.gift nhan chi cho tien mua sach
+__label__income.gift chị cho tiền mua sách về tài khoản
+__label__income.gift chi cho tien mua sach ve tai khoan
+__label__income.gift được lì xì dịp lễ
+__label__income.gift duoc li xi dip le
+__label__income.gift nhận được lì xì dịp lễ
+__label__income.gift được lì xì dịp lễ về tài khoản
+__label__income.gift bố mẹ gửi cho tiền sinh hoạt
+__label__income.gift bo me gui cho tien sinh hoat
+__label__income.gift nhận bố mẹ gửi cho tiền sinh hoạt
+__label__income.gift nhan bo me gui cho tien sinh hoat
+__label__income.gift bố mẹ gửi cho tiền sinh hoạt về tài khoản
+__label__income.gift nhận tiền từ bạn
+__label__income.gift nhan tien tu ban
+__label__income.gift nhận nhận tiền từ bạn
+__label__income.gift nhan nhan tien tu ban
+__label__income.gift nhận tiền từ bạn về tài khoản
+__label__income.other nhận khoản tiền thu khác
+__label__income.other nhan khoan tien thu khac
+__label__income.other nhận nhận khoản tiền thu khác
+__label__income.other nhan nhan khoan tien thu khac
+__label__income.other nhận khoản tiền thu khác về tài khoản
+__label__income.other bạn chuyển trả lại tiền ứng hộ
+__label__income.other ban chuyen tra lai tien ung ho
+__label__income.other nhận bạn chuyển trả lại tiền ứng hộ
+__label__income.other nhan ban chuyen tra lai tien ung ho
+__label__income.other bạn chuyển trả lại tiền ứng hộ về tài khoản
+__label__income.other ban chuyen tra lai tien ung ho ve tai khoan
+__label__income.other bán thanh lý đồ cũ không dùng
+__label__income.other ban thanh ly do cu khong dung
+__label__income.other nhận bán thanh lý đồ cũ không dùng
+__label__income.other nhan ban thanh ly do cu khong dung
+__label__income.other bán thanh lý đồ cũ không dùng về tài khoản
+__label__income.other nhận tiền bồi hoàn bảo hiểm
+__label__income.other nhan tien boi hoan bao hiem
+__label__income.other nhận nhận tiền bồi hoàn bảo hiểm
+__label__income.other nhan nhan tien boi hoan bao hiem
+__label__income.other nhận tiền bồi hoàn bảo hiểm về tài khoản
+__label__income.other khoản thu vãng lai ngoài lương
+__label__income.other khoan thu vang lai ngoai luong
+__label__income.other nhận khoản thu vãng lai ngoài lương
+__label__income.other khoản thu vãng lai ngoài lương về tài khoản
+__label__income.other khoan thu vang lai ngoai luong ve tai khoan
+__label__income.other bán giấy vụn phế liệu
+__label__income.other ban giay vun phe lieu
+__label__income.other nhận bán giấy vụn phế liệu
+__label__income.other nhan ban giay vun phe lieu
+__label__income.other bán giấy vụn phế liệu về tài khoản
+__label__income.other ban giay vun phe lieu ve tai khoan

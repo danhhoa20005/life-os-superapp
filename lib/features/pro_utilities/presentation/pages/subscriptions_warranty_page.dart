@@ -24,6 +24,7 @@ class SubscriptionsWarrantyPage extends StatefulWidget {
 
 class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
   bool _showWarranties = false;
+  bool _dueSoonOnly = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +38,9 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
     final now = DateTime.now();
 
     return BlocListener<ProUtilitiesBloc, ProUtilitiesState>(
-      listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
+      listenWhen: (p, n) =>
+          (n.failure != null && p.failure != n.failure) ||
+          (n.message != null && p.message != n.message),
       listener: (context, state) {
         if (state.failure != null) {
           LifeOsTopToast.fromSnackBar(context, 
@@ -59,7 +62,11 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                   showBackButton: true,
                   trailingAction: IconButton.filledTonal(
                     tooltip: 'Thêm gói hoặc bảo hành',
-                    onPressed: () => _showAddDialog(context, user.id),
+                    onPressed: () => _showAddDialog(
+                      context,
+                      user.id,
+                      defaultWarranty: _showWarranties,
+                    ),
                     icon: const Icon(Icons.add_rounded),
                   ),
                 ),
@@ -69,9 +76,12 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                       final dueSoonCount = state.subscriptionsAndWarranties
                           .where((e) => e.isDueSoon(now))
                           .length;
-                      final visible = _showWarranties
+                      final baseVisible = _showWarranties
                           ? state.warrantiesOnly
                           : state.subscriptionsOnly;
+                      final visible = _dueSoonOnly
+                          ? baseVisible.where((e) => e.isDueSoon(now)).toList()
+                          : baseVisible;
 
                       return Center(
                         child: ConstrainedBox(
@@ -89,19 +99,29 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      alignment: WrapAlignment.spaceBetween,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
-                                        Icon(Icons.radar_rounded, size: 20, color: c.primary),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Radar Chi phí Thuê bao Tự động',
-                                            style: TextStyle(
-                                              fontSize: 15.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: c.textPrimary,
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.radar_rounded, size: 20, color: c.primary),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                'Radar Chi phí Thuê bao Tự động',
+                                                softWrap: true,
+                                                style: TextStyle(
+                                                  fontSize: 15.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: c.textPrimary,
+                                                ),
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ),
                                         LifeOsStatusPill(
                                           icon: Icons.notifications_active_outlined,
@@ -198,6 +218,29 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                 ],
                                 onChanged: (v) => setState(() => _showWarranties = v),
                               ),
+                              if (baseVisible.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    ChoiceChip(
+                                      key: const Key('subs_filter_all'),
+                                      label: Text('Tất cả (${baseVisible.length})'),
+                                      selected: !_dueSoonOnly,
+                                      onSelected: (_) => setState(() => _dueSoonOnly = false),
+                                    ),
+                                    ChoiceChip(
+                                      key: const Key('subs_filter_due_soon'),
+                                      label: Text(
+                                        'Sắp đến hạn (${baseVisible.where((e) => e.isDueSoon(now)).length})',
+                                      ),
+                                      selected: _dueSoonOnly,
+                                      onSelected: (sel) => setState(() => _dueSoonOnly = sel),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 12),
 
                               // 3. 1-Tap Popular Presets
@@ -296,17 +339,21 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                   child: Column(
                                     children: [
                                       LifeOsIconSquircle(
-                                        icon: _showWarranties
-                                            ? Icons.verified_user_outlined
-                                            : Icons.subscriptions_outlined,
+                                        icon: _dueSoonOnly
+                                            ? Icons.check_circle_outline_rounded
+                                            : (_showWarranties
+                                                  ? Icons.verified_user_outlined
+                                                  : Icons.subscriptions_outlined),
                                         tone: LifeOsAccentTone.emerald,
                                         size: 48,
                                       ),
                                       const SizedBox(height: 10),
                                       Text(
-                                        _showWarranties
-                                            ? 'Chưa có phiếu bảo hành thiết bị nào'
-                                            : 'Chưa có gói đăng ký tự động nào',
+                                        _dueSoonOnly && baseVisible.isNotEmpty
+                                            ? 'Không có mục nào sắp đến hạn'
+                                            : (_showWarranties
+                                                  ? 'Chưa có phiếu bảo hành thiết bị nào'
+                                                  : 'Chưa có gói đăng ký tự động nào'),
                                         style: TextStyle(
                                           fontWeight: FontWeight.w800,
                                           fontSize: 15,
@@ -315,12 +362,23 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        _showWarranties
-                                            ? 'Lưu ngày mua & hạn bảo hành đồ điện tử, gia dụng để không bỏ lỡ quyền bảo hành miễn phí.'
-                                            : 'Chạm các gợi ý nhanh phía trên hoặc thêm gói đăng ký để kiểm soát các khoản trừ thẻ ngầm.',
+                                        _dueSoonOnly && baseVisible.isNotEmpty
+                                            ? 'Tất cả gói và bảo hành đều đang còn hạn an toàn.'
+                                            : (_showWarranties
+                                                  ? 'Lưu ngày mua & hạn bảo hành đồ điện tử, gia dụng để không bỏ lỡ quyền bảo hành miễn phí.'
+                                                  : 'Chạm các gợi ý nhanh phía trên hoặc thêm gói đăng ký để kiểm soát các khoản trừ thẻ ngầm.'),
                                         textAlign: TextAlign.center,
                                         style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                                       ),
+                                      if (_dueSoonOnly && baseVisible.isNotEmpty) ...[
+                                        const SizedBox(height: 10),
+                                        FilledButton.tonalIcon(
+                                          key: const Key('subs_reset_filter_btn'),
+                                          onPressed: () => setState(() => _dueSoonOnly = false),
+                                          icon: const Icon(Icons.filter_alt_off_rounded, size: 17),
+                                          label: const Text('Xem tất cả'),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 )
@@ -365,6 +423,17 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                         color: c.textSecondary,
                                                       ),
                                                     ),
+                                                    if (item.serialOrNote.trim().isNotEmpty)
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(top: 2),
+                                                        child: Text(
+                                                          'Ghi chú / Serial: ${item.serialOrNote.trim()}',
+                                                          style: TextStyle(
+                                                            fontSize: 11.8,
+                                                            color: c.textSecondary,
+                                                          ),
+                                                        ),
+                                                      ),
                                                   ],
                                                 ),
                                               ),
@@ -583,16 +652,30 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
             FilledButton(
               key: const Key('submit_sub_button'),
               onPressed: () {
-                final amt = VndAmount.tryParseInput(amountCtrl.text) ?? 0;
+                final title = titleCtrl.text.trim();
+                final amt = cycle == SubscriptionCycle.warrantyOnly
+                    ? 0
+                    : (VndAmount.tryParseInput(amountCtrl.text) ?? 0);
+                if (title.isEmpty ||
+                    (cycle != SubscriptionCycle.warrantyOnly && amt <= 0)) {
+                  LifeOsTopToast.show(
+                    ctx,
+                    cycle == SubscriptionCycle.warrantyOnly
+                        ? 'Vui lòng nhập tên thiết bị cần bảo hành.'
+                        : 'Vui lòng nhập tên gói và số tiền hợp lệ (> 0 ₫).',
+                    kind: LifeOsToastKind.warning,
+                  );
+                  return;
+                }
                 bloc.add(
                   SubscriptionOrWarrantyAdded(
                     userId: userId,
-                    title: titleCtrl.text,
-                    providerOrStore: providerCtrl.text,
+                    title: title,
+                    providerOrStore: providerCtrl.text.trim(),
                     cycle: cycle,
                     amountMinor: amt,
                     nextBillingOrExpiryDate: targetDate,
-                    serialOrNote: noteCtrl.text,
+                    serialOrNote: noteCtrl.text.trim(),
                   ),
                 );
                 Navigator.of(ctx).pop();

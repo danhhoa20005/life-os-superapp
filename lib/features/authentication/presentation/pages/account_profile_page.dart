@@ -1,11 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
-import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../domain/entities/user_entity.dart';
@@ -21,10 +25,395 @@ class AccountProfilePage extends StatefulWidget {
   State<AccountProfilePage> createState() => _AccountProfilePageState();
 }
 
+({int score, String label, Color color}) _evaluatePasswordStrength(String pwd) {
+  if (pwd.isEmpty) {
+    return (
+      score: 0,
+      label: 'Nhập tối thiểu 8 ký tự',
+      color: const Color(0xFF98A2B3),
+    );
+  }
+  var pts = 0;
+  if (pwd.length >= 8) pts++;
+  if (RegExp(r'[A-Z]').hasMatch(pwd) && RegExp(r'[a-z]').hasMatch(pwd)) {
+    pts++;
+  }
+  if (RegExp(r'[0-9]').hasMatch(pwd)) pts++;
+  if (RegExp(r'[^A-Za-z0-9]').hasMatch(pwd) || pwd.length >= 12) pts++;
+
+  return switch (pts) {
+    0 || 1 => (
+      score: 1,
+      label: 'Độ mạnh: Yếu',
+      color: const Color(0xFFDC2626),
+    ),
+    2 => (
+      score: 2,
+      label: 'Độ mạnh: Trung bình',
+      color: const Color(0xFFD97706),
+    ),
+    3 => (
+      score: 3,
+      label: 'Độ mạnh: Mạnh',
+      color: const Color(0xFF2563EB),
+    ),
+    _ => (
+      score: 4,
+      label: 'Độ mạnh: Rất mạnh',
+      color: const Color(0xFF12B847),
+    ),
+  };
+}
+
+class _ChangePasswordSecurityDialog extends StatefulWidget {
+  final bool hasPassword;
+  final void Function(String? currentPwd, String newPwd, String confirmPwd)
+  onSubmit;
+
+  const _ChangePasswordSecurityDialog({
+    required this.hasPassword,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_ChangePasswordSecurityDialog> createState() =>
+      _ChangePasswordSecurityDialogState();
+}
+
+class _ChangePasswordSecurityDialogState
+    extends State<_ChangePasswordSecurityDialog> {
+  final TextEditingController _currentPwdCtrl = TextEditingController();
+  final TextEditingController _newPwdCtrl = TextEditingController();
+  final TextEditingController _confirmPwdCtrl = TextEditingController();
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+
+  @override
+  void dispose() {
+    _currentPwdCtrl.dispose();
+    _newPwdCtrl.dispose();
+    _confirmPwdCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final strength = _evaluatePasswordStrength(_newPwdCtrl.text);
+
+    return AlertDialog(
+      title: Text(
+        widget.hasPassword
+            ? 'Đổi mật khẩu đăng nhập'
+            : 'Thiết lập mật khẩu Email',
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.hasPassword) ...[
+              TextField(
+                key: const Key('current_password_field'),
+                controller: _currentPwdCtrl,
+                obscureText: _obscureCurrent,
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu hiện tại',
+                  prefixIcon: const Icon(Icons.lock_clock_outlined),
+                  suffixIcon: IconButton(
+                    onPressed: () =>
+                        setState(() => _obscureCurrent = !_obscureCurrent),
+                    icon: Icon(
+                      _obscureCurrent
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            TextField(
+              key: const Key('new_password_field'),
+              controller: _newPwdCtrl,
+              obscureText: _obscureNew,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: 'Mật khẩu mới',
+                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                  icon: Icon(
+                    _obscureNew
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: List.generate(4, (idx) {
+                final active = idx < strength.score;
+                return Expanded(
+                  child: Container(
+                    height: 5,
+                    margin: EdgeInsets.only(right: idx < 3 ? 5 : 0),
+                    decoration: BoxDecoration(
+                      color: active ? strength.color : c.separator,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              strength.label,
+              style: TextStyle(
+                fontSize: 11.8,
+                fontWeight: FontWeight.w700,
+                color: strength.score == 0 ? c.textSecondary : strength.color,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              key: const Key('confirm_new_password_field'),
+              controller: _confirmPwdCtrl,
+              obscureText: _obscureNew,
+              decoration: const InputDecoration(
+                labelText: 'Nhập lại mật khẩu',
+                prefixIcon: Icon(Icons.verified_user_outlined),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton.icon(
+          key: const Key('submit_password_change_button'),
+          onPressed: () {
+            final curr = _currentPwdCtrl.text;
+            final next = _newPwdCtrl.text;
+            final confirm = _confirmPwdCtrl.text;
+            if (widget.hasPassword && curr.isEmpty) {
+              LifeOsTopToast.show(
+                context,
+                'Vui lòng nhập mật khẩu hiện tại.',
+                kind: LifeOsToastKind.warning,
+              );
+              return;
+            }
+            if (next.length < 8) {
+              LifeOsTopToast.show(
+                context,
+                'Mật khẩu mới cần tối thiểu 8 ký tự.',
+                kind: LifeOsToastKind.warning,
+              );
+              return;
+            }
+            if (next != confirm) {
+              LifeOsTopToast.show(
+                context,
+                'Mật khẩu xác nhận không khớp.',
+                kind: LifeOsToastKind.warning,
+              );
+              return;
+            }
+            Navigator.of(context).pop();
+            widget.onSubmit(widget.hasPassword ? curr : null, next, confirm);
+          },
+          icon: const Icon(Icons.check_rounded, size: 18),
+          label: Text(
+            widget.hasPassword ? 'Cập nhật mật khẩu' : 'Tạo mật khẩu',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AppPinSecurityDialog extends StatefulWidget {
+  final bool hadPin;
+  final ValueChanged<bool> onPinChanged;
+
+  const _AppPinSecurityDialog({
+    required this.hadPin,
+    required this.onPinChanged,
+  });
+
+  @override
+  State<_AppPinSecurityDialog> createState() => _AppPinSecurityDialogState();
+}
+
+class _AppPinSecurityDialogState extends State<_AppPinSecurityDialog> {
+  final TextEditingController _currentPinCtrl = TextEditingController();
+  final TextEditingController _newPinCtrl = TextEditingController();
+  final TextEditingController _confirmPinCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _currentPinCtrl.dispose();
+    _newPinCtrl.dispose();
+    _confirmPinCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        widget.hadPin ? 'Quản lý mã PIN bảo vệ' : 'Thiết lập mã PIN 4–6 số',
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Mã PIN được mã hóa cục bộ trong két sắt phần cứng của thiết bị để bảo vệ dữ liệu tài chính và giấy tờ riêng tư.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            if (widget.hadPin) ...[
+              TextField(
+                key: const Key('pin_current_input'),
+                controller: _currentPinCtrl,
+                obscureText: true,
+                maxLength: 6,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Mã PIN hiện tại',
+                  counterText: '',
+                  prefixIcon: Icon(Icons.lock_clock_outlined),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            TextField(
+              key: const Key('pin_new_input'),
+              controller: _newPinCtrl,
+              obscureText: true,
+              maxLength: 6,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: widget.hadPin ? 'Mã PIN mới' : 'Mã PIN (4–6 số)',
+                counterText: '',
+                prefixIcon: const Icon(Icons.pin_outlined),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('pin_confirm_input'),
+              controller: _confirmPinCtrl,
+              obscureText: true,
+              maxLength: 6,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Nhập lại mã PIN',
+                counterText: '',
+                prefixIcon: Icon(Icons.verified_user_outlined),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (widget.hadPin)
+          TextButton(
+            key: const Key('disable_pin_btn'),
+            onPressed: () async {
+              final ok = await UserBehaviorPrefs.verifyAppPinCode(
+                _currentPinCtrl.text,
+              );
+              if (!context.mounted) return;
+              if (!ok) {
+                LifeOsTopToast.show(
+                  context,
+                  'Vui lòng nhập đúng mã PIN hiện tại để tắt khóa.',
+                  kind: LifeOsToastKind.warning,
+                );
+                return;
+              }
+              await UserBehaviorPrefs.saveAppPinCode(null);
+              if (context.mounted) Navigator.of(context).pop();
+              widget.onPinChanged(false);
+            },
+            child: const Text('Tắt mã PIN'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Đóng'),
+        ),
+        FilledButton.icon(
+          key: const Key('submit_pin_setup_btn'),
+          onPressed: () async {
+            if (widget.hadPin) {
+              final ok = await UserBehaviorPrefs.verifyAppPinCode(
+                _currentPinCtrl.text,
+              );
+              if (!context.mounted) return;
+              if (!ok) {
+                LifeOsTopToast.show(
+                  context,
+                  'Mã PIN hiện tại không chính xác.',
+                  kind: LifeOsToastKind.warning,
+                );
+                return;
+              }
+            }
+            final nextPin = _newPinCtrl.text.trim();
+            final confirmPin = _confirmPinCtrl.text.trim();
+            if (nextPin.length < 4 || nextPin.length > 6) {
+              LifeOsTopToast.show(
+                context,
+                'Mã PIN cần từ 4 đến 6 chữ số.',
+                kind: LifeOsToastKind.warning,
+              );
+              return;
+            }
+            if (nextPin != confirmPin) {
+              LifeOsTopToast.show(
+                context,
+                'Mã PIN xác nhận không khớp.',
+                kind: LifeOsToastKind.warning,
+              );
+              return;
+            }
+            await UserBehaviorPrefs.saveAppPinCode(nextPin);
+            if (context.mounted) Navigator.of(context).pop();
+            widget.onPinChanged(true);
+          },
+          icon: const Icon(Icons.shield_rounded, size: 18),
+          label: Text(widget.hadPin ? 'Đổi mã PIN' : 'Lưu mã PIN'),
+        ),
+      ],
+    );
+  }
+}
+
 class _AccountProfilePageState extends State<AccountProfilePage> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   String? _boundUserId;
+  String _selectedTimezone = 'Asia/Ho_Chi_Minh';
+  bool _hasAppPin = false;
+  bool _hideBalances = false;
+
+  static const List<(String id, String label)> _supportedTimezones = [
+    ('Asia/Ho_Chi_Minh', 'Việt Nam (GMT+7)'),
+    ('Asia/Singapore', 'Singapore (GMT+8)'),
+    ('Asia/Tokyo', 'Nhật Bản (GMT+9)'),
+    ('Europe/London', 'Anh Quốc (GMT+0)'),
+    ('America/Los_Angeles', 'Bờ Tây Mỹ (GMT-8)'),
+  ];
 
   @override
   void initState() {
@@ -33,6 +422,21 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
     _boundUserId = user?.id;
     _nameController = TextEditingController(text: user?.fullName ?? '');
     _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
+    if (user != null &&
+        _supportedTimezones.any((tz) => tz.$1 == user.timezone)) {
+      _selectedTimezone = user.timezone;
+    }
+    _hydrateLocalSecurityPrefs();
+  }
+
+  Future<void> _hydrateLocalSecurityPrefs() async {
+    final hasPin = await UserBehaviorPrefs.hasAppPinCode();
+    final hideBal = await UserBehaviorPrefs.loadHideBalances();
+    if (!mounted) return;
+    setState(() {
+      _hasAppPin = hasPin;
+      _hideBalances = hideBal;
+    });
   }
 
   @override
@@ -47,6 +451,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
       _boundUserId = user.id;
       _nameController.text = user.fullName;
       _phoneController.text = user.phoneNumber ?? '';
+      if (_supportedTimezones.any((tz) => tz.$1 == user.timezone)) {
+        _selectedTimezone = user.timezone;
+      }
     }
   }
 
@@ -54,116 +461,41 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
     BuildContext context,
     UserEntity user,
   ) async {
-    final currentPwdCtrl = TextEditingController();
-    final newPwdCtrl = TextEditingController();
-    final confirmPwdCtrl = TextEditingController();
-    final hasPassword = user.hasPasswordProvider;
-
+    final authBloc = context.read<AuthBloc>();
     await showDialog<void>(
       context: context,
-      builder: (dialogCtx) {
-        var obscureCurrent = true;
-        var obscureNew = true;
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            return AlertDialog(
-              title: Text(
-                hasPassword
-                    ? 'Đổi mật khẩu đăng nhập'
-                    : 'Thiết lập mật khẩu Email',
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (hasPassword) ...[
-                      TextField(
-                        key: const Key('current_password_field'),
-                        controller: currentPwdCtrl,
-                        obscureText: obscureCurrent,
-                        decoration: InputDecoration(
-                          labelText: 'Mật khẩu hiện tại',
-                          prefixIcon: const Icon(Icons.lock_clock_outlined),
-                          suffixIcon: IconButton(
-                            onPressed: () => setModalState(
-                              () => obscureCurrent = !obscureCurrent,
-                            ),
-                            icon: Icon(
-                              obscureCurrent
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
-                    TextField(
-                      key: const Key('new_password_field'),
-                      controller: newPwdCtrl,
-                      obscureText: obscureNew,
-                      decoration: InputDecoration(
-                        labelText: 'Mật khẩu mới (tối thiểu 8 ký tự)',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () =>
-                              setModalState(() => obscureNew = !obscureNew),
-                          icon: Icon(
-                            obscureNew
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextField(
-                      key: const Key('confirm_new_password_field'),
-                      controller: confirmPwdCtrl,
-                      obscureText: obscureNew,
-                      decoration: const InputDecoration(
-                        labelText: 'Xác nhận mật khẩu mới',
-                        prefixIcon: Icon(Icons.verified_user_outlined),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogCtx).pop(),
-                  child: const Text('Hủy'),
-                ),
-                FilledButton.icon(
-                  key: const Key('submit_password_change_button'),
-                  onPressed: () {
-                    final curr = currentPwdCtrl.text;
-                    final next = newPwdCtrl.text;
-                    final confirm = confirmPwdCtrl.text;
-                    Navigator.of(dialogCtx).pop();
-                    context.read<AuthBloc>().add(
-                      AuthPasswordChangeSubmitted(
-                        currentPassword: hasPassword ? curr : null,
-                        newPassword: next,
-                        confirmPassword: confirm,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.check_rounded, size: 18),
-                  label: Text(
-                    hasPassword ? 'Cập nhật mật khẩu' : 'Tạo mật khẩu',
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _ChangePasswordSecurityDialog(
+        hasPassword: user.hasPasswordProvider,
+        onSubmit: (curr, next, confirm) {
+          authBloc.add(
+            AuthPasswordChangeSubmitted(
+              currentPassword: curr,
+              newPassword: next,
+              confirmPassword: confirm,
+            ),
+          );
+        },
+      ),
     );
+  }
 
-    currentPwdCtrl.dispose();
-    newPwdCtrl.dispose();
-    confirmPwdCtrl.dispose();
+  Future<void> _showAppPinSetupDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _AppPinSecurityDialog(
+        hadPin: _hasAppPin,
+        onPinChanged: (enabled) {
+          if (!mounted) return;
+          setState(() => _hasAppPin = enabled);
+          LifeOsTopToast.show(
+            this.context,
+            enabled
+                ? 'Đã bật mã PIN bảo vệ ứng dụng thành công!'
+                : 'Đã tắt khóa mã PIN bảo vệ ứng dụng.',
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -181,15 +513,13 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
           return;
         }
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
           );
         } else if (state.infoMessage != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text('✓ ${state.infoMessage!}')),
-          );
+          LifeOsTopToast.show(context, state.infoMessage!);
         }
       },
       builder: (context, state) {
@@ -201,448 +531,975 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
         }
         _syncControllersIfUserChanged(user);
 
-        final providerSummary = user.isGoogleLinked && user.hasPasswordProvider
-            ? 'Google + Email'
-            : user.isGoogleLinked
-            ? 'Tài khoản Google'
-            : 'Email & Mật khẩu';
+        final securityLayers = <bool>[
+          user.emailVerified,
+          user.hasPasswordProvider,
+          user.isGoogleLinked,
+          _hasAppPin,
+        ];
+        final activeSecurityCount = securityLayers.where((ok) => ok).length;
+        final securityFrac = activeSecurityCount / securityLayers.length;
+        final securityLevelLabel = switch (activeSecurityCount) {
+          4 => 'Bảo mật tối đa',
+          3 => 'Bảo mật tốt',
+          2 => 'Bảo mật cơ bản',
+          _ => 'Cần tăng cường',
+        };
+        final shortUid = user.id.length > 10
+            ? '${user.id.substring(0, 6)}…${user.id.substring(user.id.length - 4)}'
+            : user.id;
+        final joinedDate = DateFormat('MM/yyyy').format(user.createdAt);
 
         return Scaffold(
-          appBar: const LiquidGlassBar(
-            title: Text('Hồ sơ & Bảo mật Tài khoản'),
-          ),
-          body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: AppSpacing.maxContentWidth,
-                ),
-                child: ListView(
-                  key: const Key('account_profile_list_view'),
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.sm,
-                    AppSpacing.md,
-                    AppSpacing.xxl,
+          body: LifeOsMintWaveCanvas(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  const LifeOsTopBrandHeader(
+                    title: 'Hồ sơ & Bảo mật Tài khoản',
+                    showBackButton: true,
                   ),
-                  children: [
-                    // 1. Hero Identity Card
-                    ProHeroGradientCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              UserAvatarBadge(user: user, radius: 30),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user.fullName,
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                        letterSpacing: -0.3,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      user.email,
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.86,
-                                        ),
-                                      ),
-                                    ),
-                                    if (user.phoneNumber != null &&
-                                        user.phoneNumber!.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        user.phoneNumber!,
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          color: Colors.white.withValues(
-                                            alpha: 0.78,
-                                          ),
-                                          fontFeatures: const [
-                                            FontFeature.tabularFigures(),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSpacing.maxContentWidth,
+                        ),
+                        child: ListView(
+                          key: const Key('account_profile_list_view'),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            4,
+                            AppSpacing.md,
+                            AppSpacing.xxl,
+                          ),
+                          children: [
+                            // 1. Bright Identity & 4-Layer Security Shield Hero Card
+                            LifeOsMintHeroCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      UserAvatarBadge(user: user, radius: 28),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              user.fullName,
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 18.5,
+                                                height: 1.2,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                user.email,
+                                                style: TextStyle(
+                                                  fontSize: 12.8,
+                                                  color: c.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                            if (user.phoneNumber != null &&
+                                                user.phoneNumber!
+                                                    .trim()
+                                                    .isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                user.phoneNumber!,
+                                                style: TextStyle(
+                                                  fontSize: 12.2,
+                                                  color: c.textSecondary,
+                                                  fontFeatures: const [
+                                                    FontFeature
+                                                        .tabularFigures(),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),
                                     ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              if (user.isGoogleLinked)
-                                const ProGlassStatPill(
-                                  icon: Icons.verified_rounded,
-                                  label: 'Google',
-                                  value: 'Đã liên kết',
-                                  iconColor: Color(0xFF86EFAC),
-                                ),
-                              if (user.hasPasswordProvider)
-                                const ProGlassStatPill(
-                                  icon: Icons.password_rounded,
-                                  label: 'Mật khẩu',
-                                  value: 'Đang bảo vệ',
-                                  iconColor: Color(0xFF93C5FD),
-                                ),
-                              ProGlassStatPill(
-                                icon: user.emailVerified
-                                    ? Icons.mark_email_read_rounded
-                                    : Icons.mark_email_unread_rounded,
-                                label: 'Xác thực Email',
-                                value: user.emailVerified
-                                    ? 'Đã xác minh'
-                                    : 'Chờ xác minh',
-                                iconColor: user.emailVerified
-                                    ? const Color(0xFF86EFAC)
-                                    : const Color(0xFFFDE047),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 2. Email Verification Banner (if pending)
-                    if (!user.emailVerified) ...[
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SemanticStatusBadge(
-                                kind: SemanticStatusKind.warning,
-                                label: 'Khuyến nghị xác thực địa chỉ Email',
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Xác thực email giúp bạn khôi phục tài khoản và nhận cảnh báo bảo mật khi đăng nhập trên thiết bị mới.',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  FilledButton.tonalIcon(
-                                    key: const Key(
-                                      'resend_verification_email_button',
-                                    ),
-                                    onPressed: state.isSubmitting
-                                        ? null
-                                        : () => context.read<AuthBloc>().add(
-                                            const AuthEmailVerificationRequested(),
-                                          ),
-                                    icon: const Icon(
-                                      Icons.outgoing_mail,
-                                      size: 18,
-                                    ),
-                                    label: const Text('Gửi lại email xác thực'),
                                   ),
-                                  OutlinedButton.icon(
-                                    key: const Key(
-                                      'refresh_verification_status_button',
-                                    ),
-                                    onPressed: state.isSubmitting
-                                        ? null
-                                        : () => context.read<AuthBloc>().add(
-                                            const AuthUserReloadRequested(),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      Material(
+                                        color: c.surface,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
-                                    icon: const Icon(
-                                      Icons.refresh_rounded,
-                                      size: 18,
-                                    ),
-                                    label: const Text('Tôi đã xác nhận'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                    ],
-
-                    // 3. 2x2 Security Bento Grid
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ProBentoTile(
-                            icon: Icons.fingerprint_rounded,
-                            accentColor: c.primary,
-                            title: 'Phương thức đăng nhập',
-                            metric: providerSummary,
-                            badgeText: 'Đa thiết bị',
-                            statusKind: SemanticStatusKind.success,
-                            onTap: () =>
-                                _showChangePasswordDialog(context, user),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: ProBentoTile(
-                            icon: Icons.shield_moon_rounded,
-                            accentColor: c.secondary,
-                            title: 'Quyền riêng tư',
-                            metric: 'Đã bảo vệ',
-                            badgeText: 'An toàn',
-                            statusKind: SemanticStatusKind.info,
-                            onTap: () => context.push('/notifications-privacy'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 4. Personal Profile Information Editor
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Thông tin Hồ sơ Cá nhân',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Tên hiển thị của bạn xuất hiện trên bảng công việc và sổ chia tiền Gia đình / Hội nhóm.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            TextField(
-                              key: const Key('profile_name_field'),
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Họ và tên hiển thị',
-                                prefixIcon: Icon(Icons.badge_outlined),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextField(
-                              key: const Key('profile_phone_field'),
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: 'Số điện thoại liên hệ',
-                                hintText: '0901 234 567',
-                                prefixIcon: Icon(Icons.phone_iphone_rounded),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            FilledButton.icon(
-                              key: const Key('save_profile_button'),
-                              onPressed: state.isSubmitting
-                                  ? null
-                                  : () {
-                                      context.read<AuthBloc>().add(
-                                        AuthProfileUpdateSubmitted(
-                                          fullName: _nameController.text,
-                                          phoneNumber: _phoneController.text,
+                                          side: BorderSide(color: c.separator),
                                         ),
-                                      );
-                                    },
-                              icon: const Icon(Icons.save_outlined, size: 18),
-                              label: const Text('Lưu cập nhật hồ sơ'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 5. Sign-in Providers & Password Security
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Liên kết Tài khoản & Mật khẩu',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            if (user.isGoogleLinked)
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: c.successSubtle,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(9),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: InkWell(
+                                          key: const Key(
+                                            'copy_account_uid_btn',
+                                          ),
+                                          onTap: () async {
+                                            await Clipboard.setData(
+                                              ClipboardData(text: user.id),
+                                            );
+                                            if (!context.mounted) return;
+                                            LifeOsTopToast.show(
+                                              context,
+                                              'Đã sao chép mã định danh tài khoản.',
+                                            );
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.copy_rounded,
+                                                  size: 13,
+                                                  color: c.primary,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Mã TK: $shortUid',
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: c.textPrimary,
+                                                    fontFeatures: const [
+                                                      FontFeature
+                                                          .tabularFigures(),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      child: const GoogleBrandMark(size: 18),
+                                      LifeOsStatusPill(
+                                        icon: Icons.calendar_today_outlined,
+                                        label: 'Tham gia $joinedDate',
+                                        tone: LifeOsAccentTone.neutral,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Security Shield Summary Sub-panel
+                                  Material(
+                                    key: const Key(
+                                      'account_security_score_card',
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
+                                    color: c.surface,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      side: BorderSide(
+                                        color: c.border.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            'Tài khoản Google đã được liên kết',
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.titleMedium,
+                                          Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 44,
+                                                height: 44,
+                                                child: CustomPaint(
+                                                  painter:
+                                                      _SecurityScoreRingPainter(
+                                                        fraction: securityFrac,
+                                                        trackColor:
+                                                            c.surfaceRaised,
+                                                        activeColor:
+                                                            activeSecurityCount >=
+                                                                3
+                                                            ? c.primary
+                                                            : const Color(
+                                                                0xFFD97706,
+                                                              ),
+                                                      ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      '$activeSecurityCount/4',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        color: c.textPrimary,
+                                                        fontFeatures: const [
+                                                          FontFeature
+                                                              .tabularFigures(),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'Chỉ số an toàn: $securityLevelLabel',
+                                                      softWrap: true,
+                                                      style: TextStyle(
+                                                        fontSize: 13.5,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        color: c.textPrimary,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      'Đã kích hoạt $activeSecurityCount trên 4 lớp bảo vệ tài khoản.',
+                                                      softWrap: true,
+                                                      style: TextStyle(
+                                                        fontSize: 11.8,
+                                                        color: c.textSecondary,
+                                                        fontFeatures: const [
+                                                          FontFeature
+                                                              .tabularFigures(),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          Text(
-                                            'Đăng nhập nhanh 1 chạm bằng ${user.email}',
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.bodySmall,
+                                          const SizedBox(height: 10),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: [
+                                              if (user.isGoogleLinked)
+                                                const LifeOsStatusPill(
+                                                  icon: Icons.verified_rounded,
+                                                  label: 'Đã liên kết',
+                                                  tone:
+                                                      LifeOsAccentTone.emerald,
+                                                )
+                                              else
+                                                const LifeOsStatusPill(
+                                                  icon: Icons.link_off_rounded,
+                                                  label: 'Chưa nối Google',
+                                                  tone: LifeOsAccentTone.amber,
+                                                ),
+                                              LifeOsStatusPill(
+                                                icon: user.hasPasswordProvider
+                                                    ? Icons.lock_outline_rounded
+                                                    : Icons.lock_open_rounded,
+                                                label: user.hasPasswordProvider
+                                                    ? 'Mật khẩu bật'
+                                                    : 'Chưa đặt MK',
+                                                tone: user.hasPasswordProvider
+                                                    ? LifeOsAccentTone.emerald
+                                                    : LifeOsAccentTone.amber,
+                                              ),
+                                              LifeOsStatusPill(
+                                                icon: user.emailVerified
+                                                    ? Icons
+                                                          .mark_email_read_rounded
+                                                    : Icons
+                                                          .mark_email_unread_rounded,
+                                                label: user.emailVerified
+                                                    ? 'Email đã xác minh'
+                                                    : 'Chờ xác minh Email',
+                                                tone: user.emailVerified
+                                                    ? LifeOsAccentTone.emerald
+                                                    : LifeOsAccentTone.amber,
+                                              ),
+                                              LifeOsStatusPill(
+                                                icon: _hasAppPin
+                                                    ? Icons.pin_rounded
+                                                    : Icons.dialpad_rounded,
+                                                label: _hasAppPin
+                                                    ? 'Mã PIN bật'
+                                                    : 'Chưa bật PIN',
+                                                tone: _hasAppPin
+                                                    ? LifeOsAccentTone.emerald
+                                                    : LifeOsAccentTone.neutral,
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.check_circle_rounded,
-                                      color: c.success,
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // 2. Email Verification Banner (if pending)
+                            if (!user.emailVerified) ...[
+                              const SizedBox(height: 12),
+                              LifeOsSoftCard(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SemanticStatusBadge(
+                                      kind: SemanticStatusKind.warning,
+                                      label:
+                                          'Khuyến nghị xác thực địa chỉ Email',
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Xác thực email giúp khôi phục mật khẩu nhanh và nhận cảnh báo khi đăng nhập trên thiết bị lạ.',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        FilledButton.tonalIcon(
+                                          key: const Key(
+                                            'resend_verification_email_button',
+                                          ),
+                                          onPressed: state.isSubmitting
+                                              ? null
+                                              : () =>
+                                                    context.read<AuthBloc>().add(
+                                                      const AuthEmailVerificationRequested(),
+                                                    ),
+                                          icon: const Icon(
+                                            Icons.outgoing_mail,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'Gửi lại email xác thực',
+                                          ),
+                                        ),
+                                        OutlinedButton.icon(
+                                          key: const Key(
+                                            'refresh_verification_status_button',
+                                          ),
+                                          onPressed: state.isSubmitting
+                                              ? null
+                                              : () =>
+                                                    context.read<AuthBloc>().add(
+                                                      const AuthUserReloadRequested(),
+                                                    ),
+                                          icon: const Icon(
+                                            Icons.refresh_rounded,
+                                            size: 17,
+                                          ),
+                                          label: const Text('Tôi đã xác nhận'),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              )
-                            else ...[
-                              Text(
-                                'Liên kết Google để đăng nhập 1 chạm mà không cần nhớ mật khẩu:',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 10),
-                              GoogleAuthButton(
-                                key: const Key('link_google_account_button'),
-                                label: 'Liên kết tài khoản Google',
-                                isLoading: state.isSubmitting,
-                                onPressed: () => context.read<AuthBloc>().add(
-                                  const AuthGoogleLinkRequested(),
-                                ),
                               ),
                             ],
-                            const SizedBox(height: AppSpacing.md),
-                            Wrap(
-                              spacing: AppSpacing.sm,
-                              runSpacing: AppSpacing.xs,
-                              children: [
-                                OutlinedButton.icon(
-                                  key: const Key('open_change_password_button'),
-                                  onPressed: state.isSubmitting
-                                      ? null
-                                      : () => _showChangePasswordDialog(
-                                          context,
-                                          user,
-                                        ),
-                                  icon: const Icon(Icons.lock_reset_rounded),
-                                  label: Text(
-                                    user.hasPasswordProvider
-                                        ? 'Đổi mật khẩu'
-                                        : 'Thiết lập mật khẩu Email',
+
+                            // 3. Personal Profile Information Editor
+                            const LifeOsSectionHeader(
+                              title: 'Thông tin Hồ sơ Cá nhân',
+                              subtitle:
+                                  'Hiển thị trên bảng công việc và sổ chia tiền nhóm',
+                            ),
+                            LifeOsSoftCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  TextField(
+                                    key: const Key('profile_name_field'),
+                                    controller: _nameController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Họ và tên',
+                                      prefixIcon: Icon(Icons.badge_outlined),
+                                    ),
                                   ),
-                                ),
-                                if (user.email.isNotEmpty)
-                                  TextButton.icon(
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    key: const Key('profile_phone_field'),
+                                    controller: _phoneController,
+                                    keyboardType: TextInputType.phone,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Số điện thoại',
+                                      hintText: '0901 234 567',
+                                      prefixIcon: Icon(
+                                        Icons.phone_iphone_rounded,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  DropdownButtonFormField<String>(
+                                    key: const Key('profile_timezone_dropdown'),
+                                    isExpanded: true,
+                                    initialValue: _selectedTimezone,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Múi giờ',
+                                      prefixIcon: Icon(Icons.public_rounded),
+                                    ),
+                                    items: _supportedTimezones
+                                        .map(
+                                          (tz) => DropdownMenuItem<String>(
+                                            value: tz.$1,
+                                            child: Text(tz.$2),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => _selectedTimezone = v);
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(height: 14),
+                                  FilledButton.icon(
+                                    key: const Key('save_profile_button'),
                                     onPressed: state.isSubmitting
                                         ? null
-                                        : () => context.read<AuthBloc>().add(
-                                            AuthPasswordResetRequested(
-                                              user.email,
-                                            ),
-                                          ),
+                                        : () {
+                                            context.read<AuthBloc>().add(
+                                              AuthProfileUpdateSubmitted(
+                                                fullName: _nameController.text,
+                                                phoneNumber:
+                                                    _phoneController.text,
+                                                timezone: _selectedTimezone,
+                                              ),
+                                            );
+                                          },
                                     icon: const Icon(
-                                      Icons.mail_lock_outlined,
+                                      Icons.save_outlined,
                                       size: 18,
                                     ),
-                                    label: const Text(
-                                      'Gửi link đặt lại qua Email',
+                                    label: const Text('Lưu cập nhật hồ sơ'),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // 4. Sign-in Methods, Password & App PIN Lock
+                            const LifeOsSectionHeader(
+                              title: 'Bảo mật Đăng nhập & Khóa Mã PIN',
+                              subtitle:
+                                  'Quản lý liên kết tài khoản, mật khẩu và khóa cục bộ',
+                              tone: LifeOsAccentTone.blue,
+                            ),
+                            LifeOsSoftCard(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (user.isGoogleLinked)
+                                    Material(
+                                      color: c.surfaceRaised,
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 34,
+                                              height: 34,
+                                              padding: const EdgeInsets.all(7),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: const GoogleBrandMark(
+                                                size: 18,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Tài khoản Google đã liên kết',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 13.8,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: c.textPrimary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    'Đăng nhập 1 chạm qua ${user.email}',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 11.8,
+                                                      color: c.textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.check_circle_rounded,
+                                              color: c.success,
+                                              size: 20,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  else ...[
+                                    Text(
+                                      'Liên kết Google để đăng nhập nhanh 1 chạm trên mọi thiết bị:',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    GoogleAuthButton(
+                                      key: const Key(
+                                        'link_google_account_button',
+                                      ),
+                                      label: 'Liên kết tài khoản Google',
+                                      isLoading: state.isSubmitting,
+                                      onPressed: () =>
+                                          context.read<AuthBloc>().add(
+                                            const AuthGoogleLinkRequested(),
+                                          ),
+                                    ),
+                                  ],
+                                  const Divider(height: 22),
+
+                                  // Password row + Reset link
+                                  Row(
+                                    children: [
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.password_rounded,
+                                        tone: LifeOsAccentTone.blue,
+                                        size: 38,
+                                        iconSize: 18,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Mật khẩu đăng nhập Email',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              user.hasPasswordProvider
+                                                  ? 'Đang bật bảo vệ bằng mật khẩu riêng'
+                                                  : 'Chưa thiết lập mật khẩu riêng cho Email',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      FilledButton.tonalIcon(
+                                        key: const Key(
+                                          'open_change_password_button',
+                                        ),
+                                        onPressed: state.isSubmitting
+                                            ? null
+                                            : () => _showChangePasswordDialog(
+                                                context,
+                                                user,
+                                              ),
+                                        icon: const Icon(
+                                          Icons.lock_reset_rounded,
+                                          size: 17,
+                                        ),
+                                        label: Text(
+                                          user.hasPasswordProvider
+                                              ? 'Đổi mật khẩu'
+                                              : 'Tạo mật khẩu Email',
+                                        ),
+                                      ),
+                                      if (user.email.isNotEmpty)
+                                        OutlinedButton.icon(
+                                          key: const Key(
+                                            'send_password_reset_email_btn',
+                                          ),
+                                          onPressed: state.isSubmitting
+                                              ? null
+                                              : () => context
+                                                    .read<AuthBloc>()
+                                                    .add(
+                                                      AuthPasswordResetRequested(
+                                                        user.email,
+                                                      ),
+                                                    ),
+                                          icon: const Icon(
+                                            Icons.mail_lock_outlined,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'Gửi link qua Email',
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const Divider(height: 22),
+
+                                  // App Security PIN Row
+                                  Material(
+                                    color: c.surfaceRaised,
+                                    borderRadius: BorderRadius.circular(14),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: InkWell(
+                                      key: const Key('open_app_pin_dialog_btn'),
+                                      onTap: () =>
+                                          _showAppPinSetupDialog(context),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Row(
+                                          children: [
+                                            LifeOsIconSquircle(
+                                              icon: _hasAppPin
+                                                  ? Icons.shield_rounded
+                                                  : Icons.dialpad_rounded,
+                                              tone: _hasAppPin
+                                                  ? LifeOsAccentTone.emerald
+                                                  : LifeOsAccentTone.amber,
+                                              size: 38,
+                                              iconSize: 18,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Khóa mã PIN ứng dụng',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 13.8,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: c.textPrimary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    _hasAppPin
+                                                        ? 'Đang bật mã PIN lưu trong két sắt phần cứng'
+                                                        : 'Chạm để đặt mã PIN 4–6 số bảo vệ sổ quỹ',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 11.8,
+                                                      color: c.textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.chevron_right_rounded,
+                                              color: c.textSecondary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
-                              ],
+                                ],
+                              ),
+                            ),
+
+                            // 5. Privacy & Data Sharing Controls
+                            const LifeOsSectionHeader(
+                              title: 'Quyền riêng tư & Chia sẻ Dữ liệu',
+                              tone: LifeOsAccentTone.purple,
+                            ),
+                            LifeOsSoftCard(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.visibility_off_outlined,
+                                        tone: LifeOsAccentTone.purple,
+                                        size: 38,
+                                        iconSize: 18,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Ẩn số dư trên Trang chủ',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 13.8,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Che số tiền nhạy cảm khi mở ở nơi đông người',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 11.8,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Switch(
+                                        key: const Key(
+                                          'profile_hide_balances_switch',
+                                        ),
+                                        value: _hideBalances,
+                                        onChanged: (val) async {
+                                          setState(() => _hideBalances = val);
+                                          await UserBehaviorPrefs
+                                              .saveHideBalances(val);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 18),
+                                  Row(
+                                    children: [
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.event_available_outlined,
+                                        tone: LifeOsAccentTone.emerald,
+                                        size: 38,
+                                        iconSize: 18,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Chia sẻ khung giờ rảnh/bận',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 13.8,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Chỉ hiện trạng thái trống lịch cho thành viên nhóm',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 11.8,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Switch(
+                                        key: const Key(
+                                          'profile_availability_opt_in_switch',
+                                        ),
+                                        value: user.availabilityOptIn,
+                                        onChanged: (val) => context
+                                            .read<AuthBloc>()
+                                            .add(
+                                              AuthAvailabilitySharingToggled(
+                                                val,
+                                              ),
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 18),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      key: const Key(
+                                        'profile_open_privacy_center_row',
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () => context.push(
+                                        '/notifications-privacy',
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const LifeOsIconSquircle(
+                                              icon: Icons.shield_outlined,
+                                              tone: LifeOsAccentTone.emerald,
+                                              size: 38,
+                                              iconSize: 18,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Ngân hàng & Quyền dữ liệu',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 13.8,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: c.textPrimary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    'Quyền đọc biến động, mã QR & quản lý dữ liệu',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 11.8,
+                                                      color: c.textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.chevron_right_rounded,
+                                              color: c.textSecondary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // 6. App Version & Active Device Session
+                            const LifeOsSectionHeader(
+                              title: 'Phiên bản & Thiết bị đăng nhập',
+                              tone: LifeOsAccentTone.amber,
+                            ),
+                            const AppUpdateSettingsCard(),
+                            const SizedBox(height: 10),
+                            LifeOsSoftCard(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.smartphone_rounded,
+                                        tone: LifeOsAccentTone.emerald,
+                                        size: 38,
+                                        iconSize: 18,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Thiết bị hiện tại',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 13.8,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Phiên bảo mật đang hoạt động · ${user.email}',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 11.8,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const LifeOsStatusPill(
+                                        label: 'Đang dùng',
+                                        tone: LifeOsAccentTone.emerald,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  OutlinedButton.icon(
+                                    key: const Key('profile_sign_out_button'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: c.error,
+                                      side: BorderSide(
+                                        color: c.error.withValues(alpha: 0.45),
+                                      ),
+                                    ),
+                                    onPressed: () =>
+                                        context.read<AuthBloc>().add(
+                                          const AuthSignOutRequested(),
+                                        ),
+                                    icon: const Icon(Icons.logout_rounded),
+                                    label: const Text(
+                                      'Đăng xuất khỏi thiết bị này',
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 6. App Version & OTA Self-Update Card
-                    const AppUpdateSettingsCard(),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 7. Privacy Center & Sign Out
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              leading: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: c.primarySubtle,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.shield_outlined,
-                                  color: c.primary,
-                                ),
-                              ),
-                              title: const Text('Ngân hàng & Quyền riêng tư'),
-                              subtitle: const Text(
-                                'Quyền thông báo, sao lưu & xóa tài khoản',
-                              ),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () =>
-                                  context.push('/notifications-privacy'),
-                            ),
-                            const Divider(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                key: const Key('profile_sign_out_button'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: c.error,
-                                ),
-                                onPressed: () => context.read<AuthBloc>().add(
-                                  const AuthSignOutRequested(),
-                                ),
-                                icon: const Icon(Icons.logout_rounded),
-                                label: const Text(
-                                  'Đăng xuất khỏi thiết bị này',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -650,6 +1507,50 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
       },
     );
   }
+}
+
+class _SecurityScoreRingPainter extends CustomPainter {
+  final double fraction;
+  final Color trackColor;
+  final Color activeColor;
+
+  const _SecurityScoreRingPainter({
+    required this.fraction,
+    required this.trackColor,
+    required this.activeColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) / 2) - 3.5;
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    final sweep = 2 * math.pi * fraction.clamp(0.05, 1.0);
+    final activePaint = Paint()
+      ..color = activeColor
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4.5;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      sweep,
+      false,
+      activePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SecurityScoreRingPainter oldDelegate) =>
+      oldDelegate.fraction != fraction ||
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.activeColor != activeColor;
 }
 
 /// Reusable circular avatar showing Google photoUrl (with error fallback) or crisp initials.

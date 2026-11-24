@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -43,9 +44,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
     final user = context.watch<AuthBloc>().state.user;
     final userId = user?.id ?? '';
     final wallets = context.watch<TransactionListBloc>().state.wallets;
-    final primaryWalletId = wallets.isNotEmpty
-        ? wallets.first.id
-        : 'wallet_bank_default';
+    final primaryWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
+      wallets.map((w) => w.id),
+    );
     final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
 
     final calc = VietnamEvnUtilityEngine.calculate(
@@ -64,17 +65,18 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
       listenWhen: (p, n) =>
-          p.successBanner != n.successBanner || p.failure != n.failure,
+          (n.failure != null && p.failure != n.failure) ||
+          (n.successBanner != null && p.successBanner != n.successBanner),
       listener: (context, state) {
-        if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text(state.successBanner!)),
-          );
-        } else if (state.failure != null) {
+        if (state.failure != null) {
           LifeOsTopToast.fromSnackBar(
             context,
             SnackBar(content: Text(state.failure!.message)),
+          );
+        } else if (state.successBanner != null) {
+          LifeOsTopToast.fromSnackBar(
+            context,
+            SnackBar(content: Text(state.successBanner!)),
           );
         }
       },
@@ -243,7 +245,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
     BuildContext context,
     TammySemanticColors c,
     String userId,
-    String primaryWalletId,
+    String? primaryWalletId,
     String monthKey,
     UtilityBillCalculation calc,
     List<UtilityMeterReadingEntity> readings,
@@ -255,22 +257,36 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Chế độ tính giá Điện',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14.5,
-                        color: c.textPrimary,
-                      ),
+                  Text(
+                    'Chế độ tính giá Điện',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: c.textPrimary,
                     ),
                   ),
                   SegmentedButton<bool>(
                     segments: const [
-                      ButtonSegment(value: true, label: Text('EVN 5 bậc')),
-                      ButtonSegment(value: false, label: Text('Phòng trọ')),
+                      ButtonSegment(
+                        value: true,
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('EVN 5 bậc'),
+                        ),
+                      ),
+                      ButtonSegment(
+                        value: false,
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Phòng trọ'),
+                        ),
+                      ),
                     ],
                     selected: {_useEvnTiered},
                     onSelectionChanged: (s) =>
@@ -284,12 +300,19 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   isExpanded: true,
                   initialValue: _evnPolicy,
                   decoration: const InputDecoration(
-                    labelText: 'Chính sách biểu giá Bộ Công Thương',
+                    labelText: 'Biểu giá điện',
                     isDense: true,
                   ),
                   items: EvnTariffPolicy.values
                       .map(
-                        (p) => DropdownMenuItem(value: p, child: Text(p.title)),
+                        (p) => DropdownMenuItem(
+                          value: p,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(p.title),
+                          ),
+                        ),
                       )
                       .toList(),
                   onChanged: (v) {
@@ -414,7 +437,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Thuế GTGT Điện (VAT 8%)',
+                          'Thuế GTGT Điện (VAT $_vatRatePercent%)',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: c.textSecondary,
@@ -478,6 +501,12 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const Key('save_utility_reading_btn'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                      ),
                       onPressed: userId.isEmpty
                           ? null
                           : () {
@@ -495,17 +524,34 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                 ),
                               );
                             },
-                      icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                      label: const Text('Lưu chỉ số tháng'),
+                      icon: const Icon(Icons.bookmark_add_outlined, size: 17),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Lưu chỉ số tháng'),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('pay_utility_to_wallet_btn'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                      ),
                       onPressed: userId.isEmpty
                           ? null
                           : () {
+                              if (primaryWalletId == null) {
+                                LifeOsTopToast.show(
+                                  context,
+                                  'Vui lòng tạo ít nhất 1 Ví trong tab Tài chính trước khi ghi hóa đơn.',
+                                  kind: LifeOsToastKind.warning,
+                                );
+                                return;
+                              }
                               context.read<TransactionActionBloc>().add(
                                 TransactionCreateSubmitted(
                                   operationId:
@@ -528,13 +574,16 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                 context,
                                 const SnackBar(
                                   content: Text(
-                                    '✓ Đã ghi hóa đơn Điện Nước vào Sổ cái Ví!',
+                                    '✓ Đã ghi hóa đơn Điện Nước vào Ví!',
                                   ),
                                 ),
                               );
                             },
-                      icon: const Icon(Icons.payments_outlined, size: 18),
-                      label: const Text('Ghi vào Ví'),
+                      icon: const Icon(Icons.payments_outlined, size: 17),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Ghi vào Ví'),
+                      ),
                     ),
                   ),
                 ],
@@ -627,7 +676,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
     BuildContext context,
     TammySemanticColors c,
     String userId,
-    String primaryWalletId,
+    String? primaryWalletId,
     HomeContractMaintenanceEntity? contract,
   ) {
     final dateFmt = DateFormat('dd/MM/yyyy');
@@ -771,6 +820,14 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                       onPressed: userId.isEmpty || display.monthlyRentMinor <= 0
                           ? null
                           : () {
+                              if (primaryWalletId == null) {
+                                LifeOsTopToast.show(
+                                  context,
+                                  'Vui lòng tạo ít nhất 1 Ví trong tab Tài chính trước khi đóng tiền nhà.',
+                                  kind: LifeOsToastKind.warning,
+                                );
+                                return;
+                              }
                               context.read<TransactionActionBloc>().add(
                                 TransactionCreateSubmitted(
                                   operationId:
@@ -790,7 +847,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                                 context,
                                 const SnackBar(
                                   content: Text(
-                                    '✓ Đã ghi khoản Tiền nhà vào Sổ cái Ví!',
+                                    '✓ Đã ghi khoản Tiền nhà vào Ví!',
                                   ),
                                 ),
                               );
@@ -940,18 +997,19 @@ class _MeterSliderControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Flexible(
-              child: Text(
-                title,
-                softWrap: true,
-                style: TextStyle(fontSize: 12.8, color: c.textSecondary),
-              ),
+            Text(
+              title,
+              softWrap: true,
+              style: TextStyle(fontSize: 12.8, color: c.textSecondary),
             ),
-            const SizedBox(width: 8),
             Text(
               trailing,
               style: TextStyle(

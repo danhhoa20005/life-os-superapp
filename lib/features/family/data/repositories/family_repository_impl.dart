@@ -578,6 +578,7 @@ class FamilyRemoteDataSource {
         'memberIds': memberIds,
         'memberRoles': roles,
         'memberNames': names,
+        'lastRemovedMemberId': targetUserId,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
     });
@@ -698,6 +699,7 @@ class FamilyRemoteDataSource {
       'splitMethod': splitMethod.name,
       'sharesByUserId': sharesByUserId,
       'participantNames': participantNames,
+      'status': 'open',
       if (choreOrTaskNote != null && choreOrTaskNote.isNotEmpty)
         'choreOrTaskNote': choreOrTaskNote,
       'createdAt': Timestamp.fromDate(now),
@@ -717,26 +719,47 @@ class FamilyRemoteDataSource {
     required String paymentCode,
     String? note,
   }) async {
-    final id = _uuid.v4();
+    if (fromUserId == toUserId) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Người trả nợ và người nhận không được trùng nhau.',
+      );
+    }
     final now = DateTime.now();
+    // F04 / SEC-04: Deterministic idempotency key per (family, payer, payee, amount, paymentCode)
+    // prevents double-confirm from ever creating duplicate settlement ledger entries!
+    final safeCode = paymentCode
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9_-]'), '');
+    final id = safeCode.isNotEmpty && safeCode != 'LIFEOS'
+        ? 'stl_${fromUserId}_${toUserId}_${amountMinor}_$safeCode'
+        : _uuid.v4();
     final ref = _firestore
         .collection('families')
         .doc(familyId)
         .collection('settlements')
         .doc(id);
 
-    await ref.set({
-      'id': id,
-      'familyId': familyId,
-      'fromUserId': fromUserId,
-      'fromUserName': fromUserName,
-      'toUserId': toUserId,
-      'toUserName': toUserName,
-      'amountMinor': amountMinor,
-      'currencyCode': 'VND',
-      'paymentCode': paymentCode,
-      if (note != null && note.isNotEmpty) 'note': note,
-      'createdAt': Timestamp.fromDate(now),
+    await _firestore.runTransaction((tx) async {
+      final existing = await tx.get(ref);
+      if (existing.exists) {
+        return;
+      }
+      tx.set(ref, {
+        'id': id,
+        'familyId': familyId,
+        'fromUserId': fromUserId,
+        'fromUserName': fromUserName,
+        'toUserId': toUserId,
+        'toUserName': toUserName,
+        'amountMinor': amountMinor,
+        'currencyCode': 'VND',
+        'paymentCode': paymentCode,
+        'status': 'confirmed',
+        if (note != null && note.isNotEmpty) 'note': note,
+        'createdAt': Timestamp.fromDate(now),
+      });
     });
 
     final snap = await ref.get();

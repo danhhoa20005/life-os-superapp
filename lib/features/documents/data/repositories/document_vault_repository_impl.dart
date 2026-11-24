@@ -32,6 +32,16 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
       return null;
     }
 
+    final rawLifecycle = d['storageLifecycle'] as String?;
+    final localPath = d['localAttachmentPath'] as String?;
+    final lifecycle = switch (rawLifecycle) {
+      'localDeviceOnlyBinary' => DocumentStorageLifecycle.localDeviceOnlyBinary,
+      'cloudEncryptedBackup' => DocumentStorageLifecycle.cloudEncryptedBackup,
+      _ => (localPath != null && localPath.isNotEmpty)
+          ? DocumentStorageLifecycle.localDeviceOnlyBinary
+          : DocumentStorageLifecycle.metadataCloudSynced,
+    };
+
     return DocumentVaultEntity(
       id: doc.id,
       ownerId: (d['ownerId'] ?? d['uploadedBy'] ?? '') as String,
@@ -44,6 +54,8 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
       uploadedByName: (d['uploadedByName'] ?? 'Thành viên') as String,
       expiryDate: parseNullableDt(d['expiryDate']),
       createdAt: parseDt(d['createdAt'], DateTime.now()),
+      storageLifecycle: lifecycle,
+      localAttachmentPath: localPath,
     );
   }
 
@@ -144,6 +156,10 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         'referenceCode': entity.referenceCode,
         'note': entity.note,
         'expiryDate': params.expiryDate?.toIso8601String(),
+        'storageLifecycle': entity.storageLifecycle.name,
+        'binaryBackedUpToCloud':
+            entity.storageLifecycle ==
+            DocumentStorageLifecycle.cloudEncryptedBackup,
         'createdAt': now.toIso8601String(),
       };
 

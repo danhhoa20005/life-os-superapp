@@ -34,6 +34,22 @@ abstract interface class TaskRepository {
     required TaskEntity task,
     required TaskWorkflowStatus nextStatus,
   });
+
+  Future<Result<void>> updateTask({
+    required String actorUserId,
+    required TaskEntity task,
+    required String title,
+    String? description,
+    DateTime? dueAt,
+    bool clearDueAt = false,
+    required TaskPriorityLevel priority,
+    required TaskRecurrence recurrence,
+  });
+
+  Future<Result<void>> deleteTask({
+    required String actorUserId,
+    required TaskEntity task,
+  });
 }
 
 final class CreateTaskParams {

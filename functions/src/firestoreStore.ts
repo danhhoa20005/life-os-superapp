@@ -413,6 +413,9 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
       if (cur.state !== "PENDING_DELIVERY" && cur.state !== "FAILED_RETRYABLE") {
         return { claimed: false, record: cur };
       }
+      if (cur.state === "FAILED_RETRYABLE" && typeof cur.nextRetryAtMs === "number" && cur.nextRetryAtMs > nowMs) {
+        return { claimed: false, record: cur };
+      }
       const dispatching: NotificationOutboxRecord = {
         ...cur,
         state: "DISPATCHING",
@@ -421,6 +424,23 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
       tx.set(ref, stripUndefined({ ...dispatching, updatedAt: Timestamp.fromMillis(nowMs) }), { merge: true });
       return { claimed: true, record: dispatching };
     });
+  }
+
+  async listDueRetryableOutboxRecords(nowMs: number, limit = 50): Promise<NotificationOutboxRecord[]> {
+    const snap = await this.db
+      .collection("notification_outbox")
+      .where("state", "==", "FAILED_RETRYABLE")
+      .limit(limit * 2)
+      .get();
+    const due: NotificationOutboxRecord[] = [];
+    for (const doc of snap.docs) {
+      const rec = doc.data() as NotificationOutboxRecord;
+      if (typeof rec.nextRetryAtMs !== "number" || rec.nextRetryAtMs <= nowMs) {
+        due.push(rec);
+        if (due.length >= limit) break;
+      }
+    }
+    return due;
   }
 
   async getOutboxRecord(notificationId: string): Promise<NotificationOutboxRecord | null> {

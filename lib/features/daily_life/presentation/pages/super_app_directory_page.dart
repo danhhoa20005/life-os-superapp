@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/voice_smart_capture_sheet.dart';
@@ -43,8 +44,23 @@ class SuperAppDirectoryPage extends StatefulWidget {
 }
 
 class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
+  final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
   String _domainFilter = 'all';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _resetDirectoryFilters() {
+    setState(() {
+      _searchCtrl.clear();
+      _query = '';
+      _domainFilter = 'all';
+    });
+  }
 
   static const List<SuperAppServiceEntry> _catalog = [
     // 1. TÀI CHÍNH, NGÂN HÀNG & THUẾ LƯƠNG
@@ -246,13 +262,17 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     final dailySnap = context.watch<DailyLifeBloc>().state.snapshot;
     final proSnap = context.watch<ProUtilitiesBloc>().state;
 
-    final q = _query.trim().toLowerCase();
+    final q = _query.trim();
+    final hasActiveFilters = _domainFilter != 'all' || q.isNotEmpty;
     final filtered = _catalog.where((e) {
       if (_domainFilter != 'all' && e.domainKey != _domainFilter) return false;
       if (q.isEmpty) return true;
-      return e.shortLabel.toLowerCase().contains(q) ||
-          e.keywords.toLowerCase().contains(q) ||
-          e.domainTitle.toLowerCase().contains(q);
+      return VietnameseSearchMatcher.matchesAny(q, [
+        e.shortLabel,
+        e.keywords,
+        e.domainTitle,
+        if (e.route == '/health-hub') 'uống nước nhắc nước nhắc thuốc',
+      ]);
     }).toList();
 
     final grouped = <String, List<SuperAppServiceEntry>>{};
@@ -333,10 +353,31 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                         // Compact Instant Search
                         TextField(
                           key: const Key('super_app_directory_search_input'),
-                          decoration: const InputDecoration(
+                          controller: _searchCtrl,
+                          decoration: InputDecoration(
                             isDense: true,
                             hintText: 'Tìm dịch vụ, tiện ích',
-                            prefixIcon: Icon(Icons.search_rounded, size: 20),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                            ),
+                            suffixIcon: _query.isEmpty
+                                ? null
+                                : IconButton(
+                                    key: const Key(
+                                      'super_app_directory_clear_btn',
+                                    ),
+                                    tooltip: 'Xóa tìm kiếm',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => setState(() {
+                                      _searchCtrl.clear();
+                                      _query = '';
+                                    }),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                    ),
+                                  ),
                           ),
                           onChanged: (v) => setState(() => _query = v),
                         ),
@@ -358,15 +399,72 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                                   padding: const EdgeInsets.only(right: 6),
                                   child: ChoiceChip(
                                     label: Text(f.$2),
-                                    selected: _domainFilter == f.$1,
-                                    onSelected: (_) =>
-                                        setState(() => _domainFilter = f.$1),
+                                    selected: f.$1 == 'all'
+                                        ? !hasActiveFilters
+                                        : _domainFilter == f.$1,
+                                    onSelected: (_) {
+                                      if (f.$1 == 'all') {
+                                        _resetDirectoryFilters();
+                                      } else {
+                                        setState(() {
+                                          _domainFilter =
+                                              _domainFilter == f.$1
+                                              ? 'all'
+                                              : f.$1;
+                                        });
+                                      }
+                                    },
                                   ),
                                 ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 10),
+
+                        if (grouped.isEmpty)
+                          LifeOsSoftCard(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 38,
+                                  color: c.textSecondary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Không tìm thấy dịch vụ phù hợp',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Bấm nút bên dưới để hiển thị lại toàn bộ danh mục tiện ích.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                FilledButton.tonalIcon(
+                                  key: const Key(
+                                    'super_app_directory_reset_btn',
+                                  ),
+                                  onPressed: _resetDirectoryFilters,
+                                  icon: const Icon(
+                                    Icons.filter_alt_off_rounded,
+                                    size: 17,
+                                  ),
+                                  label: const Text('Xem tất cả dịch vụ'),
+                                ),
+                              ],
+                            ),
+                          ),
 
                         // Grouped 4-Column Super App Icon Cards (Zero vertical bloat & zero truncation!)
                         for (final entry in grouped.entries) ...[

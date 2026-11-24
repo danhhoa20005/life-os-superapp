@@ -169,6 +169,7 @@ class CalendarRemoteDataSource {
   Future<void> deleteCalendar({
     required String userId,
     required ManagedCalendarEntity calendar,
+    bool disconnectLocalOnly = false,
   }) async {
     if (calendar.isPrimary || calendar.id == 'primary') {
       throw const AppException(
@@ -176,22 +177,48 @@ class CalendarRemoteDataSource {
         message: 'Không thể xóa bộ lịch chính mặc định.',
       );
     }
-    if (calendar.googleCalendarId != null &&
-        calendar.googleCalendarId!.isNotEmpty &&
-        _googleApi != null &&
-        _googleApi.hasAuthorizedToken) {
+
+    final userRef = _firestore.collection('users').doc(userId);
+    final calDocRef = userRef.collection('calendars').doc(calendar.id);
+
+    // F17 / CAL-01: Never wipe local calendar & events silently if Google remote deletion fails!
+    if (!disconnectLocalOnly &&
+        calendar.googleCalendarId != null &&
+        calendar.googleCalendarId!.isNotEmpty) {
+      if (_googleApi == null) {
+        await calDocRef.set({
+          'pendingRemoteDelete': true,
+          'lastSyncError': 'Chưa cấu hình dịch vụ Google Calendar.',
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        }, SetOptions(merge: true));
+        throw const AppException(
+          code: 'CALENDAR_SYNC_UNAVAILABLE',
+          message:
+              'Không thể kết nối Google Calendar lúc này. Đã giữ an toàn sự kiện trên máy và đánh dấu chờ xóa.',
+        );
+      }
       try {
         final token = await _googleApi.acquireAccessToken(interactive: false);
         await _googleApi.deleteSecondaryCalendar(
           accessToken: token,
           googleCalendarId: calendar.googleCalendarId!,
         );
-      } catch (_) {}
+      } catch (e) {
+        await calDocRef.set({
+          'pendingRemoteDelete': true,
+          'lastSyncError': e.toString(),
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        }, SetOptions(merge: true));
+        throw const AppException(
+          code: 'CALENDAR_REMOTE_DELETE_FAILED',
+          message:
+              'Xóa trên Google Calendar chưa thành công (mất mạng hoặc hết phiên OAuth). Dữ liệu cục bộ được giữ nguyên để tránh mất lịch.',
+        );
+      }
     }
 
     final batch = _firestore.batch();
-    final userRef = _firestore.collection('users').doc(userId);
-    batch.delete(userRef.collection('calendars').doc(calendar.id));
+    batch.delete(calDocRef);
 
     final linkedEvents = await userRef
         .collection('private_events')
@@ -781,28 +808,58 @@ class CalendarRemoteDataSource {
         final calBatch = _firestore.batch();
         final activeDevCalIds = <int, String>{};
         final devCalColorById = <int, String>{};
+        final seenCanonicalToDocId = <String, String>{};
+
+        // Pre-seed canonical keys from existing Google / LifeOS calendars so Engine A
+        // maps identical device calendars directly onto existing canonical IDs instead of duplicating.
+        for (final existing in existingCalById.values) {
+          if (!existing.id.startsWith('devcal_')) {
+            final key = CalendarListDeduplicator.canonicalGroupKey(existing);
+            seenCanonicalToDocId.putIfAbsent(key, () => existing.id);
+          }
+        }
 
         for (final dc in devCalendars) {
-          final calDocId = dc.isPrimary
+          final tempEntity = ManagedCalendarEntity(
+            id: dc.isPrimary ? 'primary' : 'devcal_${dc.deviceCalendarId}',
+            ownerId: userId,
+            summary: dc.summary,
+            description: dc.accountName,
+            isPrimary: dc.isPrimary,
+            isReadOnly: dc.isReadOnly,
+            source: CalendarProviderSource.deviceCalendar,
+          );
+          final canonicalKey = CalendarListDeduplicator.canonicalGroupKey(
+            tempEntity,
+          );
+          final calDocId = canonicalKey == '__primary__'
               ? 'primary'
-              : 'devcal_${dc.deviceCalendarId}';
+              : (seenCanonicalToDocId[canonicalKey] ??
+                    'devcal_${dc.deviceCalendarId}');
+          seenCanonicalToDocId.putIfAbsent(canonicalKey, () => calDocId);
+
           final prev = existingCalById[calDocId];
           final merged = ManagedCalendarEntity(
             id: calDocId,
             ownerId: userId,
-            summary: dc.summary,
+            summary: prev != null && !prev.id.startsWith('devcal_')
+                ? prev.summary
+                : dc.summary,
             description: dc.accountName.isNotEmpty
                 ? dc.accountName
                 : prev?.description,
             timeZone: dc.timeZone,
-            colorHex: dc.colorHex,
+            colorHex: prev?.colorHex ?? dc.colorHex,
             isPrimary: dc.isPrimary || calDocId == 'primary',
             isSelected: prev?.isSelected ?? true,
-            isReadOnly: dc.isReadOnly,
-            source: CalendarProviderSource.deviceCalendar,
+            isReadOnly: prev?.isReadOnly ?? dc.isReadOnly,
+            source: prev != null &&
+                    prev.source == CalendarProviderSource.googleCalendar
+                ? CalendarProviderSource.googleCalendar
+                : CalendarProviderSource.deviceCalendar,
             googleCalendarId: prev?.googleCalendarId,
             googleSyncToken: prev?.googleSyncToken,
-            deviceCalendarId: dc.deviceCalendarId,
+            deviceCalendarId: prev?.deviceCalendarId ?? dc.deviceCalendarId,
             lastSyncedAt: now,
           );
           calBatch.set(
@@ -810,6 +867,7 @@ class CalendarRemoteDataSource {
             _calendarToFirestore(merged),
             SetOptions(merge: true),
           );
+          existingCalById[calDocId] = merged;
           if (merged.isSelected) {
             activeDevCalIds[dc.deviceCalendarId] = calDocId;
           }
@@ -1014,7 +1072,20 @@ class CalendarRemoteDataSource {
           final calBatch = _firestore.batch();
           final syncedCalendars = <ManagedCalendarEntity>[];
           for (final rc in remoteCalendars) {
-            final prev = existingCalById[rc.id];
+            final rcKey = CalendarListDeduplicator.canonicalGroupKey(rc);
+            ManagedCalendarEntity? prev = existingCalById[rc.id];
+            final duplicateDevCalIds = <String>[];
+
+            for (final existing in existingCalById.values) {
+              if (existing.id == rc.id) continue;
+              if (existing.id.startsWith('devcal_') &&
+                  CalendarListDeduplicator.canonicalGroupKey(existing) ==
+                      rcKey) {
+                prev ??= existing;
+                duplicateDevCalIds.add(existing.id);
+              }
+            }
+
             final merged = rc.copyWith(
               isSelected: prev?.isSelected ?? rc.isSelected,
               googleSyncToken: prev?.googleSyncToken,
@@ -1027,6 +1098,9 @@ class CalendarRemoteDataSource {
               _calendarToFirestore(merged),
               SetOptions(merge: true),
             );
+            for (final dupId in duplicateDevCalIds) {
+              calBatch.delete(calendarsCol.doc(dupId));
+            }
           }
           await calBatch.commit();
 

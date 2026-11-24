@@ -19,6 +19,19 @@ class AppUpdateRemoteDataSource {
   static const String githubLatestApiUrl =
       'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest';
 
+  static const Set<String> trustedOtaHosts = <String>{
+    'github.com',
+    'objects.githubusercontent.com',
+    'release-assets.githubusercontent.com',
+    'firebasestorage.googleapis.com',
+  };
+
+  static final RegExp _sha256HexRegex = RegExp(r'^[a-fA-F0-9]{64}$');
+  static final RegExp _bodySha256Regex = RegExp(
+    r'(?:sha[-_]?256\s*[:=]\s*|`|\b)([a-fA-F0-9]{64})\b',
+    caseSensitive: false,
+  );
+
   final FirebaseFirestore _firestore;
   final NativeAppUpdaterBridge _updaterBridge;
   final http.Client _httpClient;
@@ -30,6 +43,32 @@ class AppUpdateRemoteDataSource {
   }) : _firestore = firestore,
        _updaterBridge = updaterBridge,
        _httpClient = httpClient ?? http.Client();
+
+  static bool isTrustedDownloadUrl(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl.trim());
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      return false;
+    }
+    final host = uri.host.toLowerCase();
+    return trustedOtaHosts.contains(host);
+  }
+
+  static String? normalizeSha256(String? raw) {
+    if (raw == null) return null;
+    var cleaned = raw.trim();
+    if (cleaned.toLowerCase().startsWith('sha256:')) {
+      cleaned = cleaned.substring(7).trim();
+    }
+    if (_sha256HexRegex.hasMatch(cleaned)) {
+      return cleaned.toLowerCase();
+    }
+    return null;
+  }
+
+  static String? extractSha256FromReleaseNotes(String body) {
+    final m = _bodySha256Regex.firstMatch(body);
+    return normalizeSha256(m?.group(1));
+  }
 
   Future<InstalledAppMeta> getInstalledVersion() =>
       _updaterBridge.getInstalledAppVersion();
@@ -43,8 +82,16 @@ class AppUpdateRemoteDataSource {
     AppReleaseManifest? best;
     for (final candidate in results) {
       if (candidate == null) continue;
-      if (best == null ||
-          candidate.semanticVersion.isNewerThan(best.semanticVersion)) {
+      if (best == null) {
+        best = candidate;
+        continue;
+      }
+      if (candidate.semanticVersion.isNewerThan(best.semanticVersion)) {
+        best = candidate;
+      } else if (!best.semanticVersion.isNewerThan(candidate.semanticVersion) &&
+          normalizeSha256(best.apkSha256) == null &&
+          normalizeSha256(candidate.apkSha256) != null) {
+        // Prefer the manifest carrying verified SHA-256 metadata for the same release version
         best = candidate;
       }
     }
@@ -90,7 +137,7 @@ class AppUpdateRemoteDataSource {
         htmlReleaseUrl:
             (d['htmlReleaseUrl'] as String?) ?? defaultGithubReleasesUrl,
         apkSizeBytes: (d['apkSizeBytes'] as num?)?.toInt(),
-        apkSha256: d['apkSha256'] as String?,
+        apkSha256: normalizeSha256(d['apkSha256'] as String?),
         publishedAt: publishedAt,
         sourceName: 'Firebase Cloud',
       );
@@ -122,6 +169,9 @@ class AppUpdateRemoteDataSource {
 
       String? apkUrl;
       int? apkSize;
+      String? apkSha256;
+      String? sidecarSha256Url;
+
       final assets = data['assets'];
       if (assets is Iterable) {
         for (final asset in assets) {
@@ -130,13 +180,34 @@ class AppUpdateRemoteDataSource {
             if (name.endsWith('.apk')) {
               apkUrl = asset['browser_download_url'] as String?;
               apkSize = (asset['size'] as num?)?.toInt();
-              break;
+              apkSha256 = normalizeSha256(asset['digest'] as String?);
+            } else if (name.endsWith('.apk.sha256') || name.endsWith('.sha256')) {
+              sidecarSha256Url = asset['browser_download_url'] as String?;
             }
           }
         }
       }
 
       final rawBody = (data['body'] as String?) ?? '';
+      apkSha256 ??= extractSha256FromReleaseNotes(rawBody);
+
+      if (apkSha256 == null &&
+          sidecarSha256Url != null &&
+          isTrustedDownloadUrl(sidecarSha256Url)) {
+        try {
+          final sidecarRes = await _httpClient
+              .get(Uri.parse(sidecarSha256Url))
+              .timeout(const Duration(seconds: 4));
+          if (sidecarRes.statusCode == 200) {
+            final firstToken = sidecarRes.body
+                .trim()
+                .split(RegExp(r'\s+'))
+                .firstOrNull;
+            apkSha256 = normalizeSha256(firstToken);
+          }
+        } catch (_) {}
+      }
+
       final parsedNotes = rawBody
           .split('\n')
           .map((l) => l.trim())
@@ -163,6 +234,7 @@ class AppUpdateRemoteDataSource {
         htmlReleaseUrl:
             (data['html_url'] as String?) ?? defaultGithubReleasesUrl,
         apkSizeBytes: apkSize,
+        apkSha256: apkSha256,
         publishedAt:
             DateTime.tryParse((data['published_at'] ?? '').toString()) ??
             DateTime.now(),
@@ -171,6 +243,11 @@ class AppUpdateRemoteDataSource {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<bool> _matchesFileSha256(File file, String expectedSha256Lower) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString().toLowerCase() == expectedSha256Lower;
   }
 
   Stream<OtaDownloadProgress> downloadAndInstall(
@@ -190,6 +267,37 @@ class AppUpdateRemoteDataSource {
       return;
     }
 
+    // F15: Enforce HTTPS + trusted release host allowlist (fail-closed)
+    if (!isTrustedDownloadUrl(apkUrl)) {
+      throw const AppException(
+        code: 'OTA_UNTRUSTED_ORIGIN',
+        message:
+            'Nguồn tải gói cập nhật không nằm trong danh sách máy chủ tin cậy HTTPS. Đã chặn cài đặt.',
+      );
+    }
+
+    // F15: Mandatory SHA-256 checksum on ALL OTA install paths (fail-closed)
+    final expectedSha256 = normalizeSha256(manifest.apkSha256);
+    if (expectedSha256 == null) {
+      throw const AppException(
+        code: 'OTA_MISSING_CHECKSUM',
+        message:
+            'Bản cập nhật thiếu mã băm SHA-256 xác thực toàn vẹn. Đã chặn tự động cài đặt để bảo vệ thiết bị.',
+      );
+    }
+
+    // F15: Prevent downgrade attacks — manifest build number must exceed installed build when non-zero
+    final installed = await _updaterBridge.getInstalledAppVersion();
+    if (manifest.latestBuildNumber > 0 &&
+        installed.buildNumber > 0 &&
+        manifest.latestBuildNumber <= installed.buildNumber) {
+      throw const AppException(
+        code: 'OTA_DOWNGRADE_BLOCKED',
+        message:
+            'Phiên bản gói APK không mới hơn bản đang cài đặt trên máy. Đã hủy cập nhật.',
+      );
+    }
+
     final cacheDir = await _updaterBridge.getUpdateCacheDir();
     final safeVer = manifest.latestVersion.replaceAll(
       RegExp(r'[^0-9A-Za-z._-]'),
@@ -197,23 +305,36 @@ class AppUpdateRemoteDataSource {
     );
     final targetFile = File('$cacheDir/life-os-$safeVer.apk');
 
-    // If the exact APK is already downloaded and matches size/hash, skip re-downloading!
+    // APP-01: Cached APK is NEVER trusted by byte size alone — MUST pass full SHA-256 verification!
     if (targetFile.existsSync()) {
       final len = targetFile.lengthSync();
-      final matchesExpected =
+      final sizeOk =
           manifest.apkSizeBytes == null || len == manifest.apkSizeBytes;
-      if (matchesExpected && len > 1024 * 100) {
-        final status = await _updaterBridge.installApk(targetFile.path);
+      if (sizeOk && len > 0) {
         yield OtaDownloadProgress(
-          stage: status == 'PERMISSION_REQUIRED'
-              ? OtaInstallStage.permissionRequired
-              : OtaInstallStage.installerLaunched,
+          stage: OtaInstallStage.verifyingHash,
           receivedBytes: len,
           totalBytes: len,
           localApkPath: targetFile.path,
         );
-        return;
+        final cacheValid = await _matchesFileSha256(targetFile, expectedSha256);
+        if (cacheValid) {
+          final status = await _updaterBridge.installApk(targetFile.path);
+          yield OtaDownloadProgress(
+            stage: status == 'PERMISSION_REQUIRED'
+                ? OtaInstallStage.permissionRequired
+                : OtaInstallStage.installerLaunched,
+            receivedBytes: len,
+            totalBytes: len,
+            localApkPath: targetFile.path,
+          );
+          return;
+        }
       }
+      // Tampered or corrupted cache file: purge immediately before fresh download or error!
+      try {
+        targetFile.deleteSync();
+      } catch (_) {}
     }
 
     final request = http.Request('GET', Uri.parse(apkUrl));
@@ -252,25 +373,23 @@ class AppUpdateRemoteDataSource {
       await sink.close();
     }
 
-    if (manifest.apkSha256 != null && manifest.apkSha256!.trim().isNotEmpty) {
-      yield OtaDownloadProgress(
-        stage: OtaInstallStage.verifyingHash,
-        receivedBytes: received,
-        totalBytes: totalBytes > 0 ? totalBytes : received,
-        localApkPath: targetFile.path,
-      );
-      final digest = await sha256.bind(targetFile.openRead()).first;
-      if (digest.toString().toLowerCase() !=
-          manifest.apkSha256!.trim().toLowerCase()) {
-        if (targetFile.existsSync()) {
-          targetFile.deleteSync();
-        }
-        throw const AppException(
-          code: 'OTA_CHECKSUM_MISMATCH',
-          message:
-              'Mã kiểm tra toàn vẹn SHA-256 của gói APK không khớp. Đã hủy cài đặt an toàn.',
-        );
+    yield OtaDownloadProgress(
+      stage: OtaInstallStage.verifyingHash,
+      receivedBytes: received,
+      totalBytes: totalBytes > 0 ? totalBytes : received,
+      localApkPath: targetFile.path,
+    );
+
+    final hashValid = await _matchesFileSha256(targetFile, expectedSha256);
+    if (!hashValid) {
+      if (targetFile.existsSync()) {
+        targetFile.deleteSync();
       }
+      throw const AppException(
+        code: 'OTA_CHECKSUM_MISMATCH',
+        message:
+            'Mã kiểm tra toàn vẹn SHA-256 của gói APK không khớp. Đã xóa tệp và hủy cài đặt an toàn.',
+      );
     }
 
     yield OtaDownloadProgress(

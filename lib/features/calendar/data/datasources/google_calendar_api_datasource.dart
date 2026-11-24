@@ -66,7 +66,6 @@ class GoogleCalendarApiDataSource {
     'https://www.googleapis.com/auth/calendar.events',
   ];
 
-  final FirebaseAuth _firebaseAuth;
   final http.Client _httpClient;
   final GoogleCalendarTokenProvider? _tokenProviderOverride;
 
@@ -74,11 +73,10 @@ class GoogleCalendarApiDataSource {
   DateTime? _cachedTokenExpiresAt;
 
   GoogleCalendarApiDataSource({
-    required FirebaseAuth firebaseAuth,
+    FirebaseAuth? firebaseAuth,
     http.Client? httpClient,
     GoogleCalendarTokenProvider? tokenProviderOverride,
-  }) : _firebaseAuth = firebaseAuth,
-       _httpClient = httpClient ?? http.Client(),
+  }) : _httpClient = httpClient ?? http.Client(),
        _tokenProviderOverride = tokenProviderOverride;
 
   bool get hasAuthorizedToken =>
@@ -112,32 +110,15 @@ class GoogleCalendarApiDataSource {
         cacheManualAccessToken(provided);
         return provided;
       }
+      throw const AppException(
+        code: 'AUTH_REQUIRED',
+        message: 'Chưa cấp quyền kết nối Google Calendar.',
+      );
     }
 
-    if (kIsWeb) {
-      if (!interactive) {
-        throw const AppException(
-          code: 'AUTH_REQUIRED',
-          message: 'Cần xác thực quyền truy cập Google Calendar.',
-        );
-      }
-      final provider = GoogleAuthProvider()
-        ..addScope(calendarScopes.first)
-        ..addScope(calendarScopes.last)
-        ..setCustomParameters(const {'prompt': 'consent'});
-      final cred = await _firebaseAuth.signInWithPopup(provider);
-      final oauthCred = cred.credential;
-      final token = oauthCred is OAuthCredential ? oauthCred.accessToken : null;
-      if (token == null || token.isEmpty) {
-        throw const AppException(
-          code: 'AUTH_FAILURE',
-          message: 'Không nhận được OAuth Access Token cho Google Calendar.',
-        );
-      }
-      cacheManualAccessToken(token);
-      return token;
-    }
-
+    // F18 / CAL-02: Authorize Google Calendar OAuth scopes strictly via GoogleSignIn.authorizationClient
+    // across ALL platforms (including Web Google Identity Services TokenClient), never mutating
+    // `_firebaseAuth` primary user state!
     try {
       await FirebaseConfig.ensureGoogleSignInInitialized();
       final headers = await GoogleSignIn.instance.authorizationClient
@@ -151,12 +132,8 @@ class GoogleCalendarApiDataSource {
         }
       }
       if (interactive) {
-        final account = await GoogleSignIn.instance.authenticate(
-          scopeHint: calendarScopes,
-        );
-        final authz = await account.authorizationClient.authorizeScopes(
-          calendarScopes,
-        );
+        final authz = await GoogleSignIn.instance.authorizationClient
+            .authorizeScopes(calendarScopes);
         if (authz.accessToken.isNotEmpty) {
           cacheManualAccessToken(authz.accessToken);
           return authz.accessToken;

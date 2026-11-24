@@ -16,10 +16,13 @@ import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../constants/app_assets.dart';
+import '../utils/vietnamese_search_matcher.dart';
 import '../utils/vnd_amount.dart';
+import 'lifeos_logo_side_drawer.dart';
 import 'liquid_glass.dart';
 import 'quick_create_hub_sheet.dart';
 
+export 'lifeos_logo_side_drawer.dart';
 export 'lifeos_top_toast.dart';
 export 'liquid_glass.dart';
 
@@ -521,52 +524,52 @@ class _MintOrganicWavePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // 1. Top-Right Emerald Ice Bloom
+    // 1. Subtle Top-Right Daylight Studio Bloom (restrained, calm & professional)
     final topRightGlow = Paint()
       ..shader = RadialGradient(
         center: const Alignment(0.92, -0.82),
-        radius: 1.05,
+        radius: 1.0,
         colors: isDark
             ? [
-                const Color(0xFF0B7A2A).withValues(alpha: 0.24),
+                const Color(0xFF14532D).withValues(alpha: 0.14),
                 Colors.transparent,
               ]
             : [
-                const Color(0xFFBDF5CF).withValues(alpha: 0.62),
+                const Color(0xFFDCFCE7).withValues(alpha: 0.34),
                 Colors.transparent,
               ],
       ).createShader(rect);
     canvas.drawRect(rect, topRightGlow);
 
-    // 2. Top-Left Cool Sky-Mint Refraction Bloom
+    // 2. Subtle Top-Left Cool Daylight Bloom
     final topLeftGlow = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.88, -0.78),
-        radius: 0.92,
+        radius: 0.90,
         colors: isDark
             ? [
-                const Color(0xFF0E4A5C).withValues(alpha: 0.18),
+                const Color(0xFF1E3A5F).withValues(alpha: 0.12),
                 Colors.transparent,
               ]
             : [
-                const Color(0xFFDCF2FD).withValues(alpha: 0.56),
+                const Color(0xFFEFF6FF).withValues(alpha: 0.42),
                 Colors.transparent,
               ],
       ).createShader(rect);
     canvas.drawRect(rect, topLeftGlow);
 
-    // 3. Lower Ambient Aurora Bloom (gives floating Liquid Glass bottom dock subtle refraction)
+    // 3. Soft Lower Ambient Studio Light
     final lowerGlow = Paint()
       ..shader = RadialGradient(
         center: const Alignment(0.45, 0.92),
         radius: 0.95,
         colors: isDark
             ? [
-                const Color(0xFF0A4D23).withValues(alpha: 0.16),
+                const Color(0xFF14532D).withValues(alpha: 0.10),
                 Colors.transparent,
               ]
             : [
-                const Color(0xFFDFF7E8).withValues(alpha: 0.52),
+                const Color(0xFFF0FDF4).withValues(alpha: 0.36),
                 Colors.transparent,
               ],
       ).createShader(rect);
@@ -687,41 +690,114 @@ class LifeOsTopBrandHeader extends StatelessWidget {
             constraints: const BoxConstraints(
               maxWidth: AppSpacing.maxContentWidth,
             ),
-            child: Row(
-              children: [
-                LifeOsHeaderCircleButton(
-                  icon: Icons.chevron_left_rounded,
-                  tooltip: 'Quay lại',
-                  onTap:
-                      onBack ??
-                      () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go('/today');
-                        }
-                      },
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        softWrap: true,
-                        style: TextStyle(
-                          fontSize: compact ? 17.5 : 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          height: 1.18,
-                          color: c.textPrimary,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final splitTrailingBelow =
+                    extraBrandActions.isNotEmpty &&
+                    trailingAction != null &&
+                    constraints.maxWidth < 430;
+                final hasSub = subtitle != null && subtitle!.isNotEmpty;
+                final fitSingleLineTitle = !hasSub && title.length <= 34;
+                final titleText = Text(
+                  title,
+                  softWrap: !fitSingleLineTitle,
+                  style: TextStyle(
+                    fontSize: compact ? 17.5 : 18.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    height: 1.18,
+                    color: c.textPrimary,
+                  ),
+                );
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        LifeOsHeaderCircleButton(
+                          icon: Icons.chevron_left_rounded,
+                          tooltip: 'Quay lại',
+                          onTap:
+                              onBack ??
+                              () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go('/today');
+                                }
+                              },
                         ),
-                      ),
-                      if (subtitle != null && subtitle!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (fitSingleLineTitle)
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: titleText,
+                                )
+                              else
+                                titleText,
+                              if (hasSub && splitTrailingBelow) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  subtitle!,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12.2,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.25,
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        ...extraBrandActions.map(
+                          (w) => Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: w,
+                          ),
+                        ),
+                        if (themeBloc != null &&
+                            trailingAction == null &&
+                            extraBrandActions.isEmpty) ...[
+                          const SizedBox(width: 6),
+                          LifeOsHeaderCircleButton(
+                            buttonKey: const Key(
+                              'open_appearance_studio_button',
+                            ),
+                            icon: isDark
+                                ? Icons.light_mode_outlined
+                                : Icons.text_fields_rounded,
+                            tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
+                            onTap: () => showLifeOsAppearanceSheet(context),
+                          ),
+                        ],
+                        if (trailingAction != null && !splitTrailingBelow) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: trailingAction!,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (hasSub && !splitTrailingBelow) ...[
+                      const SizedBox(height: 3),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 48),
+                        child: Text(
                           subtitle!,
                           softWrap: true,
                           style: TextStyle(
@@ -731,34 +807,18 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                             color: c.textSecondary,
                           ),
                         ),
-                      ],
+                      ),
                     ],
-                  ),
-                ),
-                ...extraBrandActions.map(
-                  (w) => Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: w,
-                  ),
-                ),
-                if (themeBloc != null &&
-                    trailingAction == null &&
-                    extraBrandActions.isEmpty) ...[
-                  const SizedBox(width: 6),
-                  LifeOsHeaderCircleButton(
-                    buttonKey: const Key('open_appearance_studio_button'),
-                    icon: isDark
-                        ? Icons.light_mode_outlined
-                        : Icons.text_fields_rounded,
-                    tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
-                    onTap: () => showLifeOsAppearanceSheet(context),
-                  ),
-                ],
-                if (trailingAction != null) ...[
-                  const SizedBox(width: 8),
-                  trailingAction!,
-                ],
-              ],
+                    if (splitTrailingBelow) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: trailingAction!,
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -790,9 +850,37 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
-                        child: LifeOsBrandWordmark(
-                          iconSize: compact ? 30 : 34,
-                          fontSize: compact ? 18.5 : 20,
+                        child: Tooltip(
+                          message: 'Bảng tính năng LifeOS',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              key: const Key('open_logo_side_drawer_button'),
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => showLifeOsLogoSideDrawer(context),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.menu_rounded,
+                                      size: compact ? 20 : 22,
+                                      color: c.textPrimary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    LifeOsBrandWordmark(
+                                      iconSize: compact ? 30 : 34,
+                                      fontSize: compact ? 18.5 : 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -862,47 +950,67 @@ class LifeOsTopBrandHeader extends StatelessWidget {
               ),
               SizedBox(height: compact ? 8 : 11),
 
-              // Row 2: Page Greeting / Title + Subtitle + Optional Primary Action
+              // Row 2: Page Greeting / Title + Primary Action, with full-width subtitle below
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          softWrap: true,
-                          style: TextStyle(
-                            fontSize: compact ? 20.5 : 23,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                            height: 1.18,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        if (subtitle != null && subtitle!.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle!,
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: compact ? 12.2 : 13,
-                              fontWeight: FontWeight.w500,
-                              height: 1.28,
-                              color: c.textSecondary,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: title.length <= 28
+                          ? FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: compact ? 20.5 : 23,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.4,
+                                  height: 1.18,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              title,
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: compact ? 20.5 : 23,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                                height: 1.18,
+                                color: c.textPrimary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
                     ),
                   ),
                   if (trailingAction != null) ...[
                     const SizedBox(width: 8),
-                    trailingAction!,
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: trailingAction!,
+                      ),
+                    ),
                   ],
                 ],
               ),
+              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle!,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: compact ? 12.2 : 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.28,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -980,7 +1088,7 @@ class LifeOsSoftCard extends StatelessWidget {
     this.onTap,
     this.backgroundColor,
     this.borderColor,
-    this.borderRadius = 22,
+    this.borderRadius = 18,
   });
 
   @override
@@ -993,12 +1101,13 @@ class LifeOsSoftCard extends StatelessWidget {
       enableBlur: false,
       tintColor: backgroundColor,
       accentRimColor: borderColor,
+      rimIntensity: 0.65,
       child: child,
     );
   }
 }
 
-/// Signature Pastel-Emerald Apple Liquid Glass Summary Card used across Home, Family, Funds, Tasks & Settings.
+/// Clean Porcelain-Mint Summary Card used across Home, Family, Funds, Tasks & Settings.
 class LifeOsMintHeroCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -1015,12 +1124,11 @@ class LifeOsMintHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlassSurface(
       material: LiquidGlassMaterial.mintHero,
-      borderRadius: 22,
+      borderRadius: 18,
       padding: padding,
       onTap: onTap,
       enableBlur: false,
-      accentRimColor: const Color(0xFF34D399),
-      rimIntensity: 1.1,
+      rimIntensity: 0.72,
       child: child,
     );
   }
@@ -1351,23 +1459,25 @@ class LifeOsFeatureGridTile extends StatelessWidget {
     final c = TammySemanticColors.of(context);
     return LifeOsSoftCard(
       borderRadius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          LifeOsIconSquircle(icon: icon, tone: tone, size: 42, iconSize: 21),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            softWrap: true,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              height: 1.22,
-              color: c.textPrimary,
+          LifeOsIconSquircle(icon: icon, tone: tone, size: 40, iconSize: 20),
+          const SizedBox(height: 7),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.6,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                color: c.textPrimary,
+              ),
             ),
           ),
         ],
@@ -1399,46 +1509,41 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
 
     return LiquidGlassSurface(
       material: LiquidGlassMaterial.segmentedTrough,
-      borderRadius: 25,
+      borderRadius: 13,
       enableBlur: false,
-      padding: const EdgeInsets.all(4),
+      rimIntensity: 0.45,
+      padding: const EdgeInsets.all(3.5),
       child: SizedBox(
-        height: 40,
+        height: 37,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final itemWidth = constraints.maxWidth / count;
             return Stack(
               children: [
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 280),
-                  curve: const Cubic(0.22, 1.06, 0.32, 1.0),
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
                   left: activeIdx * itemWidth,
                   top: 0,
                   bottom: 0,
                   width: itemWidth,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isDark
-                            ? [const Color(0xFF25CF65), const Color(0xFF0E8F3E)]
-                            : [const Color(0xFF14963A), c.primary],
-                      ),
-                      borderRadius: BorderRadius.circular(21),
+                      color: isDark ? const Color(0xFF2D3744) : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: Colors.white.withValues(
-                          alpha: isDark ? 0.30 : 0.42,
-                        ),
-                        width: 1.0,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : const Color(0xFFE2E8F0),
+                        width: 0.8,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: c.primary.withValues(
-                            alpha: isDark ? 0.32 : 0.22,
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.22 : 0.06,
                           ),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1.5),
                         ),
                       ],
                     ),
@@ -1449,7 +1554,7 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
                     final isSelected = item.$1 == selected;
                     return Expanded(
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(21),
+                        borderRadius: BorderRadius.circular(10),
                         onTap: () => onChanged(item.$1),
                         child: Container(
                           alignment: Alignment.center,
@@ -1462,9 +1567,9 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
                                 if (item.$3 != null) ...[
                                   Icon(
                                     item.$3,
-                                    size: 16,
+                                    size: 15.5,
                                     color: isSelected
-                                        ? Colors.white
+                                        ? c.primary
                                         : c.textSecondary,
                                   ),
                                   const SizedBox(width: 5),
@@ -1472,10 +1577,13 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
                                 Text(
                                   item.$2,
                                   style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13.2,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    letterSpacing: -0.1,
                                     color: isSelected
-                                        ? Colors.white
+                                        ? c.textPrimary
                                         : c.textSecondary,
                                   ),
                                 ),
@@ -1709,11 +1817,11 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
     backgroundColor: Colors.transparent,
     showDragHandle: false,
     builder: (sheetCtx) {
-      var query = '';
-      return StatefulBuilder(
-        builder: (ctx, setModalState) {
+      return _OmniTextControllerHost(
+        builder: (ctx, searchCtrl, setModalState) {
           final c = TammySemanticColors.of(ctx);
-          final q = query.trim().toLowerCase();
+          final query = searchCtrl.text;
+          final q = query.trim();
 
           final liveDataResults =
               <
@@ -1736,9 +1844,14 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
             for (final tx in txs.where(
               (t) => t.verification != TransactionVerification.rejected,
             )) {
-              if (tx.merchant.toLowerCase().contains(q) ||
-                  tx.categoryName.toLowerCase().contains(q) ||
-                  (tx.note ?? '').toLowerCase().contains(q)) {
+              if (VietnameseSearchMatcher.matchesAny(q, [
+                tx.merchant,
+                tx.categoryName,
+                tx.note,
+                tx.walletName,
+                tx.amountMinor.toString(),
+                VndAmount.format(tx.amountMinor),
+              ])) {
                 liveDataResults.add((
                   title: tx.merchant,
                   subtitle:
@@ -1758,9 +1871,11 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
             // 2. Live Calendar Events
             final events = calBloc?.state.events ?? const [];
             for (final ev in events) {
-              if (ev.title.toLowerCase().contains(q) ||
-                  (ev.location ?? '').toLowerCase().contains(q) ||
-                  (ev.description ?? '').toLowerCase().contains(q)) {
+              if (VietnameseSearchMatcher.matchesAny(q, [
+                ev.title,
+                ev.location,
+                ev.description,
+              ])) {
                 liveDataResults.add((
                   title: ev.title,
                   subtitle:
@@ -1777,8 +1892,11 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
             // 3. Live Tasks
             final tasks = taskBloc?.state.tasks ?? const <TaskEntity>[];
             for (final task in tasks) {
-              if (task.title.toLowerCase().contains(q) ||
-                  (task.description ?? '').toLowerCase().contains(q)) {
+              if (VietnameseSearchMatcher.matchesAny(q, [
+                task.title,
+                task.description,
+                task.assigneeName,
+              ])) {
                 liveDataResults.add((
                   title: task.title,
                   subtitle: task.status == TaskWorkflowStatus.done
@@ -1793,11 +1911,11 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
               }
             }
 
-            // 4. Live Groceries & Smart Notes
+            // 4. Live Groceries, Smart Notes & Medications
             final snap = dailyBloc?.state.snapshot;
             if (snap != null) {
               for (final g in snap.groceryItems) {
-                if (g.name.toLowerCase().contains(q)) {
+                if (VietnameseSearchMatcher.matchesAny(q, [g.name])) {
                   liveDataResults.add((
                     title: g.name,
                     subtitle: g.inFridgeStorage
@@ -1814,8 +1932,11 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                 }
               }
               for (final n in snap.notes) {
-                if (n.title.toLowerCase().contains(q) ||
-                    n.content.toLowerCase().contains(q)) {
+                if (VietnameseSearchMatcher.matchesAny(q, [
+                  n.title,
+                  n.content,
+                  n.categoryTag,
+                ])) {
                   liveDataResults.add((
                     title: n.title,
                     subtitle: n.content,
@@ -1827,6 +1948,22 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                   if (liveDataResults.length >= 18) break;
                 }
               }
+              for (final m in snap.medications) {
+                if (VietnameseSearchMatcher.matchesAny(q, [
+                  m.name,
+                  m.dosage,
+                ])) {
+                  liveDataResults.add((
+                    title: m.name,
+                    subtitle: 'Thuốc · ${m.dosage} · ${m.formattedReminderTime}',
+                    icon: Icons.medication_outlined,
+                    route: '/health-hub',
+                    tone: LifeOsAccentTone.coral,
+                    badge: 'Thuốc',
+                  ));
+                  if (liveDataResults.length >= 20) break;
+                }
+              }
             }
           }
 
@@ -1834,9 +1971,10 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
               ? searchItems
               : searchItems
                     .where(
-                      (it) =>
-                          it.title.toLowerCase().contains(q) ||
-                          it.subtitle.toLowerCase().contains(q),
+                      (it) => VietnameseSearchMatcher.matchesAny(q, [
+                        it.title,
+                        it.subtitle,
+                      ]),
                     )
                     .toList();
 
@@ -1856,6 +1994,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                   children: [
                     TextField(
                       key: const Key('omni_search_text_field'),
+                      controller: searchCtrl,
                       autofocus: true,
                       decoration: InputDecoration(
                         hintText:
@@ -1864,13 +2003,15 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                         suffixIcon: query.isEmpty
                             ? null
                             : IconButton(
+                                key: const Key('omni_search_clear_btn'),
                                 tooltip: 'Xóa',
-                                onPressed: () =>
-                                    setModalState(() => query = ''),
+                                onPressed: () => setModalState(() {
+                                  searchCtrl.clear();
+                                }),
                                 icon: const Icon(Icons.close_rounded, size: 18),
                               ),
                       ),
-                      onChanged: (v) => setModalState(() => query = v),
+                      onChanged: (_) => setModalState(() {}),
                     ),
                     const SizedBox(height: 12),
                     Expanded(
@@ -1896,7 +2037,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Bạn muốn tạo nhanh một khoản chi tiêu, lịch hẹn hoặc ghi chú mới?',
+                                  'Thử gõ từ khóa khác (có dấu hoặc không dấu) hoặc tạo nhanh bên dưới.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 13,
@@ -1904,15 +2045,30 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
                                   ),
                                 ),
                                 const SizedBox(height: 14),
-                                Center(
-                                  child: FilledButton.icon(
-                                    onPressed: () {
-                                      Navigator.of(sheetCtx).pop();
-                                      showLifeOsQuickCreateHub(context);
-                                    },
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('Mở Thêm nhanh (+)'),
-                                  ),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  alignment: WrapAlignment.center,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: () => setModalState(() {
+                                        searchCtrl.clear();
+                                      }),
+                                      icon: const Icon(
+                                        Icons.filter_alt_off_rounded,
+                                        size: 17,
+                                      ),
+                                      label: const Text('Xem tất cả tiện ích'),
+                                    ),
+                                    FilledButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(sheetCtx).pop();
+                                        showLifeOsQuickCreateHub(context);
+                                      },
+                                      icon: const Icon(Icons.add_rounded),
+                                      label: const Text('Mở Thêm nhanh (+)'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             )
@@ -2021,8 +2177,55 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
 Future<void> showLifeOsQuickCreateHub(BuildContext context) =>
     showLifeOsQuickCreateHubSheet(context);
 
-/// Compact 4-column Super App mini-icon item (MoMo / Grab / Apple style) that avoids
-/// heavy card borders and fits 8 shortcuts cleanly inside a single grouped container.
+class _OmniTextControllerHost extends StatefulWidget {
+  final Widget Function(
+    BuildContext context,
+    TextEditingController controller,
+    StateSetter setModalState,
+  ) builder;
+
+  const _OmniTextControllerHost({required this.builder});
+
+  @override
+  State<_OmniTextControllerHost> createState() =>
+      _OmniTextControllerHostState();
+}
+
+class _OmniTextControllerHostState extends State<_OmniTextControllerHost> {
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _ctrl, setState);
+}
+
+class _DockGridModeScope extends InheritedWidget {
+  final bool useHorizontalCapsule;
+
+  const _DockGridModeScope({
+    required this.useHorizontalCapsule,
+    required super.child,
+  });
+
+  static bool useHorizontalOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_DockGridModeScope>();
+    return scope?.useHorizontalCapsule ?? false;
+  }
+
+  @override
+  bool updateShouldNotify(covariant _DockGridModeScope oldWidget) =>
+      oldWidget.useHorizontalCapsule != useHorizontalCapsule;
+}
+
+/// Adaptive Super App shortcut item: renders as a spacious horizontal capsule
+/// (`[Icon + Label]`) when paired in 2-column mobile rows so multi-word Vietnamese
+/// labels read horizontally on 1 line, or as a centered icon tile on wide screens.
 class LifeOsCompactDockItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -2040,11 +2243,69 @@ class LifeOsCompactDockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final useHorizontalCapsule = _DockGridModeScope.useHorizontalOf(context);
+
+    if (useHorizontalCapsule) {
+      return Material(
+        color: c.surfaceRaised.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              child: Row(
+                children: [
+                  LifeOsIconSquircle(
+                    icon: icon,
+                    tone: tone,
+                    size: 34,
+                    iconSize: 17.5,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: label.length <= 20
+                        ? FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 12.4,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                                letterSpacing: -0.1,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            label,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 12.4,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                              letterSpacing: -0.1,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.start,
@@ -2070,8 +2331,10 @@ class LifeOsCompactDockItem extends StatelessWidget {
   }
 }
 
-/// Auto-height responsive multi-column icon grid replacing fixed-aspect `GridView.count`
-/// so 2-line Vietnamese labels and 125% text scale never clip or truncate to `...`.
+/// Auto-height responsive multi-column icon grid replacing fixed-aspect `GridView.count`.
+/// Automatically steps 4-column docks down to symmetrical 2-column horizontal capsules
+/// on compact phone viewports or enlarged font scales so Vietnamese phrases never stack
+/// 1 word per line.
 class LifeOsResponsiveIconGrid extends StatelessWidget {
   final List<Widget> children;
   final int columns;
@@ -2089,35 +2352,61 @@ class LifeOsResponsiveIconGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i += columns) {
-      final rowCells = <Widget>[];
-      for (var c = 0; c < columns; c++) {
-        if (c > 0) {
-          rowCells.add(SizedBox(width: columnSpacing));
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var effectiveCols = columns;
+        var effectiveColSpacing = columnSpacing;
+        var effectiveRowSpacing = rowSpacing;
+        var useHorizontalCapsule = false;
+
+        if (constraints.maxWidth.isFinite && columns >= 4) {
+          final rawCellWidth =
+              (constraints.maxWidth - (columns - 1) * columnSpacing) / columns;
+          final logicalCellWidth = rawCellWidth / textScale;
+          if (logicalCellWidth < 90) {
+            effectiveCols = 2;
+            effectiveColSpacing = 8;
+            effectiveRowSpacing = 7;
+            useHorizontalCapsule = true;
+          }
         }
-        final idx = i + c;
-        rowCells.add(
-          Expanded(
-            child: idx < children.length
-                ? children[idx]
-                : const SizedBox.shrink(),
-          ),
+
+        final rows = <Widget>[];
+        for (var i = 0; i < children.length; i += effectiveCols) {
+          final rowCells = <Widget>[];
+          for (var c = 0; c < effectiveCols; c++) {
+            if (c > 0) {
+              rowCells.add(SizedBox(width: effectiveColSpacing));
+            }
+            final idx = i + c;
+            rowCells.add(
+              Expanded(
+                child: idx < children.length
+                    ? children[idx]
+                    : const SizedBox.shrink(),
+              ),
+            );
+          }
+          if (rows.isNotEmpty) {
+            rows.add(SizedBox(height: effectiveRowSpacing));
+          }
+          rows.add(
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: rowCells,
+              ),
+            ),
+          );
+        }
+        return _DockGridModeScope(
+          useHorizontalCapsule: useHorizontalCapsule,
+          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
         );
-      }
-      if (rows.isNotEmpty) {
-        rows.add(SizedBox(height: rowSpacing));
-      }
-      rows.add(
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: rowCells,
-          ),
-        ),
-      );
-    }
-    return Column(mainAxisSize: MainAxisSize.min, children: rows);
+      },
+    );
   }
 }
 

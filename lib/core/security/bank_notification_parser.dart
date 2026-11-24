@@ -523,7 +523,7 @@ abstract final class BankNotificationParser {
 
     var merchant = combined;
     final contentMatch = RegExp(
-      r'(?:ND|N[oộ]i\s*dung|t[aạ]i|tai)[:\s]+([^.;|\n]{3,100})',
+      r'\b(?:ND|N[oộ]i\s*dung|t[aạ]i|tai)[:\s]+([^.;|\n]{3,100})',
       caseSensitive: false,
     ).firstMatch(combined);
     if (contentMatch != null) {

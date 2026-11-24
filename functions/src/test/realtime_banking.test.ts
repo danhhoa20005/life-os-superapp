@@ -608,4 +608,92 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     assert.equal(hijackAttempt.ok, false);
     assert.equal(hijackAttempt.errorCode, "ACCOUNT_ALREADY_LINKED_OTHER_USER");
   });
+
+  it("BG-02 & FIN-05 — Retries FAILED_RETRYABLE outbox with exponential backoff & paginates 250+ SePay transactions idempotently", async () => {
+    const { store, fcm, coordinator } = await createHarness();
+
+    // 1. BG-02: Transient FCM failure twice, then succeeds on scheduled retry sweep without duplicate financial_notifications
+    fcm.shouldFail = true;
+    const req = buildSignedWebhookRequest(
+      {
+        id: 98001,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 10:00:00",
+        accountNumber: "1017588888",
+        content: "BG02 retry test",
+        transferType: "in",
+        transferAmount: 300000,
+        accumulated: 10300000
+      },
+      baseNowMs
+    );
+    const h = await coordinator.handleSePayWebhookHttp(req);
+    const w = await coordinator.processInboxEvent(h.providerEventKey!, baseNowMs);
+    const attempt1 = await coordinator.dispatchNotificationOutbox(w.notificationId!, baseNowMs);
+    assert.equal(attempt1?.state, "FAILED_RETRYABLE");
+    assert.equal(attempt1?.attemptCount, 1);
+
+    // Before 30s backoff elapses, sweep skips item
+    const earlySweep = await coordinator.retryDueNotificationOutboxBatch(baseNowMs + 5_000);
+    assert.equal(earlySweep.attempted, 0);
+
+    // After 31s backoff elapses and FCM recovers -> DELIVERED!
+    fcm.shouldFail = false;
+    const dueSweep = await coordinator.retryDueNotificationOutboxBatch(baseNowMs + 31_000);
+    assert.equal(dueSweep.attempted, 1);
+    assert.equal(dueSweep.delivered, 1);
+    assert.equal(store.financialNotifications.size, 1); // Zero duplicate in-app notification!
+
+    // 2. FIN-05: 250 transactions across 3 pages (100 + 100 + 50), plus mid-run network retry idempotency
+    const allItems = Array.from({ length: 250 }, (_, idx) => ({
+      id: 99500 - idx,
+      bank_brand_name: "Vietcombank",
+      transaction_date: "2026-11-23 11:00:00",
+      transaction_content: `Backfill item #${idx + 1}`,
+      amount_in: 10_000,
+      amount_out: 0,
+      accumulated: 0,
+      reference_number: `REF_BF_${idx + 1}`
+    }));
+
+    let failOnPageTwoOnce = true;
+    await assert.rejects(() =>
+      coordinator.reconcilePaginatedSePayPages({
+        ownerId: "user_minh",
+        connectionId: "conn_vcb_1",
+        accountNumber: "1017588888",
+        bankName: "Vietcombank",
+        pageSize: 100,
+        maxPages: 5,
+        nowMs: baseNowMs + 60_000,
+        fetchPage: async (pageIndex, limit) => {
+          if (pageIndex === 1 && failOnPageTwoOnce) {
+            failOnPageTwoOnce = false;
+            throw new Error("TRANSIENT_NETWORK_DROP");
+          }
+          return allItems.slice(pageIndex * limit, (pageIndex + 1) * limit);
+        }
+      })
+    );
+
+    // Resume backfill from page 0: first 100 are skipped as DUPLICATE, remaining 150 process cleanly -> 250 total!
+    const resumed = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: "user_minh",
+      connectionId: "conn_vcb_1",
+      accountNumber: "1017588888",
+      bankName: "Vietcombank",
+      pageSize: 100,
+      maxPages: 5,
+      nowMs: baseNowMs + 120_000,
+      fetchPage: async (pageIndex, limit) => allItems.slice(pageIndex * limit, (pageIndex + 1) * limit)
+    });
+
+    assert.equal(resumed.pagesFetched, 3);
+    assert.equal(resumed.fetchedCount, 250);
+    assert.equal(resumed.duplicateCount, 100);
+    assert.equal(resumed.processedCount, 150);
+    assert.equal(resumed.newestExternalTxId, "99500");
+    // 1 initial BG-02 tx + 250 paginated backfill txs = 251 exact canonical transactions!
+    assert.equal(store.transactions.size, 251);
+  });
 });

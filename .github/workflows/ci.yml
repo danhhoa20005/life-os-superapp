@@ -18,16 +18,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter Stable
+      - name: Setup Flutter (Pinned Stable Toolchain)
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.0'
           channel: stable
+          cache: true
 
       - name: Install pub dependencies
         run: flutter pub get
 
-      - name: Static analysis (0 errors/warnings)
-        run: flutter analyze
+      - name: Static analysis gate (F01 — zero errors/warnings)
+        run: flutter analyze --no-fatal-infos --fatal-warnings
 
       - name: Run Architecture Guard, Domain, BLoC, Security Rules, Widget & Integration Tests
         run: flutter test --reporter expanded
@@ -35,33 +37,112 @@ jobs:
       - name: Verify Production Web Build
         run: flutter build web --release
 
-  publish-android-ota-release:
-    needs: verify-flutter-mvp
-    if: startsWith(github.ref, 'refs/tags/v')
+  verify-cloud-functions:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Cloud Functions dependencies
+        run: npm install
+
+      - name: TypeScript strict typecheck & unit test suite
+        run: |
+          npm run typecheck
+          npm test
+
+  publish-android-ota-release:
+    needs: [verify-flutter-mvp, verify-cloud-functions]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      LIFEOS_REQUIRE_RELEASE_SIGNING: 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Release Keystore or Pre-Verified Admin Release (F15 & F16 Fail-Closed)
+        id: check_keystore
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEYSTORE_B64: ${{ secrets.LIFEOS_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.LIFEOS_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LIFEOS_RELEASE_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.LIFEOS_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$STORE_PASS" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASS" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/lifeos-release.jks"
+            echo "LIFEOS_RELEASE_STORE_FILE=$RUNNER_TEMP/lifeos-release.jks" >> "$GITHUB_ENV"
+            echo "LIFEOS_RELEASE_STORE_PASSWORD=$STORE_PASS" >> "$GITHUB_ENV"
+            echo "LIFEOS_RELEASE_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "LIFEOS_RELEASE_KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+            echo "has_ci_keystore=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Wait briefly in case gh release create is uploading assets concurrently with tag push
+          for attempt in 1 2 3 4 5; do
+            if gh release view "${GITHUB_REF_NAME}" --json assets,body > "$RUNNER_TEMP/rel.json" 2>/dev/null; then
+              HAS_APK=$(jq '[.assets[].name | endswith(".apk")] | any' "$RUNNER_TEMP/rel.json")
+              HAS_SHA=$(jq '([.assets[].name | endswith(".sha256")] | any) or (.body | test("[a-fA-F0-9]{64}"))' "$RUNNER_TEMP/rel.json")
+              if [ "$HAS_APK" = "true" ] && [ "$HAS_SHA" = "true" ]; then
+                echo "::notice::Verified admin release ${GITHUB_REF_NAME} with APK + SHA-256 checksum already published. Configure LIFEOS_RELEASE_KEYSTORE_BASE64 for automated CI APK builds."
+                echo "has_ci_keystore=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "::error::Missing production release signing secrets (LIFEOS_RELEASE_KEYSTORE_BASE64 / STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD) and no pre-verified release found for ${GITHUB_REF_NAME}. Aborting release."
+          exit 1
+
       - name: Setup Java 17
+        if: steps.check_keystore.outputs.has_ci_keystore == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter Stable
+      - name: Setup Flutter (Pinned Stable Toolchain)
+        if: steps.check_keystore.outputs.has_ci_keystore == 'true'
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.0'
           channel: stable
+          cache: true
 
-      - name: Build Universal Android Release APK for OTA Self-Update
+      - name: Build Signed Android Release APK & Compute Mandatory SHA-256 (F15)
+        if: steps.check_keystore.outputs.has_ci_keystore == 'true'
         run: |
           flutter pub get
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk life-os-${GITHUB_REF_NAME}.apk
+          BASE_VER="${GITHUB_REF_NAME%%+*}"
+          APK_NAME="life-os-${BASE_VER}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$APK_NAME"
+          APKSIGNER_BIN=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          "$APKSIGNER_BIN" verify --verbose --print-certs "$APK_NAME"
+          APK_SHA256=$(sha256sum "$APK_NAME" | awk '{print $1}')
+          echo "${APK_SHA256}  ${APK_NAME}" > "${APK_NAME}.sha256"
+          echo "APK_NAME=${APK_NAME}" >> "$GITHUB_ENV"
+          echo "APK_SHA256=${APK_SHA256}" >> "$GITHUB_ENV"
 
-      - name: Publish GitHub Release with APK Asset
+      - name: Publish Verified GitHub Release with APK & SHA-256 Checksum
+        if: steps.check_keystore.outputs.has_ci_keystore == 'true'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: life-os-${{ github.ref_name }}.apk
+          body: |
+            ### Xác thực toàn vẹn gói cài đặt (OTA Trust Chain)
+            - **SHA-256:** `${{ env.APK_SHA256 }}`
+          files: |
+            ${{ env.APK_NAME }}
+            ${{ env.APK_NAME }}.sha256

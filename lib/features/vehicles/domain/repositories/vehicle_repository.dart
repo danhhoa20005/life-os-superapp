@@ -42,6 +42,11 @@ abstract interface class VehicleRepository {
     required int newOdometerKm,
   });
 
+  Future<Result<void>> deleteVehicle({
+    required String actorUserId,
+    required VehicleEntity vehicle,
+  });
+
   Future<Result<void>> recordMaintenance({
     required VehicleEntity vehicle,
     required String serviceTitle,
@@ -69,6 +74,11 @@ abstract interface class VehicleRepository {
     required RecurringBillEntity bill,
     required int paidAmountMinor,
     required String walletId,
+  });
+
+  Future<Result<void>> deleteRecurringBill({
+    required String actorUserId,
+    required RecurringBillEntity bill,
   });
 }
 

@@ -285,6 +285,28 @@ class VehicleRemoteDataSource {
     });
   }
 
+  Future<void> deleteVehicle({
+    required String actorUserId,
+    required VehicleEntity vehicle,
+  }) async {
+    if (vehicle.isFamilyShared &&
+        vehicle.ownerId.isNotEmpty &&
+        vehicle.ownerId != actorUserId) {
+      throw const AppException(
+        code: 'PERMISSION_DENIED',
+        message: 'Chỉ thành viên đã thêm phương tiện này mới có quyền xóa.',
+      );
+    }
+    final vRef = _vehicleRef(vehicle);
+    final maintSnap = await vRef.collection('maintenances').limit(100).get();
+    final batch = _firestore.batch();
+    for (final doc in maintSnap.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(vRef);
+    await batch.commit();
+  }
+
   Stream<List<MaintenanceRecordEntity>> watchMaintenanceHistory({
     required VehicleEntity vehicle,
   }) {
@@ -487,10 +509,23 @@ class VehicleRemoteDataSource {
           (((bill.averagePaidMinor ?? paidAmountMinor) * bill.paymentCount) +
               paidAmountMinor) ~/
           newCount;
-      final nextDue = DateTime(
+      final nextMonthFirst = DateTime(
         bill.nextDueDate.year,
         bill.nextDueDate.month + 1,
-        bill.nextDueDate.day,
+        1,
+      );
+      final maxDayInNextMonth = DateTime(
+        nextMonthFirst.year,
+        nextMonthFirst.month + 1,
+        0,
+      ).day;
+      final clampedDay = bill.nextDueDate.day > maxDayInNextMonth
+          ? maxDayInNextMonth
+          : bill.nextDueDate.day;
+      final nextDue = DateTime(
+        nextMonthFirst.year,
+        nextMonthFirst.month,
+        clampedDay,
       );
       final now = DateTime.now();
       final bal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
@@ -544,6 +579,33 @@ class VehicleRemoteDataSource {
     });
 
     return spikeDetected;
+  }
+
+  Future<void> deleteRecurringBill({
+    required String actorUserId,
+    required RecurringBillEntity bill,
+  }) async {
+    if (bill.familyId != null &&
+        bill.familyId!.isNotEmpty &&
+        bill.ownerId.isNotEmpty &&
+        bill.ownerId != actorUserId) {
+      throw const AppException(
+        code: 'PERMISSION_DENIED',
+        message: 'Chỉ người tạo hóa đơn chung này mới có quyền xóa.',
+      );
+    }
+    final billRef = bill.familyId != null && bill.familyId!.isNotEmpty
+        ? _firestore
+              .collection('families')
+              .doc(bill.familyId)
+              .collection('bills')
+              .doc(bill.id)
+        : _firestore
+              .collection('users')
+              .doc(actorUserId)
+              .collection('bills')
+              .doc(bill.id);
+    await billRef.delete();
   }
 }
 
@@ -670,6 +732,22 @@ class VehicleRepositoryImpl implements VehicleRepository {
   }
 
   @override
+  Future<Result<void>> deleteVehicle({
+    required String actorUserId,
+    required VehicleEntity vehicle,
+  }) async {
+    try {
+      await _remoteDataSource.deleteVehicle(
+        actorUserId: actorUserId,
+        vehicle: vehicle,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
   Stream<Result<List<MaintenanceRecordEntity>>> watchMaintenanceHistory({
     required VehicleEntity vehicle,
   }) {
@@ -753,6 +831,22 @@ class VehicleRepositoryImpl implements VehicleRepository {
         walletId: walletId,
       );
       return Success(spike);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteRecurringBill({
+    required String actorUserId,
+    required RecurringBillEntity bill,
+  }) async {
+    try {
+      await _remoteDataSource.deleteRecurringBill(
+        actorUserId: actorUserId,
+        bill: bill,
+      );
+      return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }

@@ -222,7 +222,10 @@ void main() {
                       as Success<List<TransactionEntity>>)
                   .value;
           expect(txs.length, 1);
-          expect(txs.single.verification, TransactionVerification.verified);
+          expect(
+            txs.single.verification,
+            TransactionVerification.matchedPaymentOrder,
+          );
           expect(txs.single.amountMinor, 320000);
           expect(txs.single.categoryName, 'Thu tiền QR');
 

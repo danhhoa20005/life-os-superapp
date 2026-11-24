@@ -30,6 +30,9 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
   final int remainingPills;
   final DateTime expiryDate;
   final String memberName;
+  final bool? reminderEnabled;
+  final int? reminderHour;
+  final int? reminderMinute;
 
   const MedicationCabinetAdded({
     required this.userId,
@@ -39,6 +42,9 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
     required this.remainingPills,
     required this.expiryDate,
     this.memberName = 'Cả gia đình',
+    this.reminderEnabled,
+    this.reminderHour,
+    this.reminderMinute,
   });
 
   @override
@@ -50,7 +56,149 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
     remainingPills,
     expiryDate,
     memberName,
+    reminderEnabled,
+    reminderHour,
+    reminderMinute,
   ];
+}
+
+final class MedicationReminderUpdated extends DailyLifeEvent {
+  final String userId;
+  final MedicationCabinetItemEntity item;
+  final bool reminderEnabled;
+  final int reminderHour;
+  final int reminderMinute;
+
+  const MedicationReminderUpdated({
+    required this.userId,
+    required this.item,
+    required this.reminderEnabled,
+    required this.reminderHour,
+    required this.reminderMinute,
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    item,
+    reminderEnabled,
+    reminderHour,
+    reminderMinute,
+  ];
+}
+
+final class MedicationSnoozed15Min extends DailyLifeEvent {
+  final MedicationCabinetItemEntity item;
+  const MedicationSnoozed15Min(this.item);
+
+  @override
+  List<Object?> get props => [item];
+}
+
+final class WaterIntakeLogged extends DailyLifeEvent {
+  final String userId;
+  final int deltaMl;
+  final int? targetWaterMl;
+  final String beverageLabel;
+  final String? deleteEntryId;
+
+  const WaterIntakeLogged({
+    required this.userId,
+    required this.deltaMl,
+    this.targetWaterMl,
+    this.beverageLabel = 'Nước lọc',
+    this.deleteEntryId,
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    deltaMl,
+    targetWaterMl,
+    beverageLabel,
+    deleteEntryId,
+  ];
+}
+
+final class HydrationReminderSettingsSaved extends DailyLifeEvent {
+  final String userId;
+  final bool reminderEnabled;
+  final int intervalMinutes;
+  final int startHour;
+  final int startMinute;
+  final int endHour;
+  final int endMinute;
+  final int targetWaterMl;
+  final double? weightKg;
+  final double? heightCm;
+  final HydrationActivityLevel? activityLevel;
+  final bool? autoSyncTargetByBody;
+  final int? preferredCupMl;
+  final bool clearSnooze;
+  final String? customToastMessage;
+
+  const HydrationReminderSettingsSaved({
+    required this.userId,
+    required this.reminderEnabled,
+    required this.intervalMinutes,
+    required this.startHour,
+    this.startMinute = 0,
+    required this.endHour,
+    this.endMinute = 0,
+    required this.targetWaterMl,
+    this.weightKg,
+    this.heightCm,
+    this.activityLevel,
+    this.autoSyncTargetByBody,
+    this.preferredCupMl,
+    this.clearSnooze = false,
+    this.customToastMessage,
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    reminderEnabled,
+    intervalMinutes,
+    startHour,
+    startMinute,
+    endHour,
+    endMinute,
+    targetWaterMl,
+    weightKg,
+    heightCm,
+    activityLevel,
+    autoSyncTargetByBody,
+    preferredCupMl,
+    clearSnooze,
+    customToastMessage,
+  ];
+}
+
+final class WaterReminderSnoozed extends DailyLifeEvent {
+  final String userId;
+  final int minutes;
+
+  const WaterReminderSnoozed({required this.userId, this.minutes = 15});
+
+  @override
+  List<Object?> get props => [userId, minutes];
+}
+
+final class BackgroundHealthActionsSynced extends DailyLifeEvent {
+  final String userId;
+  const BackgroundHealthActionsSynced({required this.userId});
+
+  @override
+  List<Object?> get props => [userId];
+}
+
+final class WaterTestNotificationRequested extends DailyLifeEvent {
+  final int delaySeconds;
+  const WaterTestNotificationRequested({this.delaySeconds = 0});
+
+  @override
+  List<Object?> get props => [delaySeconds];
 }
 
 final class MedicationTakenToggled extends DailyLifeEvent {
@@ -363,8 +511,27 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
   DailyLifeBloc(this._repository) : super(const DailyLifeState()) {
     on<DailyLifeWatchStarted>(_onWatchStarted, transformer: restartable());
     on<MedicationCabinetAdded>(_onMedAdded, transformer: sequential());
+    on<MedicationReminderUpdated>(
+      _onMedReminderUpdated,
+      transformer: sequential(),
+    );
+    on<MedicationSnoozed15Min>(_onMedSnoozed, transformer: sequential());
     on<MedicationTakenToggled>(_onMedToggled, transformer: sequential());
     on<MedicationCabinetDeleted>(_onMedDeleted, transformer: sequential());
+    on<WaterIntakeLogged>(_onWaterLogged, transformer: sequential());
+    on<HydrationReminderSettingsSaved>(
+      _onHydrationSettingsSaved,
+      transformer: sequential(),
+    );
+    on<WaterReminderSnoozed>(_onWaterSnoozed, transformer: sequential());
+    on<BackgroundHealthActionsSynced>(
+      _onBackgroundHealthActionsSynced,
+      transformer: sequential(),
+    );
+    on<WaterTestNotificationRequested>(
+      _onWaterTestNotificationRequested,
+      transformer: sequential(),
+    );
     on<HealthVitalLogAdded>(_onVitalAdded, transformer: sequential());
     on<EmergencyMedicalCardSaved>(
       _onEmergencyCardSaved,
@@ -405,8 +572,12 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     emit(state.copyWith(isLoading: true, clearFailure: true));
     await emit.forEach<DailyLifeSnapshot>(
       _repository.watchAll(userId: event.userId),
-      onData: (data) =>
-          state.copyWith(isLoading: false, snapshot: data, clearFailure: true),
+      onData: (data) => state.copyWith(
+        isLoading: false,
+        snapshot: data,
+        clearFailure: true,
+        clearSuccess: true,
+      ),
       onError: (err, _) => state.copyWith(
         isLoading: false,
         failure: UnexpectedFailure(message: err.toString()),
@@ -426,6 +597,9 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       remainingPills: e.remainingPills,
       expiryDate: e.expiryDate,
       memberName: e.memberName,
+      reminderEnabled: e.reminderEnabled,
+      reminderHour: e.reminderHour,
+      reminderMinute: e.reminderMinute,
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
@@ -433,6 +607,178 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
         state.copyWith(
           clearFailure: true,
           successBanner: '✓ Đã thêm "${e.name}" vào Tủ thuốc & Lịch nhắc.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onMedReminderUpdated(
+    MedicationReminderUpdated e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.updateMedicationReminder(
+      userId: e.userId,
+      item: e.item,
+      reminderEnabled: e.reminderEnabled,
+      reminderHour: e.reminderHour,
+      reminderMinute: e.reminderMinute,
+    );
+    final hh = e.reminderHour.toString().padLeft(2, '0');
+    final mm = e.reminderMinute.toString().padLeft(2, '0');
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner: e.reminderEnabled
+              ? '✓ Đã đặt chuông nhắc "${e.item.name}" lúc $hh:$mm.'
+              : '✓ Đã tắt chuông nhắc "${e.item.name}".',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onMedSnoozed(
+    MedicationSnoozed15Min e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.snoozeMedication15Min(item: e.item);
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner: '✓ Đã hẹn nhắc lại "${e.item.name}" sau 15 phút.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onWaterLogged(
+    WaterIntakeLogged e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.logWaterIntake(
+      userId: e.userId,
+      deltaMl: e.deltaMl,
+      targetWaterMl: e.targetWaterMl,
+      beverageLabel: e.beverageLabel,
+      deleteEntryId: e.deleteEntryId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner: e.deleteEntryId != null
+              ? '✓ Đã xóa mục ghi nước trong ngày.'
+              : (e.deltaMl > 0
+                    ? '✓ Đã ghi nhận +${e.deltaMl} ml (${e.beverageLabel}).'
+                    : '✓ Đã hoàn tác lần ghi nước gần nhất.'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onHydrationSettingsSaved(
+    HydrationReminderSettingsSaved e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.saveHydrationReminderSettings(
+      userId: e.userId,
+      reminderEnabled: e.reminderEnabled,
+      intervalMinutes: e.intervalMinutes,
+      startHour: e.startHour,
+      startMinute: e.startMinute,
+      endHour: e.endHour,
+      endMinute: e.endMinute,
+      targetWaterMl: e.targetWaterMl,
+      weightKg: e.weightKg,
+      heightCm: e.heightCm,
+      activityLevel: e.activityLevel,
+      autoSyncTargetByBody: e.autoSyncTargetByBody,
+      preferredCupMl: e.preferredCupMl,
+      clearSnooze: e.clearSnooze,
+    );
+    final startFmt =
+        '${e.startHour.toString().padLeft(2, "0")}:${e.startMinute.toString().padLeft(2, "0")}';
+    final endFmt =
+        '${e.endHour.toString().padLeft(2, "0")}:${e.endMinute.toString().padLeft(2, "0")}';
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner:
+              e.customToastMessage ??
+              (e.reminderEnabled
+                  ? '✓ Đã lưu nhắc nước mỗi ${e.intervalMinutes}p ($startFmt – $endFmt) · Mục tiêu ${e.targetWaterMl} ml.'
+                  : '✓ Đã cập nhật mục tiêu ${e.targetWaterMl} ml/ngày.'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onWaterSnoozed(
+    WaterReminderSnoozed e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.snoozeHydrationReminder(
+      userId: e.userId,
+      status: state.snapshot.hydration,
+      minutes: e.minutes,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner:
+              '✓ Đã hoãn chuông nhắc uống nước sang ${e.minutes} phút nữa.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onBackgroundHealthActionsSynced(
+    BackgroundHealthActionsSynced e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    if (e.userId.trim().isEmpty) return;
+    final res = await _repository.syncQueuedBackgroundHealthActions(
+      userId: e.userId,
+    );
+    res.fold((f) => emit(state.copyWith(failure: f)), (count) {
+      if (count > 0) {
+        emit(
+          state.copyWith(
+            clearFailure: true,
+            successBanner:
+                '✓ Đã đồng bộ $count thao tác ghi nhận từ thông báo ngoài màn hình.',
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _onWaterTestNotificationRequested(
+    WaterTestNotificationRequested e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.sendTestHydrationNotification(
+      status: state.snapshot.hydration,
+      delaySeconds: e.delaySeconds,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (ok) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner: !ok
+              ? '⚠ Chưa bật quyền Thông báo — hãy cấp quyền để hiện ngoài màn hình.'
+              : (e.delaySeconds > 0
+                    ? '✓ Đã hẹn sau ${e.delaySeconds} giây — hãy khóa màn hình hoặc ra màn hình chính!'
+                    : '✓ Đã gửi thông báo nhắc nước ra thanh trạng thái hệ thống!'),
         ),
       ),
     );
