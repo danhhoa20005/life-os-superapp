@@ -17,9 +17,7 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
@@ -698,9 +696,10 @@ class LifeOsWidgetActionReceiver : BroadcastReceiver() {
 class LifeOsWidgetQuickOverlayActivity : Activity() {
     companion object {
         private const val REQ_SYSTEM_VOICE = 8811
+        private const val REQ_OVERLAY_RECORD_AUDIO = 8812
     }
 
-    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private lateinit var inputField: EditText
     private lateinit var statusLabel: TextView
     private var overlayMode: String = "text"
@@ -896,86 +895,79 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         }
     }
 
-    private fun startVoiceListening() {
-        val recIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 2)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói chi tiêu hoặc khoản chia nhóm...")
-        }
+    private fun ensureOverlaySpeechHelper(): LifeOsSpeechRecognizerHelper {
+        val existing = speechHelper
+        if (existing != null) return existing
+        val created = LifeOsSpeechRecognizerHelper(
+            activity = this,
+            onStateChanged = { status ->
+                when (status) {
+                    "listening" -> statusLabel.text = "Mời bạn nói tiếng Việt (VD: Cà phê 35 nghìn)..."
+                    "processing" -> statusLabel.text = "Đang xử lý câu nói..."
+                }
+            },
+            onRmsChanged = {},
+            onPartialTranscript = { txt ->
+                if (txt.isNotBlank()) {
+                    inputField.setText(txt)
+                    inputField.setSelection(txt.length)
+                }
+            },
+            onFinalTranscript = { txt ->
+                if (txt.isNotBlank()) {
+                    inputField.setText(txt)
+                    inputField.setSelection(txt.length)
+                    statusLabel.text = "Đã nghe rõ — bấm Lưu lên Widget để hoàn tất"
+                }
+            },
+            onError = { _, msg ->
+                if (inputField.text.isNullOrBlank()) {
+                    statusLabel.text = msg
+                }
+            },
+            onLaunchSystemDialog = { dialogIntent ->
+                try {
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(dialogIntent, REQ_SYSTEM_VOICE)
+                    true
+                } catch (_: Exception) {
+                    statusLabel.text = "Hãy gõ nội dung cần ghi nhanh bên dưới"
+                    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+                    inputField.requestFocus()
+                    false
+                }
+            }
+        )
+        speechHelper = created
+        return created
+    }
 
+    private fun startVoiceListening() {
         val hasAudioPerm = ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
 
-        if (hasAudioPerm && SpeechRecognizer.isRecognitionAvailable(this)) {
-            try {
-                speechRecognizer?.destroy()
-                val sr = SpeechRecognizer.createSpeechRecognizer(this)
-                speechRecognizer = sr
-                statusLabel.text = "Đang nghe giọng nói tiếng Việt..."
-                var lastPartial = ""
-                sr.setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) {
-                        statusLabel.text = "Mời bạn nói (VD: Cà phê 35 nghìn)..."
-                    }
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {}
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() {
-                        statusLabel.text = "Đang xử lý câu nói..."
-                    }
-                    override fun onPartialResults(partialResults: Bundle?) {
-                        val txt = partialResults
-                            ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            ?.firstOrNull()
-                            .orEmpty()
-                        if (txt.isNotBlank()) {
-                            lastPartial = txt
-                            inputField.setText(txt)
-                            inputField.setSelection(txt.length)
-                        }
-                    }
-                    override fun onResults(results: Bundle?) {
-                        val txt = results
-                            ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            ?.firstOrNull()
-                            ?.takeIf { it.isNotBlank() }
-                            ?: lastPartial
-                        if (txt.isNotBlank()) {
-                            inputField.setText(txt)
-                            inputField.setSelection(txt.length)
-                            statusLabel.text = "Đã nghe rõ — bấm Lưu lên Widget để hoàn tất"
-                        }
-                    }
-                    override fun onError(error: Int) {
-                        if (lastPartial.isNotBlank()) {
-                            inputField.setText(lastPartial)
-                            inputField.setSelection(lastPartial.length)
-                            statusLabel.text = "Đã ghi nhận câu nói — kiểm tra rồi bấm Lưu"
-                        } else {
-                            statusLabel.text = "Chưa nghe rõ — hãy thử nói lại hoặc gõ trực tiếp"
-                        }
-                    }
-                    override fun onEvent(eventType: Int, params: Bundle?) {}
-                })
-                sr.startListening(recIntent)
-                return
-            } catch (_: Exception) {
-            }
+        if (!hasAudioPerm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            statusLabel.text = "Vui lòng cho phép quyền Micro để thu âm..."
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_OVERLAY_RECORD_AUDIO)
+            return
         }
 
-        // Fallback to Android System Speech Dialog (works even without RECORD_AUDIO permission!)
-        try {
-            @Suppress("DEPRECATION")
-            startActivityForResult(recIntent, REQ_SYSTEM_VOICE)
-        } catch (_: Exception) {
-            statusLabel.text = "Hãy gõ nội dung cần ghi nhanh bên dưới"
-            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-            inputField.requestFocus()
+        statusLabel.text = "Đang khởi động thu âm tiếng Việt..."
+        ensureOverlaySpeechHelper().startListening(preferSystemDialog = !hasAudioPerm)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_OVERLAY_RECORD_AUDIO) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            ensureOverlaySpeechHelper().startListening(preferSystemDialog = !granted)
         }
     }
 
@@ -983,15 +975,20 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_SYSTEM_VOICE && resultCode == RESULT_OK) {
-            val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()
-                .orEmpty()
-            if (spoken.isNotBlank()) {
-                inputField.setText(spoken)
-                inputField.setSelection(spoken.length)
-                commitAndFinish()
+        if (requestCode == REQ_SYSTEM_VOICE) {
+            if (resultCode == RESULT_OK) {
+                val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                    ?.firstOrNull()
+                    .orEmpty()
+                    .trim()
+                if (spoken.isNotBlank()) {
+                    inputField.setText(spoken)
+                    inputField.setSelection(spoken.length)
+                    commitAndFinish()
+                    return
+                }
             }
+            statusLabel.text = "Bấm Nói mic tiếng Việt để thử lại hoặc gõ trực tiếp"
         }
     }
 
@@ -1018,10 +1015,8 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     }
 
     override fun onDestroy() {
-        try {
-            speechRecognizer?.destroy()
-        } catch (_: Exception) {
-        }
+        speechHelper?.destroy()
+        speechHelper = null
         super.onDestroy()
     }
 

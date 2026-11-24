@@ -130,12 +130,15 @@ class _VoiceSmartCaptureSheetBodyState
   ];
 
   late final TextEditingController _textCtrl;
+  final String _voiceSessionToken = const Uuid().v4();
   StreamSubscription<VoiceAssistantSignal>? _voiceSub;
   Timer? _autoEndpointTimer;
   bool _isListening = false;
+  bool _isRequestingPermission = false;
   bool _awaitingConfirmation = false;
   double _rmsDb = 0.0;
   String? _voiceStatusHint;
+  String? _lastErrorCode;
   String? _selectedWalletId;
 
   @override
@@ -164,7 +167,9 @@ class _VoiceSmartCaptureSheetBodyState
   void dispose() {
     _autoEndpointTimer?.cancel();
     _voiceSub?.cancel();
-    sl<NativeVoiceAssistantBridge>().stopListening();
+    sl<NativeVoiceAssistantBridge>().cancelListening(
+      sessionToken: _voiceSessionToken,
+    );
     _textCtrl.dispose();
     super.dispose();
   }
@@ -180,12 +185,25 @@ class _VoiceSmartCaptureSheetBodyState
     switch (sig) {
       case VoiceStateSignal(:final status):
         setState(() {
-          if (status == 'listening') {
+          if (status == 'requesting_permission') {
+            _isRequestingPermission = true;
+            _isListening = false;
+            _lastErrorCode = null;
+            _voiceStatusHint =
+                'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
+          } else if (status == 'listening') {
+            _isRequestingPermission = false;
             _isListening = true;
             _awaitingConfirmation = false;
+            _lastErrorCode = null;
             _voiceStatusHint = null;
           } else if (status == 'processing') {
+            _isRequestingPermission = false;
             _voiceStatusHint = 'Đang chốt câu vừa nói...';
+          } else if (status == 'idle') {
+            _isRequestingPermission = false;
+            _isListening = false;
+            _rmsDb = 0.0;
           }
         });
       case VoiceRmsSignal(:final rmsDb):
@@ -193,6 +211,8 @@ class _VoiceSmartCaptureSheetBodyState
       case VoiceTranscriptSignal(:final text, :final isFinal):
         final clean = text.trim();
         setState(() {
+          _isRequestingPermission = false;
+          _lastErrorCode = null;
           _textCtrl.text = text;
           _textCtrl.selection = TextSelection.collapsed(offset: text.length);
           if (isFinal) {
@@ -212,16 +232,19 @@ class _VoiceSmartCaptureSheetBodyState
         } else if (clean.isNotEmpty) {
           _scheduleSmartAutoEndpoint(clean);
         }
-      case VoiceErrorSignal(:final message):
+      case VoiceErrorSignal(:final message, :final code):
         _autoEndpointTimer?.cancel();
         setState(() {
+          _isRequestingPermission = false;
           _isListening = false;
           _rmsDb = 0.0;
           if (_textCtrl.text.trim().isNotEmpty) {
+            _lastErrorCode = null;
             _awaitingConfirmation = true;
             _voiceStatusHint =
                 'Đã giữ lại nội dung vừa nghe — mời bạn kiểm tra & xác nhận.';
           } else {
+            _lastErrorCode = code;
             _voiceStatusHint = message;
           }
         });
@@ -261,7 +284,10 @@ class _VoiceSmartCaptureSheetBodyState
     });
   }
 
-  Future<void> _startListeningFresh({bool clearExisting = false}) async {
+  Future<void> _startListeningFresh({
+    bool clearExisting = false,
+    bool preferSystemDialog = false,
+  }) async {
     _autoEndpointTimer?.cancel();
     final bridge = sl<NativeVoiceAssistantBridge>();
     if (clearExisting) {
@@ -269,15 +295,29 @@ class _VoiceSmartCaptureSheetBodyState
     }
     setState(() {
       _isListening = true;
+      _isRequestingPermission = false;
       _awaitingConfirmation = false;
       _rmsDb = 0.0;
+      _lastErrorCode = null;
       _voiceStatusHint = null;
     });
-    final res = await bridge.startListening();
+    final res = await bridge.startListening(
+      sessionToken: _voiceSessionToken,
+      preferSystemDialog: preferSystemDialog,
+    );
     if (!mounted) return;
-    if (res == 'UNSUPPORTED' || res == 'ERROR') {
+    if (res == 'PERMISSION_REQUESTED') {
       setState(() {
         _isListening = false;
+        _isRequestingPermission = true;
+        _voiceStatusHint =
+            'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
+      });
+    } else if (res == 'UNSUPPORTED' || res == 'ERROR') {
+      setState(() {
+        _isListening = false;
+        _isRequestingPermission = false;
+        _lastErrorCode = res;
         _voiceStatusHint =
             'Thiết bị hiện chưa bật dịch vụ thu âm hệ thống — bạn có thể chọn mẫu câu hoặc nhập bên dưới.';
       });
@@ -740,14 +780,78 @@ class _VoiceSmartCaptureSheetBodyState
                                 Text(
                                   _voiceStatusHint ??
                                       (hasSpokenText
-                                          ? 'Bạn có thể sửa câu bên dưới hoặc bấm Nói lại nếu chưa đúng.'
-                                          : 'VD: "Ăn phở 55k", "Lẩu 450k chia 3 người", "Uống 300ml nước"'),
+                                          ? 'Có thể sửa nhanh bên dưới hoặc bấm Nói lại.'
+                                          : 'Hỗ trợ nói gộp nhiều khoản thu chi, chia nhóm, lịch hẹn & uống nước'),
                                   softWrap: true,
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     color: c.textSecondary,
                                   ),
                                 ),
+                              if (!_isListening &&
+                                  !_isRequestingPermission &&
+                                  !hasSpokenText &&
+                                  _lastErrorCode != null) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    if (_lastErrorCode == 'PERMISSION_DENIED' ||
+                                        _lastErrorCode ==
+                                            'PERMISSION_PERMANENTLY_DENIED')
+                                      FilledButton.tonalIcon(
+                                        key: const Key(
+                                          'voice_grant_mic_permission_btn',
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        onPressed: () async {
+                                          if (_lastErrorCode ==
+                                              'PERMISSION_PERMANENTLY_DENIED') {
+                                            await sl<
+                                                  NativeVoiceAssistantBridge
+                                                >()
+                                                .openMicrophoneSettings();
+                                          } else {
+                                            await _startListeningFresh();
+                                          }
+                                        },
+                                        icon: const Icon(
+                                          Icons.mic_external_on_rounded,
+                                          size: 15,
+                                        ),
+                                        label: Text(
+                                          _lastErrorCode ==
+                                                  'PERMISSION_PERMANENTLY_DENIED'
+                                              ? 'Mở Cài đặt Micro'
+                                              : 'Cấp quyền Micro',
+                                          style: const TextStyle(fontSize: 11.5),
+                                        ),
+                                      ),
+                                    OutlinedButton.icon(
+                                      key: const Key(
+                                        'voice_system_dialog_fallback_btn',
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onPressed: () => _startListeningFresh(
+                                        preferSystemDialog: true,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.record_voice_over_outlined,
+                                        size: 15,
+                                      ),
+                                      label: const Text(
+                                        'Thu âm hệ thống',
+                                        style: TextStyle(fontSize: 11.5),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -790,7 +894,7 @@ class _VoiceSmartCaptureSheetBodyState
                 onChanged: (_) => setState(() => _awaitingConfirmation = true),
                 decoration: InputDecoration(
                   labelText: 'Nội dung nhận diện (có thể sửa nhanh)',
-                  hintText: 'VD: Ăn phở 55 nghìn và đổ xăng 70 nghìn',
+                  hintText: 'Nhập hoặc nói nội dung cần ghi...',
                   suffixIcon: hasSpokenText
                       ? Row(
                           mainAxisSize: MainAxisSize.min,

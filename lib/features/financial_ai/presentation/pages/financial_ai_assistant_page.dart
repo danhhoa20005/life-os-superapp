@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -78,10 +79,12 @@ class _FinancialAiAssistantBody extends StatefulWidget {
 
 class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
   late final TextEditingController _inputCtrl;
+  final String _voiceSessionToken = const Uuid().v4();
   StreamSubscription<VoiceAssistantSignal>? _voiceSub;
   Timer? _autoEndpointTimer;
   bool _isListening = false;
   String? _voiceHint;
+  String? _lastVoiceErrorCode;
   FinancialInputSource _activeSource = FinancialInputSource.manualText;
 
   static const List<(String label, String sample)> _samplePrompts = [
@@ -123,10 +126,18 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
       switch (sig) {
         case VoiceStateSignal(:final status):
           setState(() {
-            _isListening = status == 'listening';
-            if (_isListening) {
+            if (status == 'requesting_permission') {
+              _isListening = false;
+              _lastVoiceErrorCode = null;
               _voiceHint =
-                  'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
+                  'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
+            } else {
+              _isListening = status == 'listening';
+              if (_isListening) {
+                _lastVoiceErrorCode = null;
+                _voiceHint =
+                    'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
+              }
             }
           });
         case VoiceRmsSignal():
@@ -134,6 +145,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
         case VoiceTranscriptSignal(:final text, :final isFinal):
           final clean = text.trim();
           setState(() {
+            _lastVoiceErrorCode = null;
             _inputCtrl.text = text;
             _inputCtrl.selection = TextSelection.collapsed(offset: text.length);
             _activeSource = FinancialInputSource.voiceTranscript;
@@ -153,11 +165,12 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
           } else if (clean.isNotEmpty) {
             _scheduleAutoEndpointAndAnalyze(clean);
           }
-        case VoiceErrorSignal(:final message):
+        case VoiceErrorSignal(:final message, :final code):
           _autoEndpointTimer?.cancel();
           final hasPartial = _inputCtrl.text.trim().isNotEmpty;
           setState(() {
             _isListening = false;
+            _lastVoiceErrorCode = hasPartial ? null : code;
             _voiceHint = hasPartial
                 ? '✓ Đã giữ câu vừa nói — kiểm tra & xác nhận bên dưới.'
                 : message;
@@ -210,15 +223,20 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
   void dispose() {
     _autoEndpointTimer?.cancel();
     _voiceSub?.cancel();
-    sl<NativeVoiceAssistantBridge>().stopListening();
+    sl<NativeVoiceAssistantBridge>().cancelListening(
+      sessionToken: _voiceSessionToken,
+    );
     _inputCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _toggleMic({bool clearExisting = false}) async {
+  Future<void> _toggleMic({
+    bool clearExisting = false,
+    bool preferSystemDialog = false,
+  }) async {
     _autoEndpointTimer?.cancel();
     final bridge = sl<NativeVoiceAssistantBridge>();
-    if (_isListening && !clearExisting) {
+    if (_isListening && !clearExisting && !preferSystemDialog) {
       await bridge.stopListening();
       if (mounted) {
         setState(() {
@@ -239,14 +257,25 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
     }
     setState(() {
       _isListening = true;
+      _lastVoiceErrorCode = null;
       _voiceHint =
           'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
     });
-    final res = await bridge.startListening();
+    final res = await bridge.startListening(
+      sessionToken: _voiceSessionToken,
+      preferSystemDialog: preferSystemDialog,
+    );
     if (!mounted) return;
-    if (res == 'UNSUPPORTED' || res == 'ERROR') {
+    if (res == 'PERMISSION_REQUESTED') {
       setState(() {
         _isListening = false;
+        _voiceHint =
+            'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
+      });
+    } else if (res == 'UNSUPPORTED' || res == 'ERROR') {
+      setState(() {
+        _isListening = false;
+        _lastVoiceErrorCode = res;
         _voiceHint =
             'Thiết bị hiện tại chưa bật dịch vụ giọng nói hệ thống; hãy gõ hoặc chọn mẫu câu bên dưới.';
       });
@@ -530,6 +559,77 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                             ),
                                         ],
                                       ),
+                                      if (!_isListening &&
+                                          _lastVoiceErrorCode != null &&
+                                          _inputCtrl.text.trim().isEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            if (_lastVoiceErrorCode ==
+                                                    'PERMISSION_DENIED' ||
+                                                _lastVoiceErrorCode ==
+                                                    'PERMISSION_PERMANENTLY_DENIED')
+                                              FilledButton.tonalIcon(
+                                                key: const Key(
+                                                  'fin_ai_grant_mic_btn',
+                                                ),
+                                                style: FilledButton.styleFrom(
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
+                                                onPressed: () async {
+                                                  if (_lastVoiceErrorCode ==
+                                                      'PERMISSION_PERMANENTLY_DENIED') {
+                                                    await sl<
+                                                          NativeVoiceAssistantBridge
+                                                        >()
+                                                        .openMicrophoneSettings();
+                                                  } else {
+                                                    await _toggleMic();
+                                                  }
+                                                },
+                                                icon: const Icon(
+                                                  Icons.mic_external_on_rounded,
+                                                  size: 15,
+                                                ),
+                                                label: Text(
+                                                  _lastVoiceErrorCode ==
+                                                          'PERMISSION_PERMANENTLY_DENIED'
+                                                      ? 'Mở Cài đặt Micro'
+                                                      : 'Cấp quyền Micro',
+                                                  style: const TextStyle(
+                                                    fontSize: 11.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            OutlinedButton.icon(
+                                              key: const Key(
+                                                'fin_ai_system_voice_btn',
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                              ),
+                                              onPressed: () => _toggleMic(
+                                                preferSystemDialog: true,
+                                              ),
+                                              icon: const Icon(
+                                                Icons
+                                                    .record_voice_over_outlined,
+                                                size: 15,
+                                              ),
+                                              label: const Text(
+                                                'Thu âm hệ thống',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ],
                                     const SizedBox(height: 10),
                                     Wrap(

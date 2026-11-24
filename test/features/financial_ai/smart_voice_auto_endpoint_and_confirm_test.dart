@@ -278,5 +278,112 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    test(
+      'Session token isolation prevents a closing sheet dispose() from cancelling a newly started voice session',
+      () async {
+        final driver = _ControllableVoiceDriver();
+        NativeVoiceAssistantBridge.setDriverOverride(driver);
+        addTearDown(driver.dispose);
+
+        const bridge = NativeVoiceAssistantBridge();
+        await bridge.startListening(sessionToken: 'sheet_session_1');
+        expect(driver.startCount, 1);
+
+        // User opens a second voice session while sheet 1 is still animating closed
+        await bridge.startListening(sessionToken: 'sheet_session_2');
+        expect(driver.startCount, 2);
+
+        // Sheet 1's dispose() fires late -> MUST NOT stop sheet 2's active recording!
+        await bridge.cancelListening(sessionToken: 'sheet_session_1');
+        expect(driver.stopCount, 0);
+
+        // Sheet 2's dispose() fires -> cleanly stops session 2
+        await bridge.cancelListening(sessionToken: 'sheet_session_2');
+        expect(driver.stopCount, 1);
+
+        // Verify raw event parser handles permission & state payloads accurately
+        final permErr = MethodChannelVoiceAssistantDriver.parseRawVoiceEvent({
+          'type': 'error',
+          'code': 'PERMISSION_PERMANENTLY_DENIED',
+          'message': 'Quyền Micro bị tắt',
+        });
+        expect(permErr, isA<VoiceErrorSignal>());
+        expect((permErr as VoiceErrorSignal).isPermissionError, isTrue);
+        expect(permErr.isPermanentlyDenied, isTrue);
+      },
+    );
+
+    testWidgets(
+      'Permission denial transitions cleanly out of listening state and renders 1-tap Mic Settings & System Voice Dialog recovery buttons',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(360, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final voiceDriver = _ControllableVoiceDriver();
+        NativeVoiceAssistantBridge.setDriverOverride(voiceDriver);
+        addTearDown(voiceDriver.dispose);
+
+        final firestore = FakeFirebaseFirestore();
+        const uid = 'u_voice_perm';
+        await firestore.collection('users').doc(uid).set({
+          'email': 'perm_voice@lifeos.vn',
+          'fullName': 'Ngọc Anh',
+          'onboardingCompleted': true,
+        });
+        final auth = MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(
+            uid: uid,
+            email: 'perm_voice@lifeos.vn',
+            displayName: 'Ngọc Anh',
+          ),
+        );
+
+        await configureDependencies(
+          authOverride: auth,
+          firestoreOverride: firestore,
+          httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+          googleCalendarTokenOverride: ({required interactive}) async => null,
+          financialClassifierOverride: FastTextClassifier(
+            useWorkerIsolate: false,
+          ),
+        );
+
+        await tester.pumpWidget(const LifeOsApp());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('home_quick_expense_btn')));
+        await tester.pumpAndSettle();
+
+        // Simulate Android OS denying RECORD_AUDIO permission -> must NOT freeze in listening state!
+        voiceDriver.controller.add(const VoiceStateSignal('idle'));
+        voiceDriver.controller.add(
+          const VoiceErrorSignal(
+            'Chưa cấp quyền Micro để thu âm trực tiếp.',
+            code: 'PERMISSION_PERMANENTLY_DENIED',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Đang tự động thu âm...'), findsNothing);
+        expect(
+          find.byKey(const Key('voice_grant_mic_permission_btn')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('voice_system_dialog_fallback_btn')),
+          findsOneWidget,
+        );
+
+        // Tapping 'Thu âm hệ thống' launches system fallback cleanly
+        await tester.tap(
+          find.byKey(const Key('voice_system_dialog_fallback_btn')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(voiceDriver.startCount, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

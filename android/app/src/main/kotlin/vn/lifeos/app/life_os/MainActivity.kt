@@ -15,9 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -43,8 +41,10 @@ class MainActivity : FlutterActivity() {
     private var pendingAlarmPayload: Map<String, String>? = null
     private var homeWidgetsMethodChannel: MethodChannel? = null
     private var alarmMethodChannel: MethodChannel? = null
+    private var voiceMethodChannel: MethodChannel? = null
     private var pendingCalendarPermissionResult: MethodChannel.Result? = null
-    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechHelper: LifeOsSpeechRecognizerHelper? = null
+    private var activeVoiceSessionToken: String? = null
     private var voiceEventSink: EventChannel.EventSink? = null
 
     companion object {
@@ -304,7 +304,7 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // 3. Native Vietnamese Speech Recognition (SpeechRecognizer + RecognizerIntent Fallback)
+        // 3. Native Vietnamese Speech Recognition (Multi-Engine Google Speech + System Dialog Fallback)
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, voiceEventChannelName)
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -316,36 +316,74 @@ class MainActivity : FlutterActivity() {
                 }
             })
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, voiceMethodChannelName)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "startListening" -> {
-                        val hasAudioPerm = ContextCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (!hasAudioPerm) {
-                            ActivityCompat.requestPermissions(
-                                this,
-                                arrayOf(Manifest.permission.RECORD_AUDIO),
-                                REQ_RECORD_AUDIO
-                            )
-                            result.success("PERMISSION_REQUESTED")
-                            return@setMethodCallHandler
-                        }
-                        startVietnameseVoiceCapture()
+        val voiceCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, voiceMethodChannelName)
+        voiceMethodChannel = voiceCh
+        ensureSpeechHelper()
+        voiceCh.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startListening" -> {
+                    val token = call.argument<String>("sessionToken")
+                    val preferSystemDialog = call.argument<Boolean>("preferSystemDialog") ?: false
+                    if (!token.isNullOrBlank()) {
+                        activeVoiceSessionToken = token
+                    }
+                    if (preferSystemDialog) {
+                        ensureSpeechHelper().startListening(preferSystemDialog = true)
                         result.success("LISTENING_STARTED")
+                        return@setMethodCallHandler
                     }
-                    "stopListening" -> {
-                        try {
-                            speechRecognizer?.stopListening()
-                        } catch (_: Exception) {
-                        }
-                        result.success(true)
+                    val hasAudioPerm = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!hasAudioPerm) {
+                        emitVoiceEvent(mapOf("type" to "state", "status" to "requesting_permission"))
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.RECORD_AUDIO),
+                            REQ_RECORD_AUDIO
+                        )
+                        result.success("PERMISSION_REQUESTED")
+                        return@setMethodCallHandler
                     }
-                    else -> result.notImplemented()
+                    ensureSpeechHelper().startListening(preferSystemDialog = false)
+                    result.success("LISTENING_STARTED")
                 }
+                "stopListening" -> {
+                    speechHelper?.stopListening()
+                    result.success(true)
+                }
+                "cancelListening" -> {
+                    val token = call.argument<String>("sessionToken")
+                    if (token.isNullOrBlank() || activeVoiceSessionToken == null || token == activeVoiceSessionToken) {
+                        speechHelper?.cancelListening()
+                    }
+                    result.success(true)
+                }
+                "hasRecordPermission" -> {
+                    val granted = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    result.success(granted)
+                }
+                "openMicrophoneSettings" -> {
+                    try {
+                        val settingsIntent = Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", packageName, null)
+                        ).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(settingsIntent)
+                        result.success(true)
+                    } catch (_: Exception) {
+                        result.success(false)
+                    }
+                }
+                else -> result.notImplemented()
             }
+        }
 
         // 4. OTA Self-Updater & Native CSV / JSON Share Sheet
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, appUpdaterChannelName)
@@ -833,109 +871,51 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun startVietnameseVoiceCapture() {
-        val recIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1100L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Hãy nói tự nhiên, hệ thống sẽ tự dừng để bạn xác nhận...")
-        }
-
-        if (SpeechRecognizer.isRecognitionAvailable(this)) {
+    private fun emitVoiceEvent(payload: Map<String, Any?>) {
+        runOnUiThread {
             try {
-                speechRecognizer?.destroy()
-                val sr = SpeechRecognizer.createSpeechRecognizer(this)
-                speechRecognizer = sr
-                var lastPartialTranscript = ""
-                sr.setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) {
-                        voiceEventSink?.success(mapOf("type" to "state", "status" to "listening"))
-                    }
-
-                    override fun onBeginningOfSpeech() {}
-
-                    override fun onRmsChanged(rmsdB: Float) {
-                        voiceEventSink?.success(mapOf("type" to "rms", "rms" to rmsdB.toDouble()))
-                    }
-
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-
-                    override fun onEndOfSpeech() {
-                        voiceEventSink?.success(mapOf("type" to "state", "status" to "processing"))
-                    }
-
-                    override fun onError(error: Int) {
-                        // Preserve already-captured speech when OEM recognizer ends on silence timeout!
-                        if (lastPartialTranscript.isNotBlank() &&
-                            (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
-                                error == SpeechRecognizer.ERROR_NO_MATCH ||
-                                error == SpeechRecognizer.ERROR_CLIENT)
-                        ) {
-                            val captured = lastPartialTranscript
-                            lastPartialTranscript = ""
-                            voiceEventSink?.success(mapOf("type" to "final", "text" to captured))
-                            return
-                        }
-                        val friendlyMsg = when (error) {
-                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                                "Vui lòng cấp quyền Micro để thu âm giọng nói."
-                            SpeechRecognizer.ERROR_NO_MATCH,
-                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                                "Chưa nghe rõ giọng nói. Bấm Nói lại để thử lại nhé."
-                            SpeechRecognizer.ERROR_NETWORK,
-                            SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                                "Kết nối nhận diện giọng nói gián đoạn. Hãy thử nói lại hoặc kiểm tra gói giọng nói tiếng Việt offline."
-                            else ->
-                                "Tạm ngưng thu âm. Bấm Nói lại khi bạn sẵn sàng."
-                        }
-                        voiceEventSink?.success(
-                            mapOf("type" to "error", "code" to error, "message" to friendlyMsg)
-                        )
-                    }
-
-                    override fun onResults(results: Bundle?) {
-                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull()?.takeIf { it.isNotBlank() } ?: lastPartialTranscript
-                        lastPartialTranscript = ""
-                        voiceEventSink?.success(mapOf("type" to "final", "text" to text))
-                    }
-
-                    override fun onPartialResults(partialResults: Bundle?) {
-                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull().orEmpty()
-                        if (text.isNotEmpty()) {
-                            lastPartialTranscript = text
-                            voiceEventSink?.success(mapOf("type" to "partial", "text" to text))
-                        }
-                    }
-
-                    override fun onEvent(eventType: Int, params: Bundle?) {}
-                })
-                sr.startListening(recIntent)
-                return
+                voiceMethodChannel?.invokeMethod("onVoiceEvent", payload)
+            } catch (_: Exception) {
+            }
+            try {
+                voiceEventSink?.success(payload)
             } catch (_: Exception) {
             }
         }
+    }
 
-        // System Dialog Fallback
-        try {
-            @Suppress("DEPRECATION")
-            startActivityForResult(recIntent, REQ_SPEECH_INTENT)
-            voiceEventSink?.success(mapOf("type" to "state", "status" to "listening"))
-        } catch (_: Exception) {
-            voiceEventSink?.success(
-                mapOf(
-                    "type" to "error",
-                    "code" to -1,
-                    "message" to "Thiết bị chưa cài dịch vụ nhận diện giọng nói Google."
-                )
-            )
-        }
+    private fun ensureSpeechHelper(): LifeOsSpeechRecognizerHelper {
+        val existing = speechHelper
+        if (existing != null) return existing
+        val created = LifeOsSpeechRecognizerHelper(
+            activity = this,
+            onStateChanged = { status ->
+                emitVoiceEvent(mapOf("type" to "state", "status" to status))
+            },
+            onRmsChanged = { rms ->
+                emitVoiceEvent(mapOf("type" to "rms", "rms" to rms))
+            },
+            onPartialTranscript = { text ->
+                emitVoiceEvent(mapOf("type" to "partial", "text" to text))
+            },
+            onFinalTranscript = { text ->
+                emitVoiceEvent(mapOf("type" to "final", "text" to text))
+            },
+            onError = { code, message ->
+                emitVoiceEvent(mapOf("type" to "error", "code" to code, "message" to message))
+            },
+            onLaunchSystemDialog = { dialogIntent ->
+                try {
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(dialogIntent, REQ_SPEECH_INTENT)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+        )
+        speechHelper = created
+        return created
     }
 
     override fun onRequestPermissionsResult(
@@ -944,11 +924,29 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_RECORD_AUDIO &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            startVietnameseVoiceCapture()
+        if (requestCode == REQ_RECORD_AUDIO) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                ensureSpeechHelper().startListening(preferSystemDialog = false)
+            } else {
+                val permanentlyDenied = !ActivityCompat.shouldShowRequestPermissionRationale(
+                    this,
+                    Manifest.permission.RECORD_AUDIO
+                )
+                emitVoiceEvent(mapOf("type" to "state", "status" to "idle"))
+                emitVoiceEvent(
+                    mapOf(
+                        "type" to "error",
+                        "code" to if (permanentlyDenied) "PERMISSION_PERMANENTLY_DENIED" else "PERMISSION_DENIED",
+                        "message" to if (permanentlyDenied) {
+                            "Quyền Micro đang bị tắt trong Cài đặt máy. Bấm Cấp quyền Micro hoặc dùng Thu âm hệ thống."
+                        } else {
+                            "Chưa cấp quyền Micro để thu âm trực tiếp. Bấm Cấp quyền Micro hoặc dùng Thu âm hệ thống."
+                        }
+                    )
+                )
+            }
         } else if (requestCode == REQ_CALENDAR_PERMISSIONS) {
             val cb = pendingCalendarPermissionResult
             pendingCalendarPermissionResult = null
@@ -962,22 +960,32 @@ class MainActivity : FlutterActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_SPEECH_INTENT && resultCode == Activity.RESULT_OK) {
-            val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            val text = matches?.firstOrNull().orEmpty()
-            if (text.isNotEmpty()) {
-                voiceEventSink?.success(mapOf("type" to "final", "text" to text))
+        if (requestCode == REQ_SPEECH_INTENT) {
+            if (resultCode == Activity.RESULT_OK) {
+                val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                val text = matches?.firstOrNull().orEmpty().trim()
+                if (text.isNotEmpty()) {
+                    emitVoiceEvent(mapOf("type" to "final", "text" to text))
+                    return
+                }
             }
+            emitVoiceEvent(mapOf("type" to "state", "status" to "idle"))
+            emitVoiceEvent(
+                mapOf(
+                    "type" to "error",
+                    "code" to "DIALOG_CANCELED",
+                    "message" to "Đã dừng hộp thoại thu âm. Chạm Mic để nói lại hoặc nhập bên dưới."
+                )
+            )
         }
     }
 
     override fun onDestroy() {
         LifeOsAlarmScheduler.onBackgroundHealthActionPing = null
         LifeOsWidgetStore.onBackgroundWidgetCommandPing = null
-        try {
-            speechRecognizer?.destroy()
-        } catch (_: Exception) {
-        }
+        voiceMethodChannel = null
+        speechHelper?.destroy()
+        speechHelper = null
         super.onDestroy()
     }
 
