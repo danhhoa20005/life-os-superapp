@@ -3,12 +3,99 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+enum VoiceEngineMode {
+  auto('auto', 'Tự động tối ưu'),
+  onDevice('on_device', 'Offline trên máy'),
+  googleService('google_service', 'Google Speech'),
+  systemDialog('system_dialog', 'Hộp thoại hệ thống');
+
+  final String wireValue;
+  final String labelVi;
+  const VoiceEngineMode(this.wireValue, this.labelVi);
+}
+
+class VoiceDiagnosticsSnapshot {
+  final bool hardwareMicAvailable;
+  final bool hasRecordPermission;
+  final bool isRecognitionAvailable;
+  final bool isOnDeviceAvailable;
+  final bool hasSystemSpeechDialog;
+  final List<String> availableEngines;
+  final String activeEngineLabel;
+  final int sdkInt;
+  final String manufacturer;
+
+  const VoiceDiagnosticsSnapshot({
+    required this.hardwareMicAvailable,
+    required this.hasRecordPermission,
+    required this.isRecognitionAvailable,
+    required this.isOnDeviceAvailable,
+    required this.hasSystemSpeechDialog,
+    required this.availableEngines,
+    required this.activeEngineLabel,
+    required this.sdkInt,
+    required this.manufacturer,
+  });
+
+  const VoiceDiagnosticsSnapshot.fallback({
+    bool supported = false,
+  }) : hardwareMicAvailable = supported,
+       hasRecordPermission = supported,
+       isRecognitionAvailable = supported,
+       isOnDeviceAvailable = false,
+       hasSystemSpeechDialog = supported,
+       availableEngines = const <String>[],
+       activeEngineLabel = 'auto',
+       sdkInt = 0,
+       manufacturer = 'unknown';
+
+  factory VoiceDiagnosticsSnapshot.fromMap(Map<String, dynamic> map) {
+    final rawEngines = map['availableEngines'];
+    final engines = rawEngines is Iterable
+        ? rawEngines.map((e) => e.toString()).toList(growable: false)
+        : const <String>[];
+    return VoiceDiagnosticsSnapshot(
+      hardwareMicAvailable: map['hardwareMicAvailable'] == true,
+      hasRecordPermission: map['hasRecordPermission'] == true,
+      isRecognitionAvailable: map['isRecognitionAvailable'] == true,
+      isOnDeviceAvailable: map['isOnDeviceAvailable'] == true,
+      hasSystemSpeechDialog: map['hasSystemSpeechDialog'] == true,
+      availableEngines: engines,
+      activeEngineLabel: (map['activeEngineLabel'] ?? 'auto').toString(),
+      sdkInt: (map['sdkInt'] as num?)?.toInt() ?? 0,
+      manufacturer: (map['manufacturer'] ?? 'unknown').toString(),
+    );
+  }
+
+  String get readableEngineSummaryVi {
+    if (activeEngineLabel == 'system_default') {
+      return 'Kênh hệ thống Android';
+    }
+    if (activeEngineLabel == 'on_device_android13') {
+      return 'Nhận diện Offline trên máy';
+    }
+    if (activeEngineLabel == 'system_speech_dialog') {
+      return 'Hộp thoại giọng nói hệ thống';
+    }
+    if (activeEngineLabel.startsWith('service:com.google.')) {
+      return 'Speech Services by Google';
+    }
+    if (activeEngineLabel.startsWith('service:')) {
+      return activeEngineLabel.substring('service:'.length);
+    }
+    if (availableEngines.isNotEmpty) {
+      return 'Sẵn sàng (${availableEngines.length} kênh)';
+    }
+    return isRecognitionAvailable ? 'Sẵn sàng' : 'Chưa phát hiện dịch vụ';
+  }
+}
+
 sealed class VoiceAssistantSignal {
   const VoiceAssistantSignal();
 }
 
 final class VoiceStateSignal extends VoiceAssistantSignal {
-  /// 'requesting_permission' | 'listening' | 'processing' | 'idle'
+  /// 'requesting_permission' | 'initializing' | 'listening' | 'processing' | 'idle'
   final String status;
   const VoiceStateSignal(this.status);
 }
@@ -43,17 +130,21 @@ abstract interface class VoiceAssistantDriver {
 }
 
 /// Extended native driver contract supporting session-token ownership isolation,
-/// direct Android System Speech Dialog fallback, and 1-tap OS Microphone Settings.
+/// multi-engine routing (`auto` / `on_device` / `google_service` / `system_dialog`),
+/// live hardware/service diagnostics, and 1-tap OS Microphone Settings.
 abstract interface class AdvancedVoiceAssistantDriver
     implements VoiceAssistantDriver {
   Future<String> startListeningSession({
     String? sessionToken,
     bool preferSystemDialog = false,
+    String engineMode = 'auto',
   });
 
   Future<void> cancelListeningSession({String? sessionToken});
 
   Future<bool> openMicrophoneSettings();
+
+  Future<VoiceDiagnosticsSnapshot> getDiagnostics();
 }
 
 class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver {
@@ -136,6 +227,7 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
   Future<String> startListeningSession({
     String? sessionToken,
     bool preferSystemDialog = false,
+    String engineMode = 'auto',
   }) async {
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return 'UNSUPPORTED';
@@ -146,7 +238,9 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
         'startListening',
         <String, dynamic>{
           if (sessionToken != null) 'sessionToken': sessionToken,
-          'preferSystemDialog': preferSystemDialog,
+          'preferSystemDialog':
+              preferSystemDialog || engineMode == 'system_dialog',
+          'engineMode': preferSystemDialog ? 'system_dialog' : engineMode,
         },
       );
       return status ?? 'STARTED';
@@ -190,6 +284,24 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
   }
 
   @override
+  Future<VoiceDiagnosticsSnapshot> getDiagnostics() async {
+    if (!isSupportedPlatform || !_hasServicesBinding) {
+      return const VoiceDiagnosticsSnapshot.fallback();
+    }
+    try {
+      final raw = await _methodChannel.invokeMapMethod<String, dynamic>(
+        'getDiagnostics',
+      );
+      if (raw == null) {
+        return const VoiceDiagnosticsSnapshot.fallback(supported: true);
+      }
+      return VoiceDiagnosticsSnapshot.fromMap(raw);
+    } catch (_) {
+      return const VoiceDiagnosticsSnapshot.fallback(supported: true);
+    }
+  }
+
+  @override
   Stream<VoiceAssistantSignal> watchSignals() {
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return const Stream<VoiceAssistantSignal>.empty();
@@ -214,9 +326,27 @@ class NativeVoiceAssistantBridge {
 
   bool get isSupportedPlatform => _driver.isSupportedPlatform;
 
+  /// Joins an existing spoken/typed prefix with a newly recognized utterance segment
+  /// without wiping earlier clauses when the user taps Mic again to append.
+  static String combinePrefixAndSegment(String prefix, String segment) {
+    final cleanPrefix = prefix
+        .trim()
+        .replaceAll(RegExp(r'[,;\s]+$'), '')
+        .trim();
+    final cleanSegment = segment.trim();
+    if (cleanPrefix.isEmpty) return cleanSegment;
+    if (cleanSegment.isEmpty) return cleanPrefix;
+    // Avoid duplicating if the speech engine re-emitted the full string
+    if (cleanSegment.toLowerCase().startsWith(cleanPrefix.toLowerCase())) {
+      return cleanSegment;
+    }
+    return '$cleanPrefix, $cleanSegment';
+  }
+
   Future<String> startListening({
     String? sessionToken,
     bool preferSystemDialog = false,
+    VoiceEngineMode engineMode = VoiceEngineMode.auto,
   }) {
     if (sessionToken != null && sessionToken.isNotEmpty) {
       _activeOwnerSessionToken = sessionToken;
@@ -225,7 +355,11 @@ class NativeVoiceAssistantBridge {
     if (drv is AdvancedVoiceAssistantDriver) {
       return drv.startListeningSession(
         sessionToken: sessionToken,
-        preferSystemDialog: preferSystemDialog,
+        preferSystemDialog:
+            preferSystemDialog || engineMode == VoiceEngineMode.systemDialog,
+        engineMode: preferSystemDialog
+            ? VoiceEngineMode.systemDialog.wireValue
+            : engineMode.wireValue,
       );
     }
     return drv.startListening();
@@ -258,6 +392,16 @@ class NativeVoiceAssistantBridge {
       return drv.openMicrophoneSettings();
     }
     return false;
+  }
+
+  Future<VoiceDiagnosticsSnapshot> getDiagnostics() async {
+    final drv = _driver;
+    if (drv is AdvancedVoiceAssistantDriver) {
+      return drv.getDiagnostics();
+    }
+    return VoiceDiagnosticsSnapshot.fallback(
+      supported: drv.isSupportedPlatform,
+    );
   }
 
   Stream<VoiceAssistantSignal> watchSignals() => _driver.watchSignals();

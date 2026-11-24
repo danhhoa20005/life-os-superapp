@@ -48,6 +48,8 @@ class MainActivity : FlutterActivity() {
     private var pendingSinglePermissionKind: String? = null
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private var activeVoiceSessionToken: String? = null
+    private var activeVoiceEngineMode: String = "auto"
+    private var isAwaitingVoicePermissionOrDialog: Boolean = false
     private var voiceEventSink: EventChannel.EventSink? = null
 
     companion object {
@@ -328,11 +330,17 @@ class MainActivity : FlutterActivity() {
                 "startListening" -> {
                     val token = call.argument<String>("sessionToken")
                     val preferSystemDialog = call.argument<Boolean>("preferSystemDialog") ?: false
+                    val engineMode = call.argument<String>("engineMode") ?: "auto"
+                    activeVoiceEngineMode = engineMode
                     if (!token.isNullOrBlank()) {
                         activeVoiceSessionToken = token
                     }
-                    if (preferSystemDialog) {
-                        ensureSpeechHelper().startListening(preferSystemDialog = true)
+                    if (preferSystemDialog || engineMode == "system_dialog") {
+                        isAwaitingVoicePermissionOrDialog = true
+                        ensureSpeechHelper().startListening(
+                            preferSystemDialog = true,
+                            engineMode = "system_dialog"
+                        )
                         result.success("LISTENING_STARTED")
                         return@setMethodCallHandler
                     }
@@ -341,6 +349,7 @@ class MainActivity : FlutterActivity() {
                         Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                     if (!hasAudioPerm) {
+                        isAwaitingVoicePermissionOrDialog = true
                         emitVoiceEvent(mapOf("type" to "state", "status" to "requesting_permission"))
                         ActivityCompat.requestPermissions(
                             this,
@@ -350,7 +359,11 @@ class MainActivity : FlutterActivity() {
                         result.success("PERMISSION_REQUESTED")
                         return@setMethodCallHandler
                     }
-                    ensureSpeechHelper().startListening(preferSystemDialog = false)
+                    isAwaitingVoicePermissionOrDialog = false
+                    ensureSpeechHelper().startListening(
+                        preferSystemDialog = false,
+                        engineMode = engineMode
+                    )
                     result.success("LISTENING_STARTED")
                 }
                 "stopListening" -> {
@@ -360,6 +373,7 @@ class MainActivity : FlutterActivity() {
                 "cancelListening" -> {
                     val token = call.argument<String>("sessionToken")
                     if (token.isNullOrBlank() || activeVoiceSessionToken == null || token == activeVoiceSessionToken) {
+                        isAwaitingVoicePermissionOrDialog = false
                         speechHelper?.cancelListening()
                     }
                     result.success(true)
@@ -370,6 +384,14 @@ class MainActivity : FlutterActivity() {
                         Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                     result.success(granted)
+                }
+                "getDiagnostics" -> {
+                    result.success(
+                        LifeOsSpeechRecognizerHelper.collectDiagnostics(
+                            context = this,
+                            activeEngineLabel = speechHelper?.lastResolvedEngineLabel
+                        )
+                    )
                 }
                 "openMicrophoneSettings" -> {
                     try {
@@ -1065,10 +1087,12 @@ class MainActivity : FlutterActivity() {
             },
             onLaunchSystemDialog = { dialogIntent ->
                 try {
+                    isAwaitingVoicePermissionOrDialog = true
                     @Suppress("DEPRECATION")
                     startActivityForResult(dialogIntent, REQ_SPEECH_INTENT)
                     true
                 } catch (_: Exception) {
+                    isAwaitingVoicePermissionOrDialog = false
                     false
                 }
             }
@@ -1084,10 +1108,21 @@ class MainActivity : FlutterActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_RECORD_AUDIO) {
+            isAwaitingVoicePermissionOrDialog = false
             val granted = grantResults.isNotEmpty() &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED
             if (granted) {
-                ensureSpeechHelper().startListening(preferSystemDialog = false)
+                emitVoiceEvent(mapOf("type" to "state", "status" to "initializing"))
+                // Allow 160ms for Android PermissionController Activity to finish animating out
+                // and MainActivity to regain window focus (prevents ERROR_CLIENT on Xiaomi/Samsung).
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    if (!isFinishing && !isDestroyed) {
+                        ensureSpeechHelper().startListening(
+                            preferSystemDialog = false,
+                            engineMode = activeVoiceEngineMode
+                        )
+                    }
+                }, 160L)
             } else {
                 val permanentlyDenied = !ActivityCompat.shouldShowRequestPermissionRationale(
                     this,
@@ -1140,6 +1175,7 @@ class MainActivity : FlutterActivity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_SPEECH_INTENT) {
+            isAwaitingVoicePermissionOrDialog = false
             if (resultCode == Activity.RESULT_OK) {
                 val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 val text = matches?.firstOrNull().orEmpty().trim()
@@ -1157,6 +1193,15 @@ class MainActivity : FlutterActivity() {
                 )
             )
         }
+    }
+
+    override fun onStop() {
+        // Release active inline SpeechRecognizer when app moves to background or lock screen
+        // (prevents MIUI/ColorOS/OneUI from locking the hardware mic for subsequent sessions).
+        if (!isChangingConfigurations && !isAwaitingVoicePermissionOrDialog) {
+            speechHelper?.cancelListening()
+        }
+        super.onStop()
     }
 
     override fun onDestroy() {

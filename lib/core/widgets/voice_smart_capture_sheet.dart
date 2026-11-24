@@ -22,7 +22,6 @@ import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
 import '../di/dependency_injection.dart';
-import '../motion/lifeos_motion.dart';
 import '../services/native_voice_assistant_bridge.dart';
 import '../utils/omni_action_executor.dart';
 import '../utils/smart_omni_intent_parser.dart';
@@ -30,7 +29,7 @@ import '../utils/user_behavior_prefs.dart';
 import '../utils/vnd_amount.dart';
 import '../utils/voice_financial_nlp_engine.dart';
 import '../utils/voice_utterance_completeness.dart';
-import 'lifeos_top_toast.dart';
+import 'lifeos_design_system.dart';
 import 'pro_max_widgets.dart';
 import 'status_widgets.dart';
 
@@ -112,18 +111,27 @@ class _VoiceSmartCaptureSheetBodyState
   final ValueNotifier<double> _rmsNotifier = ValueNotifier<double>(0.0);
   StreamSubscription<VoiceAssistantSignal>? _voiceSub;
   Timer? _autoEndpointTimer;
+  Timer? _processingGuardTimer;
+  DateTime? _lastVadRearmAt;
   bool _isListening = false;
+  bool _isInitializingMic = false;
   bool _isRequestingPermission = false;
   bool _awaitingConfirmation = false;
+  String _sessionPrefixText = '';
+  VoiceEngineMode _selectedEngineMode = VoiceEngineMode.auto;
+  VoiceDiagnosticsSnapshot? _diagnostics;
   String? _voiceStatusHint;
   String? _lastErrorCode;
   String? _selectedWalletId;
+
+  static const double _kActiveSpeechRmsThresholdDb = 3.0;
 
   @override
   void initState() {
     super.initState();
     final initial = widget.initialTranscript?.trim() ?? '';
     _textCtrl = TextEditingController(text: initial);
+    _sessionPrefixText = initial;
     _awaitingConfirmation = initial.isNotEmpty;
     UserBehaviorPrefs.loadLastWalletId().then((savedId) {
       if (mounted && savedId != null && _selectedWalletId == null) {
@@ -133,6 +141,7 @@ class _VoiceSmartCaptureSheetBodyState
 
     final bridge = sl<NativeVoiceAssistantBridge>();
     _voiceSub = bridge.watchSignals().listen(_handleVoiceSignal);
+    _refreshDiagnostics();
 
     if (widget.autoStartListening) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -141,9 +150,17 @@ class _VoiceSmartCaptureSheetBodyState
     }
   }
 
+  Future<void> _refreshDiagnostics() async {
+    final snap = await sl<NativeVoiceAssistantBridge>().getDiagnostics();
+    if (mounted) {
+      setState(() => _diagnostics = snap);
+    }
+  }
+
   @override
   void dispose() {
     _autoEndpointTimer?.cancel();
+    _processingGuardTimer?.cancel();
     _voiceSub?.cancel();
     sl<NativeVoiceAssistantBridge>().cancelListening(
       sessionToken: _voiceSessionToken,
@@ -159,66 +176,142 @@ class _VoiceSmartCaptureSheetBodyState
         const <FamilyMemberInfo>[];
   }
 
+  void _armProcessingSafetyGuard() {
+    _processingGuardTimer?.cancel();
+    _processingGuardTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (!mounted || !_isListening) return;
+      setState(() {
+        _isListening = false;
+        _isInitializingMic = false;
+        _rmsNotifier.value = 0.0;
+        _awaitingConfirmation = _textCtrl.text.trim().isNotEmpty;
+        if (_awaitingConfirmation) {
+          _voiceStatusHint =
+              'Đã chốt nội dung thu âm — mời bạn kiểm tra & xác nhận.';
+        }
+      });
+    });
+  }
+
   void _handleVoiceSignal(VoiceAssistantSignal sig) {
     if (!mounted) return;
     switch (sig) {
       case VoiceStateSignal(:final status):
         setState(() {
           if (status == 'requesting_permission') {
+            _processingGuardTimer?.cancel();
             _isRequestingPermission = true;
+            _isInitializingMic = false;
             _isListening = false;
             _rmsNotifier.value = 0.0;
             _lastErrorCode = null;
             _voiceStatusHint =
                 'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
-          } else if (status == 'listening') {
+          } else if (status == 'initializing') {
+            _processingGuardTimer?.cancel();
             _isRequestingPermission = false;
+            _isInitializingMic = true;
+            _isListening = true;
+            _awaitingConfirmation = false;
+            _lastErrorCode = null;
+            _voiceStatusHint = 'Đang mở kênh Micro tiếng Việt...';
+          } else if (status == 'listening') {
+            final wasInitializing = _isInitializingMic;
+            _processingGuardTimer?.cancel();
+            _isRequestingPermission = false;
+            _isInitializingMic = false;
             _isListening = true;
             _awaitingConfirmation = false;
             _lastErrorCode = null;
             _voiceStatusHint = null;
+            if (wasInitializing) {
+              HapticFeedback.selectionClick();
+            }
           } else if (status == 'processing') {
             _isRequestingPermission = false;
+            _isInitializingMic = false;
             _voiceStatusHint = 'Đang chốt câu vừa nói...';
+            _armProcessingSafetyGuard();
           } else if (status == 'idle') {
+            _processingGuardTimer?.cancel();
             _isRequestingPermission = false;
+            _isInitializingMic = false;
             _isListening = false;
             _rmsNotifier.value = 0.0;
+            if (_textCtrl.text.trim().isNotEmpty) {
+              _awaitingConfirmation = true;
+            }
           }
         });
+        if (status == 'listening' || status == 'idle') {
+          _refreshDiagnostics();
+        }
       case VoiceRmsSignal(:final rmsDb):
         _rmsNotifier.value = rmsDb;
+        // Acoustic Voice Activity Guard: never auto-stop while the user's voice
+        // is actively producing speech energy above the room noise floor!
+        if (_isListening &&
+            rmsDb >= _kActiveSpeechRmsThresholdDb &&
+            _autoEndpointTimer != null &&
+            _autoEndpointTimer!.isActive) {
+          final now = DateTime.now();
+          if (_lastVadRearmAt == null ||
+              now.difference(_lastVadRearmAt!).inMilliseconds >= 180) {
+            _lastVadRearmAt = now;
+            final currentText = _textCtrl.text.trim();
+            if (currentText.isNotEmpty) {
+              _scheduleSmartAutoEndpoint(currentText);
+            }
+          }
+        }
       case VoiceTranscriptSignal(:final text, :final isFinal):
-        final clean = text.trim();
+        _processingGuardTimer?.cancel();
+        final cleanSegment = text.trim();
+        final combined = cleanSegment.isEmpty
+            ? _sessionPrefixText
+            : NativeVoiceAssistantBridge.combinePrefixAndSegment(
+                _sessionPrefixText,
+                text,
+              );
+        final cleanCombined = combined.trim();
         setState(() {
           _isRequestingPermission = false;
+          _isInitializingMic = false;
           _lastErrorCode = null;
-          _textCtrl.text = text;
-          _textCtrl.selection = TextSelection.collapsed(offset: text.length);
+          if (combined.isNotEmpty || cleanSegment.isNotEmpty) {
+            _textCtrl.text = combined;
+            _textCtrl.selection = TextSelection.collapsed(
+              offset: combined.length,
+            );
+          }
           if (isFinal) {
             _autoEndpointTimer?.cancel();
             _isListening = false;
             _rmsNotifier.value = 0.0;
-            _awaitingConfirmation = clean.isNotEmpty;
-            _voiceStatusHint = clean.isNotEmpty
+            _sessionPrefixText = cleanCombined;
+            _awaitingConfirmation = cleanCombined.isNotEmpty;
+            _voiceStatusHint = cleanCombined.isNotEmpty
                 ? 'Đã tự động ngắt thu âm — kiểm tra & bấm Xác nhận bên dưới.'
                 : null;
           }
         });
         if (isFinal) {
-          if (clean.isNotEmpty) {
+          if (cleanCombined.isNotEmpty) {
             HapticFeedback.mediumImpact();
           }
-        } else if (clean.isNotEmpty) {
-          _scheduleSmartAutoEndpoint(clean);
+        } else if (cleanCombined.isNotEmpty) {
+          _scheduleSmartAutoEndpoint(cleanCombined);
         }
       case VoiceErrorSignal(:final message, :final code):
         _autoEndpointTimer?.cancel();
+        _processingGuardTimer?.cancel();
         _rmsNotifier.value = 0.0;
         setState(() {
           _isRequestingPermission = false;
+          _isInitializingMic = false;
           _isListening = false;
           if (_textCtrl.text.trim().isNotEmpty) {
+            _sessionPrefixText = _textCtrl.text.trim();
             _lastErrorCode = null;
             _awaitingConfirmation = true;
             _voiceStatusHint =
@@ -228,6 +321,7 @@ class _VoiceSmartCaptureSheetBodyState
             _voiceStatusHint = message;
           }
         });
+        _refreshDiagnostics();
     }
   }
 
@@ -252,10 +346,13 @@ class _VoiceSmartCaptureSheetBodyState
       if (!mounted || !_isListening) return;
       await sl<NativeVoiceAssistantBridge>().stopListening();
       if (!mounted) return;
+      _processingGuardTimer?.cancel();
       HapticFeedback.mediumImpact();
       _rmsNotifier.value = 0.0;
       setState(() {
         _isListening = false;
+        _isInitializingMic = false;
+        _sessionPrefixText = _textCtrl.text.trim();
         _awaitingConfirmation = _textCtrl.text.trim().isNotEmpty;
         _voiceStatusHint = eval.isReadyComplete
             ? 'Đã nhận diện đủ ý và tự dừng — mời bạn xác nhận.'
@@ -267,15 +364,27 @@ class _VoiceSmartCaptureSheetBodyState
   Future<void> _startListeningFresh({
     bool clearExisting = false,
     bool preferSystemDialog = false,
+    VoiceEngineMode? overrideMode,
   }) async {
     _autoEndpointTimer?.cancel();
+    _processingGuardTimer?.cancel();
     final bridge = sl<NativeVoiceAssistantBridge>();
+    if (overrideMode != null) {
+      _selectedEngineMode = overrideMode;
+    }
     if (clearExisting) {
       _textCtrl.clear();
+      _sessionPrefixText = '';
+    } else {
+      _sessionPrefixText = _textCtrl.text.trim();
     }
+    final useDialog =
+        preferSystemDialog ||
+        _selectedEngineMode == VoiceEngineMode.systemDialog;
     _rmsNotifier.value = 0.0;
     setState(() {
       _isListening = true;
+      _isInitializingMic = false;
       _isRequestingPermission = false;
       _awaitingConfirmation = false;
       _lastErrorCode = null;
@@ -283,12 +392,16 @@ class _VoiceSmartCaptureSheetBodyState
     });
     final res = await bridge.startListening(
       sessionToken: _voiceSessionToken,
-      preferSystemDialog: preferSystemDialog,
+      preferSystemDialog: useDialog,
+      engineMode: useDialog
+          ? VoiceEngineMode.systemDialog
+          : _selectedEngineMode,
     );
     if (!mounted) return;
     if (res == 'PERMISSION_REQUESTED') {
       setState(() {
         _isListening = false;
+        _isInitializingMic = false;
         _isRequestingPermission = true;
         _voiceStatusHint =
             'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
@@ -296,6 +409,7 @@ class _VoiceSmartCaptureSheetBodyState
     } else if (res == 'UNSUPPORTED' || res == 'ERROR') {
       setState(() {
         _isListening = false;
+        _isInitializingMic = false;
         _isRequestingPermission = false;
         _lastErrorCode = res;
         _voiceStatusHint =
@@ -308,12 +422,15 @@ class _VoiceSmartCaptureSheetBodyState
     final bridge = sl<NativeVoiceAssistantBridge>();
     if (_isListening) {
       _autoEndpointTimer?.cancel();
+      _processingGuardTimer?.cancel();
       await bridge.stopListening();
       if (mounted) {
         HapticFeedback.lightImpact();
         _rmsNotifier.value = 0.0;
         setState(() {
           _isListening = false;
+          _isInitializingMic = false;
+          _sessionPrefixText = _textCtrl.text.trim();
           _awaitingConfirmation = _textCtrl.text.trim().isNotEmpty;
           if (_awaitingConfirmation) {
             _voiceStatusHint = 'Đã dừng thu âm — mời bạn kiểm tra & xác nhận.';
@@ -756,7 +873,9 @@ class _VoiceSmartCaptureSheetBodyState
                             children: [
                               Text(
                                 _isListening
-                                    ? eval.liveStatusVi
+                                    ? (_isInitializingMic
+                                          ? 'Đang mở kênh Micro tiếng Việt...'
+                                          : eval.liveStatusVi)
                                     : (hasSpokenText
                                           ? eval.confirmationBadgeVi
                                           : 'Chạm Mic để bắt đầu nói ngay'),
@@ -907,7 +1026,14 @@ class _VoiceSmartCaptureSheetBodyState
                 key: const Key('voice_transcript_input'),
                 controller: _textCtrl,
                 maxLines: 2,
-                onChanged: (_) => setState(() => _awaitingConfirmation = true),
+                onChanged: (val) {
+                  setState(() {
+                    _awaitingConfirmation = true;
+                    if (!_isListening) {
+                      _sessionPrefixText = val.trim();
+                    }
+                  });
+                },
                 decoration: InputDecoration(
                   labelText: 'Nội dung nhận diện (có thể sửa nhanh)',
                   hintText: 'Nhập hoặc nói nội dung cần ghi...',
@@ -932,6 +1058,7 @@ class _VoiceSmartCaptureSheetBodyState
                                 _autoEndpointTimer?.cancel();
                                 setState(() {
                                   _textCtrl.clear();
+                                  _sessionPrefixText = '';
                                   _awaitingConfirmation = false;
                                   _voiceStatusHint = null;
                                 });
@@ -943,7 +1070,87 @@ class _VoiceSmartCaptureSheetBodyState
                       : null,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+
+              // 3b. Progressive Disclosure: Mic Mode & Diagnostics ("Chi tiết" — zero clutter by default!)
+              LifeOsDetailsDiscloseSection(
+                toggleKey: const Key('voice_mic_details_toggle'),
+                label: 'Chi tiết thu âm',
+                expandedLabel: 'Thu gọn chi tiết',
+                child: Container(
+                  key: const Key('voice_mic_diagnostics_panel'),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: c.surfaceRaised,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: c.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chế độ kênh thu âm tiếng Việt',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: VoiceEngineMode.values.map((mode) {
+                          final selected = _selectedEngineMode == mode;
+                          return ChoiceChip(
+                            key: Key('voice_engine_chip_${mode.wireValue}'),
+                            label: Text(
+                              mode.labelVi,
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                            selected: selected,
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (_) {
+                              _startListeningFresh(
+                                clearExisting: false,
+                                preferSystemDialog:
+                                    mode == VoiceEngineMode.systemDialog,
+                                overrideMode: mode,
+                              );
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      if (_diagnostics != null) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            LifeOsStatusPill(
+                              icon: _diagnostics!.hasRecordPermission
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.warning_amber_rounded,
+                              label: _diagnostics!.hasRecordPermission
+                                  ? 'Quyền Micro: Đã cấp'
+                                  : 'Quyền Micro: Chưa cấp',
+                              tone: _diagnostics!.hasRecordPermission
+                                  ? LifeOsAccentTone.emerald
+                                  : LifeOsAccentTone.amber,
+                            ),
+                            LifeOsStatusPill(
+                              icon: Icons.graphic_eq_rounded,
+                              label: _diagnostics!.readableEngineSummaryVi,
+                              tone: LifeOsAccentTone.blue,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
 
               // 4. Structured Confirmation Preview Card (`cho xác nhận lại`)
               if (hasAnyConfirmedDraft) ...[

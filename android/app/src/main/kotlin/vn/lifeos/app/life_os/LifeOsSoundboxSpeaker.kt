@@ -91,4 +91,13 @@ object LifeOsSoundboxSpeaker {
             pendingUtterance = message
         }
     }
+
+    @Synchronized
+    fun stopSpeaking() {
+        pendingUtterance = null
+        try {
+            tts?.stop()
+        } catch (_: Exception) {
+        }
+    }
 }

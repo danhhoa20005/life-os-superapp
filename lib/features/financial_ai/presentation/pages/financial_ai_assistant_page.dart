@@ -82,7 +82,10 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
   final String _voiceSessionToken = const Uuid().v4();
   StreamSubscription<VoiceAssistantSignal>? _voiceSub;
   Timer? _autoEndpointTimer;
+  Timer? _processingGuardTimer;
+  DateTime? _lastVadRearmAt;
   bool _isListening = false;
+  String _sessionPrefixText = '';
   String? _voiceHint;
   String? _lastVoiceErrorCode;
   FinancialInputSource _activeSource = FinancialInputSource.manualText;
@@ -91,7 +94,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
   void initState() {
     super.initState();
     _activeSource = widget.initialSource;
+    final initial = (widget.initialText ?? '').trim();
     _inputCtrl = TextEditingController(text: widget.initialText ?? '');
+    _sessionPrefixText = initial;
 
     final bridge = sl<NativeVoiceAssistantBridge>();
     _voiceSub = bridge.watchSignals().listen((sig) {
@@ -100,49 +105,100 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
         case VoiceStateSignal(:final status):
           setState(() {
             if (status == 'requesting_permission') {
+              _processingGuardTimer?.cancel();
               _isListening = false;
               _lastVoiceErrorCode = null;
               _voiceHint =
                   'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
+            } else if (status == 'initializing') {
+              _processingGuardTimer?.cancel();
+              _isListening = true;
+              _lastVoiceErrorCode = null;
+              _voiceHint = 'Đang mở kênh Micro tiếng Việt...';
+            } else if (status == 'listening') {
+              _processingGuardTimer?.cancel();
+              _isListening = true;
+              _lastVoiceErrorCode = null;
+              _voiceHint =
+                  'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
+            } else if (status == 'processing') {
+              _voiceHint = 'Đang chốt câu vừa nói...';
+              _processingGuardTimer?.cancel();
+              _processingGuardTimer = Timer(
+                const Duration(milliseconds: 1600),
+                () {
+                  if (!mounted || !_isListening) return;
+                  setState(() => _isListening = false);
+                  if (_inputCtrl.text.trim().isNotEmpty) {
+                    _submitAnalysis();
+                  }
+                },
+              );
             } else {
-              _isListening = status == 'listening';
-              if (_isListening) {
-                _lastVoiceErrorCode = null;
-                _voiceHint =
-                    'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
-              }
+              _processingGuardTimer?.cancel();
+              _isListening = false;
             }
           });
-        case VoiceRmsSignal():
-          break;
+        case VoiceRmsSignal(:final rmsDb):
+          if (_isListening &&
+              rmsDb >= 3.0 &&
+              _autoEndpointTimer != null &&
+              _autoEndpointTimer!.isActive) {
+            final now = DateTime.now();
+            if (_lastVadRearmAt == null ||
+                now.difference(_lastVadRearmAt!).inMilliseconds >= 180) {
+              _lastVadRearmAt = now;
+              final currentText = _inputCtrl.text.trim();
+              if (currentText.isNotEmpty) {
+                _scheduleAutoEndpointAndAnalyze(currentText);
+              }
+            }
+          }
         case VoiceTranscriptSignal(:final text, :final isFinal):
-          final clean = text.trim();
+          _processingGuardTimer?.cancel();
+          final cleanSegment = text.trim();
+          final combined = cleanSegment.isEmpty
+              ? _sessionPrefixText
+              : NativeVoiceAssistantBridge.combinePrefixAndSegment(
+                  _sessionPrefixText,
+                  text,
+                );
+          final cleanCombined = combined.trim();
           setState(() {
             _lastVoiceErrorCode = null;
-            _inputCtrl.text = text;
-            _inputCtrl.selection = TextSelection.collapsed(offset: text.length);
+            if (combined.isNotEmpty || cleanSegment.isNotEmpty) {
+              _inputCtrl.text = combined;
+              _inputCtrl.selection = TextSelection.collapsed(
+                offset: combined.length,
+              );
+            }
             _activeSource = FinancialInputSource.voiceTranscript;
             if (isFinal) {
               _autoEndpointTimer?.cancel();
               _isListening = false;
-              _voiceHint = clean.isNotEmpty
+              _sessionPrefixText = cleanCombined;
+              _voiceHint = cleanCombined.isNotEmpty
                   ? '✓ Đã nhận diện giọng nói — kiểm tra các thẻ xác nhận bên dưới!'
                   : null;
             }
           });
           if (isFinal) {
-            if (clean.isNotEmpty) {
+            if (cleanCombined.isNotEmpty) {
               HapticFeedback.mediumImpact();
               _submitAnalysis();
             }
-          } else if (clean.isNotEmpty) {
-            _scheduleAutoEndpointAndAnalyze(clean);
+          } else if (cleanCombined.isNotEmpty) {
+            _scheduleAutoEndpointAndAnalyze(cleanCombined);
           }
         case VoiceErrorSignal(:final message, :final code):
           _autoEndpointTimer?.cancel();
+          _processingGuardTimer?.cancel();
           final hasPartial = _inputCtrl.text.trim().isNotEmpty;
           setState(() {
             _isListening = false;
+            if (hasPartial) {
+              _sessionPrefixText = _inputCtrl.text.trim();
+            }
             _lastVoiceErrorCode = hasPartial ? null : code;
             _voiceHint = hasPartial
                 ? '✓ Đã giữ câu vừa nói — kiểm tra & xác nhận bên dưới.'
@@ -180,9 +236,11 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
       if (!mounted || !_isListening) return;
       await sl<NativeVoiceAssistantBridge>().stopListening();
       if (!mounted) return;
+      _processingGuardTimer?.cancel();
       HapticFeedback.mediumImpact();
       setState(() {
         _isListening = false;
+        _sessionPrefixText = _inputCtrl.text.trim();
         _voiceHint =
             '✓ Đã nhận diện chuẩn và tự dừng — mời bạn kiểm tra & xác nhận bên dưới!';
       });
@@ -195,6 +253,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
   @override
   void dispose() {
     _autoEndpointTimer?.cancel();
+    _processingGuardTimer?.cancel();
     _voiceSub?.cancel();
     sl<NativeVoiceAssistantBridge>().cancelListening(
       sessionToken: _voiceSessionToken,
@@ -208,12 +267,14 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
     bool preferSystemDialog = false,
   }) async {
     _autoEndpointTimer?.cancel();
+    _processingGuardTimer?.cancel();
     final bridge = sl<NativeVoiceAssistantBridge>();
     if (_isListening && !clearExisting && !preferSystemDialog) {
       await bridge.stopListening();
       if (mounted) {
         setState(() {
           _isListening = false;
+          _sessionPrefixText = _inputCtrl.text.trim();
           if (_inputCtrl.text.trim().isNotEmpty) {
             _voiceHint =
                 '✓ Đã dừng thu âm — kiểm tra các thẻ xác nhận bên dưới.';
@@ -227,6 +288,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
     }
     if (clearExisting) {
       _inputCtrl.clear();
+      _sessionPrefixText = '';
+    } else {
+      _sessionPrefixText = _inputCtrl.text.trim();
     }
     setState(() {
       _isListening = true;
@@ -489,11 +553,14 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                       controller: _inputCtrl,
                                       minLines: 2,
                                       maxLines: 4,
-                                      onChanged: (_) {
+                                      onChanged: (val) {
                                         if (_activeSource !=
                                             FinancialInputSource.manualText) {
                                           _activeSource =
                                               FinancialInputSource.manualText;
+                                        }
+                                        if (!_isListening) {
+                                          _sessionPrefixText = val.trim();
                                         }
                                       },
                                       decoration: InputDecoration(

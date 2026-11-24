@@ -702,7 +702,10 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private lateinit var inputField: EditText
     private lateinit var statusLabel: TextView
+    private lateinit var micBtnView: TextView
     private var overlayMode: String = "text"
+    private var isOverlayListening: Boolean = false
+    private var overlaySessionPrefix: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -865,8 +868,15 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             setPadding(dp(12), dp(11), dp(12), dp(11))
             background = roundedShape(chipBg, dpF(20f))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            setOnClickListener { startVoiceListening() }
+            setOnClickListener {
+                if (isOverlayListening) {
+                    speechHelper?.stopListening()
+                } else {
+                    startVoiceListening()
+                }
+            }
         }
+        micBtnView = micBtn
         val saveBtn = TextView(this).apply {
             text = "Lưu lên Widget"
             setTextColor(onPrimary)
@@ -902,25 +912,47 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             activity = this,
             onStateChanged = { status ->
                 when (status) {
-                    "listening" -> statusLabel.text = "Mời bạn nói tiếng Việt (VD: Cà phê 35 nghìn)..."
-                    "processing" -> statusLabel.text = "Đang xử lý câu nói..."
+                    "initializing" -> {
+                        isOverlayListening = true
+                        micBtnView.text = "Chốt câu nói"
+                        statusLabel.text = "Đang kết nối kênh Micro tiếng Việt..."
+                    }
+                    "listening" -> {
+                        isOverlayListening = true
+                        micBtnView.text = "Chốt câu nói"
+                        statusLabel.text = "Mời bạn nói tiếng Việt (VD: Cà phê 35 nghìn)..."
+                    }
+                    "processing" -> {
+                        statusLabel.text = "Đang xử lý câu nói..."
+                    }
+                    "idle" -> {
+                        isOverlayListening = false
+                        micBtnView.text = "Nói mic tiếng Việt"
+                    }
                 }
             },
             onRmsChanged = {},
             onPartialTranscript = { txt ->
                 if (txt.isNotBlank()) {
-                    inputField.setText(txt)
-                    inputField.setSelection(txt.length)
+                    val combined = if (overlaySessionPrefix.isBlank()) txt else "$overlaySessionPrefix, $txt"
+                    inputField.setText(combined)
+                    inputField.setSelection(combined.length)
                 }
             },
             onFinalTranscript = { txt ->
+                isOverlayListening = false
+                micBtnView.text = "Nói mic tiếng Việt"
                 if (txt.isNotBlank()) {
-                    inputField.setText(txt)
-                    inputField.setSelection(txt.length)
+                    val combined = if (overlaySessionPrefix.isBlank()) txt else "$overlaySessionPrefix, $txt"
+                    overlaySessionPrefix = combined
+                    inputField.setText(combined)
+                    inputField.setSelection(combined.length)
                     statusLabel.text = "Đã nghe rõ — bấm Lưu lên Widget để hoàn tất"
                 }
             },
             onError = { _, msg ->
+                isOverlayListening = false
+                micBtnView.text = "Nói mic tiếng Việt"
                 if (inputField.text.isNullOrBlank()) {
                     statusLabel.text = msg
                 }
@@ -943,6 +975,9 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     }
 
     private fun startVoiceListening() {
+        overlaySessionPrefix = inputField.text?.toString().orEmpty().trim()
+            .trimEnd(',', ';', '.')
+            .trim()
         val hasAudioPerm = ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.RECORD_AUDIO
@@ -967,7 +1002,11 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         if (requestCode == REQ_OVERLAY_RECORD_AUDIO) {
             val granted = grantResults.isNotEmpty() &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED
-            ensureOverlaySpeechHelper().startListening(preferSystemDialog = !granted)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (!isFinishing && !isDestroyed) {
+                    ensureOverlaySpeechHelper().startListening(preferSystemDialog = !granted)
+                }
+            }, 160L)
         }
     }
 
