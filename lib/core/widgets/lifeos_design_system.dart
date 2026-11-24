@@ -1127,36 +1127,61 @@ class _FbTopCircleIconBtn extends StatelessWidget {
 
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: fillColor,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: buttonKey,
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: SizedBox(
-            width: 34,
-            height: 34,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(icon, size: 19, color: c.textPrimary),
-                if (showUnreadDot)
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: Container(
-                      width: 7.5,
-                      height: 7.5,
-                      decoration: BoxDecoration(
-                        color: c.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: fillColor, width: 1.3),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF2B3630), const Color(0xFF1F2723)]
+                : [const Color(0xFFFFFFFF), fillColor],
+          ),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.14)
+                : const Color(0xFFDCE5DF),
+            width: 0.9,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.055),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: buttonKey,
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 34,
+              height: 34,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(icon, size: 19, color: c.textPrimary),
+                  if (showUnreadDot)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        width: 7.5,
+                        height: 7.5,
+                        decoration: BoxDecoration(
+                          color: c.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: fillColor, width: 1.3),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1194,7 +1219,7 @@ class LifeOsSoftCard extends StatelessWidget {
       enableBlur: false,
       tintColor: backgroundColor,
       accentRimColor: borderColor,
-      rimIntensity: 0.65,
+      rimIntensity: 0.92,
       child: child,
     );
     if (onTap == null) return surface;
@@ -1228,7 +1253,7 @@ class LifeOsMintHeroCard extends StatelessWidget {
       padding: padding,
       onTap: onTap,
       enableBlur: false,
-      rimIntensity: 0.72,
+      rimIntensity: 0.96,
       child: child,
     );
     if (onTap == null) return surface;
@@ -1267,13 +1292,16 @@ class LifeOsIconSquircle extends StatelessWidget {
     final (bg, fg) = tone.resolve(context);
     final radius = size * 0.32;
 
-    if (!solidFill && bananaAsset != null) {
+    final resolvedAsset =
+        bananaAsset ?? AppAssets.resolveBananaIconForGlyph(icon);
+    if (resolvedAsset != null) {
       return BananaGlassIcon(
-        assetPath: bananaAsset!,
+        assetPath: resolvedAsset,
         fallbackIcon: icon,
         fallbackColor: fg,
         size: size,
         borderRadius: radius,
+        isSelected: solidFill,
       );
     }
 

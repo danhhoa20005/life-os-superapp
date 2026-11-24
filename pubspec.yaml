@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Multi-Tier Android 10-16 Voice VAD + Motion v2 Permissions + Local AI v3.22.1)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (3D Liquid Glass UI + 32 Nano Banana 3D Icons + Motion v2 + Local AI v3.23.0)"
 publish_to: 'none'
-version: 3.22.1+39
+version: 3.23.0+40
 
 environment:
   sdk: ^3.10.0

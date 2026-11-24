@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/services/native_device_calendar_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../bloc/auth_bloc.dart';
@@ -298,39 +299,37 @@ class WelcomePage extends StatelessWidget {
                             ),
                           ),
                           Container(
-                            width: 132,
-                            height: 132,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: c.surface.withValues(alpha: 0.72),
-                              border: Border.all(
-                                color: c.primary.withValues(alpha: 0.16),
-                                width: 1.0,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 82,
-                            height: 82,
-                            alignment: Alignment.center,
+                            width: 146,
+                            height: 146,
                             decoration: BoxDecoration(
                               color: c.surface,
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(34),
                               border: Border.all(
-                                color: c.primary.withValues(alpha: 0.18),
-                                width: 1.0,
+                                color: c.primary.withValues(alpha: 0.22),
+                                width: 1.2,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: c.primary.withValues(alpha: 0.14),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
+                                  color: c.primary.withValues(alpha: 0.18),
+                                  blurRadius: 22,
+                                  offset: const Offset(0, 8),
                                 ),
                               ],
                             ),
-                            child: const LifeOsLeafMark(
-                              size: 56,
-                              borderRadius: 16,
+                            clipBehavior: Clip.antiAlias,
+                            child: Image.asset(
+                              AppAssets.hero3dWelcomeEcosystem,
+                              width: 146,
+                              height: 146,
+                              cacheWidth: 438,
+                              cacheHeight: 438,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: LifeOsLeafMark(
+                                  size: 56,
+                                  borderRadius: 16,
+                                ),
+                              ),
                             ),
                           ),
                           const Positioned(

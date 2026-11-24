@@ -21,6 +21,7 @@ import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
+import '../constants/app_assets.dart';
 import '../di/dependency_injection.dart';
 import '../services/native_voice_assistant_bridge.dart';
 import '../utils/omni_action_executor.dart';
@@ -678,41 +679,14 @@ class _VoiceSmartCaptureSheetBodyState
               // 1. Compact 3D Tactile Header (Airy, Bright, Human)
               Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: ShapeDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: _isListening
-                            ? const [Color(0xFF4ADE80), Color(0xFF16A34A)]
-                            : const [Color(0xFF34D399), Color(0xFF0E8732)],
-                      ),
-                      shape: ContinuousRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.45),
-                          width: 0.9,
-                        ),
-                      ),
-                      shadows: [
-                        BoxShadow(
-                          color: const Color(0xFF16A34A).withValues(
-                            alpha: isDark ? 0.30 : 0.22,
-                          ),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      _isListening
-                          ? Icons.graphic_eq_rounded
-                          : Icons.check_circle_outline_rounded,
-                      color: Colors.white,
-                      size: 21,
-                    ),
+                  BananaGlassIcon(
+                    assetPath: AppAssets.ic3dVoiceAi,
+                    fallbackIcon: _isListening
+                        ? Icons.graphic_eq_rounded
+                        : Icons.mic_rounded,
+                    size: 42,
+                    borderRadius: 13,
+                    isSelected: _isListening,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1375,18 +1349,10 @@ class _VoiceSmartCaptureSheetBodyState
                             padding: const EdgeInsets.only(bottom: 7),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: c.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    _iconForOmniKind(draft.kind),
-                                    size: 17,
-                                    color: c.primary,
-                                  ),
+                                LifeOsIconSquircle(
+                                  icon: _iconForOmniKind(draft.kind),
+                                  size: 34,
+                                  iconSize: 17,
                                 ),
                                 const SizedBox(width: 9),
                                 Expanded(

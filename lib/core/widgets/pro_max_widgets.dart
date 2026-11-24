@@ -336,6 +336,8 @@ class ProBentoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final resolvedBanana =
+        bananaIconAsset ?? AppAssets.resolveBananaIconForGlyph(icon);
 
     return LiquidGlassSurface(
       material: LiquidGlassMaterial.card,
@@ -350,9 +352,9 @@ class ProBentoTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              if (bananaIconAsset != null)
+              if (resolvedBanana != null)
                 BananaGlassIcon(
-                  assetPath: bananaIconAsset!,
+                  assetPath: resolvedBanana,
                   fallbackIcon: icon,
                   fallbackColor: accentColor,
                   size: 40,
@@ -802,24 +804,23 @@ abstract final class ProCategoryStyle {
     bool isTransfer = false,
     double size = 44,
   }) {
-    final resolved = resolve(categoryName, isTransfer: isTransfer);
-    final fg = (isCredit && !isTransfer)
-        ? const Color(0xFF0B7A2A)
-        : resolved.color;
-    final icon = (isCredit && !isTransfer)
-        ? Icons.south_west_rounded
-        : resolved.icon;
     final radius = size * 0.30;
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: fg.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: fg.withValues(alpha: 0.20), width: 0.9),
-      ),
-      child: Icon(icon, size: size * 0.48, color: fg),
+    if (isCredit && !isTransfer) {
+      return BananaGlassIcon(
+        assetPath: AppAssets.icCatIncome,
+        fallbackIcon: Icons.south_west_rounded,
+        fallbackColor: const Color(0xFF0B7A2A),
+        size: size,
+        borderRadius: radius,
+      );
+    }
+    final resolved = resolve(categoryName, isTransfer: isTransfer);
+    return BananaGlassIcon(
+      assetPath: resolved.assetPath,
+      fallbackIcon: resolved.icon,
+      fallbackColor: resolved.color,
+      size: size,
+      borderRadius: radius,
     );
   }
 }

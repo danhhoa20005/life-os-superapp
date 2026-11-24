@@ -7,9 +7,11 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
@@ -261,7 +263,12 @@ class _TodayPageState extends State<TodayPage> {
                     final selected = _pinnedIds.contains(item.id);
                     return FilterChip(
                       selected: selected,
-                      avatar: Icon(item.icon, size: 16),
+                      avatar: LifeOsIconSquircle(
+                        icon: item.icon,
+                        tone: item.tone,
+                        size: 22,
+                        iconSize: 13,
+                      ),
                       label: Text(item.label),
                       onSelected: (val) {
                         if (!val && _pinnedIds.length <= 4) {
@@ -393,12 +400,13 @@ class _TodayPageState extends State<TodayPage> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.edit_note_rounded,
-                                    size: 15,
-                                    color: c.primary,
+                                  const BananaGlassIcon(
+                                    assetPath: AppAssets.ic3dAiSpark,
+                                    fallbackIcon: Icons.auto_awesome_rounded,
+                                    size: 20,
+                                    borderRadius: 6.5,
                                   ),
-                                  const SizedBox(width: 5),
+                                  const SizedBox(width: 6),
                                   Text(
                                     'Ghi nhanh',
                                     style: TextStyle(
@@ -785,12 +793,13 @@ class _TodayPageState extends State<TodayPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 17,
-                                        color: c.primary,
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.calendar_today_rounded,
+                                        tone: LifeOsAccentTone.emerald,
+                                        size: 28,
+                                        iconSize: 15,
                                       ),
-                                      const SizedBox(width: 6),
+                                      const SizedBox(width: 8),
                                       Text(
                                         'Hôm nay',
                                         style: TextStyle(
@@ -928,12 +937,13 @@ class _TodayPageState extends State<TodayPage> {
                                         children: [
                                           Row(
                                             children: [
-                                              Icon(
-                                                Icons.payments_outlined,
-                                                size: 16,
-                                                color: c.primary,
+                                              const LifeOsIconSquircle(
+                                                icon: Icons.payments_outlined,
+                                                tone: LifeOsAccentTone.emerald,
+                                                size: 28,
+                                                iconSize: 15,
                                               ),
-                                              const SizedBox(width: 5),
+                                              const SizedBox(width: 6),
                                               Expanded(
                                                 child: FittedBox(
                                                   fit: BoxFit.scaleDown,
@@ -1046,44 +1056,43 @@ class _TodayPageState extends State<TodayPage> {
                             ),
                             const SizedBox(height: 8),
 
-                            // Thẻ 3 — Thẻ trắng sạch "Quỹ gia đình & Tài sản"
+                            // Thẻ 3 — Thẻ 3D Emerald Vault "Quỹ gia đình & Tài sản"
                             LifeOsAnimatedItemEntrance(
                               key: const ValueKey('today_wealth_hero_entrance'),
                               itemId: 'today_wealth_hero',
                               staggerIndex: 0,
-                              child: LifeOsSoftCard(
-                                padding: const EdgeInsets.all(13),
+                              child: ProHeroGradientCard(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(
-                                          Icons.groups_rounded,
-                                          size: 19,
-                                          color: c.primary,
+                                        const BananaGlassIcon(
+                                          assetPath: AppAssets.icNavFamily,
+                                          fallbackIcon: Icons.groups_rounded,
+                                          size: 30,
+                                          borderRadius: 9.5,
                                         ),
-                                        const SizedBox(width: 7),
+                                        const SizedBox(width: 8),
                                         Expanded(
                                           child: InkWell(
                                             borderRadius: BorderRadius.circular(
                                               8,
                                             ),
                                             onTap: () => context.go('/family'),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 2,
-                                                  ),
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: 2,
+                                              ),
                                               child: FittedBox(
                                                 fit: BoxFit.scaleDown,
                                                 alignment: Alignment.centerLeft,
                                                 child: Text(
                                                   'Quỹ gia đình & Tài sản',
                                                   style: TextStyle(
-                                                    fontSize: 13.6,
+                                                    fontSize: 13.8,
                                                     fontWeight: FontWeight.w800,
-                                                    color: c.textPrimary,
+                                                    color: Colors.white,
                                                   ),
                                                 ),
                                               ),
@@ -1092,11 +1101,13 @@ class _TodayPageState extends State<TodayPage> {
                                         ),
                                         const SizedBox(width: 6),
                                         Material(
-                                          color: c.surfaceRaised,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.16,
+                                          ),
                                           shape: CircleBorder(
                                             side: BorderSide(
-                                              color: c.border.withValues(
-                                                alpha: 0.75,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.30,
                                               ),
                                               width: 0.9,
                                             ),
@@ -1136,7 +1147,7 @@ class _TodayPageState extends State<TodayPage> {
                                                           .visibility_off_outlined
                                                     : Icons.visibility_outlined,
                                                 size: 16,
-                                                color: c.textSecondary,
+                                                color: Colors.white,
                                               ),
                                             ),
                                           ),
@@ -1145,18 +1156,18 @@ class _TodayPageState extends State<TodayPage> {
                                         InkWell(
                                           customBorder: const CircleBorder(),
                                           onTap: () => context.go('/family'),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(2),
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(2),
                                             child: Icon(
                                               Icons.chevron_right_rounded,
                                               size: 18,
-                                              color: c.textSecondary,
+                                              color: Colors.white,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 10),
                                     Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.center,
@@ -1176,27 +1187,33 @@ class _TodayPageState extends State<TodayPage> {
                                                   semanticsLabel: _hideBalances
                                                       ? 'Tổng tài sản ròng đang ẩn riêng tư'
                                                       : 'Tổng tài sản ròng ${_fmtMoney(d.netWorthMinor)}',
-                                                  style: TextStyle(
-                                                    fontSize: 25,
+                                                  style: const TextStyle(
+                                                    fontSize: 26,
                                                     fontWeight: FontWeight.w800,
                                                     letterSpacing: -0.5,
-                                                    color: c.textPrimary,
+                                                    color: Colors.white,
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
+                                              const SizedBox(height: 5),
                                               Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                      horizontal: 8.5,
-                                                      vertical: 3,
+                                                      horizontal: 9,
+                                                      vertical: 3.5,
                                                     ),
                                                 decoration: BoxDecoration(
-                                                  color: c.primarySubtle,
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.18),
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                         AppSpacing.radiusPill,
                                                       ),
+                                                  border: Border.all(
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.26),
+                                                    width: 0.8,
+                                                  ),
                                                 ),
                                                 child: FittedBox(
                                                   fit: BoxFit.scaleDown,
@@ -1204,56 +1221,195 @@ class _TodayPageState extends State<TodayPage> {
                                                       Alignment.centerLeft,
                                                   child: Text(
                                                     '↑ +${_fmtMoney(d.monthlyIncomeMinor)} (thu tháng)',
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                       fontSize: 11.2,
                                                       fontWeight:
                                                           FontWeight.w700,
-                                                      color: c.primary,
-                                                      fontFeatures: const [
-                                                        FontFeature.tabularFigures(),
+                                                      color: Color(0xFFB2F2BB),
+                                                      fontFeatures: [
+                                                        FontFeature
+                                                            .tabularFigures(),
                                                       ],
                                                     ),
                                                   ),
                                                 ),
                                               ),
+                                              if (avatarNames.isNotEmpty) ...[
+                                                const SizedBox(height: 8),
+                                                LifeOsAvatarStack(
+                                                  names: avatarNames,
+                                                  radius: 13.5,
+                                                  onAddTap: () =>
+                                                      context.go('/family'),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
-                                        if (avatarNames.isNotEmpty) ...[
-                                          const SizedBox(width: 10),
-                                          LifeOsAvatarStack(
-                                            names: avatarNames,
-                                            radius: 14,
-                                            onAddTap: () =>
-                                                context.go('/family'),
+                                        const SizedBox(width: 10),
+                                        CustomPaint(
+                                          foregroundPainter:
+                                              const LiquidGlassRimPainter(
+                                                borderRadius: 18,
+                                                isDark: true,
+                                                accentRimColor: Color(
+                                                  0xFF8CE99A,
+                                                ),
+                                                intensity: 1.2,
+                                              ),
+                                          child: Container(
+                                            width: 68,
+                                            height: 68,
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.28),
+                                                  blurRadius: 14,
+                                                  offset: const Offset(0, 6),
+                                                ),
+                                              ],
+                                            ),
+                                            clipBehavior: Clip.antiAlias,
+                                            child: Image.asset(
+                                              AppAssets.hero3dWealthVault,
+                                              width: 68,
+                                              height: 68,
+                                              cacheWidth: 204,
+                                              cacheHeight: 204,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const Icon(
+                                                    Icons.shield_outlined,
+                                                    color: Colors.white,
+                                                    size: 32,
+                                                  ),
+                                            ),
                                           ),
-                                        ],
+                                        ),
                                       ],
                                     ),
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 12),
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: Material(
-                                            color: c.primary,
-                                            borderRadius: BorderRadius.circular(
-                                              12,
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              gradient: const LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Color(0xFFFFFFFF),
+                                                  Color(0xFFE7F9EE),
+                                                ],
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.16),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ],
                                             ),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              child: InkWell(
+                                                key: const Key(
+                                                  'home_quick_expense_btn',
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                                onTap: () =>
+                                                    showVoiceSmartCaptureSheet(
+                                                      context,
+                                                      autoStartListening: true,
+                                                    ),
+                                                child: ConstrainedBox(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minHeight: 42,
+                                                      ),
+                                                  child: const Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 8,
+                                                        ),
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          BananaGlassIcon(
+                                                            assetPath: AppAssets
+                                                                .ic3dVoiceAi,
+                                                            fallbackIcon: Icons
+                                                                .mic_rounded,
+                                                            size: 22,
+                                                            borderRadius: 7,
+                                                          ),
+                                                          SizedBox(width: 6),
+                                                          Text(
+                                                            'Nói ghi nhanh',
+                                                            style: TextStyle(
+                                                              fontSize: 12.8,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                              color: Color(
+                                                                0xFF065F28,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Material(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.16,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              side: BorderSide(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.32,
+                                                ),
+                                                width: 1.0,
+                                              ),
+                                            ),
+                                            clipBehavior: Clip.antiAlias,
                                             child: InkWell(
                                               key: const Key(
-                                                'home_quick_expense_btn',
+                                                'home_quick_schedule_btn',
                                               ),
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(14),
                                               onTap: () =>
-                                                  showVoiceSmartCaptureSheet(
+                                                  showLifeOsQuickCreateHub(
                                                     context,
-                                                    autoStartListening: true,
                                                   ),
                                               child: ConstrainedBox(
                                                 constraints:
                                                     const BoxConstraints(
-                                                      minHeight: 40,
+                                                      minHeight: 42,
                                                     ),
                                                 child: const Padding(
                                                   padding: EdgeInsets.symmetric(
@@ -1267,89 +1423,22 @@ class _TodayPageState extends State<TodayPage> {
                                                           MainAxisAlignment
                                                               .center,
                                                       children: [
-                                                        Icon(
-                                                          Icons.mic_rounded,
-                                                          size: 16.5,
-                                                          color: Colors.white,
-                                                        ),
-                                                        SizedBox(width: 5),
-                                                        Text(
-                                                          'Nói ghi nhanh',
-                                                          style: TextStyle(
-                                                            fontSize: 12.6,
-                                                            fontWeight:
-                                                                FontWeight.w800,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Material(
-                                            color: c.surfaceRaised,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              side: BorderSide(
-                                                color: c.border.withValues(
-                                                  alpha: 0.85,
-                                                ),
-                                                width: 1.0,
-                                              ),
-                                            ),
-                                            clipBehavior: Clip.antiAlias,
-                                            child: InkWell(
-                                              key: const Key(
-                                                'home_quick_schedule_btn',
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              onTap: () =>
-                                                  showLifeOsQuickCreateHub(
-                                                    context,
-                                                  ),
-                                              child: ConstrainedBox(
-                                                constraints:
-                                                    const BoxConstraints(
-                                                      minHeight: 40,
-                                                    ),
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 8,
-                                                      ),
-                                                  child: FittedBox(
-                                                    fit: BoxFit.scaleDown,
-                                                    child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Icon(
-                                                          Icons
+                                                        BananaGlassIcon(
+                                                          assetPath: AppAssets
+                                                              .icNavCalendar,
+                                                          fallbackIcon: Icons
                                                               .event_note_rounded,
-                                                          size: 16.5,
-                                                          color: c.primary,
+                                                          size: 22,
+                                                          borderRadius: 7,
                                                         ),
-                                                        const SizedBox(
-                                                          width: 5,
-                                                        ),
+                                                        SizedBox(width: 6),
                                                         Text(
                                                           'Thêm lịch / việc',
                                                           style: TextStyle(
-                                                            fontSize: 12.6,
+                                                            fontSize: 12.8,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color:
-                                                                c.textPrimary,
+                                                            color: Colors.white,
                                                           ),
                                                         ),
                                                       ],
@@ -1362,12 +1451,12 @@ class _TodayPageState extends State<TodayPage> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 10),
                                     LifeOsDetailsDiscloseSection(
                                       toggleKey: const Key(
                                         'today_hero_details_toggle',
                                       ),
-                                      onDarkSurface: false,
+                                      onDarkSurface: true,
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
@@ -1375,10 +1464,8 @@ class _TodayPageState extends State<TodayPage> {
                                           Row(
                                             children: [
                                               Expanded(
-                                                child: _LightHeroStatPill(
-                                                  icon:
-                                                      Icons.south_west_rounded,
-                                                  iconColor: c.primary,
+                                                child: ProGlassStatPill(
+                                                  icon: Icons.south_west_rounded,
                                                   label: 'Thu tháng',
                                                   value: _fmtMoney(
                                                     d.monthlyIncomeMinor,
@@ -1388,10 +1475,11 @@ class _TodayPageState extends State<TodayPage> {
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
-                                                child: _LightHeroStatPill(
-                                                  icon:
-                                                      Icons.north_east_rounded,
-                                                  iconColor: c.error,
+                                                child: ProGlassStatPill(
+                                                  icon: Icons.north_east_rounded,
+                                                  iconColor: const Color(
+                                                    0xFFFECACA,
+                                                  ),
                                                   label: 'Chi tháng',
                                                   value: _fmtMoney(
                                                     d.monthlyExpenseMinor,
@@ -1408,12 +1496,14 @@ class _TodayPageState extends State<TodayPage> {
                                               vertical: 8,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: c.surfaceRaised,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.14,
+                                              ),
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                               border: Border.all(
-                                                color: c.border.withValues(
-                                                  alpha: 0.75,
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.24,
                                                 ),
                                                 width: 0.9,
                                               ),
@@ -1426,11 +1516,11 @@ class _TodayPageState extends State<TodayPage> {
                                               children: [
                                                 Text(
                                                   'Hôm nay chi: ${_fmtMoney(todayExpenseMinor)}',
-                                                  style: TextStyle(
+                                                  style: const TextStyle(
                                                     fontSize: 11.8,
                                                     fontWeight: FontWeight.w700,
-                                                    color: c.textPrimary,
-                                                    fontFeatures: const [
+                                                    color: Colors.white,
+                                                    fontFeatures: [
                                                       FontFeature
                                                           .tabularFigures(),
                                                     ],
@@ -1439,12 +1529,12 @@ class _TodayPageState extends State<TodayPage> {
                                                 if (hasConfiguredBudget)
                                                   Text(
                                                     'Còn tiêu/ngày: ${_fmtMoney(safeDailyMinor)}',
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                       fontSize: 11.8,
                                                       fontWeight:
                                                           FontWeight.w700,
-                                                      color: c.primary,
-                                                      fontFeatures: const [
+                                                      color: Color(0xFFB2F2BB),
+                                                      fontFeatures: [
                                                         FontFeature
                                                             .tabularFigures(),
                                                       ],
@@ -1457,10 +1547,14 @@ class _TodayPageState extends State<TodayPage> {
                                                     Container(
                                                       width: 6.5,
                                                       height: 6.5,
-                                                      decoration: BoxDecoration(
-                                                        color: c.primary,
-                                                        shape: BoxShape.circle,
-                                                      ),
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                            color: Color(
+                                                              0xFF86EFAC,
+                                                            ),
+                                                            shape:
+                                                                BoxShape.circle,
+                                                          ),
                                                     ),
                                                     const SizedBox(width: 5),
                                                     Flexible(
@@ -1471,8 +1565,10 @@ class _TodayPageState extends State<TodayPage> {
                                                           fontSize: 11.2,
                                                           fontWeight:
                                                               FontWeight.w600,
-                                                          color:
-                                                              c.textSecondary,
+                                                          color: Colors.white
+                                                              .withValues(
+                                                                alpha: 0.88,
+                                                              ),
                                                         ),
                                                       ),
                                                     ),
@@ -1498,12 +1594,14 @@ class _TodayPageState extends State<TodayPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(
-                                        Icons.bolt_rounded,
-                                        size: 18,
-                                        color: c.primary,
+                                      const LifeOsIconSquircle(
+                                        icon: Icons
+                                            .notifications_active_outlined,
+                                        tone: LifeOsAccentTone.amber,
+                                        size: 28,
+                                        iconSize: 15,
                                       ),
-                                      const SizedBox(width: 5),
+                                      const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           'Việc cần chú ý',
@@ -1945,72 +2043,6 @@ class _TodayMintMetricColumn extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _LightHeroStatPill extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-
-  const _LightHeroStatPill({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: c.surfaceRaised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: c.border.withValues(alpha: 0.75),
-          width: 0.9,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: iconColor),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  softWrap: true,
-                  style: TextStyle(
-                    fontSize: 11.4,
-                    fontWeight: FontWeight.w600,
-                    color: c.textSecondary,
-                  ),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 13.6,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

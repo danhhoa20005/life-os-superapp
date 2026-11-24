@@ -498,9 +498,9 @@ void main() {
     );
 
     test(
-      'Nano Banana Pro 3D Icons & Bank Card Skins (v3.14): All 27 icons (incl. 3D Scooter) + 7 clean bank card skins exist and map accurately',
+      'Nano Banana Pro 3D Icons & Bank Card Skins (v3.14): All 32 icons (incl. 3D Scooter & Studio 3D) + 7 clean bank card skins exist and map accurately',
       () {
-        expect(AppAssets.allBananaIcons.length, 27);
+        expect(AppAssets.allBananaIcons.length, 32);
         expect(AppAssets.allBankCardSkins.length, 7);
 
         for (final path in [

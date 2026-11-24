@@ -758,11 +758,16 @@ class _MenuQuickActionPill extends StatelessWidget {
         key: pillKey,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: fg),
+              LifeOsIconSquircle(
+                icon: icon,
+                tone: tone,
+                size: 22,
+                iconSize: 13,
+              ),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(

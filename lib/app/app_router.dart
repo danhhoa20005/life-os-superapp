@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/constants/app_assets.dart';
 import '../core/di/dependency_injection.dart';
 import '../core/services/fcm_banking_messaging_service.dart';
 import '../core/services/native_alarm_scheduler_bridge.dart';
@@ -709,6 +710,7 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       int branchIndex,
       IconData icon,
       IconData activeIcon,
+      String bananaAsset,
       String label,
     })
   >
@@ -717,30 +719,35 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       branchIndex: 0,
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
+      bananaAsset: AppAssets.icNavToday,
       label: 'Hôm nay',
     ),
     (
       branchIndex: 1,
       icon: Icons.account_balance_wallet_outlined,
       activeIcon: Icons.account_balance_wallet_rounded,
+      bananaAsset: AppAssets.icNavFinance,
       label: 'Tài chính',
     ),
     (
       branchIndex: 2,
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_today_rounded,
+      bananaAsset: AppAssets.icNavCalendar,
       label: 'Lịch & Việc',
     ),
     (
       branchIndex: 3,
       icon: Icons.groups_outlined,
       activeIcon: Icons.groups_rounded,
+      bananaAsset: AppAssets.icNavFamily,
       label: 'Gia đình',
     ),
     (
       branchIndex: 4,
       icon: Icons.menu_rounded,
       activeIcon: Icons.menu_rounded,
+      bananaAsset: AppAssets.icSysAllServices,
       label: 'Menu',
     ),
   ];
@@ -821,8 +828,19 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                       destinations: _tabs
                           .map(
                             (t) => NavigationRailDestination(
-                              icon: Icon(t.icon),
-                              selectedIcon: Icon(t.activeIcon),
+                              icon: BananaGlassIcon(
+                                assetPath: t.bananaAsset,
+                                fallbackIcon: t.icon,
+                                size: 28,
+                                borderRadius: 9,
+                              ),
+                              selectedIcon: BananaGlassIcon(
+                                assetPath: t.bananaAsset,
+                                fallbackIcon: t.activeIcon,
+                                size: 30,
+                                borderRadius: 10,
+                                isSelected: true,
+                              ),
                               label: Text(t.label),
                             ),
                           )
@@ -897,6 +915,7 @@ class _FacebookStandardBottomBar extends StatelessWidget {
       int branchIndex,
       IconData icon,
       IconData activeIcon,
+      String bananaAsset,
       String label,
     })
   >
@@ -932,7 +951,7 @@ class _FacebookStandardBottomBar extends StatelessWidget {
           child: SafeArea(
             top: false,
             child: SizedBox(
-              height: 58,
+              height: 62,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final count = tabs.isEmpty ? 1 : tabs.length;
@@ -986,24 +1005,43 @@ class _FacebookStandardBottomBar extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.fromLTRB(
                                       2,
-                                      6,
+                                      5,
                                       2,
-                                      4,
+                                      3,
                                     ),
                                     child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Icon(
-                                          tab.branchIndex == safeIdx
-                                              ? tab.activeIcon
-                                              : tab.icon,
-                                          size: 23,
-                                          color: tab.branchIndex == safeIdx
-                                              ? c.primary
-                                              : c.textSecondary,
+                                        AnimatedScale(
+                                          scale: tab.branchIndex == safeIdx
+                                              ? 1.05
+                                              : 0.96,
+                                          duration: dur,
+                                          curve: motion.resolveCurve(
+                                            LifeOsMotionTokens.standardCurve,
+                                          ),
+                                          child: AnimatedOpacity(
+                                            opacity: tab.branchIndex == safeIdx
+                                                ? 1.0
+                                                : 0.84,
+                                            duration: dur,
+                                            child: BananaGlassIcon(
+                                              assetPath: tab.bananaAsset,
+                                              fallbackIcon:
+                                                  tab.branchIndex == safeIdx
+                                                  ? tab.activeIcon
+                                                  : tab.icon,
+                                              size: tab.branchIndex == safeIdx
+                                                  ? 27
+                                                  : 25,
+                                              borderRadius: 8.5,
+                                              isSelected:
+                                                  tab.branchIndex == safeIdx,
+                                            ),
+                                          ),
                                         ),
-                                        const SizedBox(height: 2.5),
+                                        const SizedBox(height: 3),
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           child: Text(
@@ -1013,7 +1051,7 @@ class _FacebookStandardBottomBar extends StatelessWidget {
                                               fontWeight:
                                                   tab.branchIndex == safeIdx
                                                   ? FontWeight.w800
-                                                  : FontWeight.w500,
+                                                  : FontWeight.w600,
                                               height: 1.1,
                                               color: tab.branchIndex == safeIdx
                                                   ? c.primary

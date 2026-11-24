@@ -38,6 +38,10 @@ abstract final class AppAssets {
   // 1. Core Navigation & Quick Actions (Nano Banana Pro iOS 26 Liquid Glass 3D)
   static const String ic3dHydration = 'assets/icons/ic_3d_hydration.png';
   static const String ic3dVoiceAi = 'assets/icons/ic_3d_voice_ai.png';
+  static const String ic3dAiSpark = 'assets/icons/ic_3d_ai_spark.png';
+  static const String ic3dAlarmBell = 'assets/icons/ic_3d_alarm_bell.png';
+  static const String ic3dAppearanceStudio =
+      'assets/icons/ic_3d_appearance_studio.png';
   static const String icNavToday = 'assets/icons/ic_nav_today.png';
   static const String icNavFinance = 'assets/icons/ic_nav_finance.png';
   static const String icNavCalendar = 'assets/icons/ic_nav_calendar.png';
@@ -114,6 +118,11 @@ abstract final class AppAssets {
     icNavFamily,
     icNavAssets,
     icQuickSplit,
+    ic3dHydration,
+    ic3dVoiceAi,
+    ic3dAiSpark,
+    ic3dAlarmBell,
+    ic3dAppearanceStudio,
     icCatFood,
     icCatHousework,
     icCatHousing,
@@ -211,6 +220,7 @@ abstract final class AppAssets {
       return icNavToday;
     }
     if (code == Icons.account_balance_wallet_outlined.codePoint ||
+        code == Icons.account_balance_wallet_rounded.codePoint ||
         code == Icons.payments_outlined.codePoint ||
         code == Icons.payments_rounded.codePoint ||
         code == Icons.account_balance_outlined.codePoint ||
@@ -221,7 +231,8 @@ abstract final class AppAssets {
     }
     if (code == Icons.savings_outlined.codePoint ||
         code == Icons.savings_rounded.codePoint ||
-        code == Icons.south_west_rounded.codePoint) {
+        code == Icons.south_west_rounded.codePoint ||
+        code == Icons.trending_up_rounded.codePoint) {
       return icCatIncome;
     }
     if (code == Icons.groups_outlined.codePoint ||
@@ -232,11 +243,21 @@ abstract final class AppAssets {
       return icNavFamily;
     }
     if (code == Icons.swap_horiz_rounded.codePoint ||
-        code == Icons.volunteer_activism_outlined.codePoint) {
+        code == Icons.volunteer_activism_outlined.codePoint ||
+        code == Icons.call_split_rounded.codePoint) {
       return icQuickSplit;
     }
-    if (code == Icons.qr_code_2_rounded.codePoint) {
+    if (code == Icons.qr_code_2_rounded.codePoint ||
+        code == Icons.qr_code_scanner_rounded.codePoint) {
       return icSysVietQr;
+    }
+    if (code == Icons.notifications_active_outlined.codePoint ||
+        code == Icons.notifications_none_rounded.codePoint ||
+        code == Icons.notifications_rounded.codePoint ||
+        code == Icons.alarm_on_rounded.codePoint ||
+        code == Icons.alarm_add_rounded.codePoint ||
+        code == Icons.warning_amber_rounded.codePoint) {
+      return ic3dAlarmBell;
     }
     if (code == Icons.calendar_month_rounded.codePoint ||
         code == Icons.calendar_month_outlined.codePoint ||
@@ -245,11 +266,11 @@ abstract final class AppAssets {
         code == Icons.event_available_rounded.codePoint ||
         code == Icons.event_rounded.codePoint ||
         code == Icons.event_outlined.codePoint ||
+        code == Icons.event_note_rounded.codePoint ||
+        code == Icons.event_repeat_rounded.codePoint ||
         code == Icons.event_busy_rounded.codePoint ||
         code == Icons.event_busy_outlined.codePoint ||
-        code == Icons.edit_calendar_rounded.codePoint ||
-        code == Icons.alarm_on_rounded.codePoint ||
-        code == Icons.alarm_add_rounded.codePoint) {
+        code == Icons.edit_calendar_rounded.codePoint) {
       return icNavCalendar;
     }
     if (code == Icons.task_alt_rounded.codePoint ||
@@ -301,10 +322,17 @@ abstract final class AppAssets {
       return ic3dVoiceAi;
     }
     if (code == Icons.electric_bolt_rounded.codePoint ||
-        code == Icons.bolt_rounded.codePoint ||
         code == Icons.electric_meter_outlined.codePoint ||
+        code == Icons.battery_charging_full_rounded.codePoint ||
         code == Icons.wifi_rounded.codePoint) {
       return icCatUtilities;
+    }
+    if (code == Icons.bolt_rounded.codePoint ||
+        code == Icons.auto_awesome_rounded.codePoint ||
+        code == Icons.psychology_rounded.codePoint ||
+        code == Icons.smart_toy_outlined.codePoint ||
+        code == Icons.offline_bolt_rounded.codePoint) {
+      return ic3dAiSpark;
     }
     if (code == Icons.home_work_rounded.codePoint ||
         code == Icons.home_work_outlined.codePoint ||
@@ -333,9 +361,11 @@ abstract final class AppAssets {
     if (code == Icons.request_quote_outlined.codePoint ||
         code == Icons.receipt_long_rounded.codePoint ||
         code == Icons.receipt_long_outlined.codePoint ||
-        code == Icons.calculate_outlined.codePoint ||
-        code == Icons.auto_awesome_rounded.codePoint) {
+        code == Icons.calculate_outlined.codePoint) {
       return icToolReceiptAi;
+    }
+    if (code == Icons.auto_awesome_motion_rounded.codePoint) {
+      return icMotionPhysics3d;
     }
     if (code == Icons.bar_chart_rounded.codePoint ||
         code == Icons.candlestick_chart_rounded.codePoint) {
@@ -366,17 +396,25 @@ abstract final class AppAssets {
       return icLifeSocialTravel;
     }
     if (code == Icons.apps_rounded.codePoint ||
+        code == Icons.menu_rounded.codePoint ||
+        code == Icons.grid_view_rounded.codePoint ||
         code == Icons.widgets_outlined.codePoint ||
         code == Icons.inbox_rounded.codePoint) {
       return icSysAllServices;
+    }
+    if (code == Icons.palette_outlined.codePoint ||
+        code == Icons.palette_rounded.codePoint ||
+        code == Icons.color_lens_outlined.codePoint ||
+        code == Icons.light_mode_outlined.codePoint ||
+        code == Icons.dark_mode_outlined.codePoint) {
+      return ic3dAppearanceStudio;
     }
     if (code == Icons.settings_outlined.codePoint ||
         code == Icons.shield_outlined.codePoint ||
         code == Icons.shield_moon_rounded.codePoint ||
         code == Icons.verified_user_outlined.codePoint ||
         code == Icons.fingerprint_rounded.codePoint ||
-        code == Icons.password_rounded.codePoint ||
-        code == Icons.palette_outlined.codePoint) {
+        code == Icons.password_rounded.codePoint) {
       return icSysShield;
     }
     if (code == Icons.system_update_rounded.codePoint) {
@@ -421,10 +459,15 @@ class BananaGlassIcon extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: effectiveColor.withValues(
-              alpha: isSelected ? 0.24 : (isDark ? 0.18 : 0.08),
+              alpha: isSelected ? 0.30 : (isDark ? 0.24 : 0.14),
             ),
-            blurRadius: isSelected ? 12 : 8,
-            offset: const Offset(0, 3),
+            blurRadius: isSelected ? 14 : 9,
+            offset: Offset(0, isSelected ? 4.5 : 3.0),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
+            blurRadius: 3,
+            offset: const Offset(0, 1.2),
           ),
         ],
       ),
@@ -432,9 +475,9 @@ class BananaGlassIcon extends StatelessWidget {
         foregroundPainter: LiquidGlassRimPainter(
           borderRadius: borderRadius,
           isDark: isDark,
-          accentRimColor: isSelected ? c.primary : null,
-          strokeWidth: isSelected ? 1.4 : 1.0,
-          intensity: isSelected ? 1.25 : 1.0,
+          accentRimColor: isSelected ? c.primary : effectiveColor,
+          strokeWidth: isSelected ? 1.5 : 1.05,
+          intensity: isSelected ? 1.35 : 1.08,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),

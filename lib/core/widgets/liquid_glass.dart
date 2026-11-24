@@ -134,16 +134,16 @@ abstract final class LiquidGlassTokens {
               ],
       ),
       LiquidGlassMaterial.card => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: isDark
             ? [
-                const Color(0xFF222A34),
-                const Color(0xFF1E252E),
+                const Color(0xFF252E3A),
+                const Color(0xFF1D242E),
               ]
             : [
                 const Color(0xFFFFFFFF),
-                const Color(0xFFFFFFFF),
+                const Color(0xFFF7FBF9),
               ],
       ),
       LiquidGlassMaterial.mintHero => LinearGradient(
@@ -151,11 +151,11 @@ abstract final class LiquidGlassTokens {
         end: Alignment.bottomRight,
         colors: isDark
             ? [
-                const Color(0xFF1B3326),
-                const Color(0xFF192822),
+                const Color(0xFF1D3829),
+                const Color(0xFF172720),
               ]
             : [
-                const Color(0xFFF3FCF6),
+                const Color(0xFFECFBF2),
                 const Color(0xFFFFFFFF),
               ],
       ),
@@ -211,31 +211,31 @@ abstract final class LiquidGlassTokens {
       LiquidGlassMaterial.mintHero => [
         BoxShadow(
           color: LifeOSBrandColors.primary.withValues(
-            alpha: isDark ? 0.18 : 0.075,
+            alpha: isDark ? 0.24 : 0.11,
           ),
-          blurRadius: 22,
-          offset: const Offset(0, 8),
+          blurRadius: 24,
+          offset: const Offset(0, 9),
         ),
         if (!isDark)
           BoxShadow(
-            color: const Color(0xFF0A1610).withValues(alpha: 0.03),
+            color: const Color(0xFF0A1610).withValues(alpha: 0.04),
             blurRadius: 6,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 2.5),
           ),
       ],
       LiquidGlassMaterial.card => [
         BoxShadow(
           color: const Color(
-            0xFF0B1510,
-          ).withValues(alpha: isDark ? 0.26 : 0.048),
-          blurRadius: 20,
-          offset: const Offset(0, 7),
+            0xFF0A1811,
+          ).withValues(alpha: isDark ? 0.34 : 0.072),
+          blurRadius: 22,
+          offset: const Offset(0, 8),
         ),
         if (!isDark)
           BoxShadow(
-            color: const Color(0xFF0B1510).withValues(alpha: 0.024),
-            blurRadius: 4,
-            offset: const Offset(0, 1.5),
+            color: const Color(0xFF0B1510).withValues(alpha: 0.032),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
           ),
       ],
       LiquidGlassMaterial.modalSheet ||
