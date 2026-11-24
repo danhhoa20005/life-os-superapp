@@ -93,6 +93,20 @@ OOD_UNKNOWN_SAMPLES = [
     "xyz qwerty asdfgh",
     "họp nhóm lúc ba giờ chiều phòng zoom",
     "chúc ngủ ngon hẹn mai gặp lại",
+    "tình hình kẹt xe ngoài ngã tư căng quá",
+    "nhớ uống đủ hai lít nước ấm mỗi ngày",
+    "bật báo thức sáu giờ sáng mai dậy sớm",
+    "chiều nay sếp dời lịch họp sang thứ sáu",
+    "gửi file báo cáo tiến độ qua hộp thư",
+    "trời se lạnh nhớ mặc ấm kẻo cảm lạnh",
+    "đang đứng đợi dưới sảnh quầy lễ tân nhé",
+    "hỏi mật khẩu mạng phòng họp là gì nhỉ",
+    "hôm nay tâm trạng vui vẻ thoải mái quá",
+    "alo đầu dây bên kia nghe rõ không",
+    "lịch trực tuần sau đổi sang buổi chiều",
+    "chúc cả nhà cuối tuần nghỉ ngơi vui vẻ",
+    "ngồi nhà xem thời sự buổi tối cùng bố",
+    "nhắc lịch nghỉ giải lao vươn vai lúc ba giờ",
 ]
 
 

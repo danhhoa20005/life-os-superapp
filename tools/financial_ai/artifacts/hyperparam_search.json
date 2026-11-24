@@ -1,51 +1,30 @@
 {
   "trials": [
     {
-      "num_buckets": 12288,
-      "dim": 30,
-      "lr": 0.35,
-      "epochs": 24,
-      "word_ngrams": 2,
-      "min_sub": 3,
-      "max_sub": 5,
-      "l2": 0.0001,
-      "val_acc": 0.7139,
-      "val_macro_f1": 0.72
-    },
-    {
-      "num_buckets": 16384,
+      "num_buckets": 28672,
       "dim": 30,
       "lr": 0.45,
-      "epochs": 28,
+      "epochs": 18,
+      "qat_epochs": 4,
       "word_ngrams": 2,
-      "min_sub": 3,
+      "min_sub": 4,
       "max_sub": 5,
-      "l2": 5e-05,
-      "val_acc": 0.7124,
-      "val_macro_f1": 0.72
-    },
-    {
-      "num_buckets": 16384,
-      "dim": 30,
-      "lr": 0.35,
-      "epochs": 28,
-      "word_ngrams": 1,
-      "min_sub": 3,
-      "max_sub": 5,
-      "l2": 5e-05,
-      "val_acc": 0.6724,
-      "val_macro_f1": 0.684
+      "l2": 2e-05,
+      "val_int8_acc": 0.9604,
+      "val_int8_macro_f1": 0.9556,
+      "seconds": 56.54
     }
   ],
   "selected": {
-    "num_buckets": 16384,
+    "num_buckets": 28672,
     "dim": 30,
     "lr": 0.45,
-    "epochs": 28,
+    "epochs": 18,
+    "qat_epochs": 4,
     "word_ngrams": 2,
-    "min_sub": 3,
+    "min_sub": 4,
     "max_sub": 5,
-    "l2": 5e-05
+    "l2": 2e-05
   },
-  "calibrated_temperature": 0.75
+  "calibrated_temperature": 0.46
 }

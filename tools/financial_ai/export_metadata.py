@@ -27,8 +27,8 @@ def main() -> None:
 
     metadata = {
         "modelId": "vn_financial_fasttext_v1",
-        "modelVersion": "1.0.0",
-        "architecture": "FastText Supervised Subword + Word Bigram (INT8 Per-Row Quantized LFTQ v1)",
+        "modelVersion": "2.0.0",
+        "architecture": "FastText QAT Subword + Word Bigram + Outlier Exposure (INT8 LFTQ v1)",
         "license": "MIT",
         "language": "vi",
         "assetPath": "assets/models/vn_financial_fasttext_v1.ftq",
@@ -48,6 +48,8 @@ def main() -> None:
             "testMacroF1": eval_rep["macro_f1"],
             "expectedCalibrationError": eval_rep["ece"],
             "falseAutoAssignmentRate": eval_rep["false_auto_assignment_rate"],
+            "oodUnknownRejectionRate": eval_rep["ood_unknown_rejection_rate"],
+            "heldOutTestSamples": eval_rep["test_samples"],
         },
         "exportedAtUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }

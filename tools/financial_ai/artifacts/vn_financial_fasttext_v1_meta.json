@@ -1,12 +1,12 @@
 {
   "modelId": "vn_financial_fasttext_v1",
-  "modelVersion": "1.0.0",
-  "architecture": "FastText Supervised Subword + Word Bigram (INT8 Per-Row Quantized LFTQ v1)",
+  "modelVersion": "2.0.0",
+  "architecture": "FastText QAT Subword + Word Bigram + Outlier Exposure (INT8 LFTQ v1)",
   "license": "MIT",
   "language": "vi",
   "assetPath": "assets/models/vn_financial_fasttext_v1.ftq",
-  "sizeBytes": 561270,
-  "sha256": "7e1178bb57fe78c2a57d0eb624e24eb870846c5993150609034ab2062e11b1a6",
+  "sizeBytes": 979062,
+  "sha256": "d149c71f405f758ac7c38b376052a28d0bad38825d687db8963e2e92c13c4308",
   "numClasses": 30,
   "labels": [
     "food.meals",
@@ -41,26 +41,29 @@
     "income.other"
   ],
   "hyperparameters": {
-    "num_buckets": 16384,
+    "num_buckets": 28672,
     "dim": 30,
     "lr": 0.45,
-    "epochs": 28,
+    "epochs": 18,
+    "qat_epochs": 4,
     "word_ngrams": 2,
-    "min_sub": 3,
+    "min_sub": 4,
     "max_sub": 5,
-    "l2": 5e-05
+    "l2": 2e-05
   },
-  "calibratedTemperature": 0.75,
+  "calibratedTemperature": 0.56,
   "thresholds": {
     "highConfidence": 0.78,
     "mediumConfidence": 0.52,
     "lowConfidence": 0.32
   },
   "metrics": {
-    "testAccuracy": 0.9075,
-    "testMacroF1": 0.9164,
-    "expectedCalibrationError": 0.0481,
-    "falseAutoAssignmentRate": 0.0206
+    "testAccuracy": 0.9931,
+    "testMacroF1": 0.9943,
+    "expectedCalibrationError": 0.0246,
+    "falseAutoAssignmentRate": 0.0,
+    "oodUnknownRejectionRate": 0.6,
+    "heldOutTestSamples": 1297
   },
-  "exportedAtUtc": "2026-11-23T14:53:25Z"
+  "exportedAtUtc": "2026-11-24T15:15:34Z"
 }

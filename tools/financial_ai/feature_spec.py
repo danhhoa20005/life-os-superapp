@@ -49,44 +49,114 @@ ABBREVIATION_MAP: dict[str, str] = {
     "cf": "cà phê",
     "cafe": "cà phê",
     "caphe": "cà phê",
+    "ts": "trà sữa",
+    "trasua": "trà sữa",
     "ck": "chuyển khoản",
     "bhxh": "bảo hiểm xã hội",
     "bhyt": "bảo hiểm y tế",
     "tgdd": "thế giới di động",
     "dmx": "điện máy xanh",
     "bhx": "bách hóa xanh",
+    "winmart": "siêu thị winmart",
+    "vinmart": "siêu thị winmart",
+    "coopmart": "siêu thị coopmart",
     "gs25": "siêu thị gs25",
+    "circlek": "circle k",
     "kfc": "gà rán kfc",
+    "jollibee": "gà rán jollibee",
+    "lotteria": "gà rán lotteria",
     "cgv": "rạp phim cgv",
+    "bhd": "rạp phim bhd",
     "lotte": "siêu thị lotte",
+    "aeon": "siêu thị aeon",
     "evn": "tiền điện evn",
+    "sawaco": "tiền nước sawaco",
+    "capnuoc": "tiền nước",
     "vnpt": "viễn thông vnpt",
     "fpt": "internet fpt",
+    "vt": "viễn thông viettel",
     "spt": "spotify",
     "ytb": "youtube",
     "fb": "facebook",
+    "icloud": "gói icloud",
+    "netflix": "gói netflix",
     "grabbike": "grab xe ôm",
     "grabcar": "grab taxi",
+    "bebike": "be xe ôm",
+    "becar": "be taxi",
     "gsm": "xanh sm taxi",
     "xanhsm": "xanh sm taxi",
+    "epass": "trạm thu phí epass",
+    "vetc": "trạm thu phí vetc",
     "bsx": "bảo dưỡng sửa xe",
     "nsd": "nhông sên dĩa sửa xe",
+    "longchau": "nhà thuốc long châu",
+    "pharmacity": "nhà thuốc pharmacity",
+    "ankhang": "nhà thuốc an khang",
+    "vnvc": "tiêm vắc xin vnvc",
+    "fecredit": "trả góp fe credit",
+    "homecredit": "trả góp home credit",
+    "hdsaison": "trả góp hd saison",
+    "vpp": "văn phòng phẩm",
+    "fahasa": "nhà sách fahasa",
+    "concung": "mẹ bé con cưng",
+    "kidsplaza": "mẹ bé kids plaza",
+    "ghtk": "giao hàng tiết kiệm",
+    "ghn": "giao hàng nhanh",
 }
 
-# Channel/temporal carrier stopwords (already extracted by Temporal & Type extractors)
-# Kept identical across Python, C++17 FFI, and Dart so carrier wrappers never bias category weights.
+# Unambiguous bank/SMS channel tokens with ZERO Vietnamese noun or pronoun polarity collisions.
+# Kept 100% identical across Python, C++17 FFI, and Dart.
 CARRIER_STOPWORDS: set[str] = {
-    "hom", "nay", "qua", "kia", "sang", "trua", "chieu", "toi", "tuan", "truoc",
-    "vua", "moi", "da", "minh", "em", "anh", "het", "mat", "ton", "khoang",
-    "gd", "the", "qr", "nd", "vcb", "tcb", "mbbank", "bidv", "acb", "tpb", "vpb",
-    "digibank", "tinh", "so",
+    "vcb", "tcb", "mbbank", "bidv", "acb", "tpb", "vpb",
+    "tpbank", "vpbank", "techcombank", "vietcombank", "vietinbank", "sacombank",
+    "digibank", "smartbanking", "zalopay", "momo", "qr", "nd", "gd",
 }
 
-_AMOUNT_NOISE_RE = re.compile(
-    r"\b\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan|đ|d|₫|vnd|vnđ|usd)?(?:\s*\d{1,3})?\b",
-    re.IGNORECASE,
+_SPOKEN_HALF_MILLION_RE = re.compile(
+    r"(?<![\w])(?:nửa|nua)\s+(?:triệu|trieu|củ|cu)(?![\w])",
+    re.IGNORECASE | re.UNICODE,
 )
-_NON_WORD_RE = re.compile(r"[^\w\s]", re.UNICODE)
+_SPOKEN_HALF_XI_RE = re.compile(
+    r"(?<![\w])(?:nửa|nua)\s+xị(?![\w])",
+    re.IGNORECASE | re.UNICODE,
+)
+_SPOKEN_TRAM_RUOI_RE = re.compile(
+    r"(?<![\w])(?:[1-9]|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)?\s*(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan))?(?![\w])",
+    re.IGNORECASE | re.UNICODE,
+)
+_SPOKEN_CU_RUOI_RE = re.compile(
+    r"(?<![\w])(?:\d+|một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi)?\s*(?:triệu|trieu|tr|củ|cu)\s+(?:rưỡi|ruoi)(?![\w])",
+    re.IGNORECASE | re.UNICODE,
+)
+_PRE_AMOUNT_MARKER_RE = re.compile(
+    r"(?<![\w])(?:hết|het|mất|tốn|ton|khoảng|khoang|tầm|tam)\s+(?=(?:\$|\d))",
+    re.IGNORECASE | re.UNICODE,
+)
+_USD_NOISE_RE = re.compile(r"\$\s*\d+(?:[.,]\d{1,2})?", re.IGNORECASE)
+_AMOUNT_NOISE_RE = re.compile(
+    r"(?<![\w])\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|tỷ|ty|k|nghìn|nghin|ngàn|ngan|xị|xi|cành|canh|nhành|nhanh|chục|chuc|đ|d|₫|vnd|vnđ|đồng|dong|usd)?(?:\s*(?:rưỡi|ruoi))?(?:\s*\d{1,3}(?:\s*(?:nghìn|nghin|ngàn|ngan|k))?)?(?![\w])",
+    re.IGNORECASE | re.UNICODE,
+)
+_CARRIER_PHRASE_RE = re.compile(
+    r"(?<![\w])(?:"
+    r"(?:hôm|hom)\s+(?:nay|qua|kia)|"
+    r"(?:sáng|sang|trưa|trua|chiều|chieu|tối|toi|đêm|dem)\s+(?:nay|qua)|"
+    r"(?:tuần|tuan)\s+(?:này|nay|trước|truoc)|"
+    r"(?:vừa|vua|mới|moi)\s+(?:thanh\s+toán|thanh\s+toan|trả\s+tiền|tra\s+tien)|"
+    r"(?:vừa|vua)\s+(?:mới|moi)|"
+    r"(?:cho|chi)\s+(?:khoản|khoan)|"
+    r"(?:dùng|dung)\s+(?:cho\s+)?(?:việc|viec)|"
+    r"(?:số|so)\s+(?:tiền|tien)|"
+    r"(?:nội|noi)\s+dung|"
+    r"(?:báo|bao)\s+(?:có|co|nợ|no)|"
+    r"tinh\s+tinh|"
+    r"sd\s+tk|"
+    r"gd\s+(?:the|thẻ|qr)"
+    r")(?![\w])",
+    re.IGNORECASE | re.UNICODE,
+)
+_NON_WORD_RE = re.compile(r"[^\w\s]|_", re.UNICODE)
 _MULTI_SPACE_RE = re.compile(r"\s+")
 
 
@@ -97,10 +167,17 @@ def strip_vn_accents(text: str) -> str:
 
 
 def normalize_for_classifier(raw_text: str) -> str:
-    """Canonicalizes Vietnamese financial text for FastText classification."""
+    """Canonicalizes Vietnamese financial text for FastText classification (100% parity with Dart)."""
     s = unicodedata.normalize("NFC", raw_text.strip().lower())
+    s = _SPOKEN_HALF_MILLION_RE.sub("500k", s)
+    s = _SPOKEN_HALF_XI_RE.sub("50k", s)
+    s = _SPOKEN_TRAM_RUOI_RE.sub("150k", s)
+    s = _SPOKEN_CU_RUOI_RE.sub("1tr5", s)
+    s = _PRE_AMOUNT_MARKER_RE.sub(" ", s)
+    s = _USD_NOISE_RE.sub(" ", s)
     s = _AMOUNT_NOISE_RE.sub(" ", s)
     s = _NON_WORD_RE.sub(" ", s)
+    s = _CARRIER_PHRASE_RE.sub(" ", s)
     tokens = [t for t in _MULTI_SPACE_RE.split(s) if t and not t.isdigit()]
     expanded: list[str] = []
     for tok in tokens:
@@ -127,39 +204,43 @@ def fnv1a32_utf8(s: str) -> int:
 
 def extract_feature_buckets(
     normalized_text: str,
-    num_buckets: int = 16384,
-    word_ngrams: int = 2,
-    min_subword: int = 3,
+    num_buckets: int = 24576,
+    word_ngrams: int = 3,
+    min_subword: int = 4,
     max_subword: int = 5,
 ) -> list[int]:
     """Extracts FastText word n-grams (accented + ASCII-folded) and character subwords."""
-    if not normalized_text:
+    trimmed = normalized_text.strip()
+    if not trimmed:
         return []
-    accented_tokens = [t for t in normalized_text.split(" ") if t]
+    accented_tokens = [t for t in trimmed.split(" ") if t]
     if not accented_tokens:
         return []
     ascii_tokens = [strip_vn_accents(t) for t in accented_tokens]
 
     features: list[str] = []
 
-    # 1. Unigrams (weighted x2 relative to subwords by emitting primary word features cleanly)
+    # 1. Word Unigrams (2x accented + 1x ASCII-folded so tonal Vietnamese distinctions stay sharp)
     for w_acc, w_asc in zip(accented_tokens, ascii_tokens):
+        features.append(f"w:{w_acc}")
         features.append(f"w:{w_acc}")
         features.append(f"a:{w_asc}")
 
-    # 2. Word N-grams (2..word_ngrams)
+    # 2. Word N-grams (2..word_ngrams; 2x accented bigram for Vietnamese disyllabic compounds)
     n_tok = len(accented_tokens)
     for n in range(2, word_ngrams + 1):
         for i in range(n_tok - n + 1):
             bg_acc = "_".join(accented_tokens[i : i + n])
             bg_asc = "_".join(ascii_tokens[i : i + n])
             features.append(f"ng:{bg_acc}")
+            if n == 2:
+                features.append(f"ng:{bg_acc}")
             features.append(f"na:{bg_asc}")
 
-    # 3. Character subwords on ASCII-folded words (robust to ASR typos & missing diacritics)
+    # 3. Character subwords on ASCII-folded tokens of length >= 4 (typo & brand resilience without 2-3 char syllable noise)
     if max_subword >= min_subword and min_subword > 0:
         for w_asc in ascii_tokens:
-            if len(w_asc) < 3:
+            if len(w_asc) < 4:
                 continue
             framed = f"<{w_asc}>"
             L = len(framed)

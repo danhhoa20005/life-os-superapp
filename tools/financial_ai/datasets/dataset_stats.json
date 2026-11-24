@@ -1,23 +1,23 @@
 {
   "train": {
-    "count": 1361,
-    "unique_templates": 11,
+    "count": 3910,
+    "unique_templates": 21,
     "num_classes": 30,
-    "min_per_class": 29,
-    "max_per_class": 96
+    "min_per_class": 105,
+    "max_per_class": 240
   },
   "val": {
-    "count": 699,
-    "unique_templates": 10,
+    "count": 657,
+    "unique_templates": 9,
     "num_classes": 30,
-    "min_per_class": 18,
-    "max_per_class": 42
+    "min_per_class": 15,
+    "max_per_class": 34
   },
   "test": {
-    "count": 681,
-    "unique_templates": 12,
+    "count": 1297,
+    "unique_templates": 10,
     "num_classes": 30,
-    "min_per_class": 18,
-    "max_per_class": 38
+    "min_per_class": 16,
+    "max_per_class": 70
   }
 }

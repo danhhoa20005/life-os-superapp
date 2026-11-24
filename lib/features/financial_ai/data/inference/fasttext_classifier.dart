@@ -145,8 +145,9 @@ class FastTextClassifier implements FinancialClassifier {
 
   FinancialModelMetadata _metadata = const FinancialModelMetadata(
     modelId: 'vn_financial_fasttext_v1',
-    modelVersion: '1.0.0',
-    architecture: 'FastText Supervised Subword + Word Bigram (INT8 LFTQ v1)',
+    modelVersion: '2.0.0',
+    architecture:
+        'FastText QAT Subword + Word Bigram (INT8 LFTQ v1)',
     sizeBytes: 0,
     sha256: '',
     numClasses: 30,

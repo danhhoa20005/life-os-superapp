@@ -174,7 +174,9 @@ class FastTextBinaryModel {
     final bucketIds = <int>[];
 
     for (var i = 0; i < accentedTokens.length; i++) {
-      bucketIds.add(fnv1a32Utf8('w:${accentedTokens[i]}') % numBuckets);
+      final wHash = fnv1a32Utf8('w:${accentedTokens[i]}') % numBuckets;
+      bucketIds.add(wHash);
+      bucketIds.add(wHash);
       bucketIds.add(fnv1a32Utf8('a:${asciiTokens[i]}') % numBuckets);
     }
 
@@ -183,14 +185,18 @@ class FastTextBinaryModel {
       for (var i = 0; i <= nTok - n; i++) {
         final bgAcc = accentedTokens.sublist(i, i + n).join('_');
         final bgAsc = asciiTokens.sublist(i, i + n).join('_');
-        bucketIds.add(fnv1a32Utf8('ng:$bgAcc') % numBuckets);
+        final ngHash = fnv1a32Utf8('ng:$bgAcc') % numBuckets;
+        bucketIds.add(ngHash);
+        if (n == 2) {
+          bucketIds.add(ngHash);
+        }
         bucketIds.add(fnv1a32Utf8('na:$bgAsc') % numBuckets);
       }
     }
 
     if (maxSubword >= minSubword && minSubword > 0) {
       for (final wAsc in asciiTokens) {
-        if (wAsc.length < 3) continue;
+        if (wAsc.length < 4) continue;
         final framed = '<$wAsc>';
         final len = framed.length;
         final upper = maxSubword < len ? maxSubword : len;

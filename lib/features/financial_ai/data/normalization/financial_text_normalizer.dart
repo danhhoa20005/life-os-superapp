@@ -60,28 +60,60 @@ class FinancialTextNormalizer {
     'cf': 'cà phê',
     'cafe': 'cà phê',
     'caphe': 'cà phê',
+    'ts': 'trà sữa',
+    'trasua': 'trà sữa',
     'ck': 'chuyển khoản',
     'bhxh': 'bảo hiểm xã hội',
     'bhyt': 'bảo hiểm y tế',
     'tgdd': 'thế giới di động',
     'dmx': 'điện máy xanh',
     'bhx': 'bách hóa xanh',
+    'winmart': 'siêu thị winmart',
+    'vinmart': 'siêu thị winmart',
+    'coopmart': 'siêu thị coopmart',
     'gs25': 'siêu thị gs25',
+    'circlek': 'circle k',
     'kfc': 'gà rán kfc',
+    'jollibee': 'gà rán jollibee',
+    'lotteria': 'gà rán lotteria',
     'cgv': 'rạp phim cgv',
+    'bhd': 'rạp phim bhd',
     'lotte': 'siêu thị lotte',
+    'aeon': 'siêu thị aeon',
     'evn': 'tiền điện evn',
+    'sawaco': 'tiền nước sawaco',
+    'capnuoc': 'tiền nước',
     'vnpt': 'viễn thông vnpt',
     'fpt': 'internet fpt',
+    'vt': 'viễn thông viettel',
     'spt': 'spotify',
     'ytb': 'youtube',
     'fb': 'facebook',
+    'icloud': 'gói icloud',
+    'netflix': 'gói netflix',
     'grabbike': 'grab xe ôm',
     'grabcar': 'grab taxi',
+    'bebike': 'be xe ôm',
+    'becar': 'be taxi',
     'gsm': 'xanh sm taxi',
     'xanhsm': 'xanh sm taxi',
+    'epass': 'trạm thu phí epass',
+    'vetc': 'trạm thu phí vetc',
     'bsx': 'bảo dưỡng sửa xe',
     'nsd': 'nhông sên dĩa sửa xe',
+    'longchau': 'nhà thuốc long châu',
+    'pharmacity': 'nhà thuốc pharmacity',
+    'ankhang': 'nhà thuốc an khang',
+    'vnvc': 'tiêm vắc xin vnvc',
+    'fecredit': 'trả góp fe credit',
+    'homecredit': 'trả góp home credit',
+    'hdsaison': 'trả góp hd saison',
+    'vpp': 'văn phòng phẩm',
+    'fahasa': 'nhà sách fahasa',
+    'concung': 'mẹ bé con cưng',
+    'kidsplaza': 'mẹ bé kids plaza',
+    'ghtk': 'giao hàng tiết kiệm',
+    'ghn': 'giao hàng nhanh',
   };
 
   static const Map<String, int> _vnDigitWords = <String, int>{
@@ -169,11 +201,49 @@ class FinancialTextNormalizer {
   }
 
   static const Set<String> kCarrierStopwords = <String>{
-    'hom', 'nay', 'qua', 'kia', 'sang', 'trua', 'chieu', 'toi', 'tuan', 'truoc',
-    'vua', 'moi', 'da', 'minh', 'em', 'anh', 'het', 'mat', 'ton', 'khoang',
-    'gd', 'the', 'qr', 'nd', 'vcb', 'tcb', 'mbbank', 'bidv', 'acb', 'tpb', 'vpb',
-    'digibank', 'tinh', 'so',
+    'vcb', 'tcb', 'mbbank', 'bidv', 'acb', 'tpb', 'vpb',
+    'tpbank', 'vpbank', 'techcombank', 'vietcombank', 'vietinbank', 'sacombank',
+    'digibank', 'smartbanking', 'zalopay', 'momo', 'qr', 'nd', 'gd',
   };
+
+  static final RegExp _classifierPreAmountMarkerRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(?:hết|het|mất|tốn|ton|khoảng|khoang|tầm|tam)\s+(?=(?:\$|\d))',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _classifierUsdNoiseRegex = RegExp(
+    r'\$\s*\d+(?:[.,]\d{1,2})?',
+    caseSensitive: false,
+  );
+
+  static final RegExp _classifierAmountNoiseRegex = RegExp(
+    r'(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|tỷ|ty|k|nghìn|nghin|ngàn|ngan|xị|xi|cành|canh|nhành|nhanh|chục|chuc|đ|d|₫|vnd|vnđ|đồng|dong|usd)?(?:\s*\d{1,3}(?:\s*(?:nghìn|nghin|ngàn|ngan|k))?)?(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _classifierCarrierPhraseRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(?:'
+    r'(?:hôm|hom)\s+(?:nay|qua|kia)|'
+    r'(?:sáng|sang|trưa|trua|chiều|chieu|tối|toi|đêm|dem)\s+(?:nay|qua)|'
+    r'(?:tuần|tuan)\s+(?:này|nay|trước|truoc)|'
+    r'(?:vừa|vua|mới|moi)\s+(?:thanh\s+toán|thanh\s+toan|trả\s+tiền|tra\s+tien)|'
+    r'(?:vừa|vua)\s+(?:mới|moi)|'
+    r'(?:cho|chi)\s+(?:khoản|khoan)|'
+    r'(?:dùng|dung)\s+(?:cho\s+)?(?:việc|viec)|'
+    r'(?:số|so)\s+(?:tiền|tien)|'
+    r'(?:nội|noi)\s+dung|'
+    r'(?:báo|bao)\s+(?:có|co|nợ|no)|'
+    r'tinh\s+tinh|'
+    r'sd\s+tk|'
+    r'gd\s+(?:the|thẻ|qr)'
+    r')(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
 
   /// Produces the exact classifier token sequence expected by FastText (`feature_spec.py`).
   String toClassifierInput(String text) {
@@ -181,18 +251,14 @@ class FinancialTextNormalizer {
     if (cached != null) return cached;
 
     var s = _normalizeSpokenNumbers(text.trim()).toLowerCase();
-    s = s.replaceAll(
-      RegExp(
-        r'(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan|xị|xi|cành|canh|nhành|nhanh|chục|chuc|đ|d|₫|vnd|vnđ|usd)?(?:\s*\d{1,3})?(?![\p{L}\p{N}])',
-        caseSensitive: false,
-        unicode: true,
-      ),
-      ' ',
-    );
+    s = s.replaceAll(_classifierPreAmountMarkerRegex, ' ');
+    s = s.replaceAll(_classifierUsdNoiseRegex, ' ');
+    s = s.replaceAll(_classifierAmountNoiseRegex, ' ');
     s = s.replaceAll(RegExp(r'[^\p{L}\p{N}\s]', unicode: true), ' ');
+    s = s.replaceAll(_classifierCarrierPhraseRegex, ' ');
     final rawTokens = s
         .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty && int.tryParse(t) == null);
+        .where((t) => t.isNotEmpty && !_digitsOnlyRegex.hasMatch(t));
 
     final expanded = <String>[];
     for (final tok in rawTokens) {
