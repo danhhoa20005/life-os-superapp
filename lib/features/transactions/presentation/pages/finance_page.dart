@@ -11,6 +11,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
+import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/smart_quick_entry_parser.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -40,6 +41,10 @@ class FinancePage extends StatelessWidget {
     return MultiBlocListener(
       listeners: [
         BlocListener<TransactionActionBloc, TransactionActionState>(
+          listenWhen: (prev, curr) =>
+              prev.status != curr.status ||
+              prev.failure != curr.failure ||
+              prev.successMessage != curr.successMessage,
           listener: (context, state) {
             if (state.status == ActionStatus.failure && state.failure != null) {
               LifeOsTopToast.fromSnackBar(context, 
@@ -651,6 +656,8 @@ class _TransactionsTabView extends StatefulWidget {
 
 class _TransactionsTabViewState extends State<_TransactionsTabView> {
   late final TextEditingController _searchCtrl;
+  final LifeOsStableListRegistry _txEntranceRegistry =
+      LifeOsStableListRegistry(animateInitialItems: false);
   bool _obscureBalances = false;
 
   @override
@@ -707,8 +714,37 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetCtx) {
+        final hasReferenceCode =
+            tx.referenceCode != null && tx.referenceCode!.trim().isNotEmpty;
+        final hasNote = tx.note != null && tx.note!.trim().isNotEmpty;
+        final extraRows = <Widget>[
+          if (tx.balanceAfterMinor != null)
+            _ReceiptRow(
+              label: 'Số dư sau giao dịch',
+              value: _obscureBalances
+                  ? '•••••• ₫'
+                  : VndAmount.format(tx.balanceAfterMinor!),
+            ),
+          if (hasReferenceCode)
+            _ReceiptRow(
+              label: 'Mã tham chiếu',
+              value: PrivacyMaskFormatter.maskCode(tx.referenceCode!),
+            ),
+          if (hasNote) _ReceiptRow(label: 'Ghi chú', value: tx.note!),
+          if (tx.splitLines.isNotEmpty)
+            _ReceiptRow(
+              label: 'Tách khoản',
+              value: tx.splitLines
+                  .map(
+                    (l) =>
+                        '${l.categoryName}: ${VndAmount.format(l.amountMinor)}',
+                  )
+                  .join('\n'),
+            ),
+        ];
+
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
               0,
@@ -749,11 +785,72 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SemanticStatusBadge(
-                  kind: tx.isReversed
-                      ? SemanticStatusKind.warning
-                      : SemanticStatusKind.success,
-                  label: tx.isReversed ? 'Đã hoàn tác' : 'Đã ghi nhận',
+                Builder(
+                  builder: (_) {
+                    final (
+                      String statusKey,
+                      String statusLabel,
+                      IconData statusIcon,
+                      LifeOsAccentTone statusTone,
+                    ) = tx.isReversed
+                        ? (
+                            'reversed',
+                            'Đã hoàn tác',
+                            Icons.undo_rounded,
+                            LifeOsAccentTone.amber,
+                          )
+                        : tx.hasPendingWrites
+                        ? (
+                            'pending_sync',
+                            'Đang đồng bộ',
+                            Icons.cloud_upload_outlined,
+                            LifeOsAccentTone.amber,
+                          )
+                        : switch (tx.verification) {
+                            TransactionVerification.verified => (
+                              'verified',
+                              'Ngân hàng xác thực',
+                              Icons.verified_rounded,
+                              LifeOsAccentTone.emerald,
+                            ),
+                            TransactionVerification.matchedPaymentOrder => (
+                              'matched_qr',
+                              'Khớp đơn QR thiết bị',
+                              Icons.qr_code_2_rounded,
+                              LifeOsAccentTone.blue,
+                            ),
+                            TransactionVerification.userConfirmed => (
+                              'confirmed',
+                              'Đã ghi sổ cái',
+                              Icons.check_circle_outline_rounded,
+                              LifeOsAccentTone.emerald,
+                            ),
+                            TransactionVerification.provisional => (
+                              'provisional',
+                              'Chờ xác nhận',
+                              Icons.hourglass_top_rounded,
+                              LifeOsAccentTone.amber,
+                            ),
+                            TransactionVerification.needsReview => (
+                              'needs_review',
+                              'Cần chọn đúng ví',
+                              Icons.fact_check_outlined,
+                              LifeOsAccentTone.coral,
+                            ),
+                            TransactionVerification.rejected => (
+                              'rejected',
+                              'Đã bỏ qua',
+                              Icons.block_rounded,
+                              LifeOsAccentTone.neutral,
+                            ),
+                          };
+                    return LifeOsAnimatedStatusBadge(
+                      statusKey: statusKey,
+                      label: statusLabel,
+                      icon: statusIcon,
+                      tone: statusTone,
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 Container(
@@ -761,49 +858,50 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                   decoration: BoxDecoration(
                     color: c.surfaceRaised,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: c.separator.withValues(alpha: 0.7), width: 0.8),
+                    border: Border.all(
+                      color: c.separator.withValues(alpha: 0.7),
+                      width: 0.8,
+                    ),
                   ),
                   child: Column(
                     children: [
                       _ReceiptRow(label: 'Danh mục', value: tx.categoryName),
                       const Divider(height: 16),
                       _ReceiptRow(label: 'Ví', value: resolvedWalletName),
-                      if (tx.balanceAfterMinor != null) ...[
-                        const Divider(height: 16),
-                        _ReceiptRow(
-                          label: 'Số dư sau giao dịch',
-                          value: VndAmount.format(tx.balanceAfterMinor!),
-                        ),
-                      ],
                       const Divider(height: 16),
                       _ReceiptRow(
                         label: 'Thời gian',
                         value:
                             '${tx.occurredAt.day.toString().padLeft(2, '0')}/${tx.occurredAt.month.toString().padLeft(2, '0')}/${tx.occurredAt.year} · ${_formatTimeLabel(tx.occurredAt)}',
                       ),
-                      if (tx.referenceCode != null && tx.referenceCode!.trim().isNotEmpty) ...[
-                        const Divider(height: 16),
-                        _ReceiptRow(
-                          label: 'Mã tham chiếu',
-                          value: tx.referenceCode!,
-                        ),
-                      ],
-                      if (tx.note != null && tx.note!.trim().isNotEmpty) ...[
-                        const Divider(height: 16),
-                        _ReceiptRow(label: 'Ghi chú', value: tx.note!),
-                      ],
-                      if (tx.splitLines.isNotEmpty) ...[
-                        const Divider(height: 16),
-                        _ReceiptRow(
-                          label: 'Tách khoản',
-                          value: tx.splitLines
-                              .map((l) => '${l.categoryName}: ${VndAmount.format(l.amountMinor)}')
-                              .join('\n'),
-                        ),
-                      ],
                     ],
                   ),
                 ),
+                if (extraRows.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  LifeOsDetailsDiscloseSection(
+                    label: 'Chi tiết giao dịch',
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: c.surfaceRaised,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: c.separator.withValues(alpha: 0.7),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < extraRows.length; i++) ...[
+                            if (i > 0) const Divider(height: 16),
+                            extraRows[i],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -867,6 +965,9 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
         };
 
         final visibleTxs = state.filteredTransactions;
+        final newlyArrivedTxIds = _txEntranceRegistry.registerSnapshot(
+          visibleTxs.map((t) => t.id),
+        );
 
         // Group visible transactions chronologically by calendar day
         final now = DateTime.now();
@@ -1021,7 +1122,7 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          'Gợi ý: ${tx.categoryName}',
+                                          tx.categoryName,
                                           softWrap: true,
                                           style: Theme.of(
                                             context,
@@ -1336,6 +1437,13 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                             ),
                           );
 
+                          final animatedRow = LifeOsAnimatedItemEntrance(
+                            key: ValueKey('tx_entrance_${tx.id}'),
+                            itemId: tx.id,
+                            animateOnMount: newlyArrivedTxIds.contains(tx.id),
+                            child: statementTile,
+                          );
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 9),
                             child: canUndo
@@ -1384,9 +1492,9 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                                       }
                                       return false;
                                     },
-                                    child: statementTile,
+                                    child: animatedRow,
                                   )
-                                : statementTile,
+                                : animatedRow,
                           );
                         }),
                       ],
@@ -2177,10 +2285,14 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              LinearProgressIndicator(
-                                value: (b.percentUsed / 100.0).clamp(0.0, 1.0),
-                                color:
-                                    b.isExceeded ? c.error : (b.isWarning ? c.warning : c.primary),
+                              LifeOsAnimatedProgressBar(
+                                progressRatio: b.percentUsed / 100.0,
+                                color: b.isExceeded
+                                    ? c.error
+                                    : (b.isWarning ? c.warning : c.primary),
+                                height: 7.5,
+                                semanticsLabel: 'Tiến độ ngân sách ${b.categoryName}',
+                                semanticsValue: '${b.percentUsed}%',
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -2682,11 +2794,10 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
   void _submitQuickEntry() {
     final parsed = _preview ?? SmartQuickEntryParser.tryParse(_ctrl.text);
     if (parsed == null) {
-      LifeOsTopToast.fromSnackBar(context, 
+      LifeOsTopToast.fromSnackBar(
+        context,
         const SnackBar(
-          content: Text(
-            '⚠ Hãy nhập nội dung kèm số tiền (VD: "ăn phở 65k", "tiền điện 850k", "lương 18tr").',
-          ),
+          content: Text('⚠ Hãy nhập nội dung kèm số tiền.'),
         ),
       );
       return;
@@ -2734,11 +2845,11 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        'Ghi nhanh tự nhiên',
+                        'Ghi nhanh thu chi',
                         softWrap: true,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                              fontWeight: FontWeight.w800,
+                            ),
                       ),
                     ),
                   ],
@@ -2780,8 +2891,7 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
               ),
               onSubmitted: (_) => _submitQuickEntry(),
               decoration: const InputDecoration(
-                hintText: 'VD: phở 65k',
-                hintMaxLines: 2,
+                hintText: 'Nhập nhanh thu chi...',
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 12,
@@ -2923,7 +3033,7 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!onlyCharts) ...[
-          // Unified Compact Month & 3-Column Budget Progress Card (`04_Chi_tieu.png`)
+          // Unified Compact Month & Progressive Disclosure Budget Card (`04_Chi_tieu.png`)
           LifeOsMintHeroCard(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
             child: Column(
@@ -2971,9 +3081,7 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                                     )
                                 : null,
                             child: Text(
-                              hasBudget
-                                  ? 'Kỳ ${state.monthKey} · Đã chi $pctUsed%'
-                                  : 'Kỳ ${state.monthKey} · Thực chi tháng',
+                              'Kỳ ${state.monthKey}',
                               softWrap: true,
                               style: TextStyle(
                                 fontSize: 13,
@@ -3044,102 +3152,169 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                IntrinsicHeight(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Đã chi',
-                              style: TextStyle(fontSize: 11.5, color: c.textSecondary),
-                            ),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                VndAmount.format(spentMinor),
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: c.textPrimary,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ),
-                          ],
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Tổng chi tháng',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: c.textSecondary,
+                      ),
+                    ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: LifeOsTruthfulNumericText(
+                        formattedValue: VndAmount.format(spentMinor),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isOverBudget ? c.error : c.textPrimary,
                         ),
                       ),
-                      VerticalDivider(width: 12, color: c.separator),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hạn mức',
-                              style: TextStyle(fontSize: 11.5, color: c.textSecondary),
-                            ),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                hasBudget ? VndAmount.format(totalBudgetLimit) : 'Chưa đặt',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: hasBudget ? c.textPrimary : c.textSecondary,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      VerticalDivider(width: 12, color: c.separator),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isOverBudget ? 'Vượt mức' : 'Còn lại',
-                              style: TextStyle(fontSize: 11.5, color: c.textSecondary),
-                            ),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                hasBudget
-                                    ? VndAmount.format(remainingSignedMinor)
-                                    : 'Chưa đặt',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: !hasBudget
-                                      ? c.textSecondary
-                                      : (isOverBudget ? c.error : c.primary),
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    minHeight: 7,
-                    value: !hasBudget || spentMinor <= 0
-                        ? 0.0
-                        : (spentMinor / totalBudgetLimit).clamp(0.02, 1.0),
-                    backgroundColor: c.surface,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isOverBudget ? c.error : c.primary,
-                    ),
+                LifeOsDetailsDiscloseSection(
+                  toggleKey: const Key('finance_overview_details_toggle'),
+                  label: 'Chi tiết tháng',
+                  initiallyExpanded: !onlyTopSummary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      IntrinsicHeight(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'Thu nhập',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: LifeOsTruthfulNumericText(
+                                      formattedValue: VndAmount.format(
+                                        state.summary.monthlyIncomeMinor,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.success,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            VerticalDivider(width: 12, color: c.separator),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'Hạn mức',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: LifeOsTruthfulNumericText(
+                                      formattedValue: hasBudget
+                                          ? VndAmount.format(totalBudgetLimit)
+                                          : 'Chưa đặt',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: hasBudget
+                                            ? c.textPrimary
+                                            : c.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            VerticalDivider(width: 12, color: c.separator),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      isOverBudget ? 'Vượt mức' : 'Còn lại',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: LifeOsTruthfulNumericText(
+                                      formattedValue: hasBudget
+                                          ? VndAmount.format(
+                                              remainingSignedMinor,
+                                            )
+                                          : 'Chưa đặt',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: !hasBudget
+                                            ? c.textSecondary
+                                            : (isOverBudget
+                                                  ? c.error
+                                                  : c.primary),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      LifeOsAnimatedProgressBar(
+                        progressRatio: !hasBudget || spentMinor <= 0
+                            ? 0.0
+                            : (spentMinor / totalBudgetLimit).clamp(0.02, 9.99),
+                        color: isOverBudget ? c.error : c.primary,
+                        trackColor: c.surface,
+                        height: 7.0,
+                        semanticsLabel:
+                            'Tiến độ tổng ngân sách tháng ${state.monthKey}',
+                        semanticsValue: hasBudget
+                            ? '$pctUsed%'
+                            : 'Chưa đặt hạn mức',
+                      ),
+                    ],
                   ),
                 ),
               ],

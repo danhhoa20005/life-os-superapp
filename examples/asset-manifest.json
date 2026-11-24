@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "6.1",
+  "project": "LifeOS Super App",
+  "brandPalette": {
+    "primary": "#0B7A2A",
+    "primaryLight": "#55D52F",
+    "primaryDark": "#03602B",
+    "forest": "#113824",
+    "mint": "#E7F7EB",
+    "ink": "#1D1D1F"
+  },
+  "assets": [
+    {
+      "id": "hero_3d_wealth_vault",
+      "usage": "Điểm nhấn điêu khắc kính ngọc lục bảo 3D trên thẻ Tổng tài sản ròng Trang chủ",
+      "path": "assets/images/hero_3d_wealth_vault.png",
+      "pixelSize": "1024x1024",
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "alpha": false,
+      "safeAreaPaddingPx": 64,
+      "themeSupport": ["light", "dark"],
+      "tool": "Nano Banana Pro 3D (Antigravity image-generator)",
+      "license": "Generated First-Party Asset",
+      "maxBytes": 900000,
+      "status": "READY"
+    },
+    {
+      "id": "hero_3d_welcome_ecosystem",
+      "usage": "Mô hình 3D isometric ngôi nhà thông minh, ví kính & lá ngọc trên màn hình Chào mừng",
+      "path": "assets/images/hero_3d_welcome_ecosystem.png",
+      "pixelSize": "1024x1024",
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "alpha": false,
+      "safeAreaPaddingPx": 64,
+      "themeSupport": ["light", "dark"],
+      "tool": "Nano Banana Pro 3D (Antigravity image-generator)",
+      "license": "Generated First-Party Asset",
+      "maxBytes": 900000,
+      "status": "READY"
+    },
+    {
+      "id": "ic_3d_hydration",
+      "usage": "Icon 3D giọt nước pha lê xanh cho tính năng Nhắc uống nước & Sức khỏe",
+      "path": "assets/icons/ic_3d_hydration.png",
+      "pixelSize": "512x512",
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "alpha": false,
+      "safeAreaPaddingPx": 36,
+      "themeSupport": ["light", "dark"],
+      "tool": "Nano Banana Pro 3D (Antigravity image-generator)",
+      "license": "Generated First-Party Asset",
+      "maxBytes": 350000,
+      "status": "READY"
+    },
+    {
+      "id": "ic_3d_voice_ai",
+      "usage": "Icon 3D micro pha lê ngọc lục bảo cho tính năng Ghi nhanh bằng giọng nói",
+      "path": "assets/icons/ic_3d_voice_ai.png",
+      "pixelSize": "512x512",
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "alpha": false,
+      "safeAreaPaddingPx": 36,
+      "themeSupport": ["light", "dark"],
+      "tool": "Nano Banana Pro 3D (Antigravity image-generator)",
+      "license": "Generated First-Party Asset",
+      "maxBytes": 350000,
+      "status": "READY"
+    }
+  ]
+}

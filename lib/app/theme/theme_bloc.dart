@@ -7,6 +7,11 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/motion/lifeos_motion_preferences.dart';
+
+export '../../core/motion/lifeos_motion_preferences.dart'
+    show LifeOsMotionMode, LifeOsMotionModeLabel;
+
 /// Strict `Bloc<ThemeEvent, ThemeState>` — NEVER uses Cubit.
 sealed class ThemeEvent extends Equatable {
   const ThemeEvent();
@@ -51,6 +56,14 @@ final class HighContrastToggled extends ThemeEvent {
   List<Object?> get props => [enabled];
 }
 
+final class MotionModeChanged extends ThemeEvent {
+  final LifeOsMotionMode motionMode;
+  const MotionModeChanged(this.motionMode);
+
+  @override
+  List<Object?> get props => [motionMode];
+}
+
 @immutable
 final class ThemeState extends Equatable {
   /// Defaults to signature Emerald-Mint Light Mode (`ThemeMode.light`) so dark-OS
@@ -66,14 +79,23 @@ final class ThemeState extends Equatable {
 
   final bool highContrast;
 
+  /// User-level motion preference (`system` honors OS accessibility automatically;
+  /// `reduced` / `off` minimizes non-essential motion).
+  final LifeOsMotionMode motionMode;
+
   const ThemeState({
     this.themeMode = ThemeMode.light,
     this.textScale = 0.92,
     this.compactDensity = true,
     this.highContrast = false,
+    this.motionMode = LifeOsMotionMode.system,
   });
 
   int get textScalePercent => (textScale * 100).round();
+
+  bool get prefersReducedMotion =>
+      motionMode == LifeOsMotionMode.reduced ||
+      motionMode == LifeOsMotionMode.off;
 
   String get themeModeLabel => switch (themeMode) {
     ThemeMode.light => 'Sáng',
@@ -86,12 +108,14 @@ final class ThemeState extends Equatable {
     double? textScale,
     bool? compactDensity,
     bool? highContrast,
+    LifeOsMotionMode? motionMode,
   }) {
     return ThemeState(
       themeMode: themeMode ?? this.themeMode,
       textScale: (textScale ?? this.textScale).clamp(0.80, 1.25),
       compactDensity: compactDensity ?? this.compactDensity,
       highContrast: highContrast ?? this.highContrast,
+      motionMode: motionMode ?? this.motionMode,
     );
   }
 
@@ -101,6 +125,7 @@ final class ThemeState extends Equatable {
     textScale,
     compactDensity,
     highContrast,
+    motionMode,
   ];
 }
 
@@ -120,6 +145,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       transformer: sequential(),
     );
     on<HighContrastToggled>(_onHighContrastToggled, transformer: sequential());
+    on<MotionModeChanged>(_onMotionModeChanged, transformer: sequential());
   }
 
   static File _resolvePrefsFile() {
@@ -147,6 +173,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
           'textScale': s.textScale,
           'compactDensity': s.compactDensity,
           'highContrast': s.highContrast,
+          'motionMode': s.motionMode.name,
         }),
       );
     } catch (_) {}
@@ -169,12 +196,18 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       final scale = (map['textScale'] as num?)?.toDouble() ?? 0.92;
       final compact = map['compactDensity'] != false;
       final hc = map['highContrast'] == true;
+      final rawMotion = map['motionMode'] as String?;
+      final motion = LifeOsMotionMode.values.firstWhere(
+        (m) => m.name == rawMotion,
+        orElse: () => LifeOsMotionMode.system,
+      );
       emit(
         state.copyWith(
           themeMode: mode,
           textScale: scale,
           compactDensity: compact,
           highContrast: hc,
+          motionMode: motion,
         ),
       );
     } catch (_) {}
@@ -212,6 +245,15 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) async {
     final next = state.copyWith(highContrast: event.enabled);
+    emit(next);
+    await _saveState(next);
+  }
+
+  Future<void> _onMotionModeChanged(
+    MotionModeChanged event,
+    Emitter<ThemeState> emit,
+  ) async {
+    final next = state.copyWith(motionMode: event.motionMode);
     emit(next);
     await _saveState(next);
   }

@@ -2,10 +2,13 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/lifeos_brand_colors.dart';
+import '../motion/lifeos_motion_preferences.dart';
+import '../motion/lifeos_motion_scope.dart';
+import '../motion/lifeos_motion_tokens.dart';
+import '../motion/widgets/lifeos_pressable.dart';
 
 /// Optical material presets following Apple's Liquid Glass Design System
 /// (iOS 26 / iPadOS 26 / macOS Tahoe / visionOS).
@@ -556,46 +559,51 @@ class LiquidGlassJewelButton extends StatelessWidget {
     final radius = size * 0.38;
     return Tooltip(
       message: tooltip,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: [
-            BoxShadow(
-              color: c.primary.withValues(alpha: 0.38),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: Colors.white.withValues(alpha: 0.22),
-              blurRadius: 2,
-              offset: const Offset(0, -0.5),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(radius),
-          child: InkWell(
-            key: buttonKey,
+      child: LifeOsPressable(
+        passthroughPointerOnly: true,
+        haptic: LifeOsPressHaptic.light,
+        pressedScale: LifeOsMotionTokens.pressedScaleCompact,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(radius),
-            onTap: onTap,
-            child: CustomPaint(
-              foregroundPainter: _LiquidGlassJewelDomePainter(
-                borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: c.primary.withValues(alpha: 0.38),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: LifeOSBrandColors.appIconBgGradient,
-                    stops: LifeOSBrandColors.appIconBgStops,
-                  ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.22),
+                blurRadius: 2,
+                offset: const Offset(0, -0.5),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(radius),
+            child: InkWell(
+              key: buttonKey,
+              borderRadius: BorderRadius.circular(radius),
+              onTap: onTap,
+              child: CustomPaint(
+                foregroundPainter: _LiquidGlassJewelDomePainter(
+                  borderRadius: radius,
                 ),
-                child: Icon(icon, color: Colors.white, size: size * 0.58),
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: LifeOSBrandColors.appIconBgGradient,
+                      stops: LifeOSBrandColors.appIconBgStops,
+                    ),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: size * 0.58),
+                ),
               ),
             ),
           ),
@@ -714,13 +722,12 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
   late final AnimationController _controller;
   late double _fromVisualTab;
   late double _toVisualTab;
+  LifeOsMotionPreferences _motion = const LifeOsMotionPreferences();
 
   bool _isDragging = false;
   double _dragLeftPx = 0.0;
   double _dragVelocityStretchPx = 0.0;
   double _lastTabSlotWidth = 72.0;
-
-  static const Cubic _appleLiquidSpring = Cubic(0.22, 1.07, 0.32, 1.0);
 
   @override
   void initState() {
@@ -730,23 +737,46 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
     _toVisualTab = initial;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 360),
+      duration: LifeOsMotionTokens.panel,
       value: 1.0,
     );
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _motion = LifeOsMotionScope.of(context);
+    _controller.duration = _motion.resolveDuration(LifeOsMotionTokens.panel);
+  }
+
   double _currentAnimatedVisualTab() {
-    final curved = _appleLiquidSpring.transform(_controller.value);
+    final curve = _motion.isReducedMotion
+        ? LifeOsMotionTokens.standardCurve
+        : LifeOsMotionTokens.dockCapsuleCurve;
+    final curved = curve.transform(_controller.value.clamp(0.0, 1.0));
     return lerpDouble(_fromVisualTab, _toVisualTab, curved) ?? _toVisualTab;
+  }
+
+  void _drivePillTransition({required double from, required double to}) {
+    _fromVisualTab = from;
+    _toVisualTab = to;
+    if (_motion.isMotionOff || !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+      _controller.value = 1.0;
+      return;
+    }
+    _controller.duration = _motion.resolveDuration(LifeOsMotionTokens.panel);
+    _controller.forward(from: 0.0);
   }
 
   @override
   void didUpdateWidget(covariant LiquidGlassSlidingDock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex && !_isDragging) {
-      _fromVisualTab = _currentAnimatedVisualTab();
-      _toVisualTab = widget.selectedIndex.clamp(0, 3).toDouble();
-      _controller.forward(from: 0.0);
+      _drivePillTransition(
+        from: _currentAnimatedVisualTab(),
+        to: widget.selectedIndex.clamp(0, 3).toDouble(),
+      );
     }
   }
 
@@ -805,7 +835,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
 
     final hovered = _hitTabIndexAtDx(localDx, tabW, innerWidth);
     if (hovered != null && hovered != widget.selectedIndex) {
-      HapticFeedback.selectionClick();
+      _motion.selectionHaptic();
       widget.onDestinationSelected(hovered);
     }
   }
@@ -860,10 +890,11 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                 setState(() {
                   _isDragging = false;
                   _dragVelocityStretchPx = 0.0;
-                  _fromVisualTab = settledFrom;
-                  _toVisualTab = widget.selectedIndex.clamp(0, 3).toDouble();
                 });
-                _controller.forward(from: 0.0);
+                _drivePillTransition(
+                  from: settledFrom,
+                  to: widget.selectedIndex.clamp(0, 3).toDouble(),
+                );
               },
               onHorizontalDragCancel: () {
                 final settledFrom = _leftPxToVisualTab(
@@ -873,10 +904,11 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                 setState(() {
                   _isDragging = false;
                   _dragVelocityStretchPx = 0.0;
-                  _fromVisualTab = settledFrom;
-                  _toVisualTab = widget.selectedIndex.clamp(0, 3).toDouble();
                 });
-                _controller.forward(from: 0.0);
+                _drivePillTransition(
+                  from: settledFrom,
+                  to: widget.selectedIndex.clamp(0, 3).toDouble(),
+                );
               },
               child: Stack(
                 alignment: Alignment.center,
@@ -891,11 +923,15 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
 
                       if (_isDragging) {
                         baseLeft = _dragLeftPx;
-                        stretchW = 4.0 + _dragVelocityStretchPx;
-                        pillHeight = 60.0;
+                        stretchW = _motion.isReducedMotion
+                            ? 0.0
+                            : (4.0 + _dragVelocityStretchPx);
+                        pillHeight = _motion.isReducedMotion ? 58.0 : 60.0;
                       } else {
                         final rawT = _controller.value.clamp(0.0, 1.0);
-                        final sinWave = math.sin(rawT * math.pi);
+                        final sinWave = _motion.isReducedMotion
+                            ? 0.0
+                            : math.sin(rawT * math.pi);
                         final vTab = _currentAnimatedVisualTab();
                         baseLeft = _visualTabToLeftPx(vTab, tabW);
                         final travelPx =
@@ -983,7 +1019,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                         isSelected:
                             widget.selectedIndex == widget.items[0].branchIndex,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          _motion.selectionHaptic();
                           widget.onDestinationSelected(
                             widget.items[0].branchIndex,
                           );
@@ -994,7 +1030,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                         isSelected:
                             widget.selectedIndex == widget.items[1].branchIndex,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          _motion.selectionHaptic();
                           widget.onDestinationSelected(
                             widget.items[1].branchIndex,
                           );
@@ -1006,7 +1042,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                         isSelected:
                             widget.selectedIndex == widget.items[2].branchIndex,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          _motion.selectionHaptic();
                           widget.onDestinationSelected(
                             widget.items[2].branchIndex,
                           );
@@ -1017,7 +1053,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                         isSelected:
                             widget.selectedIndex == widget.items[3].branchIndex,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          _motion.selectionHaptic();
                           widget.onDestinationSelected(
                             widget.items[3].branchIndex,
                           );
@@ -1058,54 +1094,66 @@ class _SlidingDockTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final motion = LifeOsMotionScope.of(context);
     final color = isSelected ? c.primary : c.textSecondary;
+    final stateDuration = motion.resolveDuration(LifeOsMotionTokens.standard);
+    final microDuration = motion.resolveDuration(LifeOsMotionTokens.micro);
 
     return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          child: InkWell(
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: item.label,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Material(
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(22),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedSlide(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    offset: isSelected ? const Offset(0, -0.05) : Offset.zero,
-                    child: AnimatedScale(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutBack,
-                      scale: isSelected ? 1.08 : 1.0,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        opacity: isSelected ? 1.0 : 0.80,
-                        child: item.iconBuilder(context, isSelected, color),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSlide(
+                      duration: stateDuration,
+                      curve: LifeOsMotionTokens.standardCurve,
+                      offset: motion.resolveOffset(
+                        isSelected ? const Offset(0, -0.05) : Offset.zero,
+                      ),
+                      child: AnimatedScale(
+                        duration: stateDuration,
+                        curve: motion.isReducedMotion
+                            ? LifeOsMotionTokens.standardCurve
+                            : Curves.easeOutBack,
+                        scale: motion.resolveScale(isSelected ? 1.08 : 1.0),
+                        child: AnimatedOpacity(
+                          duration: microDuration,
+                          opacity: isSelected ? 1.0 : 0.80,
+                          child: item.iconBuilder(context, isSelected, color),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-                      style: TextStyle(
-                        fontSize: 11.2,
-                        fontWeight: isSelected
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                        color: color,
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: AnimatedDefaultTextStyle(
+                        duration: microDuration,
+                        curve: LifeOsMotionTokens.standardCurve,
+                        style: TextStyle(
+                          fontSize: 11.2,
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: color,
+                        ),
+                        child: Text(item.label, maxLines: 1),
                       ),
-                      child: Text(item.label, maxLines: 1),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -15,6 +15,7 @@ import '../../features/family/presentation/bloc/family_bloc.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
+import '../utils/user_behavior_prefs.dart';
 import '../utils/vietnamese_search_matcher.dart';
 import '../utils/vnd_amount.dart';
 import 'lifeos_design_system.dart';
@@ -75,13 +76,16 @@ Future<void> showLifeOsLogoSideDrawer(BuildContext context) async {
   final vehicleBloc = _maybeReadBloc<VehicleBloc>(context);
   final currentLocation = _resolveCurrentLocation(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
+  final motion = LifeOsMotionScope.of(context);
 
   await showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Đóng ngăn tính năng LifeOS',
     barrierColor: Colors.black.withValues(alpha: isDark ? 0.62 : 0.36),
-    transitionDuration: const Duration(milliseconds: 270),
+    transitionDuration: motion.resolveDuration(
+      const Duration(milliseconds: 270),
+    ),
     pageBuilder: (dialogCtx, _, __) {
       return _LifeOsLogoSideDrawerSheet(
         parentContext: context,
@@ -95,11 +99,14 @@ Future<void> showLifeOsLogoSideDrawer(BuildContext context) async {
       );
     },
     transitionBuilder: (ctx, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      );
+      final resolvedMotion = LifeOsMotionScope.of(ctx);
+      if (resolvedMotion.isMotionOff) {
+        return child;
+      }
+      if (resolvedMotion.isReducedMotion) {
+        return FadeTransition(opacity: animation, child: child);
+      }
+      final curved = animation.drive(CurveTween(curve: Curves.easeOutCubic));
       return SlideTransition(
         position: Tween<Offset>(
           begin: const Offset(-1.0, 0.0),
@@ -143,6 +150,19 @@ class _LifeOsLogoSideDrawerSheetState
   String _query = '';
   String _selectedTab = 'all';
   double _dragDx = 0.0;
+  bool _hideBalances = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrivacyPrefs();
+  }
+
+  Future<void> _loadPrivacyPrefs() async {
+    final hideBal = await UserBehaviorPrefs.loadHideBalances();
+    if (!mounted) return;
+    setState(() => _hideBalances = hideBal);
+  }
 
   static const List<(String key, String label)> _tabs = [
     ('all', 'Tất cả'),
@@ -683,8 +703,9 @@ class _LifeOsLogoSideDrawerSheetState
                                     LifeOsStatusPill(
                                       icon: Icons
                                           .account_balance_wallet_outlined,
-                                      label:
-                                          'Ví: ${VndAmount.format(dash.netWorthMinor)}',
+                                      label: _hideBalances
+                                          ? 'Ví: •••••• ₫'
+                                          : 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
                                       tone: LifeOsAccentTone.emerald,
                                     ),
                                     LifeOsStatusPill(

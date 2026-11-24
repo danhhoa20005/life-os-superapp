@@ -9,6 +9,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/lifeos_brand_colors.dart';
 import '../../app/theme/theme_bloc.dart';
+import '../../features/authentication/domain/entities/user_entity.dart';
+import '../../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
 import '../../features/daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
@@ -16,12 +18,16 @@ import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../constants/app_assets.dart';
+import '../motion/lifeos_motion_scope.dart';
+import '../motion/lifeos_motion_tokens.dart';
+import '../motion/widgets/lifeos_pressable.dart';
 import '../utils/vietnamese_search_matcher.dart';
 import '../utils/vnd_amount.dart';
 import 'lifeos_logo_side_drawer.dart';
 import 'liquid_glass.dart';
 import 'quick_create_hub_sheet.dart';
 
+export '../motion/lifeos_motion.dart';
 export 'lifeos_logo_side_drawer.dart';
 export 'lifeos_top_toast.dart';
 export 'liquid_glass.dart';
@@ -29,6 +35,14 @@ export 'liquid_glass.dart';
 ThemeBloc? _maybeThemeBloc(BuildContext context, {bool listen = false}) {
   try {
     return BlocProvider.of<ThemeBloc>(context, listen: listen);
+  } catch (_) {
+    return null;
+  }
+}
+
+UserEntity? _maybeAuthUser(BuildContext context) {
+  try {
+    return BlocProvider.of<AuthBloc>(context, listen: true).state.user;
   } catch (_) {
     return null;
   }
@@ -825,193 +839,278 @@ class LifeOsTopBrandHeader extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        compact ? 4 : 8,
-        AppSpacing.md,
-        compact ? 6 : 10,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.maxContentWidth,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Row 1: Official Brand Wordmark + Unified Frosted Pill Capsule + Profile
-              Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Tooltip(
-                          message: 'Bảng tính năng LifeOS',
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              key: const Key('open_logo_side_drawer_button'),
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () => showLifeOsLogoSideDrawer(context),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.menu_rounded,
-                                      size: compact ? 20 : 22,
-                                      color: c.textPrimary,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    LifeOsBrandWordmark(
-                                      iconSize: compact ? 30 : 34,
-                                      fontSize: compact ? 18.5 : 20,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (extraBrandActions.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: extraBrandActions
-                              .map(
-                                (w) => Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: w,
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    ),
-                  ],
-                  LiquidGlassSurface(
-                    material: LiquidGlassMaterial.navigationChrome,
-                    borderRadius: 24,
-                    blurSigma: 22,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 3,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (themeBloc != null)
-                          _CapsuleIconBtn(
-                            buttonKey: const Key(
-                              'open_appearance_studio_button',
-                            ),
-                            icon: isDark
-                                ? Icons.light_mode_outlined
-                                : Icons.text_fields_rounded,
-                            tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
-                            onTap: () => showLifeOsAppearanceSheet(context),
-                          ),
-                        _CapsuleIconBtn(
-                          icon: Icons.search_rounded,
-                          tooltip: 'Tìm kiếm nhanh LifeOS',
-                          onTap: () => showLifeOsOmniSearchSheet(context),
-                        ),
-                        _CapsuleIconBtn(
-                          icon: Icons.notifications_none_rounded,
-                          tooltip: 'Trung tâm Thông báo',
-                          showUnreadDot: showUnreadNotificationDot,
-                          onTap: () => context.push('/activity-notifications'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (profileTrailing != null) ...[
-                    const SizedBox(width: 4),
-                    profileTrailing!,
-                  ],
-                ],
-              ),
-              SizedBox(height: compact ? 8 : 11),
+    final authUser = _maybeAuthUser(context);
+    final Widget? effectiveAvatarTrailing =
+        profileTrailing ??
+        (authUser != null ? _HeaderEdgeAvatarButton(user: authUser) : null);
 
-              // Row 2: Page Greeting / Title + Primary Action, with full-width subtitle below
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: title.length <= 28
-                          ? FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: compact ? 20.5 : 23,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.4,
-                                  height: 1.18,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Row 1: Full-bleed top chrome so Avatar sits flush against the far-right edge
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            compact ? 4 : 8,
+            4,
+            0,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Tooltip(
+                      message: 'Bảng tính năng LifeOS',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          key: const Key('open_logo_side_drawer_button'),
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => showLifeOsLogoSideDrawer(context),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.menu_rounded,
+                                  size: compact ? 20 : 22,
                                   color: c.textPrimary,
                                 ),
-                              ),
-                            )
-                          : Text(
-                              title,
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: compact ? 20.5 : 23,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                                height: 1.18,
-                                color: c.textPrimary,
-                              ),
+                                const SizedBox(width: 6),
+                                LifeOsBrandWordmark(
+                                  iconSize: compact ? 30 : 34,
+                                  fontSize: compact ? 18.5 : 20,
+                                ),
+                              ],
                             ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  if (trailingAction != null) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: trailingAction!,
+                ),
+              ),
+              if (extraBrandActions.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: extraBrandActions
+                      .map(
+                        (w) => Padding(
+                          padding: const EdgeInsets.only(right: 5),
+                          child: w,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              LiquidGlassSurface(
+                material: LiquidGlassMaterial.navigationChrome,
+                borderRadius: 24,
+                blurSigma: 22,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 3,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (themeBloc != null)
+                      _CapsuleIconBtn(
+                        buttonKey: const Key(
+                          'open_appearance_studio_button',
+                        ),
+                        icon: isDark
+                            ? Icons.light_mode_outlined
+                            : Icons.text_fields_rounded,
+                        tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
+                        onTap: () => showLifeOsAppearanceSheet(context),
+                      ),
+                    _CapsuleIconBtn(
+                      icon: Icons.search_rounded,
+                      tooltip: 'Tìm kiếm nhanh LifeOS',
+                      onTap: () => showLifeOsOmniSearchSheet(context),
+                    ),
+                    _CapsuleIconBtn(
+                      icon: Icons.notifications_none_rounded,
+                      tooltip: 'Trung tâm Thông báo',
+                      showUnreadDot: showUnreadNotificationDot,
+                      onTap: () => context.push('/activity-notifications'),
+                    ),
+                  ],
+                ),
+              ),
+              if (effectiveAvatarTrailing != null) ...[
+                const SizedBox(width: 6),
+                effectiveAvatarTrailing,
+              ],
+            ],
+          ),
+        ),
+        SizedBox(height: compact ? 7 : 10),
+
+        // Row 2: Page Title + Primary Action aligned to content grid
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            compact ? 6 : 10,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.maxContentWidth,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: title.length <= 28
+                              ? FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    title,
+                                    style: TextStyle(
+                                      fontSize: compact ? 20.5 : 23,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.4,
+                                      height: 1.18,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  title,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: compact ? 20.5 : 23,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.4,
+                                    height: 1.18,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      if (trailingAction != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: trailingAction!,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: compact ? 12 : 12.6,
+                        fontWeight: FontWeight.w500,
+                        height: 1.25,
+                        color: c.textSecondary,
                       ),
                     ),
                   ],
                 ],
               ),
-              if (subtitle != null && subtitle!.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(
-                  subtitle!,
-                  softWrap: true,
-                  style: TextStyle(
-                    fontSize: compact ? 12.2 : 13,
-                    fontWeight: FontWeight.w500,
-                    height: 1.28,
-                    color: c.textSecondary,
-                  ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderEdgeAvatarButton extends StatelessWidget {
+  final UserEntity user;
+
+  const _HeaderEdgeAvatarButton({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final photo = user.photoUrl;
+    return Tooltip(
+      message: 'Hồ sơ tài khoản',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          key: const Key('open_account_profile_button'),
+          customBorder: const CircleBorder(),
+          onTap: () => context.push('/account-profile'),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [c.primary, c.secondary],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.72),
+                width: 1.6,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: c.primary.withValues(alpha: 0.22),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
-            ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: photo != null && photo.isNotEmpty
+                ? Image.network(
+                    photo,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Text(
+                        user.initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      user.initials,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
           ),
         ),
       ),
@@ -1093,7 +1192,7 @@ class LifeOsSoftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSurface(
+    final surface = LiquidGlassSurface(
       material: LiquidGlassMaterial.card,
       borderRadius: borderRadius,
       padding: padding,
@@ -1103,6 +1202,13 @@ class LifeOsSoftCard extends StatelessWidget {
       accentRimColor: borderColor,
       rimIntensity: 0.65,
       child: child,
+    );
+    if (onTap == null) return surface;
+    return LifeOsPressable(
+      passthroughPointerOnly: true,
+      haptic: LifeOsPressHaptic.none,
+      pressedScale: LifeOsMotionTokens.pressedScaleStandard,
+      child: surface,
     );
   }
 }
@@ -1122,7 +1228,7 @@ class LifeOsMintHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSurface(
+    final surface = LiquidGlassSurface(
       material: LiquidGlassMaterial.mintHero,
       borderRadius: 18,
       padding: padding,
@@ -1130,6 +1236,13 @@ class LifeOsMintHeroCard extends StatelessWidget {
       enableBlur: false,
       rimIntensity: 0.72,
       child: child,
+    );
+    if (onTap == null) return surface;
+    return LifeOsPressable(
+      passthroughPointerOnly: true,
+      haptic: LifeOsPressHaptic.none,
+      pressedScale: LifeOsMotionTokens.pressedScaleStandard,
+      child: surface,
     );
   }
 }
@@ -1270,7 +1383,7 @@ class LifeOsPrimaryCtaButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return SizedBox(
+    final button = SizedBox(
       height: 50,
       width: double.infinity,
       child: FilledButton(
@@ -1309,6 +1422,15 @@ class LifeOsPrimaryCtaButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+
+    if (onPressed == null) return button;
+    return LifeOsPressable(
+      enabled: true,
+      passthroughPointerOnly: true,
+      haptic: LifeOsPressHaptic.none,
+      pressedScale: LifeOsMotionTokens.pressedScaleStandard,
+      child: button,
     );
   }
 }
@@ -1503,6 +1625,8 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final motion = LifeOsMotionScope.of(context);
+    final pillDuration = motion.resolveDuration(LifeOsMotionTokens.standard);
     final rawIdx = options.indexWhere((o) => o.$1 == selected);
     final activeIdx = rawIdx < 0 ? 0 : rawIdx;
     final count = options.isEmpty ? 1 : options.length;
@@ -1521,8 +1645,8 @@ class LifeOsSegmentedPills<T> extends StatelessWidget {
             return Stack(
               children: [
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeOutCubic,
+                  duration: pillDuration,
+                  curve: motion.resolveCurve(LifeOsMotionTokens.standardCurve),
                   left: activeIdx * itemWidth,
                   top: 0,
                   bottom: 0,
@@ -2434,7 +2558,7 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                 showHandle: true,
                 child: SafeArea(
                   top: false,
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -2593,6 +2717,35 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                           value: state.compactDensity,
                           onChanged: (v) =>
                               themeBloc.add(CompactDensityToggled(v)),
+                        ),
+
+                        // 4. Accessibility Reduce Motion Toggle
+                        SwitchListTile.adaptive(
+                          key: const Key('appearance_reduce_motion_switch'),
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Giảm chuyển động (Reduce Motion)',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Tối giản hiệu ứng trượt/nảy thành mờ nhẹ nhưng giữ nguyên trạng thái rõ ràng',
+                            style: TextStyle(
+                              fontSize: 11.8,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          value: state.prefersReducedMotion,
+                          onChanged: (v) => themeBloc.add(
+                            MotionModeChanged(
+                              v
+                                  ? LifeOsMotionMode.reduced
+                                  : LifeOsMotionMode.system,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -2943,6 +3096,7 @@ Future<void> showLifeOsBrandIdentitySheet(BuildContext context) {
 class LifeOsSectionHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final bool showSubtitle;
   final LifeOsAccentTone tone;
   final Widget? trailing;
   final EdgeInsetsGeometry padding;
@@ -2951,6 +3105,7 @@ class LifeOsSectionHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.showSubtitle = false,
     this.tone = LifeOsAccentTone.emerald,
     this.trailing,
     this.padding = const EdgeInsets.only(top: 14, bottom: 8, left: 2, right: 2),
@@ -2960,6 +3115,7 @@ class LifeOsSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final (_, fg) = tone.resolve(context);
+    final hasSub = showSubtitle && subtitle != null && subtitle!.isNotEmpty;
     return Padding(
       padding: padding,
       child: Row(
@@ -2967,7 +3123,7 @@ class LifeOsSectionHeader extends StatelessWidget {
         children: [
           Container(
             width: 4,
-            height: subtitle != null ? 26 : 16,
+            height: hasSub ? 26 : 16,
             decoration: BoxDecoration(
               color: fg,
               borderRadius: BorderRadius.circular(4),
@@ -2989,7 +3145,7 @@ class LifeOsSectionHeader extends StatelessWidget {
                     color: c.textPrimary,
                   ),
                 ),
-                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                if (hasSub) ...[
                   const SizedBox(height: 1),
                   Text(
                     subtitle!,
@@ -3003,6 +3159,123 @@ class LifeOsSectionHeader extends StatelessWidget {
           if (trailing != null) ...[const SizedBox(width: 8), trailing!],
         ],
       ),
+    );
+  }
+}
+
+/// Progressive disclosure button + animated collapsible container ("Chi tiết" / "Thu gọn")
+/// keeping primary cards clean and free of dense secondary parameters until tapped.
+class LifeOsDetailsDiscloseSection extends StatefulWidget {
+  final Key? toggleKey;
+  final String label;
+  final String expandedLabel;
+  final Widget child;
+  final bool initiallyExpanded;
+  final EdgeInsetsGeometry contentPadding;
+  final bool onDarkSurface;
+
+  const LifeOsDetailsDiscloseSection({
+    super.key,
+    this.toggleKey,
+    this.label = 'Chi tiết',
+    this.expandedLabel = 'Thu gọn',
+    required this.child,
+    this.initiallyExpanded = false,
+    this.contentPadding = const EdgeInsets.only(top: 10),
+    this.onDarkSurface = false,
+  });
+
+  @override
+  State<LifeOsDetailsDiscloseSection> createState() =>
+      _LifeOsDetailsDiscloseSectionState();
+}
+
+class _LifeOsDetailsDiscloseSectionState
+    extends State<LifeOsDetailsDiscloseSection> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final motion = LifeOsMotionScope.of(context);
+    final fg = widget.onDarkSurface
+        ? Colors.white.withValues(alpha: 0.92)
+        : c.textSecondary;
+    final bg = widget.onDarkSurface
+        ? Colors.white.withValues(alpha: 0.14)
+        : c.surfaceRaised;
+    final border = widget.onDarkSurface
+        ? Colors.white.withValues(alpha: 0.24)
+        : c.border.withValues(alpha: 0.7);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Material(
+            color: bg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: border, width: 0.85),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: widget.toggleKey,
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 5.5,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 13.5,
+                      color: widget.onDarkSurface ? Colors.white : c.primary,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        _expanded ? widget.expandedLabel : widget.label,
+                        softWrap: true,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: motion.resolveDuration(
+                        LifeOsMotionTokens.micro,
+                      ),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: fg,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_expanded)
+          Padding(padding: widget.contentPadding, child: widget.child),
+      ],
     );
   }
 }

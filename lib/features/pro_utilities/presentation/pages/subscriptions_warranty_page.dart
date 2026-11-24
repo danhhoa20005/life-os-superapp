@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -25,6 +26,9 @@ class SubscriptionsWarrantyPage extends StatefulWidget {
 class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
   bool _showWarranties = false;
   bool _dueSoonOnly = false;
+  final LifeOsStableListRegistry _itemEntranceRegistry =
+      LifeOsStableListRegistry(animateInitialItems: false);
+  final Set<String> _revealedNoteIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +86,13 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                       final visible = _dueSoonOnly
                           ? baseVisible.where((e) => e.isDueSoon(now)).toList()
                           : baseVisible;
+                      final newlyAddedIds =
+                          state.isLoading && state.subscriptionsAndWarranties.isEmpty
+                              ? const <String>{}
+                              : _itemEntranceRegistry.registerSnapshot(
+                                  visible.map((e) => e.id),
+                                );
+                      var nextStaggerIndex = 0;
 
                       return Center(
                         child: ConstrainedBox(
@@ -99,38 +110,42 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 6,
-                                      alignment: WrapAlignment.spaceBetween,
-                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.radar_rounded, size: 20, color: c.primary),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                'Radar Chi phí Thuê bao Tự động',
-                                                softWrap: true,
-                                                style: TextStyle(
-                                                  fontSize: 15.5,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: c.textPrimary,
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        alignment: WrapAlignment.spaceBetween,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.radar_rounded, size: 20, color: c.primary),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  'Radar Chi phí Thuê bao Tự động',
+                                                  softWrap: true,
+                                                  style: TextStyle(
+                                                    fontSize: 15.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: c.textPrimary,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        LifeOsStatusPill(
-                                          icon: Icons.notifications_active_outlined,
-                                          label: '$dueSoonCount sắp đến hạn',
-                                          tone: dueSoonCount > 0
-                                              ? LifeOsAccentTone.amber
-                                              : LifeOsAccentTone.emerald,
-                                        ),
-                                      ],
+                                            ],
+                                          ),
+                                          LifeOsAnimatedStatusBadge(
+                                            statusKey: 'subs_due_soon_$dueSoonCount',
+                                            icon: Icons.notifications_active_outlined,
+                                            label: '$dueSoonCount sắp đến hạn',
+                                            tone: dueSoonCount > 0
+                                                ? LifeOsAccentTone.amber
+                                                : LifeOsAccentTone.emerald,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                     const SizedBox(height: 12),
                                     IntrinsicHeight(
@@ -151,8 +166,8 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                 FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   alignment: Alignment.centerLeft,
-                                                  child: Text(
-                                                    VndAmount.format(
+                                                  child: LifeOsTruthfulNumericText(
+                                                    formattedValue: VndAmount.format(
                                                       state.totalMonthlySubBurnMinor,
                                                     ),
                                                     style: TextStyle(
@@ -184,8 +199,8 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                 FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   alignment: Alignment.centerLeft,
-                                                  child: Text(
-                                                    VndAmount.format(
+                                                  child: LifeOsTruthfulNumericText(
+                                                    formattedValue: VndAmount.format(
                                                       state.totalAnnualSubBurnMinor,
                                                     ),
                                                     style: TextStyle(
@@ -386,142 +401,204 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                 ...visible.map((item) {
                                   final daysLeft = item.daysRemainingFrom(now);
                                   final dueSoon = item.isDueSoon(now);
+                                  final note = item.serialOrNote.trim();
+                                  final hasSensitiveNote = note.isNotEmpty;
+                                  final isNoteRevealed = _revealedNoteIds.contains(item.id);
+                                  final animateItem = newlyAddedIds.contains(item.id);
+                                  final staggerIndex = animateItem ? nextStaggerIndex++ : 0;
                                   return Padding(
+                                    key: ValueKey<String>(item.id),
                                     padding: const EdgeInsets.only(bottom: 10),
-                                    child: LifeOsSoftCard(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              LifeOsIconSquircle(
-                                                icon: item.isWarranty
-                                                    ? Icons.shield_outlined
-                                                    : Icons.autorenew_rounded,
-                                                tone: dueSoon
-                                                    ? LifeOsAccentTone.amber
-                                                    : LifeOsAccentTone.emerald,
-                                                size: 42,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      item.title,
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.w800,
-                                                        fontSize: 15,
-                                                        color: c.textPrimary,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      '${item.providerOrStore.isEmpty ? item.cycle.labelVi : "${item.providerOrStore} · ${item.cycle.labelVi}"} · Hạn: ${dateFmt.format(item.nextBillingOrExpiryDate)}',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: c.textSecondary,
-                                                      ),
-                                                    ),
-                                                    if (item.serialOrNote.trim().isNotEmpty)
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(top: 2),
-                                                        child: Text(
-                                                          'Ghi chú / Serial: ${item.serialOrNote.trim()}',
-                                                          style: TextStyle(
-                                                            fontSize: 11.8,
-                                                            color: c.textSecondary,
-                                                          ),
+                                    child: LifeOsAnimatedItemEntrance(
+                                      key: ValueKey<String>('sub_entrance_${item.id}'),
+                                      itemId: item.id,
+                                      animateOnMount: animateItem,
+                                      staggerIndex: staggerIndex,
+                                      child: LifeOsSoftCard(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                LifeOsIconSquircle(
+                                                  icon: item.isWarranty
+                                                      ? Icons.shield_outlined
+                                                      : Icons.autorenew_rounded,
+                                                  tone: dueSoon
+                                                      ? LifeOsAccentTone.amber
+                                                      : LifeOsAccentTone.emerald,
+                                                  size: 42,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        item.title,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.w800,
+                                                          fontSize: 15,
+                                                          color: c.textPrimary,
                                                         ),
                                                       ),
-                                                  ],
-                                                ),
-                                              ),
-                                              if (!item.isWarranty)
-                                                Text(
-                                                  VndAmount.format(item.amountMinor),
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: c.textPrimary,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
+                                                      Text(
+                                                        '${item.providerOrStore.isEmpty ? item.cycle.labelVi : "${item.providerOrStore} · ${item.cycle.labelVi}"} · Hạn: ${dateFmt.format(item.nextBillingOrExpiryDate)}',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: c.textSecondary,
+                                                        ),
+                                                      ),
+                                                      if (hasSensitiveNote)
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(top: 3),
+                                                          child: Text(
+                                                            isNoteRevealed
+                                                                ? 'Ghi chú / Serial: $note'
+                                                                : 'Ghi chú / Serial: ${PrivacyMaskFormatter.maskNotePreview(note)}',
+                                                            style: TextStyle(
+                                                              fontSize: 11.8,
+                                                              color: c.textSecondary,
+                                                              fontFeatures: const [
+                                                                FontFeature.tabularFigures(),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
                                                     ],
                                                   ),
                                                 ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-                                              LifeOsStatusPill(
-                                                icon: daysLeft < 0
-                                                    ? Icons.error_outline_rounded
-                                                    : Icons.schedule_rounded,
-                                                label: daysLeft < 0
-                                                    ? 'Đã quá hạn ${daysLeft.abs()} ngày'
-                                                    : 'Còn $daysLeft ngày',
-                                                tone: daysLeft < 0
-                                                    ? LifeOsAccentTone.coral
-                                                    : dueSoon
-                                                        ? LifeOsAccentTone.amber
-                                                        : LifeOsAccentTone.emerald,
-                                              ),
-                                              const Spacer(),
-                                              if (!item.isWarranty && wallets.isNotEmpty)
-                                                TextButton.icon(
-                                                  style: TextButton.styleFrom(
-                                                    visualDensity: VisualDensity.compact,
-                                                  ),
-                                                  onPressed: () {
-                                                    context.read<TransactionActionBloc>().add(
-                                                          TransactionCreateSubmitted(
-                                                            operationId: const Uuid().v4(),
-                                                            userId: user.id,
-                                                            walletId: wallets.first.id,
-                                                            categoryName: 'Điện/Nước/Internet',
-                                                            kind: TransactionKind.expense,
-                                                            amountMinor: item.amountMinor,
-                                                            merchant: item.title,
-                                                            note:
-                                                                'Gia hạn gói ${item.cycle.labelVi}',
-                                                            occurredAt: DateTime.now(),
-                                                          ),
-                                                        );
-                                                    LifeOsTopToast.fromSnackBar(context, 
-                                                      SnackBar(
-                                                        content: Text(
-                                                          '✓ Đã ghi chi tiêu gia hạn "${item.title}" vào Ví.',
+                                                if (!item.isWarranty) ...[
+                                                  const SizedBox(width: 8),
+                                                  ConstrainedBox(
+                                                    constraints: const BoxConstraints(maxWidth: 118),
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      alignment: Alignment.centerRight,
+                                                      child: Text(
+                                                        VndAmount.format(item.amountMinor),
+                                                        style: TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight: FontWeight.w800,
+                                                          color: c.textPrimary,
+                                                          fontFeatures: const [
+                                                            FontFeature.tabularFigures(),
+                                                          ],
                                                         ),
                                                       ),
-                                                    );
-                                                  },
-                                                  icon: const Icon(
-                                                    Icons.payments_outlined,
-                                                    size: 16,
-                                                  ),
-                                                  label: const Text('Ghi vào Ví'),
-                                                ),
-                                              IconButton(
-                                                visualDensity: VisualDensity.compact,
-                                                tooltip: 'Xóa',
-                                                onPressed: () => context
-                                                    .read<ProUtilitiesBloc>()
-                                                    .add(
-                                                      SubscriptionOrWarrantyDeleted(
-                                                        userId: user.id,
-                                                        itemId: item.id,
-                                                      ),
                                                     ),
-                                                icon: Icon(
-                                                  Icons.delete_outline_rounded,
-                                                  size: 19,
-                                                  color: c.textSecondary,
-                                                ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: Wrap(
+                                                spacing: 6,
+                                                runSpacing: 6,
+                                                alignment: WrapAlignment.spaceBetween,
+                                                crossAxisAlignment: WrapCrossAlignment.center,
+                                                children: [
+                                                  LifeOsStatusPill(
+                                                    icon: daysLeft < 0
+                                                        ? Icons.error_outline_rounded
+                                                        : Icons.schedule_rounded,
+                                                    label: daysLeft < 0
+                                                        ? 'Đã quá hạn ${daysLeft.abs()} ngày'
+                                                        : 'Còn $daysLeft ngày',
+                                                    tone: daysLeft < 0
+                                                        ? LifeOsAccentTone.coral
+                                                        : dueSoon
+                                                            ? LifeOsAccentTone.amber
+                                                            : LifeOsAccentTone.emerald,
+                                                  ),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      if (!item.isWarranty && wallets.isNotEmpty)
+                                                        TextButton.icon(
+                                                          style: TextButton.styleFrom(
+                                                            visualDensity: VisualDensity.compact,
+                                                          ),
+                                                          onPressed: () {
+                                                            context.read<TransactionActionBloc>().add(
+                                                                  TransactionCreateSubmitted(
+                                                                    operationId: const Uuid().v4(),
+                                                                    userId: user.id,
+                                                                    walletId: wallets.first.id,
+                                                                    categoryName: 'Điện/Nước/Internet',
+                                                                    kind: TransactionKind.expense,
+                                                                    amountMinor: item.amountMinor,
+                                                                    merchant: item.title,
+                                                                    note:
+                                                                        'Gia hạn gói ${item.cycle.labelVi}',
+                                                                    occurredAt: DateTime.now(),
+                                                                  ),
+                                                                );
+                                                            LifeOsTopToast.fromSnackBar(
+                                                              context,
+                                                              SnackBar(
+                                                                content: Text(
+                                                                  '✓ Đã ghi chi tiêu gia hạn "${item.title}" vào Ví.',
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                          icon: const Icon(
+                                                            Icons.payments_outlined,
+                                                            size: 16,
+                                                          ),
+                                                          label: const Text('Ghi vào Ví'),
+                                                        ),
+                                                      if (hasSensitiveNote)
+                                                        IconButton(
+                                                          key: Key('toggle_sub_note_${item.id}'),
+                                                          visualDensity: VisualDensity.compact,
+                                                          tooltip: isNoteRevealed
+                                                              ? 'Ẩn ghi chú / serial'
+                                                              : 'Hiện ghi chú / serial',
+                                                          onPressed: () => setState(() {
+                                                            if (isNoteRevealed) {
+                                                              _revealedNoteIds.remove(item.id);
+                                                            } else {
+                                                              _revealedNoteIds.add(item.id);
+                                                            }
+                                                          }),
+                                                          icon: Icon(
+                                                            isNoteRevealed
+                                                                ? Icons.visibility_off_outlined
+                                                                : Icons.visibility_outlined,
+                                                            size: 19,
+                                                            color: c.textSecondary,
+                                                          ),
+                                                        ),
+                                                      IconButton(
+                                                        visualDensity: VisualDensity.compact,
+                                                        tooltip: 'Xóa',
+                                                        onPressed: () {
+                                                          _revealedNoteIds.remove(item.id);
+                                                          context.read<ProUtilitiesBloc>().add(
+                                                                SubscriptionOrWarrantyDeleted(
+                                                                  userId: user.id,
+                                                                  itemId: item.id,
+                                                                ),
+                                                              );
+                                                        },
+                                                        icon: Icon(
+                                                          Icons.delete_outline_rounded,
+                                                          size: 19,
+                                                          color: c.textSecondary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
-                                        ],
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   );

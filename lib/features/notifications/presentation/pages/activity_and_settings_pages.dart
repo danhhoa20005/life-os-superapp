@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/theme_bloc.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
+import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -503,7 +504,6 @@ class _SettingsHubPageState extends State<SettingsHubPage>
   String _query = '';
   BackgroundReminderReadiness _bgReadiness =
       BackgroundReminderReadiness.allReady;
-  bool _hasAppPin = false;
   bool _hideBalances = false;
 
   @override
@@ -530,12 +530,10 @@ class _SettingsHubPageState extends State<SettingsHubPage>
   Future<void> _refreshSystemAndSecurityStatus() async {
     final readiness = await NativeAlarmSchedulerBridge.instance
         .getBackgroundReadiness();
-    final hasPin = await UserBehaviorPrefs.hasAppPinCode();
     final hideBal = await UserBehaviorPrefs.loadHideBalances();
     if (!mounted) return;
     setState(() {
       _bgReadiness = readiness;
-      _hasAppPin = hasPin;
       _hideBalances = hideBal;
     });
   }
@@ -593,28 +591,17 @@ class _SettingsHubPageState extends State<SettingsHubPage>
           .isReadyForCloud;
     } catch (_) {}
 
-    final securityCount = <bool>[
-      user.emailVerified,
-      user.hasPasswordProvider,
-      user.isGoogleLinked,
-      _hasAppPin,
-    ].where((v) => v).length;
-
     final allItems = <_SettingsItemSpec>[
       // Nhóm 1: Tài khoản, Kết nối & Chạy ngầm
       _SettingsItemSpec(
         itemKey: const Key('settings_account_security_row'),
         sectionTitle: 'Tài khoản & Kết nối tự động',
         sectionTone: LifeOsAccentTone.emerald,
-        icon: Icons.shield_outlined,
+        icon: Icons.person_outline_rounded,
         tone: LifeOsAccentTone.emerald,
-        title: 'Hồ sơ & Bảo mật tài khoản',
-        subtitle: 'Mật khẩu, mã PIN, múi giờ & thiết bị',
-        keywords: 'ho so bao mat mat khau ma pin email mui gio',
-        statusPillLabel: 'An toàn $securityCount/4',
-        statusPillTone: securityCount >= 3
-            ? LifeOsAccentTone.emerald
-            : LifeOsAccentTone.amber,
+        title: 'Hồ sơ & Tài khoản',
+        subtitle: 'Thông tin cá nhân, múi giờ & tùy chọn bảo vệ',
+        keywords: 'ho so bao mat mat khau ma pin email mui gio tai khoan',
         onTap: () => context
             .push('/account-profile')
             .then((_) => _refreshSystemAndSecurityStatus()),
@@ -927,7 +914,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
                         ),
                         const SizedBox(height: 10),
 
-                        // 2. Identity & Security Summary Hero Card
+                        // 2. Identity Summary Hero Card (discreet — masks email & hides security posture)
                         if (q.isEmpty) ...[
                           LifeOsMintHeroCard(
                             key: const Key('settings_hero_profile_card'),
@@ -956,18 +943,22 @@ class _SettingsHubPageState extends State<SettingsHubPage>
                                               color: c.textPrimary,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              user.email,
-                                              style: TextStyle(
-                                                fontSize: 12.6,
-                                                color: c.textSecondary,
+                                          if (user.email.trim().isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                PrivacyMaskFormatter.maskEmail(
+                                                  user.email,
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 12.6,
+                                                  color: c.textSecondary,
+                                                ),
                                               ),
                                             ),
-                                          ),
+                                          ],
                                         ],
                                       ),
                                     ),
@@ -978,29 +969,11 @@ class _SettingsHubPageState extends State<SettingsHubPage>
                                   ],
                                 ),
                                 const SizedBox(height: 10),
-                                Wrap(
+                                const Wrap(
                                   spacing: 6,
                                   runSpacing: 6,
                                   children: [
                                     LifeOsStatusPill(
-                                      icon: Icons.verified_user_outlined,
-                                      label: 'Bảo mật $securityCount/4 lớp',
-                                      tone: securityCount >= 3
-                                          ? LifeOsAccentTone.emerald
-                                          : LifeOsAccentTone.amber,
-                                    ),
-                                    LifeOsStatusPill(
-                                      icon: _hasAppPin
-                                          ? Icons.pin_rounded
-                                          : Icons.dialpad_rounded,
-                                      label: _hasAppPin
-                                          ? 'Mã PIN: Đã bật'
-                                          : 'Mã PIN: Chưa bật',
-                                      tone: _hasAppPin
-                                          ? LifeOsAccentTone.emerald
-                                          : LifeOsAccentTone.neutral,
-                                    ),
-                                    const LifeOsStatusPill(
                                       icon: Icons.edit_outlined,
                                       label: 'Chỉnh sửa hồ sơ',
                                       tone: LifeOsAccentTone.emerald,

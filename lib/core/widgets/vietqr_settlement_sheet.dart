@@ -85,6 +85,7 @@ class _VietQrSettlementSheetBodyState
     extends State<_VietQrSettlementSheetBody> {
   late String _selectedBin;
   late final TextEditingController _accCtrl;
+  late bool _obscureAccount;
 
   @override
   void initState() {
@@ -92,7 +93,9 @@ class _VietQrSettlementSheetBodyState
     final candidateBin = widget.prefilled?.bin ?? '';
     final isListedBin = kLifeOsVietQrBanks.any((b) => b.bin == candidateBin);
     _selectedBin = isListedBin ? candidateBin : kLifeOsVietQrBanks.first.bin;
-    _accCtrl = TextEditingController(text: widget.prefilled?.acc ?? '');
+    final prefilledAcc = widget.prefilled?.acc ?? '';
+    _accCtrl = TextEditingController(text: prefilledAcc);
+    _obscureAccount = prefilledAcc.trim().isNotEmpty;
   }
 
   @override
@@ -114,14 +117,6 @@ class _VietQrSettlementSheetBodyState
         ? widget.prefilled!.holder
         : widget.toName;
 
-    final emvPayload = hasValidAcc
-        ? VietQrEmvBuilder.buildNapas247Payload(
-            bankBin: _selectedBin,
-            accountNumber: accNumber,
-            amountVnd: widget.amountMinor,
-            memo: widget.sePayCode,
-          )
-        : null;
     final vietQrUrl = hasValidAcc
         ? VietQrEmvBuilder.buildVisualQrUrl(
             bankBin: _selectedBin,
@@ -270,6 +265,8 @@ class _VietQrSettlementSheetBodyState
                     flex: 6,
                     child: TextField(
                       controller: _accCtrl,
+                      obscureText:
+                          _obscureAccount && _accCtrl.text.trim().isNotEmpty,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
@@ -278,13 +275,36 @@ class _VietQrSettlementSheetBodyState
                         isDense: true,
                         suffixIcon: _accCtrl.text.isEmpty
                             ? null
-                            : IconButton(
-                                tooltip: 'Xóa số tài khoản',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => setState(() {
-                                  _accCtrl.clear();
-                                }),
-                                icon: const Icon(Icons.close_rounded, size: 17),
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: _obscureAccount
+                                        ? 'Hiện số tài khoản'
+                                        : 'Ẩn số tài khoản',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => setState(() {
+                                      _obscureAccount = !_obscureAccount;
+                                    }),
+                                    icon: Icon(
+                                      _obscureAccount
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      size: 17,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Xóa số tài khoản',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => setState(() {
+                                      _accCtrl.clear();
+                                    }),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 17,
+                                    ),
+                                  ),
+                                ],
                               ),
                       ),
                     ),
@@ -314,14 +334,26 @@ class _VietQrSettlementSheetBodyState
                           vietQrUrl,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => Center(
-                            child: SelectableText(
-                              emvPayload ?? widget.sePayCode,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                fontFamily: 'monospace',
-                                color: Colors.black87,
-                              ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.qr_code_2_rounded,
+                                  size: 56,
+                                  color: Colors.black54,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  widget.sePayCode,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'monospace',
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         )

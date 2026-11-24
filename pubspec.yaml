@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Interactive Home Widgets + Offline Financial AI + Hardened Security v3.16)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (3D Nano Banana UI + Privacy Masking + Motion System v3.17)"
 publish_to: 'none'
-version: 3.16.0+31
+version: 3.17.0+32
 
 environment:
   sdk: ^3.10.0
@@ -55,6 +55,8 @@ flutter:
     - assets/images/finance_illustration.png
     - assets/images/family_split_illustration.png
     - assets/images/planning_assets_illustration.png
+    - assets/images/hero_3d_wealth_vault.png
+    - assets/images/hero_3d_welcome_ecosystem.png
     - assets/icons/
     - assets/bank_cards/
     - assets/models/

@@ -199,27 +199,14 @@ class AssetsPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Thêm Xe & Cấu hình Dòng máy',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  color: c.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                'Tự động nạp đúng ml nhớt, chuẩn JASO & chu kỳ hãng',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: c.textSecondary,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            'Thêm Xe & Cấu hình Dòng máy',
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: c.textPrimary,
+                            ),
                           ),
                         ),
                       ],
@@ -259,7 +246,7 @@ class AssetsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      '2. Chọn dòng máy để lấy thông số chuẩn hãng',
+                      '2. Dòng máy chuẩn hãng',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -802,7 +789,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Chọn đúng dòng máy bạn đang đi để biết chính xác bao nhiêu ml nhớt máy, nhớt láp, chuẩn JASO MB hay MA2, lịch vệ sinh nồi, nhông sên dĩa, lọc gió và nước làm mát.',
+                      'Chọn dòng xe để nạp định mức nhớt & chu kỳ bảo dưỡng.',
                       textAlign: TextAlign.center,
                       softWrap: true,
                       style: TextStyle(fontSize: 13, color: c.textSecondary),
@@ -907,6 +894,10 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                   final history =
                       widget.maintenanceHistoryByVehicleId[activeVehicle.id] ??
                       const <MaintenanceRecordEntity>[];
+                  final totalMaintCostMinor = history.fold<int>(
+                    0,
+                    (sum, r) => sum + r.costMinor,
+                  );
 
                   final (pillTone, pillLabel, pillIcon) = switch (overallDue) {
                     VehicleDueState.overdue => (
@@ -1093,7 +1084,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                       ],
                                     ),
                                   ),
-                                   VerticalDivider(
+                                  VerticalDivider(
                                     width: 12,
                                     color: c.separator,
                                   ),
@@ -1225,6 +1216,33 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            LifeOsDetailsDiscloseSection(
+                              toggleKey: const Key(
+                                'vehicle_summary_details_toggle',
+                              ),
+                              label: 'Chi tiết tổng hợp',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _SpecKeyValueLine(
+                                    label: 'ODO bảo dưỡng gần nhất',
+                                    value:
+                                        '${numFmt.format(activeVehicle.lastServiceOdometerKm)} km',
+                                  ),
+                                  _SpecKeyValueLine(
+                                    label: 'Chu kỳ thời gian',
+                                    value:
+                                        '${activeVehicle.serviceIntervalDays} ngày (${remDays >= 0 ? "còn $remDays ngày" : "quá hạn ${-remDays} ngày"})',
+                                  ),
+                                  _SpecKeyValueLine(
+                                    label: 'Tổng chi phí đã ghi',
+                                    value:
+                                        '${VndAmount.format(totalMaintCostMinor)} (${history.length} lần)',
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1291,16 +1309,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                 color: c.primary,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              profile.engineTechSummary,
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: 12.2,
-                                color: c.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             _SpecKeyValueLine(
                               label: 'Chuẩn dầu nhớt',
                               value: profile.oilGradeSpec,
@@ -1314,38 +1323,35 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                 label: 'Dung tích nhớt láp (hộp số)',
                                 value: profile.gearOilCapacity!,
                               ),
-                            _SpecKeyValueLine(
-                              label: 'Hệ thống làm mát',
-                              value: profile.coolingSystem,
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: c.primary.withValues(alpha: 0.09),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: c.primary.withValues(alpha: 0.22),
-                                ),
+                            const SizedBox(height: 6),
+                            LifeOsDetailsDiscloseSection(
+                              toggleKey: const Key(
+                                'vehicle_oem_details_toggle',
                               ),
-                              child: Row(
+                              label: 'Chi tiết kỹ thuật',
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.lightbulb_outline_rounded,
-                                    size: 18,
-                                    color: c.primary,
+                                  _SpecKeyValueLine(
+                                    label: 'Động cơ',
+                                    value: profile.engineTechSummary,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      profile.firstBreakInNote,
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        fontSize: 12.2,
-                                        fontWeight: FontWeight.w600,
-                                        color: c.textPrimary,
-                                      ),
+                                  _SpecKeyValueLine(
+                                    label: 'Hệ thống làm mát',
+                                    value: profile.coolingSystem,
+                                  ),
+                                  _SpecKeyValueLine(
+                                    label: 'Chu kỳ khuyến nghị',
+                                    value:
+                                        '${numFmt.format(profile.recommendedOilIntervalKm)} km (${profile.recommendedIntervalDays} ngày)',
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    profile.firstBreakInNote,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -1381,15 +1387,6 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                   ),
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Chạm vào từng hạng mục để ghi nhận đã thay và chỉ cập nhật mốc ODO của đúng bộ phận đó.',
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: 12.2,
-                                color: c.textSecondary,
-                              ),
                             ),
                             const SizedBox(height: 12),
                             for (
@@ -1456,7 +1453,7 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                             const SizedBox(height: 10),
                             if (history.isEmpty)
                               Text(
-                                'Chưa có lần ghi nhận nào. Khi thay nhớt máy, nhớt láp, lọc gió hoặc dưỡng sên, hãy bấm "Ghi nhận bảo dưỡng" để lưu ODO và chi phí.',
+                                'Chưa có lịch sử bảo dưỡng.',
                                 softWrap: true,
                                 style: TextStyle(
                                   fontSize: 12.5,
@@ -1620,12 +1617,6 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                       fontWeight: FontWeight.w800,
                       color: c.textPrimary,
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Nhập số công-tơ-mét hiện tại trên đồng hồ xe để LifeOS tính chính xác số km còn lại của nhớt máy, nhớt láp, lọc gió và dây curoa.',
-                    softWrap: true,
-                    style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -1814,54 +1805,51 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: FilledButton(
-                            onPressed: () {
-                              bloc.add(
-                                VehicleSpecProfileUpdated(
-                                  vehicle: vehicle,
-                                  category: selectedCategory,
-                                  modelProfileKey: selectedProfile.profileKey,
-                                  insuranceExpiryDate: insuranceExpiry,
-                                  inspectionExpiryDate: inspectionExpiry,
-                                ),
-                              );
-                              Navigator.of(ctx).pop();
-                            },
-                            child: const Text('Áp dụng thông số'),
-                          ),
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton(
+                          onPressed: () {
+                            bloc.add(
+                              VehicleSpecProfileUpdated(
+                                vehicle: vehicle,
+                                category: selectedCategory,
+                                modelProfileKey: selectedProfile.profileKey,
+                                insuranceExpiryDate: insuranceExpiry,
+                                inspectionExpiryDate: inspectionExpiry,
+                              ),
+                            );
+                            Navigator.of(ctx).pop();
+                          },
+                          child: const Text('Áp dụng thông số'),
                         ),
-                      ],
-                    ),
-                    if (!vehicle.isFamilyShared ||
-                        vehicle.ownerId.isEmpty ||
-                        vehicle.ownerId == widget.userId) ...[
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        key: const Key('edit_sheet_delete_vehicle_btn'),
-                        onPressed: () {
-                          Navigator.of(ctx).pop();
-                          _confirmDeleteVehicle(context, vehicle);
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFDC2626),
-                        ),
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          size: 18,
-                        ),
-                        label: const Text('Xóa phương tiện này khỏi danh sách'),
                       ),
                     ],
+                  ),
+                  if (!vehicle.isFamilyShared ||
+                      vehicle.ownerId.isEmpty ||
+                      vehicle.ownerId == widget.userId) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      key: const Key('edit_sheet_delete_vehicle_btn'),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _confirmDeleteVehicle(context, vehicle);
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
+                      ),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                      label: const Text('Xóa phương tiện này khỏi danh sách'),
+                    ),
                   ],
-                ),
+                ],
               ),
-            );
-          },
-        ),
-      );
-    }
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _confirmDeleteVehicle(
     BuildContext context,
@@ -2198,11 +2186,21 @@ class _OemComponentChecklistRow extends StatelessWidget {
                           color: c.primary,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        spec.technicianTip,
-                        softWrap: true,
-                        style: TextStyle(fontSize: 12, color: c.textSecondary),
+                      const SizedBox(height: 6),
+                      LifeOsAnimatedProgressBar(
+                        progressRatio: spec.intervalKm <= 0
+                            ? 0.0
+                            : ((spec.intervalKm - item.remainingKm) /
+                                      spec.intervalKm)
+                                  .clamp(0.04, 1.0),
+                        color: switch (item.dueState) {
+                          VehicleDueState.overdue => c.error,
+                          VehicleDueState.dueSoon => c.warning,
+                          VehicleDueState.healthy => c.primary,
+                        },
+                        height: 6.0,
+                        semanticsLabel: 'Tiến độ hao mòn ${spec.title}',
+                        semanticsValue: badgeText,
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -2222,12 +2220,15 @@ class _OemComponentChecklistRow extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '• Đã thay? Chạm ghi nhận (~${VndAmount.format(spec.referenceCostMinor)})',
+                            '~${VndAmount.format(spec.referenceCostMinor)}',
                             softWrap: true,
                             style: TextStyle(
                               fontSize: 11.6,
                               fontWeight: FontWeight.w700,
                               color: c.primary,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ],
@@ -2361,7 +2362,7 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Theo dõi tiền điện, nước, internet, phí gửi xe tháng và nhận cảnh báo khi hóa đơn tăng bất thường >= 25%.',
+                      'Điện, nước, internet và phí định kỳ hằng tháng.',
                       textAlign: TextAlign.center,
                       softWrap: true,
                       style: TextStyle(fontSize: 12.5, color: c.textSecondary),
@@ -2420,74 +2421,74 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                             ],
                           ),
                         ),
-                            if (defaultWalletId != null)
-                              FilledButton.tonal(
-                                onPressed: () {
-                                  context.read<VehicleBloc>().add(
-                                    RecurringBillPaid(
-                                      userId: userId,
-                                      bill: b,
-                                      paidAmountMinor: b.estimatedAmountMinor,
-                                      walletId: defaultWalletId!,
-                                    ),
-                                  );
-                                },
-                                child: const Text('Thanh toán'),
-                              ),
-                            if (b.familyId == null ||
-                                b.ownerId.isEmpty ||
-                                b.ownerId == userId)
-                              IconButton(
-                                key: Key('bill_delete_btn_${b.id}'),
-                                visualDensity: VisualDensity.compact,
-                                tooltip: 'Xóa hóa đơn',
-                                onPressed: () async {
-                                  final bloc = context.read<VehicleBloc>();
-                                  final ok = await showDialog<bool>(
-                                    context: context,
-                                    builder: (dCtx) => AlertDialog(
-                                      title: Text('Xóa "${b.title}"?'),
-                                      content: const Text(
-                                        'Hóa đơn định kỳ này sẽ được gỡ khỏi danh sách nhắc hạn hằng tháng.',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.of(dCtx).pop(false),
-                                          child: const Text('Giữ lại'),
-                                        ),
-                                        FilledButton(
-                                          key: const Key(
-                                            'confirm_delete_bill_dialog_btn',
-                                          ),
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: const Color(
-                                              0xFFDC2626,
-                                            ),
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          onPressed: () =>
-                                              Navigator.of(dCtx).pop(true),
-                                          child: const Text('Xóa'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (ok == true) {
-                                    bloc.add(
-                                      RecurringBillDeleted(
-                                        actorUserId: userId,
-                                        bill: b,
-                                      ),
-                                    );
-                                  }
-                                },
-                                icon: Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 19,
-                                  color: c.textSecondary,
+                        if (defaultWalletId != null)
+                          FilledButton.tonal(
+                            onPressed: () {
+                              context.read<VehicleBloc>().add(
+                                RecurringBillPaid(
+                                  userId: userId,
+                                  bill: b,
+                                  paidAmountMinor: b.estimatedAmountMinor,
+                                  walletId: defaultWalletId!,
                                 ),
-                              ),
+                              );
+                            },
+                            child: const Text('Thanh toán'),
+                          ),
+                        if (b.familyId == null ||
+                            b.ownerId.isEmpty ||
+                            b.ownerId == userId)
+                          IconButton(
+                            key: Key('bill_delete_btn_${b.id}'),
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Xóa hóa đơn',
+                            onPressed: () async {
+                              final bloc = context.read<VehicleBloc>();
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (dCtx) => AlertDialog(
+                                  title: Text('Xóa "${b.title}"?'),
+                                  content: const Text(
+                                    'Hóa đơn định kỳ này sẽ được gỡ khỏi danh sách nhắc hạn hằng tháng.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(dCtx).pop(false),
+                                      child: const Text('Giữ lại'),
+                                    ),
+                                    FilledButton(
+                                      key: const Key(
+                                        'confirm_delete_bill_dialog_btn',
+                                      ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFFDC2626,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () =>
+                                          Navigator.of(dCtx).pop(true),
+                                      child: const Text('Xóa'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) {
+                                bloc.add(
+                                  RecurringBillDeleted(
+                                    actorUserId: userId,
+                                    bill: b,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              size: 19,
+                              color: c.textSecondary,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -2553,13 +2554,7 @@ class _SpecEncyclopediaSheetBodyState
             color: c.textPrimary,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Tổng hợp định mức từ Honda Việt Nam (HEAD), Yamaha Town, Piaggio/Vespa (i-Get) và VinFast giúp bạn đi bảo dưỡng không lo đổ sai nhớt hay thay thừa phụ tùng.',
-          softWrap: true,
-          style: TextStyle(fontSize: 12.8, color: c.textSecondary),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         TextField(
           key: const Key('vehicle_spec_search_field'),
           controller: _searchCtrl,
@@ -2588,7 +2583,9 @@ class _SpecEncyclopediaSheetBodyState
           children: [
             ChoiceChip(
               key: const Key('vehicle_spec_filter_all'),
-              label: Text('Tất cả (${MotorcycleSpecCatalog.allProfiles.length})'),
+              label: Text(
+                'Tất cả (${MotorcycleSpecCatalog.allProfiles.length})',
+              ),
               selected: !hasActiveFilter,
               onSelected: (_) {
                 _searchCtrl.clear();
@@ -2672,10 +2669,7 @@ class _SpecEncyclopediaSheetBodyState
                     Text(
                       p.engineTechSummary,
                       softWrap: true,
-                      style: TextStyle(
-                        fontSize: 12.2,
-                        color: c.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 12.2, color: c.textSecondary),
                     ),
                     const SizedBox(height: 8),
                     _SpecKeyValueLine(
@@ -2691,10 +2685,7 @@ class _SpecEncyclopediaSheetBodyState
                         label: 'Dung tích nhớt láp',
                         value: p.gearOilCapacity!,
                       ),
-                    _SpecKeyValueLine(
-                      label: 'Làm mát',
-                      value: p.coolingSystem,
-                    ),
+                    _SpecKeyValueLine(label: 'Làm mát', value: p.coolingSystem),
                     _SpecKeyValueLine(
                       label: 'Chu kỳ chính',
                       value:

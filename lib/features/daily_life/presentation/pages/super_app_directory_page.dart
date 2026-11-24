@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
@@ -47,6 +48,17 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
   String _domainFilter = 'all';
+  bool _hideBalances = false;
+
+  @override
+  void initState() {
+    super.initState();
+    UserBehaviorPrefs.loadHideBalances().then((hide) {
+      if (mounted && hide != _hideBalances) {
+        setState(() => _hideBalances = hide);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -312,44 +324,6 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                         AppSpacing.xl,
                       ),
                       children: [
-                        // Compact Live Pulse Bar
-                        LifeOsMintHeroCard(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              LifeOsStatusPill(
-                                icon: Icons.account_balance_wallet_outlined,
-                                label:
-                                    'Ví: ${VndAmount.format(dash.netWorthMinor)}',
-                                tone: LifeOsAccentTone.emerald,
-                              ),
-                              LifeOsStatusPill(
-                                icon: Icons.medication_outlined,
-                                label: 'Thuốc: ${dailySnap.medications.length}',
-                                tone: LifeOsAccentTone.coral,
-                              ),
-                              LifeOsStatusPill(
-                                icon: Icons.shopping_cart_outlined,
-                                label:
-                                    'Chợ: ${dailySnap.pendingGroceriesCount}',
-                                tone: LifeOsAccentTone.blue,
-                              ),
-                              LifeOsStatusPill(
-                                icon: Icons.radar_rounded,
-                                label:
-                                    'Thuê bao: ${proSnap.subscriptionsAndWarranties.length}',
-                                tone: LifeOsAccentTone.purple,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
                         // Compact Instant Search
                         TextField(
                           key: const Key('super_app_directory_search_input'),
@@ -419,6 +393,53 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 8),
+
+                        // Progressive Disclosure Live Stats Section
+                        LifeOsDetailsDiscloseSection(
+                          toggleKey: const Key(
+                            'directory_stats_details_toggle',
+                          ),
+                          label: 'Chi tiết số liệu',
+                          contentPadding: const EdgeInsets.only(top: 8),
+                          child: LifeOsMintHeroCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                LifeOsStatusPill(
+                                  icon: Icons.account_balance_wallet_outlined,
+                                  label: _hideBalances
+                                      ? 'Ví: •••••• ₫'
+                                      : 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
+                                  tone: LifeOsAccentTone.emerald,
+                                ),
+                                LifeOsStatusPill(
+                                  icon: Icons.medication_outlined,
+                                  label:
+                                      'Thuốc: ${dailySnap.medications.length}',
+                                  tone: LifeOsAccentTone.coral,
+                                ),
+                                LifeOsStatusPill(
+                                  icon: Icons.shopping_cart_outlined,
+                                  label:
+                                      'Chợ: ${dailySnap.pendingGroceriesCount}',
+                                  tone: LifeOsAccentTone.blue,
+                                ),
+                                LifeOsStatusPill(
+                                  icon: Icons.radar_rounded,
+                                  label:
+                                      'Thuê bao: ${proSnap.subscriptionsAndWarranties.length}',
+                                  tone: LifeOsAccentTone.purple,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 10),
 
                         if (grouped.isEmpty)
@@ -439,15 +460,6 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800,
                                     color: c.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Bấm nút bên dưới để hiển thị lại toàn bộ danh mục tiện ích.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: c.textSecondary,
                                   ),
                                 ),
                                 const SizedBox(height: 12),

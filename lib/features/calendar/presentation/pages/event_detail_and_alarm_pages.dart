@@ -1843,9 +1843,23 @@ class _AlarmRingingFullScreenViewState
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
-    )..repeat();
+    );
     if (widget.playPreviewTone) {
       NativeAlarmSchedulerBridge.instance.startTestRinging();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shouldPulse =
+        TickerMode.valuesOf(context).enabled &&
+        !LifeOsMotionScope.of(context).isReducedMotion;
+    if (shouldPulse && !_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat();
+    } else if (!shouldPulse && _pulseCtrl.isAnimating) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0.25;
     }
   }
 

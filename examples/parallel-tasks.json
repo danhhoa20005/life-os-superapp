@@ -1,0 +1,44 @@
+{
+  "wave": "wave-0-discovery-and-audit",
+  "description": "Ví dụ 3 model Gemini 4 chạy song song ở chế độ plan (chỉ đọc) đã đối chiếu với `agy models` trên máy.",
+  "tasks": [
+    {
+      "id": "A01-motion-security-contract",
+      "role": "architect",
+      "model": "gemini-4-carbon-high",
+      "mode": "plan",
+      "owned_paths": [],
+      "readonly_paths": [
+        "lib/core/motion",
+        "lib/core/utils/privacy_mask_formatter.dart",
+        "lib/app/app_router.dart"
+      ],
+      "prompt": "Kiểm toán kiến trúc Motion Design System và bộ che thông tin nhạy cảm PrivacyMaskFormatter theo AGENTS.md mục 6 và 10. Liệt kê mọi rủi ro rò rỉ dữ liệu hoặc rò rỉ Ticker/AnimationController."
+    },
+    {
+      "id": "D01-ui-motion-review",
+      "role": "developer",
+      "model": "gemini-4-neon-high",
+      "mode": "plan",
+      "owned_paths": [],
+      "readonly_paths": [
+        "lib/features/transactions/presentation/pages/finance_page.dart",
+        "lib/features/dashboard/presentation/pages/today_page.dart"
+      ],
+      "prompt": "Rà soát tính toàn vẹn hiển thị số tiền, chuyển động danh sách giao dịch và chế độ Reduce Motion trên TodayPage và FinancePage."
+    },
+    {
+      "id": "Q01-test-matrix-gap",
+      "role": "qa",
+      "model": "gemini-4-hydrogen-medium",
+      "mode": "plan",
+      "owned_paths": [],
+      "readonly_paths": [
+        "test/core/motion",
+        "test/widget/settings_and_account_security_test.dart",
+        "docs/motion/QA_CHECKLIST.md"
+      ],
+      "prompt": "Đối chiếu bộ test hiện tại với ma trận kiểm thử NAV-01..TEST-02 và kiểm tra che thông tin bảo mật để đề xuất các ca kiểm thử bổ sung."
+    }
+  ]
+}

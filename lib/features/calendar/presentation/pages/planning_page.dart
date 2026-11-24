@@ -144,11 +144,11 @@ class _PlanningPageState extends State<PlanningPage>
                         onTap: isSyncingCal
                             ? () {}
                             : () => context.read<CalendarBloc>().add(
-                                  GoogleCalendarSyncRequested(
-                                    userId: user.id,
-                                    userName: user.fullName,
-                                  ),
+                                GoogleCalendarSyncRequested(
+                                  userId: user.id,
+                                  userName: user.fullName,
                                 ),
+                              ),
                       )
                     else
                       LifeOsHeaderCircleButton(
@@ -199,14 +199,8 @@ class _PlanningPageState extends State<PlanningPage>
                         key: Key('planning_calendar_tab'),
                         text: 'Lịch trình',
                       ),
-                      Tab(
-                        key: Key('planning_tasks_tab'),
-                        text: 'Công việc',
-                      ),
-                      Tab(
-                        key: Key('planning_tools_tab'),
-                        text: 'Tiện ích',
-                      ),
+                      Tab(key: Key('planning_tasks_tab'), text: 'Công việc'),
+                      Tab(key: Key('planning_tools_tab'), text: 'Tiện ích'),
                     ],
                   ),
                 ),
@@ -223,10 +217,7 @@ class _PlanningPageState extends State<PlanningPage>
                         initialViewMode: widget.initialViewMode,
                       ),
                       UnifiedTasksBoardView(userId: user.id),
-                      _PlanningHabitsAndNotesTabView(
-                        userId: user.id,
-                        onSwitchToTab: (idx) => _tabController.animateTo(idx),
-                      ),
+                      _PlanningHabitsAndNotesTabView(userId: user.id),
                     ],
                   ),
                 ),
@@ -246,10 +237,8 @@ Future<void> showCreateManagedCalendarDialog(
   final calBloc = context.read<CalendarBloc>();
   await showDialog<void>(
     context: context,
-    builder: (_) => _CreateManagedCalendarDialog(
-      calBloc: calBloc,
-      userId: userId,
-    ),
+    builder: (_) =>
+        _CreateManagedCalendarDialog(calBloc: calBloc, userId: userId),
   );
 }
 
@@ -437,7 +426,10 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
         final systemGroups = groups.where((g) => g.isSystemFeed).toList();
 
         Widget buildGroupRow(DeduplicatedCalendarGroup group) {
-          final dotColor = _parseColor(group.representative.colorHex, c.primary);
+          final dotColor = _parseColor(
+            group.representative.colorHex,
+            c.primary,
+          );
           final isFilteredOnly =
               state.selectedCalendarId != null &&
               group.matchesCalendarId(state.selectedCalendarId);
@@ -461,10 +453,10 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 onTap: () {
                   context.read<CalendarBloc>().add(
-                        CalendarFilterSelected(
-                          isFilteredOnly ? null : group.canonicalId,
-                        ),
-                      );
+                    CalendarFilterSelected(
+                      isFilteredOnly ? null : group.canonicalId,
+                    ),
+                  );
                   Navigator.of(context).pop();
                 },
                 child: Padding(
@@ -507,7 +499,9 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
                       ),
                       if (group.isDeletable)
                         IconButton(
-                          key: Key('delete_calendar_group_${group.canonicalId}'),
+                          key: Key(
+                            'delete_calendar_group_${group.canonicalId}',
+                          ),
                           tooltip: 'Xóa bộ lịch',
                           visualDensity: VisualDensity.compact,
                           icon: Icon(
@@ -516,23 +510,25 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
                             color: c.error,
                           ),
                           onPressed: () => context.read<CalendarBloc>().add(
-                                ManagedCalendarDeleteSubmitted(
-                                  userId: userId,
-                                  calendar: group.representative,
-                                ),
-                              ),
+                            ManagedCalendarDeleteSubmitted(
+                              userId: userId,
+                              calendar: group.representative,
+                            ),
+                          ),
                         ),
                       if (!group.isPrimaryGroup)
                         Switch(
-                          key: Key('toggle_calendar_group_${group.canonicalId}'),
+                          key: Key(
+                            'toggle_calendar_group_${group.canonicalId}',
+                          ),
                           value: group.isSelected,
                           onChanged: (val) => context.read<CalendarBloc>().add(
-                                ManagedCalendarVisibilityToggled(
-                                  userId: userId,
-                                  calendar: group.representative,
-                                  isSelected: val,
-                                ),
-                              ),
+                            ManagedCalendarVisibilityToggled(
+                              userId: userId,
+                              calendar: group.representative,
+                              isSelected: val,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -551,109 +547,101 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
-            top: false,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: c.separator,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        'Bộ lịch hiển thị',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: c.separator,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      FilledButton.tonalIcon(
-                        key: const Key('create_calendar_button'),
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          showCreateManagedCalendarDialog(
-                            context,
-                            userId: userId,
-                          );
-                        },
-                        icon: const Icon(Icons.add_rounded, size: 17),
-                        label: const Text('Tạo bộ lịch'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Các lịch trùng tên từ điện thoại và Google đã được tự động gộp gọn. Chạm vào một lịch để chỉ lọc riêng lịch đó.',
-                    softWrap: true,
-                    style: TextStyle(
-                      fontSize: 12.2,
-                      height: 1.35,
-                      color: c.textSecondary,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.selectedCalendarId != null ||
-                      userGroups.any((g) => !g.isSelected))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: OutlinedButton.icon(
-                        key: const Key('sheet_show_all_calendars_btn'),
-                        onPressed: () {
-                          context.read<CalendarBloc>().add(
-                            CalendarFiltersReset(
-                              userId: userId,
-                              enableHiddenUserCalendars: true,
-                            ),
-                          );
-                          Navigator.of(context).pop();
-                        },
-                        icon: const Icon(Icons.done_all_rounded, size: 17),
-                        label: const Text('Hiển thị lại tất cả lịch'),
-                      ),
-                    ),
-                  ...userGroups.map(buildGroupRow),
-                  if (systemGroups.isNotEmpty)
-                    Theme(
-                      data: Theme.of(context).copyWith(
-                        dividerColor: Colors.transparent,
-                      ),
-                      child: ExpansionTile(
-                        key: const Key('system_calendars_expansion_tile'),
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                        childrenPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Lịch ngày lễ & hệ thống (${systemGroups.length})',
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Bộ lịch hiển thị',
                           style: TextStyle(
-                            fontSize: 13.2,
-                            fontWeight: FontWeight.w700,
-                            color: c.textSecondary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
                           ),
                         ),
-                        children: systemGroups.map(buildGroupRow).toList(),
-                      ),
+                        FilledButton.tonalIcon(
+                          key: const Key('create_calendar_button'),
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            showCreateManagedCalendarDialog(
+                              context,
+                              userId: userId,
+                            );
+                          },
+                          icon: const Icon(Icons.add_rounded, size: 17),
+                          label: const Text('Tạo bộ lịch'),
+                        ),
+                      ],
                     ),
-                ],
+                    const SizedBox(height: 12),
+                    if (state.selectedCalendarId != null ||
+                        userGroups.any((g) => !g.isSelected))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: OutlinedButton.icon(
+                          key: const Key('sheet_show_all_calendars_btn'),
+                          onPressed: () {
+                            context.read<CalendarBloc>().add(
+                              CalendarFiltersReset(
+                                userId: userId,
+                                enableHiddenUserCalendars: true,
+                              ),
+                            );
+                            Navigator.of(context).pop();
+                          },
+                          icon: const Icon(Icons.done_all_rounded, size: 17),
+                          label: const Text('Hiển thị lại tất cả lịch'),
+                        ),
+                      ),
+                    ...userGroups.map(buildGroupRow),
+                    if (systemGroups.isNotEmpty)
+                      Theme(
+                        data: Theme.of(
+                          context,
+                        ).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          key: const Key('system_calendars_expansion_tile'),
+                          tilePadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          childrenPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Lịch ngày lễ & hệ thống (${systemGroups.length})',
+                            style: TextStyle(
+                              fontSize: 13.2,
+                              fontWeight: FontWeight.w700,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          children: systemGroups.map(buildGroupRow).toList(),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         );
@@ -691,6 +679,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
   String _viewMode = 'day';
   late DateTime _focusedMonth;
   late DateTime _selectedDate;
+  int _periodDirection = 1;
   bool _showSearchBar = false;
   bool _expandMonthInWeekMode = false;
   final TextEditingController _searchCtrl = TextEditingController();
@@ -735,12 +724,12 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<CalendarBloc>().add(
-            GoogleCalendarSyncRequested(
-              userId: widget.userId,
-              userName: widget.userName,
-              interactive: false,
-            ),
-          );
+        GoogleCalendarSyncRequested(
+          userId: widget.userId,
+          userName: widget.userName,
+          interactive: false,
+        ),
+      );
     }
   }
 
@@ -795,6 +784,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
 
   void _stepPeriod(int delta) {
     setState(() {
+      _periodDirection = delta >= 0 ? 1 : -1;
       if (_viewMode == 'week') {
         _selectedDate = _selectedDate.add(Duration(days: 7 * delta));
         _focusedMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
@@ -817,19 +807,17 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
             ? maxDay
             : _selectedDate.day;
         _focusedMonth = nextMonth;
-        _selectedDate = DateTime(
-          nextMonth.year,
-          nextMonth.month,
-          clampedDay,
-        );
+        _selectedDate = DateTime(nextMonth.year, nextMonth.month, clampedDay);
       }
     });
   }
 
   void _jumpToToday() {
     final now = DateTime.now();
+    final target = DateTime(now.year, now.month, now.day);
     setState(() {
-      _selectedDate = DateTime(now.year, now.month, now.day);
+      _periodDirection = target.isBefore(_selectedDate) ? -1 : 1;
+      _selectedDate = target;
       _focusedMonth = DateTime(now.year, now.month, 1);
     });
   }
@@ -875,7 +863,8 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
             .length;
         final events = state.filteredEvents;
 
-        final isViewingToday = _sameDay(_selectedDate, todayDate) &&
+        final isViewingToday =
+            _sameDay(_selectedDate, todayDate) &&
             _focusedMonth.year == todayDate.year &&
             (_viewMode == 'year' || _focusedMonth.month == todayDate.month);
 
@@ -890,77 +879,89 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
         };
 
         final isSearching = state.searchQuery.trim().isNotEmpty;
-        final (DateTime winStart, DateTime winEnd, String periodHeader) =
-            isSearching
+        final (
+          DateTime winStart,
+          DateTime winEnd,
+          String periodHeader,
+        ) = isSearching
             ? (
                 todayDate.subtract(const Duration(days: 365)),
                 todayDate.add(const Duration(days: 365)),
                 'Kết quả tìm kiếm "${state.searchQuery.trim()}"',
               )
             : switch (_viewMode) {
-          'week' => () {
-              final monday = _selectedDate.subtract(
-                Duration(days: _selectedDate.weekday - 1),
-              );
-              final start = DateTime(monday.year, monday.month, monday.day);
-              final sunday = start.add(const Duration(days: 6));
-              final end = DateTime(
-                sunday.year,
-                sunday.month,
-                sunday.day,
-                23,
-                59,
-                59,
-                999,
-              );
-              return (
-                start,
-                end,
-                'Tuần ${shortDateFmt.format(start)} – ${shortDateFmt.format(sunday)}',
-              );
-            }(),
-          'month' => () {
-              final start =
-                  DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-              final nextM =
-                  DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
-              final end = nextM.subtract(const Duration(milliseconds: 1));
-              return (
-                start,
-                end,
-                'Lịch tháng ${_focusedMonth.month}/${_focusedMonth.year}',
-              );
-            }(),
-          'year' => () {
-              final start = DateTime(_focusedMonth.year, 1, 1);
-              final end =
-                  DateTime(_focusedMonth.year, 12, 31, 23, 59, 59, 999);
-              return (
-                start,
-                end,
-                'Lịch cả năm ${_focusedMonth.year}',
-              );
-            }(),
-          _ => (
-              DateTime(
-                _selectedDate.year,
-                _selectedDate.month,
-                _selectedDate.day,
-              ),
-              DateTime(
-                _selectedDate.year,
-                _selectedDate.month,
-                _selectedDate.day,
-                23,
-                59,
-                59,
-                999,
-              ),
-              _sameDay(_selectedDate, todayDate)
-                  ? 'Hôm nay · ${_selectedDate.day}/${_selectedDate.month}'
-                  : '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day}/${_selectedDate.month}',
-            ),
-        };
+                'week' => () {
+                  final monday = _selectedDate.subtract(
+                    Duration(days: _selectedDate.weekday - 1),
+                  );
+                  final start = DateTime(monday.year, monday.month, monday.day);
+                  final sunday = start.add(const Duration(days: 6));
+                  final end = DateTime(
+                    sunday.year,
+                    sunday.month,
+                    sunday.day,
+                    23,
+                    59,
+                    59,
+                    999,
+                  );
+                  return (
+                    start,
+                    end,
+                    'Tuần ${shortDateFmt.format(start)} – ${shortDateFmt.format(sunday)}',
+                  );
+                }(),
+                'month' => () {
+                  final start = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month,
+                    1,
+                  );
+                  final nextM = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month + 1,
+                    1,
+                  );
+                  final end = nextM.subtract(const Duration(milliseconds: 1));
+                  return (
+                    start,
+                    end,
+                    'Lịch tháng ${_focusedMonth.month}/${_focusedMonth.year}',
+                  );
+                }(),
+                'year' => () {
+                  final start = DateTime(_focusedMonth.year, 1, 1);
+                  final end = DateTime(
+                    _focusedMonth.year,
+                    12,
+                    31,
+                    23,
+                    59,
+                    59,
+                    999,
+                  );
+                  return (start, end, 'Lịch cả năm ${_focusedMonth.year}');
+                }(),
+                _ => (
+                  DateTime(
+                    _selectedDate.year,
+                    _selectedDate.month,
+                    _selectedDate.day,
+                  ),
+                  DateTime(
+                    _selectedDate.year,
+                    _selectedDate.month,
+                    _selectedDate.day,
+                    23,
+                    59,
+                    59,
+                    999,
+                  ),
+                  _sameDay(_selectedDate, todayDate)
+                      ? 'Hôm nay · ${_selectedDate.day}/${_selectedDate.month}'
+                      : '${weekdaysVi[_selectedDate.weekday]}, ${_selectedDate.day}/${_selectedDate.month}',
+                ),
+              };
 
         final periodEvents = _eventsInWindow(events, winStart, winEnd);
         final searchTrimmed = state.searchQuery.trim();
@@ -982,8 +983,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
             return false;
           }
           return true;
-        }).toList()
-          ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+        }).toList()..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
 
         bool dateHasEvent(DateTime day) {
           final s = DateTime(day.year, day.month, day.day);
@@ -1045,8 +1045,8 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                           avatar: Icon(
                             Icons.search_rounded,
                             size: 16,
-                            color: (_showSearchBar ||
-                                    state.searchQuery.isNotEmpty)
+                            color:
+                                (_showSearchBar || state.searchQuery.isNotEmpty)
                                 ? c.primary
                                 : c.textSecondary,
                           ),
@@ -1066,9 +1066,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                               );
                               setState(() => _showSearchBar = false);
                             } else {
-                              setState(
-                                () => _showSearchBar = !_showSearchBar,
-                              );
+                              setState(() => _showSearchBar = !_showSearchBar);
                             }
                           },
                         ),
@@ -1104,15 +1102,13 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                             label: const Text('Gia đình'),
                             selected: state.selectedCalendarId == '__family__',
                             visualDensity: VisualDensity.compact,
-                            onSelected: (_) => context
-                                .read<CalendarBloc>()
-                                .add(
-                                  CalendarFilterSelected(
-                                    state.selectedCalendarId == '__family__'
-                                        ? null
-                                        : '__family__',
-                                  ),
-                                ),
+                            onSelected: (_) => context.read<CalendarBloc>().add(
+                              CalendarFilterSelected(
+                                state.selectedCalendarId == '__family__'
+                                    ? null
+                                    : '__family__',
+                              ),
+                            ),
                           ),
                         ),
                       if (activeFilteredGroup != null)
@@ -1138,9 +1134,9 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                               context,
                               userId: widget.userId,
                             ),
-                            onDeleted: () => context
-                                .read<CalendarBloc>()
-                                .add(const CalendarFilterSelected(null)),
+                            onDeleted: () => context.read<CalendarBloc>().add(
+                              const CalendarFilterSelected(null),
+                            ),
                             deleteButtonTooltipMessage: 'Bỏ lọc bộ lịch',
                           ),
                         ),
@@ -1166,33 +1162,36 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                   ),
                 ),
 
-                if (_showSearchBar || state.searchQuery.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    key: const Key('calendar_search_field'),
-                    controller: _searchCtrl,
-                    onChanged: (q) => context
-                        .read<CalendarBloc>()
-                        .add(CalendarSearchChanged(q)),
-                    decoration: InputDecoration(
-                      hintText: 'Nhập tên lịch hẹn, công việc hoặc địa điểm...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      isDense: true,
-                      suffixIcon: state.searchQuery.isNotEmpty
-                          ? IconButton(
-                              tooltip: 'Xóa từ khóa',
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                context
-                                    .read<CalendarBloc>()
-                                    .add(const CalendarSearchChanged(''));
-                              },
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                            )
-                          : null,
+                LifeOsAnimatedVisibility(
+                  visible: _showSearchBar || state.searchQuery.isNotEmpty,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: TextField(
+                      key: const Key('calendar_search_field'),
+                      controller: _searchCtrl,
+                      onChanged: (q) => context.read<CalendarBloc>().add(
+                        CalendarSearchChanged(q),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm lịch hẹn, việc hoặc địa điểm',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        isDense: true,
+                        suffixIcon: state.searchQuery.isNotEmpty
+                            ? IconButton(
+                                tooltip: 'Xóa từ khóa',
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  context.read<CalendarBloc>().add(
+                                    const CalendarSearchChanged(''),
+                                  );
+                                },
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                              )
+                            : null,
+                      ),
                     ),
                   ),
-                ],
+                ),
                 const SizedBox(height: 10),
 
                 // 3. Adaptive Calendar Card (Week Strip | Month Grid | 12-Month Year Grid)
@@ -1311,7 +1310,8 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                       else ...[
                         // 4a. Calendar Events in Period
                         ...periodEvents.take(30).map((ev) {
-                          final isShared = ev.visibility ==
+                          final isShared =
+                              ev.visibility ==
                               CalendarEventVisibility.sharedEvent;
                           final calGroup = groupByCalId[ev.calendarId];
                           final barColor = _parseHexColor(
@@ -1352,15 +1352,15 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                               onSetAlarm: () =>
                                   context.push('/event-alarm', extra: ev),
                               onDelete: () => context.read<CalendarBloc>().add(
-                                    CalendarEventDeleted(
-                                      userId: widget.userId,
-                                      familyId: widget.familyId,
-                                      visibility: ev.visibility,
-                                      eventId: ev.id,
-                                      googleCalendarId: ev.googleCalendarId,
-                                      googleEventId: ev.googleEventId,
-                                    ),
-                                  ),
+                                CalendarEventDeleted(
+                                  userId: widget.userId,
+                                  familyId: widget.familyId,
+                                  visibility: ev.visibility,
+                                  eventId: ev.id,
+                                  googleCalendarId: ev.googleCalendarId,
+                                  googleEventId: ev.googleEventId,
+                                ),
+                              ),
                             ),
                           );
                         }),
@@ -1405,12 +1405,12 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                                 onTap: isDone
                                     ? null
                                     : () => context.read<TaskBloc>().add(
-                                          TaskStatusChanged(
-                                            actorUserId: widget.userId,
-                                            task: task,
-                                            nextStatus: TaskWorkflowStatus.done,
-                                          ),
+                                        TaskStatusChanged(
+                                          actorUserId: widget.userId,
+                                          task: task,
+                                          nextStatus: TaskWorkflowStatus.done,
                                         ),
+                                      ),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -1553,11 +1553,11 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                         onPressed: state.isSyncingGoogle
                             ? null
                             : () => context.read<CalendarBloc>().add(
-                                  GoogleCalendarSyncRequested(
-                                    userId: widget.userId,
-                                    userName: widget.userName,
-                                  ),
+                                GoogleCalendarSyncRequested(
+                                  userId: widget.userId,
+                                  userName: widget.userName,
                                 ),
+                              ),
                         icon: Icon(
                           state.isSyncingGoogle
                               ? Icons.hourglass_top_rounded
@@ -1675,26 +1675,60 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
           ),
           const SizedBox(height: 10),
 
-          if (_viewMode == 'year')
-            _buildYearMonthsOverview(
-              c: c,
-              todayDate: todayDate,
-              allFilteredEvents: allFilteredEvents,
-            )
-          else if (_viewMode == 'week' && !_expandMonthInWeekMode)
-            _buildCompactWeekStrip(
-              c: c,
-              todayDate: todayDate,
-              dateHasEvent: dateHasEvent,
-              dateHasTask: dateHasTask,
-            )
-          else
-            _buildMonthGrid(
-              c: c,
-              todayDate: todayDate,
-              dateHasEvent: dateHasEvent,
-              dateHasTask: dateHasTask,
-            ),
+          Builder(
+            builder: (ctx) {
+              final motion = LifeOsMotionScope.of(ctx);
+              final periodKey = ValueKey<String>(
+                'cal_grid_${_viewMode}_${_focusedMonth.year}_${_focusedMonth.month}_'
+                '${_viewMode == 'week' ? '${_selectedDate.year}_${_selectedDate.month}_${_selectedDate.day ~/ 7}_$_expandMonthInWeekMode' : ''}',
+              );
+              final gridBody = KeyedSubtree(
+                key: periodKey,
+                child: _viewMode == 'year'
+                    ? _buildYearMonthsOverview(
+                        c: c,
+                        todayDate: todayDate,
+                        allFilteredEvents: allFilteredEvents,
+                      )
+                    : (_viewMode == 'week' && !_expandMonthInWeekMode)
+                    ? _buildCompactWeekStrip(
+                        c: c,
+                        todayDate: todayDate,
+                        dateHasEvent: dateHasEvent,
+                        dateHasTask: dateHasTask,
+                      )
+                    : _buildMonthGrid(
+                        c: c,
+                        todayDate: todayDate,
+                        dateHasEvent: dateHasEvent,
+                        dateHasTask: dateHasTask,
+                      ),
+              );
+              final dur = motion.resolveDuration(LifeOsMotionTokens.standard);
+              if (dur == Duration.zero) return gridBody;
+              return AnimatedSwitcher(
+                duration: dur,
+                switchInCurve: LifeOsMotionTokens.emphasizedCurve,
+                switchOutCurve: LifeOsMotionTokens.exitCurve,
+                transitionBuilder: (child, anim) {
+                  if (motion.isReducedMotion || child.key != periodKey) {
+                    return FadeTransition(opacity: anim, child: child);
+                  }
+                  return FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: Offset(_periodDirection * 0.032, 0),
+                        end: Offset.zero,
+                      ).animate(anim),
+                      child: child,
+                    ),
+                  );
+                },
+                child: gridBody,
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1710,6 +1744,9 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
       Duration(days: _selectedDate.weekday - 1),
     );
     const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final chipDur = LifeOsMotionScope.of(
+      context,
+    ).resolveDuration(LifeOsMotionTokens.micro);
 
     return Row(
       children: List.generate(7, (idx) {
@@ -1720,76 +1757,88 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
         final hasTk = dateHasTask(cellDate);
 
         return Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => setState(() {
-              _selectedDate = cellDate;
-              _focusedMonth = DateTime(cellDate.year, cellDate.month, 1);
-            }),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? c.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: (!isSelected && isToday)
-                    ? Border.all(color: c.primary, width: 1.4)
-                    : null,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    labels[idx],
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? Colors.white.withValues(alpha: 0.88)
-                          : c.textSecondary,
+          child: Semantics(
+            button: true,
+            selected: isSelected,
+            label:
+                '${labels[idx]} ngày ${cellDate.day} tháng ${cellDate.month}',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                LifeOsMotionScope.read(context).selectionHaptic();
+                setState(() {
+                  _periodDirection = cellDate.isBefore(_selectedDate) ? -1 : 1;
+                  _selectedDate = cellDate;
+                  _focusedMonth = DateTime(cellDate.year, cellDate.month, 1);
+                });
+              },
+              child: AnimatedContainer(
+                duration: chipDur,
+                curve: LifeOsMotionTokens.standardCurve,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? c.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  border: (!isSelected && isToday)
+                      ? Border.all(color: c.primary, width: 1.4)
+                      : null,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      labels[idx],
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected
+                            ? Colors.white.withValues(alpha: 0.88)
+                            : c.textSecondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${cellDate.day}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: isSelected ? Colors.white : c.textPrimary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(height: 4),
+                    Text(
+                      '${cellDate.day}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: isSelected ? Colors.white : c.textPrimary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    height: 5,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (hasEv)
-                          Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: isSelected ? Colors.white : c.primary,
-                              shape: BoxShape.circle,
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 5,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (hasEv)
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.white : c.primary,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                        if (hasEv && hasTk) const SizedBox(width: 3),
-                        if (hasTk)
-                          Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.85)
-                                  : const Color(0xFFF59E0B),
-                              shape: BoxShape.circle,
+                          if (hasEv && hasTk) const SizedBox(width: 3),
+                          if (hasTk)
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.white.withValues(alpha: 0.85)
+                                    : const Color(0xFFF59E0B),
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1807,7 +1856,11 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
     final monthCounts = List<int>.generate(12, (idx) {
       final m = idx + 1;
       final s = DateTime(year, m, 1);
-      final e = DateTime(year, m + 1, 1).subtract(const Duration(milliseconds: 1));
+      final e = DateTime(
+        year,
+        m + 1,
+        1,
+      ).subtract(const Duration(milliseconds: 1));
       return _eventsInWindow(allFilteredEvents, s, e).length;
     });
 
@@ -1933,8 +1986,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
             padding: const EdgeInsets.symmetric(vertical: 1.5),
             child: Row(
               children: List.generate(7, (dow) {
-                final cellDate =
-                    gridStart.add(Duration(days: week * 7 + dow));
+                final cellDate = gridStart.add(Duration(days: week * 7 + dow));
                 final inMonth = cellDate.month == _focusedMonth.month;
                 final isSelected = _sameDay(cellDate, _selectedDate);
                 final isToday = _sameDay(cellDate, todayDate);
@@ -1948,8 +2000,11 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                       _selectedDate = cellDate;
                       if (cellDate.month != _focusedMonth.month ||
                           cellDate.year != _focusedMonth.year) {
-                        _focusedMonth =
-                            DateTime(cellDate.year, cellDate.month, 1);
+                        _focusedMonth = DateTime(
+                          cellDate.year,
+                          cellDate.month,
+                          1,
+                        );
                       }
                     }),
                     child: Container(
@@ -1975,8 +2030,8 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                               color: isSelected
                                   ? Colors.white
                                   : inMonth
-                                      ? (isToday ? c.primary : c.textPrimary)
-                                      : c.textSecondary.withValues(alpha: 0.42),
+                                  ? (isToday ? c.primary : c.textPrimary)
+                                  : c.textSecondary.withValues(alpha: 0.42),
                               fontFeatures: const [
                                 FontFeature.tabularFigures(),
                               ],
@@ -2055,19 +2110,6 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
               color: c.textPrimary,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            hasActiveFilters
-                ? 'Bấm "Xóa bộ lọc & tìm kiếm" để hiển thị lại toàn bộ các bộ lịch và sự kiện.'
-                : (hasAnySyncedEvents
-                      ? 'Bạn có thể thêm lịch hẹn mới hoặc tạo việc cần làm cho ngày đang chọn.'
-                      : 'Đồng bộ với Lịch trên điện thoại & Google Calendar hoặc tạo lịch hẹn đầu tiên của bạn.'),
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1.35,
-              color: c.textSecondary,
-            ),
-          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -2094,11 +2136,11 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                   onPressed: isSyncing
                       ? null
                       : () => context.read<CalendarBloc>().add(
-                            GoogleCalendarSyncRequested(
-                              userId: widget.userId,
-                              userName: widget.userName,
-                            ),
+                          GoogleCalendarSyncRequested(
+                            userId: widget.userId,
+                            userName: widget.userName,
                           ),
+                        ),
                   icon: const Icon(Icons.sync_rounded, size: 17),
                   label: Text(
                     isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Lịch ngay',
@@ -2316,10 +2358,7 @@ class _UnifiedAgendaEventTile extends StatelessWidget {
                           color: c.error,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Xóa sự kiện',
-                          style: TextStyle(color: c.error),
-                        ),
+                        Text('Xóa sự kiện', style: TextStyle(color: c.error)),
                       ],
                     ),
                   ),
@@ -2420,8 +2459,7 @@ class _UpsertCalendarEventDialogState
       text: existing?.recurrence.count?.toString() ?? '',
     );
 
-    _visibility =
-        existing?.visibility ?? CalendarEventVisibility.privateEvent;
+    _visibility = existing?.visibility ?? CalendarEventVisibility.privateEvent;
     final writableGroups = CalendarListDeduplicator.group(
       widget.calendars,
     ).where((g) => !g.isReadOnly).toList();
@@ -2432,7 +2470,9 @@ class _UpsertCalendarEventDialogState
         : null;
     _selectedCalendarId =
         matchedExistingGroup?.canonicalId ??
-        (writableGroups.isNotEmpty ? writableGroups.first.canonicalId : 'primary');
+        (writableGroups.isNotEmpty
+            ? writableGroups.first.canonicalId
+            : 'primary');
 
     final now = DateTime.now();
     final targetDay = widget.initialDate ?? now;
@@ -2458,8 +2498,8 @@ class _UpsertCalendarEventDialogState
     _reminderMinutes = existing?.reminderMinutesBefore ?? 30;
     _syncToGoogle = existing != null
         ? (existing.isLinkedWithGoogle ||
-            existing.isLinkedWithDeviceCalendar ||
-            existing.syncStatus == CalendarSyncStatus.pendingUpload)
+              existing.isLinkedWithDeviceCalendar ||
+              existing.syncStatus == CalendarSyncStatus.pendingUpload)
         : true;
 
     _frequency = existing?.recurrence.frequency ?? RecurrenceFrequency.none;
@@ -2467,7 +2507,8 @@ class _UpsertCalendarEventDialogState
       ...(existing?.recurrence.byWeekDays ?? const <String>[]),
     };
 
-    _showAdvanced = existing != null &&
+    _showAdvanced =
+        existing != null &&
         ((existing.location ?? '').isNotEmpty ||
             (existing.description ?? '').isNotEmpty ||
             existing.isRecurring);
@@ -2656,9 +2697,10 @@ class _UpsertCalendarEventDialogState
                   widget.calendars,
                 ).where((g) => !g.isReadOnly).toList();
                 final hasMultipleWritable = writableGroups.length > 1;
-                final safeSelectedId = writableGroups.any(
-                  (g) => g.canonicalId == _selectedCalendarId,
-                )
+                final safeSelectedId =
+                    writableGroups.any(
+                      (g) => g.canonicalId == _selectedCalendarId,
+                    )
                     ? _selectedCalendarId
                     : (writableGroups.isNotEmpty
                           ? writableGroups.first.canonicalId
@@ -2879,7 +2921,9 @@ class _UpsertCalendarEventDialogState
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: CalendarRecurrenceRule.allWeekDayCodes.map((code) {
+                    children: CalendarRecurrenceRule.allWeekDayCodes.map((
+                      code,
+                    ) {
                       final selected = _selectedWeekDays.contains(code);
                       return FilterChip(
                         label: Text(
@@ -2931,8 +2975,7 @@ class _UpsertCalendarEventDialogState
         FilledButton.icon(
           key: const Key('submit_event_dialog_button'),
           onPressed: () {
-            final parsedInterval =
-                int.tryParse(_intervalCtrl.text.trim()) ?? 1;
+            final parsedInterval = int.tryParse(_intervalCtrl.text.trim()) ?? 1;
             final parsedCount = int.tryParse(_countCtrl.text.trim());
             final rule = CalendarRecurrenceRule(
               frequency: _frequency,
@@ -3004,34 +3047,11 @@ class _UpsertCalendarEventDialogState
 
 class _PlanningHabitsAndNotesTabView extends StatelessWidget {
   final String userId;
-  final ValueChanged<int> onSwitchToTab;
 
-  const _PlanningHabitsAndNotesTabView({
-    required this.userId,
-    required this.onSwitchToTab,
-  });
+  const _PlanningHabitsAndNotesTabView({required this.userId});
 
   @override
   Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    final calEvents = context.watch<CalendarBloc>().state.events;
-    final tasks = context.watch<TaskBloc>().state.tasks;
-    final now = DateTime.now();
-
-    final upcomingNext = calEvents
-        .where((e) => !e.endsAt.isBefore(now))
-        .toList()
-      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
-    final openTasks = tasks
-        .where(
-          (t) =>
-              t.status == TaskWorkflowStatus.proposed ||
-              t.status == TaskWorkflowStatus.accepted ||
-              t.status == TaskWorkflowStatus.inProgress,
-        )
-        .length;
-    final nextEv = upcomingNext.isNotEmpty ? upcomingNext.first : null;
-
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
@@ -3044,77 +3064,10 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
             AppSpacing.dockClearance,
           ),
           children: [
-            // Daily Focus & Schedule Pulse Card
-            LifeOsMintHeroCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const LifeOsIconSquircle(
-                        icon: Icons.wb_sunny_outlined,
-                        tone: LifeOsAccentTone.emerald,
-                        size: 38,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Nhịp làm việc hôm nay',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: c.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              nextEv != null
-                                  ? 'Sắp diễn ra: ${nextEv.title} (${DateFormat("HH:mm dd/MM").format(nextEv.startsAt)})'
-                                  : 'Chưa có lịch hẹn sắp tới · $openTasks việc đang mở',
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: 12.2,
-                                color: c.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => onSwitchToTab(0),
-                        icon: const Icon(Icons.calendar_today_rounded, size: 15),
-                        label: const Text('Xem lịch trình'),
-                      ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => onSwitchToTab(1),
-                        icon: const Icon(Icons.task_alt_rounded, size: 15),
-                        label: Text('Công việc ($openTasks)'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
             const LifeOsSectionHeader(
               title: 'Báo thức & Tập trung',
-              subtitle: 'Chuông nhắc hẹn hệ thống, Pomodoro và thói quen tốt',
               tone: LifeOsAccentTone.amber,
+              padding: EdgeInsets.only(top: 6, bottom: 8, left: 2, right: 2),
             ),
             IntrinsicHeight(
               child: Row(
@@ -3146,7 +3099,6 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
             ),
             const LifeOsSectionHeader(
               title: 'Ghi chú & Bộ lịch',
-              subtitle: 'Sổ tay nhanh và quản lý ẩn/hiện bộ lịch gọn gàng',
               tone: LifeOsAccentTone.purple,
             ),
             IntrinsicHeight(
@@ -3171,10 +3123,8 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
                       tone: LifeOsAccentTone.emerald,
                       title: 'Bộ lịch hiển thị',
                       subtitle: 'Ẩn/hiện & phân màu',
-                      onTap: () => showManageCalendarsSheet(
-                        context,
-                        userId: userId,
-                      ),
+                      onTap: () =>
+                          showManageCalendarsSheet(context, userId: userId),
                     ),
                   ),
                 ],

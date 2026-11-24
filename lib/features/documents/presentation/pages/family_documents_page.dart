@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -21,6 +22,7 @@ class FamilyDocumentsPage extends StatefulWidget {
 
 class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
   late final TextEditingController _searchCtrl;
+  final Set<String> _revealedDocIds = <String>{};
 
   @override
   void initState() {
@@ -338,6 +340,12 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                 final now = DateTime.now();
                                 final expired = doc.isExpired(now);
                                 final soon = doc.isExpiringSoon(now);
+                                final isRevealed = _revealedDocIds.contains(
+                                  doc.id,
+                                );
+                                final hasSensitive =
+                                    doc.referenceCode.trim().isNotEmpty ||
+                                    doc.note.trim().isNotEmpty;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: LifeOsSoftCard(
@@ -377,12 +385,18 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                                         top: 2,
                                                       ),
                                                   child: Text(
-                                                    'Mã tham chiếu: ${doc.referenceCode}',
+                                                    isRevealed
+                                                        ? 'Mã tham chiếu: ${doc.referenceCode}'
+                                                        : 'Mã tham chiếu: ${PrivacyMaskFormatter.maskCode(doc.referenceCode)}',
                                                     style: TextStyle(
                                                       fontSize: 12.5,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       color: c.primary,
+                                                      fontFeatures: const [
+                                                        FontFeature
+                                                            .tabularFigures(),
+                                                      ],
                                                     ),
                                                   ),
                                                 ),
@@ -393,7 +407,11 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                                         top: 3,
                                                       ),
                                                   child: Text(
-                                                    doc.note,
+                                                    isRevealed
+                                                        ? doc.note
+                                                        : PrivacyMaskFormatter.maskNotePreview(
+                                                            doc.note,
+                                                          ),
                                                     style: TextStyle(
                                                       fontSize: 12.5,
                                                       color: c.textSecondary,
@@ -419,6 +437,32 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                             ],
                                           ),
                                         ),
+                                        if (hasSensitive)
+                                          IconButton(
+                                            key: Key(
+                                              'toggle_doc_sensitive_${doc.id}',
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            tooltip: isRevealed
+                                                ? 'Ẩn mã & ghi chú'
+                                                : 'Hiện mã & ghi chú',
+                                            onPressed: () => setState(() {
+                                              if (isRevealed) {
+                                                _revealedDocIds.remove(doc.id);
+                                              } else {
+                                                _revealedDocIds.add(doc.id);
+                                              }
+                                            }),
+                                            icon: Icon(
+                                              isRevealed
+                                                  ? Icons
+                                                        .visibility_off_outlined
+                                                  : Icons.visibility_outlined,
+                                              size: 19,
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
                                         IconButton(
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Xóa tài liệu',

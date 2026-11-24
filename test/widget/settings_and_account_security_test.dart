@@ -9,6 +9,7 @@ import 'package:life_os/app/app.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/core/services/native_alarm_scheduler_bridge.dart';
 import 'package:life_os/core/services/native_device_calendar_bridge.dart';
+import 'package:life_os/core/utils/privacy_mask_formatter.dart';
 import 'package:life_os/core/utils/user_behavior_prefs.dart';
 import 'package:life_os/features/financial_ai/data/inference/fasttext_classifier.dart';
 
@@ -133,6 +134,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // 0. Verify Top Bar Avatar sits flush against the far-right edge & secondary metrics stay hidden behind 'Chi tiết'
+      final topAvatarBtn = find.byKey(const Key('open_account_profile_button'));
+      expect(topAvatarBtn, findsOneWidget);
+      expect(tester.getTopRight(topAvatarBtn).dx, greaterThanOrEqualTo(352.0));
+
+      expect(find.text('Thu tháng'), findsNothing);
+      expect(find.text('Chi tháng'), findsNothing);
+      await tester.tap(find.byKey(const Key('today_hero_details_toggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('Thu tháng'), findsOneWidget);
+      expect(find.text('Chi tháng'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('today_hero_details_toggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('Thu tháng'), findsNothing);
+
       // 1. Open SettingsHubPage via Logo Side Drawer footer
       await tester.tap(find.byKey(const Key('open_logo_side_drawer_button')));
       await tester.pumpAndSettle();
@@ -140,6 +156,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Cài đặt'), findsOneWidget);
+      // Sensitive email & PIN status are masked/hidden on SettingsHubPage
+      expect(find.text('ba•••@lifeos.vn'), findsOneWidget);
+      expect(find.text('baomat@lifeos.vn'), findsNothing);
+      expect(find.textContaining('Mã PIN:'), findsNothing);
       _assertZeroOverflowOnCurrentScreen(tester, 'SettingsHubPage');
 
       // 2. Test instant unaccented Vietnamese search inside Settings
@@ -176,7 +196,50 @@ void main() {
         find.byKey(const Key('account_security_score_card')),
         findsOneWidget,
       );
+      // Verify personal email, phone, UID & security controls are masked/collapsed by default
+      expect(find.text('ba•••@lifeos.vn'), findsOneWidget);
+      expect(find.text('baomat@lifeos.vn'), findsNothing);
+      expect(find.text('091•••••78'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Text && w.data == '0912345678'),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('profile_phone_field')))
+            .obscureText,
+        isTrue,
+      );
+      expect(find.text('Mã TK: ••••••'), findsOneWidget);
+      expect(find.text('Chưa bật PIN'), findsNothing);
+      expect(find.text('Mã PIN bật'), findsNothing);
       _assertZeroOverflowOnCurrentScreen(tester, 'AccountProfilePage');
+
+      // Toggle eye icon to reveal personal identifiers, then hide again
+      await tester.tap(find.byKey(const Key('toggle_profile_sensitive_btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('baomat@lifeos.vn'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Text && w.data == '0912345678'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('profile_phone_field')))
+            .obscureText,
+        isFalse,
+      );
+      await tester.tap(find.byKey(const Key('toggle_profile_sensitive_btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('ba•••@lifeos.vn'), findsOneWidget);
+
+      // Expand collapsible security section before configuring Password & App PIN
+      await tester.tap(find.byKey(const Key('toggle_security_controls_btn')));
+      await tester.pumpAndSettle();
+      _assertZeroOverflowOnCurrentScreen(
+        tester,
+        'AccountProfilePage (Security Expanded)',
+      );
 
       // 4. Open Change Password dialog & verify live 4-bar strength meter updates
       final profileScrollable = find.descendant(
@@ -260,6 +323,26 @@ void main() {
       await tester.tap(availSwitch);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'PrivacyMaskFormatter masks emails, phones, UIDs, invite codes & document reference codes cleanly',
+    () {
+      expect(
+        PrivacyMaskFormatter.maskEmail('baomat@lifeos.vn'),
+        'ba•••@lifeos.vn',
+      );
+      expect(PrivacyMaskFormatter.maskEmail('a@b.vn'), 'a•••@b.vn');
+      expect(PrivacyMaskFormatter.maskPhone('0912345678'), '091•••••78');
+      expect(PrivacyMaskFormatter.maskUid('u_sec_profile_2026'), '••••••');
+      expect(PrivacyMaskFormatter.maskCode('079200012345'), '•••• 2345');
+      expect(PrivacyMaskFormatter.maskCode('FAM-8K2P9Q'), 'FAM-••••9Q');
+      expect(
+        PrivacyMaskFormatter.maskContact('nguoithan@gmail.com'),
+        'ng•••@gmail.com',
+      );
+      expect(PrivacyMaskFormatter.maskContact('0988776655'), '098•••••55');
     },
   );
 }

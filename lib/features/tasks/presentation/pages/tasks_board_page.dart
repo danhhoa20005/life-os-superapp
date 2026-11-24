@@ -98,6 +98,8 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
   String _statusFilter = 'all'; // 'all' | 'open' | 'today' | 'overdue' | 'done'
   String _selectedAssigneeFilter = 'all';
   final TextEditingController _searchCtrl = TextEditingController();
+  final LifeOsStableListRegistry _taskEntranceRegistry =
+      LifeOsStableListRegistry(animateInitialItems: false);
   String _searchQuery = '';
 
   @override
@@ -598,18 +600,36 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                       referenceNow: now,
                       showAssignee: members.length > 1,
                     )
-                  else
-                    ...filtered.map(
-                      (task) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _UnifiedTaskRowCard(
-                          task: task,
-                          currentUserId: widget.userId,
-                          referenceNow: now,
-                          showAssignee: members.length > 1,
-                        ),
-                      ),
+                  else ...[
+                    Builder(
+                      builder: (_) {
+                        final newTaskIds = _taskEntranceRegistry
+                            .registerSnapshot(filtered.map((t) => t.id));
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: filtered
+                              .map(
+                                (task) => Padding(
+                                  key: ValueKey('task_pad_${task.id}'),
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: LifeOsAnimatedItemEntrance(
+                                    key: ValueKey('task_entrance_${task.id}'),
+                                    itemId: task.id,
+                                    animateOnMount: newTaskIds.contains(task.id),
+                                    child: _UnifiedTaskRowCard(
+                                      task: task,
+                                      currentUserId: widget.userId,
+                                      referenceNow: now,
+                                      showAssignee: members.length > 1,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        );
+                      },
                     ),
+                  ],
                   const SizedBox(height: 8),
                   LifeOsPrimaryCtaButton(
                     icon: Icons.add_rounded,
@@ -830,28 +850,45 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                       );
                     }
                   },
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: isDone ? c.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: isDone
-                              ? c.primary
-                              : (isOverdue ? c.error : c.primary),
-                          width: 2,
+                  child: Semantics(
+                    button: true,
+                    checked: isDone,
+                    label: 'Đánh dấu hoàn thành ${task.title}',
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: AnimatedContainer(
+                        duration: LifeOsMotionScope.of(
+                          context,
+                        ).resolveDuration(LifeOsMotionTokens.micro),
+                        curve: LifeOsMotionTokens.standardCurve,
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: isDone ? c.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(
+                            color: isDone
+                                ? c.primary
+                                : (isOverdue ? c.error : c.primary),
+                            width: 2,
+                          ),
+                        ),
+                        child: AnimatedSwitcher(
+                          duration: LifeOsMotionScope.of(
+                            context,
+                          ).resolveDuration(LifeOsMotionTokens.micro),
+                          child: isDone
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  key: ValueKey('checked'),
+                                  size: 16,
+                                  color: Colors.white,
+                                )
+                              : const SizedBox.shrink(
+                                  key: ValueKey('unchecked'),
+                                ),
                         ),
                       ),
-                      child: isDone
-                          ? const Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: Colors.white,
-                            )
-                          : null,
                     ),
                   ),
                 ),

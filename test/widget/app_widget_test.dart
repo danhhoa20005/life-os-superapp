@@ -280,8 +280,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Hồ sơ & Bảo mật Tài khoản'), findsOneWidget);
-      expect(find.text('danhhoa.google@gmail.com'), findsOneWidget);
+      // Sensitive email is masked by default until user taps eye toggle
+      expect(find.text('da•••@gmail.com'), findsOneWidget);
+      expect(find.text('danhhoa.google@gmail.com'), findsNothing);
       expect(find.text('Đã liên kết'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('toggle_profile_sensitive_btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('danhhoa.google@gmail.com'), findsOneWidget);
 
       // Update display name in Profile & save
       await tester.enterText(

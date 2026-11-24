@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../constants/app_assets.dart';
+import '../motion/lifeos_motion.dart';
 import '../utils/vnd_amount.dart';
 import 'liquid_glass.dart';
 import 'status_widgets.dart';
@@ -475,7 +476,9 @@ class ProWalletCreditCard extends StatelessWidget {
         intensity: isSelected ? 1.35 : 1.08,
       ),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: LifeOsMotionScope.of(
+          context,
+        ).resolveDuration(LifeOsMotionTokens.micro),
         width: 276,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
@@ -671,7 +674,13 @@ class ProWalletCreditCard extends StatelessWidget {
     if (onTap == null) {
       return cardBody;
     }
-    return GestureDetector(onTap: onTap, child: cardBody);
+    return LifeOsPressable(
+      onPressed: onTap,
+      semanticsSelected: isSelected,
+      semanticsLabel:
+          'Ví $name, ${obscureBalance ? "đang ẩn số dư" : VndAmount.format(balanceMinor)}',
+      child: cardBody,
+    );
   }
 }
 
@@ -934,8 +943,10 @@ class _ProDonutChartState extends State<ProDonutChart> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    switchInCurve: Curves.easeOutCubic,
+                    duration: LifeOsMotionScope.of(
+                      context,
+                    ).resolveDuration(LifeOsMotionTokens.standard),
+                    switchInCurve: LifeOsMotionTokens.standardCurve,
                     child: Column(
                       key: ValueKey<String>(
                         activeSlice != null
@@ -1013,7 +1024,9 @@ class _ProDonutChartState extends State<ProDonutChart> {
                 borderRadius: BorderRadius.circular(10),
                 onTap: () => _toggleSlice(i),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: LifeOsMotionScope.of(
+                    context,
+                  ).resolveDuration(LifeOsMotionTokens.micro),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 5,

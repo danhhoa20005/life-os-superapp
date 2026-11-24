@@ -1,23 +1,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/utils/omni_action_executor.dart';
 import '../../../../core/utils/smart_omni_intent_parser.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
-import '../../../authentication/presentation/pages/account_profile_page.dart';
 import '../../../budgets/presentation/bloc/budget_bloc.dart';
 import '../../../calendar/domain/entities/calendar_entities.dart';
 import '../../../calendar/presentation/bloc/calendar_bloc.dart';
@@ -241,11 +241,6 @@ class _TodayPageState extends State<TodayPage> {
                     color: c.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Chọn tối thiểu 4 tiện ích thường dùng — tự động ghi nhớ cho các lần mở sau.',
-                  style: TextStyle(fontSize: 12.2, color: c.textSecondary),
-                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
@@ -289,7 +284,6 @@ class _TodayPageState extends State<TodayPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = context.select((AuthBloc b) => b.state.user);
     final calEvents = context.select((CalendarBloc b) => b.state.events);
     final gcalConnected = context.select(
@@ -320,17 +314,6 @@ class _TodayPageState extends State<TodayPage> {
 
     final firstName = (user?.fullName ?? 'bạn').trim().split(' ').last;
     final now = DateTime.now();
-    const weekdays = <int, String>{
-      DateTime.monday: 'Thứ Hai',
-      DateTime.tuesday: 'Thứ Ba',
-      DateTime.wednesday: 'Thứ Tư',
-      DateTime.thursday: 'Thứ Năm',
-      DateTime.friday: 'Thứ Sáu',
-      DateTime.saturday: 'Thứ Bảy',
-      DateTime.sunday: 'Chủ Nhật',
-    };
-    final todayDateLabel =
-        '${UserBehaviorPrefs.contextualTimeSubtitle(now)} · ${weekdays[now.weekday]}, ${now.day} thg ${now.month}';
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -340,7 +323,6 @@ class _TodayPageState extends State<TodayPage> {
             children: [
               LifeOsTopBrandHeader(
                 title: 'Xin chào, $firstName',
-                subtitle: todayDateLabel,
                 extraBrandActions: [
                   LifeOsHeaderCircleButton(
                     buttonKey: const Key('today_open_gemini_ai_pill'),
@@ -349,22 +331,47 @@ class _TodayPageState extends State<TodayPage> {
                     onTap: () => context.push('/financial-ai'),
                   ),
                 ],
-                profileTrailing: user == null
-                    ? null
-                    : IconButton(
-                        key: const Key('open_account_profile_button'),
-                        visualDensity: VisualDensity.compact,
-                        tooltip: 'Hồ sơ tài khoản',
-                        onPressed: () => context.push('/account-profile'),
-                        icon: UserAvatarBadge(user: user, radius: 16),
-                      ),
               ),
               Expanded(
                 child: BlocBuilder<DashboardBloc, DashboardState>(
                   builder: (context, state) {
                     if (state.isLoading &&
                         state.data == TodayDashboardEntity.empty) {
-                      return const Center(child: CircularProgressIndicator());
+                      return Semantics(
+                        container: true,
+                        label: 'Đang tải tổng quan hôm nay',
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            8,
+                            AppSpacing.md,
+                            104,
+                          ),
+                          children: const [
+                            LifeOsSkeletonBox(height: 156, borderRadius: 18),
+                            SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: LifeOsSkeletonBox(
+                                    height: 92,
+                                    borderRadius: 18,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: LifeOsSkeletonBox(
+                                    height: 92,
+                                    borderRadius: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12),
+                            LifeOsSkeletonBox(height: 110, borderRadius: 18),
+                          ],
+                        ),
+                      );
                     }
                     if (state.failure != null &&
                         state.data == TodayDashboardEntity.empty) {
@@ -681,356 +688,422 @@ class _TodayPageState extends State<TodayPage> {
                             // 0. OTA In-App Update Notification Banner
                             const AppUpdateBanner(),
 
-                            // 1. Executive Porcelain Wealth Card (Bright, Airy, High-Contrast Daylight Studio)
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: isDark
-                                      ? [
-                                          c.surfaceRaised,
-                                          c.surface,
-                                        ]
-                                      : const [
-                                          Color(0xFFF6FCF8),
-                                          Color(0xFFFFFFFF),
-                                          Color(0xFFFFFFFF),
-                                        ],
-                                ),
-                                border: Border.all(
-                                  color: c.border,
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(
-                                      alpha: isDark ? 0.24 : 0.045,
-                                    ),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
+                            // 1. Thẻ 3D Emerald cao cấp — Tổng tài sản ròng cá nhân
+                            LifeOsAnimatedItemEntrance(
+                              key: const ValueKey('today_wealth_hero_entrance'),
+                              itemId: 'today_wealth_hero',
+                              staggerIndex: 0,
+                              child: ProHeroGradientCard(
+                                gradientColors: const [
+                                  Color(0xFF082919),
+                                  Color(0xFF0D5628),
+                                  Color(0xFF0F7A35),
                                 ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4.5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: c.primarySubtle,
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          border: Border.all(
-                                            color: c.primary.withValues(
-                                              alpha: 0.20,
-                                            ),
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Container(
-                                              width: 6.5,
-                                              height: 6.5,
-                                              decoration: BoxDecoration(
-                                                color: c.primary,
-                                                shape: BoxShape.circle,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Tổng tài sản ròng cá nhân',
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              fontSize: 12.8,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.88,
                                               ),
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              syncStatusLabel,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                color: c.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Material(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.14,
+                                          ),
+                                          shape: CircleBorder(
+                                            side: BorderSide(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.28,
+                                              ),
+                                              width: 0.9,
+                                            ),
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: InkWell(
+                                            key: const Key(
+                                              'toggle_balance_privacy_btn',
+                                            ),
+                                            customBorder: const CircleBorder(),
+                                            onTap: () {
+                                              final nextHide = !_hideBalances;
+                                              setState(
+                                                () => _hideBalances = nextHide,
+                                              );
+                                              UserBehaviorPrefs.saveHideBalances(
+                                                nextHide,
+                                              );
+                                              LifeOsTopToast.show(
+                                                context,
+                                                nextHide
+                                                    ? 'Đã bật chế độ ẩn số dư riêng tư.'
+                                                    : 'Đã hiển thị lại số dư tài chính.',
+                                                kind: LifeOsToastKind.info,
+                                                duration: const Duration(
+                                                  milliseconds: 1800,
+                                                ),
+                                              );
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(7),
+                                              child: Icon(
+                                                _hideBalances
+                                                    ? Icons
+                                                          .visibility_off_outlined
+                                                    : Icons.visibility_outlined,
+                                                size: 17,
+                                                color: Colors.white,
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      InkWell(
-                                        key: const Key(
-                                          'toggle_balance_privacy_btn',
-                                        ),
-                                        borderRadius: BorderRadius.circular(18),
-                                        onTap: () {
-                                          final nextHide = !_hideBalances;
-                                          setState(
-                                            () => _hideBalances = nextHide,
-                                          );
-                                          UserBehaviorPrefs.saveHideBalances(
-                                            nextHide,
-                                          );
-                                          LifeOsTopToast.show(
-                                            context,
-                                            nextHide
-                                                ? 'Đã bật chế độ ẩn số dư riêng tư (tự nhớ cho lần sau).'
-                                                : 'Đã hiển thị lại số dư tài chính.',
-                                            kind: LifeOsToastKind.info,
-                                            duration: const Duration(
-                                              milliseconds: 1800,
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: LifeOsTruthfulNumericText(
+                                              formattedValue: _fmtMoney(
+                                                d.netWorthMinor,
+                                              ),
+                                              semanticsLabel: _hideBalances
+                                                  ? 'Tổng tài sản ròng đang ẩn riêng tư'
+                                                  : 'Tổng tài sản ròng ${_fmtMoney(d.netWorthMinor)}',
+                                              style: const TextStyle(
+                                                fontSize: 30,
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: -0.7,
+                                                color: Colors.white,
+                                              ),
                                             ),
-                                          );
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6.5),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Container(
+                                          width: 66,
+                                          height: 66,
                                           decoration: BoxDecoration(
-                                            color: c.surfaceRaised,
-                                            shape: BoxShape.circle,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.12,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
-                                              color: c.border,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.32,
+                                              ),
                                               width: 1.0,
                                             ),
                                           ),
-                                          child: Icon(
-                                            _hideBalances
-                                                ? Icons.visibility_off_outlined
-                                                : Icons.visibility_outlined,
-                                            size: 17,
-                                            color: c.textSecondary,
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              17,
+                                            ),
+                                            child: Image.asset(
+                                              AppAssets.hero3dWealthVault,
+                                              width: 66,
+                                              height: 66,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const Icon(
+                                                    Icons
+                                                        .account_balance_wallet_rounded,
+                                                    color: Colors.white,
+                                                    size: 30,
+                                                  ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Tổng tài sản ròng cá nhân',
-                                    style: TextStyle(
-                                      fontSize: 12.2,
-                                      fontWeight: FontWeight.w600,
-                                      color: c.textSecondary,
+                                      ],
                                     ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      _fmtMoney(d.netWorthMinor),
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.7,
-                                        color: c.textPrimary,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: c.surfaceRaised,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: c.separator,
-                                        width: 1.0,
-                                      ),
-                                    ),
-                                    child: Wrap(
-                                      spacing: 12,
-                                      runSpacing: 4,
+                                    const SizedBox(height: 14),
+                                    Row(
                                       children: [
-                                        Text(
-                                          'Hôm nay chi: ${_fmtMoney(todayExpenseMinor)}',
-                                          style: TextStyle(
-                                            fontSize: 11.8,
-                                            fontWeight: FontWeight.w700,
-                                            color: c.textPrimary,
-                                            fontFeatures: const [
-                                              FontFeature.tabularFigures(),
+                                        Expanded(
+                                          child: Material(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            child: InkWell(
+                                              key: const Key(
+                                                'home_quick_expense_btn',
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              onTap: () =>
+                                                  showVoiceSmartCaptureSheet(
+                                                    context,
+                                                    autoStartListening: true,
+                                                  ),
+                                              child: ConstrainedBox(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minHeight: 44,
+                                                    ),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 10,
+                                                  ),
+                                                  child: FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.mic_rounded,
+                                                          size: 17,
+                                                          color: Color(
+                                                            0xFF083A1E,
+                                                          ),
+                                                        ),
+                                                        SizedBox(width: 6),
+                                                        Text(
+                                                          'Nói ghi nhanh',
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                            color: Color(
+                                                              0xFF083A1E,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Material(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.16,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              side: BorderSide(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.30,
+                                                ),
+                                                width: 1.0,
+                                              ),
+                                            ),
+                                            clipBehavior: Clip.antiAlias,
+                                            child: InkWell(
+                                              key: const Key(
+                                                'home_quick_schedule_btn',
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              onTap: () =>
+                                                  showLifeOsQuickCreateHub(
+                                                    context,
+                                                  ),
+                                              child: ConstrainedBox(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minHeight: 44,
+                                                    ),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 10,
+                                                  ),
+                                                  child: FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .event_note_rounded,
+                                                          size: 17,
+                                                          color: Colors.white,
+                                                        ),
+                                                        SizedBox(width: 6),
+                                                        Text(
+                                                          'Thêm lịch / việc',
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    LifeOsDetailsDiscloseSection(
+                                      toggleKey: const Key(
+                                        'today_hero_details_toggle',
+                                      ),
+                                      onDarkSurface: true,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ProGlassStatPill(
+                                                  icon:
+                                                      Icons.south_west_rounded,
+                                                  iconColor: const Color(
+                                                    0xFF86EFAC,
+                                                  ),
+                                                  label: 'Thu tháng',
+                                                  value: _fmtMoney(
+                                                    d.monthlyIncomeMinor,
+                                                    prefix: '+',
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: ProGlassStatPill(
+                                                  icon:
+                                                      Icons.north_east_rounded,
+                                                  iconColor: const Color(
+                                                    0xFFFCA5A5,
+                                                  ),
+                                                  label: 'Chi tháng',
+                                                  value: _fmtMoney(
+                                                    d.monthlyExpenseMinor,
+                                                    prefix: '-',
+                                                  ),
+                                                ),
+                                              ),
                                             ],
                                           ),
-                                        ),
-                                        if (hasConfiguredBudget)
-                                          Text(
-                                            'Còn tiêu/ngày: ${_fmtMoney(safeDailyMinor)}',
-                                            style: TextStyle(
-                                              fontSize: 11.8,
-                                              fontWeight: FontWeight.w700,
-                                              color: c.primary,
-                                              fontFeatures: const [
-                                                FontFeature.tabularFigures(),
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 11,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.22,
+                                                ),
+                                                width: 0.9,
+                                              ),
+                                            ),
+                                            child: Wrap(
+                                              spacing: 12,
+                                              runSpacing: 5,
+                                              crossAxisAlignment:
+                                                  WrapCrossAlignment.center,
+                                              children: [
+                                                Text(
+                                                  'Hôm nay chi: ${_fmtMoney(todayExpenseMinor)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11.8,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.white,
+                                                    fontFeatures: [
+                                                      FontFeature
+                                                          .tabularFigures(),
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (hasConfiguredBudget)
+                                                  Text(
+                                                    'Còn tiêu/ngày: ${_fmtMoney(safeDailyMinor)}',
+                                                    style: const TextStyle(
+                                                      fontSize: 11.8,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Color(0xFF86EFAC),
+                                                      fontFeatures: [
+                                                        FontFeature
+                                                            .tabularFigures(),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Container(
+                                                      width: 6.5,
+                                                      height: 6.5,
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                            color: Color(
+                                                              0xFF86EFAC,
+                                                            ),
+                                                            shape:
+                                                                BoxShape.circle,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(width: 5),
+                                                    Flexible(
+                                                      child: Text(
+                                                        syncStatusLabel,
+                                                        softWrap: true,
+                                                        style: TextStyle(
+                                                          fontSize: 11.2,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors.white
+                                                              .withValues(
+                                                                alpha: 0.88,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
                                           ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _HeroGlassCapsule(
-                                          icon: Icons.south_west_rounded,
-                                          iconColor: c.primary,
-                                          label: 'Thu tháng',
-                                          value: _fmtMoney(
-                                            d.monthlyIncomeMinor,
-                                            prefix: '+',
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: _HeroGlassCapsule(
-                                          icon: Icons.north_east_rounded,
-                                          iconColor: c.error,
-                                          label: 'Chi tháng',
-                                          value: _fmtMoney(
-                                            d.monthlyExpenseMinor,
-                                            prefix: '-',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Material(
-                                          color: c.primary,
-                                          borderRadius: BorderRadius.circular(
-                                            13,
-                                          ),
-                                          child: InkWell(
-                                            key: const Key(
-                                              'home_quick_expense_btn',
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              13,
-                                            ),
-                                            onTap: () =>
-                                                showVoiceSmartCaptureSheet(
-                                                  context,
-                                                  autoStartListening: true,
-                                                ),
-                                            child: ConstrainedBox(
-                                              constraints: const BoxConstraints(
-                                                minHeight: 44,
-                                              ),
-                                              child: const Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 10,
-                                                ),
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.mic_rounded,
-                                                        size: 17,
-                                                        color: Colors.white,
-                                                      ),
-                                                      SizedBox(width: 6),
-                                                      Text(
-                                                        'Nói ghi nhanh',
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Material(
-                                          color: c.surfaceRaised,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              13,
-                                            ),
-                                            side: BorderSide(
-                                              color: c.border,
-                                              width: 1.0,
-                                            ),
-                                          ),
-                                          child: InkWell(
-                                            key: const Key(
-                                              'home_quick_schedule_btn',
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              13,
-                                            ),
-                                            onTap: () =>
-                                                showLifeOsQuickCreateHub(
-                                                  context,
-                                                ),
-                                            child: ConstrainedBox(
-                                              constraints: const BoxConstraints(
-                                                minHeight: 44,
-                                              ),
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 10,
-                                                    ),
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons
-                                                            .event_note_rounded,
-                                                        size: 17,
-                                                        color: c.textPrimary,
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        'Thêm lịch / việc',
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: c.textPrimary,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -1854,84 +1927,6 @@ class _TodayPageState extends State<TodayPage> {
   }
 }
 
-class _HeroGlassCapsule extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-
-  const _HeroGlassCapsule({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-      decoration: BoxDecoration(
-        color: c.surfaceRaised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: c.separator,
-          width: 1.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(icon, size: 14, color: iconColor),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: c.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w800,
-                color: c.textPrimary,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PulseMiniBentoCard extends StatelessWidget {
   final IconData icon;
   final LifeOsAccentTone tone;
@@ -2114,6 +2109,7 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
     _autoTimer = Timer.periodic(widget.autoCycleInterval, (_) {
       if (!mounted) return;
       if (!TickerMode.valuesOf(context).enabled) return;
+      if (LifeOsMotionScope.read(context).isReducedMotion) return;
       setState(() {
         _horizon = _horizon.next;
       });
@@ -2121,7 +2117,7 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
   }
 
   void _handleManualTap() {
-    HapticFeedback.selectionClick();
+    LifeOsMotionScope.read(context).selectionHaptic();
     setState(() {
       _horizon = _horizon.next;
     });
@@ -2143,6 +2139,8 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final motion = LifeOsMotionScope.of(context);
+    final switchDur = motion.resolveDuration(LifeOsMotionTokens.standard);
     final (bg, fg) = _horizon.tone.resolve(context);
     final count = _countFor(_horizon);
 
@@ -2163,9 +2161,9 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
             Row(
               children: [
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  duration: switchDur,
+                  switchInCurve: LifeOsMotionTokens.standardCurve,
+                  switchOutCurve: LifeOsMotionTokens.exitCurve,
                   child: LifeOsIconSquircle(
                     key: ValueKey('upcoming_icon_${_horizon.name}'),
                     icon: _horizon.icon,
@@ -2176,12 +2174,15 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
                 ),
                 const Spacer(),
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  duration: switchDur,
+                  switchInCurve: LifeOsMotionTokens.standardCurve,
+                  switchOutCurve: LifeOsMotionTokens.exitCurve,
                   transitionBuilder: (child, anim) {
+                    if (motion.isReducedMotion) {
+                      return FadeTransition(opacity: anim, child: child);
+                    }
                     final slide = Tween<Offset>(
-                      begin: const Offset(0, 0.28),
+                      begin: const Offset(0, 0.24),
                       end: Offset.zero,
                     ).animate(anim);
                     return FadeTransition(
@@ -2227,8 +2228,8 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
+                    duration: switchDur,
+                    curve: LifeOsMotionTokens.standardCurve,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6.5,
                       vertical: 1.8,
@@ -2238,7 +2239,7 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
+                      duration: switchDur,
                       child: Text(
                         _horizon.badgeLabelVi,
                         key: ValueKey('upcoming_badge_${_horizon.name}'),
@@ -2255,8 +2256,8 @@ class _UpcomingScheduleCycleCardState extends State<UpcomingScheduleCycleCard> {
                     Padding(
                       padding: const EdgeInsets.only(right: 3),
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 240),
-                        curve: Curves.easeOutCubic,
+                        duration: switchDur,
+                        curve: LifeOsMotionTokens.standardCurve,
                         width: h == _horizon ? 10 : 4,
                         height: 4,
                         decoration: BoxDecoration(

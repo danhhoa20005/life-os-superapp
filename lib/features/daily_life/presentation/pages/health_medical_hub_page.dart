@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
+import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/daily_life_entities.dart';
@@ -39,6 +40,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
   bool _hydratedFromLogs = false;
   bool _userEditedBodyMetrics = false;
   String _selectedBeverage = 'Nước lọc';
+  bool _revealMedicalIdentifiers = false;
 
   static const List<
     ({String name, String dosage, MedicationScheduleSlot slot, int pills})
@@ -243,8 +245,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                         ),
                                         _HeroKpiCol(
                                           value: '${hyd.waterMl} ml',
-                                          label:
-                                              'Nước (${hyd.progressPct}%)',
+                                          label: 'Nước (${hyd.progressPct}%)',
                                           color: const Color(0xFF0EA5E9),
                                         ),
                                         VerticalDivider(
@@ -373,17 +374,17 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                           color: c.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        dueToday.isEmpty
-                            ? 'Chuông nhắc tự động đặt lại cho sáng ngày mai.'
-                            : 'Gần nhất: ${dueToday.first.name} · Hẹn lúc ${dueToday.first.formattedReminderTime}',
-                        softWrap: true,
-                        style: TextStyle(
-                          fontSize: 12.2,
-                          color: c.textSecondary,
+                      if (dueToday.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Gần nhất: ${dueToday.first.name} · Hẹn lúc ${dueToday.first.formattedReminderTime}',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 12.2,
+                            color: c.textSecondary,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -394,7 +395,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
         ],
 
         Text(
-          'Thêm nhanh thuốc & thực phẩm bổ sung phổ biến',
+          'Mẫu thuốc & vitamin phổ biến',
           softWrap: true,
           style: TextStyle(
             fontSize: 13.5,
@@ -459,12 +460,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                     fontWeight: FontWeight.w800,
                     color: c.textPrimary,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Chọn mẫu phía trên hoặc thêm thuốc để đặt chuông nhắc đúng cữ và cảnh báo khi thuốc sắp hết.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),
               ],
             ),
@@ -601,9 +596,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                         if (!taken && med.slot.isScheduledDaily)
                           OutlinedButton.icon(
                             key: Key('med_snooze_15m_${med.id}'),
-                            onPressed: () => context
-                                .read<DailyLifeBloc>()
-                                .add(MedicationSnoozed15Min(med)),
+                            onPressed: () => context.read<DailyLifeBloc>().add(
+                              MedicationSnoozed15Min(med),
+                            ),
                             icon: const Icon(Icons.snooze_rounded, size: 17),
                             label: const FittedBox(
                               fit: BoxFit.scaleDown,
@@ -677,12 +672,11 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
           .roundToDouble();
       final nextAct = activity ?? hyd.activityLevel;
       final nextAuto = autoSyncBody ?? hyd.autoSyncTargetByBody;
-      final autoComputedMl =
-          AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
-            weightKg: nextWeight,
-            heightCm: nextHeight,
-            activityLevel: nextAct,
-          );
+      final autoComputedMl = AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
+        weightKg: nextWeight,
+        heightCm: nextHeight,
+        activityLevel: nextAct,
+      );
       final resolvedTarget =
           targetMl ?? (nextAuto ? autoComputedMl : hyd.targetWaterMl);
 
@@ -711,7 +705,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
       final nextW = double.parse(
         (_weightKg + deltaWeight).clamp(35.0, 150.0).toStringAsFixed(1),
       );
-      final nextH = (_heightCm + deltaHeight).clamp(130.0, 210.0).roundToDouble();
+      final nextH = (_heightCm + deltaHeight)
+          .clamp(130.0, 210.0)
+          .roundToDouble();
       setState(() {
         _userEditedBodyMetrics = true;
         _weightKg = nextW;
@@ -821,18 +817,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Chuẩn thể trạng (${_weightKg.toStringAsFixed(1)} kg · ${_heightCm.round()} cm): $bodyRecommendedMl ml/ngày (~${(hyd.targetWaterMl / hyd.preferredCupMl).ceil()} cốc)',
-                textAlign: TextAlign.center,
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: c.textSecondary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -966,16 +951,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                         : LifeOsAccentTone.amber,
                   ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${assessment.bmiCategory} · Lý tưởng: ${assessment.idealMinWeightKg}–${assessment.idealMaxWeightKg} kg',
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: c.textSecondary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
               ),
               const SizedBox(height: 12),
 
@@ -1340,33 +1315,69 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                'Hoặc chọn nhanh định mức mục tiêu',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
+              LifeOsDetailsDiscloseSection(
+                toggleKey: const Key('water_body_metrics_details_toggle'),
+                label: 'Chi tiết chỉ số',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        LifeOsStatusPill(
+                          icon: Icons.person_pin_circle_outlined,
+                          label: assessment.bmiCategory,
+                          tone:
+                              (assessment.bmi >= 18.5 && assessment.bmi < 23.0)
+                              ? LifeOsAccentTone.emerald
+                              : LifeOsAccentTone.amber,
+                        ),
+                        LifeOsStatusPill(
+                          icon: Icons.monitor_weight_outlined,
+                          label:
+                              'Lý tưởng: ${assessment.idealMinWeightKg}–${assessment.idealMaxWeightKg} kg',
+                          tone: LifeOsAccentTone.emerald,
+                        ),
+                        LifeOsStatusPill(
+                          icon: Icons.local_drink_outlined,
+                          label:
+                              '~${(hyd.targetWaterMl / hyd.preferredCupMl).ceil()} cốc/ngày',
+                          tone: LifeOsAccentTone.blue,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Định mức thủ công',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: goalPresets.map((ml) {
+                        final isRecommended = ml == bodyRecommendedMl;
+                        return ChoiceChip(
+                          key: Key('water_goal_chip_$ml'),
+                          label: Text(
+                            isRecommended ? '$ml ml (Chuẩn)' : '$ml ml',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: hyd.targetWaterMl == ml,
+                          onSelected: (_) => saveSettings(
+                            targetMl: ml,
+                            autoSyncBody: isRecommended,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: goalPresets.map((ml) {
-                  final isRecommended = ml == bodyRecommendedMl;
-                  return ChoiceChip(
-                    key: Key('water_goal_chip_$ml'),
-                    label: Text(
-                      isRecommended ? '$ml ml (Chuẩn)' : '$ml ml',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    selected: hyd.targetWaterMl == ml,
-                    onSelected: (_) => saveSettings(
-                      targetMl: ml,
-                      autoSyncBody: isRecommended,
-                    ),
-                  );
-                }).toList(),
               ),
             ],
           ),
@@ -1393,11 +1404,11 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                 subtitle: Text(
                   hyd.reminderEnabled
                       ? (hyd.isGoalReached
-                            ? 'Đã đủ nước hôm nay · Tự nhắc lại ${hyd.startHour.toString().padLeft(2, "0")}:${hyd.startMinute.toString().padLeft(2, "0")} sáng mai'
+                            ? 'Đã đủ nước hôm nay · Nhắc lại ${hyd.startHour.toString().padLeft(2, "0")}:${hyd.startMinute.toString().padLeft(2, "0")} mai'
                             : (nextAt != null
-                                  ? 'Nhắc tiếp lúc ${timeFmt.format(nextAt)} · Đề xuất ~$paceMl ml/lần'
+                                  ? 'Nhắc tiếp ${timeFmt.format(nextAt)} (~$paceMl ml)'
                                   : 'Đang bật chuông nhắc định kỳ'))
-                      : 'Tự động nhắc theo chu kỳ trong giờ thức, không làm phiền ban đêm',
+                      : 'Nhắc định kỳ trong khung giờ thức',
                 ),
                 value: hyd.reminderEnabled,
                 onChanged: (val) {
@@ -1420,10 +1431,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                       onPressed: userId.isEmpty
                           ? null
                           : () => context.read<DailyLifeBloc>().add(
-                              WaterReminderSnoozed(
-                                userId: userId,
-                                minutes: 15,
-                              ),
+                              WaterReminderSnoozed(userId: userId, minutes: 15),
                             ),
                       icon: const Icon(Icons.snooze_rounded, size: 16),
                       label: const Text('Hoãn nhắc 15 phút'),
@@ -1590,31 +1598,26 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                 ],
               ),
               if (hyd.reminderEnabled && upcomingTodaySlots.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Các mốc báo nhắc còn lại hôm nay (${upcomingTodaySlots.length} lần)',
-                  style: TextStyle(
-                    fontSize: 12.2,
-                    fontWeight: FontWeight.w700,
-                    color: c.textSecondary,
+                const SizedBox(height: 10),
+                LifeOsDetailsDiscloseSection(
+                  toggleKey: const Key('water_upcoming_slots_details_toggle'),
+                  label: 'Chi tiết mốc nhắc (${upcomingTodaySlots.length})',
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: upcomingTodaySlots.take(10).map((slot) {
+                      final isFirst = slot == upcomingTodaySlots.first;
+                      return LifeOsStatusPill(
+                        icon: isFirst
+                            ? Icons.notifications_active_outlined
+                            : Icons.schedule_rounded,
+                        label: timeFmt.format(slot),
+                        tone: isFirst
+                            ? LifeOsAccentTone.blue
+                            : LifeOsAccentTone.neutral,
+                      );
+                    }).toList(),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: upcomingTodaySlots.take(10).map((slot) {
-                    final isFirst = slot == upcomingTodaySlots.first;
-                    return LifeOsStatusPill(
-                      icon: isFirst
-                          ? Icons.notifications_active_outlined
-                          : Icons.schedule_rounded,
-                      label: timeFmt.format(slot),
-                      tone: isFirst
-                          ? LifeOsAccentTone.blue
-                          : LifeOsAccentTone.neutral,
-                    );
-                  }).toList(),
                 ),
               ],
               const SizedBox(height: 14),
@@ -1667,15 +1670,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                 : LifeOsAccentTone.amber,
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Hiện thông báo trên màn hình khóa kèm nút bấm nhanh "+${hyd.preferredCupMl}ml" và tự lặp lại mỗi ngày kể cả khi đóng ứng dụng.',
-                        softWrap: true,
-                        style: TextStyle(
-                          fontSize: 11.8,
-                          color: c.textSecondary,
-                        ),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -1914,7 +1908,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                 children: [
                   Expanded(
                     child: Text(
-                      'Thước đo BMI Chuẩn Châu Á & Năng lượng TDEE',
+                      'Chỉ số Cơ thể & Sinh hiệu',
                       softWrap: true,
                       style: TextStyle(
                         fontSize: 15,
@@ -1962,19 +1956,44 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                     label: 'TDEE: ${assessment.tdeeKcal} kcal/ngày',
                     tone: LifeOsAccentTone.blue,
                   ),
-                  LifeOsStatusPill(
-                    icon: Icons.water_drop_outlined,
-                    label:
-                        'Nước chuẩn: ${assessment.recommendedWaterMl} ml/ngày',
-                    tone: LifeOsAccentTone.purple,
-                  ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Cân nặng lý tưởng cho chiều cao ${_heightCm.round()} cm: ${assessment.idealMinWeightKg} kg – ${assessment.idealMaxWeightKg} kg · ${assessment.bloodPressureStatus}',
-                softWrap: true,
-                style: TextStyle(fontSize: 12.2, color: c.textSecondary),
+              const SizedBox(height: 10),
+              LifeOsDetailsDiscloseSection(
+                toggleKey: const Key('vitals_metrics_details_toggle'),
+                label: 'Chi tiết chỉ số',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        LifeOsStatusPill(
+                          icon: Icons.bolt_rounded,
+                          label: 'BMR: ${assessment.bmrKcal} kcal',
+                          tone: LifeOsAccentTone.neutral,
+                        ),
+                        LifeOsStatusPill(
+                          icon: Icons.water_drop_outlined,
+                          label:
+                              'Nước chuẩn: ${assessment.recommendedWaterMl} ml/ngày',
+                          tone: LifeOsAccentTone.purple,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Cân nặng lý tưởng (${_heightCm.round()} cm): ${assessment.idealMinWeightKg}–${assessment.idealMaxWeightKg} kg · ${assessment.bloodPressureStatus}',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: c.textSecondary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const Divider(height: 22),
 
@@ -2131,29 +2150,34 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'THẺ Y TẾ KHẨN CẤP (ICE) & BHYT',
-                          softWrap: true,
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w900,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'Xuất trình nhanh khi khám chữa bệnh hoặc cấp cứu',
-                          softWrap: true,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: c.textSecondary,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'THẺ Y TẾ KHẨN CẤP (ICE) & BHYT',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                        color: c.textPrimary,
+                      ),
                     ),
                   ),
+                  if (card.insuranceCode.trim().isNotEmpty ||
+                      card.emergencyContactPhone.trim().isNotEmpty)
+                    IconButton(
+                      key: const Key('toggle_medical_sensitive_btn'),
+                      tooltip: _revealMedicalIdentifiers
+                          ? 'Ẩn mã BHYT & SĐT'
+                          : 'Hiện mã BHYT & SĐT',
+                      onPressed: () => setState(() {
+                        _revealMedicalIdentifiers = !_revealMedicalIdentifiers;
+                      }),
+                      icon: Icon(
+                        _revealMedicalIdentifiers
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 20,
+                        color: c.textSecondary,
+                      ),
+                    ),
                 ],
               ),
               const Divider(height: 22),
@@ -2210,7 +2234,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                 label: 'Mã số BHYT',
                 value: card.insuranceCode.trim().isEmpty
                     ? 'Chưa cung cấp'
-                    : card.insuranceCode,
+                    : (_revealMedicalIdentifiers
+                          ? card.insuranceCode
+                          : PrivacyMaskFormatter.maskCode(card.insuranceCode)),
               ),
               _MedicalFieldRow(
                 label: 'Nơi ĐK khám chữa bệnh',
@@ -2226,7 +2252,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                     ? 'Chưa cung cấp'
                     : card.emergencyContactPhone.trim().isEmpty
                     ? card.emergencyContactName
-                    : '${card.emergencyContactName} (${card.emergencyContactPhone})',
+                    : '${card.emergencyContactName} (${_revealMedicalIdentifiers ? card.emergencyContactPhone : PrivacyMaskFormatter.maskPhone(card.emergencyContactPhone)})',
               ),
               const SizedBox(height: 12),
               LifeOsPrimaryCtaButton(
@@ -2727,9 +2753,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
             TextField(
               controller: _pillsCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Số lượng tồn',
-              ),
+              decoration: const InputDecoration(labelText: 'Số lượng tồn'),
             ),
             const SizedBox(height: 14),
             LifeOsPrimaryCtaButton(
@@ -2767,10 +2791,7 @@ class _EditEmergencyCardSheet extends StatefulWidget {
   final String userId;
   final EmergencyMedicalCardEntity current;
 
-  const _EditEmergencyCardSheet({
-    required this.userId,
-    required this.current,
-  });
+  const _EditEmergencyCardSheet({required this.userId, required this.current});
 
   @override
   State<_EditEmergencyCardSheet> createState() =>

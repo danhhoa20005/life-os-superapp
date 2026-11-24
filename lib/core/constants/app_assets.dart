@@ -30,8 +30,14 @@ abstract final class AppAssets {
       'assets/images/family_split_illustration.png';
   static const String planningAssetsIllustration =
       'assets/images/planning_assets_illustration.png';
+  static const String hero3dWealthVault =
+      'assets/images/hero_3d_wealth_vault.png';
+  static const String hero3dWelcomeEcosystem =
+      'assets/images/hero_3d_welcome_ecosystem.png';
 
   // 1. Core Navigation & Quick Actions (Nano Banana Pro iOS 26 Liquid Glass 3D)
+  static const String ic3dHydration = 'assets/icons/ic_3d_hydration.png';
+  static const String ic3dVoiceAi = 'assets/icons/ic_3d_voice_ai.png';
   static const String icNavToday = 'assets/icons/ic_nav_today.png';
   static const String icNavFinance = 'assets/icons/ic_nav_finance.png';
   static const String icNavCalendar = 'assets/icons/ic_nav_calendar.png';
@@ -260,10 +266,19 @@ abstract final class AppAssets {
         code == Icons.tire_repair_outlined.codePoint) {
       return icCatVehicle;
     }
+    if (code == Icons.water_drop_outlined.codePoint ||
+        code == Icons.water_drop_rounded.codePoint ||
+        code == Icons.local_drink_outlined.codePoint) {
+      return ic3dHydration;
+    }
+    if (code == Icons.mic_rounded.codePoint ||
+        code == Icons.mic_none_rounded.codePoint ||
+        code == Icons.graphic_eq_rounded.codePoint) {
+      return ic3dVoiceAi;
+    }
     if (code == Icons.electric_bolt_rounded.codePoint ||
         code == Icons.bolt_rounded.codePoint ||
         code == Icons.electric_meter_outlined.codePoint ||
-        code == Icons.water_drop_outlined.codePoint ||
         code == Icons.wifi_rounded.codePoint) {
       return icCatUtilities;
     }

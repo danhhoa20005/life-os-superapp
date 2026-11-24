@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/services/native_device_calendar_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../bloc/auth_bloc.dart';
@@ -259,7 +260,7 @@ class WelcomePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Một ứng dụng. Cả cuộc sống. Quản lý tài chính, lịch trình, công việc và gia đình trọn vẹn.',
+                      'Tài chính, lịch trình và gia đình trọn vẹn trong một chạm.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -268,51 +269,41 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    // Official BrandKit 1.0 House-Family-Leaves Hero Circle
+                    // 3D Ecosystem Showcase Frame (216x216, rounded 36px, soft shadow & subtle border)
                     Container(
                       width: 216,
                       height: 216,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            c.primary.withValues(alpha: 0.18),
-                            c.primarySubtle.withValues(alpha: 0.72),
-                          ],
+                        color: c.surface,
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(
+                          color: c.primary.withValues(alpha: 0.18),
+                          width: 1.1,
                         ),
-                      ),
-                      child: const Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          LifeOsSymbolMark(size: 118),
-                          Positioned(
-                            left: 14,
-                            top: 24,
-                            child: LifeOsIconSquircle(
-                              icon: Icons.calendar_today_rounded,
-                              size: 34,
-                              iconSize: 17,
-                            ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: c.primary.withValues(alpha: 0.14),
+                            blurRadius: 28,
+                            offset: const Offset(0, 12),
                           ),
-                          Positioned(
-                            right: 14,
-                            top: 30,
-                            child: LifeOsIconSquircle(
-                              icon: Icons.account_balance_wallet_outlined,
-                              size: 34,
-                              iconSize: 17,
-                            ),
-                          ),
-                          Positioned(
-                            right: 18,
-                            bottom: 24,
-                            child: LifeOsIconSquircle(
-                              icon: Icons.check_circle_outline_rounded,
-                              size: 34,
-                              iconSize: 17,
-                            ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(35),
+                        child: Image.asset(
+                          AppAssets.hero3dWelcomeEcosystem,
+                          width: 216,
+                          height: 216,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: LifeOsSymbolMark(size: 118),
+                          ),
+                        ),
                       ),
                     ),
                     const Spacer(),

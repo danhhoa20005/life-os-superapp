@@ -89,6 +89,17 @@ class BlocRouterRefreshStream implements Listenable {
   Future<void> dispose() => _subscription.cancel();
 }
 
+Page<void> _motionPage(
+  GoRouterState state,
+  WidgetBuilder builder, {
+  bool fadeThrough = false,
+}) {
+  final child = Builder(builder: builder);
+  return fadeThrough
+      ? LifeOsPageTransitions.fadeThrough<void>(state: state, child: child)
+      : LifeOsPageTransitions.sharedAxis<void>(state: state, child: child);
+}
+
 GoRouter createAppRouter(
   AuthBloc authBloc,
   BlocRouterRefreshStream refreshStream,
@@ -127,29 +138,53 @@ GoRouter createAppRouter(
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
-      GoRoute(path: '/welcome', builder: (_, __) => const WelcomePage()),
-      GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
-      GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
+      GoRoute(
+        path: '/splash',
+        pageBuilder: (_, state) =>
+            _motionPage(state, (_) => const SplashPage(), fadeThrough: true),
+      ),
+      GoRoute(
+        path: '/welcome',
+        pageBuilder: (_, state) =>
+            _motionPage(state, (_) => const WelcomePage()),
+      ),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (_, state) =>
+            _motionPage(state, (_) => const LoginPage(), fadeThrough: true),
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (_, state) =>
+            _motionPage(state, (_) => const RegisterPage()),
+      ),
       GoRoute(
         path: '/forgot-password',
-        builder: (_, state) => ForgotPasswordPage(
-          initialEmail: state.extra is String ? state.extra as String : null,
+        pageBuilder: (_, state) => _motionPage(
+          state,
+          (_) => ForgotPasswordPage(
+            initialEmail: state.extra is String ? state.extra as String : null,
+          ),
         ),
       ),
       GoRoute(
         path: '/verify-otp',
-        builder: (_, state) => VerifyOtpPage(
-          email: state.extra is String ? state.extra as String : null,
+        pageBuilder: (_, state) => _motionPage(
+          state,
+          (_) => VerifyOtpPage(
+            email: state.extra is String ? state.extra as String : null,
+          ),
         ),
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (_, __) => const ResetPasswordPage(),
+        pageBuilder: (_, state) =>
+            _motionPage(state, (_) => const ResetPasswordPage()),
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (_, __) => const OnboardingPrivacyPage(),
+        pageBuilder: (_, state) =>
+            _motionPage(state, (_) => const OnboardingPrivacyPage()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -193,7 +228,7 @@ GoRouter createAppRouter(
       ),
       GoRoute(
         path: '/assets',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -201,19 +236,19 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const AssetsPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/account-profile',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return const AccountProfilePage();
-        },
+        }),
       ),
       GoRoute(
         path: '/notifications-privacy',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -221,11 +256,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const NotificationsPrivacyPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/home-widgets',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -233,11 +268,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const HomeWidgetsStudioPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/event-detail',
-        builder: (context, state) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -249,27 +284,31 @@ GoRouter createAppRouter(
                   : null,
             ),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/event-alarm',
-        builder: (context, state) {
-          final user = context.read<AuthBloc>().state.user;
-          if (user == null) return const LoginPage();
-          return _ScopedAuthenticatedProviders(
-            userId: user.id,
-            familyId: user.activeFamilyId,
-            child: EventAlarmPage(
-              event: state.extra is CalendarEventEntity
-                  ? state.extra as CalendarEventEntity
-                  : null,
-            ),
-          );
-        },
+        pageBuilder: (_, state) => _motionPage(
+          state,
+          (context) {
+            final user = context.read<AuthBloc>().state.user;
+            if (user == null) return const LoginPage();
+            return _ScopedAuthenticatedProviders(
+              userId: user.id,
+              familyId: user.activeFamilyId,
+              child: EventAlarmPage(
+                event: state.extra is CalendarEventEntity
+                    ? state.extra as CalendarEventEntity
+                    : null,
+              ),
+            );
+          },
+          fadeThrough: true,
+        ),
       ),
       GoRoute(
         path: '/tasks-board',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -277,11 +316,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const TasksBoardPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/auto-tx-review',
-        builder: (context, state) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -294,11 +333,11 @@ GoRouter createAppRouter(
               initialTransactionId: state.uri.queryParameters['txId'],
             ),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/finance-report',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -306,11 +345,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const FinanceReportPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/family-funds',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -318,11 +357,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const FamilyFundsPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/family-documents',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -330,11 +369,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const FamilyDocumentsPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/activity-notifications',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -342,11 +381,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const ActivityNotificationsPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/settings-hub',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -354,11 +393,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const SettingsHubPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/pro-utilities',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -366,11 +405,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const ProUtilitiesHubPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/subscriptions-warranty',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -378,11 +417,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const SubscriptionsWarrantyPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/habits-focus',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -390,11 +429,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const HabitsFocusPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/social-ledger-travel',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -402,11 +441,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const SocialLedgerTravelPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/wealth-tools',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -414,11 +453,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const WealthToolsPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/super-app-hub',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -426,11 +465,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const SuperAppDirectoryPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/health-hub',
-        builder: (context, state) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -440,11 +479,11 @@ GoRouter createAppRouter(
               initialTab: state.uri.queryParameters['tab'],
             ),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/kitchen-groceries',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -452,11 +491,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const KitchenGroceriesPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/home-living',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -464,11 +503,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const HomeLivingUtilitiesPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/smart-notes-hub',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -476,11 +515,11 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const SmartNotesSalaryPage(),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/financial-ai',
-        builder: (context, state) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           String? initialText;
@@ -504,11 +543,11 @@ GoRouter createAppRouter(
               initialSource: initialSource,
             ),
           );
-        },
+        }),
       ),
       GoRoute(
         path: '/financial-ai-settings',
-        builder: (context, _) {
+        pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
           return _ScopedAuthenticatedProviders(
@@ -516,7 +555,7 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const FinancialAiSettingsPage(),
           );
-        },
+        }),
       ),
     ],
   );
@@ -871,35 +910,64 @@ class _SlidingShellViewportState extends State<_SlidingShellViewport>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late Animation<Offset> _slideAnim;
-  late final Animation<double> _fadeAnim;
+  late Animation<double> _fadeAnim;
+  LifeOsMotionPreferences _motion = const LifeOsMotionPreferences();
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: LifeOsMotionTokens.standard,
       value: 1.0,
     );
     _slideAnim = const AlwaysStoppedAnimation<Offset>(Offset.zero);
-    _fadeAnim = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
-    ).drive(Tween<double>(begin: 0.94, end: 1.0));
+    _fadeAnim = const AlwaysStoppedAnimation<double>(1.0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _motion = LifeOsMotionScope.of(context);
   }
 
   @override
   void didUpdateWidget(covariant _SlidingShellViewport oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
-      final dir = widget.currentIndex > oldWidget.currentIndex ? 1.0 : -1.0;
-      _slideAnim =
-          Tween<Offset>(
-            begin: Offset(dir * 0.038, 0),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-          );
+      if (_motion.isMotionOff || !TickerMode.valuesOf(context).enabled) {
+        _controller.stop();
+        _slideAnim = const AlwaysStoppedAnimation<Offset>(Offset.zero);
+        _fadeAnim = const AlwaysStoppedAnimation<double>(1.0);
+        _controller.value = 1.0;
+        return;
+      }
+
+      _controller.duration = _motion.resolveDuration(
+        LifeOsMotionTokens.standard,
+      );
+      final curve = CurvedAnimation(
+        parent: _controller,
+        curve: LifeOsMotionTokens.standardCurve,
+      );
+
+      if (_motion.isReducedMotion) {
+        _slideAnim = const AlwaysStoppedAnimation<Offset>(Offset.zero);
+        _fadeAnim = Tween<double>(begin: 0.94, end: 1.0).animate(curve);
+      } else {
+        final dir = widget.currentIndex > oldWidget.currentIndex ? 1.0 : -1.0;
+        // Blend smoothly from any mid-flight residual offset so rapid 0->2->1->3 taps never snap
+        final residualDx = _slideAnim.value.dx;
+        final startDx =
+            (residualDx * 0.35 +
+                    dir * LifeOsMotionTokens.shellBranchSlideFraction)
+                .clamp(-0.032, 0.032);
+        _slideAnim = Tween<Offset>(
+          begin: Offset(startDx, 0),
+          end: Offset.zero,
+        ).animate(curve);
+        _fadeAnim = Tween<double>(begin: 0.95, end: 1.0).animate(curve);
+      }
       _controller.forward(from: 0.0);
     }
   }

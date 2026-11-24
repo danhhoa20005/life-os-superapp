@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../motion/lifeos_motion_scope.dart';
+import '../motion/lifeos_motion_tokens.dart';
 import 'liquid_glass.dart';
 
 enum LifeOsToastKind { success, error, warning, info }
@@ -186,6 +188,8 @@ class LifeOsTopToastHost extends StatefulWidget {
 class _LifeOsTopToastHostState extends State<LifeOsTopToastHost>
     with SingleTickerProviderStateMixin {
   _TopToastEntryData? _current;
+  String? _lastSignature;
+  DateTime? _lastPresentedAt;
   Timer? _autoDismissTimer;
   late final AnimationController _animController;
   late final Animation<Offset> _slideAnimation;
@@ -198,28 +202,66 @@ class _LifeOsTopToastHostState extends State<LifeOsTopToastHost>
     LifeOsTopToast._mountedHost = this;
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 260),
-      reverseDuration: const Duration(milliseconds: 185),
+      duration: LifeOsMotionTokens.standard,
+      reverseDuration: LifeOsMotionTokens.exitFast,
     );
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, -1.08), end: Offset.zero).animate(
-          CurvedAnimation(parent: _animController, curve: Curves.easeOutQuart),
+          CurvedAnimation(
+            parent: _animController,
+            curve: LifeOsMotionTokens.emphasizedCurve,
+          ),
         );
     _fadeAnimation = CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOut,
+      curve: LifeOsMotionTokens.standardCurve,
     );
-    _scaleAnimation = Tween<double>(begin: 0.97, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
+    _scaleAnimation = Tween<double>(begin: 0.975, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: LifeOsMotionTokens.standardCurve,
+      ),
     );
   }
 
   void _present(_TopToastEntryData data) {
+    final now = DateTime.now();
+    final sig = '${data.kind.name}|${data.message}|${data.actionLabel ?? ''}';
+    final isDuplicateActiveBurst =
+        _current != null &&
+        _lastSignature == sig &&
+        _lastPresentedAt != null &&
+        now.difference(_lastPresentedAt!) <=
+            LifeOsMotionTokens.toastDedupeWindow;
+
     _autoDismissTimer?.cancel();
+    _lastSignature = sig;
+    _lastPresentedAt = now;
+
+    if (isDuplicateActiveBurst) {
+      // Section 7.5: Deduplicate equivalent foreground bursts without replaying entrance motion
+      _autoDismissTimer = Timer(data.duration, () {
+        if (mounted) _dismissCurrent();
+      });
+      return;
+    }
+
     setState(() {
       _current = data;
     });
-    _animController.forward(from: 0);
+
+    final motion = LifeOsMotionScope.read(context);
+    _animController.duration = motion.resolveDuration(
+      LifeOsMotionTokens.standard,
+    );
+    _animController.reverseDuration = motion.resolveDuration(
+      LifeOsMotionTokens.exitFast,
+    );
+    if (motion.isMotionOff) {
+      _animController.value = 1.0;
+    } else {
+      _animController.forward(from: 0);
+    }
     _autoDismissTimer = Timer(data.duration, () {
       if (mounted) {
         _dismissCurrent();
@@ -256,51 +298,55 @@ class _LifeOsTopToastHostState extends State<LifeOsTopToastHost>
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.maybePaddingOf(context)?.top ?? 0;
+    final motion = LifeOsMotionScope.of(context);
     final active = _current;
     final isInteractive =
         active != null && active.actionLabel != null && active.onAction != null;
 
+    Widget? toastSurface;
+    if (active != null) {
+      final card = Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Dismissible(
+            key: ValueKey('top_toast_${active.id}'),
+            direction: DismissDirection.up,
+            onDismissed: (_) {
+              _autoDismissTimer?.cancel();
+              setState(() => _current = null);
+            },
+            child: Material(
+              type: MaterialType.transparency,
+              child: _TopToastBannerCard(
+                data: active,
+                rawOriginalMessage: active.message,
+                onDismiss: _dismissCurrent,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      toastSurface = motion.isReducedMotion
+          ? FadeTransition(opacity: _fadeAnimation, child: card)
+          : SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: ScaleTransition(scale: _scaleAnimation, child: card),
+              ),
+            );
+    }
+
     return Stack(
       children: [
         widget.child,
-        if (active != null)
+        if (toastSurface != null)
           Positioned(
             top: topInset + 8,
             left: 12,
             right: 12,
-            child: IgnorePointer(
-              ignoring: !isInteractive,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 430),
-                        child: Dismissible(
-                          key: ValueKey('top_toast_${active.id}'),
-                          direction: DismissDirection.up,
-                          onDismissed: (_) {
-                            _autoDismissTimer?.cancel();
-                            setState(() => _current = null);
-                          },
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: _TopToastBannerCard(
-                              data: active,
-                              rawOriginalMessage: active.message,
-                              onDismiss: _dismissCurrent,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            child: IgnorePointer(ignoring: !isInteractive, child: toastSurface),
           ),
       ],
     );
@@ -381,9 +427,13 @@ class _TopToastBannerCard extends StatelessWidget {
       ),
     );
 
-    return DecoratedBox(
-      decoration: ShapeDecoration(
-        shape: squircleShape,
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      label: '$badgeTitle: ${data.message}',
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          shape: squircleShape,
         shadows: [
           // 1. Soft airy 3D ambient lift (warm slate-sage, never pitch black)
           BoxShadow(
@@ -565,6 +615,7 @@ class _TopToastBannerCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -145,31 +145,13 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Phiên bản: ${meta.modelId} (v${meta.modelVersion})',
+                                      'Xử lý trực tiếp trên điện thoại · ${meta.numClasses} nhóm ngữ nghĩa tiếng Việt (v${meta.modelVersion})',
                                       softWrap: true,
                                       style: TextStyle(
-                                        fontSize: 12.8,
-                                        fontWeight: FontWeight.w700,
-                                        color: c.textPrimary,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Kiến trúc: ${meta.architecture}',
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        fontSize: 12.3,
+                                        fontSize: 12.6,
                                         color: c.textSecondary,
                                       ),
                                     ),
-                                    if (meta.sizeBytes > 0)
-                                      Text(
-                                        'Dung lượng nén INT8: ${(meta.sizeBytes / 1024).toStringAsFixed(1)} KB · ${meta.numClasses} nhóm ngữ nghĩa tiếng Việt',
-                                        softWrap: true,
-                                        style: TextStyle(
-                                          fontSize: 12.3,
-                                          color: c.textSecondary,
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
@@ -496,7 +478,7 @@ class _GeminiConnectionStudioCardState
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Bóc tách câu ghép đa tác vụ (Thu chi · Lịch hẹn · Việc làm · Đi chợ) và cố vấn chi tiêu thông minh. Khóa kết nối chỉ mã hóa cục bộ trên thiết bị của bạn.',
+                    'Bóc tách câu ghép đa tác vụ (Thu chi · Lịch hẹn · Việc làm · Đi chợ) và cố vấn chi tiêu thông minh.',
                     softWrap: true,
                     style: TextStyle(
                       fontSize: 12.4,
@@ -512,8 +494,8 @@ class _GeminiConnectionStudioCardState
                       title: const Text('Bật chế độ kết hợp Gemini AI'),
                       subtitle: Text(
                         cfg.lastVerifiedAt != null
-                            ? 'Khóa ${cfg.maskedApiKey} · Đã kiểm tra ${timeFmt.format(cfg.lastVerifiedAt!)}'
-                            : 'Đang lưu bảo mật: ${cfg.maskedApiKey}',
+                            ? 'Đã lưu khóa kết nối · Kiểm tra lúc ${timeFmt.format(cfg.lastVerifiedAt!)}'
+                            : 'Đã lưu khóa kết nối trên thiết bị',
                       ),
                       value: cfg.enabled,
                       onChanged: (v) => bloc.add(

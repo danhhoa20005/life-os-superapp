@@ -38,6 +38,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
   String? _selectedWalletId;
   String? _lastShownOrderId;
   String _historyFilter = 'all'; // 'all' | 'credit' | 'debit'
+  bool _showRawExportPreview = false;
 
   @override
   void initState() {
@@ -617,14 +618,26 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                         qrUrl,
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => Center(
-                          child: SelectableText(
-                            order.emvQrPayload,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 9.5,
-                              fontFamily: 'monospace',
-                              color: Colors.black87,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.qr_code_2_rounded,
+                                size: 54,
+                                color: Colors.black54,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                order.paymentCode,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'monospace',
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -817,7 +830,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                       ),
                                       Text(
                                         defaultAccount != null
-                                            ? '${defaultAccount.bankName} · ${defaultAccount.maskedAccount} · ${defaultAccount.accountHolderName}'
+                                            ? '${defaultAccount.bankName} · ${defaultAccount.maskedAccount}'
                                             : 'Tích hợp trực tiếp trong ứng dụng — không cần tài khoản bên thứ ba',
                                         style: TextStyle(
                                           color: Colors.white.withValues(
@@ -1832,7 +1845,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                       onPressed: () {
                                         sl<NativeAppUpdaterBridge>().shareTextFile(
                                           fileName:
-                                              'LifeOS_Data_${user.id.substring(0, 6)}.json',
+                                              'LifeOS_Data_${user.id.substring(0, user.id.length < 6 ? user.id.length : 6)}.json',
                                           content: state.exportedJson!,
                                           mimeType: 'application/json',
                                           title: 'Sao lưu dữ liệu LifeOS',
@@ -1873,25 +1886,64 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               ),
                               if (state.exportedJson != null) ...[
                                 const SizedBox(height: AppSpacing.sm),
-                                Container(
-                                  padding: const EdgeInsets.all(AppSpacing.sm),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.radiusSm,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Tệp sao lưu đã sẵn sàng để lưu trữ riêng tư.',
+                                        softWrap: true,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
                                     ),
-                                    border: Border.all(
-                                      color: Colors.grey.shade400,
+                                    TextButton.icon(
+                                      key: const Key(
+                                        'toggle_raw_export_preview_btn',
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onPressed: () => setState(() {
+                                        _showRawExportPreview =
+                                            !_showRawExportPreview;
+                                      }),
+                                      icon: Icon(
+                                        _showRawExportPreview
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        _showRawExportPreview
+                                            ? 'Ẩn nội dung'
+                                            : 'Xem trước tệp',
+                                      ),
                                     ),
-                                  ),
-                                  child: SelectableText(
-                                    state.exportedJson!,
-                                    maxLines: 8,
-                                    style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                  ],
                                 ),
+                                if (_showRawExportPreview)
+                                  Container(
+                                    padding: const EdgeInsets.all(
+                                      AppSpacing.sm,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(
+                                        AppSpacing.radiusSm,
+                                      ),
+                                      border: Border.all(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    child: SelectableText(
+                                      state.exportedJson!,
+                                      maxLines: 8,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ],
                           ),
@@ -1912,7 +1964,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
 extension on PaymentOrderEntity {
   String get maskedAccountLabel {
     final clean = accountNumber.trim();
-    if (clean.length <= 4) return clean;
+    if (clean.length <= 4) return '••••';
     return '•••• ${clean.substring(clean.length - 4)}';
   }
 }
