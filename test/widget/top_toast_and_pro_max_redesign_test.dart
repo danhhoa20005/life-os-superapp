@@ -221,10 +221,14 @@ void main() {
         await tester.pumpWidget(const LifeOsApp());
         await tester.pumpAndSettle();
 
-        expect(find.text('Tổng tài sản ròng cá nhân'), findsOneWidget);
-        expect(find.text('Việc cần chú ý'), findsOneWidget);
+        expect(find.text('Quỹ gia đình & Tài sản'), findsOneWidget);
+        expect(find.text('Menu'), findsOneWidget);
 
         // Tap 1-Tap Eye Privacy Toggle -> masks balance & shows Top Toast at top of screen!
+        await tester.ensureVisible(
+          find.byKey(const Key('toggle_balance_privacy_btn')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('toggle_balance_privacy_btn')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 260));

@@ -843,203 +843,185 @@ class LifeOsTopBrandHeader extends StatelessWidget {
     final Widget? effectiveAvatarTrailing =
         profileTrailing ??
         (authUser != null ? _HeaderEdgeAvatarButton(user: authUser) : null);
+    final isHomeBrand =
+        title == 'LifeOS' || title.trim().startsWith('Xin chào');
+    final hasContextualRow =
+        trailingAction != null ||
+        extraBrandActions.isNotEmpty ||
+        (subtitle != null && subtitle!.isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Row 1: Full-bleed top chrome so Avatar sits flush against the far-right edge
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            compact ? 4 : 8,
-            4,
-            0,
+        // Bar 1: Facebook-Standard Single-Row Docked Top Bar
+        // Left: LifeOS Wordmark (on Home) or Bold Tab Title  •  Right: (+) (🔍) (🔔) (Aa) + Flush-Right Avatar
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: c.surface.withValues(alpha: isDark ? 0.94 : 0.97),
+            border: Border(
+              bottom: BorderSide(color: c.separator, width: 0.8),
+            ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              compact ? 6 : 8,
+              4,
+              compact ? 6 : 8,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Tooltip(
-                      message: 'Bảng tính năng LifeOS',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          key: const Key('open_logo_side_drawer_button'),
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () => showLifeOsLogoSideDrawer(context),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 4,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.menu_rounded,
-                                  size: compact ? 20 : 22,
-                                  color: c.textPrimary,
-                                ),
-                                const SizedBox(width: 6),
-                                LifeOsBrandWordmark(
-                                  iconSize: compact ? 30 : 34,
-                                  fontSize: compact ? 18.5 : 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (extraBrandActions.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: extraBrandActions
-                      .map(
-                        (w) => Padding(
-                          padding: const EdgeInsets.only(right: 5),
-                          child: w,
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
-              LiquidGlassSurface(
-                material: LiquidGlassMaterial.navigationChrome,
-                borderRadius: 24,
-                blurSigma: 22,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 3,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (themeBloc != null)
-                      _CapsuleIconBtn(
-                        buttonKey: const Key(
-                          'open_appearance_studio_button',
-                        ),
-                        icon: isDark
-                            ? Icons.light_mode_outlined
-                            : Icons.text_fields_rounded,
-                        tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
-                        onTap: () => showLifeOsAppearanceSheet(context),
-                      ),
-                    _CapsuleIconBtn(
-                      icon: Icons.search_rounded,
-                      tooltip: 'Tìm kiếm nhanh LifeOS',
-                      onTap: () => showLifeOsOmniSearchSheet(context),
-                    ),
-                    _CapsuleIconBtn(
-                      icon: Icons.notifications_none_rounded,
-                      tooltip: 'Trung tâm Thông báo',
-                      showUnreadDot: showUnreadNotificationDot,
-                      onTap: () => context.push('/activity-notifications'),
-                    ),
-                  ],
-                ),
-              ),
-              if (effectiveAvatarTrailing != null) ...[
-                const SizedBox(width: 6),
-                effectiveAvatarTrailing,
-              ],
-            ],
-          ),
-        ),
-        SizedBox(height: compact ? 7 : 10),
-
-        // Row 2: Page Title + Primary Action aligned to content grid
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            0,
-            AppSpacing.md,
-            compact ? 6 : 10,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AppSpacing.maxContentWidth,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: title.length <= 28
-                              ? FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    title,
-                                    style: TextStyle(
-                                      fontSize: compact ? 20.5 : 23,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.4,
-                                      height: 1.18,
-                                      color: c.textPrimary,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Tooltip(
+                        message: 'Bảng tính năng LifeOS',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            key: const Key('open_logo_side_drawer_button'),
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => showLifeOsLogoSideDrawer(context),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 3,
+                              ),
+                              child: isHomeBrand
+                                  ? LifeOsBrandWordmark(
+                                      iconSize: compact ? 30 : 32,
+                                      fontSize: compact ? 19.5 : 21,
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        LifeOsLeafMark(
+                                          size: compact ? 26 : 28,
+                                          borderRadius: 8,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          title,
+                                          style: TextStyle(
+                                            fontSize: compact ? 19.5 : 21,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.4,
+                                            height: 1.15,
+                                            color: c.textPrimary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                )
-                              : Text(
-                                  title,
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontSize: compact ? 20.5 : 23,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.4,
-                                    height: 1.18,
-                                    color: c.textPrimary,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      if (trailingAction != null) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: trailingAction!,
+                            ),
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                  if (subtitle != null && subtitle!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: compact ? 12 : 12.6,
-                        fontWeight: FontWeight.w500,
-                        height: 1.25,
-                        color: c.textSecondary,
                       ),
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _FbTopCircleIconBtn(
+                  buttonKey: const Key('lifeos_center_quick_add_fab'),
+                  icon: Icons.add_rounded,
+                  tooltip: 'Thêm nhanh',
+                  onTap: () => showLifeOsQuickCreateHub(context),
+                ),
+                const SizedBox(width: 5),
+                _FbTopCircleIconBtn(
+                  icon: Icons.search_rounded,
+                  tooltip: 'Tìm kiếm nhanh LifeOS',
+                  onTap: () => showLifeOsOmniSearchSheet(context),
+                ),
+                const SizedBox(width: 5),
+                _FbTopCircleIconBtn(
+                  icon: Icons.notifications_none_rounded,
+                  tooltip: 'Trung tâm Thông báo',
+                  showUnreadDot: showUnreadNotificationDot,
+                  onTap: () => context.push('/activity-notifications'),
+                ),
+                if (themeBloc != null) ...[
+                  const SizedBox(width: 5),
+                  _FbTopCircleIconBtn(
+                    buttonKey: const Key('open_appearance_studio_button'),
+                    icon: isDark
+                        ? Icons.light_mode_outlined
+                        : Icons.text_fields_rounded,
+                    tooltip: 'Giao diện Sáng/Tối & Cỡ chữ',
+                    onTap: () => showLifeOsAppearanceSheet(context),
+                  ),
                 ],
-              ),
+                if (effectiveAvatarTrailing != null) ...[
+                  const SizedBox(width: 5),
+                  effectiveAvatarTrailing,
+                ],
+              ],
             ),
           ),
         ),
+
+        // Optional Contextual Sub-Strip ONLY when a tab provides primary actions/subtitles
+        if (hasContextualRow)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              compact ? 6 : 8,
+              AppSpacing.md,
+              compact ? 4 : 6,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.maxContentWidth,
+                ),
+                child: Row(
+                  children: [
+                    if (subtitle != null && subtitle!.isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          subtitle!,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: compact ? 12 : 12.5,
+                            fontWeight: FontWeight.w500,
+                            height: 1.25,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    if (extraBrandActions.isNotEmpty)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: extraBrandActions
+                            .map(
+                              (w) => Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: w,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    if (trailingAction != null) ...[
+                      const SizedBox(width: 6),
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: trailingAction!,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1118,14 +1100,14 @@ class _HeaderEdgeAvatarButton extends StatelessWidget {
   }
 }
 
-class _CapsuleIconBtn extends StatelessWidget {
+class _FbTopCircleIconBtn extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
   final bool showUnreadDot;
   final Key? buttonKey;
 
-  const _CapsuleIconBtn({
+  const _FbTopCircleIconBtn({
     required this.icon,
     required this.tooltip,
     required this.onTap,
@@ -1136,34 +1118,44 @@ class _CapsuleIconBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = isDark
+        ? const Color(0xFF232C27)
+        : const Color(0xFFF0F2F5);
+
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        key: buttonKey,
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: SizedBox(
-          width: 34,
-          height: 32,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(icon, size: 18.5, color: c.textPrimary),
-              if (showUnreadDot)
-                Positioned(
-                  right: 7,
-                  top: 6,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: c.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: c.surface, width: 1.2),
+      child: Material(
+        color: fillColor,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: buttonKey,
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(icon, size: 19, color: c.textPrimary),
+                if (showUnreadDot)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      width: 7.5,
+                      height: 7.5,
+                      decoration: BoxDecoration(
+                        color: c.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: fillColor, width: 1.3),
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1273,18 +1265,14 @@ class LifeOsIconSquircle extends StatelessWidget {
     final (bg, fg) = tone.resolve(context);
     final radius = size * 0.32;
 
-    if (!solidFill) {
-      final resolvedAsset =
-          bananaAsset ?? AppAssets.resolveBananaIconForGlyph(icon);
-      if (resolvedAsset != null) {
-        return BananaGlassIcon(
-          assetPath: resolvedAsset,
-          fallbackIcon: icon,
-          fallbackColor: fg,
-          size: size,
-          borderRadius: radius,
-        );
-      }
+    if (!solidFill && bananaAsset != null) {
+      return BananaGlassIcon(
+        assetPath: bananaAsset!,
+        fallbackIcon: icon,
+        fallbackColor: fg,
+        size: size,
+        borderRadius: radius,
+      );
     }
 
     return Container(

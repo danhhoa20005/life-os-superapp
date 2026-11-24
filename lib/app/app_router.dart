@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/constants/app_assets.dart';
 import '../core/di/dependency_injection.dart';
 import '../core/services/fcm_banking_messaging_service.dart';
 import '../core/services/native_alarm_scheduler_bridge.dart';
@@ -222,6 +222,15 @@ GoRouter createAppRouter(
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/family', builder: (_, __) => const FamilyPage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/menu',
+                builder: (_, __) =>
+                    const SuperAppDirectoryPage(isEmbeddedShellTab: true),
+              ),
             ],
           ),
         ],
@@ -686,7 +695,6 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       int branchIndex,
       IconData icon,
       IconData activeIcon,
-      String assetPath,
       String label,
     })
   >
@@ -695,29 +703,31 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       branchIndex: 0,
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
-      assetPath: AppAssets.icNavToday,
       label: 'Hôm nay',
     ),
     (
       branchIndex: 1,
-      icon: Icons.bar_chart_rounded,
-      activeIcon: Icons.bar_chart_rounded,
-      assetPath: AppAssets.icNavFinance,
+      icon: Icons.account_balance_wallet_outlined,
+      activeIcon: Icons.account_balance_wallet_rounded,
       label: 'Tài chính',
     ),
     (
       branchIndex: 2,
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_today_rounded,
-      assetPath: AppAssets.icNavCalendar,
       label: 'Lịch & Việc',
     ),
     (
       branchIndex: 3,
       icon: Icons.groups_outlined,
       activeIcon: Icons.groups_rounded,
-      assetPath: AppAssets.icNavFamily,
       label: 'Gia đình',
+    ),
+    (
+      branchIndex: 4,
+      icon: Icons.menu_rounded,
+      activeIcon: Icons.menu_rounded,
+      label: 'Menu',
     ),
   ];
 
@@ -815,25 +825,6 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
               );
             }
 
-            // Symmetrical 4-Tab + Center `+` Apple Liquid Glass Sliding Floating Dock:
-            // Left: Hôm nay | Tài chính  •  Center: [+]  •  Right: Lịch & Việc | Gia đình
-            final dockItems = _tabs
-                .map(
-                  (tab) => LiquidGlassDockItem(
-                    branchIndex: tab.branchIndex,
-                    label: tab.label,
-                    iconBuilder: (_, isSelected, color) => BananaGlassIcon(
-                      assetPath: tab.assetPath,
-                      fallbackIcon: isSelected ? tab.activeIcon : tab.icon,
-                      fallbackColor: color,
-                      size: 24,
-                      borderRadius: 8,
-                      isSelected: isSelected,
-                    ),
-                  ),
-                )
-                .toList(growable: false);
-
             return Scaffold(
               extendBody: true,
               body: Stack(
@@ -846,7 +837,7 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                     key: const Key('shell_left_edge_drawer_swipe_zone'),
                     left: 0,
                     top: 0,
-                    bottom: 96,
+                    bottom: 68,
                     width: 14,
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
@@ -860,31 +851,176 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                 ],
               ),
               bottomNavigationBar: RepaintBoundary(
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    child: LiquidGlassSlidingDock(
-                      dockKey: const Key('lifeos_liquid_glass_bottom_dock'),
-                      selectedIndex: navigationShell.currentIndex,
-                      items: dockItems,
-                      onDestinationSelected: (branchIdx) =>
-                          navigationShell.goBranch(
-                            branchIdx,
-                            initialLocation:
-                                branchIdx == navigationShell.currentIndex,
-                          ),
-                      centerJewel: LiquidGlassJewelButton(
-                        buttonKey: const Key('lifeos_center_quick_add_fab'),
-                        tooltip: 'Thêm nhanh',
-                        onTap: () => showLifeOsQuickCreateHub(context),
+                child: _FacebookStandardBottomBar(
+                  barKey: const Key('lifeos_liquid_glass_bottom_dock'),
+                  selectedIndex: navigationShell.currentIndex,
+                  tabs: _tabs,
+                  onDestinationSelected: (branchIdx) =>
+                      navigationShell.goBranch(
+                        branchIdx,
+                        initialLocation:
+                            branchIdx == navigationShell.currentIndex,
                       ),
-                    ),
-                  ),
                 ),
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Facebook-Standard Edge-to-Edge Docked Bottom Navigation Bar:
+/// - Clean full-width bar with subtle top hairline border (`#FFFFFF` Light / `#121815` Dark)
+/// - Signature top active indicator bar (`Key('lifeos_sliding_dock_pill')`) gliding across 5 tabs
+/// - 5 balanced columns: `Hôm nay` · `Tài chính` · `Lịch & Việc` · `Gia đình` · `Menu`
+class _FacebookStandardBottomBar extends StatelessWidget {
+  final Key? barKey;
+  final int selectedIndex;
+  final List<
+    ({
+      int branchIndex,
+      IconData icon,
+      IconData activeIcon,
+      String label,
+    })
+  >
+  tabs;
+  final ValueChanged<int> onDestinationSelected;
+
+  const _FacebookStandardBottomBar({
+    this.barKey,
+    required this.selectedIndex,
+    required this.tabs,
+    required this.onDestinationSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final motion = LifeOsMotionScope.of(context);
+    final dur = motion.resolveDuration(LifeOsMotionTokens.standard);
+    final safeIdx = selectedIndex.clamp(0, tabs.length - 1);
+
+    return ClipRect(
+      key: barKey,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: c.surface.withValues(alpha: isDark ? 0.94 : 0.96),
+            border: Border(
+              top: BorderSide(color: c.separator, width: 0.8),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 58,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final count = tabs.isEmpty ? 1 : tabs.length;
+                  final slotWidth = constraints.maxWidth / count;
+                  final indicatorInset = (slotWidth * 0.18).clamp(8.0, 20.0);
+                  final indicatorWidth = (slotWidth - indicatorInset * 2).clamp(
+                    24.0,
+                    72.0,
+                  );
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragUpdate: (details) {
+                      if (slotWidth <= 0) return;
+                      final target = (details.localPosition.dx / slotWidth)
+                          .floor()
+                          .clamp(0, count - 1);
+                      if (target != safeIdx) {
+                        onDestinationSelected(tabs[target].branchIndex);
+                      }
+                    },
+                    child: Stack(
+                      children: [
+                        AnimatedPositioned(
+                          key: const Key('lifeos_sliding_dock_pill'),
+                          duration: dur,
+                          curve: motion.resolveCurve(
+                            LifeOsMotionTokens.standardCurve,
+                          ),
+                          left: safeIdx * slotWidth + indicatorInset,
+                          top: 0,
+                          width: indicatorWidth,
+                          height: 3.0,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: c.primary,
+                              borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final tab in tabs)
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () =>
+                                      onDestinationSelected(tab.branchIndex),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      2,
+                                      6,
+                                      2,
+                                      4,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          tab.branchIndex == safeIdx
+                                              ? tab.activeIcon
+                                              : tab.icon,
+                                          size: 23,
+                                          color: tab.branchIndex == safeIdx
+                                              ? c.primary
+                                              : c.textSecondary,
+                                        ),
+                                        const SizedBox(height: 2.5),
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            tab.label,
+                                            style: TextStyle(
+                                              fontSize: 10.8,
+                                              fontWeight:
+                                                  tab.branchIndex == safeIdx
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w500,
+                                              height: 1.1,
+                                              color: tab.branchIndex == safeIdx
+                                                  ? c.primary
+                                                  : c.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
         ),
       ),
     );

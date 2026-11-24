@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (3D Nano Banana UI + Privacy Masking + Motion System v3.17)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Facebook 2-Bar Navigation + Clean Mint UI + Multi-Engine Voice v3.18)"
 publish_to: 'none'
-version: 3.17.1+33
+version: 3.18.0+34
 
 environment:
   sdk: ^3.10.0

@@ -803,22 +803,24 @@ abstract final class ProCategoryStyle {
     bool isTransfer = false,
     double size = 44,
   }) {
-    if (isCredit && !isTransfer) {
-      return BananaGlassIcon(
-        assetPath: AppAssets.icCatIncome,
-        fallbackIcon: Icons.south_west_rounded,
-        fallbackColor: const Color(0xFF0B7A2A),
-        size: size,
-        borderRadius: 13,
-      );
-    }
     final resolved = resolve(categoryName, isTransfer: isTransfer);
-    return BananaGlassIcon(
-      assetPath: resolved.assetPath,
-      fallbackIcon: resolved.icon,
-      fallbackColor: resolved.color,
-      size: size,
-      borderRadius: 13,
+    final fg = (isCredit && !isTransfer)
+        ? const Color(0xFF0B7A2A)
+        : resolved.color;
+    final icon = (isCredit && !isTransfer)
+        ? Icons.south_west_rounded
+        : resolved.icon;
+    final radius = size * 0.30;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: fg.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: fg.withValues(alpha: 0.20), width: 0.9),
+      ),
+      child: Icon(icon, size: size * 0.48, color: fg),
     );
   }
 }

@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/constants/app_assets.dart';
 import '../../../../core/services/native_device_calendar_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../bloc/auth_bloc.dart';
@@ -269,41 +268,104 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    // 3D Ecosystem Showcase Frame (216x216, rounded 36px, soft shadow & subtle border)
-                    Container(
-                      width: 216,
-                      height: 216,
-                      decoration: BoxDecoration(
-                        color: c.surface,
-                        borderRadius: BorderRadius.circular(36),
-                        border: Border.all(
-                          color: c.primary.withValues(alpha: 0.18),
-                          width: 1.1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: c.primary.withValues(alpha: 0.14),
-                            blurRadius: 28,
-                            offset: const Offset(0, 12),
+                    // Mint Pastel Ecosystem Showcase Circle (#EAFBF0 + Center LeafMark + 4 Domain Squircles)
+                    SizedBox(
+                      width: 214,
+                      height: 214,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 196,
+                            height: 196,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? c.primarySubtle
+                                  : const Color(0xFFEAFBF0),
+                              border: Border.all(
+                                color: c.primary.withValues(alpha: 0.20),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: c.primary.withValues(alpha: 0.12),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
                           ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
+                          Container(
+                            width: 132,
+                            height: 132,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: c.surface.withValues(alpha: 0.72),
+                              border: Border.all(
+                                color: c.primary.withValues(alpha: 0.16),
+                                width: 1.0,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 82,
+                            height: 82,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: c.surface,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: c.primary.withValues(alpha: 0.18),
+                                width: 1.0,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: c.primary.withValues(alpha: 0.14),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const LifeOsLeafMark(
+                              size: 56,
+                              borderRadius: 16,
+                            ),
+                          ),
+                          const Positioned(
+                            top: 12,
+                            left: 16,
+                            child: _WelcomeOrbitBadge(
+                              icon: Icons.account_balance_wallet_outlined,
+                              tone: LifeOsAccentTone.emerald,
+                            ),
+                          ),
+                          const Positioned(
+                            top: 12,
+                            right: 16,
+                            child: _WelcomeOrbitBadge(
+                              icon: Icons.calendar_month_rounded,
+                              tone: LifeOsAccentTone.blue,
+                            ),
+                          ),
+                          const Positioned(
+                            bottom: 12,
+                            left: 16,
+                            child: _WelcomeOrbitBadge(
+                              icon: Icons.groups_rounded,
+                              tone: LifeOsAccentTone.amber,
+                            ),
+                          ),
+                          const Positioned(
+                            bottom: 12,
+                            right: 16,
+                            child: _WelcomeOrbitBadge(
+                              icon: Icons.shield_outlined,
+                              tone: LifeOsAccentTone.purple,
+                            ),
                           ),
                         ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(35),
-                        child: Image.asset(
-                          AppAssets.hero3dWelcomeEcosystem,
-                          width: 216,
-                          height: 216,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: LifeOsSymbolMark(size: 118),
-                          ),
-                        ),
                       ),
                     ),
                     const Spacer(),
@@ -363,6 +425,42 @@ class WelcomePage extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _WelcomeOrbitBadge extends StatelessWidget {
+  final IconData icon;
+  final LifeOsAccentTone tone;
+
+  const _WelcomeOrbitBadge({required this.icon, required this.tone});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: c.primary.withValues(alpha: 0.16),
+          width: 0.9,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: LifeOsIconSquircle(
+        icon: icon,
+        tone: tone,
+        size: 36,
+        iconSize: 18,
       ),
     );
   }

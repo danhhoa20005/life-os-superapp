@@ -9,9 +9,19 @@ import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/voice_smart_capture_sheet.dart';
+import '../../../authentication/domain/entities/user_entity.dart';
+import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../../../pro_utilities/presentation/bloc/pro_utilities_bloc.dart';
 import '../bloc/daily_life_bloc.dart';
+
+UserEntity? _maybeReadAuthUser(BuildContext context) {
+  try {
+    return BlocProvider.of<AuthBloc>(context, listen: true).state.user;
+  } catch (_) {
+    return null;
+  }
+}
 
 class SuperAppServiceEntry {
   final String domainKey;
@@ -38,7 +48,12 @@ class SuperAppServiceEntry {
 /// Space-optimized 4-column Super App Directory (MoMo / Grab / ZaloPay style)
 /// organizing all 21+ LifeOS services into clean, scannable category cards.
 class SuperAppDirectoryPage extends StatefulWidget {
-  const SuperAppDirectoryPage({super.key});
+  final bool isEmbeddedShellTab;
+
+  const SuperAppDirectoryPage({
+    super.key,
+    this.isEmbeddedShellTab = false,
+  });
 
   @override
   State<SuperAppDirectoryPage> createState() => _SuperAppDirectoryPageState();
@@ -292,24 +307,31 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       grouped.putIfAbsent(item.domainTitle, () => []).add(item);
     }
 
+    final authUser = widget.isEmbeddedShellTab
+        ? _maybeReadAuthUser(context)
+        : null;
+
     return Scaffold(
       body: LifeOsMintWaveCanvas(
         child: SafeArea(
           child: Column(
             children: [
-              LifeOsTopBrandHeader(
-                title: 'Tất cả Dịch vụ 360°',
-                showBackButton: true,
-                trailingAction: IconButton.filled(
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Ghi bằng giọng nói',
-                  onPressed: () => showVoiceSmartCaptureSheet(
-                    context,
-                    autoStartListening: true,
+              if (widget.isEmbeddedShellTab)
+                const LifeOsTopBrandHeader(title: 'Menu')
+              else
+                LifeOsTopBrandHeader(
+                  title: 'Tất cả Dịch vụ 360°',
+                  showBackButton: true,
+                  trailingAction: IconButton.filled(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Ghi bằng giọng nói',
+                    onPressed: () => showVoiceSmartCaptureSheet(
+                      context,
+                      autoStartListening: true,
+                    ),
+                    icon: const Icon(Icons.mic_rounded, size: 18),
                   ),
-                  icon: const Icon(Icons.mic_rounded, size: 18),
                 ),
-              ),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
@@ -317,13 +339,18 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                       maxWidth: AppSpacing.maxContentWidth,
                     ),
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(
+                      padding: EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         2,
                         AppSpacing.md,
-                        AppSpacing.xl,
+                        widget.isEmbeddedShellTab ? 96 : AppSpacing.xl,
                       ),
                       children: [
+                        if (widget.isEmbeddedShellTab) ...[
+                          _FacebookMenuProfileCard(user: authUser),
+                          const SizedBox(height: 10),
+                        ],
+
                         // Compact Instant Search
                         TextField(
                           key: const Key('super_app_directory_search_input'),
@@ -530,6 +557,212 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                         ],
                       ],
                     ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FacebookMenuProfileCard extends StatelessWidget {
+  final UserEntity? user;
+
+  const _FacebookMenuProfileCard({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final rawName = user?.fullName.trim() ?? '';
+    final displayName = rawName.isEmpty ? 'Người dùng LifeOS' : rawName;
+    final initials = user?.initials ?? 'L';
+    final photoUrl = user?.photoUrl;
+
+    return LifeOsSoftCard(
+      key: const Key('menu_tab_profile_card'),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const Key('menu_tab_profile_header_row'),
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => context.push('/account-profile'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [c.primary, c.secondary],
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          width: 1.5,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: photoUrl != null && photoUrl.isNotEmpty
+                          ? Image.network(
+                              photoUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                initials,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            displayName,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              height: 1.2,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Xem hồ sơ cá nhân & bảo mật',
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              height: 1.25,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22,
+                      color: c.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MenuQuickActionPill(
+                pillKey: const Key('menu_tab_appearance_chip'),
+                icon: Icons.palette_outlined,
+                label: 'Giao diện & Cỡ chữ',
+                tone: LifeOsAccentTone.purple,
+                onTap: () => showLifeOsAppearanceSheet(context),
+              ),
+              _MenuQuickActionPill(
+                pillKey: const Key('menu_tab_settings_chip'),
+                icon: Icons.settings_outlined,
+                label: 'Cài đặt',
+                tone: LifeOsAccentTone.blue,
+                onTap: () => context.push('/settings-hub'),
+              ),
+              _MenuQuickActionPill(
+                pillKey: const Key('menu_tab_voice_chip'),
+                icon: Icons.mic_rounded,
+                label: 'Ghi giọng nói',
+                tone: LifeOsAccentTone.emerald,
+                onTap: () => showVoiceSmartCaptureSheet(
+                  context,
+                  autoStartListening: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuQuickActionPill extends StatelessWidget {
+  final Key? pillKey;
+  final IconData icon;
+  final String label;
+  final LifeOsAccentTone tone;
+  final VoidCallback onTap;
+
+  const _MenuQuickActionPill({
+    this.pillKey,
+    required this.icon,
+    required this.label,
+    required this.tone,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final (bg, fg) = tone.resolve(context);
+
+    return Material(
+      color: bg,
+      shape: StadiumBorder(
+        side: BorderSide(color: fg.withValues(alpha: 0.24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: pillKey,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: c.textPrimary,
                   ),
                 ),
               ),
