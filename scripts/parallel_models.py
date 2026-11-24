@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""Antigravity v6.0 — Parallel Multi-Model CLI Wave Runner.
+"""Antigravity v6.1 — Parallel Multi-Model CLI Wave Runner (6-Ban Architecture).
 
 Khởi tạo song song các tiến trình `agy` độc lập cho một wave công việc đã chốt
 contract, gắn chính xác từng `--model <slug>` đã xác minh qua `agy models` và
 cô lập mỗi task trong một Git worktree riêng `agy/<run>/<task>`.
 
-Nguyên tắc an toàn (AGENTS.md §2.1, §4, §10):
+Nguyên tắc an toàn (AGENTS.md v6.1 §2.1, §4, §10):
 - KHÔNG dùng `--dangerously-skip-permissions`.
 - Mặc định chạy `--mode plan` (chỉ đọc/phân tích). Chỉ cho phép sửa khi có cả
   cờ `--allow-edits` trên dòng lệnh lẫn `"mode": "edit"` trong JSON của task
   (chạy `--mode accept-edits --sandbox`).
-- KHÔNG tự động merge, commit, push hay xóa nhánh của người dùng; giữ nguyên
-  worktree và ghi `summary.json` để Engineering Lead kiểm tra diff & chạy gate.
+- Hậu kiểm phạm vi sau khi chạy: thu `git status --porcelain` trong từng
+  worktree, tự xuất `logs/<task_id>.diff.patch` khi có thay đổi và đối chiếu
+  với `owned_paths` (đặt `status = "SCOPE_VIOLATION"`, `exit_code = 4` nếu vượt
+  quyền ghi).
+- Hỗ trợ `--cleanup-clean-worktrees` để tự động dọn worktree & nhánh tạm của
+  các task hoàn thành sạch (`exit_code == 0` và không phát sinh file thay đổi),
+  giữ nguyên `logs/` và `summary.json`.
 """
 
 from __future__ import annotations
@@ -20,15 +25,25 @@ import argparse
 import concurrent.futures
 import datetime as dt
 import json
-import os
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
+
+
+KNOWN_ROLES: set[str] = {
+    "architect",
+    "developer",
+    "qa",
+    "creative",
+    "release",
+    "worker",
+}
 
 
 @dataclass(frozen=True)
@@ -56,6 +71,21 @@ class WaveTaskResult:
     stdout_log: str
     stderr_log: str
     status: str
+    changed_files: list[str] = field(default_factory=list)
+    scope_violations: list[str] = field(default_factory=list)
+    diff_patch: str | None = None
+    worktree_cleaned: bool = False
+
+
+def _normalize_rel_path(raw_path: str) -> str:
+    cleaned = raw_path.strip().strip('"').replace("\\", "/")
+    while cleaned.startswith("./"):
+        cleaned = cleaned[2:]
+    cleaned = cleaned.strip("/")
+    if not cleaned or cleaned == ".":
+        return ""
+    norm = pathlib.PurePosixPath(cleaned).as_posix().strip("/")
+    return "" if norm == "." else norm
 
 
 def _resolve_agy_binary(explicit_bin: str | None) -> str:
@@ -153,13 +183,20 @@ def _load_tasks(json_path: pathlib.Path) -> list[WaveTaskSpec]:
         if tid in seen_ids:
             raise ValueError(f"Trùng task id trong cùng wave: {tid}")
         seen_ids.add(tid)
+        role = str(item.get("role", "worker")).strip() or "worker"
+        if role not in KNOWN_ROLES:
+            print(
+                f"Cảnh báo: Task {tid} dùng role {role!r} ngoài tập chuẩn "
+                f"{sorted(KNOWN_ROLES)}; vẫn giữ nguyên để tương thích ngược.",
+                file=sys.stderr,
+            )
         mode = str(item.get("mode", "plan")).strip().lower()
         if mode not in {"plan", "edit"}:
             raise ValueError(f"Task {tid}: mode chỉ nhận 'plan' hoặc 'edit' (nhận {mode!r}).")
         specs.append(
             WaveTaskSpec(
                 id=tid,
-                role=str(item.get("role", "worker")).strip(),
+                role=role,
                 model=str(item["model"]).strip(),
                 prompt=str(item["prompt"]).strip(),
                 mode=mode,
@@ -172,26 +209,148 @@ def _load_tasks(json_path: pathlib.Path) -> list[WaveTaskSpec]:
     return specs
 
 
+def _paths_overlap(path_a: str, path_b: str) -> bool:
+    return (
+        path_a == path_b
+        or path_a.startswith(f"{path_b}/")
+        or path_b.startswith(f"{path_a}/")
+    )
+
+
 def _validate_single_writer(tasks: list[WaveTaskSpec]) -> None:
-    owner_by_path: dict[str, str] = {}
+    owned_entries: list[tuple[str, str]] = []
     for task in tasks:
         if task.mode != "edit":
             continue
         for raw_p in task.owned_paths or []:
-            norm = pathlib.PurePosixPath(raw_p.replace("\\", "/")).as_posix().strip("/")
+            norm = _normalize_rel_path(raw_p)
             if not norm:
                 continue
-            prev = owner_by_path.get(norm)
-            if prev and prev != task.id:
-                raise ValueError(
-                    f"Vi phạm single-writer: đường dẫn '{norm}' được giao cho cả '{prev}' và '{task.id}'."
-                )
-            owner_by_path[norm] = task.id
+            for prev_path, prev_owner in owned_entries:
+                if prev_owner != task.id and _paths_overlap(norm, prev_path):
+                    raise ValueError(
+                        f"Vi phạm single-writer: đường dẫn '{norm}' ({task.id}) "
+                        f"chồng lấn với '{prev_path}' ({prev_owner})."
+                    )
+            owned_entries.append((norm, task.id))
+
+
+def _detect_scope_violations(
+    effective_mode: str,
+    owned_paths: list[str] | None,
+    changed_files: list[str],
+) -> list[str]:
+    if not changed_files:
+        return []
+    normalized_changed = [
+        norm for raw in changed_files if (norm := _normalize_rel_path(raw))
+    ]
+    if effective_mode == "plan":
+        return normalized_changed
+    if effective_mode == "accept-edits":
+        allowed_prefixes = [
+            norm for raw in (owned_paths or []) if (norm := _normalize_rel_path(raw))
+        ]
+        violations: list[str] = []
+        for changed in normalized_changed:
+            is_allowed = any(
+                changed == prefix or changed.startswith(f"{prefix}/")
+                for prefix in allowed_prefixes
+            )
+            if not is_allowed:
+                violations.append(changed)
+        return violations
+    return normalized_changed
+
+
+def _collect_worktree_changes(
+    worktree_dir: pathlib.Path,
+    diff_patch_path: pathlib.Path,
+) -> tuple[list[str], str | None]:
+    status_proc = subprocess.run(
+        ["git", "-c", "core.quotepath=false", "status", "--porcelain", "-uall"],
+        cwd=str(worktree_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if status_proc.returncode != 0:
+        raise RuntimeError(
+            f"Không đọc được `git status --porcelain` tại {worktree_dir}:\n"
+            f"{status_proc.stderr.strip()}"
+        )
+
+    changed_set: set[str] = set()
+    untracked_files: list[str] = []
+    for line in status_proc.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        xy = line[:2]
+        raw_entry = line[3:]
+        if ("R" in xy or "C" in xy) and " -> " in raw_entry:
+            old_raw, new_raw = raw_entry.split(" -> ", 1)
+            old_norm = _normalize_rel_path(old_raw)
+            new_norm = _normalize_rel_path(new_raw)
+            if old_norm:
+                changed_set.add(old_norm)
+            if new_norm:
+                changed_set.add(new_norm)
+        else:
+            norm = _normalize_rel_path(raw_entry)
+            if norm:
+                changed_set.add(norm)
+                if xy == "??":
+                    untracked_files.append(norm)
+
+    changed_files = sorted(changed_set)
+    if not changed_files:
+        return [], None
+
+    patch_chunks: list[str] = []
+    tracked_diff = subprocess.run(
+        ["git", "-c", "core.quotepath=false", "diff", "--binary", "HEAD"],
+        cwd=str(worktree_dir),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if tracked_diff.stdout:
+        patch_chunks.append(tracked_diff.stdout)
+
+    for rel_untracked in sorted(set(untracked_files)):
+        untracked_diff = subprocess.run(
+            [
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "diff",
+                "--binary",
+                "--no-index",
+                "--",
+                "/dev/null",
+                rel_untracked,
+            ],
+            cwd=str(worktree_dir),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if untracked_diff.stdout:
+            patch_chunks.append(untracked_diff.stdout)
+
+    diff_patch_path.write_text("\n".join(patch_chunks), encoding="utf-8")
+    return changed_files, str(diff_patch_path)
 
 
 def _build_worker_prompt(task: WaveTaskSpec) -> str:
     header_lines = [
-        f"[ANTIGRAVITY v6.0 WAVE WORKER | task_id={task.id} | role={task.role} | mode={task.mode}]",
+        f"[ANTIGRAVITY v6.1 WAVE WORKER | task_id={task.id} | role={task.role} | mode={task.mode}]",
         "Đọc AGENTS.md ở thư mục gốc nếu có. Tuân thủ nghiêm ngặt phạm vi đường dẫn dưới đây.",
     ]
     if task.owned_paths:
@@ -218,7 +377,9 @@ def _execute_single_task(
     base_commit: str,
     task: WaveTaskSpec,
     allow_edits: bool,
+    cleanup_clean_worktrees: bool,
     timeout_sec: int,
+    git_lock: threading.Lock,
 ) -> WaveTaskResult:
     effective_mode = "accept-edits" if (allow_edits and task.mode == "edit") else "plan"
     branch_name = f"agy/{run_id}/{task.id}"
@@ -230,14 +391,16 @@ def _execute_single_task(
     stdout_path = logs_dir / f"{task.id}.stdout.log"
     stderr_path = logs_dir / f"{task.id}.stderr.log"
     prompt_path = logs_dir / f"{task.id}.prompt.txt"
+    diff_patch_path = logs_dir / f"{task.id}.diff.patch"
 
     full_prompt = _build_worker_prompt(task)
     prompt_path.write_text(full_prompt, encoding="utf-8")
 
-    _run_checked(
-        ["git", "worktree", "add", "-b", branch_name, str(worktree_dir), base_commit],
-        cwd=repo_root,
-    )
+    with git_lock:
+        _run_checked(
+            ["git", "worktree", "add", "-b", branch_name, str(worktree_dir), base_commit],
+            cwd=repo_root,
+        )
 
     cmd = [
         agy_bin,
@@ -281,6 +444,27 @@ def _execute_single_task(
         exit_code = 124
         status = "TIMEOUT"
 
+    changed_files, diff_patch = _collect_worktree_changes(worktree_dir, diff_patch_path)
+    scope_violations = _detect_scope_violations(
+        effective_mode, task.owned_paths, changed_files
+    )
+    if scope_violations:
+        status = "SCOPE_VIOLATION"
+        exit_code = 4
+
+    worktree_cleaned = False
+    if cleanup_clean_worktrees and exit_code == 0 and not changed_files:
+        with git_lock:
+            _run_checked(
+                ["git", "worktree", "remove", "--force", str(worktree_dir)],
+                cwd=repo_root,
+            )
+            _run_checked(
+                ["git", "branch", "-D", branch_name],
+                cwd=repo_root,
+            )
+        worktree_cleaned = True
+
     return WaveTaskResult(
         task_id=task.id,
         role=task.role,
@@ -294,12 +478,16 @@ def _execute_single_task(
         stdout_log=str(stdout_path),
         stderr_log=str(stderr_path),
         status=status,
+        changed_files=changed_files,
+        scope_violations=scope_violations,
+        diff_patch=diff_patch,
+        worktree_cleaned=worktree_cleaned,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Antigravity v6.0 Parallel Multi-Model CLI Wave Runner"
+        description="Antigravity v6.1 Parallel Multi-Model CLI Wave Runner (6-Ban)"
     )
     parser.add_argument(
         "--tasks",
@@ -323,6 +511,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Cho phép các task có mode='edit' chạy ở chế độ accept-edits kèm --sandbox.",
     )
     parser.add_argument(
+        "--cleanup-clean-worktrees",
+        action="store_true",
+        help=(
+            "Tự động dọn Git worktree và xóa nhánh tạm agy/<run>/<task> đối với các task "
+            "hoàn thành với exit_code == 0 và không phát sinh file thay đổi."
+        ),
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=900,
@@ -336,12 +532,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output-dir",
         default=None,
-        help="Thư mục lưu worktree và log của lần chạy (mặc định: .agy-runs/<run_id> ngoài git index).",
+        help="Thư mục lưu worktree và log của lần chạy (mặc định: ~/.gemini/tmp/agy-runs/<repo>/<run_id>).",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Chỉ kiểm tra schema JSON, single-writer, Git snapshot và danh sách model từ `agy models` mà không tạo tiến trình worker.",
+        help="Chỉ kiểm tra schema JSON, known roles, single-writer, Git snapshot và danh sách model từ `agy models` mà không tạo tiến trình worker.",
     )
     args = parser.parse_args(argv)
 
@@ -401,12 +597,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         summary = {
+            "version": "6.1",
             "dry_run": True,
             "agy_binary": agy_bin,
             "repo_root": str(repo_root),
             "base_commit": base_commit,
             "dirty_working_tree_preserved": bool(dirty_status),
             "jobs": args.jobs,
+            "allow_edits": args.allow_edits,
+            "cleanup_clean_worktrees": args.cleanup_clean_worktrees,
+            "known_roles": sorted(KNOWN_ROLES),
             "verified_models": sorted({t.model for t in tasks}),
             "tasks": [asdict(t) for t in tasks],
         }
@@ -414,6 +614,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     base_runs_dir.mkdir(parents=True, exist_ok=True)
+    git_lock = threading.Lock()
     wave_start = time.perf_counter()
     results: list[WaveTaskResult] = []
 
@@ -428,7 +629,9 @@ def main(argv: list[str] | None = None) -> int:
                 base_commit=base_commit,
                 task=t,
                 allow_edits=args.allow_edits,
+                cleanup_clean_worktrees=args.cleanup_clean_worktrees,
                 timeout_sec=args.timeout,
+                git_lock=git_lock,
             ): t
             for t in tasks
         }
@@ -438,11 +641,13 @@ def main(argv: list[str] | None = None) -> int:
     results.sort(key=lambda r: r.task_id)
     wall_seconds = round(time.perf_counter() - wave_start, 3)
     summary_payload = {
+        "version": "6.1",
         "run_id": run_id,
         "repo_root": str(repo_root),
         "base_commit": base_commit,
         "jobs": args.jobs,
         "allow_edits": args.allow_edits,
+        "cleanup_clean_worktrees": args.cleanup_clean_worktrees,
         "wall_clock_seconds": wall_seconds,
         "sum_worker_seconds": round(sum(r.duration_seconds for r in results), 3),
         "results": [asdict(r) for r in results],

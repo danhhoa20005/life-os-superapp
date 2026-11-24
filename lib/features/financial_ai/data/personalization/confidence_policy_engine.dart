@@ -24,6 +24,7 @@ abstract final class ConfidencePolicyEngine {
     required bool hasResolvedUserCategory,
     required bool isDuplicateCandidate,
     required List<AmbiguityFlag> allFlags,
+    double? mediumConfidenceThresholdOverride,
   }) {
     final amountConf = extracted.amountConfidence.clamp(0.0, 1.0);
     final typeConf = extracted.typeConfidence.clamp(0.0, 1.0);
@@ -67,13 +68,20 @@ abstract final class ConfidencePolicyEngine {
         allFlags.contains(AmbiguityFlag.unmappedUserCategory) ||
         allFlags.contains(AmbiguityFlag.missingDestinationWalletForTransfer);
 
+    final mediumThreshold =
+        (mediumConfidenceThresholdOverride ??
+                modelMeta.mediumConfidenceThreshold)
+            .clamp(0.35, 0.85);
+    final highThreshold = mediumThreshold > modelMeta.highConfidenceThreshold
+        ? (mediumThreshold + 0.08).clamp(0.60, 0.95)
+        : modelMeta.highConfidenceThreshold;
+
     final ConfidenceTier tier;
     if (criticalMin < modelMeta.lowConfidenceThreshold) {
       tier = ConfidenceTier.unknown;
-    } else if (criticalMin < modelMeta.mediumConfidenceThreshold ||
-        hasBlockingAmbiguity) {
+    } else if (criticalMin < mediumThreshold || hasBlockingAmbiguity) {
       tier = ConfidenceTier.lowConfidence;
-    } else if (criticalMin < modelMeta.highConfidenceThreshold) {
+    } else if (criticalMin < highThreshold) {
       tier = ConfidenceTier.mediumConfidence;
     } else {
       tier = ConfidenceTier.highConfidence;

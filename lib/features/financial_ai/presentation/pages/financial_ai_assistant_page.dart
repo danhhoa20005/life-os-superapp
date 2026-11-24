@@ -89,8 +89,12 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
 
   static const List<(String label, String sample)> _samplePrompts = [
     (
-      'Đa tác vụ Gemini',
+      'Đa tác vụ liên thông',
       'Sáng ăn phở 55k, chiều mai 15h họp dự án và nhắc mua sữa tươi',
+    ),
+    (
+      'Khẩu ngữ VN',
+      'Ăn trưa 45 cành, cà phê 1 xị rưỡi và đổ xăng 70k',
     ),
     (
       'Đa khoản thu chi',
@@ -303,9 +307,23 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
     );
 
     final dash = _tryReadOptionalBloc<DashboardBloc>(context)?.state.data;
+    final dashIncome = dash?.monthlyIncomeMinor ?? 0;
+    final dashExpense = dash?.monthlyExpenseMinor ?? 0;
+    final monthlyIncome = dashIncome > 0
+        ? dashIncome
+        : txState.summary.monthlyIncomeMinor;
+    final monthlyExpense = dashExpense > 0
+        ? dashExpense
+        : txState.summary.monthlyExpenseMinor;
+    final now = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final remainingDays = (daysInMonth - now.day + 1).clamp(1, 31);
+    final netRemaining = monthlyIncome - monthlyExpense;
+    final safeDaily = netRemaining > 0 ? (netRemaining ~/ remainingDays) : 0;
     final snap = GeminiContextSnapshot(
-      monthlyIncomeMinor: dash?.monthlyIncomeMinor ?? 0,
-      monthlyExpenseMinor: dash?.monthlyExpenseMinor ?? 0,
+      monthlyIncomeMinor: monthlyIncome,
+      monthlyExpenseMinor: monthlyExpense,
+      safeDailyAllowanceMinor: safeDaily,
       upcomingEventsCount: dash?.upcomingEventsCount ?? 0,
       openTasksCount: dash?.openTasksCount ?? 0,
       topHabitLabels: UserBehaviorPrefs.topRankedHabits(limit: 3)
@@ -396,6 +414,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                 children: [
                                   // 1. Hybrid Offline + Gemini AI Status Banner
                                   LifeOsSoftCard(
+                                    key: const Key(
+                                      'financial_ai_status_banner_card',
+                                    ),
                                     onTap: () =>
                                         context.push('/financial-ai-settings'),
                                     padding: const EdgeInsets.symmetric(
@@ -423,13 +444,17 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                             Flexible(
                                               child: Text(
                                                 meta.usingRuleFallback
-                                                    ? 'Quy tắc Nội bộ Offline (${meta.modelVersion})'
-                                                    : 'FastText Tiếng Việt · v${meta.modelVersion} (${(meta.sizeBytes / 1024).toStringAsFixed(0)} KB)',
+                                                    ? 'Agent Local Nội bộ · < 2ms'
+                                                    : 'Agent Local Tiếng Việt · v${meta.modelVersion}',
                                                 softWrap: true,
                                                 style: TextStyle(
                                                   fontSize: 12.5,
                                                   fontWeight: FontWeight.w700,
                                                   color: c.textPrimary,
+                                                  fontFeatures: const [
+                                                    FontFeature
+                                                        .tabularFigures(),
+                                                  ],
                                                 ),
                                               ),
                                             ),
@@ -444,6 +469,18 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                               label: '100% Trên máy',
                                               tone: LifeOsAccentTone.emerald,
                                             ),
+                                            if (aiState
+                                                .personalizationRules
+                                                .isNotEmpty)
+                                              LifeOsStatusPill(
+                                                key: const Key(
+                                                  'assistant_learned_rules_pill',
+                                                ),
+                                                icon: Icons.psychology_rounded,
+                                                label:
+                                                    '${aiState.personalizationRules.length} quy tắc tự học',
+                                                tone: LifeOsAccentTone.emerald,
+                                              ),
                                             LifeOsStatusPill(
                                               icon: geminiReady
                                                   ? Icons.bolt_rounded
@@ -1289,7 +1326,11 @@ class _AiTransactionDraftPreviewCard extends StatelessWidget {
                     Text(
                       'Thời gian: ${dateFmt.format(draft.occurredAt)}',
                       softWrap: true,
-                      style: TextStyle(fontSize: 12, color: c.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: c.textSecondary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
                 ),

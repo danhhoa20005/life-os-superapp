@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
+import '../../data/normalization/financial_text_normalizer.dart';
 import '../../domain/entities/financial_ai_entities.dart';
 import '../../domain/repositories/financial_ai_repository.dart';
 import '../../domain/usecases/financial_ai_usecases.dart';
@@ -114,6 +115,34 @@ final class FinancialAiPreferencesUpdated extends FinancialAiEvent {
 
   @override
   List<Object?> get props => [preferences];
+}
+
+final class FinancialPersonalizationRuleAdded extends FinancialAiEvent {
+  final String userId;
+  final String merchantKeyword;
+  final String selectedCategoryId;
+  final String selectedCategoryName;
+  final String semanticKey;
+  final String directionCondition;
+
+  const FinancialPersonalizationRuleAdded({
+    required this.userId,
+    required this.merchantKeyword,
+    required this.selectedCategoryId,
+    required this.selectedCategoryName,
+    this.semanticKey = 'other',
+    this.directionCondition = 'any',
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    merchantKeyword,
+    selectedCategoryId,
+    selectedCategoryName,
+    semanticKey,
+    directionCondition,
+  ];
 }
 
 final class FinancialPersonalizationRuleDeleted extends FinancialAiEvent {
@@ -267,6 +296,10 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
     on<FinancialDraftRejected>(_onDraftRejected, transformer: sequential());
     on<FinancialAiPreferencesUpdated>(
       _onPreferencesUpdated,
+      transformer: sequential(),
+    );
+    on<FinancialPersonalizationRuleAdded>(
+      _onRuleAdded,
       transformer: sequential(),
     );
     on<FinancialPersonalizationRuleDeleted>(
@@ -539,6 +572,68 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
           feedbackMessage: 'Đã lưu cài đặt AI phân loại tài chính.',
         ),
       ),
+    );
+  }
+
+  Future<void> _onRuleAdded(
+    FinancialPersonalizationRuleAdded event,
+    Emitter<FinancialAiState> emit,
+  ) async {
+    final cleanDisplay = event.merchantKeyword.trim();
+    if (cleanDisplay.length < 2) {
+      emit(
+        state.copyWith(
+          failure: const ValidationFailure(
+            message: 'Từ khóa cửa hàng cần tối thiểu 2 ký tự.',
+          ),
+        ),
+      );
+      return;
+    }
+    final canonicalKey =
+        FinancialTextNormalizer.canonicalizeMerchant(cleanDisplay) ??
+        FinancialTextNormalizer.stripVnAccents(
+          cleanDisplay,
+        ).replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_|_$'), '');
+    if (canonicalKey.isEmpty) {
+      emit(
+        state.copyWith(
+          failure: const ValidationFailure(
+            message: 'Từ khóa không hợp lệ để tạo quy tắc tự học.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final res = await _saveCorrection(
+      SaveCategoryCorrectionParams(
+        userId: event.userId,
+        merchantDisplay: cleanDisplay,
+        merchantCanonicalKey: canonicalKey,
+        selectedCategoryId: event.selectedCategoryId,
+        selectedCategoryName: event.selectedCategoryName,
+        semanticKey: event.semanticKey,
+        directionCondition: event.directionCondition,
+      ),
+    );
+
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (rule) {
+        final nextRules = <PersonalizationRule>[
+          rule,
+          ...state.personalizationRules.where((r) => r.id != rule.id),
+        ];
+        emit(
+          state.copyWith(
+            personalizationRules: nextRules,
+            clearFailure: true,
+            feedbackMessage:
+                'Đã dạy Agent Local: "$cleanDisplay" → ${event.selectedCategoryName}.',
+          ),
+        );
+      },
     );
   }
 

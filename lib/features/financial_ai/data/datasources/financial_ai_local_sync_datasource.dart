@@ -242,6 +242,8 @@ class FinancialAiLocalSyncDataSource {
     Map<String, dynamic>? d,
   ) {
     if (d == null) return UserAiClassificationPreferences(userId: userId);
+    final rawThreshold =
+        (d['minAutoSuggestConfidence'] as num?)?.toDouble() ?? 0.52;
     return UserAiClassificationPreferences(
       userId: userId,
       aiClassificationEnabled: (d['aiClassificationEnabled'] as bool?) ?? true,
@@ -250,6 +252,7 @@ class FinancialAiLocalSyncDataSource {
           (d['autoClassifyBankNotifications'] as bool?) ?? true,
       requireConfirmationBeforeSave:
           (d['requireConfirmationBeforeSave'] as bool?) ?? true,
+      minAutoSuggestConfidence: rawThreshold.clamp(0.35, 0.85),
     );
   }
 
@@ -269,6 +272,10 @@ class FinancialAiLocalSyncDataSource {
       'personalizationEnabled': prefs.personalizationEnabled,
       'autoClassifyBankNotifications': prefs.autoClassifyBankNotifications,
       'requireConfirmationBeforeSave': prefs.requireConfirmationBeforeSave,
+      'minAutoSuggestConfidence': prefs.minAutoSuggestConfidence.clamp(
+        0.35,
+        0.85,
+      ),
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     }, SetOptions(merge: true));
   }

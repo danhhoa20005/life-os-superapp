@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Facebook 2-Bar Navigation + Clean Mint UI + Multi-Engine Voice v3.18)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (On-Device Local AI Agent + Facebook 2-Bar Navigation + Clean Mint UI v3.19)"
 publish_to: 'none'
-version: 3.18.0+34
+version: 3.19.0+35
 
 environment:
   sdk: ^3.10.0

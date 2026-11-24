@@ -484,7 +484,7 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
           if (resolvedCat.hasMultipleMatches) {
             flags.add(AmbiguityFlag.multipleMatchingUserCategories);
           }
-          if (topPred.probability < _classifier.metadata.mediumConfidenceThreshold) {
+          if (topPred.probability < prefs.minAutoSuggestConfidence) {
             flags.add(AmbiguityFlag.lowCategoryConfidence);
           }
         }
@@ -568,6 +568,7 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
               resolvedCat.categoryId != null || categories.isEmpty,
           isDuplicateCandidate: isDup,
           allFlags: flags,
+          mediumConfidenceThresholdOverride: prefs.minAutoSuggestConfidence,
         );
 
         final requiresConfirm =

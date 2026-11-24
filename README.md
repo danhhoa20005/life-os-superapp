@@ -52,6 +52,7 @@ lib/
 └── features/
     ├── app_update/      (domain / data / presentation — GitHub Releases + Cloud OTA Updater)
     ├── authentication/  (domain / data / presentation — Google OAuth + Email + Profile Security)
+    ├── financial_ai/    (domain / data / presentation — On-Device FastText INT8 + Personalized AI)
     ├── dashboard/       (domain / data / presentation)
     ├── transactions/    (domain / data / presentation)
     ├── budgets/         (domain / data / presentation)
@@ -111,7 +112,27 @@ firebase emulators:exec --only firestore --project demo-life-os "node firebase/r
 
 ---
 
-## 5. Tài liệu Kỹ thuật Đầy đủ (`docs/`)
+## 5. Agent AI Nội bộ Trên Thiết Bị & Hệ thống Đa Luồng 6 Ban Antigravity v6.1
+
+### 5.1. Agent AI Nội bộ Trên Thiết Bị (`FastText INT8` + `SmartOmni NLU` + Học Cá nhân hóa)
+- **Phân loại siêu nhẹ Offline (`lib/features/financial_ai/`):** Tích hợp mô hình nhị phân lượng tử hóa **`FastText INT8`** (hỗ trợ FFI tốc độ cao và bộ giải mã thuần Dart đa nền tảng) kết hợp chuẩn hóa văn bản tiếng Việt có dấu/không dấu/viết tắt (`65k`, `1tr2`, `18tr5`).
+- **Điều phối Đa Tác vụ `SmartOmni NLU` (`lib/core/utils/smart_omni_intent_parser.dart`):** Tự động bóc tách ý định từ một dòng nhập tự nhiên thành giao dịch thu/chi, chuyển ví, việc cần làm, sự kiện lịch hoặc nhắc nhở định kỳ mà không bắt buộc gửi dữ liệu thô lên đám mây.
+- **Học Cá nhân hóa Bảo toàn Riêng tư (`ConfidencePolicyEngine`):** Tự động ghi nhận thói quen sửa danh mục và từ khóa thương nhân của từng người dùng ngay trên thiết bị, nâng dần độ chính xác gợi ý theo thời gian.
+
+### 5.2. Hệ thống Đa Luồng 6 Ban Antigravity v6.1 (`AGENTS.md` + `.agents/agents/`)
+Dự án vận hành quy trình điều phối song song **Đội kỹ thuật 6 ban** gồm **Engineering Lead** và 5 custom subagents đồng bộ (`architect`, `developer`, `qa`, `creative`, `release`). Mỗi worker CLI chạy cô lập trên Git worktree riêng `agy/<run>/<task>`, kiểm tra nghiêm ngặt `agy models`, tự xuất `.diff.patch`, hậu kiểm `owned_paths` (`SCOPE_VIOLATION` exit `4` nếu ghi ngoài phạm vi) và hỗ trợ tự dọn worktree sạch.
+
+```bash
+# Kiểm tra preflight wave 4 ban (schema, known roles, single-writer & danh sách model thật từ `agy models`)
+python scripts/parallel_models.py --tasks examples/parallel-tasks.json --dry-run
+
+# Chạy song song wave kiểm toán chỉ đọc và tự động dọn sạch worktree/nhánh tạm khi hoàn tất
+python scripts/parallel_models.py --tasks examples/parallel-tasks.json --jobs 4 --base HEAD --cleanup-clean-worktrees
+```
+
+---
+
+## 6. Tài liệu Kỹ thuật Đầy đủ (`docs/`)
 - [PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md) — Khảo sát tài liệu & hiện trạng workspace.
 - [PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) & [USER_FLOWS.md](docs/USER_FLOWS.md) — Yêu cầu sản phẩm & luồng nghiệp vụ.
 - [MVP_SCOPE.md](docs/MVP_SCOPE.md) — Phạm vi tính năng P0/P1 & tiêu chí hoàn thành.

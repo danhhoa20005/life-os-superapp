@@ -191,7 +191,13 @@ Future<void> configureDependencies({
 
   // 3. Domain Repository Implementations
   sl.registerLazySingleton<GeminiCopilotRepository>(
-    () => GeminiCopilotRepositoryImpl(sl<GeminiRemoteDataSource>()),
+    () => GeminiCopilotRepositoryImpl(
+      sl<GeminiRemoteDataSource>(),
+      localClassifier: sl<FinancialClassifier>(),
+      localSync: sl<FinancialAiLocalSyncDataSource>(),
+      normalizer: sl<FinancialTextNormalizer>(),
+      firebaseAuth: sl<FirebaseAuth>(),
+    ),
   );
   sl.registerLazySingleton<FinancialAiRepository>(
     () => FinancialAiRepositoryImpl(

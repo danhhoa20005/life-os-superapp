@@ -180,10 +180,10 @@ class FinancialTextNormalizer {
     final cached = _classifierNormCache[text];
     if (cached != null) return cached;
 
-    var s = text.trim().toLowerCase();
+    var s = _normalizeSpokenNumbers(text.trim()).toLowerCase();
     s = s.replaceAll(
       RegExp(
-        r'\b\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan|đ|d|₫|vnd|vnđ|usd)?(?:\s*\d{1,3})?\b',
+        r'(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan|xị|xi|cành|canh|nhành|nhanh|chục|chuc|đ|d|₫|vnd|vnđ|usd)?(?:\s*\d{1,3})?(?![\p{L}\p{N}])',
         caseSensitive: false,
         unicode: true,
       ),
@@ -214,55 +214,245 @@ class FinancialTextNormalizer {
     return result;
   }
 
+  static const Set<String> _nonStandaloneDigitTokens = <String>{
+    'không',
+    'khong',
+    'linh',
+    'lẻ',
+    'le',
+    'mốt',
+    'tư',
+    'tu',
+    'lăm',
+    'lam',
+    'nhăm',
+  };
+
+  static final RegExp _liquidNounFollowRegex = RegExp(
+    r'^(?:nước|nuoc|xăng|xang|dầu|dau|sữa|sua|bia|rượu|ruou|cồn|ml)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _flowerBranchFollowRegex = RegExp(
+    r'^(?:hoa|đào|dao|mai|cây|cay|lá|la)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _itemCountFollowRegex = RegExp(
+    r'^(?:trứng|trung|quả|qua|trái|trai|cái|cai|chiếc|chiec|lon|chai|gói|goi|hộp|hop|viên|vien|bó|bo|con)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _millionUnitFollowRegex = RegExp(
+    r'^(?:triệu|trieu|tr|củ|cu|tỷ|ty)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
   String _normalizeSpokenNumbers(String input) {
     var s = input;
+
+    // 1. "nửa triệu" / "nửa củ" -> 500 nghìn; "nửa xị" -> 50k
     s = s
         .replaceAll(
-          RegExp(r'\bnửa\s+(?:triệu|trieu|củ|cu)\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])(?:nửa|nua)\s+(?:triệu|trieu|củ|cu)(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '500 nghìn',
         )
         .replaceAll(
           RegExp(
-            r'\bmột\s+(?:triệu|trieu|củ|cu)\s+rưỡi\b',
+            r'(?<![\p{L}\p{N}])(?:nửa|nua)\s+xị(?![\p{L}\p{N}])',
             caseSensitive: false,
+            unicode: true,
           ),
-          '1tr5',
-        )
-        .replaceAll(
-          RegExp(r'\bhai\s+trăm\s+rưỡi\b', caseSensitive: false),
-          '250k',
-        )
-        .replaceAll(
-          RegExp(r'\bba\s+trăm\s+rưỡi\b', caseSensitive: false),
-          '350k',
-        )
-        .replaceAll(
-          RegExp(r'\bbốn\s+trăm\s+rưỡi\b', caseSensitive: false),
-          '450k',
-        )
-        .replaceAll(
-          RegExp(r'\bnăm\s+trăm\s+rưỡi\b', caseSensitive: false),
-          '550k',
+          '50k',
         );
 
+    // 2. "<1..9 | một..chín> trăm rưỡi" -> 150k..950k & bare "trăm rưỡi" -> 150k
+    s = s.replaceAllMapped(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(1|2|3|4|5|6|7|8|9|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final d = int.tryParse(tok) ?? _vnDigitWords[tok];
+        if (d == null || d <= 0 || d > 9) return m.group(0)!;
+        return '${d * 100 + 50}k';
+      },
+    );
+    s = s.replaceAll(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      '150k',
+    );
+
+    // 3. Spoken Vietnamese numbers before standard or colloquial currency units
     final unitWordPattern = RegExp(
-      r'((?:(?:không|khong|một|mot|mốt|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|lam|sáu|sau|bảy|bay|tám|tam|chín|chin|mười|muoi|mươi|trăm|tram|linh|lẻ|le)\s+){1,6})(triệu|trieu|nghìn|nghin|ngàn|ngan|củ|cu)\b',
+      r'(?<![\p{L}\p{N}])((?:(?:không|khong|một|mot|mốt|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|lam|nhăm|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi|mươi|trăm|tram|linh|lẻ|le)\s+){1,6})(triệu|trieu|tr|củ|cu|nghìn|nghin|ngàn|ngan|xị|xi|cành|canh|nhành|nhanh|chục|chuc|lít|lit)(?![\p{L}\p{N}])',
       caseSensitive: false,
       unicode: true,
     );
-    s = s.replaceAllMapped(unitWordPattern, (m) {
-      final parsed = _parseSmallSpokenInt(m.group(1) ?? '');
+    final snapshotSpoken = s;
+    s = snapshotSpoken.replaceAllMapped(unitWordPattern, (m) {
+      final rawSpoken = m.group(1) ?? '';
+      final unit = m.group(2) ?? '';
+      final unitLower = unit.toLowerCase();
+      final after = snapshotSpoken.substring(m.end).trimLeft();
+      final before = snapshotSpoken
+          .substring(0, m.start)
+          .trimRight()
+          .toLowerCase();
+
+      if (unitLower == 'ngan' &&
+          RegExp(
+            r'^(?:hàng|hang)(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ).hasMatch(after)) {
+        return m.group(0)!;
+      }
+      if (rawSpoken.trim().toLowerCase() == 'bay' &&
+          (before.endsWith('máy') || before.endsWith('may'))) {
+        return m.group(0)!;
+      }
+      if (unitLower == 'xi' &&
+          (before.endsWith('lì') || before.endsWith('li'))) {
+        return m.group(0)!;
+      }
+
+      final parsed = _parseSmallSpokenInt(rawSpoken);
       if (parsed == null || parsed <= 0) return m.group(0) ?? '';
-      return '$parsed ${m.group(2)}';
+      return '$parsed $unit';
     });
 
+    // 4. "<N> triệu/củ rưỡi" -> "<N>tr5" & bare "củ rưỡi" / "triệu rưỡi" -> "1tr5"
     s = s.replaceAllMapped(
       RegExp(
-        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*(?:rưỡi|ruoi)\b',
+        r'(?<!\d)(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
         caseSensitive: false,
+        unicode: true,
       ),
       (m) => '${m.group(1)}tr5',
     );
+    s = s.replaceAll(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(?:triệu|trieu|củ|cu)\s+(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      '1tr5',
+    );
+
+    // 5. Slang "xị" (1 xị = 100.000 ₫, 1 xị rưỡi = 150.000 ₫)
+    final snapshotXi = s;
+    s = snapshotXi.replaceAllMapped(
+      RegExp(
+        r'(?<!\d)(\d+)(?:[.,](\d))?\s*(?:xị|xi)(?:\s*(rưỡi|ruoi))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final after = snapshotXi.substring(m.end).trimLeft();
+        if (RegExp(
+          r'^(?:măng|mang|giày|giay)(?![\p{L}\p{N}])',
+          caseSensitive: false,
+          unicode: true,
+        ).hasMatch(after)) {
+          return m.group(0)!;
+        }
+        final n = int.tryParse(m.group(1) ?? '');
+        if (n == null || n <= 0) return m.group(0)!;
+        final dec = m.group(2);
+        final hasHalf =
+            (m.group(3) != null && m.group(3)!.isNotEmpty) || dec == '5';
+        final extraTens = (!hasHalf && dec != null && dec.isNotEmpty)
+            ? (int.tryParse(dec) ?? 0) * 10
+            : 0;
+        final kVal = n * 100 + (hasHalf ? 50 : extraTens);
+        return '${kVal}k';
+      },
+    );
+
+    // 6. Slang "cành" / "nhành" (1 cành = 1.000 ₫)
+    final snapshotCanh = s;
+    s = snapshotCanh.replaceAllMapped(
+      RegExp(
+        r'(?<!\d)(\d+)\s*(?:cành|canh|nhành|nhanh)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final after = snapshotCanh.substring(m.end).trimLeft();
+        if (_flowerBranchFollowRegex.hasMatch(after)) {
+          return m.group(0)!;
+        }
+        final n = int.tryParse(m.group(1) ?? '');
+        if (n == null || n <= 0) return m.group(0)!;
+        return '${n}k';
+      },
+    );
+
+    // 7. Colloquial "chục" (1 chục = 10.000 ₫; "mấy chục" has no number -> untouched!)
+    final snapshotChuc = s;
+    s = snapshotChuc.replaceAllMapped(
+      RegExp(
+        r'(?<!\d)(\d+)\s*(?:chục|chuc)(?:\s*(rưỡi|ruoi))?(?:\s*(?:nghìn|nghin|ngàn|ngan))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final n = int.tryParse(m.group(1) ?? '');
+        if (n == null || n <= 0) return m.group(0)!;
+        final hasHalf = m.group(2) != null && m.group(2)!.isNotEmpty;
+        final after = snapshotChuc.substring(m.end).trimLeft();
+        if (!hasHalf && _millionUnitFollowRegex.hasMatch(after)) {
+          return '${n * 10}';
+        }
+        if (_itemCountFollowRegex.hasMatch(after)) {
+          return m.group(0)!;
+        }
+        final kVal = n * 10 + (hasHalf ? 5 : 0);
+        return '${kVal}k';
+      },
+    );
+
+    // 8. Colloquial "lít" (1 lít = 100.000 ₫, 1 lít rưỡi = 150.000 ₫) ONLY when NOT before liquid/fuel nouns
+    final snapshotLit = s;
+    s = snapshotLit.replaceAllMapped(
+      RegExp(
+        r'(?<!\d)(\d+)(?:[.,](\d))?\s*(?:lít|lit)(?:\s*(rưỡi|ruoi))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final after = snapshotLit.substring(m.end).trimLeft();
+        if (_liquidNounFollowRegex.hasMatch(after)) {
+          return m.group(0)!;
+        }
+        final n = int.tryParse(m.group(1) ?? '');
+        if (n == null || n <= 0) return m.group(0)!;
+        final dec = m.group(2);
+        final hasHalf =
+            (m.group(3) != null && m.group(3)!.isNotEmpty) || dec == '5';
+        final extraTens = (!hasHalf && dec != null && dec.isNotEmpty)
+            ? (int.tryParse(dec) ?? 0) * 10
+            : 0;
+        final kVal = n * 100 + (hasHalf ? 50 : extraTens);
+        return '${kVal}k';
+      },
+    );
+
     return s;
   }
 
@@ -274,6 +464,10 @@ class FinancialTextNormalizer {
         .where((e) => e.isNotEmpty)
         .toList();
     if (tokens.isEmpty) return null;
+    if (tokens.length == 1 && _nonStandaloneDigitTokens.contains(tokens.first)) {
+      return null;
+    }
+
     var hundreds = 0;
     var tens = 0;
     var ones = 0;
@@ -281,7 +475,7 @@ class FinancialTextNormalizer {
     if (i + 1 < tokens.length &&
         (tokens[i + 1] == 'trăm' || tokens[i + 1] == 'tram')) {
       final h = _vnDigitWords[tokens[i]];
-      if (h == null) return null;
+      if (h == null || h <= 0 || h > 9) return null;
       hundreds = h * 100;
       i += 2;
       if (i < tokens.length &&
@@ -295,20 +489,35 @@ class FinancialTextNormalizer {
         i++;
         if (i < tokens.length && _vnDigitWords.containsKey(tokens[i])) {
           ones = _vnDigitWords[tokens[i]]!;
+          i++;
         }
       } else if (i + 1 < tokens.length &&
           (tokens[i + 1] == 'mươi' || tokens[i + 1] == 'muoi')) {
         final t = _vnDigitWords[tokens[i]];
-        if (t == null) return null;
+        if (t == null || t <= 0 || t > 9) return null;
         tens = t * 10;
         i += 2;
         if (i < tokens.length && _vnDigitWords.containsKey(tokens[i])) {
           ones = _vnDigitWords[tokens[i]]!;
+          i++;
         }
+      } else if (i + 1 == tokens.length - 1 &&
+          hundreds == 0 &&
+          _vnDigitWords.containsKey(tokens[i]) &&
+          (_vnDigitWords[tokens[i]] ?? 0) >= 2 &&
+          (_vnDigitWords[tokens[i]] ?? 0) <= 9 &&
+          const {'mốt', 'tư', 'tu', 'lăm', 'lam', 'nhăm'}.contains(
+            tokens[i + 1],
+          )) {
+        tens = _vnDigitWords[tokens[i]]! * 10;
+        ones = _vnDigitWords[tokens[i + 1]]!;
+        i += 2;
       } else if (_vnDigitWords.containsKey(tokens[i])) {
         ones = _vnDigitWords[tokens[i]]!;
+        i++;
       }
     }
+    if (i != tokens.length) return null;
     final total = hundreds + tens + ones;
     return total > 0 ? total : null;
   }
@@ -520,6 +729,143 @@ class FinancialTextNormalizer {
         ),
       );
     }
+
+    // 5. Direct colloquial Vietnamese money extraction (for callers invoking `extractAmounts`
+    // directly without calling `normalizeText` first: "nửa triệu/củ", "sáu trăm rưỡi", "trăm rưỡi",
+    // "1 củ rưỡi", "xị", "cành/nhành", "chục", and "lít" when NOT preceding liquid/fuel words)
+    void addDirectColloquial(RegExp pattern, int? Function(RegExpMatch m) eval) {
+      for (final m in pattern.allMatches(text)) {
+        if (!isRangeFree(m.start, m.end)) continue;
+        final minor = eval(m);
+        if (minor != null && minor > 0) {
+          markRange(m.start, m.end);
+          results.add(
+            ParsedMonetaryAmount(
+              amountMinor: minor,
+              matchedToken: m.group(0)!,
+              startIndex: m.start,
+              endIndex: m.end,
+              confidence: 0.96,
+            ),
+          );
+        }
+      }
+    }
+
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(?:nửa|nua)\s+(?:triệu|trieu|củ|cu)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (_) => 500000,
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(1|2|3|4|5|6|7|8|9|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm|tram)\s+(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final d = int.tryParse(tok) ?? _vnDigitWords[tok];
+        return (d != null && d >= 1 && d <= 9) ? (d * 100 + 50) * 1000 : null;
+      },
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(?:trăm|tram)\s+(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (_) => 150000,
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+|một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi)\s*(?:triệu|trieu|tr|củ|cu)\s+(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final n = int.tryParse(tok) ?? _vnDigitWords[tok];
+        return (n != null && n > 0) ? (n * 1000000 + 500000) : null;
+      },
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+|một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s*(?:xị|xi)(?:\s+(rưỡi|ruoi))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final before = text.substring(0, m.start).trimRight().toLowerCase();
+        final after = text.substring(m.end).trimLeft();
+        if (before.endsWith('lì') ||
+            before.endsWith('li') ||
+            RegExp(
+              r'^(?:măng|mang|giày|giay)(?![\p{L}\p{N}])',
+              caseSensitive: false,
+              unicode: true,
+            ).hasMatch(after)) {
+          return null;
+        }
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final n = int.tryParse(tok) ?? _vnDigitWords[tok];
+        if (n == null || n <= 0) return null;
+        final hasHalf = m.group(2) != null && m.group(2)!.isNotEmpty;
+        return (n * 100 + (hasHalf ? 50 : 0)) * 1000;
+      },
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+|một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi)\s*(?:cành|canh|nhành|nhanh)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final after = text.substring(m.end).trimLeft();
+        if (_flowerBranchFollowRegex.hasMatch(after)) return null;
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final n = int.tryParse(tok) ?? _vnDigitWords[tok];
+        return (n != null && n > 0) ? n * 1000 : null;
+      },
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+|một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s*(?:chục|chuc)(?:\s+(rưỡi|ruoi))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final after = text.substring(m.end).trimLeft();
+        if (_itemCountFollowRegex.hasMatch(after) ||
+            _millionUnitFollowRegex.hasMatch(after)) {
+          return null;
+        }
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final n = int.tryParse(tok) ?? _vnDigitWords[tok];
+        if (n == null || n <= 0) return null;
+        final hasHalf = m.group(2) != null && m.group(2)!.isNotEmpty;
+        return (n * 10 + (hasHalf ? 5 : 0)) * 1000;
+      },
+    );
+    addDirectColloquial(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+|một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s*(?:lít|lit)(?:\s+(rưỡi|ruoi))?(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final after = text.substring(m.end).trimLeft();
+        if (_liquidNounFollowRegex.hasMatch(after)) return null;
+        final tok = (m.group(1) ?? '').trim().toLowerCase();
+        final n = int.tryParse(tok) ?? _vnDigitWords[tok];
+        if (n == null || n <= 0) return null;
+        final hasHalf = m.group(2) != null && m.group(2)!.isNotEmpty;
+        return (n * 100 + (hasHalf ? 50 : 0)) * 1000;
+      },
+    );
 
     results.sort((a, b) => a.startIndex.compareTo(b.startIndex));
     return results;

@@ -738,6 +738,7 @@ class UserAiClassificationPreferences extends Equatable {
   final bool personalizationEnabled;
   final bool autoClassifyBankNotifications;
   final bool requireConfirmationBeforeSave;
+  final double minAutoSuggestConfidence;
 
   const UserAiClassificationPreferences({
     required this.userId,
@@ -745,6 +746,7 @@ class UserAiClassificationPreferences extends Equatable {
     this.personalizationEnabled = true,
     this.autoClassifyBankNotifications = true,
     this.requireConfirmationBeforeSave = true,
+    this.minAutoSuggestConfidence = 0.52,
   });
 
   UserAiClassificationPreferences copyWith({
@@ -752,6 +754,7 @@ class UserAiClassificationPreferences extends Equatable {
     bool? personalizationEnabled,
     bool? autoClassifyBankNotifications,
     bool? requireConfirmationBeforeSave,
+    double? minAutoSuggestConfidence,
   }) {
     return UserAiClassificationPreferences(
       userId: userId,
@@ -763,6 +766,11 @@ class UserAiClassificationPreferences extends Equatable {
           autoClassifyBankNotifications ?? this.autoClassifyBankNotifications,
       requireConfirmationBeforeSave:
           requireConfirmationBeforeSave ?? this.requireConfirmationBeforeSave,
+      minAutoSuggestConfidence:
+          (minAutoSuggestConfidence ?? this.minAutoSuggestConfidence).clamp(
+            0.35,
+            0.85,
+          ),
     );
   }
 
@@ -773,5 +781,6 @@ class UserAiClassificationPreferences extends Equatable {
     personalizationEnabled,
     autoClassifyBankNotifications,
     requireConfirmationBeforeSave,
+    minAutoSuggestConfidence,
   ];
 }

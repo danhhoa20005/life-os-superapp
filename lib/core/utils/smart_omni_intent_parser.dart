@@ -158,9 +158,12 @@ abstract final class SmartOmniIntentParser {
     caseSensitive: false,
   );
 
-  static final RegExp _clauseSplitter = RegExp(
-    r'(?:[;\n]+|\s+(?:và|va)\s+(?=(?:nhắc|nhac|nhớ|nho|họp|hop|lịch|lich|hẹn|hen|đi chợ|di cho|mua|ăn|an|đổ|do|trả|tra|nhận|nhan|chuyển|chuyen|uống|uong|chiều|chieu|sáng|sang|tối|toi|mai)\b)|,\s+(?=(?:chiều|chieu|sáng|sang|tối|toi|trưa|trua|ngày mai|ngay mai|mai|nhắc|nhac|nhớ|nho|họp|hop|lịch|lich|hẹn|hen|đi chợ|di cho|uống|uong)\b))',
+  static final RegExp _hardClauseDelimiter = RegExp(r'[;\n]+');
+
+  static final RegExp _candidateClauseConnector = RegExp(
+    r'(?:\s+(?:và|va|rồi|roi|xong|tiếp\s+theo|tiep\s+theo)\s+|(?<!\d),\s*|,\s+)',
     caseSensitive: false,
+    unicode: true,
   );
 
   static final RegExp _waterMlRegex = RegExp(
@@ -171,6 +174,12 @@ abstract final class SmartOmniIntentParser {
   static final RegExp _waterCupRegex = RegExp(
     r'\b(?:uống|uong)\s+(\d{1,2})\s*(?:cốc|coc|ly|chai)\s+(?:nước|nuoc)\b',
     caseSensitive: false,
+  );
+
+  static final RegExp _waterLiterRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(?:uống|uong)\s+(\d{1,2})\s*(?:lít|lit)(?:\s*(rưỡi|ruoi))?\s+(?:nước|nuoc)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
   );
 
   static OmniActionDraft? tryParsePrimary(String rawInput, {DateTime? now}) {
@@ -192,11 +201,15 @@ abstract final class SmartOmniIntentParser {
       return _parseGroceryItems(trimmed, startIndex: 0);
     }
 
-    final rawClauses = trimmed
-        .split(_clauseSplitter)
+    final hardBlocks = trimmed
+        .split(_hardClauseDelimiter)
         .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+        .where((s) => s.isNotEmpty);
+
+    final rawClauses = <String>[];
+    for (final block in hardBlocks) {
+      rawClauses.addAll(_splitValidatedClauses(block, refNow: refNow));
+    }
 
     final results = <OmniActionDraft>[];
     var seq = 0;
@@ -214,6 +227,66 @@ abstract final class SmartOmniIntentParser {
     }
 
     return results;
+  }
+
+  static List<String> _splitValidatedClauses(
+    String segment, {
+    required DateTime refNow,
+  }) {
+    final trimmed = segment.trim();
+    if (trimmed.isEmpty) return const <String>[];
+
+    final out = <String>[];
+    var cursor = 0;
+
+    for (final m in _candidateClauseConnector.allMatches(trimmed)) {
+      if (m.start < cursor) continue;
+      final left = trimmed.substring(cursor, m.start).trim();
+      final right = trimmed.substring(m.end).trim();
+      if (left.isEmpty || right.isEmpty) continue;
+
+      final isComma = m.group(0)!.contains(',');
+      if (isComma &&
+          _looksLikeGroceryCommand(left.toLowerCase()) &&
+          SmartQuickEntryParser.tryParse(left) == null &&
+          !_containsScheduleCue(left.toLowerCase())) {
+        final nextMatch = _candidateClauseConnector.firstMatch(right);
+        final immediateRight = nextMatch == null
+            ? right
+            : right.substring(0, nextMatch.start).trim();
+        if (_parseSingleClause(
+          immediateRight,
+          refNow: refNow,
+          index: 0,
+        ).isEmpty) {
+          continue;
+        }
+      }
+
+      final leftDrafts = _parseSingleClause(left, refNow: refNow, index: 0);
+      if (leftDrafts.isEmpty) continue;
+
+      if (!_hasValidDraftInTail(right, refNow: refNow)) continue;
+
+      out.add(left);
+      cursor = m.end;
+    }
+
+    final tail = trimmed.substring(cursor).trim();
+    if (tail.isNotEmpty) {
+      out.add(tail);
+    }
+    return out;
+  }
+
+  static bool _hasValidDraftInTail(String tail, {required DateTime refNow}) {
+    final subClauses = _splitValidatedClauses(tail, refNow: refNow);
+    for (final sub in subClauses) {
+      if (_parseSingleClause(sub, refNow: refNow, index: 0).isNotEmpty) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static List<OmniActionDraft> _parseSingleClause(
@@ -345,8 +418,14 @@ abstract final class SmartOmniIntentParser {
             lower.startsWith('họp ') ||
             lower.startsWith('hẹn ')) &&
         !RegExp(
-          r'\b\d+(?:[.,]\d+)?\s*(?:k|tr|triệu|trieu|nghìn|nghin|ngàn|ngan|đ|vnd|vnđ)\b',
+          r'(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:k|tr|triệu|trieu|củ|cu|cành|canh|nhành|nhanh|xị|xi|chục|chuc|lít|lit|nghìn|nghin|ngàn|ngan|đ|₫|vnd|vnđ)(?![\p{L}\p{N}])',
           caseSensitive: false,
+          unicode: true,
+        ).hasMatch(lower) &&
+        !RegExp(
+          r'(?<![\p{L}\p{N}])(?:nửa\s+(?:triệu|trieu|củ|cu|xị)|(?:một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm\s+rưỡi|xị|cành|nhành|chục|củ|triệu)|trăm\s+rưỡi)(?![\p{L}\p{N}])',
+          caseSensitive: false,
+          unicode: true,
         ).hasMatch(lower);
   }
 
@@ -414,7 +493,12 @@ abstract final class SmartOmniIntentParser {
             folded.contains('kham') ||
             folded.contains('sang mai') ||
             folded.contains('chieu mai') ||
-            folded.contains('toi mai'))) {
+            folded.contains('toi mai') ||
+            folded.contains('sang mot') ||
+            folded.contains('trua mot') ||
+            folded.contains('chieu mot') ||
+            folded.contains('toi mot') ||
+            folded.contains('ngay mot'))) {
       return true;
     }
     return false;
@@ -440,7 +524,12 @@ abstract final class SmartOmniIntentParser {
     final lower = rawClause.toLowerCase();
     final folded = VietnameseSearchMatcher.fold(lower);
     var dayOffset = 0;
-    if (folded.contains('ngay kia') || folded.contains('ngay mot')) {
+    if (folded.contains('ngay kia') ||
+        folded.contains('ngay mot') ||
+        folded.contains('sang mot') ||
+        folded.contains('trua mot') ||
+        folded.contains('chieu mot') ||
+        folded.contains('toi mot')) {
       dayOffset = 2;
     } else if (folded.contains('ngay mai') ||
         folded.contains('sang mai') ||
@@ -518,8 +607,9 @@ abstract final class SmartOmniIntentParser {
         .replaceAll(_explicitHourRegex, '')
         .replaceAll(
           RegExp(
-            r'\b(?:lúc|luc|vào|vao|sáng mai|sang mai|chiều mai|chieu mai|tối mai|toi mai|trưa mai|trua mai|ngày mai|ngay mai|ngày kia|ngay kia|hôm nay|hom nay|tối nay|toi nay|chiều nay|chieu nay|sáng nay|sang nay|cuối tuần|cuoi tuan)\b',
+            r'(?<![\p{L}\p{N}])(?:lúc|luc|vào|vao|sáng\s+mai|sang\s+mai|chiều\s+mai|chieu\s+mai|tối\s+mai|toi\s+mai|trưa\s+mai|trua\s+mai|ngày\s+mai|ngay\s+mai|sáng\s+mốt|sang\s+mot|chiều\s+mốt|chieu\s+mot|tối\s+mốt|toi\s+mot|trưa\s+mốt|trua\s+mot|ngày\s+mốt|ngay\s+mot|ngày\s+kia|ngay\s+kia|hôm\s+nay|hom\s+nay|tối\s+nay|toi\s+nay|chiều\s+nay|chieu\s+nay|sáng\s+nay|sang\s+nay|trưa\s+nay|trua\s+nay|cuối\s+tuần|cuoi\s+tuan)(?![\p{L}\p{N}])',
             caseSensitive: false,
+            unicode: true,
           ),
           '',
         )
@@ -567,6 +657,20 @@ abstract final class SmartOmniIntentParser {
         50,
         3000,
       );
+      return OmniActionDraft(
+        id: 'omni_water_$index',
+        kind: OmniActionKind.waterLog,
+        title: 'Nước lọc',
+        waterMl: ml,
+      );
+    }
+
+    final literMatch = _waterLiterRegex.firstMatch(clause);
+    if (literMatch != null) {
+      final liters = int.tryParse(literMatch.group(1) ?? '1') ?? 1;
+      final hasHalf =
+          literMatch.group(2) != null && literMatch.group(2)!.isNotEmpty;
+      final ml = (liters * 1000 + (hasHalf ? 500 : 0)).clamp(50, 3000);
       return OmniActionDraft(
         id: 'omni_water_$index',
         kind: OmniActionKind.waterLog,
@@ -642,8 +746,9 @@ abstract final class SmartOmniIntentParser {
         .replaceAll(_explicitHourRegex, '')
         .replaceAll(
           RegExp(
-            r'\b(?:lúc|vào|buổi sáng|buổi trưa|buổi tối|sau ăn sáng|sau ăn trưa|sau ăn tối|sau ăn|trước ăn|sáng nay|sáng mai|tối nay|mỗi ngày)\b',
+            r'(?<![\p{L}\p{N}])(?:lúc|vào|buổi sáng|buổi trưa|buổi tối|sau ăn sáng|sau ăn trưa|sau ăn tối|sau ăn|trước ăn|sáng nay|sáng mai|sáng mốt|chiều mốt|tối mốt|ngày mốt|tối nay|mỗi ngày)(?![\p{L}\p{N}])',
             caseSensitive: false,
+            unicode: true,
           ),
           '',
         )

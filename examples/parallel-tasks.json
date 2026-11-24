@@ -1,44 +1,62 @@
 {
-  "wave": "wave-0-discovery-and-audit",
-  "description": "Ví dụ 3 model Gemini 4 chạy song song ở chế độ plan (chỉ đọc) đã đối chiếu với `agy models` trên máy.",
+  "schema_version": "6.1",
+  "wave": "wave-0-local-ai-ui-security-audit",
+  "description": "Wave mẫu Antigravity v6.1 gồm 4 task plan (chỉ đọc) chạy song song với các model Gemini 4 đã xác minh qua `agy models`, kiểm toán Local AI Engine, Motion/Privacy, Facebook 2-Bar UI và bộ kiểm thử.",
   "tasks": [
     {
-      "id": "A01-motion-security-contract",
+      "id": "A01-local-ai-motion-privacy-contract",
       "role": "architect",
       "model": "gemini-4-carbon-high",
       "mode": "plan",
       "owned_paths": [],
       "readonly_paths": [
+        "lib/features/financial_ai",
         "lib/core/motion",
         "lib/core/utils/privacy_mask_formatter.dart",
-        "lib/app/app_router.dart"
+        "lib/core/utils/smart_omni_intent_parser.dart"
       ],
-      "prompt": "Kiểm toán kiến trúc Motion Design System và bộ che thông tin nhạy cảm PrivacyMaskFormatter theo AGENTS.md mục 6 và 10. Liệt kê mọi rủi ro rò rỉ dữ liệu hoặc rò rỉ Ticker/AnimationController."
+      "prompt": "Kiểm toán kiến trúc Local AI Engine (FastText INT8, ConfidencePolicyEngine, SmartOmniIntentParser), hệ thống LifeOsMotion (tôn trọng OS Reduce Motion, giải phóng Ticker/AnimationController) và PrivacyMaskFormatter (che mặc định PII/tài khoản/JSON sao lưu) cùng BLoC concurrency & idempotency tài chính theo AGENTS.md v6.1."
     },
     {
-      "id": "D01-ui-motion-review",
+      "id": "D01-facebook-2bar-ui-pro-max-audit",
       "role": "developer",
       "model": "gemini-4-neon-high",
       "mode": "plan",
       "owned_paths": [],
       "readonly_paths": [
-        "lib/features/transactions/presentation/pages/finance_page.dart",
-        "lib/features/dashboard/presentation/pages/today_page.dart"
+        "lib/core/widgets/lifeos_design_system.dart",
+        "lib/app/app_router.dart",
+        "lib/features/dashboard/presentation/pages/today_page.dart",
+        "lib/features/financial_ai/presentation"
       ],
-      "prompt": "Rà soát tính toàn vẹn hiển thị số tiền, chuyển động danh sách giao dịch và chế độ Reduce Motion trên TodayPage và FinancePage."
+      "prompt": "Rà soát bố cục 2 thanh bar chuẩn Facebook (Top Bar avatar sát mép phải + Bottom Bar 5 tab gắn đáy) trên nền Porcelain-White & Mint Pastel vector sắc nét, việc dùng LifeOsTopToast (0% showSnackBar), FontFeature.tabularFigures(), rút gọn thông số vào LifeOsDetailsDiscloseSection (Chi tiết) và chống tràn RenderFlex ở 360x800 @ 112%-125%."
     },
     {
-      "id": "Q01-test-matrix-gap",
+      "id": "Q01-local-ai-privacy-motion-test-gap",
       "role": "qa",
       "model": "gemini-4-hydrogen-medium",
       "mode": "plan",
       "owned_paths": [],
       "readonly_paths": [
+        "test/features/financial_ai",
         "test/core/motion",
         "test/widget/settings_and_account_security_test.dart",
         "docs/motion/QA_CHECKLIST.md"
       ],
-      "prompt": "Đối chiếu bộ test hiện tại với ma trận kiểm thử NAV-01..TEST-02 và kiểm tra che thông tin bảo mật để đề xuất các ca kiểm thử bổ sung."
+      "prompt": "Đối chiếu độ phủ unit/BLoC/widget test cho Local AI NLU (FastText INT8, SmartOmni, học cá nhân hóa), che ẩn dữ liệu nhạy cảm PrivacyMaskFormatter, chế độ Reduce Motion Android/iOS và kiểm thử chống tràn 360x800 @ 112%-125% để đề xuất các ca kiểm thử bổ sung."
+    },
+    {
+      "id": "C01-pastel-vector-asset-manifest-audit",
+      "role": "creative",
+      "model": "gemini-4-hydrogen-medium",
+      "mode": "plan",
+      "owned_paths": [],
+      "readonly_paths": [
+        "examples/asset-manifest.json",
+        "lib/core/constants/app_assets.dart",
+        "lib/core/widgets/lifeos_design_system.dart"
+      ],
+      "prompt": "Rà soát hợp đồng tài nguyên examples/asset-manifest.json, AppAssets và quy chuẩn icon/minh họa vector sạch trên bảng màu Porcelain-White & Mint Pastel (#0B7A2A, #113824, #E7F7EB) tương thích Light/Dark."
     }
   ]
 }
