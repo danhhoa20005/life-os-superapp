@@ -4,14 +4,26 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 enum VoiceEngineMode {
-  auto('auto', 'Tự động tối ưu'),
-  onDevice('on_device', 'Offline trên máy'),
-  googleService('google_service', 'Google Speech'),
-  systemDialog('system_dialog', 'Hộp thoại hệ thống');
+  googleService('google_service', 'Google Speech (Trực tiếp)'),
+  systemDialog('system_dialog', 'Hộp thoại Google'),
+  auto('auto', 'Google Speech (Trực tiếp)'),
+  onDevice('on_device', 'Google Offline');
 
   final String wireValue;
   final String labelVi;
   const VoiceEngineMode(this.wireValue, this.labelVi);
+
+  /// Only the two verified Google Vietnamese modes are surfaced in the UI selector
+  /// so users never land on broken OEM or unsupported non-Vietnamese offline stubs.
+  static const List<VoiceEngineMode> selectableGoogleModes = <VoiceEngineMode>[
+    VoiceEngineMode.googleService,
+    VoiceEngineMode.systemDialog,
+  ];
+
+  static VoiceEngineMode fromWireValue(String? raw) {
+    if (raw == systemDialog.wireValue) return systemDialog;
+    return googleService;
+  }
 }
 
 class VoiceDiagnosticsSnapshot {
@@ -227,20 +239,23 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
   Future<String> startListeningSession({
     String? sessionToken,
     bool preferSystemDialog = false,
-    String engineMode = 'auto',
+    String engineMode = 'google_service',
   }) async {
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return 'UNSUPPORTED';
     }
     _ensureMethodHandlerInstalled();
     try {
+      final useDialog = preferSystemDialog || engineMode == 'system_dialog';
+      final normalizedMode = useDialog
+          ? 'system_dialog'
+          : (engineMode == 'on_device' ? 'on_device' : 'google_service');
       final status = await _methodChannel.invokeMethod<String>(
         'startListening',
         <String, dynamic>{
           if (sessionToken != null) 'sessionToken': sessionToken,
-          'preferSystemDialog':
-              preferSystemDialog || engineMode == 'system_dialog',
-          'engineMode': preferSystemDialog ? 'system_dialog' : engineMode,
+          'preferSystemDialog': useDialog,
+          'engineMode': normalizedMode,
         },
       );
       return status ?? 'STARTED';
@@ -346,20 +361,24 @@ class NativeVoiceAssistantBridge {
   Future<String> startListening({
     String? sessionToken,
     bool preferSystemDialog = false,
-    VoiceEngineMode engineMode = VoiceEngineMode.auto,
+    VoiceEngineMode engineMode = VoiceEngineMode.googleService,
   }) {
     if (sessionToken != null && sessionToken.isNotEmpty) {
       _activeOwnerSessionToken = sessionToken;
     }
     final drv = _driver;
     if (drv is AdvancedVoiceAssistantDriver) {
+      final useDialog =
+          preferSystemDialog || engineMode == VoiceEngineMode.systemDialog;
+      final effectiveWire = useDialog
+          ? VoiceEngineMode.systemDialog.wireValue
+          : (engineMode == VoiceEngineMode.onDevice
+                ? VoiceEngineMode.onDevice.wireValue
+                : VoiceEngineMode.googleService.wireValue);
       return drv.startListeningSession(
         sessionToken: sessionToken,
-        preferSystemDialog:
-            preferSystemDialog || engineMode == VoiceEngineMode.systemDialog,
-        engineMode: preferSystemDialog
-            ? VoiceEngineMode.systemDialog.wireValue
-            : engineMode.wireValue,
+        preferSystemDialog: useDialog,
+        engineMode: effectiveWire,
       );
     }
     return drv.startListening();

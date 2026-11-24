@@ -12,6 +12,7 @@ import 'package:life_os/app/theme/theme_bloc.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/core/services/native_device_calendar_bridge.dart';
 import 'package:life_os/core/services/native_voice_assistant_bridge.dart';
+import 'package:life_os/core/utils/user_behavior_prefs.dart';
 import 'package:life_os/features/financial_ai/data/inference/fasttext_classifier.dart';
 
 class _NoOpCalendarDriver implements DeviceCalendarDriver {
@@ -109,11 +110,10 @@ class _AdvancedMockVoiceDriver implements AdvancedVoiceAssistantDriver {
       isOnDeviceAvailable: true,
       hasSystemSpeechDialog: true,
       availableEngines: <String>[
-        'system_default',
         'service:com.google.android.tts',
-        'on_device_android13',
+        'service:com.google.android.googlequicksearchbox',
       ],
-      activeEngineLabel: 'system_default',
+      activeEngineLabel: 'service:com.google.android.tts',
       sdkInt: 35,
       manufacturer: 'Samsung',
     );
@@ -128,7 +128,8 @@ class _AdvancedMockVoiceDriver implements AdvancedVoiceAssistantDriver {
 }
 
 void main() {
-  setUp(() {
+  setUp(() async {
+    await UserBehaviorPrefs.resetForTest();
     NativeDeviceCalendarBridge.setDriverOverride(const _NoOpCalendarDriver());
   });
 
@@ -264,10 +265,12 @@ void main() {
         rootCtx.read<ThemeBloc>().add(const TextScaleChanged(1.12));
         await tester.pumpAndSettle();
 
-        // 1. Open Voice Smart Capture Sheet -> starts in 'initializing' before hardware mic opens
+        // 1. Open Voice Smart Capture Sheet -> defaults directly to Google Speech ('google_service')!
         await tester.tap(find.byKey(const Key('home_quick_expense_btn')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
+        expect(voiceDriver.lastEngineMode, 'google_service');
+        expect(voiceDriver.lastPreferSystemDialog, isFalse);
         expect(find.text('Đang mở kênh Micro tiếng Việt...'), findsOneWidget);
 
         // 2. Hardware mic opens ('listening') -> ready prompt shown
@@ -310,7 +313,7 @@ void main() {
           'Ăn phở 55 nghìn, Cà phê 35 nghìn',
         );
 
-        // 6. Expand 'Chi tiết thu âm' progressive disclosure -> select 'Offline trên máy'
+        // 6. Expand 'Chi tiết thu âm' -> ONLY Google modes shown (broken OEM/non-VN modes removed!)
         await tester.ensureVisible(
           find.byKey(const Key('voice_mic_details_toggle')),
         );
@@ -322,14 +325,37 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Quyền Micro: Đã cấp'), findsOneWidget);
-        expect(find.text('Kênh hệ thống Android'), findsOneWidget);
+        expect(find.text('Speech Services by Google'), findsOneWidget);
+        expect(
+          find.byKey(const Key('voice_engine_chip_google_service')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('voice_engine_chip_system_dialog')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('voice_engine_chip_auto')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('voice_engine_chip_on_device')),
+          findsNothing,
+        );
 
         await tester.ensureVisible(
-          find.byKey(const Key('voice_engine_chip_on_device')),
+          find.byKey(const Key('voice_engine_chip_system_dialog')),
         );
-        await tester.tap(find.byKey(const Key('voice_engine_chip_on_device')));
+        await tester.tap(
+          find.byKey(const Key('voice_engine_chip_system_dialog')),
+        );
         await tester.pump(const Duration(milliseconds: 100));
-        expect(voiceDriver.lastEngineMode, 'on_device');
+        expect(voiceDriver.lastEngineMode, 'system_dialog');
+        expect(voiceDriver.lastPreferSystemDialog, isTrue);
+        expect(
+          await UserBehaviorPrefs.loadPreferredVoiceEngineMode(),
+          'system_dialog',
+        );
         expect(tester.takeException(), isNull);
       },
     );

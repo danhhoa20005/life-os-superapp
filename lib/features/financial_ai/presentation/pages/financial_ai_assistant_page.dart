@@ -296,11 +296,18 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
       _isListening = true;
       _lastVoiceErrorCode = null;
       _voiceHint =
-          'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
+          'Đang kết nối Google Speech tiếng Việt — nói xong hệ thống tự dừng để bạn xác nhận.';
     });
+    final savedModeWire = await UserBehaviorPrefs.loadPreferredVoiceEngineMode();
+    final savedMode = VoiceEngineMode.fromWireValue(savedModeWire);
+    final useDialog =
+        preferSystemDialog || savedMode == VoiceEngineMode.systemDialog;
     final res = await bridge.startListening(
       sessionToken: _voiceSessionToken,
-      preferSystemDialog: preferSystemDialog,
+      preferSystemDialog: useDialog,
+      engineMode: useDialog
+          ? VoiceEngineMode.systemDialog
+          : VoiceEngineMode.googleService,
     );
     if (!mounted) return;
     if (res == 'PERMISSION_REQUESTED') {

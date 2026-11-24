@@ -48,7 +48,7 @@ class MainActivity : FlutterActivity() {
     private var pendingSinglePermissionKind: String? = null
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private var activeVoiceSessionToken: String? = null
-    private var activeVoiceEngineMode: String = "auto"
+    private var activeVoiceEngineMode: String = "google_service"
     private var isAwaitingVoicePermissionOrDialog: Boolean = false
     private var voiceEventSink: EventChannel.EventSink? = null
 
@@ -330,7 +330,7 @@ class MainActivity : FlutterActivity() {
                 "startListening" -> {
                     val token = call.argument<String>("sessionToken")
                     val preferSystemDialog = call.argument<Boolean>("preferSystemDialog") ?: false
-                    val engineMode = call.argument<String>("engineMode") ?: "auto"
+                    val engineMode = call.argument<String>("engineMode") ?: "google_service"
                     activeVoiceEngineMode = engineMode
                     if (!token.isNullOrBlank()) {
                         activeVoiceSessionToken = token

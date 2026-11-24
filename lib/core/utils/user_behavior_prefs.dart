@@ -93,11 +93,14 @@ abstract final class UserBehaviorPrefs {
   static const String _keySecurityPin = 'sec_app_pin_code_v1';
   static const String _keyPermissionsPopupDismissed =
       'ux_permissions_popup_dismissed_v1';
+  static const String _keyPreferredVoiceEngineMode =
+      'ux_preferred_voice_engine_mode_v2';
 
   static String? _cachedLastWalletId;
   static bool? _cachedHideBalances;
   static String? _cachedAppPin;
   static bool? _cachedPermissionsPopupDismissed;
+  static String? _cachedVoiceEngineMode;
   static List<HabitShortcut> _cachedHabits = const <HabitShortcut>[];
 
   static Future<void> resetForTest() async {
@@ -105,6 +108,7 @@ abstract final class UserBehaviorPrefs {
     _cachedHideBalances = null;
     _cachedAppPin = null;
     _cachedPermissionsPopupDismissed = null;
+    _cachedVoiceEngineMode = null;
     _cachedHabits = const <HabitShortcut>[];
     await NativeSecureVaultBridge.instance.deleteSecret(_keyLastWallet);
     await NativeSecureVaultBridge.instance.deleteSecret(_keyPinnedShortcuts);
@@ -113,6 +117,34 @@ abstract final class UserBehaviorPrefs {
     await NativeSecureVaultBridge.instance.deleteSecret(_keySecurityPin);
     await NativeSecureVaultBridge.instance.deleteSecret(
       _keyPermissionsPopupDismissed,
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _keyPreferredVoiceEngineMode,
+    );
+  }
+
+  static String get cachedVoiceEngineMode =>
+      _cachedVoiceEngineMode ?? 'google_service';
+
+  static Future<String> loadPreferredVoiceEngineMode() async {
+    if (_cachedVoiceEngineMode != null) return _cachedVoiceEngineMode!;
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _keyPreferredVoiceEngineMode,
+    );
+    _cachedVoiceEngineMode = raw == 'system_dialog'
+        ? 'system_dialog'
+        : 'google_service';
+    return _cachedVoiceEngineMode!;
+  }
+
+  static Future<void> savePreferredVoiceEngineMode(String modeWireValue) async {
+    final normalized = modeWireValue == 'system_dialog'
+        ? 'system_dialog'
+        : 'google_service';
+    _cachedVoiceEngineMode = normalized;
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _keyPreferredVoiceEngineMode,
+      value: normalized,
     );
   }
 

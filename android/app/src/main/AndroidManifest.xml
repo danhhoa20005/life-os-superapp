@@ -153,11 +153,6 @@
     <queries>
         <package android:name="com.google.android.tts"/>
         <package android:name="com.google.android.googlequicksearchbox"/>
-        <package android:name="com.samsung.android.bixby.agent"/>
-        <package android:name="com.samsung.android.scs"/>
-        <package android:name="com.xiaomi.mibrain.speech"/>
-        <package android:name="com.heytap.speechassist"/>
-        <package android:name="com.vivo.aiengine"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

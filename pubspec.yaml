@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Offline Financial AI v2.0 QAT INT8 99.31% + 3D Liquid Glass UI + Motion v2 v3.24.0)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (100% Google Speech Voice Engine + Offline Financial AI v2.0 QAT INT8 + 3D Liquid Glass v3.24.1)"
 publish_to: 'none'
-version: 3.24.0+41
+version: 3.24.1+42
 
 environment:
   sdk: ^3.10.0

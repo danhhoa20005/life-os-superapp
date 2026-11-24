@@ -989,8 +989,11 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             return
         }
 
-        statusLabel.text = "Đang khởi động thu âm tiếng Việt..."
-        ensureOverlaySpeechHelper().startListening(preferSystemDialog = !hasAudioPerm)
+        statusLabel.text = "Đang khởi động Google Speech tiếng Việt..."
+        ensureOverlaySpeechHelper().startListening(
+            preferSystemDialog = !hasAudioPerm,
+            engineMode = "google_service"
+        )
     }
 
     override fun onRequestPermissionsResult(
@@ -1004,7 +1007,10 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                 grantResults[0] == PackageManager.PERMISSION_GRANTED
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 if (!isFinishing && !isDestroyed) {
-                    ensureOverlaySpeechHelper().startListening(preferSystemDialog = !granted)
+                    ensureOverlaySpeechHelper().startListening(
+                        preferSystemDialog = !granted,
+                        engineMode = "google_service"
+                    )
                 }
             }, 160L)
         }
@@ -1021,8 +1027,10 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                     .orEmpty()
                     .trim()
                 if (spoken.isNotBlank()) {
-                    inputField.setText(spoken)
-                    inputField.setSelection(spoken.length)
+                    val combined = if (overlaySessionPrefix.isBlank()) spoken else "$overlaySessionPrefix, $spoken"
+                    overlaySessionPrefix = combined
+                    inputField.setText(combined)
+                    inputField.setSelection(combined.length)
                     commitAndFinish()
                     return
                 }

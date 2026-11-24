@@ -119,7 +119,7 @@ class _VoiceSmartCaptureSheetBodyState
   bool _isRequestingPermission = false;
   bool _awaitingConfirmation = false;
   String _sessionPrefixText = '';
-  VoiceEngineMode _selectedEngineMode = VoiceEngineMode.auto;
+  VoiceEngineMode _selectedEngineMode = VoiceEngineMode.googleService;
   VoiceDiagnosticsSnapshot? _diagnostics;
   String? _voiceStatusHint;
   String? _lastErrorCode;
@@ -134,6 +134,9 @@ class _VoiceSmartCaptureSheetBodyState
     _textCtrl = TextEditingController(text: initial);
     _sessionPrefixText = initial;
     _awaitingConfirmation = initial.isNotEmpty;
+    _selectedEngineMode = VoiceEngineMode.fromWireValue(
+      UserBehaviorPrefs.cachedVoiceEngineMode,
+    );
     UserBehaviorPrefs.loadLastWalletId().then((savedId) {
       if (mounted && savedId != null && _selectedWalletId == null) {
         setState(() => _selectedWalletId = savedId);
@@ -144,11 +147,16 @@ class _VoiceSmartCaptureSheetBodyState
     _voiceSub = bridge.watchSignals().listen(_handleVoiceSignal);
     _refreshDiagnostics();
 
-    if (widget.autoStartListening) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _startListeningFresh();
-      });
-    }
+    UserBehaviorPrefs.loadPreferredVoiceEngineMode().then((savedWire) {
+      if (!mounted) return;
+      final loadedMode = VoiceEngineMode.fromWireValue(savedWire);
+      if (loadedMode != _selectedEngineMode) {
+        setState(() => _selectedEngineMode = loadedMode);
+      }
+      if (widget.autoStartListening) {
+        _startListeningFresh();
+      }
+    });
   }
 
   Future<void> _refreshDiagnostics() async {
@@ -1063,7 +1071,7 @@ class _VoiceSmartCaptureSheetBodyState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Chế độ kênh thu âm tiếng Việt',
+                        'Kênh thu âm Google Tiếng Việt',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -1074,7 +1082,9 @@ class _VoiceSmartCaptureSheetBodyState
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: VoiceEngineMode.values.map((mode) {
+                        children: VoiceEngineMode.selectableGoogleModes.map((
+                          mode,
+                        ) {
                           final selected = _selectedEngineMode == mode;
                           return ChoiceChip(
                             key: Key('voice_engine_chip_${mode.wireValue}'),
@@ -1084,8 +1094,11 @@ class _VoiceSmartCaptureSheetBodyState
                             ),
                             selected: selected,
                             visualDensity: VisualDensity.compact,
-                            onSelected: (_) {
-                              _startListeningFresh(
+                            onSelected: (_) async {
+                              await UserBehaviorPrefs
+                                  .savePreferredVoiceEngineMode(mode.wireValue);
+                              if (!mounted) return;
+                              await _startListeningFresh(
                                 clearExisting: false,
                                 preferSystemDialog:
                                     mode == VoiceEngineMode.systemDialog,
