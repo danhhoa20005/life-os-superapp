@@ -42,42 +42,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
   String _selectedBeverage = 'Nước lọc';
   bool _revealMedicalIdentifiers = false;
 
-  static const List<
-    ({String name, String dosage, MedicationScheduleSlot slot, int pills})
-  >
-  _medPresets = [
-    (
-      name: 'Vitamin D3 + K2 MK7',
-      dosage: '1 viên sau ăn sáng',
-      slot: MedicationScheduleSlot.morning,
-      pills: 60,
-    ),
-    (
-      name: 'Omega-3 Dầu cá tinh khiết',
-      dosage: '1 viên buổi trưa',
-      slot: MedicationScheduleSlot.noon,
-      pills: 90,
-    ),
-    (
-      name: 'Hạ sốt giảm đau Paracetamol 500mg',
-      dosage: '1 viên khi sốt >= 38.5°C',
-      slot: MedicationScheduleSlot.asNeeded,
-      pills: 20,
-    ),
-    (
-      name: 'Oresol bù nước & điện giải',
-      dosage: '1 gói pha đúng 200ml nước sôi để nguội',
-      slot: MedicationScheduleSlot.asNeeded,
-      pills: 15,
-    ),
-    (
-      name: 'Men vi sinh tiêu hóa Probiotics',
-      dosage: '1 ống buổi tối',
-      slot: MedicationScheduleSlot.evening,
-      pills: 30,
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -393,46 +357,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
           ),
           const SizedBox(height: 12),
         ],
-
-        Text(
-          'Mẫu thuốc & vitamin phổ biến',
-          softWrap: true,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
-            color: c.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _medPresets.map((p) {
-            return ActionChip(
-              avatar: Icon(
-                Icons.add_circle_outline_rounded,
-                size: 16,
-                color: c.primary,
-              ),
-              label: Text(p.name, style: const TextStyle(fontSize: 12.2)),
-              onPressed: userId.isEmpty
-                  ? null
-                  : () {
-                      context.read<DailyLifeBloc>().add(
-                        MedicationCabinetAdded(
-                          userId: userId,
-                          name: p.name,
-                          dosage: p.dosage,
-                          slot: p.slot,
-                          remainingPills: p.pills,
-                          expiryDate: now.add(const Duration(days: 270)),
-                        ),
-                      );
-                    },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 14),
 
         LifeOsPrimaryCtaButton(
           key: const Key('open_add_medication_btn'),

@@ -133,7 +133,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Không gian Trí nhớ & Thu nhập Cá nhân',
+                                          'Sổ tay Ghi chú & Lương Thực nhận',
                                           style: TextStyle(
                                             fontSize: 15.5,
                                             fontWeight: FontWeight.w800,
@@ -161,7 +161,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                               options: const [
                                 (
                                   'notes',
-                                  'Sổ tay & Cảm xúc',
+                                  'Sổ tay Ghi chú',
                                   Icons.sticky_note_2_outlined,
                                 ),
                                 (
@@ -174,7 +174,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                             const SizedBox(height: 14),
 
                             if (_tab == 'notes')
-                              _buildNotesAndMoodTab(context, c, userId, notes)
+                              _buildNotesTab(context, c, userId, notes)
                             else
                               _buildSalaryTaxTab(
                                 context,
@@ -197,7 +197,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     );
   }
 
-  Widget _buildNotesAndMoodTab(
+  Widget _buildNotesTab(
     BuildContext context,
     TammySemanticColors c,
     String userId,
@@ -218,53 +218,6 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1-Tap Daily Mood & Gratitude Check-in
-        LifeOsSoftCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hôm nay tâm trạng của bạn thế nào?',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14.5,
-                  color: c.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Chạm 1 lần để lưu nhanh khoảnh khắc & theo dõi năng lượng tinh thần.',
-                style: TextStyle(fontSize: 12, color: c.textSecondary),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: LifeMoodLevel.values.map((m) {
-                  return ActionChip(
-                    label: Text('${m.emoji} ${m.label}'),
-                    onPressed: userId.isEmpty
-                        ? null
-                        : () {
-                            context.read<DailyLifeBloc>().add(
-                              SmartNoteSaved(
-                                userId: userId,
-                                title: 'Nhật ký cảm xúc: ${m.emoji} ${m.label}',
-                                content:
-                                    'Ghi nhận năng lượng tinh thần hôm nay ở trạng thái "${m.label}".',
-                                categoryTag: 'Nhật ký cảm xúc',
-                                mood: m,
-                              ),
-                            );
-                          },
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
         TextField(
           key: const Key('smart_notes_search_field'),
           controller: _noteSearchCtrl,
@@ -315,7 +268,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
 
         LifeOsPrimaryCtaButton(
           key: const Key('open_add_smart_note_btn'),
-          label: '+ Tạo Ghi Chú Thông Minh Mới',
+          label: '+ Tạo Ghi Chú Mới',
           icon: Icons.note_add_outlined,
           onPressed: userId.isEmpty
               ? null
@@ -348,7 +301,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 Text(
                   hasActiveFilter
                       ? 'Hãy xóa từ khóa hoặc chuyển về Tất cả để xem toàn bộ ghi chú đã lưu.'
-                      : 'Lưu lại mã thẻ gửi xe, mật khẩu Wi-Fi văn phòng, danh sách sách hay hoặc ghim checklist quan trọng lên đầu.',
+                      : 'Lưu mã số, thông tin quan trọng hoặc checklist ghim đầu trang.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),

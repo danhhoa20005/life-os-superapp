@@ -444,49 +444,10 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                     ],
                                   ),
                                 ),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children:
-                                      const [
-                                            (
-                                              'Ngày không chi tiêu thừa',
-                                              'Tài chính',
-                                            ),
-                                            ('Đọc sách 20 phút', 'Học tập'),
-                                            (
-                                              'Vận động / Đi bộ 30 phút',
-                                              'Sức khỏe',
-                                            ),
-                                          ]
-                                          .map(
-                                            (preset) => Padding(
-                                              padding: const EdgeInsets.only(
-                                                right: 8,
-                                                bottom: 8,
-                                              ),
-                                              child: ActionChip(
-                                                label: Text('+ ${preset.$1}'),
-                                                onPressed: () => context
-                                                    .read<ProUtilitiesBloc>()
-                                                    .add(
-                                                      HabitAdded(
-                                                        userId: user.id,
-                                                        title: preset.$1,
-                                                        categoryTag: preset.$2,
-                                                      ),
-                                                    ),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                ),
-                              ),
-
                               if (state.habits.isEmpty)
                                 LifeOsSoftCard(
                                   child: Text(
-                                    'Chạm một gợi ý phía trên (như "Ngày không chi tiêu thừa") để bắt đầu xây dựng chuỗi kỷ luật mỗi ngày.',
+                                    'Chưa có mục theo dõi nào. Bấm "+ Thói quen mới" để bắt đầu.',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: c.textSecondary,

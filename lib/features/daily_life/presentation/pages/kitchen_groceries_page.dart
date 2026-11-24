@@ -25,48 +25,6 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
   String _basketFilter = 'all'; // 'all' | 'pending' | 'bought'
   int _featuredComboIndex = 0;
 
-  static const List<
-    ({String name, String qty, GroceryAisle aisle, int priceMinor})
-  >
-  _quickMarketChips = [
-    (
-      name: 'Trứng gà ta vỉ 10 quả',
-      qty: '1 vỉ',
-      aisle: GroceryAisle.meatSeafood,
-      priceMinor: 36000,
-    ),
-    (
-      name: 'Thịt ba rọi heo CP',
-      qty: '500g',
-      aisle: GroceryAisle.meatSeafood,
-      priceMinor: 85000,
-    ),
-    (
-      name: 'Rau cải ngọt & hành ngò',
-      qty: '2 bó',
-      aisle: GroceryAisle.produce,
-      priceMinor: 22000,
-    ),
-    (
-      name: 'Sữa tươi không đường 1L',
-      qty: '1 hộp',
-      aisle: GroceryAisle.meatSeafood,
-      priceMinor: 34000,
-    ),
-    (
-      name: 'Gạo thơm ST25 túi 5kg',
-      qty: '1 túi',
-      aisle: GroceryAisle.pantry,
-      priceMinor: 165000,
-    ),
-    (
-      name: 'Giấy vệ sinh & Nước rửa chén',
-      qty: '1 combo',
-      aisle: GroceryAisle.household,
-      priceMinor: 68000,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
@@ -156,7 +114,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                             Text(
                                               snap.mealPlans.isNotEmpty
                                                   ? 'Thực đơn hôm nay: ${snap.mealPlans.first.lunch}'
-                                                  : 'Lên thực đơn trước khi đi chợ giúp giảm 25% chi tiêu thừa',
+                                                  : 'Quản lý giỏ đi chợ, thực đơn & hạn dùng thực phẩm',
                                               softWrap: true,
                                               style: TextStyle(
                                                 fontSize: 12.2,
@@ -358,47 +316,6 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Chạm để bỏ nhanh vào Giỏ đi chợ',
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
-            color: c.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _quickMarketChips.map((chip) {
-            return ActionChip(
-              avatar: Icon(
-                Icons.add_shopping_cart_rounded,
-                size: 15,
-                color: c.primary,
-              ),
-              label: Text(
-                '${chip.name} (${VndAmount.format(chip.priceMinor)})',
-                style: const TextStyle(fontSize: 12),
-              ),
-              onPressed: userId.isEmpty
-                  ? null
-                  : () {
-                      context.read<DailyLifeBloc>().add(
-                        GroceryItemAdded(
-                          userId: userId,
-                          name: chip.name,
-                          quantityLabel: chip.qty,
-                          aisle: chip.aisle,
-                          estimatedMinor: chip.priceMinor,
-                        ),
-                      );
-                    },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-
         Row(
           children: [
             Expanded(
@@ -506,7 +423,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Bấm vào các món gợi ý ở trên hoặc qua tab "Ăn gì hôm nay" để đẩy toàn bộ nguyên liệu cả ngày vào giỏ chỉ với 1 chạm.',
+                  'Thêm món cần mua hoặc chọn từ tab "Ăn gì hôm nay".',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),
@@ -716,7 +633,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Tất cả thực đơn gia đình gợi ý (${combos.length})',
+          'Thực đơn theo bữa (${combos.length})',
           style: TextStyle(
             fontWeight: FontWeight.w800,
             fontSize: 14,
@@ -816,7 +733,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Lưu thịt cá, rau xanh, sữa thanh trùng mới mua để LifeOS nhắc chế biến trước khi quá hạn.',
+                  'Lưu thực phẩm tươi sống để theo dõi hạn bảo quản.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),

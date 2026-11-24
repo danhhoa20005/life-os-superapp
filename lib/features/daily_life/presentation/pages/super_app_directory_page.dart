@@ -165,10 +165,10 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       route: '/social-ledger-travel',
     ),
 
-    // 2. SỨC KHỎE, BẾP GIA ĐÌNH & KỶ LUẬT SỐNG
+    // 2. SỨC KHỎE, BẾP GIA ĐÌNH & ĐỜI SỐNG
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
+      domainTitle: 'Sức khỏe · Bếp & Đời sống',
       shortLabel: 'Sức khỏe & SOS',
       keywords: 'tủ thuốc uống thuốc bmi huyết áp bhyt 115',
       icon: Icons.favorite_outline_rounded,
@@ -177,7 +177,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
+      domainTitle: 'Sức khỏe · Bếp & Đời sống',
       shortLabel: 'Bếp & Đi chợ',
       keywords: 'hôm nay ăn gì thực đơn giỏ chợ tủ lạnh',
       icon: Icons.shopping_basket_outlined,
@@ -186,8 +186,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
-      shortLabel: 'Tập trung & Nước',
+      domainTitle: 'Sức khỏe · Bếp & Đời sống',
+      shortLabel: 'Đồng hồ & Nước',
       keywords: 'thói quen tập trung uống nước 2000ml pomodoro',
       icon: Icons.local_fire_department_outlined,
       tone: LifeOsAccentTone.amber,
@@ -195,9 +195,9 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đi chợ · Kỷ luật',
-      shortLabel: 'Sổ tay & Cảm xúc',
-      keywords: 'sổ tay ghim nhật ký cảm xúc tâm trạng mood',
+      domainTitle: 'Sức khỏe · Bếp & Đời sống',
+      shortLabel: 'Ghi chú nhanh',
+      keywords: 'sổ tay ghi chú ghim mã số checklist',
       icon: Icons.sticky_note_2_outlined,
       tone: LifeOsAccentTone.purple,
       route: '/smart-notes-hub',

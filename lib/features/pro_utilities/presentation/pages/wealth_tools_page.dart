@@ -173,38 +173,7 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    ActionChip(
-                      label: const Text('Mẫu Siêu thị Co.opmart'),
-                      onPressed: () => setState(() {
-                        _receiptCtrl.text =
-                            'Siêu thị Co.opmart Quận 7\n'
-                            'Thịt bò Úc 300g 145.000\n'
-                            'Sữa tươi TH True Milk 42.000\n'
-                            'Rau củ hữu cơ Đà Lạt 58.000\n'
-                            'Tổng thanh toán: 245.000đ';
-                      }),
-                    ),
-                    const SizedBox(width: 8),
-                    ActionChip(
-                      label: const Text('Mẫu GrabFood Liên hoan'),
-                      onPressed: () => setState(() {
-                        _receiptCtrl.text =
-                            'GrabFood - Cơm Tấm Phúc Lộc Thọ\n'
-                            '3x Cơm sườn bì chả 195k\n'
-                            '3x Trà tắc mật ong 75k\n'
-                            'Phí giao hàng 18k\n'
-                            'Tổng cộng: 288.000đ';
-                      }),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               TextField(
                 key: const Key('receipt_raw_text_input'),
                 controller: _receiptCtrl,

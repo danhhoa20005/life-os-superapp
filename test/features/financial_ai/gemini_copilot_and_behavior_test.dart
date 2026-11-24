@@ -353,14 +353,9 @@ void main() {
       await tester.pumpWidget(const LifeOsApp());
       await tester.pumpAndSettle();
 
-      // Verify Gemini AI header action on TodayPage & Circadian Strip on scroll
+      // Verify Gemini AI header action on TodayPage & absence of removed Circadian Strip
       expect(find.byKey(const Key('today_open_gemini_ai_pill')), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('today_circadian_smart_strip')),
-        220,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.byKey(const Key('today_circadian_smart_strip')), findsOneWidget);
+      expect(find.byKey(const Key('today_circadian_smart_strip')), findsNothing);
 
       // Tap Gemini AI button in Top Header -> opens FinancialAiAssistantPage
       await tester.tap(find.byKey(const Key('today_open_gemini_ai_pill')));

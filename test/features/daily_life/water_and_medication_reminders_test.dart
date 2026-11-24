@@ -473,8 +473,18 @@ void main() {
         await tester.tap(find.byKey(const Key('home_tile_health')));
         await tester.pumpAndSettle();
 
-        // 1. Add preset Vitamin D3 + K2 in Tủ thuốc tab
-        await tester.tap(find.text('Vitamin D3 + K2 MK7'));
+        // 1. Add Vitamin D3 + K2 MK7 via primary "+ Thêm thuốc & Hẹn giờ nhắc" sheet
+        await tester.tap(find.byKey(const Key('open_add_medication_btn')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('add_med_name_input')),
+          'Vitamin D3 + K2 MK7',
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('confirm_save_med_btn')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('confirm_save_med_btn')));
         await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('medication_schedule_banner')),

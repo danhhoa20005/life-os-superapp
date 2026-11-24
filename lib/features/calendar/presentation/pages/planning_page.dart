@@ -3111,7 +3111,7 @@ class _PlanningHabitsAndNotesTabView extends StatelessWidget {
                       icon: Icons.sticky_note_2_outlined,
                       tone: LifeOsAccentTone.purple,
                       title: 'Sổ tay & Ghi chú',
-                      subtitle: 'Ý tưởng & nhật ký',
+                      subtitle: 'Ghi chú & mã số ghim',
                       onTap: () => context.push('/smart-notes-hub'),
                     ),
                   ),

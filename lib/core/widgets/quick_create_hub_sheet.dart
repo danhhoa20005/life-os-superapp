@@ -337,25 +337,13 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                 const LifeOsLeafMark(size: 32, borderRadius: 10),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Thêm nhanh',
-                        style: TextStyle(
-                          fontSize: 18.5,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'Gõ nhanh một câu hoặc chọn mục bên dưới',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: c.textSecondary,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Thêm nhanh',
+                    style: TextStyle(
+                      fontSize: 18.5,
+                      fontWeight: FontWeight.w800,
+                      color: c.textPrimary,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -465,8 +453,8 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  if (_omniDrafts.isNotEmpty)
+                  if (_omniDrafts.isNotEmpty) ...[
+                    const SizedBox(height: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -496,45 +484,8 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                             ),
                           ),
                       ],
-                    )
-                  else
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final chip
-                            in UserBehaviorPrefs.contextualSmartChips(
-                              DateTime.now(),
-                              maxCount: 4,
-                            ))
-                          ActionChip(
-                            visualDensity: VisualDensity.compact,
-                            avatar: chip.isPersonalHabit
-                                ? Icon(
-                                    Icons.history_rounded,
-                                    size: 14,
-                                    color: c.primary,
-                                  )
-                                : null,
-                            label: Text(
-                              chip.label,
-                              style: const TextStyle(fontSize: 11.8),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _quickInputCtrl.text = chip.command;
-                                _quickInputCtrl.selection =
-                                    TextSelection.collapsed(
-                                      offset: chip.command.length,
-                                    );
-                                _omniDrafts = SmartOmniIntentParser.parseMulti(
-                                  chip.command,
-                                );
-                              });
-                            },
-                          ),
-                      ],
                     ),
+                  ],
                 ],
               ),
             ),
@@ -885,18 +836,21 @@ Future<void> _showQuickTransactionSheet(
                     ),
                     decoration: const InputDecoration(
                       labelText: 'Số tiền (VND)',
-                      hintText: 'Gõ ngắn gọn (VD: 45 -> gợi ý 45.000 ₫)',
+                      hintText: 'Nhập số tiền',
                       suffixText: '₫',
                     ),
                   ),
-                  const SizedBox(height: 8),
                   Builder(
                     builder: (_) {
                       final zeroPads = UserBehaviorPrefs.vndZeroPadSuggestions(
                         amountCtrl.text,
                       );
-                      if (zeroPads.isNotEmpty) {
-                        return Wrap(
+                      if (zeroPads.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: [
@@ -924,30 +878,7 @@ Future<void> _showQuickTransactionSheet(
                                 }),
                               ),
                           ],
-                        );
-                      }
-                      return Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final preset in const [
-                            (35000, '35.000'),
-                            (50000, '50.000'),
-                            (100000, '100.000'),
-                            (200000, '200.000'),
-                            (500000, '500.000'),
-                          ])
-                            ActionChip(
-                              visualDensity: VisualDensity.compact,
-                              label: Text('${preset.$2} ₫'),
-                              onPressed: () => setModal(() {
-                                amountCtrl.text = '${preset.$1}';
-                                amountCtrl.selection = TextSelection.collapsed(
-                                  offset: amountCtrl.text.length,
-                                );
-                              }),
-                            ),
-                        ],
+                        ),
                       );
                     },
                   ),
@@ -1141,24 +1072,6 @@ Future<void> _showQuickTaskSheet(
                       labelText: 'Tên công việc',
                       hintText: 'VD: Đóng tiền điện / Mua sữa / Gửi báo cáo',
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final preset in const [
-                        'Đóng tiền điện nước',
-                        'Đi siêu thị mua đồ',
-                        'Dọn dẹp nhà cửa',
-                      ])
-                        ActionChip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(preset),
-                          onPressed: () =>
-                              setModal(() => titleCtrl.text = preset),
-                        ),
-                    ],
                   ),
                   const SizedBox(height: 12),
                   Text(

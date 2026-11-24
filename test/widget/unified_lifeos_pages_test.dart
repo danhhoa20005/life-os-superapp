@@ -132,7 +132,10 @@ void main() {
       expect(find.text('Đi chợ & Ghi chú'), findsOneWidget);
 
       // Test 1-line instant input ("Cà phê 35k" -> Lưu) right inside `+` sheet!
-      await tester.tap(find.text('Cà phê 35k'));
+      await tester.enterText(
+        find.byKey(const Key('quick_hub_smart_input')),
+        'Cà phê 35k',
+      );
       await tester.pumpAndSettle();
       expect(find.textContaining('35.000 ₫'), findsOneWidget);
       await tester.tap(find.byKey(const Key('quick_hub_save_inline_btn')));

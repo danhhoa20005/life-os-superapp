@@ -258,97 +258,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                               ],
                               const SizedBox(height: 12),
 
-                              // 3. 1-Tap Popular Presets
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: (_showWarranties
-                                          ? const [
-                                              (
-                                                'Bảo hành iPhone / Laptop',
-                                                'Apple / Thế Giới Di Động',
-                                                SubscriptionCycle.warrantyOnly,
-                                                0,
-                                                365,
-                                              ),
-                                              (
-                                                'Bảo hành Máy giặt / Tủ lạnh',
-                                                'Điện Máy Xanh',
-                                                SubscriptionCycle.warrantyOnly,
-                                                0,
-                                                730,
-                                              ),
-                                              (
-                                                'Bảo hành Điều hòa Inverter',
-                                                'Daikin / Panasonic',
-                                                SubscriptionCycle.warrantyOnly,
-                                                0,
-                                                365,
-                                              ),
-                                            ]
-                                          : const [
-                                              (
-                                                'YouTube Premium',
-                                                'Google',
-                                                SubscriptionCycle.monthly,
-                                                79000,
-                                                12,
-                                              ),
-                                              (
-                                                'Netflix Gia đình',
-                                                'Netflix',
-                                                SubscriptionCycle.monthly,
-                                                260000,
-                                                5,
-                                              ),
-                                              (
-                                                'iCloud+ 200GB',
-                                                'Apple',
-                                                SubscriptionCycle.monthly,
-                                                79000,
-                                                18,
-                                              ),
-                                              (
-                                                'ChatGPT / AI Pro',
-                                                'OpenAI',
-                                                SubscriptionCycle.monthly,
-                                                520000,
-                                                3,
-                                              ),
-                                            ])
-                                      .map(
-                                        (preset) => Padding(
-                                          padding: const EdgeInsets.only(right: 8),
-                                          child: ActionChip(
-                                            avatar: Icon(
-                                              Icons.add_circle_outline_rounded,
-                                              size: 16,
-                                              color: c.primary,
-                                            ),
-                                            label: Text(preset.$1),
-                                            onPressed: () {
-                                              context.read<ProUtilitiesBloc>().add(
-                                                    SubscriptionOrWarrantyAdded(
-                                                      userId: user.id,
-                                                      title: preset.$1,
-                                                      providerOrStore: preset.$2,
-                                                      cycle: preset.$3,
-                                                      amountMinor: preset.$4,
-                                                      nextBillingOrExpiryDate: now.add(
-                                                        Duration(days: preset.$5),
-                                                      ),
-                                                    ),
-                                                  );
-                                            },
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-
-                              // 4. Active Items List
+                              // 3. Active Items List
                               if (visible.isEmpty)
                                 LifeOsSoftCard(
                                   child: Column(
@@ -380,8 +290,8 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                         _dueSoonOnly && baseVisible.isNotEmpty
                                             ? 'Tất cả gói và bảo hành đều đang còn hạn an toàn.'
                                             : (_showWarranties
-                                                  ? 'Lưu ngày mua & hạn bảo hành đồ điện tử, gia dụng để không bỏ lỡ quyền bảo hành miễn phí.'
-                                                  : 'Chạm các gợi ý nhanh phía trên hoặc thêm gói đăng ký để kiểm soát các khoản trừ thẻ ngầm.'),
+                                                  ? 'Bấm nút "+" góc trên để lưu phiếu bảo hành thiết bị.'
+                                                  : 'Bấm nút "+" góc trên để thêm gói đăng ký định kỳ.'),
                                         textAlign: TextAlign.center,
                                         style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                                       ),

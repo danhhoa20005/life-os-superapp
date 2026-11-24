@@ -106,29 +106,6 @@ class _VoiceSmartCaptureSheetBody extends StatefulWidget {
 
 class _VoiceSmartCaptureSheetBodyState
     extends State<_VoiceSmartCaptureSheetBody> {
-  static const List<({String chip, String sentence})> _voiceExamples = [
-    (
-      chip: '🍜 Phở 55k + Xăng 70k',
-      sentence: 'Ăn phở 55 nghìn và đổ xăng 70 nghìn',
-    ),
-    (
-      chip: '🍲 Chia đều 3 người',
-      sentence: 'Ăn lẩu bò bốn trăm năm mươi nghìn chia đều 3 người',
-    ),
-    (
-      chip: '💧 Uống nước 300ml',
-      sentence: 'Uống 300ml nước lọc',
-    ),
-    (
-      chip: '💊 Nhắc uống thuốc',
-      sentence: 'Nhắc uống thuốc vitamin lúc 20h00',
-    ),
-    (
-      chip: '📅 Lịch họp 9h mai',
-      sentence: 'Họp nhóm lúc 9h sáng mai',
-    ),
-  ];
-
   late final TextEditingController _textCtrl;
   final String _voiceSessionToken = const Uuid().v4();
   StreamSubscription<VoiceAssistantSignal>? _voiceSub;
@@ -319,7 +296,7 @@ class _VoiceSmartCaptureSheetBodyState
         _isRequestingPermission = false;
         _lastErrorCode = res;
         _voiceStatusHint =
-            'Thiết bị hiện chưa bật dịch vụ thu âm hệ thống — bạn có thể chọn mẫu câu hoặc nhập bên dưới.';
+            'Thiết bị chưa bật dịch vụ thu âm — vui lòng nhập trực tiếp nội dung bên dưới.';
       });
     }
   }
@@ -927,35 +904,6 @@ class _VoiceSmartCaptureSheetBodyState
                       : null,
                 ),
               ),
-
-              if (!hasSpokenText && !_isListening) ...[
-                const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _voiceExamples.map((ex) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(
-                            ex.chip,
-                            style: const TextStyle(fontSize: 11.5),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _textCtrl.text = ex.sentence;
-                              _awaitingConfirmation = true;
-                              _voiceStatusHint =
-                                  'Mẫu câu sẵn sàng — bấm Xác nhận bên dưới để lưu.';
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
               const SizedBox(height: 12),
 
               // 4. Structured Confirmation Preview Card (`cho xác nhận lại`)

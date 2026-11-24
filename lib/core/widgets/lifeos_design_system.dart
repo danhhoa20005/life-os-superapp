@@ -1858,7 +1858,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
           badge: null,
         ),
         (
-          title: 'Thói quen, Uống nước & Tập trung',
+          title: 'Đồng hồ Tập trung & Nước uống',
           subtitle: 'Đồng hồ tập trung & nhắc uống nước',
           icon: Icons.local_fire_department_outlined,
           route: '/habits-focus',
@@ -1891,7 +1891,7 @@ Future<void> showLifeOsOmniSearchSheet(BuildContext context) async {
         ),
         (
           title: 'Bếp & Đi chợ Thông minh',
-          subtitle: 'Gợi ý món ăn, giỏ đi chợ & tủ lạnh',
+          subtitle: 'Thực đơn, giỏ đi chợ & tủ lạnh',
           icon: Icons.shopping_basket_outlined,
           route: '/kitchen-groceries',
           tone: LifeOsAccentTone.emerald,

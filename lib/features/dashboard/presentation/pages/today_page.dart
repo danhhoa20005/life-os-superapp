@@ -7,8 +7,6 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/utils/omni_action_executor.dart';
-import '../../../../core/utils/smart_omni_intent_parser.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
@@ -22,7 +20,6 @@ import '../../../calendar/presentation/bloc/calendar_bloc.dart';
 import '../../../daily_life/domain/entities/daily_life_entities.dart';
 import '../../../daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
-import '../../../financial_ai/presentation/bloc/gemini_copilot_bloc.dart';
 import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dart';
 import '../../../tasks/domain/entities/task_entities.dart';
 import '../../../tasks/domain/repositories/task_repository.dart';
@@ -397,13 +394,13 @@ class _TodayPageState extends State<TodayPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.auto_awesome_rounded,
+                                    Icons.edit_note_rounded,
                                     size: 15,
                                     color: c.primary,
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
-                                    'Ghi AI',
+                                    'Ghi nhanh',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -1700,17 +1697,7 @@ class _TodayPageState extends State<TodayPage> {
                                 ],
                               ),
                             ),
-                            // 4. Clearly Separated Section: Lối tắt nhanh & Khám phá 360°
-                            const LifeOsSectionHeader(
-                              title: 'Lối tắt chuyên sâu',
-                              tone: LifeOsAccentTone.purple,
-                              padding: EdgeInsets.only(
-                                top: 10,
-                                bottom: 6,
-                                left: 2,
-                                right: 2,
-                              ),
-                            ),
+                            const SizedBox(height: 10),
                             LifeOsSoftCard(
                               padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
                               child: Column(
@@ -1889,150 +1876,6 @@ class _TodayPageState extends State<TodayPage> {
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // 7. Circadian Smart Habit & Gemini AI Strip
-                            Builder(
-                              builder: (ctx) {
-                                var geminiReady = false;
-                                try {
-                                  geminiReady = ctx
-                                      .watch<GeminiCopilotBloc>()
-                                      .state
-                                      .config
-                                      .isReadyForCloud;
-                                } catch (_) {}
-                                final smartChips =
-                                    UserBehaviorPrefs.contextualSmartChips(
-                                      now,
-                                      maxCount: 3,
-                                    );
-                                final wallets = ctx.select(
-                                  (TransactionListBloc b) => b.state.wallets,
-                                );
-                                final resolvedWalletId =
-                                    UserBehaviorPrefs.resolvePreferredWalletId(
-                                      wallets.map((w) => w.id),
-                                    );
-
-                                return LifeOsSoftCard(
-                                  key: const Key('today_circadian_smart_strip'),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 6,
-                                        alignment: WrapAlignment.spaceBetween,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.bolt_rounded,
-                                                size: 17,
-                                                color: c.primary,
-                                              ),
-                                              const SizedBox(width: 5),
-                                              Flexible(
-                                                child: Text(
-                                                  'Thói quen hôm nay',
-                                                  softWrap: true,
-                                                  style: TextStyle(
-                                                    fontSize: 12.6,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: c.textPrimary,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          InkWell(
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            onTap: () =>
-                                                context.push('/financial-ai'),
-                                            child: LifeOsStatusPill(
-                                              icon: Icons.edit_note_rounded,
-                                              label: geminiReady
-                                                  ? 'Đã nối Gemini'
-                                                  : 'Ghi gộp nhanh',
-                                              tone: geminiReady
-                                                  ? LifeOsAccentTone.emerald
-                                                  : LifeOsAccentTone.blue,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: [
-                                          for (final item in smartChips)
-                                            ActionChip(
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              label: Text(
-                                                item.label,
-                                                style: const TextStyle(
-                                                  fontSize: 11.5,
-                                                ),
-                                              ),
-                                              onPressed: () async {
-                                                final draft =
-                                                    SmartOmniIntentParser.tryParsePrimary(
-                                                      item.command,
-                                                      now: now,
-                                                    );
-                                                if (user == null ||
-                                                    draft == null) {
-                                                  context.push(
-                                                    '/financial-ai',
-                                                    extra: item.command,
-                                                  );
-                                                  return;
-                                                }
-                                                DailyLifeBloc? dailyBloc;
-                                                try {
-                                                  dailyBloc = context
-                                                      .read<DailyLifeBloc>();
-                                                } catch (_) {}
-                                                await OmniActionExecutor.executeDraft(
-                                                  toastContext: context,
-                                                  draft: draft,
-                                                  user: user,
-                                                  walletId: resolvedWalletId,
-                                                  txActionBloc: context
-                                                      .read<
-                                                        TransactionActionBloc
-                                                      >(),
-                                                  calBloc: context
-                                                      .read<CalendarBloc>(),
-                                                  taskBloc: context
-                                                      .read<TaskBloc>(),
-                                                  familyBloc: context
-                                                      .read<FamilyBloc>(),
-                                                  dailyBloc: dailyBloc,
-                                                );
-                                                if (mounted) setState(() {});
-                                              },
-                                            ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
                             ),
                           ],
                         ),

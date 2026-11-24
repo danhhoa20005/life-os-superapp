@@ -5,6 +5,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:life_os/app/app.dart';
@@ -307,17 +308,7 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        // Scroll to Local AI Engine Studio Card & run live sandbox
-        await centerTarget(find.byKey(const Key('local_ai_sandbox_run_btn')));
-        await tester.enterText(
-          find.byKey(const Key('local_ai_sandbox_input')),
-          'Ăn phở 45 cành, cf 25k',
-        );
-        await tester.tap(find.byKey(const Key('local_ai_sandbox_run_btn')));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('local_ai_sandbox_result')), findsOneWidget);
-
-        // Expand progressive "Chi tiết thông số mô hình" disclosure
+        // 1. Expand progressive "Chi tiết & Kiểm thử mô hình" disclosure first
         await centerTarget(
           find.byKey(const Key('toggle_local_ai_model_details')),
         );
@@ -325,7 +316,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.textContaining('vn_financial_fasttext_v1'), findsOneWidget);
 
-        // Scroll to Confidence Slider & adjust sensitivity
+        // 2. Run live sandbox inside the disclosed section
+        await centerTarget(find.byKey(const Key('local_ai_sandbox_input')));
+        await tester.enterText(
+          find.byKey(const Key('local_ai_sandbox_input')),
+          'Ăn phở 45 cành, cf 25k',
+        );
+        await centerTarget(find.byKey(const Key('local_ai_sandbox_run_btn')));
+        await tester.tap(find.byKey(const Key('local_ai_sandbox_run_btn')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('local_ai_sandbox_result')), findsOneWidget);
+
+        // 3. Scroll to Confidence Slider & adjust sensitivity
         await centerTarget(find.byKey(const Key('local_ai_confidence_slider')));
         await tester.drag(
           find.byKey(const Key('local_ai_confidence_slider')),
@@ -333,7 +335,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Teach a new manual rule ("Circle K" -> "Ăn uống")
+        // 4. Teach a new manual rule ("Circle K" -> "Ăn uống")
         await centerTarget(find.byKey(const Key('btn_add_manual_ai_rule')));
         await tester.tap(find.byKey(const Key('btn_add_manual_ai_rule')));
         await tester.pumpAndSettle();
@@ -346,6 +348,19 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.textContaining('Circle K → Ăn uống'), findsOneWidget);
+
+        // 5. Navigate to /smart-notes-hub and verify mood check-in & old tab label are gone
+        final settingsCtx = tester.element(
+          find.byKey(const Key('btn_add_manual_ai_rule')),
+        );
+        GoRouter.of(settingsCtx).push('/smart-notes-hub');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Hôm nay tâm trạng của bạn thế nào?'),
+          findsNothing,
+        );
+        expect(find.text('Sổ tay & Cảm xúc'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

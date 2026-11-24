@@ -627,23 +627,17 @@ class _LocalAiEngineStudioCardState extends State<_LocalAiEngineStudioCard> {
   bool _isRunning = false;
   _SandboxRunSummary? _lastSummary;
 
-  static const List<(String label, String sample)> _quickSamples = [
-    ('Ăn phở 45k, cf 25k', 'Ăn phở 45k, cf 25k'),
-    ('Xăng 70k & họp 15h', 'Đổ xăng 70k, chiều mai 15h họp dự án'),
-    ('Bún chả 45 cành', 'Ăn bún chả 45 cành và trà đá 5k'),
-  ];
-
   @override
   void dispose() {
     _sandboxCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _runSandbox([String? presetSample]) async {
+  Future<void> _runSandbox() async {
     if (_isRunning) return;
-    final typed = (presetSample ?? _sandboxCtrl.text).trim();
+    final typed = _sandboxCtrl.text.trim();
     final sampleOrInput = typed.isEmpty ? 'Ăn phở 45k, cf 25k' : typed;
-    if (presetSample != null || _sandboxCtrl.text.trim().isEmpty) {
+    if (typed.isEmpty) {
       _sandboxCtrl.text = sampleOrInput;
       _sandboxCtrl.selection = TextSelection.collapsed(
         offset: sampleOrInput.length,
@@ -811,178 +805,165 @@ class _LocalAiEngineStudioCardState extends State<_LocalAiEngineStudioCard> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              Text(
-                'Phòng thử nghiệm nhanh',
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: 13.2,
-                  fontWeight: FontWeight.w800,
-                  color: c.textPrimary,
-                ),
-              ),
-              FilledButton.tonalIcon(
-                key: const Key('local_ai_sandbox_run_btn'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: _isRunning ? null : () => _runSandbox(),
-                icon: _isRunning
-                    ? const SizedBox(
-                        width: 15,
-                        height: 15,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow_rounded, size: 18),
-                label: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text('Thử ngay'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (var i = 0; i < _quickSamples.length; i++)
-                ActionChip(
-                  key: Key('local_ai_sandbox_sample_$i'),
-                  visualDensity: VisualDensity.compact,
-                  label: Text(
-                    _quickSamples[i].$1,
-                    style: const TextStyle(
-                      fontSize: 11.6,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  onPressed: _isRunning
-                      ? null
-                      : () => _runSandbox(_quickSamples[i].$2),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            key: const Key('local_ai_sandbox_input'),
-            controller: _sandboxCtrl,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _runSandbox(),
-            style: TextStyle(fontSize: 13.5, color: c.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'VD: Phở 45k, cf 25k',
-              hintStyle: TextStyle(fontSize: 12.8, color: c.textSecondary),
-              hintMaxLines: 2,
-              isDense: true,
-              filled: true,
-              fillColor: c.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-            ),
-          ),
-          if (_lastSummary != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              key: const Key('local_ai_sandbox_result'),
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: c.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: c.border.withValues(alpha: 0.75)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _TabularMetricChip(
-                        icon: Icons.check_circle_outline_rounded,
-                        label:
-                            'Bóc tách: ${_lastSummary!.totalActionsCount} tác vụ',
-                        highlight: true,
-                      ),
-                      if (_lastSummary!.confidencePercent > 0)
-                        _TabularMetricChip(
-                          icon: Icons.verified_outlined,
-                          label:
-                              'Độ tin cậy: ${_lastSummary!.confidencePercent}%',
-                        ),
-                      _TabularMetricChip(
-                        icon: Icons.timer_outlined,
-                        label: 'Độ trễ: ${_lastSummary!.latencyLabel}',
-                      ),
-                      if (_lastSummary!.matchedLearnedRule)
-                        const _TabularMetricChip(
-                          icon: Icons.psychology_rounded,
-                          label: 'Đã khớp quy tắc tự học',
-                          highlight: true,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  for (final line in _lastSummary!.itemLines)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(
-                        line,
-                        softWrap: true,
-                        style: TextStyle(
-                          fontSize: 12.4,
-                          height: 1.32,
-                          fontWeight: FontWeight.w600,
-                          color: c.textPrimary,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 10),
           LifeOsDetailsDiscloseSection(
             toggleKey: const Key('toggle_local_ai_model_details'),
-            label: 'Chi tiết thông số mô hình',
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: c.surface.withValues(alpha: 0.76),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: c.border.withValues(alpha: 0.65)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ModelSpecLine(
-                    text:
-                        'Mã mô hình: ${meta.modelId} (v${meta.modelVersion})',
+            label: 'Chi tiết & Kiểm thử mô hình',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: c.surface.withValues(alpha: 0.76),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: c.border.withValues(alpha: 0.65)),
                   ),
-                  _ModelSpecLine(text: 'Kiến trúc: ${meta.architecture}'),
-                  _ModelSpecLine(
-                    text:
-                        'Dung lượng: ${(meta.sizeBytes / 1024).toStringAsFixed(0)} KB',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ModelSpecLine(
+                        text:
+                            'Mã mô hình: ${meta.modelId} (v${meta.modelVersion})',
+                      ),
+                      _ModelSpecLine(text: 'Kiến trúc: ${meta.architecture}'),
+                      _ModelSpecLine(
+                        text:
+                            'Dung lượng: ${(meta.sizeBytes / 1024).toStringAsFixed(0)} KB',
+                      ),
+                      _ModelSpecLine(text: 'Chế độ thực thi: $runtimeLabel'),
+                      _ModelSpecLine(
+                        text:
+                            'Nhiệt độ hiệu chuẩn: ${meta.calibratedTemperature.toStringAsFixed(2)}',
+                        isLast: true,
+                      ),
+                    ],
                   ),
-                  _ModelSpecLine(text: 'Chế độ thực thi: $runtimeLabel'),
-                  _ModelSpecLine(
-                    text:
-                        'Nhiệt độ hiệu chuẩn: ${meta.calibratedTemperature.toStringAsFixed(2)}',
-                    isLast: true,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Text(
+                      'Kiểm thử nhanh mô hình',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 13.2,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      key: const Key('local_ai_sandbox_run_btn'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: _isRunning ? null : _runSandbox,
+                      icon: _isRunning
+                          ? const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Thử ngay'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('local_ai_sandbox_input'),
+                  controller: _sandboxCtrl,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _runSandbox(),
+                  style: TextStyle(fontSize: 13.5, color: c.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'VD: Phở 45k, cf 25k',
+                    hintStyle: TextStyle(fontSize: 12.8, color: c.textSecondary),
+                    hintMaxLines: 2,
+                    isDense: true,
+                    filled: true,
+                    fillColor: c.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                if (_lastSummary != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    key: const Key('local_ai_sandbox_result'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: c.border.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _TabularMetricChip(
+                              icon: Icons.check_circle_outline_rounded,
+                              label:
+                                  'Bóc tách: ${_lastSummary!.totalActionsCount} tác vụ',
+                              highlight: true,
+                            ),
+                            if (_lastSummary!.confidencePercent > 0)
+                              _TabularMetricChip(
+                                icon: Icons.verified_outlined,
+                                label:
+                                    'Độ tin cậy: ${_lastSummary!.confidencePercent}%',
+                              ),
+                            _TabularMetricChip(
+                              icon: Icons.timer_outlined,
+                              label: 'Độ trễ: ${_lastSummary!.latencyLabel}',
+                            ),
+                            if (_lastSummary!.matchedLearnedRule)
+                              const _TabularMetricChip(
+                                icon: Icons.psychology_rounded,
+                                label: 'Đã khớp quy tắc tự học',
+                                highlight: true,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        for (final line in _lastSummary!.itemLines)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Text(
+                              line,
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 12.4,
+                                height: 1.32,
+                                fontWeight: FontWeight.w600,
+                                color: c.textPrimary,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
         ],
@@ -1225,13 +1206,6 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
   String _direction = 'debit';
   late String _selectedCategoryId;
 
-  static const List<String> _merchantExamples = [
-    'Circle K',
-    'Xanh SM',
-    'ShopeeFood',
-    'Highlands',
-  ];
-
   List<_StandardCategorySpec> get _availableCategories {
     if (widget.userCategories.isNotEmpty) {
       final mapped = widget.userCategories
@@ -1354,32 +1328,10 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
                 onSubmitted: (_) => _submitRule(),
                 decoration: const InputDecoration(
                   labelText: 'Tên cửa hàng / Từ khóa',
-                  hintText: 'VD: Circle K, Xanh SM, ShopeeFood, Highlands',
+                  hintText: 'VD: Circle K, Xanh SM',
                   hintMaxLines: 2,
                   isDense: true,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _merchantExamples.map((sample) {
-                  return ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(
-                      sample,
-                      style: const TextStyle(fontSize: 11.8),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _keywordCtrl.text = sample;
-                        _keywordCtrl.selection = TextSelection.collapsed(
-                          offset: sample.length,
-                        );
-                      });
-                    },
-                  );
-                }).toList(),
               ),
               const SizedBox(height: 12),
               Text(

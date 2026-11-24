@@ -87,37 +87,6 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
   String? _lastVoiceErrorCode;
   FinancialInputSource _activeSource = FinancialInputSource.manualText;
 
-  static const List<(String label, String sample)> _samplePrompts = [
-    (
-      'Đa tác vụ liên thông',
-      'Sáng ăn phở 55k, chiều mai 15h họp dự án và nhắc mua sữa tươi',
-    ),
-    (
-      'Khẩu ngữ VN',
-      'Ăn trưa 45 cành, cà phê 1 xị rưỡi và đổ xăng 70k',
-    ),
-    (
-      'Đa khoản thu chi',
-      'Chiều qua tôi đổ xăng 70k và mua nước 15 nghìn',
-    ),
-    (
-      '3 khoản giọng nói',
-      'Trưa nay tôi ăn cơm hết 45 nghìn, đi taxi mất 80 nghìn và được thưởng 500 nghìn',
-    ),
-    (
-      'Chuyển nội bộ',
-      'Chuyển 2 triệu từ MB sang Vietcombank của tôi',
-    ),
-    (
-      'Rút tiền ATM',
-      'Rút 1 triệu từ ATM',
-    ),
-    (
-      'Nhận lương',
-      'Nhận lương 12tr',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -281,7 +250,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
         _isListening = false;
         _lastVoiceErrorCode = res;
         _voiceHint =
-            'Thiết bị hiện tại chưa bật dịch vụ giọng nói hệ thống; hãy gõ hoặc chọn mẫu câu bên dưới.';
+            'Thiết bị chưa bật thu âm hệ thống — vui lòng nhập văn bản bên dưới.';
       });
     }
   }
@@ -506,7 +475,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     Text(
-                                      'Nhập câu tự nhiên, giọng nói hoặc tin nhắn ngân hàng',
+                                      'Nhập nhanh giao dịch, lịch hẹn hoặc việc làm',
                                       softWrap: true,
                                       style: TextStyle(
                                         fontSize: 15,
@@ -528,7 +497,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                         }
                                       },
                                       decoration: InputDecoration(
-                                        hintText: 'VD: Đổ xăng 70k, cf 25k',
+                                        hintText: 'VD: Phở 45k, cf 25k',
                                         hintMaxLines: 2,
                                         filled: true,
                                         fillColor: c.surface,
@@ -668,31 +637,6 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                         ),
                                       ],
                                     ],
-                                    const SizedBox(height: 10),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: _samplePrompts.map((item) {
-                                        return ActionChip(
-                                          visualDensity: VisualDensity.compact,
-                                          label: Text(
-                                            item.$1,
-                                            style: const TextStyle(
-                                              fontSize: 11.8,
-                                            ),
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _inputCtrl.text = item.$2;
-                                              _activeSource =
-                                                  FinancialInputSource
-                                                      .manualText;
-                                            });
-                                            _submitAnalysis();
-                                          },
-                                        );
-                                      }).toList(),
-                                    ),
                                     const SizedBox(height: 12),
                                       Row(
                                         children: [
@@ -1458,67 +1402,77 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
         )
         .toList(growable: false);
 
+    final showInsightCard =
+        result.usedGeminiCloud ||
+        (!hasFinancialAiCandidates && extraDrafts.isEmpty);
+
+    if (!showInsightCard && extraDrafts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LifeOsSoftCard(
-          key: const Key('gemini_assistant_insight_card'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        result.usedGeminiCloud
-                            ? Icons.auto_awesome_rounded
-                            : Icons.tips_and_updates_outlined,
-                        size: 18,
-                        color: c.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        result.usedGeminiCloud
-                            ? 'Góc nhìn Cố vấn Gemini'
-                            : 'Gợi ý Thông minh Trên máy',
-                        style: TextStyle(
-                          fontSize: 13.8,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
+        if (showInsightCard) ...[
+          LifeOsSoftCard(
+            key: const Key('gemini_assistant_insight_card'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          result.usedGeminiCloud
+                              ? Icons.auto_awesome_rounded
+                              : Icons.tips_and_updates_outlined,
+                          size: 18,
+                          color: c.primary,
                         ),
-                      ),
-                    ],
-                  ),
-                  LifeOsStatusPill(
-                    label: result.usedGeminiCloud
-                        ? 'Gemini · ${result.latencyMs} ms'
-                        : 'Offline · ${result.latencyMs} ms',
-                    tone: result.usedGeminiCloud
-                        ? LifeOsAccentTone.emerald
-                        : LifeOsAccentTone.blue,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                result.assistantInsightVi,
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: 12.8,
-                  height: 1.38,
-                  color: c.textSecondary,
+                        const SizedBox(width: 6),
+                        Text(
+                          result.usedGeminiCloud
+                              ? 'Góc nhìn Cố vấn Gemini'
+                              : 'Gợi ý Thông minh Trên máy',
+                          style: TextStyle(
+                            fontSize: 13.8,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    LifeOsStatusPill(
+                      label: result.usedGeminiCloud
+                          ? 'Gemini · ${result.latencyMs} ms'
+                          : 'Offline · ${result.latencyMs} ms',
+                      tone: result.usedGeminiCloud
+                          ? LifeOsAccentTone.emerald
+                          : LifeOsAccentTone.blue,
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  result.assistantInsightVi,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 12.8,
+                    height: 1.38,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (extraDrafts.isNotEmpty) ...[
           LifeOsSectionHeader(
             title: 'Tác vụ liên thông đề xuất (${extraDrafts.length})',

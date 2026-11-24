@@ -387,7 +387,7 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                 Text(
                   hasActiveFilter && state.giftEntries.isNotEmpty
                       ? 'Hãy xóa từ khóa tìm kiếm hoặc chọn Tất cả để xem lại toàn bộ sổ mừng.'
-                      : 'Ghi lại tiền mừng cưới, tân gia, đầy tháng và lễ Tết hai chiều để dễ dàng tra cứu khi cần đáp lễ.',
+                      : 'Ghi tiền mừng hai chiều để tiện tra cứu khi cần đáp lễ.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                 ),
@@ -511,7 +511,7 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
         : ((checkedCount * 100) / items.length).round();
     final activeTrip = items.isNotEmpty
         ? items.first.tripName
-        : 'Chưa chọn mẫu chuyến đi';
+        : 'Chưa chọn chuyến đi';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -526,7 +526,7 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Mẫu Hành lý Thông minh 1-Chạm',
+                'Danh sách Đồ mang theo',
                 style: TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
@@ -567,7 +567,7 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
         if (items.isEmpty)
           LifeOsSoftCard(
             child: Text(
-              'Chạm một mẫu chuyến đi ở trên ("Du lịch Biển 3N2Đ", "Đi Công tác" hoặc "Về quê Lễ Tết") để tự động tạo danh sách đồ cần mang theo.',
+              'Chọn loại chuyến đi phía trên để tạo danh sách đồ mang theo.',
               style: TextStyle(fontSize: 13, color: c.textSecondary),
             ),
           )
