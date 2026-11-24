@@ -36,6 +36,7 @@ class MainActivity : FlutterActivity() {
     private val secureVaultChannelName = "vn.lifeos.app/secure_vault"
     private val alarmSchedulerChannelName = "vn.lifeos.app/alarm_scheduler"
     private val deviceCalendarChannelName = "vn.lifeos.app/device_calendar"
+    private val permissionsChannelName = "vn.lifeos.app/permissions"
 
     private var pendingWidgetAction: String? = null
     private var pendingAlarmPayload: Map<String, String>? = null
@@ -43,6 +44,8 @@ class MainActivity : FlutterActivity() {
     private var alarmMethodChannel: MethodChannel? = null
     private var voiceMethodChannel: MethodChannel? = null
     private var pendingCalendarPermissionResult: MethodChannel.Result? = null
+    private var pendingBatchPermissionsResult: MethodChannel.Result? = null
+    private var pendingSinglePermissionKind: String? = null
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private var activeVoiceSessionToken: String? = null
     private var voiceEventSink: EventChannel.EventSink? = null
@@ -52,6 +55,7 @@ class MainActivity : FlutterActivity() {
         private const val REQ_SPEECH_INTENT = 7202
         private const val REQ_POST_NOTIFICATIONS = 7203
         private const val REQ_CALENDAR_PERMISSIONS = 7204
+        private const val REQ_BATCH_PERMISSIONS = 7209
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -869,6 +873,161 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // 8. Unified Device Permissions Hub Bridge (`vn.lifeos.app/permissions`)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, permissionsChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "checkAll" -> {
+                        result.success(collectPermissionsSnapshot())
+                    }
+                    "requestEssential" -> {
+                        val missing = mutableListOf<String>()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            missing.add(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                            missing.add(Manifest.permission.RECORD_AUDIO)
+                        }
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+                            missing.add(Manifest.permission.READ_CALENDAR)
+                        }
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+                            missing.add(Manifest.permission.WRITE_CALENDAR)
+                        }
+                        if (missing.isEmpty()) {
+                            if (!LifeOsAlarmScheduler.isPostNotificationsGranted(applicationContext)) {
+                                LifeOsAlarmScheduler.openAppNotificationSettings(applicationContext)
+                            }
+                            result.success(collectPermissionsSnapshot())
+                        } else {
+                            pendingBatchPermissionsResult?.success(collectPermissionsSnapshot())
+                            pendingBatchPermissionsResult = result
+                            pendingSinglePermissionKind = null
+                            ActivityCompat.requestPermissions(
+                                this,
+                                missing.toTypedArray(),
+                                REQ_BATCH_PERMISSIONS
+                            )
+                        }
+                    }
+                    "requestSingle" -> {
+                        val kind = call.argument<String>("kind") ?: ""
+                        when (kind) {
+                            "notifications" -> {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    pendingBatchPermissionsResult?.success(collectPermissionsSnapshot())
+                                    pendingBatchPermissionsResult = result
+                                    pendingSinglePermissionKind = "notifications"
+                                    ActivityCompat.requestPermissions(
+                                        this,
+                                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                        REQ_BATCH_PERMISSIONS
+                                    )
+                                } else {
+                                    if (!LifeOsAlarmScheduler.isPostNotificationsGranted(applicationContext)) {
+                                        LifeOsAlarmScheduler.openAppNotificationSettings(applicationContext)
+                                    }
+                                    result.success(collectPermissionsSnapshot())
+                                }
+                            }
+                            "microphone" -> {
+                                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                    pendingBatchPermissionsResult?.success(collectPermissionsSnapshot())
+                                    pendingBatchPermissionsResult = result
+                                    pendingSinglePermissionKind = "microphone"
+                                    ActivityCompat.requestPermissions(
+                                        this,
+                                        arrayOf(Manifest.permission.RECORD_AUDIO),
+                                        REQ_BATCH_PERMISSIONS
+                                    )
+                                } else {
+                                    result.success(collectPermissionsSnapshot())
+                                }
+                            }
+                            "calendar" -> {
+                                if (!LifeOsDeviceCalendar.hasPermission(applicationContext)) {
+                                    pendingBatchPermissionsResult?.success(collectPermissionsSnapshot())
+                                    pendingBatchPermissionsResult = result
+                                    pendingSinglePermissionKind = "calendar"
+                                    ActivityCompat.requestPermissions(
+                                        this,
+                                        arrayOf(
+                                            Manifest.permission.READ_CALENDAR,
+                                            Manifest.permission.WRITE_CALENDAR
+                                        ),
+                                        REQ_BATCH_PERMISSIONS
+                                    )
+                                } else {
+                                    result.success(collectPermissionsSnapshot())
+                                }
+                            }
+                            "exactAlarm" -> {
+                                if (!LifeOsAlarmScheduler.canScheduleExact(applicationContext)) {
+                                    LifeOsAlarmScheduler.openExactAlarmSettings(applicationContext)
+                                }
+                                result.success(collectPermissionsSnapshot())
+                            }
+                            "batteryUnrestricted" -> {
+                                if (!LifeOsAlarmScheduler.isBatteryOptimizationIgnored(applicationContext)) {
+                                    LifeOsAlarmScheduler.requestIgnoreBatteryOptimizations(applicationContext)
+                                }
+                                result.success(collectPermissionsSnapshot())
+                            }
+                            "bankNotificationListener" -> {
+                                if (!isNotificationServiceEnabled()) {
+                                    try {
+                                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        startActivity(intent)
+                                    } catch (_: Exception) {
+                                    }
+                                }
+                                result.success(collectPermissionsSnapshot())
+                            }
+                            "appSettings" -> {
+                                openAppDetailsSettings()
+                                result.success(collectPermissionsSnapshot())
+                            }
+                            else -> result.success(collectPermissionsSnapshot())
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun collectPermissionsSnapshot(): Map<String, Boolean> {
+        val micGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        return mapOf(
+            "notifications" to LifeOsAlarmScheduler.isPostNotificationsGranted(applicationContext),
+            "microphone" to micGranted,
+            "calendar" to LifeOsDeviceCalendar.hasPermission(applicationContext),
+            "exactAlarm" to LifeOsAlarmScheduler.canScheduleExact(applicationContext),
+            "batteryUnrestricted" to LifeOsAlarmScheduler.isBatteryOptimizationIgnored(applicationContext),
+            "bankNotificationListener" to isNotificationServiceEnabled()
+        )
+    }
+
+    private fun openAppDetailsSettings() {
+        try {
+            val settingsIntent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null)
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(settingsIntent)
+        } catch (_: Exception) {
+        }
     }
 
     private fun emitVoiceEvent(payload: Map<String, Any?>) {
@@ -953,6 +1112,26 @@ class MainActivity : FlutterActivity() {
             val granted = grantResults.isNotEmpty() &&
                 grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             cb?.success(granted || LifeOsDeviceCalendar.hasPermission(applicationContext))
+        } else if (requestCode == REQ_BATCH_PERMISSIONS) {
+            val cb = pendingBatchPermissionsResult
+            val singleKind = pendingSinglePermissionKind
+            pendingBatchPermissionsResult = null
+            pendingSinglePermissionKind = null
+            val allGranted = grantResults.isNotEmpty() &&
+                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            if (!allGranted && singleKind != null && permissions.isNotEmpty()) {
+                val canAskAgain = permissions.any {
+                    ActivityCompat.shouldShowRequestPermissionRationale(this, it)
+                }
+                if (!canAskAgain) {
+                    if (singleKind == "notifications") {
+                        LifeOsAlarmScheduler.openAppNotificationSettings(applicationContext)
+                    } else {
+                        openAppDetailsSettings()
+                    }
+                }
+            }
+            cb?.success(collectPermissionsSnapshot())
         }
     }
 

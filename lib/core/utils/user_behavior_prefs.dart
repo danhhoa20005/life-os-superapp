@@ -91,22 +91,50 @@ abstract final class UserBehaviorPrefs {
   static const String _keyHideBalances = 'ux_privacy_hide_balances';
   static const String _keyHabitActions = 'ux_habit_actions_rfm_v1';
   static const String _keySecurityPin = 'sec_app_pin_code_v1';
+  static const String _keyPermissionsPopupDismissed =
+      'ux_permissions_popup_dismissed_v1';
 
   static String? _cachedLastWalletId;
   static bool? _cachedHideBalances;
   static String? _cachedAppPin;
+  static bool? _cachedPermissionsPopupDismissed;
   static List<HabitShortcut> _cachedHabits = const <HabitShortcut>[];
 
   static Future<void> resetForTest() async {
     _cachedLastWalletId = null;
     _cachedHideBalances = null;
     _cachedAppPin = null;
+    _cachedPermissionsPopupDismissed = null;
     _cachedHabits = const <HabitShortcut>[];
     await NativeSecureVaultBridge.instance.deleteSecret(_keyLastWallet);
     await NativeSecureVaultBridge.instance.deleteSecret(_keyPinnedShortcuts);
     await NativeSecureVaultBridge.instance.deleteSecret(_keyHideBalances);
     await NativeSecureVaultBridge.instance.deleteSecret(_keyHabitActions);
     await NativeSecureVaultBridge.instance.deleteSecret(_keySecurityPin);
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _keyPermissionsPopupDismissed,
+    );
+  }
+
+  static Future<bool> hasDismissedPermissionsPopup() async {
+    if (_cachedPermissionsPopupDismissed != null) {
+      return _cachedPermissionsPopupDismissed!;
+    }
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _keyPermissionsPopupDismissed,
+    );
+    _cachedPermissionsPopupDismissed = raw == '1';
+    return _cachedPermissionsPopupDismissed!;
+  }
+
+  static Future<void> markPermissionsPopupDismissed([
+    bool dismissed = true,
+  ]) async {
+    _cachedPermissionsPopupDismissed = dismissed;
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _keyPermissionsPopupDismissed,
+      value: dismissed ? '1' : '0',
+    );
   }
 
   static Future<void> saveAppPinCode(String? pin) async {

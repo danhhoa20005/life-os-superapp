@@ -1643,7 +1643,33 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                         if (_stepIndex == 1) _buildCalendarConnectStep(c),
                         if (_stepIndex == 2) _buildBankConnectStep(c),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 14),
+                        OutlinedButton.icon(
+                          key: const Key(
+                            'onboarding_open_permissions_popup_btn',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                          ),
+                          onPressed: () => showLifeOsPermissionsPopup(
+                            context,
+                            markDismissedOnClose: false,
+                          ),
+                          icon: const Icon(
+                            Icons.verified_user_outlined,
+                            size: 18,
+                          ),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Cấp nhanh quyền Micro · Thông báo · Lịch',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         SizedBox(
                           height: 50,
                           child: FilledButton.icon(

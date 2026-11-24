@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Motion Design System v2.0 + 66-Sample Motion Studio + On-Device Local AI v3.21)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Motion v2 Device Permissions Popup + 66-Sample Motion Studio + Local AI v3.22)"
 publish_to: 'none'
-version: 3.21.0+37
+version: 3.22.0+38
 
 environment:
   sdk: ^3.10.0

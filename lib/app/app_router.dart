@@ -9,6 +9,7 @@ import '../core/di/dependency_injection.dart';
 import '../core/services/fcm_banking_messaging_service.dart';
 import '../core/services/native_alarm_scheduler_bridge.dart';
 import '../core/services/native_home_widget_bridge.dart';
+import '../core/services/native_permissions_service.dart';
 import '../core/utils/omni_action_executor.dart';
 import '../core/utils/smart_omni_intent_parser.dart';
 import '../core/utils/smart_quick_entry_parser.dart';
@@ -1198,7 +1199,17 @@ class _HomeWidgetSyncAndIntentHostState
       if (coldStartPush != null && mounted) {
         _handleBankingPushDeepLink(coldStartPush);
       }
+      await _maybePromptFirstRunPermissionsPopup();
     });
+  }
+
+  Future<void> _maybePromptFirstRunPermissionsPopup() async {
+    if (!mounted) return;
+    final dismissed = await UserBehaviorPrefs.hasDismissedPermissionsPopup();
+    if (dismissed || !mounted) return;
+    final snap = await NativePermissionsService.instance.checkAll();
+    if (!mounted || snap.isAllEssentialGranted) return;
+    await showLifeOsPermissionsPopup(context, initialSnapshot: snap);
   }
 
   @override

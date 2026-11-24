@@ -607,6 +607,20 @@ class _SettingsHubPageState extends State<SettingsHubPage>
             .then((_) => _refreshSystemAndSecurityStatus()),
       ),
       _SettingsItemSpec(
+        itemKey: const Key('settings_permissions_popup_row'),
+        sectionTitle: 'Tài khoản & Kết nối tự động',
+        sectionTone: LifeOsAccentTone.emerald,
+        icon: Icons.verified_user_outlined,
+        tone: LifeOsAccentTone.emerald,
+        title: 'Quyền hạn Thiết bị',
+        subtitle: 'Bật nhanh Thông báo, Micro, Lịch & Chạy ngầm',
+        keywords: 'quyen han thiet bi cap quyen micro thong bao lich popup',
+        onTap: () => showLifeOsPermissionsPopup(
+          context,
+          markDismissedOnClose: false,
+        ).then((_) => _refreshSystemAndSecurityStatus()),
+      ),
+      _SettingsItemSpec(
         sectionTitle: 'Tài khoản & Kết nối tự động',
         sectionTone: LifeOsAccentTone.emerald,
         icon: Icons.calendar_month_rounded,

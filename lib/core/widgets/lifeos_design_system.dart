@@ -30,6 +30,7 @@ import 'quick_create_hub_sheet.dart';
 
 export '../motion/lifeos_motion.dart';
 export 'lifeos_logo_side_drawer.dart';
+export 'lifeos_permissions_popup.dart';
 export 'lifeos_top_toast.dart';
 export 'liquid_glass.dart';
 
