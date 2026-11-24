@@ -477,7 +477,12 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final LifeOsOneShotEffectTracker _errorEffectTracker =
+      LifeOsOneShotEffectTracker();
   bool _obscurePassword = true;
+  bool _hadActiveFailure = false;
+  int _failureGeneration = 0;
+  int _errorShakeTrigger = 0;
 
   @override
   void dispose() {
@@ -503,7 +508,17 @@ class _LoginPageState extends State<LoginPage> {
         listenWhen: (prev, curr) =>
             prev.failure != curr.failure || prev.infoMessage != curr.infoMessage,
         listener: (context, state) {
+          if (state.failure == null && _hadActiveFailure) {
+            _hadActiveFailure = false;
+            _failureGeneration++;
+          }
           if (state.failure != null) {
+            _hadActiveFailure = true;
+            final effectKey =
+                'login_err_${_failureGeneration}_${state.failure!.code}_${state.failure!.message}';
+            if (_errorEffectTracker.consumeOnce(effectKey)) {
+              setState(() => _errorShakeTrigger++);
+            }
             LifeOsTopToast.fromSnackBar(context, 
               SnackBar(content: Text('⚠ ${state.failure!.message}')),
             );
@@ -616,27 +631,31 @@ class _LoginPageState extends State<LoginPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  SizedBox(
-                                    height: 50,
-                                    child: FilledButton(
-                                      key: const Key('login_submit_button'),
-                                      style: FilledButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(25),
+                                  LifeOsPressable(
+                                    passthroughPointerOnly: true,
+                                    enabled: !state.isSubmitting,
+                                    child: SizedBox(
+                                      height: 50,
+                                      child: FilledButton(
+                                        key: const Key('login_submit_button'),
+                                        style: FilledButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(25),
+                                          ),
                                         ),
+                                        onPressed:
+                                            state.isSubmitting ? null : _submitEmailSignIn,
+                                        child: state.isSubmitting
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.2,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : const Text('Đăng nhập'),
                                       ),
-                                      onPressed:
-                                          state.isSubmitting ? null : _submitEmailSignIn,
-                                      child: state.isSubmitting
-                                          ? const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.2,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                          : const Text('Đăng nhập'),
                                     ),
                                   ),
                                   const _AuthSectionDivider(text: 'Hoặc tiếp tục với'),
@@ -650,6 +669,9 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ],
                               ),
+                            ).lifeOsErrorShake(
+                              context: context,
+                              triggerCount: _errorShakeTrigger,
                             ),
                             const SizedBox(height: 16),
                             Wrap(
@@ -696,9 +718,14 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final LifeOsOneShotEffectTracker _errorEffectTracker =
+      LifeOsOneShotEffectTracker();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = true;
+  bool _hadActiveFailure = false;
+  int _failureGeneration = 0;
+  int _errorShakeTrigger = 0;
 
   @override
   void dispose() {
@@ -733,7 +760,17 @@ class _RegisterPageState extends State<RegisterPage> {
       body: BlocListener<AuthBloc, AuthState>(
         listenWhen: (prev, curr) => prev.failure != curr.failure,
         listener: (context, state) {
+          if (state.failure == null && _hadActiveFailure) {
+            _hadActiveFailure = false;
+            _failureGeneration++;
+          }
           if (state.failure != null) {
+            _hadActiveFailure = true;
+            final effectKey =
+                'register_err_${_failureGeneration}_${state.failure!.code}_${state.failure!.message}';
+            if (_errorEffectTracker.consumeOnce(effectKey)) {
+              setState(() => _errorShakeTrigger++);
+            }
             LifeOsTopToast.fromSnackBar(context, 
               SnackBar(content: Text('⚠ ${state.failure!.message}')),
             );
@@ -903,44 +940,51 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 10),
-                                  SizedBox(
-                                    height: 50,
-                                    child: FilledButton(
-                                      key: const Key('register_submit_button'),
-                                      style: FilledButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(25),
+                                  LifeOsPressable(
+                                    passthroughPointerOnly: true,
+                                    enabled: !state.isSubmitting,
+                                    child: SizedBox(
+                                      height: 50,
+                                      child: FilledButton(
+                                        key: const Key('register_submit_button'),
+                                        style: FilledButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(25),
+                                          ),
                                         ),
+                                        onPressed: state.isSubmitting
+                                            ? null
+                                            : () {
+                                                context.read<AuthBloc>().add(
+                                                      AuthSignUpSubmitted(
+                                                        email: _emailController.text,
+                                                        password: _passwordController.text,
+                                                        confirmPassword:
+                                                            _confirmPasswordController.text,
+                                                        fullName: _nameController.text,
+                                                        phoneNumber: _phoneController.text,
+                                                        acceptedTerms: _acceptedTerms,
+                                                      ),
+                                                    );
+                                              },
+                                        child: state.isSubmitting
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : const Text('Đăng ký'),
                                       ),
-                                      onPressed: state.isSubmitting
-                                          ? null
-                                          : () {
-                                              context.read<AuthBloc>().add(
-                                                    AuthSignUpSubmitted(
-                                                      email: _emailController.text,
-                                                      password: _passwordController.text,
-                                                      confirmPassword:
-                                                          _confirmPasswordController.text,
-                                                      fullName: _nameController.text,
-                                                      phoneNumber: _phoneController.text,
-                                                      acceptedTerms: _acceptedTerms,
-                                                    ),
-                                                  );
-                                            },
-                                      child: state.isSubmitting
-                                          ? const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                          : const Text('Đăng ký'),
                                     ),
                                   ),
                                 ],
                               ),
+                            ).lifeOsErrorShake(
+                              context: context,
+                              triggerCount: _errorShakeTrigger,
                             ),
                             const SizedBox(height: 14),
                             Wrap(

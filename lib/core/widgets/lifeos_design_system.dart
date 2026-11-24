@@ -20,6 +20,7 @@ import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../constants/app_assets.dart';
 import '../motion/lifeos_motion_scope.dart';
 import '../motion/lifeos_motion_tokens.dart';
+import '../motion/widgets/lifeos_animated_visibility.dart';
 import '../motion/widgets/lifeos_pressable.dart';
 import '../utils/vietnamese_search_matcher.dart';
 import '../utils/vnd_amount.dart';
@@ -2735,6 +2736,42 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final mode in LifeOsMotionMode.values)
+                              ChoiceChip(
+                                key: Key('appearance_motion_mode_${mode.name}'),
+                                label: Text(mode.labelVi),
+                                selected: state.motionMode == mode,
+                                onSelected: (_) =>
+                                    themeBloc.add(MotionModeChanged(mode)),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            key: const Key('appearance_open_motion_gallery_btn'),
+                            onPressed: () {
+                              Navigator.of(sheetCtx).pop();
+                              if (context.mounted) {
+                                context.push('/motion-gallery');
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.auto_awesome_motion_rounded,
+                              size: 18,
+                            ),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Mở Motion Studio (66 mẫu)'),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -3261,8 +3298,11 @@ class _LifeOsDetailsDiscloseSectionState
             ),
           ),
         ),
-        if (_expanded)
-          Padding(padding: widget.contentPadding, child: widget.child),
+        LifeOsAnimatedVisibility(
+          visible: _expanded,
+          duration: LifeOsMotionTokens.standard,
+          child: Padding(padding: widget.contentPadding, child: widget.child),
+        ),
       ],
     );
   }

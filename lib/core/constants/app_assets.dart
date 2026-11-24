@@ -83,6 +83,30 @@ abstract final class AppAssets {
   static const String cardSavingsGold =
       'assets/bank_cards/card_savings_gold.png';
 
+  // 5. Motion Design Studio Assets (Static 3D Concepts vs Genuine Runnable Animations)
+  static const String mascotLeafyGuardian3d =
+      'assets/motion/mascot_leafy_guardian.jpg';
+  static const String bannerMotionStudio3d =
+      'assets/motion/banner_motion_studio_3d.jpg';
+  static const String icMotionPhysics3d =
+      'assets/motion/ic_motion_physics_3d.jpg';
+  static const String spriteCoinSpinSheet =
+      'assets/motion/coin_spin_spritesheet.png';
+
+  // Genuine Bodymovin Vector Keyframe Lottie Timelines (60 FPS, Pure Dart Player)
+  static const String lottieCheckCelebration =
+      'assets/lottie/lifeos_check_celebration.json';
+  static const String lottiePulseMascot =
+      'assets/lottie/lifeos_pulse_mascot.json';
+  static const String lottieWalletSyncRadar =
+      'assets/lottie/lifeos_wallet_sync_radar.json';
+  static const String lottieHydrationWave =
+      'assets/lottie/lifeos_hydration_wave.json';
+
+  // Genuine Impeller / Skia GLSL Runtime Fragment Shaders
+  static const String shaderLiquidCaustics = 'shaders/liquid_caustics.frag';
+  static const String shaderHolographicFoil = 'shaders/holographic_foil.frag';
+
   static const List<String> allBananaIcons = <String>[
     icNavToday,
     icNavFinance,

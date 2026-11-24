@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/lifeos_brand_colors.dart';
@@ -735,10 +736,9 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
     final initial = widget.selectedIndex.clamp(0, 3).toDouble();
     _fromVisualTab = initial;
     _toVisualTab = initial;
-    _controller = AnimationController(
+    _controller = AnimationController.unbounded(
       vsync: this,
-      duration: LifeOsMotionTokens.panel,
-      value: 1.0,
+      value: initial,
     );
   }
 
@@ -746,27 +746,59 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _motion = LifeOsMotionScope.of(context);
-    _controller.duration = _motion.resolveDuration(LifeOsMotionTokens.panel);
   }
 
   double _currentAnimatedVisualTab() {
-    final curve = _motion.isReducedMotion
-        ? LifeOsMotionTokens.standardCurve
-        : LifeOsMotionTokens.dockCapsuleCurve;
-    final curved = curve.transform(_controller.value.clamp(0.0, 1.0));
-    return lerpDouble(_fromVisualTab, _toVisualTab, curved) ?? _toVisualTab;
+    if (!_controller.isAnimating && !_isDragging) {
+      return _toVisualTab;
+    }
+    return _controller.value;
   }
 
-  void _drivePillTransition({required double from, required double to}) {
+  void _drivePillTransition({
+    required double from,
+    required double to,
+    double? initialVelocity,
+  }) {
+    _motion = LifeOsMotionScope.read(context);
+    final preservedVelocity = initialVelocity ?? _controller.velocity;
     _fromVisualTab = from;
     _toVisualTab = to;
-    if (_motion.isMotionOff || !TickerMode.valuesOf(context).enabled) {
+    final tickersEnabled = TickerMode.valuesOf(context).enabled;
+    if (_motion.isMotionOff || !tickersEnabled) {
       _controller.stop();
-      _controller.value = 1.0;
+      _controller.value = to;
       return;
     }
-    _controller.duration = _motion.resolveDuration(LifeOsMotionTokens.panel);
-    _controller.forward(from: 0.0);
+    if (_motion.isReducedMotion) {
+      _controller.stop();
+      _controller.value = from;
+      _controller.animateTo(
+        to,
+        duration: _motion.resolveDuration(LifeOsMotionTokens.panel),
+        curve: LifeOsMotionTokens.standardCurve,
+      );
+      return;
+    }
+    if ((from - to).abs() <= LifeOsMotionTokens.springTolerance.distance &&
+        preservedVelocity.abs() <=
+            LifeOsMotionTokens.springTolerance.velocity) {
+      _controller.stop();
+      _controller.value = to;
+      return;
+    }
+    final simulation = SpringSimulation(
+      LifeOsMotionTokens.snappySpring,
+      from,
+      to,
+      preservedVelocity,
+      tolerance: LifeOsMotionTokens.springTolerance,
+    );
+    _controller.animateWith(simulation).whenComplete(() {
+      if (mounted && !_isDragging && !_controller.isAnimating) {
+        _controller.value = _toVisualTab;
+      }
+    });
   }
 
   @override
@@ -774,7 +806,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex && !_isDragging) {
       _drivePillTransition(
-        from: _currentAnimatedVisualTab(),
+        from: _controller.value,
         to: widget.selectedIndex.clamp(0, 3).toDouble(),
       );
     }
@@ -882,11 +914,19 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                   deltaDx: details.primaryDelta ?? 0.0,
                 );
               },
-              onHorizontalDragEnd: (_) {
+              onHorizontalDragEnd: (details) {
                 final settledFrom = _leftPxToVisualTab(
                   _dragLeftPx,
                   _lastTabSlotWidth,
                 );
+                final normalizedVelocity =
+                    LifeOsMotionTokens.normalizeVelocity(
+                      velocityPxPerSec:
+                          details.primaryVelocity ??
+                          details.velocity.pixelsPerSecond.dx,
+                      extentPx: _lastTabSlotWidth,
+                    );
+                _controller.value = settledFrom;
                 setState(() {
                   _isDragging = false;
                   _dragVelocityStretchPx = 0.0;
@@ -894,6 +934,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                 _drivePillTransition(
                   from: settledFrom,
                   to: widget.selectedIndex.clamp(0, 3).toDouble(),
+                  initialVelocity: normalizedVelocity,
                 );
               },
               onHorizontalDragCancel: () {
@@ -901,6 +942,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                   _dragLeftPx,
                   _lastTabSlotWidth,
                 );
+                _controller.value = settledFrom;
                 setState(() {
                   _isDragging = false;
                   _dragVelocityStretchPx = 0.0;
@@ -908,6 +950,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                 _drivePillTransition(
                   from: settledFrom,
                   to: widget.selectedIndex.clamp(0, 3).toDouble(),
+                  initialVelocity: 0.0,
                 );
               },
               child: Stack(
@@ -928,18 +971,29 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                             : (4.0 + _dragVelocityStretchPx);
                         pillHeight = _motion.isReducedMotion ? 58.0 : 60.0;
                       } else {
-                        final rawT = _controller.value.clamp(0.0, 1.0);
-                        final sinWave = _motion.isReducedMotion
-                            ? 0.0
-                            : math.sin(rawT * math.pi);
                         final vTab = _currentAnimatedVisualTab();
                         baseLeft = _visualTabToLeftPx(vTab, tabW);
+                        final speedTabsPerSec = _controller.isAnimating
+                            ? _controller.velocity.abs()
+                            : 0.0;
+                        final stretchFactor = _motion.isReducedMotion
+                            ? 0.0
+                            : math
+                                  .pow(
+                                    (speedTabsPerSec / 4.2).clamp(0.0, 1.0),
+                                    0.65,
+                                  )
+                                  .toDouble();
                         final travelPx =
                             (_visualTabToLeftPx(_toVisualTab, tabW) -
                                     _visualTabToLeftPx(_fromVisualTab, tabW))
                                 .abs();
-                        stretchW = (travelPx * 0.16).clamp(0.0, 22.0) * sinWave;
-                        pillHeight = 58.0 - (2.2 * sinWave);
+                        final maxStretch = math.max(
+                          (travelPx * 0.16).clamp(0.0, 22.0),
+                          (speedTabsPerSec * tabW * 0.05).clamp(0.0, 18.0),
+                        );
+                        stretchW = maxStretch * stretchFactor;
+                        pillHeight = 58.0 - (2.2 * stretchFactor);
                       }
 
                       final baseCenter = baseLeft + (tabW / 2.0);

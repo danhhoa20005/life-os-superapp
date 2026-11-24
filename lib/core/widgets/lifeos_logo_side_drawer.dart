@@ -882,10 +882,97 @@ class _LifeOsLogoSideDrawerSheetState
                             ),
                     ),
 
-                    // 6. Quick Utility Footer Bar
+                    // 6. Motion Studio Compact Shortcut + Quick Utility Footer Bar
                     Divider(height: 1, thickness: 0.7, color: c.separator),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+                      child: Material(
+                        color: widget.currentLocation.startsWith(
+                          '/motion-gallery',
+                        )
+                            ? c.primarySubtle
+                            : c.surfaceRaised,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(
+                            color: widget.currentLocation.startsWith(
+                              '/motion-gallery',
+                            )
+                                ? c.primary.withValues(alpha: 0.45)
+                                : c.border.withValues(alpha: 0.55),
+                            width: widget.currentLocation.startsWith(
+                              '/motion-gallery',
+                            )
+                                ? 1.1
+                                : 0.7,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          key: const Key('drawer_motion_gallery_tile'),
+                          onTap: () => _navigateToRoute(
+                            '/motion-gallery',
+                            isShellTab: false,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                const LifeOsIconSquircle(
+                                  icon: Icons.auto_awesome_motion_rounded,
+                                  tone: LifeOsAccentTone.purple,
+                                  size: 34,
+                                  iconSize: 17,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Motion Studio',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.2,
+                                          color: widget.currentLocation
+                                                  .startsWith('/motion-gallery')
+                                              ? c.primary
+                                              : c.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '66 mẫu vật lý lò xo, Shader & Lottie',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 11.2,
+                                          height: 1.24,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: c.textSecondary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 6,

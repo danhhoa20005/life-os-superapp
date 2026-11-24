@@ -706,6 +706,20 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         onTap: () => showLifeOsAppearanceSheet(context),
       ),
       _SettingsItemSpec(
+        itemKey: const Key('settings_motion_studio_row'),
+        sectionTitle: 'Giao diện & Quyền riêng tư',
+        sectionTone: LifeOsAccentTone.amber,
+        icon: Icons.auto_awesome_motion_rounded,
+        tone: LifeOsAccentTone.emerald,
+        title: 'Motion Studio & Hiệu ứng',
+        subtitle: 'Xem thử 66 mẫu vật lý lò xo, Shader & Lottie',
+        keywords:
+            'motion studio gallery hieu ung chuyen dong lo xo shader lottie',
+        statusPillLabel: '66 mẫu',
+        statusPillTone: LifeOsAccentTone.emerald,
+        onTap: () => context.push('/motion-gallery'),
+      ),
+      _SettingsItemSpec(
         sectionTitle: 'Giao diện & Quyền riêng tư',
         sectionTone: LifeOsAccentTone.amber,
         icon: Icons.visibility_off_outlined,

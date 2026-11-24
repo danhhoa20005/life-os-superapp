@@ -34,7 +34,7 @@ class LifeOsMotionScope extends InheritedWidget {
         .getElementForInheritedWidgetOfExactType<LifeOsMotionScope>();
     final widget = element?.widget;
     if (widget is LifeOsMotionScope) return widget.preferences;
-    return LifeOsMotionPreferences.fromPlatform(context);
+    return LifeOsMotionPreferences.readFromPlatform(context);
   }
 
   @override

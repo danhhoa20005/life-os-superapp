@@ -22,6 +22,7 @@ import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
 import '../di/dependency_injection.dart';
+import '../motion/lifeos_motion.dart';
 import '../services/native_voice_assistant_bridge.dart';
 import '../utils/omni_action_executor.dart';
 import '../utils/smart_omni_intent_parser.dart';
@@ -108,12 +109,12 @@ class _VoiceSmartCaptureSheetBodyState
     extends State<_VoiceSmartCaptureSheetBody> {
   late final TextEditingController _textCtrl;
   final String _voiceSessionToken = const Uuid().v4();
+  final ValueNotifier<double> _rmsNotifier = ValueNotifier<double>(0.0);
   StreamSubscription<VoiceAssistantSignal>? _voiceSub;
   Timer? _autoEndpointTimer;
   bool _isListening = false;
   bool _isRequestingPermission = false;
   bool _awaitingConfirmation = false;
-  double _rmsDb = 0.0;
   String? _voiceStatusHint;
   String? _lastErrorCode;
   String? _selectedWalletId;
@@ -147,6 +148,7 @@ class _VoiceSmartCaptureSheetBodyState
     sl<NativeVoiceAssistantBridge>().cancelListening(
       sessionToken: _voiceSessionToken,
     );
+    _rmsNotifier.dispose();
     _textCtrl.dispose();
     super.dispose();
   }
@@ -165,6 +167,7 @@ class _VoiceSmartCaptureSheetBodyState
           if (status == 'requesting_permission') {
             _isRequestingPermission = true;
             _isListening = false;
+            _rmsNotifier.value = 0.0;
             _lastErrorCode = null;
             _voiceStatusHint =
                 'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
@@ -180,11 +183,11 @@ class _VoiceSmartCaptureSheetBodyState
           } else if (status == 'idle') {
             _isRequestingPermission = false;
             _isListening = false;
-            _rmsDb = 0.0;
+            _rmsNotifier.value = 0.0;
           }
         });
       case VoiceRmsSignal(:final rmsDb):
-        setState(() => _rmsDb = rmsDb);
+        _rmsNotifier.value = rmsDb;
       case VoiceTranscriptSignal(:final text, :final isFinal):
         final clean = text.trim();
         setState(() {
@@ -195,7 +198,7 @@ class _VoiceSmartCaptureSheetBodyState
           if (isFinal) {
             _autoEndpointTimer?.cancel();
             _isListening = false;
-            _rmsDb = 0.0;
+            _rmsNotifier.value = 0.0;
             _awaitingConfirmation = clean.isNotEmpty;
             _voiceStatusHint = clean.isNotEmpty
                 ? 'Đã tự động ngắt thu âm — kiểm tra & bấm Xác nhận bên dưới.'
@@ -211,10 +214,10 @@ class _VoiceSmartCaptureSheetBodyState
         }
       case VoiceErrorSignal(:final message, :final code):
         _autoEndpointTimer?.cancel();
+        _rmsNotifier.value = 0.0;
         setState(() {
           _isRequestingPermission = false;
           _isListening = false;
-          _rmsDb = 0.0;
           if (_textCtrl.text.trim().isNotEmpty) {
             _lastErrorCode = null;
             _awaitingConfirmation = true;
@@ -250,9 +253,9 @@ class _VoiceSmartCaptureSheetBodyState
       await sl<NativeVoiceAssistantBridge>().stopListening();
       if (!mounted) return;
       HapticFeedback.mediumImpact();
+      _rmsNotifier.value = 0.0;
       setState(() {
         _isListening = false;
-        _rmsDb = 0.0;
         _awaitingConfirmation = _textCtrl.text.trim().isNotEmpty;
         _voiceStatusHint = eval.isReadyComplete
             ? 'Đã nhận diện đủ ý và tự dừng — mời bạn xác nhận.'
@@ -270,11 +273,11 @@ class _VoiceSmartCaptureSheetBodyState
     if (clearExisting) {
       _textCtrl.clear();
     }
+    _rmsNotifier.value = 0.0;
     setState(() {
       _isListening = true;
       _isRequestingPermission = false;
       _awaitingConfirmation = false;
-      _rmsDb = 0.0;
       _lastErrorCode = null;
       _voiceStatusHint = null;
     });
@@ -308,9 +311,9 @@ class _VoiceSmartCaptureSheetBodyState
       await bridge.stopListening();
       if (mounted) {
         HapticFeedback.lightImpact();
+        _rmsNotifier.value = 0.0;
         setState(() {
           _isListening = false;
-          _rmsDb = 0.0;
           _awaitingConfirmation = _textCtrl.text.trim().isNotEmpty;
           if (_awaitingConfirmation) {
             _voiceStatusHint = 'Đã dừng thu âm — mời bạn kiểm tra & xác nhận.';
@@ -540,6 +543,7 @@ class _VoiceSmartCaptureSheetBodyState
     final hasAnyConfirmedDraft = analysis != null || hasOmniOnly;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasSpokenText = _textCtrl.text.trim().isNotEmpty;
+    final motion = LifeOsMotionScope.of(context);
 
     return SafeArea(
       child: Padding(
@@ -675,51 +679,77 @@ class _VoiceSmartCaptureSheetBodyState
                   children: [
                     Row(
                       children: [
-                        GestureDetector(
-                          key: const Key('voice_mic_toggle_button'),
-                          onTap: _toggleVoiceListening,
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: ShapeDecoration(
-                              shape: ContinuousRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.48),
-                                  width: 0.9,
-                                ),
-                              ),
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: _isListening
-                                    ? const [
-                                        Color(0xFF4ADE80),
-                                        Color(0xFF16A34A),
-                                      ]
-                                    : [
-                                        const Color(0xFF34D399),
-                                        c.primary,
+                        RepaintBoundary(
+                          child: SizedBox(
+                            width: 58,
+                            height: 58,
+                            child: ValueListenableBuilder<double>(
+                              valueListenable: _rmsNotifier,
+                              builder: (context, rmsDb, micChild) {
+                                return CustomPaint(
+                                  painter: _VoiceMicHaloPainter(
+                                    isListening: _isListening,
+                                    isReducedMotion: motion.isReducedMotion,
+                                    rmsDb: rmsDb,
+                                    color: c.primary,
+                                  ),
+                                  child: micChild,
+                                );
+                              },
+                              child: Center(
+                                child: GestureDetector(
+                                  key: const Key('voice_mic_toggle_button'),
+                                  onTap: _toggleVoiceListening,
+                                  child: Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: ShapeDecoration(
+                                      shape: ContinuousRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                        side: BorderSide(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.48,
+                                          ),
+                                          width: 0.9,
+                                        ),
+                                      ),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: _isListening
+                                            ? const [
+                                                Color(0xFF4ADE80),
+                                                Color(0xFF16A34A),
+                                              ]
+                                            : [
+                                                const Color(0xFF34D399),
+                                                c.primary,
+                                              ],
+                                      ),
+                                      shadows: [
+                                        BoxShadow(
+                                          color: c.primary.withValues(
+                                            alpha: 0.28,
+                                          ),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
                                       ],
-                              ),
-                              shadows: [
-                                BoxShadow(
-                                  color: c.primary.withValues(alpha: 0.28),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                                    ),
+                                    child: Icon(
+                                      _isListening
+                                          ? Icons.check_rounded
+                                          : Icons.mic_rounded,
+                                      color: Colors.white,
+                                      size: 25,
+                                    ),
+                                  ),
                                 ),
-                              ],
-                            ),
-                            child: Icon(
-                              _isListening
-                                  ? Icons.check_rounded
-                                  : Icons.mic_rounded,
-                              color: Colors.white,
-                              size: 25,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -741,15 +771,24 @@ class _VoiceSmartCaptureSheetBodyState
                               ),
                               const SizedBox(height: 5),
                               if (_isListening)
-                                SizedBox(
-                                  height: 22,
-                                  width: double.infinity,
-                                  child: CustomPaint(
-                                    painter: _VoiceWaveformPainter(
-                                      isListening: _isListening,
-                                      rmsDb: _rmsDb,
-                                      activeColor: c.primary,
-                                      idleColor: c.separator,
+                                RepaintBoundary(
+                                  child: SizedBox(
+                                    height: 22,
+                                    width: double.infinity,
+                                    child: ValueListenableBuilder<double>(
+                                      valueListenable: _rmsNotifier,
+                                      builder: (context, rmsDb, _) {
+                                        return CustomPaint(
+                                          painter: _VoiceWaveformPainter(
+                                            isListening: _isListening,
+                                            rmsDb: motion.isReducedMotion
+                                                ? -2.0
+                                                : rmsDb,
+                                            activeColor: c.primary,
+                                            idleColor: c.separator,
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                 )
@@ -1348,6 +1387,70 @@ class _VoiceWaveformPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _VoiceWaveformPainter oldDelegate) {
     return oldDelegate.isListening != isListening ||
-        oldDelegate.rmsDb != rmsDb;
+        (oldDelegate.rmsDb - rmsDb).abs() > 0.05;
+  }
+}
+
+class _VoiceMicHaloPainter extends CustomPainter {
+  final bool isListening;
+  final bool isReducedMotion;
+  final double rmsDb;
+  final Color color;
+
+  const _VoiceMicHaloPainter({
+    required this.isListening,
+    required this.isReducedMotion,
+    required this.rmsDb,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!isListening) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final baseRadius = math.min(size.width, size.height) * 0.42;
+
+    if (isReducedMotion) {
+      canvas.drawCircle(
+        center,
+        baseRadius + 2.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = color.withValues(alpha: 0.28),
+      );
+      return;
+    }
+
+    final norm = ((rmsDb + 2.0) / 12.0).clamp(0.0, 1.0);
+    final outerRadius = baseRadius + 2.5 + (norm * 5.0);
+    final innerRadius = baseRadius + 1.2 + (norm * 2.6);
+
+    canvas.drawCircle(
+      center,
+      outerRadius,
+      Paint()
+        ..style = PaintingStyle.fill
+        ..color = color.withValues(alpha: 0.10 + (0.14 * norm)),
+    );
+    canvas.drawCircle(
+      center,
+      innerRadius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = color.withValues(alpha: 0.24 + (0.28 * norm)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _VoiceMicHaloPainter oldDelegate) {
+    if (oldDelegate.isListening != isListening ||
+        oldDelegate.isReducedMotion != isReducedMotion ||
+        oldDelegate.color != color) {
+      return true;
+    }
+    if (!isListening || isReducedMotion) return false;
+    return (oldDelegate.rmsDb - rmsDb).abs() > 0.05;
   }
 }

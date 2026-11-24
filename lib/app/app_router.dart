@@ -45,6 +45,7 @@ import '../features/financial_ai/presentation/bloc/financial_ai_bloc.dart';
 import '../features/financial_ai/presentation/bloc/gemini_copilot_bloc.dart';
 import '../features/financial_ai/presentation/pages/financial_ai_assistant_page.dart';
 import '../features/financial_ai/presentation/pages/financial_ai_settings_page.dart';
+import '../features/motion_gallery/presentation/pages/motion_gallery_page.dart';
 import '../features/notifications/presentation/bloc/notification_ingestion_bloc.dart';
 import '../features/notifications/presentation/pages/activity_and_settings_pages.dart';
 import '../features/notifications/presentation/pages/notifications_privacy_page.dart';
@@ -563,6 +564,18 @@ GoRouter createAppRouter(
             userId: user.id,
             familyId: user.activeFamilyId,
             child: const FinancialAiSettingsPage(),
+          );
+        }),
+      ),
+      GoRoute(
+        path: '/motion-gallery',
+        pageBuilder: (_, state) => _motionPage(state, (context) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const MotionGalleryPage(),
           );
         }),
       ),

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
@@ -217,12 +218,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
         LifeOsMintHeroCard(
           child: Column(
             children: [
-              const LifeOsIconSquircle(
-                icon: Icons.verified_rounded,
-                tone: LifeOsAccentTone.emerald,
-                solidFill: true,
-                size: 56,
-                iconSize: 28,
+              const LifeOsLottieAnimation(
+                assetPath: AppAssets.lottieWalletSyncRadar,
+                size: 68,
+                maxCycles: 1,
               ),
               const SizedBox(height: 12),
               Text(
@@ -1473,9 +1472,16 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                           }),
                         ),
                         const SizedBox(height: 12),
-
-                        // Multi-Period Dual Income vs Expense Bar Chart Card
-                        LifeOsSoftCard(
+                        LifeOsMaterialContentSwitcher(
+                          child: Column(
+                            key: ValueKey<String>(
+                              'finance_report_period_$_period',
+                            ),
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Multi-Period Dual Income vs Expense Bar Chart Card
+                              LifeOsSoftCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1953,18 +1959,21 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                               title:
                                   'Báo cáo Tài chính LifeOS ($periodHeaderLabel)',
                             );
-                            if (context.mounted) {
-                              LifeOsTopToast.fromSnackBar(
-                                context,
-                                SnackBar(
-                                  content: Text('✓ Đã xuất báo cáo $fileName.'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
+                              if (context.mounted) {
+                                LifeOsTopToast.fromSnackBar(
+                                  context,
+                                  SnackBar(
+                                    content: Text('✓ Đã xuất báo cáo $fileName.'),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     ),
+                  ],
+                ),
                   ),
                 ),
               ),

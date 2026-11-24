@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Focused Action-First UI + On-Device Local AI Agent + Facebook 2-Bar Navigation v3.20)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Motion Design System v2.0 + 66-Sample Motion Studio + On-Device Local AI v3.21)"
 publish_to: 'none'
-version: 3.20.0+36
+version: 3.21.0+37
 
 environment:
   sdk: ^3.10.0
@@ -28,6 +28,9 @@ dependencies:
   google_sign_in: ^7.2.0
   firebase_messaging: ^17.1.0
   cloud_functions: ^7.1.0
+  animations: ^2.2.0
+  flutter_animate: ^4.5.2
+  lottie: ^3.8.2
 
 dev_dependencies:
   flutter_test:
@@ -60,3 +63,8 @@ flutter:
     - assets/icons/
     - assets/bank_cards/
     - assets/models/
+    - assets/motion/
+    - assets/lottie/
+  shaders:
+    - shaders/liquid_caustics.frag
+    - shaders/holographic_foil.frag

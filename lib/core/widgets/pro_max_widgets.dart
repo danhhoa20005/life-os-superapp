@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
@@ -868,7 +867,7 @@ class _ProDonutChartState extends State<ProDonutChart> {
   }
 
   void _toggleSlice(int idx) {
-    HapticFeedback.selectionClick();
+    LifeOsMotionScope.read(context).selectionHaptic();
     setState(() {
       _selectedIdx = _selectedIdx == idx ? null : idx;
     });
@@ -911,6 +910,16 @@ class _ProDonutChartState extends State<ProDonutChart> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final motion = LifeOsMotionScope.of(context);
+    final tickersEnabled = TickerMode.valuesOf(context).enabled;
+    final donutDataKey = ValueKey<int>(
+      Object.hash(
+        widget.totalExpenseMinor,
+        Object.hashAll(
+          widget.slices.map((s) => Object.hash(s.label, s.amountMinor)),
+        ),
+      ),
+    );
     final activeSlice =
         (_selectedIdx != null && _selectedIdx! < widget.slices.length)
         ? widget.slices[_selectedIdx!]
@@ -933,21 +942,35 @@ class _ProDonutChartState extends State<ProDonutChart> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                CustomPaint(
-                  size: const Size(ringDim, ringDim),
-                  painter: _DonutRingPainter(
-                    slices: widget.slices,
-                    selectedIndex: _selectedIdx,
-                    emptyTrackColor: c.separator.withValues(alpha: 0.45),
-                    innerRingColor: c.separator.withValues(alpha: 0.25),
+                TweenAnimationBuilder<double>(
+                  key: donutDataKey,
+                  tween: Tween<double>(
+                    begin: (motion.isReducedMotion || !tickersEnabled)
+                        ? 1.0
+                        : 0.0,
+                    end: 1.0,
                   ),
+                  duration: motion.resolveDuration(LifeOsMotionTokens.medium),
+                  curve: LifeOsMotionTokens.emphasizedCurve,
+                  builder: (context, sweepProgress, _) {
+                    return CustomPaint(
+                      size: const Size(ringDim, ringDim),
+                      painter: _DonutRingPainter(
+                        slices: widget.slices,
+                        selectedIndex: _selectedIdx,
+                        sweepProgress: sweepProgress.clamp(0.0, 1.0),
+                        emptyTrackColor: c.separator.withValues(alpha: 0.45),
+                        innerRingColor: c.separator.withValues(alpha: 0.25),
+                      ),
+                    );
+                  },
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: AnimatedSwitcher(
-                    duration: LifeOsMotionScope.of(
-                      context,
-                    ).resolveDuration(LifeOsMotionTokens.standard),
+                    duration: motion.resolveDuration(
+                      LifeOsMotionTokens.standard,
+                    ),
                     switchInCurve: LifeOsMotionTokens.standardCurve,
                     child: Column(
                       key: ValueKey<String>(
@@ -1136,12 +1159,14 @@ class _ProDonutChartState extends State<ProDonutChart> {
 class _DonutRingPainter extends CustomPainter {
   final List<ProDonutSlice> slices;
   final int? selectedIndex;
+  final double sweepProgress;
   final Color emptyTrackColor;
   final Color innerRingColor;
 
   const _DonutRingPainter({
     required this.slices,
     this.selectedIndex,
+    this.sweepProgress = 1.0,
     required this.emptyTrackColor,
     required this.innerRingColor,
   });
@@ -1171,23 +1196,33 @@ class _DonutRingPainter extends CustomPainter {
     canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
 
     final positiveSlices = slices.where((s) => s.pct > 0).toList();
-    if (positiveSlices.isEmpty) return;
+    if (positiveSlices.isEmpty || sweepProgress <= 0.0) return;
 
     final totalPct = positiveSlices.fold<double>(0.0, (sum, s) => sum + s.pct);
     if (totalPct <= 0) return;
 
     var startAngle = -math.pi / 2;
+    var traversed = 0.0;
+    final maxTotalSweep = (math.pi * 2) * sweepProgress.clamp(0.0, 1.0);
     final gapRadians = positiveSlices.length > 1 ? 0.032 : 0.0;
 
     for (var i = 0; i < slices.length; i++) {
+      if (traversed >= maxTotalSweep) break;
       final slice = slices[i];
       if (slice.pct <= 0) continue;
       final sweep = (slice.pct / totalPct) * (math.pi * 2);
       if (sweep <= 0.004) continue;
 
+      final visibleSweep = math.min(sweep, maxTotalSweep - traversed);
+      if (visibleSweep <= 0.004) {
+        traversed += sweep;
+        startAngle += sweep;
+        continue;
+      }
+
       final isSelected = selectedIndex == i;
       final hasSelection = selectedIndex != null;
-      final effectiveSweep = math.max(0.008, sweep - gapRadians);
+      final effectiveSweep = math.max(0.004, visibleSweep - gapRadians);
       final arcStart = startAngle + (gapRadians / 2);
 
       if (isSelected) {
@@ -1214,6 +1249,7 @@ class _DonutRingPainter extends CustomPainter {
         ..isAntiAlias = true;
 
       canvas.drawArc(rect, arcStart, effectiveSweep, false, paint);
+      traversed += sweep;
       startAngle += sweep;
     }
   }
@@ -1222,7 +1258,9 @@ class _DonutRingPainter extends CustomPainter {
   bool shouldRepaint(covariant _DonutRingPainter oldDelegate) {
     return oldDelegate.slices != slices ||
         oldDelegate.selectedIndex != selectedIndex ||
-        oldDelegate.emptyTrackColor != emptyTrackColor;
+        oldDelegate.sweepProgress != sweepProgress ||
+        oldDelegate.emptyTrackColor != emptyTrackColor ||
+        oldDelegate.innerRingColor != innerRingColor;
   }
 }
 
@@ -1457,12 +1495,12 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
     if (width <= 0) return;
     final idx = ((dx / width) * 7).floor().clamp(0, 6);
     if (toggle && _selectedDayIndex == idx) {
-      HapticFeedback.selectionClick();
+      LifeOsMotionScope.read(context).selectionHaptic();
       setState(() => _selectedDayIndex = null);
       return;
     }
     if (_selectedDayIndex != idx) {
-      HapticFeedback.selectionClick();
+      LifeOsMotionScope.read(context).selectionHaptic();
       setState(() => _selectedDayIndex = idx);
     }
   }
@@ -1470,6 +1508,14 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final motion = LifeOsMotionScope.of(context);
+    final tickersEnabled = TickerMode.valuesOf(context).enabled;
+    final barsDataKey = ValueKey<int>(
+      Object.hash(
+        Object.hashAll(widget.dailyIncomesMinor),
+        Object.hashAll(widget.dailyExpensesMinor),
+      ),
+    );
     final score = widget.financialHealthScore;
     final scoreLabel = score >= 80
         ? 'Xuất sắc'
@@ -1676,16 +1722,30 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                 child: SizedBox(
                   height: 98,
                   width: double.infinity,
-                  child: CustomPaint(
-                    painter: _CashflowBarsPainter(
-                      incomes: widget.dailyIncomesMinor,
-                      expenses: widget.dailyExpensesMinor,
-                      selectedDayIndex: _selectedDayIndex,
-                      incomeColor: c.success,
-                      expenseColor: expenseBarColor,
-                      highlightColor: c.primary.withValues(alpha: 0.08),
-                      gridColor: c.separator.withValues(alpha: 0.55),
+                  child: TweenAnimationBuilder<double>(
+                    key: barsDataKey,
+                    tween: Tween<double>(
+                      begin: (motion.isReducedMotion || !tickersEnabled)
+                          ? 1.0
+                          : 0.0,
+                      end: 1.0,
                     ),
+                    duration: motion.resolveDuration(LifeOsMotionTokens.medium),
+                    curve: LifeOsMotionTokens.emphasizedCurve,
+                    builder: (context, barProgress, _) {
+                      return CustomPaint(
+                        painter: _CashflowBarsPainter(
+                          incomes: widget.dailyIncomesMinor,
+                          expenses: widget.dailyExpensesMinor,
+                          selectedDayIndex: _selectedDayIndex,
+                          barProgress: barProgress.clamp(0.0, 1.0),
+                          incomeColor: c.success,
+                          expenseColor: expenseBarColor,
+                          highlightColor: c.primary.withValues(alpha: 0.08),
+                          gridColor: c.separator.withValues(alpha: 0.55),
+                        ),
+                      );
+                    },
                   ),
                 ),
               );
@@ -1701,7 +1761,7 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                   key: Key('pro_cashflow_day_$idx'),
                   borderRadius: BorderRadius.circular(6),
                   onTap: () {
-                    HapticFeedback.selectionClick();
+                    LifeOsMotionScope.read(context).selectionHaptic();
                     setState(() {
                       _selectedDayIndex = isSelected ? null : idx;
                     });
@@ -1855,6 +1915,7 @@ class _CashflowBarsPainter extends CustomPainter {
   final List<int> incomes;
   final List<int> expenses;
   final int? selectedDayIndex;
+  final double barProgress;
   final Color incomeColor;
   final Color expenseColor;
   final Color highlightColor;
@@ -1864,6 +1925,7 @@ class _CashflowBarsPainter extends CustomPainter {
     required this.incomes,
     required this.expenses,
     required this.selectedDayIndex,
+    this.barProgress = 1.0,
     required this.incomeColor,
     required this.expenseColor,
     required this.highlightColor,
@@ -1914,7 +1976,8 @@ class _CashflowBarsPainter extends CustomPainter {
     double barHeightFor(int val) {
       if (val <= 0 || maxVal <= 0) return 2.0;
       final ratio = (val / maxVal).clamp(0.0, 1.0);
-      return math.max(7.0, math.pow(ratio, 0.68).toDouble() * usableH);
+      final targetH = math.max(7.0, math.pow(ratio, 0.68).toDouble() * usableH);
+      return 2.0 + (targetH - 2.0) * barProgress.clamp(0.0, 1.0);
     }
 
     final slotW = size.width / 7;
@@ -2017,8 +2080,11 @@ class _CashflowBarsPainter extends CustomPainter {
     return oldDelegate.incomes != incomes ||
         oldDelegate.expenses != expenses ||
         oldDelegate.selectedDayIndex != selectedDayIndex ||
+        oldDelegate.barProgress != barProgress ||
         oldDelegate.incomeColor != incomeColor ||
-        oldDelegate.expenseColor != expenseColor;
+        oldDelegate.expenseColor != expenseColor ||
+        oldDelegate.highlightColor != highlightColor ||
+        oldDelegate.gridColor != gridColor;
   }
 }
 

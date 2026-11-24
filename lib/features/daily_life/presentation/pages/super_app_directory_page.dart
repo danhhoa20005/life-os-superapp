@@ -280,6 +280,16 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       route: '/family',
       isShellTab: true,
     ),
+    SuperAppServiceEntry(
+      domainKey: 'family_life',
+      domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
+      shortLabel: 'Motion Studio',
+      keywords:
+          'motion studio gallery hieu ung chuyen dong lo xo shader lottie',
+      icon: Icons.auto_awesome_motion_rounded,
+      tone: LifeOsAccentTone.emerald,
+      route: '/motion-gallery',
+    ),
   ];
 
   @override

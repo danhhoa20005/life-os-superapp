@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/motion/lifeos_motion.dart';
 import '../../../../core/widgets/status_widgets.dart';
 
 /// Flagship Tammy × Apple Splash Screen displayed while initializing Firebase session
@@ -13,6 +14,10 @@ class SplashPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final motion = LifeOsMotionScope.of(context);
+    final introDuration = LifeOsMotionScope.of(
+      context,
+    ).resolveDuration(LifeOsMotionTokens.standard);
 
     return Scaffold(
       key: const Key('life_os_splash_page'),
@@ -43,9 +48,12 @@ class SplashPage extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.96, end: 1.0),
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
+                  tween: Tween<double>(
+                    begin: motion.resolveScale(0.96),
+                    end: 1.0,
+                  ),
+                  duration: introDuration,
+                  curve: motion.resolveCurve(LifeOsMotionTokens.standardCurve),
                   builder: (context, scale, child) =>
                       Transform.scale(scale: scale, child: child),
                   child: Column(

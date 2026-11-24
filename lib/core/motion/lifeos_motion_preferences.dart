@@ -73,6 +73,29 @@ final class LifeOsMotionPreferences {
     );
   }
 
+  /// Non-subscribing read variant safe inside `initState`, callbacks, and event handlers.
+  factory LifeOsMotionPreferences.readFromPlatform(
+    BuildContext context, {
+    LifeOsMotionMode userMode = LifeOsMotionMode.system,
+    bool hapticsEnabled = true,
+  }) {
+    final mqElement = context.getElementForInheritedWidgetOfExactType<MediaQuery>();
+    final mqWidget = mqElement?.widget;
+    final mqDisable = mqWidget is MediaQuery
+        ? mqWidget.data.disableAnimations
+        : false;
+    final globalFeatures = PlatformDispatcher.instance.accessibilityFeatures;
+    final osReduceMotion =
+        globalFeatures.reduceMotion || globalFeatures.disableAnimations;
+
+    return LifeOsMotionPreferences(
+      userMode: userMode,
+      platformDisableAnimations: mqDisable,
+      platformReduceMotion: osReduceMotion,
+      hapticsEnabled: hapticsEnabled,
+    );
+  }
+
   /// True whenever platform accessibility OR user preference requests reduced motion.
   /// Platform accessibility strictly overrides decorative `standard` preference.
   bool get isReducedMotion =>
