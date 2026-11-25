@@ -335,6 +335,7 @@ class MainActivity : FlutterActivity() {
                     val token = call.argument<String>("sessionToken")
                     val preferSystemDialog = call.argument<Boolean>("preferSystemDialog") ?: false
                     val engineMode = call.argument<String>("engineMode") ?: "google_service"
+                    val forceInlineProbe = call.argument<Boolean>("forceInlineProbe") ?: false
                     activeVoiceEngineMode = engineMode
                     if (!token.isNullOrBlank()) {
                         activeVoiceSessionToken = token
@@ -343,7 +344,8 @@ class MainActivity : FlutterActivity() {
                         isAwaitingVoicePermissionOrDialog = true
                         ensureSpeechHelper().startListening(
                             preferSystemDialog = true,
-                            engineMode = "system_dialog"
+                            engineMode = "system_dialog",
+                            forceInlineProbe = false
                         )
                         result.success("LISTENING_STARTED")
                         return@setMethodCallHandler
@@ -366,7 +368,8 @@ class MainActivity : FlutterActivity() {
                     isAwaitingVoicePermissionOrDialog = false
                     ensureSpeechHelper().startListening(
                         preferSystemDialog = false,
-                        engineMode = engineMode
+                        engineMode = engineMode,
+                        forceInlineProbe = forceInlineProbe
                     )
                     result.success("LISTENING_STARTED")
                 }
@@ -1099,6 +1102,9 @@ class MainActivity : FlutterActivity() {
                     isAwaitingVoicePermissionOrDialog = false
                     false
                 }
+            },
+            onEngineAutoSwitched = { mode ->
+                emitVoiceEvent(mapOf("type" to "engine_switched", "mode" to mode))
             }
         )
         speechHelper = created
@@ -1184,6 +1190,7 @@ class MainActivity : FlutterActivity() {
                 val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 val text = matches?.firstOrNull().orEmpty().trim()
                 if (text.isNotEmpty()) {
+                    speechHelper?.recordDialogSuccessAfterEscalation()
                     emitVoiceEvent(mapOf("type" to "final", "text" to text))
                     return
                 }

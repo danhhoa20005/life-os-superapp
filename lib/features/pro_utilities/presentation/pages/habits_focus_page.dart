@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,11 +7,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/status_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../domain/entities/pro_utilities_entities.dart';
 import '../bloc/pro_utilities_bloc.dart';
 
-/// Replaces Habitify Pro, Forest Pomodoro & Waterllama in one Unified LifeOS Studio.
+/// Unified Habit Streaks, Hydration & Deep Focus Studio.
 class HabitsFocusPage extends StatefulWidget {
   const HabitsFocusPage({super.key});
 
@@ -18,64 +22,109 @@ class HabitsFocusPage extends StatefulWidget {
   State<HabitsFocusPage> createState() => _HabitsFocusPageState();
 }
 
-class _HabitsFocusPageState extends State<HabitsFocusPage> {
+class _HabitsFocusPageState extends State<HabitsFocusPage>
+    with WidgetsBindingObserver {
   int _selectedPresetMinutes = 25;
   int _remainingSeconds = 25 * 60;
+  DateTime? _focusEndAt;
   bool _isRunning = false;
   String _habitCategoryFilter = 'all';
   Timer? _timer;
+  String? _activeUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isRunning) {
+      _syncClock();
+    }
   }
 
   void _selectPreset(int mins) {
     _timer?.cancel();
     setState(() {
       _isRunning = false;
+      _focusEndAt = null;
       _selectedPresetMinutes = mins;
       _remainingSeconds = mins * 60;
     });
   }
 
+  void _syncClock() {
+    final endAt = _focusEndAt;
+    if (!_isRunning || endAt == null) return;
+    final left = endAt.difference(DateTime.now()).inSeconds;
+    if (left <= 0) {
+      _completeFocusSession();
+    } else if (left != _remainingSeconds && mounted) {
+      setState(() => _remainingSeconds = left);
+    }
+  }
+
+  void _completeFocusSession() {
+    _timer?.cancel();
+    final uid = _activeUserId;
+    final mins = _selectedPresetMinutes;
+    setState(() {
+      _isRunning = false;
+      _focusEndAt = null;
+      _remainingSeconds = mins * 60;
+    });
+    if (uid != null && mounted) {
+      context.read<ProUtilitiesBloc>().add(
+        WellnessMetricsIncremented(
+          userId: uid,
+          addFocusMinutes: mins,
+          addPomodoros: 1,
+        ),
+      );
+      LifeOsTopToast.show(
+        context,
+        'Hoàn thành phiên tập trung $mins phút! Đã lưu vào nhật ký.',
+        kind: LifeOsToastKind.success,
+      );
+    }
+  }
+
   void _toggleTimer(String userId) {
+    _activeUserId = userId;
     if (_isRunning) {
       _timer?.cancel();
-      setState(() => _isRunning = false);
+      final endAt = _focusEndAt;
+      final remaining = endAt == null
+          ? _remainingSeconds
+          : math.max(1, endAt.difference(DateTime.now()).inSeconds);
+      setState(() {
+        _isRunning = false;
+        _focusEndAt = null;
+        _remainingSeconds = remaining;
+      });
       return;
     }
-    setState(() => _isRunning = true);
+
+    setState(() {
+      _isRunning = true;
+      _focusEndAt = DateTime.now().add(Duration(seconds: _remainingSeconds));
+    });
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {
         t.cancel();
         return;
       }
-      if (_remainingSeconds <= 1) {
-        t.cancel();
-        setState(() {
-          _isRunning = false;
-          _remainingSeconds = _selectedPresetMinutes * 60;
-        });
-        context.read<ProUtilitiesBloc>().add(
-          WellnessMetricsIncremented(
-            userId: userId,
-            addFocusMinutes: _selectedPresetMinutes,
-            addPomodoros: 1,
-          ),
-        );
-        LifeOsTopToast.fromSnackBar(
-          context,
-          SnackBar(
-            content: Text(
-              '🎉 Hoàn thành phiên tập trung $_selectedPresetMinutes phút! Đã lưu vào nhật ký.',
-            ),
-          ),
-        );
-      } else {
-        setState(() => _remainingSeconds--);
-      }
+      _syncClock();
     });
   }
 
@@ -85,6 +134,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    _activeUserId = user.id;
     final c = TammySemanticColors.of(context);
     final now = DateTime.now();
 
@@ -125,7 +175,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                   showBackButton: true,
                   trailingAction: IconButton.filledTonal(
                     tooltip: 'Thêm thói quen mới',
-                    onPressed: () => _showAddHabitDialog(context, user.id),
+                    onPressed: () => _showSaveHabitDialog(context, user.id),
                     icon: const Icon(Icons.add_rounded),
                   ),
                 ),
@@ -153,7 +203,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                               AppSpacing.xxl,
                             ),
                             children: [
-                              // 1. Deep Focus Pomodoro Studio Card (Replaces Forest Pro)
+                              // 1. Deep Focus Pomodoro Studio Card
                               LifeOsMintHeroCard(
                                 child: Column(
                                   children: [
@@ -167,10 +217,12 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(
-                                              Icons.timer_outlined,
-                                              size: 20,
-                                              color: c.primary,
+                                            const BananaGlassIcon(
+                                              assetPath: AppAssets.icLifeHabits,
+                                              fallbackIcon:
+                                                  Icons.timer_outlined,
+                                              size: 32,
+                                              borderRadius: 10,
                                             ),
                                             const SizedBox(width: 8),
                                             Flexible(
@@ -236,8 +288,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                                   fontWeight: FontWeight.w800,
                                                   color: c.textPrimary,
                                                   fontFeatures: const [
-                                                    FontFeature
-                                                        .tabularFigures(),
+                                                    FontFeature.tabularFigures(),
                                                   ],
                                                 ),
                                               ),
@@ -281,7 +332,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                               ),
                               const SizedBox(height: 12),
 
-                              // 2. Hydration 1-Tap Tracker Card (Replaces Waterllama)
+                              // 2. Hydration 1-Tap Tracker Card
                               LifeOsSoftCard(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,9 +347,10 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const LifeOsIconSquircle(
-                                              icon: Icons.water_drop_outlined,
-                                              tone: LifeOsAccentTone.blue,
+                                            const BananaGlassIcon(
+                                              assetPath: AppAssets.ic3dHydration,
+                                              fallbackIcon:
+                                                  Icons.water_drop_outlined,
                                               size: 40,
                                             ),
                                             const SizedBox(width: 12),
@@ -321,6 +373,9 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                                     style: TextStyle(
                                                       fontSize: 12.5,
                                                       color: c.textSecondary,
+                                                      fontFeatures: const [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -385,7 +440,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                               ),
                               const SizedBox(height: 14),
 
-                              // 3. Daily Habit Streaks & No-Spend Challenge (Replaces Habitify Pro)
+                              // 3. Daily Habit Streaks
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 4,
@@ -399,11 +454,14 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                       color: c.textPrimary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                   TextButton(
                                     onPressed: () =>
-                                        _showAddHabitDialog(context, user.id),
+                                        _showSaveHabitDialog(context, user.id),
                                     child: const Text('+ Thói quen mới'),
                                   ),
                                 ],
@@ -446,12 +504,33 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                 ),
                               if (state.habits.isEmpty)
                                 LifeOsSoftCard(
-                                  child: Text(
-                                    'Chưa có mục theo dõi nào. Bấm "+ Thói quen mới" để bắt đầu.',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: c.textSecondary,
-                                    ),
+                                  child: Column(
+                                    children: [
+                                      const BananaGlassIcon(
+                                        assetPath: AppAssets.icLifeHabits,
+                                        fallbackIcon:
+                                            Icons.local_fire_department_rounded,
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Chưa có thói quen nào',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Thêm thói quen kỷ luật hằng ngày như không mua trà sữa hoặc đọc sách 20 phút.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 12.8,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 )
                               else if (visibleHabits.isEmpty)
@@ -460,6 +539,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                     children: [
                                       Text(
                                         'Chưa có thói quen thuộc nhóm "$_habitCategoryFilter"',
+                                        softWrap: true,
                                         style: TextStyle(
                                           fontWeight: FontWeight.w700,
                                           color: c.textPrimary,
@@ -498,61 +578,154 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
                                         horizontal: 14,
                                         vertical: 12,
                                       ),
-                                      child: Row(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Container(
-                                            width: 26,
-                                            height: 26,
-                                            decoration: BoxDecoration(
-                                              color: doneToday
-                                                  ? c.primary
-                                                  : Colors.transparent,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: c.primary,
-                                                width: 2,
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                width: 28,
+                                                height: 28,
+                                                decoration: BoxDecoration(
+                                                  color: doneToday
+                                                      ? c.primary
+                                                      : Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: c.primary,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: doneToday
+                                                    ? const Icon(
+                                                        Icons.check_rounded,
+                                                        size: 18,
+                                                        color: Colors.white,
+                                                      )
+                                                    : null,
                                               ),
-                                            ),
-                                            child: doneToday
-                                                ? const Icon(
-                                                    Icons.check_rounded,
-                                                    size: 17,
-                                                    color: Colors.white,
-                                                  )
-                                                : null,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  h.title,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    fontSize: 14.5,
-                                                    color: c.textPrimary,
-                                                  ),
+                                              const SizedBox(width: 12),
+                                              const BananaGlassIcon(
+                                                assetPath:
+                                                    AppAssets.icLifeHabits,
+                                                fallbackIcon: Icons
+                                                    .local_fire_department_rounded,
+                                                size: 36,
+                                                borderRadius: 10,
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      h.title,
+                                                      softWrap: true,
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        fontSize: 14.8,
+                                                        color: c.textPrimary,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      h.categoryTag,
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: c.textSecondary,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                Text(
-                                                  h.categoryTag,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: c.textSecondary,
+                                              ),
+                                              PopupMenuButton<String>(
+                                                key: Key('habit_menu_${h.id}'),
+                                                tooltip: 'Tùy chọn thói quen',
+                                                onSelected: (action) async {
+                                                  if (action == 'edit') {
+                                                    await _showSaveHabitDialog(
+                                                      context,
+                                                      user.id,
+                                                      existing: h,
+                                                    );
+                                                  } else if (action ==
+                                                      'delete') {
+                                                    final confirmed =
+                                                        await showDestructiveConfirmDialog(
+                                                          context: context,
+                                                          title:
+                                                              'Xóa thói quen "${h.title}"?',
+                                                          message:
+                                                              'Chuỗi ngày đã tích lũy của thói quen này sẽ bị xóa vĩnh viễn.',
+                                                          confirmLabel: 'Xóa',
+                                                        );
+                                                    if (confirmed &&
+                                                        context.mounted) {
+                                                      context
+                                                          .read<
+                                                            ProUtilitiesBloc
+                                                          >()
+                                                          .add(
+                                                            HabitDeleted(
+                                                              userId: user.id,
+                                                              habitId: h.id,
+                                                            ),
+                                                          );
+                                                    }
+                                                  }
+                                                },
+                                                itemBuilder: (_) => [
+                                                  const PopupMenuItem(
+                                                    value: 'edit',
+                                                    child: Text(
+                                                      'Sửa tên & nhóm',
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
+                                                  PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Text(
+                                                      'Xóa thói quen',
+                                                      style: TextStyle(
+                                                        color: c.error,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
-                                          LifeOsStatusPill(
-                                            icon: Icons
-                                                .local_fire_department_rounded,
-                                            label: '$streak ngày',
-                                            tone: streak > 0
-                                                ? LifeOsAccentTone.amber
-                                                : LifeOsAccentTone.neutral,
+                                          const SizedBox(height: 8),
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 6,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              LifeOsStatusPill(
+                                                icon: Icons
+                                                    .local_fire_department_rounded,
+                                                label: '$streak ngày',
+                                                tone: streak > 0
+                                                    ? LifeOsAccentTone.amber
+                                                    : LifeOsAccentTone.neutral,
+                                              ),
+                                              LifeOsStatusPill(
+                                                icon: doneToday
+                                                    ? Icons.check_circle_rounded
+                                                    : Icons.radio_button_unchecked,
+                                                label: doneToday
+                                                    ? 'Đã xong hôm nay'
+                                                    : 'Chạm thẻ để hoàn thành',
+                                                tone: doneToday
+                                                    ? LifeOsAccentTone.emerald
+                                                    : LifeOsAccentTone.neutral,
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -574,80 +747,147 @@ class _HabitsFocusPageState extends State<HabitsFocusPage> {
     );
   }
 
-  Future<void> _showAddHabitDialog(BuildContext context, String userId) async {
-    final titleCtrl = TextEditingController();
-    var category = 'Tài chính';
+  Future<void> _showSaveHabitDialog(
+    BuildContext context,
+    String userId, {
+    LifeHabitEntity? existing,
+  }) async {
     final bloc = context.read<ProUtilitiesBloc>();
-
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Thêm Thói quen Kỷ luật'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tên thói quen hằng ngày',
-                  hintText: 'VD: Không mua trà sữa / Ngủ trước 23h',
-                ),
+      builder: (_) => _SaveHabitDialog(
+        bloc: bloc,
+        userId: userId,
+        existing: existing,
+      ),
+    );
+  }
+}
+
+class _SaveHabitDialog extends StatefulWidget {
+  const _SaveHabitDialog({
+    required this.bloc,
+    required this.userId,
+    this.existing,
+  });
+
+  final ProUtilitiesBloc bloc;
+  final String userId;
+  final LifeHabitEntity? existing;
+
+  @override
+  State<_SaveHabitDialog> createState() => _SaveHabitDialogState();
+}
+
+class _SaveHabitDialogState extends State<_SaveHabitDialog> {
+  late final TextEditingController _titleCtrl = TextEditingController(
+    text: widget.existing?.title ?? '',
+  );
+  late String _category = widget.existing?.categoryTag ?? 'Tài chính';
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final existing = widget.existing;
+    return AlertDialog(
+      title: Text(
+        existing != null ? 'Sửa Thói quen Kỷ luật' : 'Thêm Thói quen Kỷ luật',
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('habit_title_input'),
+              controller: _titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tên thói quen hằng ngày',
+                hintText: 'VD: Không mua trà sữa / Ngủ trước 23h',
               ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: category,
-                decoration: const InputDecoration(labelText: 'Nhóm mục tiêu'),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Tài chính',
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _category,
+              decoration: const InputDecoration(labelText: 'Nhóm mục tiêu'),
+              items: const [
+                DropdownMenuItem(
+                  value: 'Tài chính',
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text('Tài chính thông minh'),
                   ),
-                  DropdownMenuItem(
-                    value: 'Sức khỏe',
+                ),
+                DropdownMenuItem(
+                  value: 'Sức khỏe',
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text('Sức khỏe & Năng lượng'),
                   ),
-                  DropdownMenuItem(
-                    value: 'Học tập',
+                ),
+                DropdownMenuItem(
+                  value: 'Học tập',
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text('Học tập & Sự nghiệp'),
                   ),
-                ],
-                onChanged: (v) {
-                  if (v != null) setDialogState(() => category = v);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Hủy'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (titleCtrl.text.trim().isEmpty) {
-                  LifeOsTopToast.show(
-                    ctx,
-                    'Vui lòng nhập tên thói quen hằng ngày.',
-                    kind: LifeOsToastKind.warning,
-                  );
-                  return;
-                }
-                bloc.add(
-                  HabitAdded(
-                    userId: userId,
-                    title: titleCtrl.text.trim(),
-                    categoryTag: category,
-                  ),
-                );
-                Navigator.of(ctx).pop();
+                ),
+              ],
+              onChanged: (v) {
+                if (v != null) setState(() => _category = v);
               },
-              child: const Text('Tạo thói quen'),
             ),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          key: const Key('submit_habit_button'),
+          onPressed: () {
+            final cleanTitle = _titleCtrl.text.trim();
+            if (cleanTitle.isEmpty) {
+              LifeOsTopToast.show(
+                context,
+                'Vui lòng nhập tên thói quen hằng ngày.',
+                kind: LifeOsToastKind.warning,
+              );
+              return;
+            }
+            if (existing != null) {
+              widget.bloc.add(
+                HabitUpdated(
+                  userId: widget.userId,
+                  habitId: existing.id,
+                  title: cleanTitle,
+                  categoryTag: _category,
+                ),
+              );
+            } else {
+              widget.bloc.add(
+                HabitAdded(
+                  userId: widget.userId,
+                  title: cleanTitle,
+                  categoryTag: _category,
+                ),
+              );
+            }
+            Navigator.of(context).pop();
+          },
+          child: Text(existing != null ? 'Lưu thay đổi' : 'Tạo thói quen'),
+        ),
+      ],
     );
   }
 }

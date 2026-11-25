@@ -336,6 +336,13 @@ class _VoiceSmartCaptureSheetBodyState
           }
         });
         _refreshDiagnostics();
+      case VoiceEngineSwitchedSignal(:final modeWireValue):
+        final nextMode = VoiceEngineMode.fromWireValue(modeWireValue);
+        unawaited(UserBehaviorPrefs.savePreferredVoiceEngineMode(nextMode.wireValue));
+        setState(() {
+          _selectedEngineMode = nextMode;
+        });
+        _refreshDiagnostics();
     }
   }
 
@@ -379,6 +386,7 @@ class _VoiceSmartCaptureSheetBodyState
     bool clearExisting = false,
     bool preferSystemDialog = false,
     VoiceEngineMode? overrideMode,
+    bool forceInlineProbe = false,
   }) async {
     _autoEndpointTimer?.cancel();
     _processingGuardTimer?.cancel();
@@ -410,6 +418,7 @@ class _VoiceSmartCaptureSheetBodyState
       engineMode: useDialog
           ? VoiceEngineMode.systemDialog
           : _selectedEngineMode,
+      forceInlineProbe: forceInlineProbe,
     );
     if (!mounted) return;
     if (res == 'PERMISSION_REQUESTED') {
@@ -562,8 +571,8 @@ class _VoiceSmartCaptureSheetBodyState
                   familyId: targetFamilyId,
                   title: split.title,
                   topic: split.topic,
-                  paidByUserId: widget.user.id,
-                  paidByName: widget.user.fullName,
+                  paidByUserId: split.paidByParticipantId ?? widget.user.id,
+                  paidByName: split.paidByDisplayName ?? widget.user.fullName,
                   totalAmountMinor: split.totalAmountMinor,
                   splitMethod: split.splitMethod,
                   participantIds: split.shares
@@ -872,9 +881,32 @@ class _VoiceSmartCaptureSheetBodyState
                     ),
                   ),
                   TextButton.icon(
+                    key: const Key('voice_quick_google_dialog_btn'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    onPressed: () async {
+                      await UserBehaviorPrefs.savePreferredVoiceEngineMode(
+                        VoiceEngineMode.systemDialog.wireValue,
+                      );
+                      if (!mounted) return;
+                      await _startListeningFresh(
+                        preferSystemDialog: true,
+                        overrideMode: VoiceEngineMode.systemDialog,
+                      );
+                    },
+                    icon: const Icon(Icons.record_voice_over_outlined, size: 15),
+                    label: const Text('Google', style: TextStyle(fontSize: 12)),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                     onPressed: _pasteFromClipboard,
-                    icon: const Icon(Icons.content_paste_go_rounded, size: 16),
-                    label: const Text('Dán'),
+                    icon: const Icon(Icons.content_paste_go_rounded, size: 15),
+                    label: const Text('Dán', style: TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -1253,6 +1285,8 @@ class _VoiceSmartCaptureSheetBodyState
                                 preferSystemDialog:
                                     mode == VoiceEngineMode.systemDialog,
                                 overrideMode: mode,
+                                forceInlineProbe:
+                                    mode == VoiceEngineMode.googleService,
                               );
                             },
                           );
@@ -1380,6 +1414,8 @@ class _VoiceSmartCaptureSheetBodyState
                                         child: Text(
                                           sh.percentage != null
                                               ? '${sh.displayName} (${sh.percentage}%)'
+                                              : sh.sharesWeight != null
+                                              ? '${sh.displayName} (${sh.sharesWeight} phần)'
                                               : sh.displayName,
                                           softWrap: true,
                                           style: const TextStyle(

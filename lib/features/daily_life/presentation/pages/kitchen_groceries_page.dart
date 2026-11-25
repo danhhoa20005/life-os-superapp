@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
@@ -10,6 +11,7 @@ import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
+import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../domain/entities/daily_life_entities.dart';
 import '../bloc/daily_life_bloc.dart';
 
@@ -24,6 +26,8 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
   String _tab = 'basket';
   String _basketFilter = 'all'; // 'all' | 'pending' | 'bought'
   int _featuredComboIndex = 0;
+  String? _selectedWalletId;
+  bool _isSubmittingCheckout = false;
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +35,14 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
     final user = context.watch<AuthBloc>().state.user;
     final userId = user?.id ?? '';
     final wallets = context.watch<TransactionListBloc>().state.wallets;
-    final primaryWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
-      wallets.map((w) => w.id),
-    );
+    final String? resolvedWalletId = wallets.isEmpty
+        ? null
+        : (_selectedWalletId != null &&
+                  wallets.any((w) => w.id == _selectedWalletId)
+              ? _selectedWalletId!
+              : UserBehaviorPrefs.resolvePreferredWalletId(
+                  wallets.map((w) => w.id),
+                ));
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
       listenWhen: (p, n) =>
@@ -41,15 +50,13 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
           (n.successBanner != null && p.successBanner != n.successBanner),
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text(state.failure!.message)),
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
           );
         } else if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text(state.successBanner!)),
-          );
+          LifeOsTopToast.show(context, state.successBanner!);
         }
       },
       builder: (context, state) {
@@ -275,7 +282,8 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                 context,
                                 c,
                                 userId,
-                                primaryWalletId,
+                                wallets,
+                                resolvedWalletId,
                                 shoppingList,
                                 snap.boughtGroceriesMinor,
                               )
@@ -297,11 +305,94 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
     );
   }
 
+  Future<void> _checkoutBoughtGroceries({
+    required String userId,
+    required List<WalletEntity> wallets,
+    required String? selectedWalletId,
+    required int boughtMinor,
+  }) async {
+    if (wallets.isEmpty || selectedWalletId == null) {
+      LifeOsTopToast.show(
+        context,
+        'Vui lòng tạo ít nhất 1 Ví trong tab Tài chính trước khi ghi chi tiêu đi chợ.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
+    }
+    if (_isSubmittingCheckout) return;
+
+    final txActionBloc = context.read<TransactionActionBloc>();
+    final dailyBloc = context.read<DailyLifeBloc>();
+    setState(() => _isSubmittingCheckout = true);
+
+    late final TransactionActionState outcome;
+    try {
+      outcome = await txActionBloc.submitAndAwaitCreate(
+        TransactionCreateSubmitted(
+          operationId: 'groc_${DateTime.now().millisecondsSinceEpoch}',
+          userId: userId,
+          walletId: selectedWalletId,
+          categoryId: 'cat_food',
+          categoryName: 'Ăn uống',
+          kind: TransactionKind.expense,
+          amountMinor: boughtMinor,
+          merchant: 'Đi chợ & Thực phẩm Bếp gia đình',
+          note: 'Chốt từ Giỏ đi chợ thông minh LifeOS',
+          occurredAt: DateTime.now(),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingCheckout = false);
+      }
+    }
+
+    if (!mounted) return;
+    final createdTx = outcome.lastCreatedTransaction;
+    if (outcome.status != ActionStatus.success || createdTx == null) {
+      LifeOsTopToast.show(
+        context,
+        outcome.failure?.message ??
+            'Không thể ghi chi tiêu đi chợ — vui lòng thử lại.',
+        kind: LifeOsToastKind.error,
+      );
+      return;
+    }
+
+    await UserBehaviorPrefs.rememberWallet(selectedWalletId);
+    dailyBloc.add(BoughtGroceriesCleared(userId, suppressSuccessBanner: true));
+    if (!mounted) return;
+
+    final confirmedTxId = createdTx.id;
+    LifeOsTopToast.show(
+      context,
+      'Đã ghi chi tiêu đi chợ (${VndAmount.format(boughtMinor)}) vào Ví.',
+      actionLabel: 'Hoàn tác',
+      onAction: () {
+        txActionBloc.add(
+          TransactionReverseRequested(
+            userId: userId,
+            transactionId: confirmedTxId,
+            reason: 'Hoàn tác chi tiêu đi chợ',
+          ),
+        );
+        if (mounted) {
+          LifeOsTopToast.show(
+            context,
+            'Đã hoàn tác khoản chi đi chợ.',
+            kind: LifeOsToastKind.info,
+          );
+        }
+      },
+    );
+  }
+
   Widget _buildBasketTab(
     BuildContext context,
     TammySemanticColors c,
     String userId,
-    String? primaryWalletId,
+    List<WalletEntity> wallets,
+    String? resolvedWalletId,
     List<SmartGroceryItemEntity> shoppingList,
     int boughtMinor,
   ) {
@@ -321,6 +412,13 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
             Expanded(
               child: OutlinedButton.icon(
                 key: const Key('open_add_grocery_btn'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                ),
                 onPressed: userId.isEmpty
                     ? null
                     : () => _showAddGrocerySheet(
@@ -328,8 +426,11 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                         userId,
                         inFridge: false,
                       ),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Thêm món tự chọn'),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text('Thêm món tự chọn'),
+                ),
               ),
             ),
             if (boughtMinor > 0) ...[
@@ -337,46 +438,71 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
               Expanded(
                 child: FilledButton.icon(
                   key: const Key('checkout_grocery_to_wallet_btn'),
-                  onPressed: userId.isEmpty
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                  ),
+                  onPressed: userId.isEmpty || _isSubmittingCheckout
                       ? null
-                      : () {
-                          if (primaryWalletId == null) {
-                            LifeOsTopToast.show(
-                              context,
-                              'Vui lòng tạo ít nhất 1 Ví trong tab Tài chính trước khi ghi chi tiêu đi chợ.',
-                              kind: LifeOsToastKind.warning,
-                            );
-                            return;
-                          }
-                          context.read<TransactionActionBloc>().add(
-                            TransactionCreateSubmitted(
-                              operationId:
-                                  'groc_${DateTime.now().millisecondsSinceEpoch}',
-                              userId: userId,
-                              walletId: primaryWalletId,
-                              categoryId: 'cat_food',
-                              categoryName: 'Ăn uống',
-                              kind: TransactionKind.expense,
-                              amountMinor: boughtMinor,
-                              merchant: 'Đi chợ & Thực phẩm Bếp gia đình',
-                              note: 'Chốt từ Giỏ đi chợ thông minh LifeOS',
-                              occurredAt: DateTime.now(),
-                            ),
-                          );
-                          context.read<DailyLifeBloc>().add(
-                            BoughtGroceriesCleared(userId),
-                          );
-                        },
+                      : () => _checkoutBoughtGroceries(
+                          userId: userId,
+                          wallets: wallets,
+                          selectedWalletId: resolvedWalletId,
+                          boughtMinor: boughtMinor,
+                        ),
                   icon: const Icon(
                     Icons.account_balance_wallet_outlined,
                     size: 18,
                   ),
-                  label: Text('Ghi Ví ${VndAmount.format(boughtMinor)}'),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Ghi Ví ${VndAmount.format(boughtMinor)}',
+                      style: const TextStyle(
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
           ],
         ),
+        if (boughtMinor > 0 && wallets.length > 1) ...[
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            key: const Key('grocery_wallet_selector'),
+            isExpanded: true,
+            initialValue: resolvedWalletId,
+            decoration: const InputDecoration(
+              labelText: 'Chọn Ví thanh toán đi chợ',
+              isDense: true,
+            ),
+            items: wallets
+                .map(
+                  (w) => DropdownMenuItem(
+                    value: w.id,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${w.name} (${VndAmount.format(w.balanceMinor)})',
+                        style: const TextStyle(
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _selectedWalletId = v);
+            },
+          ),
+        ],
         if (shoppingList.isNotEmpty) ...[
           const SizedBox(height: 10),
           Wrap(
@@ -467,59 +593,126 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                 onTap: () => context.read<DailyLifeBloc>().add(
                   GroceryItemBoughtToggled(userId: userId, item: item),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Checkbox(
-                      value: item.isBought,
-                      onChanged: (_) => context.read<DailyLifeBloc>().add(
-                        GroceryItemBoughtToggled(userId: userId, item: item),
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.name,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              decoration: item.isBought
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              color: item.isBought
-                                  ? c.textSecondary
-                                  : c.textPrimary,
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: item.isBought,
+                          onChanged: (_) => context.read<DailyLifeBloc>().add(
+                            GroceryItemBoughtToggled(
+                              userId: userId,
+                              item: item,
                             ),
                           ),
-                          Text(
-                            '${item.quantityLabel} · ${item.aisle.label}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: c.textSecondary,
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.name,
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  decoration: item.isBought
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: item.isBought
+                                      ? c.textSecondary
+                                      : c.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${item.quantityLabel} · ${item.aisle.label}',
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          VndAmount.format(item.estimatedMinor),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13.5,
+                            color: c.primary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Xóa món',
+                          onPressed: () => context.read<DailyLifeBloc>().add(
+                            GroceryItemDeleted(userId: userId, itemId: item.id),
+                          ),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 40, top: 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Tooltip(
+                            message: 'Chuyển món này vào Tủ lạnh theo dõi hạn dùng',
+                            child: Material(
+                              color: const Color(0xFF0EA5E9).withValues(
+                                alpha: 0.10,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              child: InkWell(
+                                key: Key('move_grocery_to_fridge_${item.id}'),
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: userId.isEmpty
+                                    ? null
+                                    : () => context.read<DailyLifeBloc>().add(
+                                        GroceryMovedToFridge(
+                                          userId: userId,
+                                          item: item,
+                                        ),
+                                      ),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.kitchen_outlined,
+                                        size: 14.5,
+                                        color: Color(0xFF0284C7),
+                                      ),
+                                      SizedBox(width: 5),
+                                      Text(
+                                        'Cất vào Tủ lạnh',
+                                        style: TextStyle(
+                                          fontSize: 11.8,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF0284C7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    Text(
-                      VndAmount.format(item.estimatedMinor),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
-                        color: c.primary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => context.read<DailyLifeBloc>().add(
-                        GroceryItemDeleted(userId: userId, itemId: item.id),
-                      ),
-                      icon: Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: c.textSecondary,
                       ),
                     ),
                   ],
@@ -550,7 +743,8 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
               Row(
                 children: [
                   const LifeOsIconSquircle(
-                    icon: Icons.casino_outlined,
+                    icon: Icons.restaurant_rounded,
+                    bananaAsset: AppAssets.icCatFood,
                     tone: LifeOsAccentTone.amber,
                     size: 40,
                   ),

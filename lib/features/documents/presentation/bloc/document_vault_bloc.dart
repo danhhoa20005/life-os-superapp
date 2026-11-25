@@ -56,6 +56,15 @@ final class DocumentVaultCreateSubmitted extends DocumentVaultEvent {
   List<Object?> get props => [params];
 }
 
+final class DocumentVaultUpdateSubmitted extends DocumentVaultEvent {
+  final UpdateDocumentVaultParams params;
+
+  const DocumentVaultUpdateSubmitted(this.params);
+
+  @override
+  List<Object?> get props => [params];
+}
+
 final class DocumentVaultDeleteRequested extends DocumentVaultEvent {
   final String userId;
   final DocumentVaultEntity document;
@@ -158,6 +167,10 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
       _onCreateSubmitted,
       transformer: droppable(),
     );
+    on<DocumentVaultUpdateSubmitted>(
+      _onUpdateSubmitted,
+      transformer: sequential(),
+    );
     on<DocumentVaultDeleteRequested>(
       _onDeleteRequested,
       transformer: sequential(),
@@ -226,6 +239,22 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
       (doc) => emit(
         state.copyWith(
           message: 'Đã lưu "${doc.title}" vào ${doc.folder.displayTitle}.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onUpdateSubmitted(
+    DocumentVaultUpdateSubmitted event,
+    Emitter<DocumentVaultState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.updateDocument(event.params);
+    res.fold(
+      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
+      (doc) => emit(
+        state.copyWith(
+          message: 'Đã cập nhật hồ sơ "${doc.title}".',
         ),
       ),
     );

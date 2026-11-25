@@ -322,6 +322,7 @@ class _ProSuiteModuleCard extends StatelessWidget {
                       height: 1.25,
                       fontWeight: FontWeight.w700,
                       color: c.textPrimary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),

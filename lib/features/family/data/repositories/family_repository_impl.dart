@@ -667,6 +667,34 @@ class FamilyRemoteDataSource {
         .update({'isPurchased': isPurchased});
   }
 
+  Future<void> deleteShoppingItem({
+    required String familyId,
+    required String itemId,
+  }) async {
+    await _firestore
+        .collection('families')
+        .doc(familyId)
+        .collection('shopping_items')
+        .doc(itemId)
+        .delete();
+  }
+
+  Future<int> clearPurchasedShoppingItems({required String familyId}) async {
+    final snap = await _firestore
+        .collection('families')
+        .doc(familyId)
+        .collection('shopping_items')
+        .where('isPurchased', isEqualTo: true)
+        .get();
+    if (snap.docs.isEmpty) return 0;
+    final batch = _firestore.batch();
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+    return snap.docs.length;
+  }
+
   Future<SharedBillSplitEntity> createSharedBillSplit({
     required String familyId,
     required String title,
@@ -1031,6 +1059,36 @@ class FamilyRepositoryImpl implements FamilyRepository {
         isPurchased: isPurchased,
       );
       return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteShoppingItem({
+    required String familyId,
+    required String itemId,
+  }) async {
+    try {
+      await _remoteDataSource.deleteShoppingItem(
+        familyId: familyId,
+        itemId: itemId,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<int>> clearPurchasedShoppingItems({
+    required String familyId,
+  }) async {
+    try {
+      final count = await _remoteDataSource.clearPurchasedShoppingItems(
+        familyId: familyId,
+      );
+      return Success(count);
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }

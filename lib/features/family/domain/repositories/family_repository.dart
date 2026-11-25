@@ -75,6 +75,15 @@ abstract interface class FamilyRepository {
     required bool isPurchased,
   });
 
+  Future<Result<void>> deleteShoppingItem({
+    required String familyId,
+    required String itemId,
+  });
+
+  Future<Result<int>> clearPurchasedShoppingItems({
+    required String familyId,
+  });
+
   Future<Result<SharedBillSplitEntity>> createSharedBillSplit({
     required String familyId,
     required String title,

@@ -134,6 +134,11 @@ final class VoiceErrorSignal extends VoiceAssistantSignal {
   bool get isPermanentlyDenied => code == 'PERMISSION_PERMANENTLY_DENIED';
 }
 
+final class VoiceEngineSwitchedSignal extends VoiceAssistantSignal {
+  final String modeWireValue;
+  const VoiceEngineSwitchedSignal(this.modeWireValue);
+}
+
 abstract interface class VoiceAssistantDriver {
   bool get isSupportedPlatform;
   Future<String> startListening();
@@ -150,6 +155,7 @@ abstract interface class AdvancedVoiceAssistantDriver
     String? sessionToken,
     bool preferSystemDialog = false,
     String engineMode = 'auto',
+    bool forceInlineProbe = false,
   });
 
   Future<void> cancelListeningSession({String? sessionToken});
@@ -227,6 +233,10 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
               .toString(),
           code: map['code']?.toString(),
         );
+      case 'engine_switched':
+        return VoiceEngineSwitchedSignal(
+          (map['mode'] ?? 'system_dialog').toString(),
+        );
       default:
         return null;
     }
@@ -240,6 +250,7 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
     String? sessionToken,
     bool preferSystemDialog = false,
     String engineMode = 'google_service',
+    bool forceInlineProbe = false,
   }) async {
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return 'UNSUPPORTED';
@@ -256,6 +267,7 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
           if (sessionToken != null) 'sessionToken': sessionToken,
           'preferSystemDialog': useDialog,
           'engineMode': normalizedMode,
+          'forceInlineProbe': forceInlineProbe,
         },
       );
       return status ?? 'STARTED';
@@ -362,6 +374,7 @@ class NativeVoiceAssistantBridge {
     String? sessionToken,
     bool preferSystemDialog = false,
     VoiceEngineMode engineMode = VoiceEngineMode.googleService,
+    bool forceInlineProbe = false,
   }) {
     if (sessionToken != null && sessionToken.isNotEmpty) {
       _activeOwnerSessionToken = sessionToken;
@@ -379,6 +392,7 @@ class NativeVoiceAssistantBridge {
         sessionToken: sessionToken,
         preferSystemDialog: useDialog,
         engineMode: effectiveWire,
+        forceInlineProbe: forceInlineProbe,
       );
     }
     return drv.startListening();

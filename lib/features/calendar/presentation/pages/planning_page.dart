@@ -509,12 +509,38 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
                             size: 19,
                             color: c.error,
                           ),
-                          onPressed: () => context.read<CalendarBloc>().add(
-                            ManagedCalendarDeleteSubmitted(
-                              userId: userId,
-                              calendar: group.representative,
-                            ),
-                          ),
+                          onPressed: () async {
+                            final calBloc = context.read<CalendarBloc>();
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (dCtx) => AlertDialog(
+                                title: const Text('Xóa bộ lịch này?'),
+                                content: Text(
+                                  'Bộ lịch "${group.displayTitle}" và các sự kiện thuộc bộ lịch này sẽ bị xóa.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dCtx).pop(false),
+                                    child: const Text('Hủy'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.of(dCtx).pop(true),
+                                    child: const Text('Xóa bộ lịch'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true) {
+                              calBloc.add(
+                                ManagedCalendarDeleteSubmitted(
+                                  userId: userId,
+                                  calendar: group.representative,
+                                ),
+                              );
+                            }
+                          },
                         ),
                       if (!group.isPrimaryGroup)
                         Switch(
@@ -1351,16 +1377,42 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                               ),
                               onSetAlarm: () =>
                                   context.push('/event-alarm', extra: ev),
-                              onDelete: () => context.read<CalendarBloc>().add(
-                                CalendarEventDeleted(
-                                  userId: widget.userId,
-                                  familyId: widget.familyId,
-                                  visibility: ev.visibility,
-                                  eventId: ev.id,
-                                  googleCalendarId: ev.googleCalendarId,
-                                  googleEventId: ev.googleEventId,
-                                ),
-                              ),
+                              onDelete: () async {
+                                final calBloc = context.read<CalendarBloc>();
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dCtx) => AlertDialog(
+                                    title: const Text('Xóa sự kiện này?'),
+                                    content: Text(
+                                      'Sự kiện "${ev.title}" sẽ được xóa khỏi lịch trình của bạn.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(dCtx).pop(false),
+                                        child: const Text('Hủy'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.of(dCtx).pop(true),
+                                        child: const Text('Xóa sự kiện'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) {
+                                  calBloc.add(
+                                    CalendarEventDeleted(
+                                      userId: widget.userId,
+                                      familyId: widget.familyId,
+                                      visibility: ev.visibility,
+                                      eventId: ev.id,
+                                      googleCalendarId: ev.googleCalendarId,
+                                      googleEventId: ev.googleEventId,
+                                    ),
+                                  );
+                                }
+                              },
                             ),
                           );
                         }),

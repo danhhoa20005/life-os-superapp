@@ -29,6 +29,7 @@ import '../../../tasks/presentation/bloc/task_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
+import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../vehicles/domain/entities/vehicle_entities.dart';
 import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../domain/entities/dashboard_entities.dart';
@@ -61,6 +62,7 @@ class _InboxActionItem {
   final VoidCallback onTap;
   final String? quickActionLabel;
   final VoidCallback? onQuickAction;
+  final bool isQuickActionBusy;
 
   const _InboxActionItem({
     required this.icon,
@@ -71,6 +73,7 @@ class _InboxActionItem {
     required this.onTap,
     this.quickActionLabel,
     this.onQuickAction,
+    this.isQuickActionBusy = false,
   });
 }
 
@@ -189,11 +192,39 @@ class _TodayPageState extends State<TodayPage> {
   };
 
   bool _hideBalances = false;
+  bool _isSyncingHideBalances = false;
+  final Set<String> _approvingProvisionalIds = <String>{};
 
   @override
   void initState() {
     super.initState();
     _hydrateUserPrefs();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isTickerEnabled = TickerMode.valuesOf(context).enabled;
+    final isCurrentRoute = ModalRoute.isCurrentOf(context) ?? true;
+    if (isTickerEnabled && isCurrentRoute) {
+      _syncHideBalancesFromPrefs();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TodayPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncHideBalancesFromPrefs();
+  }
+
+  void _syncHideBalancesFromPrefs() {
+    if (_isSyncingHideBalances) return;
+    _isSyncingHideBalances = true;
+    UserBehaviorPrefs.loadHideBalances().then((savedHide) {
+      _isSyncingHideBalances = false;
+      if (!mounted || savedHide == _hideBalances) return;
+      setState(() => _hideBalances = savedHide);
+    });
   }
 
   Future<void> _hydrateUserPrefs() async {
@@ -210,6 +241,60 @@ class _TodayPageState extends State<TodayPage> {
       }
       _hideBalances = savedHide;
     });
+  }
+
+  Future<void> _approveProvisionalTx(
+    BuildContext context, {
+    required String userId,
+    required TransactionEntity tx,
+  }) async {
+    if (_approvingProvisionalIds.contains(tx.id)) return;
+    final actionBloc = context.read<TransactionActionBloc>();
+    if (actionBloc.state.status == ActionStatus.submitting) return;
+
+    setState(() => _approvingProvisionalIds.add(tx.id));
+    try {
+      final waiter = actionBloc.stream
+          .firstWhere(
+            (s) =>
+                s.status == ActionStatus.success ||
+                s.status == ActionStatus.failure,
+          )
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () =>
+                const TransactionActionState(status: ActionStatus.failure),
+          );
+      actionBloc.add(
+        ProvisionalTransactionDecisionSubmitted(
+          userId: userId,
+          transactionId: tx.id,
+          approve: true,
+        ),
+      );
+      final outcome = await waiter;
+      if (!mounted) return;
+      if (outcome.status == ActionStatus.success) {
+        LifeOsTopToast.show(
+          this.context,
+          outcome.successMessage ?? 'Đã duyệt giao dịch ${tx.merchant}.',
+          kind: LifeOsToastKind.success,
+        );
+      } else {
+        LifeOsTopToast.show(
+          this.context,
+          outcome.failure?.message ??
+              'Không thể duyệt giao dịch ${tx.merchant} — vui lòng thử lại.',
+          kind: LifeOsToastKind.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _approvingProvisionalIds.remove(tx.id));
+      } else {
+        _approvingProvisionalIds.remove(tx.id);
+      }
+    }
   }
 
   String _fmtMoney(int minor, {String prefix = ''}) {
@@ -315,6 +400,9 @@ class _TodayPageState extends State<TodayPage> {
     );
     final allTransactions = context.select(
       (TransactionListBloc b) => b.state.allTransactions,
+    );
+    final isTxActionSubmitting = context.select(
+      (TransactionActionBloc b) => b.state.status == ActionStatus.submitting,
     );
     final vehicles = context.select((VehicleBloc b) => b.state.vehicles);
     final bills = context.select((VehicleBloc b) => b.state.bills);
@@ -603,22 +691,18 @@ class _TodayPageState extends State<TodayPage> {
                             extra: provisionalTxs.first,
                           ),
                           quickActionLabel: user != null ? 'Duyệt' : null,
+                          isQuickActionBusy:
+                              _approvingProvisionalIds.contains(
+                                provisionalTxs.first.id,
+                              ) ||
+                              isTxActionSubmitting,
                           onQuickAction: user == null
                               ? null
-                              : () {
-                                  final firstTx = provisionalTxs.first;
-                                  context.read<TransactionActionBloc>().add(
-                                    ProvisionalTransactionDecisionSubmitted(
-                                      userId: user.id,
-                                      transactionId: firstTx.id,
-                                      approve: true,
-                                    ),
-                                  );
-                                  LifeOsTopToast.show(
-                                    context,
-                                    'Đã duyệt giao dịch ${firstTx.merchant}.',
-                                  );
-                                },
+                              : () => _approveProvisionalTx(
+                                  context,
+                                  userId: user.id,
+                                  tx: provisionalTxs.first,
+                                ),
                         ),
                       if (todayEvents.isNotEmpty)
                         _InboxActionItem(
@@ -1745,6 +1829,9 @@ class _TodayPageState extends State<TodayPage> {
                                                                         .w700,
                                                                 color: c
                                                                     .textPrimary,
+                                                                fontFeatures: const [
+                                                                  FontFeature.tabularFigures(),
+                                                                ],
                                                               ),
                                                             ),
                                                             const SizedBox(
@@ -1758,14 +1845,18 @@ class _TodayPageState extends State<TodayPage> {
                                                                 height: 1.28,
                                                                 color: c
                                                                     .textSecondary,
+                                                                fontFeatures: const [
+                                                                  FontFeature.tabularFigures(),
+                                                                ],
                                                               ),
                                                             ),
                                                           ],
                                                         ),
                                                       ),
                                                       const SizedBox(width: 6),
-                                                      if (item.onQuickAction !=
-                                                              null &&
+                                                      if ((item.onQuickAction !=
+                                                                  null ||
+                                                              item.isQuickActionBusy) &&
                                                           item.quickActionLabel !=
                                                               null)
                                                         FilledButton.tonal(
@@ -1780,10 +1871,14 @@ class _TodayPageState extends State<TodayPage> {
                                                                   vertical: 4,
                                                                 ),
                                                           ),
-                                                          onPressed:
-                                                              item.onQuickAction,
+                                                          onPressed: item
+                                                                  .isQuickActionBusy
+                                                              ? null
+                                                              : item.onQuickAction,
                                                           child: Text(
-                                                            item.quickActionLabel!,
+                                                            item.isQuickActionBusy
+                                                                ? 'Đang duyệt'
+                                                                : item.quickActionLabel!,
                                                             style:
                                                                 const TextStyle(
                                                                   fontSize:
@@ -1791,6 +1886,9 @@ class _TodayPageState extends State<TodayPage> {
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w800,
+                                                                  fontFeatures: [
+                                                                    FontFeature.tabularFigures(),
+                                                                  ],
                                                                 ),
                                                           ),
                                                         )

@@ -207,6 +207,8 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
           if (hasPartial) {
             _submitAnalysis();
           }
+        case VoiceEngineSwitchedSignal(:final modeWireValue):
+          unawaited(UserBehaviorPrefs.savePreferredVoiceEngineMode(modeWireValue));
       }
     });
 
@@ -555,21 +557,28 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    TextField(
-                                      key: const Key('financial_ai_text_input'),
-                                      controller: _inputCtrl,
-                                      minLines: 2,
-                                      maxLines: 4,
-                                      onChanged: (val) {
-                                        if (_activeSource !=
-                                            FinancialInputSource.manualText) {
-                                          _activeSource =
-                                              FinancialInputSource.manualText;
-                                        }
-                                        if (!_isListening) {
-                                          _sessionPrefixText = val.trim();
-                                        }
-                                      },
+                                      TextField(
+                                        key: const Key('financial_ai_text_input'),
+                                        controller: _inputCtrl,
+                                        minLines: 2,
+                                        maxLines: 4,
+                                        style: const TextStyle(
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            if (_activeSource !=
+                                                FinancialInputSource.manualText) {
+                                              _activeSource =
+                                                  FinancialInputSource.manualText;
+                                            }
+                                            if (!_isListening) {
+                                              _sessionPrefixText = val.trim();
+                                            }
+                                          });
+                                        },
                                       decoration: InputDecoration(
                                         hintText: 'VD: Phở 45k, cf 25k',
                                         hintMaxLines: 2,
@@ -711,33 +720,133 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                         ),
                                       ],
                                     ],
-                                    const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          if (aiState
-                                                  .activeCandidates
-                                                  .isNotEmpty ||
-                                              geminiState
-                                                  .activeOmniDrafts
-                                                  .isNotEmpty) ...[
-                                            OutlinedButton(
-                                              onPressed: () {
-                                                _inputCtrl.clear();
-                                                context
-                                                    .read<FinancialAiBloc>()
-                                                    .add(
-                                                      const FinancialAiReset(),
-                                                    );
-                                                context
-                                                    .read<GeminiCopilotBloc>()
-                                                    .add(
-                                                      const GeminiOmniReset(),
-                                                    );
-                                              },
-                                              child: const Text('Làm mới'),
-                                            ),
-                                            const SizedBox(width: 8),
+                                      if (_inputCtrl.text.trim().isEmpty &&
+                                          aiState.activeCandidates.isEmpty &&
+                                          aiState.currentAnalysis == null &&
+                                          geminiState.lastResult == null) ...[
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'Mẫu câu lệnh gợi ý 1-chạm',
+                                          style: TextStyle(
+                                            fontSize: 11.8,
+                                            fontWeight: FontWeight.w700,
+                                            color: c.textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            for (final sample in const [
+                                              (
+                                                key: 'expense',
+                                                label: 'Cà phê 35k',
+                                                icon: Icons.local_cafe_outlined,
+                                                command: 'Cà phê 35k',
+                                              ),
+                                              (
+                                                key: 'split',
+                                                label: 'Chia bill 240k',
+                                                icon: Icons.groups_outlined,
+                                                command:
+                                                    'Ăn trưa 240k chia 4 người',
+                                              ),
+                                              (
+                                                key: 'schedule',
+                                                label: 'Họp 9h sáng mai',
+                                                icon: Icons
+                                                    .event_available_rounded,
+                                                command: 'Họp dự án 9h sáng mai',
+                                              ),
+                                              (
+                                                key: 'water',
+                                                label: 'Uống 250ml nước',
+                                                icon: Icons.water_drop_outlined,
+                                                command: 'Uống 250ml nước',
+                                              ),
+                                            ])
+                                              ActionChip(
+                                                key: Key(
+                                                  'ai_sample_chip_${sample.key}',
+                                                ),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                avatar: Icon(
+                                                  sample.icon,
+                                                  size: 15,
+                                                  color: c.primary,
+                                                ),
+                                                label: Text(
+                                                  sample.label,
+                                                  style: const TextStyle(
+                                                    fontSize: 11.8,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontFeatures: [
+                                                      FontFeature
+                                                          .tabularFigures(),
+                                                    ],
+                                                  ),
+                                                ),
+                                                onPressed: isAnalyzing
+                                                    ? null
+                                                    : () {
+                                                        setState(() {
+                                                          _activeSource =
+                                                              FinancialInputSource
+                                                                  .manualText;
+                                                          _inputCtrl.text =
+                                                              sample.command;
+                                                          _inputCtrl.selection =
+                                                              TextSelection.collapsed(
+                                                                offset: sample
+                                                                    .command
+                                                                    .length,
+                                                              );
+                                                          _sessionPrefixText =
+                                                              sample.command;
+                                                        });
+                                                        _submitAnalysis();
+                                                      },
+                                              ),
                                           ],
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            if (aiState
+                                                    .activeCandidates
+                                                    .isNotEmpty ||
+                                                geminiState
+                                                    .activeOmniDrafts
+                                                    .isNotEmpty) ...[
+                                              OutlinedButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _inputCtrl.clear();
+                                                    _sessionPrefixText = '';
+                                                    _voiceHint = null;
+                                                    _lastVoiceErrorCode = null;
+                                                    _activeSource =
+                                                        FinancialInputSource
+                                                            .manualText;
+                                                  });
+                                                  context
+                                                      .read<FinancialAiBloc>()
+                                                      .add(
+                                                        const FinancialAiReset(),
+                                                      );
+                                                  context
+                                                      .read<GeminiCopilotBloc>()
+                                                      .add(
+                                                        const GeminiOmniReset(),
+                                                      );
+                                                },
+                                                child: const Text('Làm mới'),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
                                           Expanded(
                                             child: FilledButton.icon(
                                               key: const Key(
@@ -1017,6 +1126,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                             key: const Key('edit_draft_amount_input'),
                             controller: amountCtrl,
                             keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
                             decoration: const InputDecoration(
                               labelText: 'Số tiền (VND)',
                               isDense: true,
@@ -1048,7 +1160,12 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                             Icons.calendar_today_rounded,
                             size: 16,
                           ),
-                          label: Text(dateFmt.format(selectedDate)),
+                          label: Text(
+                            dateFmt.format(selectedDate),
+                            style: const TextStyle(
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1428,7 +1545,7 @@ class _AiTransactionDraftPreviewCard extends StatelessWidget {
   }
 }
 
-class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
+class _GeminiHybridInsightAndOmniActionsSection extends StatefulWidget {
   final GeminiCopilotState geminiState;
   final bool hasFinancialAiCandidates;
   final String defaultWalletId;
@@ -1438,6 +1555,30 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
     required this.hasFinancialAiCandidates,
     required this.defaultWalletId,
   });
+
+  @override
+  State<_GeminiHybridInsightAndOmniActionsSection> createState() =>
+      _GeminiHybridInsightAndOmniActionsSectionState();
+}
+
+class _GeminiHybridInsightAndOmniActionsSectionState
+    extends State<_GeminiHybridInsightAndOmniActionsSection> {
+  final Set<String> _executingOmniIds = <String>{};
+  final Map<String, OmniActionDraft> _editedOmniOverrides =
+      <String, OmniActionDraft>{};
+
+  @override
+  void didUpdateWidget(
+    covariant _GeminiHybridInsightAndOmniActionsSection oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.geminiState.lastResult != widget.geminiState.lastResult) {
+      final validIds = widget.geminiState.activeOmniDrafts
+          .map((d) => d.id)
+          .toSet();
+      _editedOmniOverrides.removeWhere((id, _) => !validIds.contains(id));
+    }
+  }
 
   IconData _iconForKind(OmniActionKind kind) => switch (kind) {
     OmniActionKind.transaction => Icons.account_balance_wallet_outlined,
@@ -1459,9 +1600,249 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
     OmniActionKind.medication => LifeOsAccentTone.coral,
   };
 
+  bool _supportsAmount(OmniActionDraft draft) =>
+      draft.kind == OmniActionKind.transaction ||
+      draft.kind == OmniActionKind.groupSplit ||
+      draft.kind == OmniActionKind.grocery ||
+      draft.amountMinor > 0;
+
+  bool _supportsSchedule(OmniActionDraft draft) =>
+      draft.kind == OmniActionKind.calendarEvent ||
+      draft.kind == OmniActionKind.task ||
+      draft.kind == OmniActionKind.medication ||
+      draft.scheduledAt != null;
+
+  Future<void> _showQuickEditOmniSheet(
+    BuildContext context,
+    OmniActionDraft draft,
+  ) async {
+    final titleCtrl = TextEditingController(text: draft.title);
+    final amountCtrl = TextEditingController(
+      text: draft.amountMinor > 0 ? '${draft.amountMinor}' : '',
+    );
+    var scheduledAt = draft.scheduledAt ?? DateTime.now();
+    final showAmount = _supportsAmount(draft);
+    final showSchedule = _supportsSchedule(draft);
+    final dtFmt = DateFormat('dd/MM/yyyy');
+    final tmFmt = DateFormat('HH:mm');
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final c = TammySemanticColors.of(ctx);
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
+            child: LiquidGlassSheetFrame(
+              showHandle: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Sửa nhanh tác vụ (${draft.badgeLabelVi})',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('edit_omni_title_input'),
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Tiêu đề',
+                        isDense: true,
+                      ),
+                    ),
+                    if (showAmount) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('edit_omni_amount_input'),
+                        controller: amountCtrl,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Số tiền (VND)',
+                          isDense: true,
+                        ),
+                      ),
+                    ],
+                    if (showSchedule) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (draft.kind == OmniActionKind.calendarEvent ||
+                              draft.kind == OmniActionKind.task)
+                            OutlinedButton.icon(
+                              key: const Key('edit_omni_date_btn'),
+                              onPressed: () async {
+                                final pickedDate = await showDatePicker(
+                                  context: ctx,
+                                  initialDate: scheduledAt,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2035),
+                                );
+                                if (pickedDate != null) {
+                                  setSheetState(() {
+                                    scheduledAt = DateTime(
+                                      pickedDate.year,
+                                      pickedDate.month,
+                                      pickedDate.day,
+                                      scheduledAt.hour,
+                                      scheduledAt.minute,
+                                    );
+                                  });
+                                }
+                              },
+                              icon: const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                dtFmt.format(scheduledAt),
+                                style: const TextStyle(
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ),
+                          OutlinedButton.icon(
+                            key: const Key('edit_omni_time_btn'),
+                            onPressed: () async {
+                              final pickedTime = await showTimePicker(
+                                context: ctx,
+                                initialTime: TimeOfDay.fromDateTime(
+                                  scheduledAt,
+                                ),
+                              );
+                              if (pickedTime != null) {
+                                setSheetState(() {
+                                  scheduledAt = DateTime(
+                                    scheduledAt.year,
+                                    scheduledAt.month,
+                                    scheduledAt.day,
+                                    pickedTime.hour,
+                                    pickedTime.minute,
+                                  );
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.schedule_rounded, size: 16),
+                            label: Text(
+                              'Giờ hẹn: ${tmFmt.format(scheduledAt)}',
+                              style: const TextStyle(
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Hủy'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            key: const Key('save_edited_omni_btn'),
+                            onPressed: () {
+                              final cleanTitle = titleCtrl.text.trim();
+                              if (cleanTitle.isEmpty) {
+                                LifeOsTopToast.show(
+                                  ctx,
+                                  'Vui lòng nhập tiêu đề tác vụ.',
+                                  kind: LifeOsToastKind.warning,
+                                );
+                                return;
+                              }
+                              var nextAmount = draft.amountMinor;
+                              if (showAmount) {
+                                final parsed = VndAmount.tryParseInput(
+                                  amountCtrl.text,
+                                );
+                                if ((draft.kind == OmniActionKind.transaction ||
+                                        draft.kind ==
+                                            OmniActionKind.groupSplit) &&
+                                    (parsed == null || parsed <= 0)) {
+                                  LifeOsTopToast.show(
+                                    ctx,
+                                    'Vui lòng nhập số tiền hợp lệ (> 0 ₫).',
+                                    kind: LifeOsToastKind.warning,
+                                  );
+                                  return;
+                                }
+                                if (parsed != null && parsed > 0) {
+                                  nextAmount = parsed;
+                                } else if (amountCtrl.text.trim().isEmpty) {
+                                  nextAmount = 0;
+                                }
+                              }
+                              final updated = OmniActionDraft(
+                                id: draft.id,
+                                kind: draft.kind,
+                                title: cleanTitle,
+                                amountMinor: nextAmount,
+                                transactionKind: draft.transactionKind,
+                                categoryId: draft.categoryId,
+                                categoryName: draft.categoryName,
+                                participantCount: draft.participantCount,
+                                participantNames: draft.participantNames,
+                                scheduledAt: showSchedule
+                                    ? scheduledAt
+                                    : draft.scheduledAt,
+                                durationMinutes: draft.durationMinutes,
+                                location: draft.location,
+                                taskPriority: draft.taskPriority,
+                                quantityLabel: draft.quantityLabel,
+                                waterMl: draft.waterMl,
+                                medicationSlot: draft.medicationSlot,
+                                dosage: draft.dosage,
+                                originLabel: draft.originLabel,
+                              );
+                              setState(() {
+                                _editedOmniOverrides[draft.id] = updated;
+                              });
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Text('Áp dụng'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    titleCtrl.dispose();
+    amountCtrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final result = geminiState.lastResult;
+    final result = widget.geminiState.lastResult;
     if (result == null) return const SizedBox.shrink();
 
     final c = TammySemanticColors.of(context);
@@ -1472,13 +1853,14 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
     final extraDrafts = result.actionDrafts
         .where(
           (d) =>
-              !hasFinancialAiCandidates || d.kind != OmniActionKind.transaction,
+              !widget.hasFinancialAiCandidates ||
+              d.kind != OmniActionKind.transaction,
         )
         .toList(growable: false);
 
     final showInsightCard =
         result.usedGeminiCloud ||
-        (!hasFinancialAiCandidates && extraDrafts.isEmpty);
+        (!widget.hasFinancialAiCandidates && extraDrafts.isEmpty);
 
     if (!showInsightCard && extraDrafts.isEmpty) {
       return const SizedBox.shrink();
@@ -1540,6 +1922,7 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
                     fontSize: 12.8,
                     height: 1.38,
                     color: c.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
@@ -1555,113 +1938,171 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatelessWidget {
             tone: LifeOsAccentTone.blue,
           ),
           const SizedBox(height: 6),
-          for (final item in extraDrafts)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: LifeOsSoftCard(
-                key: Key('omni_draft_card_${item.id}'),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+          for (final rawItem in extraDrafts)
+            Builder(
+              builder: (context) {
+                final item = _editedOmniOverrides[rawItem.id] ?? rawItem;
+                final isExecuting = _executingOmniIds.contains(item.id);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: LifeOsSoftCard(
+                    key: Key('omni_draft_card_${item.id}'),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        LifeOsIconSquircle(
-                          icon: _iconForKind(item.kind),
-                          tone: _toneForKind(item.kind),
-                          size: 38,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            LifeOsIconSquircle(
+                              icon: _iconForKind(item.kind),
+                              tone: _toneForKind(item.kind),
+                              size: 38,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  LifeOsStatusPill(
-                                    label: item.badgeLabelVi,
-                                    tone: _toneForKind(item.kind),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      LifeOsStatusPill(
+                                        label: item.badgeLabelVi,
+                                        tone: _toneForKind(item.kind),
+                                      ),
+                                      LifeOsStatusPill(
+                                        label: item.originLabel,
+                                        tone: LifeOsAccentTone.neutral,
+                                      ),
+                                    ],
                                   ),
-                                  LifeOsStatusPill(
-                                    label: item.originLabel,
-                                    tone: LifeOsAccentTone.neutral,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    item.summaryLineVi,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: c.textPrimary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                item.summaryLineVi,
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: c.textPrimary,
-                                ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            TextButton(
+                              key: Key('dismiss_omni_${item.id}'),
+                              onPressed: isExecuting
+                                  ? null
+                                  : () {
+                                      _editedOmniOverrides.remove(item.id);
+                                      context.read<GeminiCopilotBloc>().add(
+                                        GeminiOmniDraftDismissed(item.id),
+                                      );
+                                    },
+                              child: const Text('Bỏ qua'),
+                            ),
+                            OutlinedButton.icon(
+                              key: Key('edit_omni_${item.id}'),
+                              onPressed: isExecuting
+                                  ? null
+                                  : () =>
+                                        _showQuickEditOmniSheet(context, item),
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              label: const Text('Sửa nhanh'),
+                            ),
+                            FilledButton.icon(
+                              key: Key('execute_omni_${item.id}'),
+                              onPressed: (user == null || isExecuting)
+                                  ? null
+                                  : () async {
+                                      if (_executingOmniIds.contains(item.id)) {
+                                        return;
+                                      }
+                                      setState(
+                                        () => _executingOmniIds.add(item.id),
+                                      );
+                                      final geminiBloc = context
+                                          .read<GeminiCopilotBloc>();
+                                      try {
+                                        final ok =
+                                            await OmniActionExecutor.executeDraft(
+                                              toastContext: context,
+                                              draft: item,
+                                              user: user,
+                                              walletId: widget.defaultWalletId,
+                                              txActionBloc:
+                                                  _tryReadOptionalBloc<
+                                                    TransactionActionBloc
+                                                  >(context),
+                                              calBloc:
+                                                  _tryReadOptionalBloc<
+                                                    CalendarBloc
+                                                  >(context),
+                                              taskBloc:
+                                                  _tryReadOptionalBloc<
+                                                    TaskBloc
+                                                  >(context),
+                                              familyBloc:
+                                                  _tryReadOptionalBloc<
+                                                    FamilyBloc
+                                                  >(context),
+                                              dailyBloc:
+                                                  _tryReadOptionalBloc<
+                                                    DailyLifeBloc
+                                                  >(context),
+                                            );
+                                        if (ok && mounted) {
+                                          _editedOmniOverrides.remove(item.id);
+                                          geminiBloc.add(
+                                            GeminiOmniDraftDismissed(item.id),
+                                          );
+                                        }
+                                      } finally {
+                                        if (mounted) {
+                                          setState(
+                                            () => _executingOmniIds.remove(
+                                              item.id,
+                                            ),
+                                          );
+                                        } else {
+                                          _executingOmniIds.remove(item.id);
+                                        }
+                                      }
+                                    },
+                              icon: isExecuting
+                                  ? const SizedBox(
+                                      width: 15,
+                                      height: 15,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.check_rounded, size: 17),
+                              label: Text(
+                                isExecuting ? 'Đang thực thi...' : 'Thực thi',
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      alignment: WrapAlignment.end,
-                      children: [
-                        TextButton(
-                          key: Key('dismiss_omni_${item.id}'),
-                          onPressed: () => context
-                              .read<GeminiCopilotBloc>()
-                              .add(GeminiOmniDraftDismissed(item.id)),
-                          child: const Text('Bỏ qua'),
-                        ),
-                        FilledButton.icon(
-                          key: Key('execute_omni_${item.id}'),
-                          onPressed: user == null
-                              ? null
-                              : () async {
-                                  final geminiBloc = context
-                                      .read<GeminiCopilotBloc>();
-                                  await OmniActionExecutor.executeDraft(
-                                    toastContext: context,
-                                    draft: item,
-                                    user: user,
-                                    walletId: defaultWalletId,
-                                    txActionBloc:
-                                        _tryReadOptionalBloc<
-                                          TransactionActionBloc
-                                        >(context),
-                                    calBloc: _tryReadOptionalBloc<CalendarBloc>(
-                                      context,
-                                    ),
-                                    taskBloc: _tryReadOptionalBloc<TaskBloc>(
-                                      context,
-                                    ),
-                                    familyBloc:
-                                        _tryReadOptionalBloc<FamilyBloc>(
-                                          context,
-                                        ),
-                                    dailyBloc:
-                                        _tryReadOptionalBloc<DailyLifeBloc>(
-                                          context,
-                                        ),
-                                  );
-                                  geminiBloc.add(
-                                    GeminiOmniDraftDismissed(item.id),
-                                  );
-                                },
-                          icon: const Icon(Icons.check_rounded, size: 17),
-                          label: const Text('Thực thi'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
         ],
       ],

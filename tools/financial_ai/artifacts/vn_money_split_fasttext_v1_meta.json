@@ -1,0 +1,52 @@
+{
+  "modelId": "vn_money_split_fasttext_v1",
+  "modelVersion": "1.0.0",
+  "architecture": "FastText QAT Subword + Word Bigram + Outlier Exposure (INT8 LFTQ v1)",
+  "license": "MIT",
+  "language": "vi",
+  "assetPath": "assets/models/vn_money_split_fasttext_v1.ftq",
+  "sizeBytes": 394128,
+  "sha256": "b4f70d869409579cd0cc8eb692cb15d1d3ccc9ad743b42579d88967cacf744c0",
+  "numClasses": 12,
+  "labels": [
+    "split.equal",
+    "split.percentage",
+    "split.shares_ratio",
+    "split.itemized_remainder",
+    "split.exact_custom",
+    "split.multi_category_receipt",
+    "split.settle_repayment",
+    "alloc.rule_50_30_20",
+    "alloc.six_jars",
+    "alloc.family_household",
+    "alloc.debt_payoff",
+    "alloc.fire_high_savings"
+  ],
+  "hyperparameters": {
+    "numBuckets": 24576,
+    "dim": 12,
+    "wordNgrams": 2,
+    "minSubword": 4,
+    "maxSubword": 5,
+    "logitGain": 12.5,
+    "epochs": 32,
+    "qatEpochs": 10
+  },
+  "calibratedTemperature": 1.2,
+  "thresholds": {
+    "highConfidence": 0.78,
+    "mediumConfidence": 0.52,
+    "lowConfidence": 0.35
+  },
+  "metrics": {
+    "trainSamples": 1650,
+    "valSamples": 366,
+    "heldOutTestSamples": 366,
+    "testAccuracy": 0.9863,
+    "testMacroF1": 0.9866,
+    "expectedCalibrationError": 0.1001,
+    "falseAutoAssignmentRate": 0.0,
+    "oodUnknownRejectionRate": 1.0
+  },
+  "exportedAtUtc": "2026-11-25T04:20:33Z"
+}

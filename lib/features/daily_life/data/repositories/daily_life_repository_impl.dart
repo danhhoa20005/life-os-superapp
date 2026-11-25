@@ -510,6 +510,34 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
   }
 
   @override
+  Future<Result<void>> updateMedicationInventory({
+    required String userId,
+    required MedicationCabinetItemEntity item,
+    required int remainingPills,
+    required DateTime expiryDate,
+    String? dosage,
+  }) async {
+    try {
+      final safePills = remainingPills.clamp(0, 100000);
+      final trimmedDose = dosage?.trim();
+      await _userRef(userId).collection('medications').doc(item.id).update({
+        'remainingPills': safePills,
+        'expiryDate': expiryDate.toIso8601String(),
+        'inventoryConfirmed': true,
+        if (trimmedDose != null && trimmedDose.isNotEmpty)
+          'dosage': trimmedDose,
+      });
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(
+          message: 'Không thể cập nhật tồn kho & hạn dùng thuốc: $e',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<void>> snoozeMedication15Min({
     required MedicationCabinetItemEntity item,
   }) async {
@@ -908,6 +936,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
                 expiryDate:
                     DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
                     DateTime.now().add(const Duration(days: 180)),
+                inventoryConfirmed: d['inventoryConfirmed'] is bool
+                    ? d['inventoryConfirmed'] as bool
+                    : true,
                 lastTakenDayKey: actDayKey,
                 memberName: (d['memberName'] ?? 'Cả gia đình') as String,
                 reminderEnabled: d['reminderEnabled'] is bool
@@ -1019,6 +1050,21 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     } catch (e) {
       return Err(
         UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteHealthVitalLog({
+    required String userId,
+    required String logId,
+  }) async {
+    try {
+      await _userRef(userId).collection('health_logs').doc(logId).delete();
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể xóa bản ghi sinh hiệu: $e'),
       );
     }
   }
@@ -1136,6 +1182,38 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
   }
 
   @override
+  Future<Result<void>> moveGroceryToFridge({
+    required String userId,
+    required SmartGroceryItemEntity item,
+    DateTime? expiryDate,
+  }) async {
+    try {
+      final defaultDays = switch (item.aisle) {
+        GroceryAisle.meatSeafood => 3,
+        GroceryAisle.produce => 5,
+        GroceryAisle.pantry => 14,
+        GroceryAisle.household => 30,
+      };
+      final resolvedExpiry =
+          expiryDate ??
+          item.expiryDate ??
+          DateTime.now().add(Duration(days: defaultDays));
+      await _userRef(userId).collection('grocery_items').doc(item.id).update({
+        'inFridgeStorage': true,
+        'isBought': false,
+        'expiryDate': resolvedExpiry.toIso8601String(),
+      });
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(
+          message: 'Không thể cất thực phẩm vào tủ lạnh: $e',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<void>> clearBoughtGroceries({required String userId}) async {
     try {
       final snap = await _userRef(
@@ -1143,7 +1221,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       ).collection('grocery_items').where('isBought', isEqualTo: true).get();
       final batch = _firestore.batch();
       for (final doc in snap.docs) {
-        batch.delete(doc.reference);
+        if (doc.data()['inFridgeStorage'] != true) {
+          batch.delete(doc.reference);
+        }
       }
       await batch.commit();
       return const Success(null);
@@ -1178,6 +1258,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     required bool useEvnTieredTariff,
     required int fixedServicesMinor,
     required int totalAmountMinor,
+    bool isPaid = false,
   }) async {
     try {
       final id = 'util_${monthKey}_${_uuid.v4().substring(0, 6)}';
@@ -1192,7 +1273,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'useEvnTieredTariff': useEvnTieredTariff,
         'fixedServicesMinor': fixedServicesMinor,
         'totalAmountMinor': totalAmountMinor,
-        'isPaid': false,
+        'isPaid': isPaid,
         'recordedAt': DateTime.now().toIso8601String(),
       });
       return const Success(null);

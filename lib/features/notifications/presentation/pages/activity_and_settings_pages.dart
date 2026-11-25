@@ -180,15 +180,18 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
       ));
     }
     for (final v in vehicleState.vehicles.take(2)) {
+      final isOverdue = v.remainingKm < 0;
       items.add((
         sortTime: now.subtract(const Duration(hours: 2)),
         category: 'other',
         title: 'Bảo dưỡng xe ${v.name}',
-        subtitle: 'Còn ${v.remainingKm} km đến mốc bảo dưỡng định kỳ',
-        metaBadge: 'Phương tiện',
+        subtitle: isOverdue
+            ? 'Đã quá hạn ${-v.remainingKm} km so với mốc bảo dưỡng định kỳ'
+            : 'Còn ${v.remainingKm} km đến mốc bảo dưỡng định kỳ',
+        metaBadge: isOverdue ? 'Quá hạn' : 'Phương tiện',
         timeLabel: 'Định kỳ',
         icon: Icons.directions_car_outlined,
-        tone: LifeOsAccentTone.emerald,
+        tone: isOverdue ? LifeOsAccentTone.coral : LifeOsAccentTone.emerald,
         onTap: () => context.push('/assets'),
       ));
     }

@@ -27,6 +27,14 @@ abstract interface class DailyLifeRepository {
     required int reminderMinute,
   });
 
+  Future<Result<void>> updateMedicationInventory({
+    required String userId,
+    required MedicationCabinetItemEntity item,
+    required int remainingPills,
+    required DateTime expiryDate,
+    String? dosage,
+  });
+
   Future<Result<void>> snoozeMedication15Min({
     required MedicationCabinetItemEntity item,
   });
@@ -94,6 +102,11 @@ abstract interface class DailyLifeRepository {
     String note = '',
   });
 
+  Future<Result<void>> deleteHealthVitalLog({
+    required String userId,
+    required String logId,
+  });
+
   Future<Result<void>> saveEmergencyMedicalCard({
     required EmergencyMedicalCardEntity card,
   });
@@ -120,6 +133,12 @@ abstract interface class DailyLifeRepository {
     required SmartGroceryItemEntity item,
   });
 
+  Future<Result<void>> moveGroceryToFridge({
+    required String userId,
+    required SmartGroceryItemEntity item,
+    DateTime? expiryDate,
+  });
+
   Future<Result<void>> clearBoughtGroceries({required String userId});
 
   Future<Result<void>> deleteGroceryItem({
@@ -138,6 +157,7 @@ abstract interface class DailyLifeRepository {
     required bool useEvnTieredTariff,
     required int fixedServicesMinor,
     required int totalAmountMinor,
+    bool isPaid = false,
   });
 
   Future<Result<void>> markUtilityReadingPaid({

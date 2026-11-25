@@ -25,6 +25,26 @@ class CreateDocumentVaultParams {
   });
 }
 
+class UpdateDocumentVaultParams {
+  final String userId;
+  final DocumentVaultEntity existing;
+  final DocumentFolderCategory folder;
+  final String title;
+  final String referenceCode;
+  final String note;
+  final DateTime? expiryDate;
+
+  const UpdateDocumentVaultParams({
+    required this.userId,
+    required this.existing,
+    required this.folder,
+    required this.title,
+    this.referenceCode = '',
+    this.note = '',
+    this.expiryDate,
+  });
+}
+
 abstract interface class DocumentVaultRepository {
   Stream<List<DocumentVaultEntity>> watchDocuments({
     required String userId,
@@ -33,6 +53,10 @@ abstract interface class DocumentVaultRepository {
 
   Future<Result<DocumentVaultEntity>> createDocument(
     CreateDocumentVaultParams params,
+  );
+
+  Future<Result<DocumentVaultEntity>> updateDocument(
+    UpdateDocumentVaultParams params,
   );
 
   Future<Result<void>> deleteDocument({

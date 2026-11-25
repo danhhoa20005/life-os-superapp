@@ -1055,6 +1055,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                     .orEmpty()
                     .trim()
                 if (spoken.isNotBlank()) {
+                    speechHelper?.recordDialogSuccessAfterEscalation()
                     val combined = if (overlaySessionPrefix.isBlank()) spoken else "$overlaySessionPrefix, $spoken"
                     overlaySessionPrefix = combined
                     inputField.setText(combined)

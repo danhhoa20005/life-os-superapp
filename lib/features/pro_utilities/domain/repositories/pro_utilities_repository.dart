@@ -30,6 +30,17 @@ abstract interface class ProUtilitiesRepository {
     String serialOrNote = '',
   });
 
+  Future<Result<void>> saveSubscriptionOrWarranty({
+    required String userId,
+    String? itemId,
+    required String title,
+    required String providerOrStore,
+    required SubscriptionCycle cycle,
+    required int amountMinor,
+    required DateTime nextBillingOrExpiryDate,
+    String serialOrNote = '',
+  });
+
   Future<Result<void>> deleteSubscriptionOrWarranty({
     required String userId,
     required String itemId,
@@ -39,6 +50,18 @@ abstract interface class ProUtilitiesRepository {
     required String userId,
     required String title,
     required String categoryTag,
+  });
+
+  Future<Result<void>> updateHabit({
+    required String userId,
+    required String habitId,
+    required String title,
+    required String categoryTag,
+  });
+
+  Future<Result<void>> deleteHabit({
+    required String userId,
+    required String habitId,
   });
 
   Future<Result<void>> toggleHabitToday({
@@ -62,13 +85,42 @@ abstract interface class ProUtilitiesRepository {
     required GiftDirection direction,
     required GiftOccasion occasion,
     required int amountMinor,
+    DateTime? eventDate,
     String note = '',
+  });
+
+  Future<Result<void>> updateGiftEntry({
+    required String userId,
+    required String entryId,
+    required String contactName,
+    required String relationshipGroup,
+    required GiftDirection direction,
+    required GiftOccasion occasion,
+    required int amountMinor,
+    required DateTime eventDate,
+    String note = '',
+  });
+
+  Future<Result<void>> deleteGiftEntry({
+    required String userId,
+    required String entryId,
   });
 
   Future<Result<void>> seedPackingTemplate({
     required String userId,
     required String tripName,
     required List<String> itemTitles,
+  });
+
+  Future<Result<void>> addPackingItem({
+    required String userId,
+    required String tripName,
+    required String title,
+  });
+
+  Future<Result<void>> deletePackingItem({
+    required String userId,
+    required String itemId,
   });
 
   Future<Result<void>> togglePackingItem({

@@ -63,6 +63,7 @@ class _AdvancedMockVoiceDriver implements AdvancedVoiceAssistantDriver {
   int cancelCount = 0;
   String lastEngineMode = 'auto';
   bool lastPreferSystemDialog = false;
+  bool lastForceInlineProbe = false;
   bool emitInitializingFirst = true;
 
   @override
@@ -76,10 +77,12 @@ class _AdvancedMockVoiceDriver implements AdvancedVoiceAssistantDriver {
     String? sessionToken,
     bool preferSystemDialog = false,
     String engineMode = 'auto',
+    bool forceInlineProbe = false,
   }) async {
     startCount++;
     lastPreferSystemDialog = preferSystemDialog;
     lastEngineMode = engineMode;
+    lastForceInlineProbe = forceInlineProbe;
     if (emitInitializingFirst) {
       controller.add(const VoiceStateSignal('initializing'));
     } else {

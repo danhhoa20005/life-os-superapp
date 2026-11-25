@@ -67,6 +67,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   bool _userChangedCategory = false;
   bool _dismissedVehiclePrompt = false;
   bool _dismissedRecurringPrompt = false;
+  String? _selectedVehicleId;
 
   @override
   void initState() {
@@ -94,6 +95,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     _userChangedCategory = false;
     _dismissedVehiclePrompt = false;
     _dismissedRecurringPrompt = false;
+    _selectedVehicleId = null;
   }
 
   @override
@@ -139,9 +141,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
       listener: (context, state) {
         if (state.status == ActionStatus.success &&
             state.successMessage != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('✓ ${state.successMessage!}')),
+            state.successMessage!,
+            kind: LifeOsToastKind.success,
           );
           if (widget.initialTransaction != null || _pendingCountAtAction <= 1) {
             if (context.canPop()) {
@@ -152,9 +155,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
           }
         } else if (state.status == ActionStatus.failure &&
             state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
           );
         }
       },
@@ -306,6 +310,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           style: TextStyle(
                             fontSize: 12,
                             color: c.textSecondary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
@@ -339,9 +344,20 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     required int pendingCount,
     required List<WalletEntity> wallets,
   }) {
+    final isSubmitting = context.select(
+      (TransactionActionBloc b) => b.state.status == ActionStatus.submitting,
+    );
+    final vehicles = context.select((VehicleBloc b) => b.state.vehicles);
     final parsedAmt =
         VndAmount.tryParseInput(_amountCtrl.text) ?? tx.amountMinor;
-    final timeStr = DateFormat('HH:mm').format(tx.occurredAt);
+    final now = DateTime.now();
+    final isToday =
+        tx.occurredAt.year == now.year &&
+        tx.occurredAt.month == now.month &&
+        tx.occurredAt.day == now.day;
+    final timeDisplay = isToday
+        ? 'Hôm nay, ${DateFormat('HH:mm').format(tx.occurredAt)}'
+        : DateFormat('dd/MM/yyyy, HH:mm').format(tx.occurredAt);
     final matchedWallet =
         wallets.where((w) => w.id == tx.walletId).firstOrNull ??
         wallets.where((w) => w.type == WalletType.bank).firstOrNull;
@@ -351,6 +367,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
             ? '${matchedWallet.bankCode ?? matchedWallet.name}${matchedWallet.maskedAccount != null ? " ${matchedWallet.maskedAccount}" : ""}'
             : 'Ví ngân hàng liên kết');
     final isCredit = tx.direction == 'credit';
+    final isTransfer =
+        tx.kind == TransactionKind.transfer ||
+        tx.kind == TransactionKind.creditCardPayment;
     final rawSmsPreview =
         'Ngân hàng: Đã ghi nhận ${isCredit ? "tiền vào" : "thanh toán"} ${VndAmount.format(tx.amountMinor)} · ${tx.merchant}.';
 
@@ -407,10 +426,11 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           ),
                         ),
                         Text(
-                          'Hôm nay, $timeStr',
+                          timeDisplay,
                           style: TextStyle(
                             fontSize: 11.5,
                             color: c.textSecondary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
@@ -422,6 +442,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                         fontSize: 12.8,
                         height: 1.35,
                         color: c.textSecondary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
@@ -511,30 +532,13 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: isCredit
-                                ? c.primary
-                                : const Color(0xFFDC2626),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            _merchantCtrl.text.trim().isEmpty
-                                ? 'G'
-                                : _merchantCtrl.text
-                                      .trim()
-                                      .characters
-                                      .first
-                                      .toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
+                        ProCategoryStyle.buildCategoryBadge(
+                          _selectedCategory.trim().isNotEmpty
+                              ? _selectedCategory
+                              : tx.categoryName,
+                          isCredit: isCredit,
+                          isTransfer: isTransfer,
+                          size: 42,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -777,11 +781,48 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           fontWeight: FontWeight.w800,
                           fontSize: 13.8,
                           color: c.textPrimary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
                   ],
                 ),
+                if (vehicles.length > 1) ...[
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    key: const Key('auto_tx_vehicle_selector'),
+                    isExpanded: true,
+                    initialValue: vehicles.any((v) => v.id == _selectedVehicleId)
+                        ? _selectedVehicleId
+                        : vehicles.first.id,
+                    decoration: const InputDecoration(
+                      labelText: 'Chọn xe cần ghi lịch sử bảo dưỡng',
+                      isDense: true,
+                    ),
+                    items: vehicles
+                        .map(
+                          (v) => DropdownMenuItem(
+                            value: v.id,
+                            child: Text(
+                              v.plateNumber.trim().isNotEmpty
+                                  ? '${v.name} · ${v.plateNumber}'
+                                  : v.name,
+                              softWrap: true,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedVehicleId = v);
+                      }
+                    },
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -789,15 +830,14 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       child: FilledButton.tonalIcon(
                         key: const Key('link_tx_to_vehicle_maintenance_btn'),
                         onPressed: () {
-                          final vehicles = context
-                              .read<VehicleBloc>()
-                              .state
-                              .vehicles;
                           if (vehicles.isEmpty) {
                             context.push('/assets');
                             return;
                           }
-                          final targetVehicle = vehicles.first;
+                          final targetVehicle = vehicles.firstWhere(
+                            (v) => v.id == _selectedVehicleId,
+                            orElse: () => vehicles.first,
+                          );
                           context.read<VehicleBloc>().add(
                             VehicleMaintenanceLogged(
                               vehicle: targetVehicle,
@@ -810,6 +850,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           LifeOsTopToast.show(
                             context,
                             'Đã ghi vào lịch sử bảo dưỡng ${targetVehicle.name}!',
+                            kind: LifeOsToastKind.success,
                           );
                         },
                         icon: const Icon(
@@ -875,7 +916,11 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                     const SizedBox(height: 4),
                     Text(
                       'Bạn có muốn lưu thành lời nhắc hóa đơn hàng tháng (dự kiến ${VndAmount.format(tx.amountMinor)})?',
-                      style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: c.textSecondary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -964,7 +1009,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
-                onPressed: userId == null
+                onPressed: (userId == null || isSubmitting)
                     ? null
                     : () {
                         _pendingCountAtAction = pendingCount;
@@ -990,7 +1035,9 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  onPressed: () => setState(() => _isEditing = !_isEditing),
+                  onPressed: isSubmitting
+                      ? null
+                      : () => setState(() => _isEditing = !_isEditing),
                   icon: Icon(
                     _isEditing ? Icons.check_rounded : Icons.edit_outlined,
                     size: 17,
@@ -1011,7 +1058,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  onPressed: userId == null
+                  onPressed: (userId == null || isSubmitting)
                       ? null
                       : () {
                           _pendingCountAtAction = pendingCount;
@@ -1054,13 +1101,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                               ),
                             );
                           } else {
-                            LifeOsTopToast.fromSnackBar(
+                            LifeOsTopToast.show(
                               context,
-                              const SnackBar(
-                                content: Text(
-                                  '✓ Giao dịch này đã được ghi vào Sổ cái.',
-                                ),
-                              ),
+                              'Giao dịch này đã được ghi vào Sổ cái.',
+                              kind: LifeOsToastKind.success,
                             );
                             if (context.canPop()) {
                               context.pop();
@@ -1069,10 +1113,16 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                             }
                           }
                         },
-                  icon: const Icon(Icons.check_rounded, size: 20),
-                  label: const FittedBox(
+                  icon: isSubmitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded, size: 20),
+                  label: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('Xác nhận'),
+                    child: Text(isSubmitting ? 'Đang xử lý...' : 'Xác nhận'),
                   ),
                 ),
               ),
@@ -1122,6 +1172,7 @@ class _TxMetaLine extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: c.textPrimary,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -1142,8 +1193,18 @@ class FinanceReportPage extends StatefulWidget {
 class _FinanceReportPageState extends State<FinanceReportPage> {
   String _period = 'month';
   int? _selectedBucketIdx;
+  String? _overrideMonthKey;
   String? _cachedRangeKey;
   Stream<Result<List<TransactionEntity>>>? _cachedRangeStream;
+
+  static String _stepMonthKey(String mk, int deltaMonths) {
+    final parts = mk.split('-');
+    final now = DateTime.now();
+    final y = int.tryParse(parts.firstOrNull ?? '') ?? now.year;
+    final m = int.tryParse(parts.length > 1 ? parts[1] : '') ?? now.month;
+    final next = DateTime(y, m + deltaMonths, 1);
+    return '${next.year.toString().padLeft(4, '0')}-${next.month.toString().padLeft(2, '0')}';
+  }
 
   String? _resolveUserId(BuildContext context, TransactionListState listState) {
     try {
@@ -1211,8 +1272,11 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
   Widget build(BuildContext context) {
     final listState = context.watch<TransactionListBloc>().state;
     final refNow = widget.referenceDate ?? DateTime.now();
+    final currentRefMonthKey =
+        '${refNow.year.toString().padLeft(4, '0')}-${refNow.month.toString().padLeft(2, '0')}';
+    final activeMonthKey = _overrideMonthKey ?? listState.monthKey;
 
-    final mkParts = listState.monthKey.split('-');
+    final mkParts = activeMonthKey.split('-');
     final selectedYear = mkParts.isNotEmpty
         ? (int.tryParse(mkParts[0]) ?? refNow.year)
         : refNow.year;
@@ -1244,8 +1308,8 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
     } else {
       startInclusive = DateTime(selectedYear, selectedMonth, 1);
       endExclusive = DateTime(selectedYear, selectedMonth + 1, 1);
-      periodHeaderLabel = 'Kỳ báo cáo: ${listState.monthKey}';
-      exportTag = listState.monthKey;
+      periodHeaderLabel = 'Kỳ báo cáo: $activeMonthKey';
+      exportTag = activeMonthKey;
     }
 
     List<TransactionEntity> filterInWindow(List<TransactionEntity> source) {
@@ -1260,7 +1324,7 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
           .toList(growable: false);
     }
 
-    if (_period == 'month') {
+    if (_period == 'month' && activeMonthKey == listState.monthKey) {
       final monthTxs = listState.allTransactions
           .where((t) => t.isConfirmedInLedger && !t.isReversed)
           .toList(growable: false);
@@ -1269,6 +1333,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
         periodTxs: monthTxs,
         startInclusive: startInclusive,
         selectedYear: selectedYear,
+        selectedMonth: selectedMonth,
+        activeMonthKey: activeMonthKey,
+        currentRefMonthKey: currentRefMonthKey,
         periodHeaderLabel: periodHeaderLabel,
         exportTag: exportTag,
       );
@@ -1288,6 +1355,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
         periodTxs: fallbackTxs,
         startInclusive: startInclusive,
         selectedYear: selectedYear,
+        selectedMonth: selectedMonth,
+        activeMonthKey: activeMonthKey,
+        currentRefMonthKey: currentRefMonthKey,
         periodHeaderLabel: periodHeaderLabel,
         exportTag: exportTag,
       );
@@ -1305,6 +1375,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
           periodTxs: resolvedTxs,
           startInclusive: startInclusive,
           selectedYear: selectedYear,
+          selectedMonth: selectedMonth,
+          activeMonthKey: activeMonthKey,
+          currentRefMonthKey: currentRefMonthKey,
           periodHeaderLabel: periodHeaderLabel,
           exportTag: exportTag,
         );
@@ -1317,6 +1390,9 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
     required List<TransactionEntity> periodTxs,
     required DateTime startInclusive,
     required int selectedYear,
+    required int selectedMonth,
+    required String activeMonthKey,
+    required String currentRefMonthKey,
     required String periodHeaderLabel,
     required String exportTag,
   }) {
@@ -1472,11 +1548,141 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                             _selectedBucketIdx = null;
                           }),
                         ),
+                        if (_period == 'month') ...[
+                          const SizedBox(height: 8),
+                          LifeOsSoftCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    key: const Key('report_prev_month_btn'),
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () => setState(() {
+                                      _overrideMonthKey = _stepMonthKey(
+                                        activeMonthKey,
+                                        -1,
+                                      );
+                                      _selectedBucketIdx = null;
+                                    }),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 8,
+                                      ),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.chevron_left_rounded,
+                                              size: 18,
+                                              color: c.primary,
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              'Tháng trước',
+                                              style: TextStyle(
+                                                fontSize: 12.2,
+                                                fontWeight: FontWeight.w700,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: InkWell(
+                                    key: const Key('report_current_month_btn'),
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () => setState(() {
+                                      _overrideMonthKey = null;
+                                      _selectedBucketIdx = null;
+                                    }),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 8,
+                                      ),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          activeMonthKey == currentRefMonthKey
+                                              ? 'Tháng hiện tại'
+                                              : 'Thg ${selectedMonth.toString().padLeft(2, '0')}/$selectedYear',
+                                          style: TextStyle(
+                                            fontSize: 12.4,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.primary,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: InkWell(
+                                    key: const Key('report_next_month_btn'),
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () => setState(() {
+                                      _overrideMonthKey = _stepMonthKey(
+                                        activeMonthKey,
+                                        1,
+                                      );
+                                      _selectedBucketIdx = null;
+                                    }),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 8,
+                                      ),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerRight,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Tháng sau',
+                                              style: TextStyle(
+                                                fontSize: 12.2,
+                                                fontWeight: FontWeight.w700,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 18,
+                                              color: c.primary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         LifeOsMaterialContentSwitcher(
                           child: Column(
                             key: ValueKey<String>(
-                              'finance_report_period_$_period',
+                              'finance_report_period_${_period}_$activeMonthKey',
                             ),
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1939,55 +2145,70 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                         LifeOsPrimaryCtaButton(
                           icon: Icons.file_download_outlined,
                           label: 'Xuất báo cáo (CSV)',
-                          onPressed: () async {
-                            final buf = StringBuffer()
-                              ..writeln(
-                                'ThoiGian,HangMuc,DonVi,Loai,SoTienVND',
-                              );
-                            for (final tx in periodTxs) {
-                              final signed = tx.direction == 'credit'
-                                  ? tx.amountMinor
-                                  : -tx.amountMinor;
-                              buf.writeln(
-                                '${CsvSanitizer.escapeQuotedCell(tx.occurredAt.toIso8601String())},'
-                                '${CsvSanitizer.escapeQuotedCell(tx.categoryName)},'
-                                '${CsvSanitizer.escapeQuotedCell(tx.merchant)},'
-                                '${CsvSanitizer.escapeQuotedCell(tx.kind.name)},'
-                                '$signed',
-                              );
-                            }
-                            final fileName = 'BaoCao_LifeOS_$exportTag.csv';
-                            await sl<NativeAppUpdaterBridge>().shareTextFile(
-                              fileName: fileName,
-                              content: buf.toString(),
-                              mimeType: 'text/csv',
-                              title:
-                                  'Báo cáo Tài chính LifeOS ($periodHeaderLabel)',
-                            );
-                              if (context.mounted) {
-                                LifeOsTopToast.fromSnackBar(
-                                  context,
-                                  SnackBar(
-                                    content: Text('✓ Đã xuất báo cáo $fileName.'),
-                                  ),
-                                );
-                              }
-                            },
+                          onPressed: periodTxs.isEmpty
+                              ? null
+                              : () async {
+                                  final buf = StringBuffer()
+                                    ..writeln(
+                                      'ThoiGian,HangMuc,DonVi,Loai,SoTienVND',
+                                    );
+                                  for (final tx in periodTxs) {
+                                    final signed = tx.direction == 'credit'
+                                        ? tx.amountMinor
+                                        : -tx.amountMinor;
+                                    buf.writeln(
+                                      '${CsvSanitizer.escapeQuotedCell(tx.occurredAt.toIso8601String())},'
+                                      '${CsvSanitizer.escapeQuotedCell(tx.categoryName)},'
+                                      '${CsvSanitizer.escapeQuotedCell(tx.merchant)},'
+                                      '${CsvSanitizer.escapeQuotedCell(tx.kind.name)},'
+                                      '$signed',
+                                    );
+                                  }
+                                  final fileName =
+                                      'BaoCao_LifeOS_$exportTag.csv';
+                                  await sl<NativeAppUpdaterBridge>()
+                                      .shareTextFile(
+                                        fileName: fileName,
+                                        content: buf.toString(),
+                                        mimeType: 'text/csv',
+                                        title:
+                                            'Báo cáo Tài chính LifeOS ($periodHeaderLabel)',
+                                      );
+                                  if (context.mounted) {
+                                    LifeOsTopToast.show(
+                                      context,
+                                      'Đã xuất báo cáo $fileName.',
+                                      kind: LifeOsToastKind.success,
+                                    );
+                                  }
+                                },
+                        ),
+                        if (periodTxs.isEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Chưa có giao dịch trong kỳ này để xuất CSV.',
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: c.textSecondary,
+                            ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  ),
+),
+);
+}
 }
 
 class _ReportLegendBadge extends StatelessWidget {

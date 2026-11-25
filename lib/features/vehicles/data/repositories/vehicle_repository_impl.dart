@@ -249,15 +249,27 @@ class VehicleRemoteDataSource {
     required VehicleEntity vehicle,
     required VehicleCategory category,
     required String modelProfileKey,
+    String? updatedName,
+    String? updatedPlateNumber,
     DateTime? insuranceExpiryDate,
     DateTime? inspectionExpiryDate,
   }) async {
+    final resolvedName =
+        (updatedName != null && updatedName.trim().length >= 2)
+        ? updatedName.trim()
+        : vehicle.name;
+    final resolvedPlate =
+        (updatedPlateNumber != null && updatedPlateNumber.trim().length >= 4)
+        ? updatedPlateNumber.trim()
+        : vehicle.plateNumber;
     final profile = MotorcycleSpecCatalog.resolveForVehicle(
       modelProfileKey: modelProfileKey,
       category: category,
-      vehicleName: vehicle.name,
+      vehicleName: resolvedName,
     );
     final payload = <String, dynamic>{
+      'name': resolvedName,
+      'plateNumber': resolvedPlate,
       'category': profile.category.name,
       'modelProfileKey': profile.profileKey,
       'serviceIntervalKm': profile.recommendedOilIntervalKm,
@@ -698,6 +710,8 @@ class VehicleRepositoryImpl implements VehicleRepository {
     required VehicleEntity vehicle,
     required VehicleCategory category,
     required String modelProfileKey,
+    String? updatedName,
+    String? updatedPlateNumber,
     DateTime? insuranceExpiryDate,
     DateTime? inspectionExpiryDate,
   }) async {
@@ -706,6 +720,8 @@ class VehicleRepositoryImpl implements VehicleRepository {
         vehicle: vehicle,
         category: category,
         modelProfileKey: modelProfileKey,
+        updatedName: updatedName,
+        updatedPlateNumber: updatedPlateNumber,
         insuranceExpiryDate: insuranceExpiryDate,
         inspectionExpiryDate: inspectionExpiryDate,
       );

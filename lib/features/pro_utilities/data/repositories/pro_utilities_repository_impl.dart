@@ -164,6 +164,26 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     required int amountMinor,
     required DateTime nextBillingOrExpiryDate,
     String serialOrNote = '',
+  }) => saveSubscriptionOrWarranty(
+    userId: userId,
+    title: title,
+    providerOrStore: providerOrStore,
+    cycle: cycle,
+    amountMinor: amountMinor,
+    nextBillingOrExpiryDate: nextBillingOrExpiryDate,
+    serialOrNote: serialOrNote,
+  );
+
+  @override
+  Future<Result<void>> saveSubscriptionOrWarranty({
+    required String userId,
+    String? itemId,
+    required String title,
+    required String providerOrStore,
+    required SubscriptionCycle cycle,
+    required int amountMinor,
+    required DateTime nextBillingOrExpiryDate,
+    String serialOrNote = '',
   }) async {
     if (title.trim().isEmpty) {
       return const Err(
@@ -173,7 +193,10 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       );
     }
     try {
-      final id = 'sub_${_uuid.v4().substring(0, 8)}';
+      final isUpdate = itemId != null && itemId.trim().isNotEmpty;
+      final id = isUpdate
+          ? itemId.trim()
+          : 'sub_${_uuid.v4().substring(0, 8)}';
       await _userRef(
         userId,
       ).collection('subscriptions_warranties').doc(id).set({
@@ -185,7 +208,7 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'amountMinor': amountMinor < 0 ? 0 : amountMinor,
         'nextBillingOrExpiryDate': nextBillingOrExpiryDate.toIso8601String(),
         'serialOrNote': serialOrNote.trim(),
-      });
+      }, SetOptions(merge: true));
       return const Success(null);
     } catch (e) {
       return Err(UnexpectedFailure(message: 'Không thể lưu dữ liệu: $e'));
@@ -230,6 +253,44 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       return const Success(null);
     } catch (e) {
       return Err(UnexpectedFailure(message: 'Không thể tạo thói quen: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> updateHabit({
+    required String userId,
+    required String habitId,
+    required String title,
+    required String categoryTag,
+  }) async {
+    if (title.trim().isEmpty) {
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập tên thói quen.'),
+      );
+    }
+    try {
+      await _userRef(userId).collection('habits').doc(habitId).update({
+        'title': title.trim(),
+        'categoryTag': categoryTag,
+      });
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể cập nhật thói quen: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteHabit({
+    required String userId,
+    required String habitId,
+  }) async {
+    try {
+      await _userRef(userId).collection('habits').doc(habitId).delete();
+      return const Success(null);
+    } catch (e) {
+      return Err(UnexpectedFailure(message: 'Không thể xóa thói quen: $e'));
     }
   }
 
@@ -333,6 +394,7 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     required GiftDirection direction,
     required GiftOccasion occasion,
     required int amountMinor,
+    DateTime? eventDate,
     String note = '',
   }) async {
     if (contactName.trim().isEmpty || amountMinor <= 0) {
@@ -353,11 +415,61 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'occasion': occasion.name,
         'amountMinor': amountMinor,
         'note': note.trim(),
-        'eventDate': DateTime.now().toIso8601String(),
+        'eventDate': (eventDate ?? DateTime.now()).toIso8601String(),
       });
       return const Success(null);
     } catch (e) {
       return Err(UnexpectedFailure(message: 'Không thể lưu sổ hiếu hỷ: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> updateGiftEntry({
+    required String userId,
+    required String entryId,
+    required String contactName,
+    required String relationshipGroup,
+    required GiftDirection direction,
+    required GiftOccasion occasion,
+    required int amountMinor,
+    required DateTime eventDate,
+    String note = '',
+  }) async {
+    if (contactName.trim().isEmpty || amountMinor <= 0) {
+      return const Err(
+        ValidationFailure(
+          message: 'Vui lòng nhập tên người mừng và số tiền hợp lệ.',
+        ),
+      );
+    }
+    try {
+      await _userRef(userId).collection('gift_ledger').doc(entryId).update({
+        'contactName': contactName.trim(),
+        'relationshipGroup': relationshipGroup,
+        'direction': direction.name,
+        'occasion': occasion.name,
+        'amountMinor': amountMinor,
+        'note': note.trim(),
+        'eventDate': eventDate.toIso8601String(),
+      });
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể cập nhật mục Hiếu Hỷ: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteGiftEntry({
+    required String userId,
+    required String entryId,
+  }) async {
+    try {
+      await _userRef(userId).collection('gift_ledger').doc(entryId).delete();
+      return const Success(null);
+    } catch (e) {
+      return Err(UnexpectedFailure(message: 'Không thể xóa mục Hiếu Hỷ: $e'));
     }
   }
 
@@ -389,6 +501,49 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     } catch (e) {
       return Err(
         UnexpectedFailure(message: 'Không thể tạo checklist hành lý: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> addPackingItem({
+    required String userId,
+    required String tripName,
+    required String title,
+  }) async {
+    if (title.trim().isEmpty) {
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập tên vật dụng cần mang.'),
+      );
+    }
+    try {
+      final id = 'pack_${_uuid.v4().substring(0, 8)}';
+      await _userRef(userId).collection('packing_items').doc(id).set({
+        'id': id,
+        'ownerId': userId,
+        'tripName': tripName.trim().isEmpty ? 'Chuyến đi' : tripName.trim(),
+        'title': title.trim(),
+        'checked': false,
+      });
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể thêm vật dụng hành lý: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deletePackingItem({
+    required String userId,
+    required String itemId,
+  }) async {
+    try {
+      await _userRef(userId).collection('packing_items').doc(itemId).delete();
+      return const Success(null);
+    } catch (e) {
+      return Err(
+        UnexpectedFailure(message: 'Không thể xóa vật dụng hành lý: $e'),
       );
     }
   }

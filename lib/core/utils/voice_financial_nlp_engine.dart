@@ -1,5 +1,6 @@
 import '../../features/family/domain/entities/family_entities.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
+import 'smart_money_split_ai_engine.dart';
 import 'smart_quick_entry_parser.dart';
 
 enum VoiceSentenceIntentKind {
@@ -14,12 +15,14 @@ class ParsedParticipantShare {
   final String displayName;
   final int amountMinor;
   final int? percentage;
+  final int? sharesWeight;
 
   const ParsedParticipantShare({
     required this.participantId,
     required this.displayName,
     required this.amountMinor,
     this.percentage,
+    this.sharesWeight,
   });
 }
 
@@ -28,6 +31,8 @@ class ParsedGroupSplitIntent {
   final int totalAmountMinor;
   final SharedExpenseTopic topic;
   final SplitMethod splitMethod;
+  final String? paidByParticipantId;
+  final String? paidByDisplayName;
   final List<ParsedParticipantShare> shares;
   final Map<String, int> rawInputValuesByUserId;
 
@@ -36,6 +41,8 @@ class ParsedGroupSplitIntent {
     required this.totalAmountMinor,
     required this.topic,
     required this.splitMethod,
+    this.paidByParticipantId,
+    this.paidByDisplayName,
     required this.shares,
     required this.rawInputValuesByUserId,
   });
@@ -258,11 +265,6 @@ abstract final class VoiceFinancialNlpEngine {
     caseSensitive: false,
   );
 
-  static int? _parseSingleAmountToken(String token) {
-    final entry = SmartQuickEntryParser.tryParse('chi $token');
-    return entry?.amountMinor;
-  }
-
   static SharedExpenseTopic inferSharedTopic(String text) {
     final l = text.toLowerCase();
     if (l.contains('việc nhà') ||
@@ -405,9 +407,7 @@ abstract final class VoiceFinancialNlpEngine {
   }
 
   static bool _looksLikeMultiCategoryReceipt(String lower) {
-    if (lower.contains('chia ') ||
-        lower.contains('người') ||
-        lower.contains('%')) {
+    if (SmartMoneySplitAiEngine.looksLikeGroupSplitUtterance(lower)) {
       return false;
     }
     return lower.contains(' gồm ') ||
@@ -474,12 +474,7 @@ abstract final class VoiceFinancialNlpEngine {
   }
 
   static bool _looksLikeGroupSplit(String lower) {
-    return lower.contains('chia ') ||
-        lower.contains('chia đều') ||
-        lower.contains('mỗi người') ||
-        lower.contains('người chịu') ||
-        lower.contains('còn lại') ||
-        RegExp(r'\b\d+\s*%').hasMatch(lower);
+    return SmartMoneySplitAiEngine.looksLikeGroupSplitUtterance(lower);
   }
 
   static ParsedGroupSplitIntent? _tryParseGroupSplit(
@@ -488,287 +483,35 @@ abstract final class VoiceFinancialNlpEngine {
     required String currentUserName,
     required List<FamilyMemberInfo> knownMembers,
   }) {
-    final allAmounts = _amountTokenRegex.allMatches(normalized).toList();
-    if (allAmounts.isEmpty) return null;
-
-    final firstAmtMatch = allAmounts.first;
-    final totalMinor = _parseSingleAmountToken(firstAmtMatch.group(0) ?? '');
-    if (totalMinor == null || totalMinor <= 0) return null;
-
-    var rawTitle = normalized.substring(0, firstAmtMatch.start).trim();
-    rawTitle = rawTitle.replaceAll(RegExp(r'^[-:,.\s]+|[-:,.\s]+$'), '');
-    if (rawTitle.length < 2) {
-      rawTitle = 'Khoản chi chung nhóm';
-    } else {
-      rawTitle = '${rawTitle[0].toUpperCase()}${rawTitle.substring(1)}';
-    }
     final topic = inferSharedTopic(normalized);
-    final afterFirstAmount = normalized.substring(firstAmtMatch.end).trim();
-
-    // Case A: Percentage Split (e.g. "Hòa 60% Minh 40%")
-    final pctMatches = RegExp(
-      r'([A-Za-zÀ-ỹ]+)\s+(\d{1,3})\s*%',
-      unicode: true,
-    ).allMatches(afterFirstAmount).toList();
-    if (pctMatches.length >= 2) {
-      var pctSum = 0;
-      final shares = <ParsedParticipantShare>[];
-      final rawMap = <String, int>{};
-      var allocated = 0;
-      for (var i = 0; i < pctMatches.length; i++) {
-        final name = _capitalizeName(pctMatches[i].group(1)!);
-        final pct = int.tryParse(pctMatches[i].group(2)!) ?? 0;
-        pctSum += pct;
-        final pid = _resolveParticipantId(
-          name,
-          index: i,
-          currentUserId: currentUserId,
-          currentUserName: currentUserName,
-          knownMembers: knownMembers,
-        );
-        final amt = i == pctMatches.length - 1
-            ? (totalMinor - allocated)
-            : (totalMinor * pct) ~/ 100;
-        allocated += amt;
-        rawMap[pid] = pct;
-        shares.add(
-          ParsedParticipantShare(
-            participantId: pid,
-            displayName: name,
-            amountMinor: amt,
-            percentage: pct,
-          ),
-        );
-      }
-      if (pctSum == 100 && shares.isNotEmpty) {
-        return ParsedGroupSplitIntent(
-          title: rawTitle,
-          totalAmountMinor: totalMinor,
-          topic: topic,
-          splitMethod: SplitMethod.percentage,
-          shares: shares,
-          rawInputValuesByUserId: rawMap,
-        );
-      }
-    }
-
-    // Case B: Exact per-person amounts + optional "còn lại <Name> chịu"
-    if (allAmounts.length >= 2) {
-      final personAmtRegex = RegExp(
-        r'([A-Za-zÀ-ỹ]+)\s+(\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu)(?:\s*\d{1,3})?|\d+(?:[.,]\d+)?\s*(?:k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,2})?|\d{1,3}(?:[.,]\d{3})+|\d{5,11})',
-        caseSensitive: false,
-        unicode: true,
-      );
-      final personMatches = personAmtRegex
-          .allMatches(afterFirstAmount)
-          .where((m) => !_isStopWord(m.group(1)!))
-          .toList();
-
-      if (personMatches.isNotEmpty) {
-        final shares = <ParsedParticipantShare>[];
-        final rawMap = <String, int>{};
-        var assignedSum = 0;
-        for (var i = 0; i < personMatches.length; i++) {
-          final name = _capitalizeName(personMatches[i].group(1)!);
-          final amt = _parseSingleAmountToken(personMatches[i].group(2)!) ?? 0;
-          if (amt <= 0) continue;
-          final pid = _resolveParticipantId(
-            name,
-            index: i,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
-          assignedSum += amt;
-          rawMap[pid] = amt;
-          shares.add(
-            ParsedParticipantShare(
-              participantId: pid,
-              displayName: name,
-              amountMinor: amt,
-            ),
-          );
-        }
-
-        // Check "còn lại <Name> (chịu|trả|đóng)?"
-        final remMatch = RegExp(
-          r'còn\s+lại\s+([A-Za-zÀ-ỹ]+)',
-          caseSensitive: false,
-          unicode: true,
-        ).firstMatch(afterFirstAmount);
-        if (remMatch != null && assignedSum < totalMinor) {
-          final remName = _capitalizeName(remMatch.group(1)!);
-          final remAmt = totalMinor - assignedSum;
-          final pid = _resolveParticipantId(
-            remName,
-            index: shares.length,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
-          rawMap[pid] = remAmt;
-          shares.add(
-            ParsedParticipantShare(
-              participantId: pid,
-              displayName: remName,
-              amountMinor: remAmt,
-            ),
-          );
-          assignedSum += remAmt;
-        }
-
-        if (shares.length >= 2 && assignedSum == totalMinor) {
-          return ParsedGroupSplitIntent(
-            title: rawTitle,
-            totalAmountMinor: totalMinor,
-            topic: topic,
-            splitMethod: SplitMethod.exact,
-            shares: shares,
-            rawInputValuesByUserId: rawMap,
-          );
-        }
-      }
-    }
-
-    // Case C: Equal Split by Explicit Headcount ("chia đều 4 người", "chia 3") or Named List ("chia cho Hòa, Minh và Lan")
-    final countMatch = RegExp(
-      r'(?:chia\s*(?:đều)?\s*(?:cho\s*)?|mỗi\s+người\s+)(\d{1,2})\s*(?:người|bạn|anh\s+em|thành\s+viên)?\b',
-      caseSensitive: false,
-    ).firstMatch(afterFirstAmount);
-
-    var participantNames = <String>[];
-    if (countMatch != null) {
-      final count = (int.tryParse(countMatch.group(1)!) ?? 2).clamp(2, 20);
-      if (knownMembers.length >= count) {
-        participantNames = knownMembers
-            .take(count)
-            .map((m) => m.fullName)
-            .toList();
-      } else {
-        participantNames = List<String>.generate(
-          count,
-          (i) => i == 0 ? currentUserName : 'Thành viên ${i + 1}',
-        );
-      }
-    } else {
-      // Extract names after "chia cho" / "chia đều cho" / "với"
-      final namesClauseMatch = RegExp(
-        r'(?:chia\s*(?:đều)?\s*cho|cùng\s+với|với)\s+(.+)$',
-        caseSensitive: false,
-      ).firstMatch(afterFirstAmount);
-      if (namesClauseMatch != null) {
-        final rawNames = namesClauseMatch
-            .group(1)!
-            .split(RegExp(r'\s*(?:,|và|với|&)\s*', caseSensitive: false))
-            .map(
-              (s) => s
-                  .replaceAll(RegExp(r'[^A-Za-zÀ-ỹ\s]', unicode: true), '')
-                  .trim(),
-            )
-            .where((s) => s.isNotEmpty && !_isStopWord(s))
-            .map(_capitalizeName)
-            .toList();
-        if (rawNames.length == 1) {
-          // e.g. "chia với Minh" -> CurrentUser + Minh (2 people)
-          participantNames = [currentUserName, rawNames.single];
-        } else if (rawNames.length >= 2) {
-          participantNames = rawNames;
-        }
-      }
-    }
-
-    if (participantNames.isEmpty) {
-      if (knownMembers.length >= 2) {
-        participantNames = knownMembers.map((m) => m.fullName).toList();
-      } else {
-        participantNames = [currentUserName, 'Thành viên 2'];
-      }
-    }
-
-    final n = participantNames.length;
-    final baseShare = totalMinor ~/ n;
-    final remainder = totalMinor % n;
-    final shares = <ParsedParticipantShare>[];
-    for (var i = 0; i < n; i++) {
-      final name = participantNames[i];
-      final pid = _resolveParticipantId(
-        name,
-        index: i,
-        currentUserId: currentUserId,
-        currentUserName: currentUserName,
-        knownMembers: knownMembers,
-      );
-      shares.add(
-        ParsedParticipantShare(
-          participantId: pid,
-          displayName: name,
-          amountMinor: baseShare + (i < remainder ? 1 : 0),
-        ),
-      );
-    }
-
-    return ParsedGroupSplitIntent(
-      title: rawTitle,
-      totalAmountMinor: totalMinor,
+    final adv = SmartMoneySplitAiEngine.tryParseAdvancedGroupSplit(
+      normalized,
+      currentUserId: currentUserId,
+      currentUserName: currentUserName,
       topic: topic,
-      splitMethod: SplitMethod.equal,
-      shares: shares,
-      rawInputValuesByUserId: const {},
+      knownMembers: knownMembers,
     );
-  }
-
-  static String _resolveParticipantId(
-    String spokenName, {
-    required int index,
-    required String currentUserId,
-    required String currentUserName,
-    required List<FamilyMemberInfo> knownMembers,
-  }) {
-    final lower = spokenName.toLowerCase().trim();
-    if (lower == 'tôi' ||
-        lower == 'mình' ||
-        lower == 'em' ||
-        lower == 'anh' ||
-        currentUserName.toLowerCase().contains(lower)) {
-      return currentUserId;
-    }
-    for (final m in knownMembers) {
-      final mLower = m.fullName.toLowerCase();
-      if (mLower == lower ||
-          mLower.endsWith(' $lower') ||
-          mLower.contains(lower)) {
-        return m.userId;
-      }
-    }
-    final slug = lower.replaceAll(RegExp(r'\s+'), '_');
-    return 'voice_member_${index}_$slug';
-  }
-
-  static bool _isStopWord(String word) {
-    const stops = {
-      'chia',
-      'đều',
-      'cho',
-      'với',
-      'người',
-      'mỗi',
-      'còn',
-      'lại',
-      'chịu',
-      'trả',
-      'gồm',
-      'tổng',
-    };
-    return stops.contains(word.toLowerCase().trim());
-  }
-
-  static String _capitalizeName(String raw) {
-    return raw
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .map((w) => '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
-        .join(' ');
+    if (adv == null) return null;
+    return ParsedGroupSplitIntent(
+      title: adv.title,
+      totalAmountMinor: adv.totalAmountMinor,
+      topic: adv.topic,
+      splitMethod: adv.splitMethod,
+      paidByParticipantId: adv.paidByParticipantId,
+      paidByDisplayName: adv.paidByDisplayName,
+      shares: adv.shares
+          .map(
+            (s) => ParsedParticipantShare(
+              participantId: s.participantId,
+              displayName: s.displayName,
+              amountMinor: s.amountMinor,
+              percentage: s.percentage,
+              sharesWeight: s.sharesWeight,
+            ),
+          )
+          .toList(),
+      rawInputValuesByUserId: adv.rawInputValuesByUserId,
+    );
   }
 
   static String _fmtShort(int minor) {

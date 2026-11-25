@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (P0/P1 Data Integrity & Multi-Account Isolation + Offline AI v2.0 + 3D Liquid Glass v3.25.0)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Money Split Offline AI 98.63% + Upstream SpeechBroker Fix + 18-Screen Pro Max Polish v3.26.0)"
 publish_to: 'none'
-version: 3.25.0+43
+version: 3.26.0+44
 
 environment:
   sdk: ^3.10.0

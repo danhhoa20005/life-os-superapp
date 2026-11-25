@@ -31,7 +31,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
   // Interactive Asian BMI / TDEE / Blood Pressure & Body Hydration State
   double _weightKg = 63.0;
   double _heightCm = 168.0;
-  final int _ageYears = 29;
+  int _ageYears = 29;
   bool _isMale = true;
   int _systolic = 118;
   int _diastolic = 76;
@@ -130,13 +130,30 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
             child: SafeArea(
               child: Column(
                 children: [
-                  const LifeOsTopBrandHeader(
+                  LifeOsTopBrandHeader(
                     title: 'Sức khỏe & Tủ thuốc',
                     showBackButton: true,
-                    trailingAction: LifeOsStatusPill(
-                      icon: Icons.emergency_rounded,
-                      label: 'SOS 115',
-                      tone: LifeOsAccentTone.coral,
+                    trailingAction: Semantics(
+                      button: true,
+                      label: 'Mở Thẻ Y tế khẩn cấp SOS 115',
+                      child: Tooltip(
+                        message: 'Mở Thẻ Y tế khẩn cấp SOS 115',
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: InkWell(
+                            key: const Key('header_sos_115_btn'),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusPill,
+                            ),
+                            onTap: () => setState(() => _tab = 'sos'),
+                            child: const LifeOsStatusPill(
+                              icon: Icons.emergency_rounded,
+                              label: 'SOS 115',
+                              tone: LifeOsAccentTone.coral,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(
@@ -438,14 +455,30 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                           ),
                         ),
                         IconButton(
+                          key: Key('med_edit_inventory_btn_${med.id}'),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Cập nhật tồn kho & HSD',
+                          onPressed: userId.isEmpty
+                              ? null
+                              : () => _showEditMedInventorySheet(
+                                  context,
+                                  userId,
+                                  med,
+                                ),
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            size: 19,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                        IconButton(
+                          key: Key('med_delete_btn_${med.id}'),
                           visualDensity: VisualDensity.compact,
                           tooltip: 'Xóa thuốc',
-                          onPressed: () => context.read<DailyLifeBloc>().add(
-                            MedicationCabinetDeleted(
-                              userId: userId,
-                              medId: med.id,
-                            ),
-                          ),
+                          onPressed: userId.isEmpty
+                              ? null
+                              : () =>
+                                    _confirmDeleteMedication(context, userId, med),
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             size: 19,
@@ -479,25 +512,58 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                             ),
                           ),
                         if (med.inventoryConfirmed) ...[
-                          LifeOsStatusPill(
-                            icon: Icons.inventory_2_outlined,
-                            label: 'Còn ${med.remainingPills} viên',
-                            tone: med.remainingPills <= 5
-                                ? LifeOsAccentTone.amber
-                                : LifeOsAccentTone.neutral,
+                          InkWell(
+                            key: Key('med_inventory_pill_${med.id}'),
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: userId.isEmpty
+                                ? null
+                                : () => _showEditMedInventorySheet(
+                                    context,
+                                    userId,
+                                    med,
+                                  ),
+                            child: LifeOsStatusPill(
+                              icon: Icons.inventory_2_outlined,
+                              label: 'Còn ${med.remainingPills} viên',
+                              tone: med.remainingPills <= 5
+                                  ? LifeOsAccentTone.amber
+                                  : LifeOsAccentTone.neutral,
+                            ),
                           ),
-                          LifeOsStatusPill(
-                            icon: Icons.event_busy_outlined,
-                            label: 'HSD: ${dateFmt.format(med.expiryDate)}',
-                            tone: expiring
-                                ? LifeOsAccentTone.coral
-                                : LifeOsAccentTone.emerald,
+                          InkWell(
+                            key: Key('med_expiry_pill_${med.id}'),
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: userId.isEmpty
+                                ? null
+                                : () => _showEditMedInventorySheet(
+                                    context,
+                                    userId,
+                                    med,
+                                  ),
+                            child: LifeOsStatusPill(
+                              icon: Icons.event_busy_outlined,
+                              label: 'HSD: ${dateFmt.format(med.expiryDate)}',
+                              tone: expiring
+                                  ? LifeOsAccentTone.coral
+                                  : LifeOsAccentTone.emerald,
+                            ),
                           ),
                         ] else
-                          const LifeOsStatusPill(
-                            icon: Icons.info_outline_rounded,
-                            label: 'Chưa khai báo tồn kho / HSD',
-                            tone: LifeOsAccentTone.neutral,
+                          InkWell(
+                            key: Key('med_unconfirmed_inventory_pill_${med.id}'),
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: userId.isEmpty
+                                ? null
+                                : () => _showEditMedInventorySheet(
+                                    context,
+                                    userId,
+                                    med,
+                                  ),
+                            child: const LifeOsStatusPill(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Chưa khai báo tồn kho / HSD',
+                              tone: LifeOsAccentTone.neutral,
+                            ),
                           ),
                       ],
                     ),
@@ -1887,6 +1953,15 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                     label: 'TDEE: ${assessment.tdeeKcal} kcal/ngày',
                     tone: LifeOsAccentTone.blue,
                   ),
+                  LifeOsStatusPill(
+                    icon: Icons.favorite_outline_rounded,
+                    label: 'HA $_systolic/$_diastolic mmHg',
+                    tone: (_systolic >= 140 || _diastolic >= 90)
+                        ? LifeOsAccentTone.coral
+                        : (_systolic >= 120 || _diastolic >= 80)
+                        ? LifeOsAccentTone.amber
+                        : LifeOsAccentTone.emerald,
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -1929,40 +2004,82 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
               const Divider(height: 22),
 
               _SliderMetricRow(
+                sliderKey: const Key('vitals_age_slider'),
+                label: 'Tuổi',
+                valueLabel: '$_ageYears tuổi',
+                value: _ageYears.toDouble(),
+                min: 12,
+                max: 100,
+                divisions: 88,
+                onChanged: (v) => setState(() => _ageYears = v.round()),
+              ),
+              _SliderMetricRow(
+                sliderKey: const Key('vitals_weight_slider'),
                 label: 'Cân nặng',
                 valueLabel: '${_weightKg.toStringAsFixed(1)} kg',
                 value: _weightKg,
                 min: 35,
                 max: 130,
-                onChanged: (v) => setState(() => _weightKg = v),
+                divisions: 190,
+                onChanged: (v) => setState(() {
+                  _userEditedBodyMetrics = true;
+                  _weightKg = double.parse(v.toStringAsFixed(1));
+                }),
               ),
               _SliderMetricRow(
+                sliderKey: const Key('vitals_height_slider'),
                 label: 'Chiều cao',
                 valueLabel: '${_heightCm.round()} cm',
                 value: _heightCm,
                 min: 135,
                 max: 200,
-                onChanged: (v) => setState(() => _heightCm = v),
-              ),
-              _SliderMetricRow(
-                label: 'Huyết áp tâm thu',
-                valueLabel: '$_systolic/$_diastolic mmHg',
-                value: _systolic.toDouble(),
-                min: 85,
-                max: 180,
+                divisions: 65,
                 onChanged: (v) => setState(() {
-                  _systolic = v.round();
-                  _diastolic = (_systolic * 0.65).round().clamp(55, 115);
+                  _userEditedBodyMetrics = true;
+                  _heightCm = v.roundToDouble();
                 }),
               ),
               _SliderMetricRow(
+                sliderKey: const Key('vitals_systolic_slider'),
+                label: 'Huyết áp tâm thu (SYS)',
+                valueLabel: '$_systolic mmHg',
+                value: _systolic.toDouble(),
+                min: 80,
+                max: 200,
+                divisions: 120,
+                onChanged: (v) => setState(() => _systolic = v.round()),
+              ),
+              _SliderMetricRow(
+                sliderKey: const Key('vitals_diastolic_slider'),
+                label: 'Huyết áp tâm trương (DIA)',
+                valueLabel: '$_diastolic mmHg',
+                value: _diastolic.toDouble(),
+                min: 50,
+                max: 130,
+                divisions: 80,
+                onChanged: (v) => setState(() => _diastolic = v.round()),
+              ),
+              _SliderMetricRow(
+                sliderKey: const Key('vitals_heart_rate_slider'),
+                label: 'Nhịp tim lúc nghỉ',
+                valueLabel: '$_heartRate bpm',
+                value: _heartRate.toDouble(),
+                min: 40,
+                max: 150,
+                divisions: 110,
+                onChanged: (v) => setState(() => _heartRate = v.round()),
+              ),
+              _SliderMetricRow(
+                sliderKey: const Key('vitals_sleep_slider'),
                 label: 'Giấc ngủ đêm qua',
-                valueLabel:
-                    '${_sleepHours.toStringAsFixed(1)} giờ · $_heartRate bpm',
+                valueLabel: '${_sleepHours.toStringAsFixed(1)} giờ',
                 value: _sleepHours,
                 min: 3.5,
                 max: 11.0,
-                onChanged: (v) => setState(() => _sleepHours = v),
+                divisions: 15,
+                onChanged: (v) => setState(
+                  () => _sleepHours = double.parse(v.toStringAsFixed(1)),
+                ),
               ),
               const SizedBox(height: 10),
               LifeOsPrimaryCtaButton(
@@ -2027,7 +2144,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${log.weightKg} kg · HA ${log.systolicMmHg}/${log.diastolicMmHg} mmHg · Ngủ ${log.sleepHours}h',
+                                '${log.weightKg} kg · HA ${log.systolicMmHg}/${log.diastolicMmHg} · ${log.heartRateBpm} bpm · Ngủ ${log.sleepHours}h',
                                 softWrap: true,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
@@ -2044,9 +2161,30 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                 style: TextStyle(
                                   fontSize: 11.8,
                                   color: c.textSecondary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        IconButton(
+                          key: Key('delete_vital_log_${log.id}'),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Xóa bản ghi sinh hiệu',
+                          onPressed: userId.isEmpty
+                              ? null
+                              : () => context.read<DailyLifeBloc>().add(
+                                  HealthVitalLogDeleted(
+                                    userId: userId,
+                                    logId: log.id,
+                                  ),
+                                ),
+                          icon: Icon(
+                            Icons.delete_outline_rounded,
+                            size: 19,
+                            color: c.textSecondary,
                           ),
                         ),
                       ],
@@ -2254,6 +2392,59 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
       builder: (_) => BlocProvider<DailyLifeBloc>.value(
         value: bloc,
         child: _AddMedicationSheet(userId: userId),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteMedication(
+    BuildContext context,
+    String userId,
+    MedicationCabinetItemEntity med,
+  ) async {
+    final bloc = context.read<DailyLifeBloc>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Xác nhận xóa "${med.name}"?'),
+        content: const Text(
+          'Thuốc sẽ bị xóa khỏi Tủ thuốc gia đình và chuông nhắc uống thuốc tương ứng sẽ được tắt.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Giữ lại'),
+          ),
+          FilledButton(
+            key: Key('confirm_delete_med_${med.id}'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Xóa thuốc'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      bloc.add(MedicationCabinetDeleted(userId: userId, medId: med.id));
+    }
+  }
+
+  Future<void> _showEditMedInventorySheet(
+    BuildContext context,
+    String userId,
+    MedicationCabinetItemEntity med,
+  ) async {
+    final bloc = context.read<DailyLifeBloc>();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => BlocProvider<DailyLifeBloc>.value(
+        value: bloc,
+        child: _EditMedicationInventorySheet(userId: userId, med: med),
       ),
     );
   }
@@ -2576,6 +2767,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
   MedicationScheduleSlot _selectedSlot = MedicationScheduleSlot.morning;
   bool _reminderEnabled = true;
   TimeOfDay _reminderTime = const TimeOfDay(hour: 7, minute: 30);
+  DateTime _expiryDate = DateTime.now().add(const Duration(days: 300));
 
   @override
   void dispose() {
@@ -2589,6 +2781,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
   Widget build(BuildContext context) {
     final hh = _reminderTime.hour.toString().padLeft(2, '0');
     final mm = _reminderTime.minute.toString().padLeft(2, '0');
+    final expFormatted = DateFormat('dd/MM/yyyy').format(_expiryDate);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -2677,14 +2870,48 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
                     }
                   },
                   icon: const Icon(Icons.alarm_rounded, size: 18),
-                  label: Text('Đổi giờ nhắc ($hh:$mm)'),
+                  label: Text(
+                    'Đổi giờ nhắc ($hh:$mm)',
+                    style: const TextStyle(
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ),
             ],
             const SizedBox(height: 10),
             TextField(
+              key: const Key('add_med_pills_input'),
               controller: _pillsCtrl,
               keyboardType: TextInputType.number,
+              style: const TextStyle(
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
               decoration: const InputDecoration(labelText: 'Số lượng tồn'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const Key('add_med_expiry_picker_btn'),
+              onPressed: () async {
+                final now = DateTime.now();
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _expiryDate.isBefore(now)
+                      ? now.add(const Duration(days: 180))
+                      : _expiryDate,
+                  firstDate: DateTime(now.year - 1),
+                  lastDate: DateTime(now.year + 15),
+                );
+                if (picked != null && mounted) {
+                  setState(() => _expiryDate = picked);
+                }
+              },
+              icon: const Icon(Icons.event_available_outlined, size: 18),
+              label: Text(
+                'Hạn sử dụng: $expFormatted',
+                style: const TextStyle(
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
             const SizedBox(height: 14),
             LifeOsPrimaryCtaButton(
@@ -2693,19 +2920,195 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
               icon: Icons.check_rounded,
               onPressed: () {
                 final name = _nameCtrl.text.trim();
-                if (name.isEmpty) return;
+                if (name.isEmpty) {
+                  LifeOsTopToast.show(
+                    context,
+                    'Vui lòng nhập tên thuốc trước khi lưu.',
+                    kind: LifeOsToastKind.warning,
+                  );
+                  return;
+                }
                 context.read<DailyLifeBloc>().add(
                   MedicationCabinetAdded(
                     userId: widget.userId,
                     name: name,
                     dosage: _doseCtrl.text.trim(),
                     slot: _selectedSlot,
-                    remainingPills: int.tryParse(_pillsCtrl.text.trim()) ?? 30,
-                    expiryDate: DateTime.now().add(const Duration(days: 300)),
+                    remainingPills:
+                        (int.tryParse(_pillsCtrl.text.trim()) ?? 30)
+                            .clamp(0, 100000),
+                    expiryDate: _expiryDate,
                     reminderEnabled:
                         _selectedSlot.isScheduledDaily && _reminderEnabled,
                     reminderHour: _reminderTime.hour,
                     reminderMinute: _reminderTime.minute,
+                  ),
+                );
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditMedicationInventorySheet extends StatefulWidget {
+  final String userId;
+  final MedicationCabinetItemEntity med;
+
+  const _EditMedicationInventorySheet({
+    required this.userId,
+    required this.med,
+  });
+
+  @override
+  State<_EditMedicationInventorySheet> createState() =>
+      _EditMedicationInventorySheetState();
+}
+
+class _EditMedicationInventorySheetState
+    extends State<_EditMedicationInventorySheet> {
+  late final TextEditingController _dosageCtrl;
+  late final TextEditingController _pillsCtrl;
+  late DateTime _expiryDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _dosageCtrl = TextEditingController(text: widget.med.dosage);
+    _pillsCtrl = TextEditingController(
+      text: widget.med.inventoryConfirmed
+          ? '${widget.med.remainingPills}'
+          : '30',
+    );
+    _expiryDate = widget.med.inventoryConfirmed
+        ? widget.med.expiryDate
+        : DateTime.now().add(const Duration(days: 180));
+  }
+
+  @override
+  void dispose() {
+    _dosageCtrl.dispose();
+    _pillsCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final expFormatted = DateFormat('dd/MM/yyyy').format(_expiryDate);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        4,
+        16,
+        MediaQuery.viewInsetsOf(context).bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Cập nhật tồn kho & HSD: ${widget.med.name}',
+              softWrap: true,
+              style: TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w800,
+                color: c.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('edit_med_dosage_input'),
+              controller: _dosageCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Liều dùng',
+                hintText: 'VD: 1 viên sau ăn sáng',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('edit_med_pills_input'),
+              controller: _pillsCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Số lượng còn lại (viên / gói)',
+                hintText: 'VD: 30',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: const [10, 20, 30, 60].map((preset) {
+                return ActionChip(
+                  label: Text(
+                    '$preset viên',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() => _pillsCtrl.text = '$preset');
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const Key('edit_med_expiry_picker_btn'),
+              onPressed: () async {
+                final now = DateTime.now();
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _expiryDate.isBefore(DateTime(now.year - 1))
+                      ? now.add(const Duration(days: 180))
+                      : _expiryDate,
+                  firstDate: DateTime(now.year - 1),
+                  lastDate: DateTime(now.year + 15),
+                );
+                if (picked != null && mounted) {
+                  setState(() => _expiryDate = picked);
+                }
+              },
+              icon: const Icon(Icons.event_available_outlined, size: 18),
+              label: Text(
+                'Chọn Hạn sử dụng: $expFormatted',
+                style: const TextStyle(
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            LifeOsPrimaryCtaButton(
+              key: const Key('confirm_save_med_inventory_btn'),
+              label: 'Lưu tồn kho & HSD',
+              icon: Icons.check_rounded,
+              onPressed: () {
+                final parsed = int.tryParse(_pillsCtrl.text.trim());
+                if (parsed == null || parsed < 0) {
+                  LifeOsTopToast.show(
+                    context,
+                    'Vui lòng nhập số lượng tồn kho hợp lệ (>= 0).',
+                    kind: LifeOsToastKind.warning,
+                  );
+                  return;
+                }
+                context.read<DailyLifeBloc>().add(
+                  MedicationInventoryUpdated(
+                    userId: widget.userId,
+                    item: widget.med,
+                    remainingPills: parsed,
+                    expiryDate: _expiryDate,
+                    dosage: _dosageCtrl.text.trim(),
                   ),
                 );
                 Navigator.of(context).pop();
@@ -2744,6 +3147,7 @@ class _EditEmergencyCardSheetState extends State<_EditEmergencyCardSheet> {
 
   late String _blood;
   late final TextEditingController _allergyCtrl;
+  late final TextEditingController _chronicCtrl;
   late final TextEditingController _bhytCtrl;
   late final TextEditingController _contactNameCtrl;
   late final TextEditingController _contactPhoneCtrl;
@@ -2756,6 +3160,9 @@ class _EditEmergencyCardSheetState extends State<_EditEmergencyCardSheet> {
         ? widget.current.bloodType
         : '';
     _allergyCtrl = TextEditingController(text: widget.current.allergies);
+    _chronicCtrl = TextEditingController(
+      text: widget.current.chronicConditions,
+    );
     _bhytCtrl = TextEditingController(text: widget.current.insuranceCode);
     _contactNameCtrl = TextEditingController(
       text: widget.current.emergencyContactName,
@@ -2771,6 +3178,7 @@ class _EditEmergencyCardSheetState extends State<_EditEmergencyCardSheet> {
   @override
   void dispose() {
     _allergyCtrl.dispose();
+    _chronicCtrl.dispose();
     _bhytCtrl.dispose();
     _contactNameCtrl.dispose();
     _contactPhoneCtrl.dispose();
@@ -2826,6 +3234,15 @@ class _EditEmergencyCardSheetState extends State<_EditEmergencyCardSheet> {
             ),
             const SizedBox(height: 10),
             TextField(
+              key: const Key('emergency_chronic_conditions_input'),
+              controller: _chronicCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tiền sử / Bệnh nền',
+                hintText: 'VD: Cao huyết áp, Tiểu đường, Hen suyễn...',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
               controller: _bhytCtrl,
               decoration: const InputDecoration(
                 labelText: 'Mã thẻ BHYT',
@@ -2850,6 +3267,7 @@ class _EditEmergencyCardSheetState extends State<_EditEmergencyCardSheet> {
             ),
             const SizedBox(height: 14),
             LifeOsPrimaryCtaButton(
+              key: const Key('confirm_save_emergency_card_btn'),
               label: 'Lưu Thẻ Y Tế SOS',
               icon: Icons.save_outlined,
               onPressed: () {
@@ -2859,7 +3277,7 @@ class _EditEmergencyCardSheetState extends State<_EditEmergencyCardSheet> {
                       ownerId: widget.userId,
                       bloodType: _blood,
                       allergies: _allergyCtrl.text.trim(),
-                      chronicConditions: widget.current.chronicConditions,
+                      chronicConditions: _chronicCtrl.text.trim(),
                       insuranceCode: _bhytCtrl.text.trim(),
                       emergencyContactName: _contactNameCtrl.text.trim(),
                       emergencyContactPhone: _contactPhoneCtrl.text.trim(),
@@ -2923,19 +3341,23 @@ class _HeroKpiCol extends StatelessWidget {
 }
 
 class _SliderMetricRow extends StatelessWidget {
+  final Key? sliderKey;
   final String label;
   final String valueLabel;
   final double value;
   final double min;
   final double max;
+  final int? divisions;
   final ValueChanged<double> onChanged;
 
   const _SliderMetricRow({
+    this.sliderKey,
     required this.label,
     required this.valueLabel,
     required this.value,
     required this.min,
     required this.max,
+    this.divisions,
     required this.onChanged,
   });
 
@@ -2965,9 +3387,11 @@ class _SliderMetricRow extends StatelessWidget {
           ],
         ),
         Slider(
+          key: sliderKey,
           value: value.clamp(min, max),
           min: min,
           max: max,
+          divisions: divisions,
           onChanged: onChanged,
         ),
       ],

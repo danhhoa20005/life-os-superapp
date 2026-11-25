@@ -52,6 +52,40 @@ final class SubscriptionOrWarrantyAdded extends ProUtilitiesEvent {
   ];
 }
 
+final class SubscriptionOrWarrantySaved extends ProUtilitiesEvent {
+  final String userId;
+  final String? itemId;
+  final String title;
+  final String providerOrStore;
+  final SubscriptionCycle cycle;
+  final int amountMinor;
+  final DateTime nextBillingOrExpiryDate;
+  final String serialOrNote;
+
+  const SubscriptionOrWarrantySaved({
+    required this.userId,
+    this.itemId,
+    required this.title,
+    required this.providerOrStore,
+    required this.cycle,
+    required this.amountMinor,
+    required this.nextBillingOrExpiryDate,
+    this.serialOrNote = '',
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    itemId,
+    title,
+    providerOrStore,
+    cycle,
+    amountMinor,
+    nextBillingOrExpiryDate,
+    serialOrNote,
+  ];
+}
+
 final class SubscriptionOrWarrantyDeleted extends ProUtilitiesEvent {
   final String userId;
   final String itemId;
@@ -78,6 +112,33 @@ final class HabitAdded extends ProUtilitiesEvent {
 
   @override
   List<Object?> get props => [userId, title, categoryTag];
+}
+
+final class HabitUpdated extends ProUtilitiesEvent {
+  final String userId;
+  final String habitId;
+  final String title;
+  final String categoryTag;
+
+  const HabitUpdated({
+    required this.userId,
+    required this.habitId,
+    required this.title,
+    required this.categoryTag,
+  });
+
+  @override
+  List<Object?> get props => [userId, habitId, title, categoryTag];
+}
+
+final class HabitDeleted extends ProUtilitiesEvent {
+  final String userId;
+  final String habitId;
+
+  const HabitDeleted({required this.userId, required this.habitId});
+
+  @override
+  List<Object?> get props => [userId, habitId];
 }
 
 final class HabitToggledToday extends ProUtilitiesEvent {
@@ -119,6 +180,7 @@ final class GiftLedgerEntrySubmitted extends ProUtilitiesEvent {
   final GiftDirection direction;
   final GiftOccasion occasion;
   final int amountMinor;
+  final DateTime? eventDate;
   final String note;
 
   const GiftLedgerEntrySubmitted({
@@ -128,6 +190,7 @@ final class GiftLedgerEntrySubmitted extends ProUtilitiesEvent {
     required this.direction,
     required this.occasion,
     required this.amountMinor,
+    this.eventDate,
     this.note = '',
   });
 
@@ -139,8 +202,56 @@ final class GiftLedgerEntrySubmitted extends ProUtilitiesEvent {
     direction,
     occasion,
     amountMinor,
+    eventDate,
     note,
   ];
+}
+
+final class GiftLedgerEntryUpdated extends ProUtilitiesEvent {
+  final String userId;
+  final String entryId;
+  final String contactName;
+  final String relationshipGroup;
+  final GiftDirection direction;
+  final GiftOccasion occasion;
+  final int amountMinor;
+  final DateTime eventDate;
+  final String note;
+
+  const GiftLedgerEntryUpdated({
+    required this.userId,
+    required this.entryId,
+    required this.contactName,
+    required this.relationshipGroup,
+    required this.direction,
+    required this.occasion,
+    required this.amountMinor,
+    required this.eventDate,
+    this.note = '',
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    entryId,
+    contactName,
+    relationshipGroup,
+    direction,
+    occasion,
+    amountMinor,
+    eventDate,
+    note,
+  ];
+}
+
+final class GiftLedgerEntryDeleted extends ProUtilitiesEvent {
+  final String userId;
+  final String entryId;
+
+  const GiftLedgerEntryDeleted({required this.userId, required this.entryId});
+
+  @override
+  List<Object?> get props => [userId, entryId];
 }
 
 final class PackingTemplateSeeded extends ProUtilitiesEvent {
@@ -156,6 +267,31 @@ final class PackingTemplateSeeded extends ProUtilitiesEvent {
 
   @override
   List<Object?> get props => [userId, tripName, itemTitles];
+}
+
+final class PackingItemAdded extends ProUtilitiesEvent {
+  final String userId;
+  final String tripName;
+  final String title;
+
+  const PackingItemAdded({
+    required this.userId,
+    required this.tripName,
+    required this.title,
+  });
+
+  @override
+  List<Object?> get props => [userId, tripName, title];
+}
+
+final class PackingItemDeleted extends ProUtilitiesEvent {
+  final String userId;
+  final String itemId;
+
+  const PackingItemDeleted({required this.userId, required this.itemId});
+
+  @override
+  List<Object?> get props => [userId, itemId];
 }
 
 final class PackingItemToggled extends ProUtilitiesEvent {
@@ -255,15 +391,22 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
       super(const ProUtilitiesState()) {
     on<ProUtilitiesWatchStarted>(_onWatchStarted, transformer: restartable());
     on<SubscriptionOrWarrantyAdded>(_onSubAdded, transformer: droppable());
+    on<SubscriptionOrWarrantySaved>(_onSubSaved, transformer: sequential());
     on<SubscriptionOrWarrantyDeleted>(_onSubDeleted, transformer: sequential());
     on<HabitAdded>(_onHabitAdded, transformer: droppable());
+    on<HabitUpdated>(_onHabitUpdated, transformer: sequential());
+    on<HabitDeleted>(_onHabitDeleted, transformer: sequential());
     on<HabitToggledToday>(_onHabitToggled, transformer: sequential());
     on<WellnessMetricsIncremented>(
       _onWellnessIncremented,
       transformer: sequential(),
     );
     on<GiftLedgerEntrySubmitted>(_onGiftSubmitted, transformer: droppable());
+    on<GiftLedgerEntryUpdated>(_onGiftUpdated, transformer: sequential());
+    on<GiftLedgerEntryDeleted>(_onGiftDeleted, transformer: sequential());
     on<PackingTemplateSeeded>(_onPackingSeeded, transformer: restartable());
+    on<PackingItemAdded>(_onPackingItemAdded, transformer: sequential());
+    on<PackingItemDeleted>(_onPackingItemDeleted, transformer: sequential());
     on<PackingItemToggled>(_onPackingToggled, transformer: sequential());
   }
 
@@ -314,6 +457,33 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     );
   }
 
+  Future<void> _onSubSaved(
+    SubscriptionOrWarrantySaved event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.saveSubscriptionOrWarranty(
+      userId: event.userId,
+      itemId: event.itemId,
+      title: event.title,
+      providerOrStore: event.providerOrStore,
+      cycle: event.cycle,
+      amountMinor: event.amountMinor,
+      nextBillingOrExpiryDate: event.nextBillingOrExpiryDate,
+      serialOrNote: event.serialOrNote,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          message: event.itemId != null
+              ? 'Đã cập nhật "${event.title}".'
+              : 'Đã lưu "${event.title}" vào Radar theo dõi.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _onSubDeleted(
     SubscriptionOrWarrantyDeleted event,
     Emitter<ProUtilitiesState> emit,
@@ -342,6 +512,40 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
       (f) => emit(state.copyWith(failure: f)),
       (_) =>
           emit(state.copyWith(message: 'Đã thêm thói quen "${event.title}".')),
+    );
+  }
+
+  Future<void> _onHabitUpdated(
+    HabitUpdated event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.updateHabit(
+      userId: event.userId,
+      habitId: event.habitId,
+      title: event.title,
+      categoryTag: event.categoryTag,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(message: 'Đã cập nhật thói quen "${event.title}".'),
+      ),
+    );
+  }
+
+  Future<void> _onHabitDeleted(
+    HabitDeleted event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.deleteHabit(
+      userId: event.userId,
+      habitId: event.habitId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(state.copyWith(message: 'Đã xóa thói quen.')),
     );
   }
 
@@ -384,6 +588,7 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
       direction: event.direction,
       occasion: event.occasion,
       amountMinor: event.amountMinor,
+      eventDate: event.eventDate,
       note: event.note,
     );
     res.fold(
@@ -394,10 +599,52 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
     );
   }
 
+  Future<void> _onGiftUpdated(
+    GiftLedgerEntryUpdated event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.updateGiftEntry(
+      userId: event.userId,
+      entryId: event.entryId,
+      contactName: event.contactName,
+      relationshipGroup: event.relationshipGroup,
+      direction: event.direction,
+      occasion: event.occasion,
+      amountMinor: event.amountMinor,
+      eventDate: event.eventDate,
+      note: event.note,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          message: 'Đã cập nhật sổ Hiếu Hỷ với ${event.contactName}.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onGiftDeleted(
+    GiftLedgerEntryDeleted event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.deleteGiftEntry(
+      userId: event.userId,
+      entryId: event.entryId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(state.copyWith(message: 'Đã xóa mục khỏi sổ Hiếu Hỷ.')),
+    );
+  }
+
   Future<void> _onPackingSeeded(
     PackingTemplateSeeded event,
     Emitter<ProUtilitiesState> emit,
   ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _repository.seedPackingTemplate(
       userId: event.userId,
       tripName: event.tripName,
@@ -408,6 +655,39 @@ class ProUtilitiesBloc extends Bloc<ProUtilitiesEvent, ProUtilitiesState> {
       (_) => emit(
         state.copyWith(message: 'Đã nạp mẫu hành lý "${event.tripName}".'),
       ),
+    );
+  }
+
+  Future<void> _onPackingItemAdded(
+    PackingItemAdded event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.addPackingItem(
+      userId: event.userId,
+      tripName: event.tripName,
+      title: event.title,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(message: 'Đã thêm "${event.title}" vào hành lý.'),
+      ),
+    );
+  }
+
+  Future<void> _onPackingItemDeleted(
+    PackingItemDeleted event,
+    Emitter<ProUtilitiesState> emit,
+  ) async {
+    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    final res = await _repository.deletePackingItem(
+      userId: event.userId,
+      itemId: event.itemId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(state.copyWith(message: 'Đã xóa vật dụng khỏi hành lý.')),
     );
   }
 

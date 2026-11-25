@@ -488,97 +488,121 @@ class AssetsPage extends StatelessWidget {
     final titleCtrl = TextEditingController();
     final providerCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
+    var nextDueDate = DateTime.now().add(const Duration(days: 5));
+    final dateFmt = DateFormat('dd/MM/yyyy');
     final bloc = context.read<VehicleBloc>();
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final c = TammySemanticColors.of(ctx);
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-          child: LiquidGlassSheetFrame(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Thêm Hóa đơn Định kỳ',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên hóa đơn',
-                      hintText: 'VD: Tiền điện EVN / Gửi xe tháng / Internet',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextField(
-                    controller: providerCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Nhà cung cấp',
-                      hintText: 'VD: EVN / FPT / Ban quản lý',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextField(
-                    controller: amountCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Số tiền dự kiến (VND)',
-                      hintText: 'VD: 350000',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Hủy'),
-                        ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final c = TammySemanticColors.of(ctx);
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
+            child: LiquidGlassSheetFrame(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Thêm Hóa đơn Định kỳ',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: FilledButton(
-                          onPressed: () {
-                            final amt =
-                                VndAmount.tryParseInput(amountCtrl.text) ?? 0;
-                            bloc.add(
-                              RecurringBillCreated(
-                                userId: userId,
-                                familyId: familyId,
-                                title: titleCtrl.text,
-                                providerName: providerCtrl.text,
-                                estimatedAmountMinor: amt,
-                                nextDueDate: DateTime.now().add(
-                                  const Duration(days: 5),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên hóa đơn',
+                        hintText: 'VD: Tiền điện EVN / Gửi xe tháng / Internet',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: providerCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nhà cung cấp',
+                        hintText: 'VD: EVN / FPT / Ban quản lý',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: amountCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Số tiền dự kiến (VND)',
+                        hintText: 'VD: 350000',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: nextDueDate,
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 30),
+                          ),
+                          lastDate: DateTime(2035),
+                        );
+                        if (picked != null) {
+                          setSheetState(() => nextDueDate = picked);
+                        }
+                      },
+                      icon: const Icon(Icons.event_available_rounded, size: 18),
+                      label: Text(
+                        'Kỳ hạn thanh toán: ${dateFmt.format(nextDueDate)}',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Hủy'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            onPressed: () {
+                              final amt =
+                                  VndAmount.tryParseInput(amountCtrl.text) ?? 0;
+                              bloc.add(
+                                RecurringBillCreated(
+                                  userId: userId,
+                                  familyId: familyId,
+                                  title: titleCtrl.text,
+                                  providerName: providerCtrl.text,
+                                  estimatedAmountMinor: amt,
+                                  nextDueDate: nextDueDate,
                                 ),
-                              ),
-                            );
-                            Navigator.of(ctx).pop();
-                          },
-                          child: const Text('Lưu hóa đơn'),
+                              );
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Text('Lưu hóa đơn'),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -1672,6 +1696,8 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
   ) async {
     var selectedCategory = vehicle.maintenanceProfile.category;
     var selectedProfile = vehicle.maintenanceProfile;
+    final nameCtrl = TextEditingController(text: vehicle.name);
+    final plateCtrl = TextEditingController(text: vehicle.plateNumber);
     DateTime? insuranceExpiry = vehicle.insuranceExpiryDate;
     DateTime? inspectionExpiry = vehicle.inspectionExpiryDate;
     final bloc = context.read<VehicleBloc>();
@@ -1689,23 +1715,47 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
               .where((p) => p.category == selectedCategory)
               .toList(growable: false);
 
-          return LiquidGlassSheetFrame(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Dòng máy & Hạn bảo hiểm · ${vehicle.name}',
-                    softWrap: true,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
+            child: LiquidGlassSheetFrame(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Hồ sơ & Dòng máy · ${vehicle.name}',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('edit_vehicle_name_input'),
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên phương tiện',
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      key: const Key('edit_vehicle_plate_input'),
+                      controller: plateCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: 'Biển kiểm soát',
+                        hintText: selectedCategory.platePlaceholder,
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1814,6 +1864,8 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                 vehicle: vehicle,
                                 category: selectedCategory,
                                 modelProfileKey: selectedProfile.profileKey,
+                                updatedName: nameCtrl.text,
+                                updatedPlateNumber: plateCtrl.text,
                                 insuranceExpiryDate: insuranceExpiry,
                                 inspectionExpiryDate: inspectionExpiry,
                               ),
@@ -1845,10 +1897,13 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
+    nameCtrl.dispose();
+    plateCtrl.dispose();
   }
 
   Future<void> _confirmDeleteVehicle(
@@ -2347,7 +2402,7 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                 child: Column(
                   children: [
                     const LifeOsIconSquircle(
-                      icon: Icons.bolt_rounded,
+                      icon: Icons.electric_bolt_rounded,
                       tone: LifeOsAccentTone.purple,
                       size: 50,
                     ),
@@ -2384,7 +2439,7 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                     child: Row(
                       children: [
                         const LifeOsIconSquircle(
-                          icon: Icons.bolt_rounded,
+                          icon: Icons.electric_bolt_rounded,
                           tone: LifeOsAccentTone.purple,
                           size: 42,
                         ),
@@ -2400,6 +2455,9 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                   fontSize: 14.5,
                                   color: c.textPrimary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                               Text(
@@ -2408,6 +2466,9 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: c.textSecondary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                               if (b.hasAbnormalSpike) ...[
@@ -2423,15 +2484,77 @@ class _UnifiedRecurringBillsTab extends StatelessWidget {
                         ),
                         if (defaultWalletId != null)
                           FilledButton.tonal(
-                            onPressed: () {
-                              context.read<VehicleBloc>().add(
-                                RecurringBillPaid(
-                                  userId: userId,
-                                  bill: b,
-                                  paidAmountMinor: b.estimatedAmountMinor,
-                                  walletId: defaultWalletId!,
+                            key: Key('bill_pay_btn_${b.id}'),
+                            onPressed: () async {
+                              final bloc = context.read<VehicleBloc>();
+                              final paidCtrl = TextEditingController(
+                                text: '${b.estimatedAmountMinor}',
+                              );
+                              final confirmedAmount = await showDialog<int>(
+                                context: context,
+                                builder: (dCtx) => AlertDialog(
+                                  title: Text('Thanh toán: ${b.title}'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        'Dự kiến hằng tháng: ${VndAmount.format(b.estimatedAmountMinor)}. Nhập số tiền thực đóng kỳ này (hệ thống tự cảnh báo nếu tăng bất thường >= 25%):',
+                                        style: Theme.of(
+                                          dCtx,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      TextField(
+                                        key: const Key(
+                                          'recurring_bill_paid_amount_input',
+                                        ),
+                                        controller: paidCtrl,
+                                        keyboardType: TextInputType.number,
+                                        decoration: const InputDecoration(
+                                          labelText:
+                                              'Số tiền thực đóng kỳ này (VND)',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(dCtx).pop(),
+                                      child: const Text('Hủy'),
+                                    ),
+                                    FilledButton(
+                                      key: const Key(
+                                        'confirm_pay_recurring_bill_btn',
+                                      ),
+                                      onPressed: () {
+                                        final parsed =
+                                            VndAmount.tryParseInput(
+                                              paidCtrl.text,
+                                            ) ??
+                                            b.estimatedAmountMinor;
+                                        Navigator.of(
+                                          dCtx,
+                                        ).pop(parsed > 0 ? parsed : b.estimatedAmountMinor);
+                                      },
+                                      child: const Text('Xác nhận & Trừ ví'),
+                                    ),
+                                  ],
                                 ),
                               );
+                              paidCtrl.dispose();
+                              if (confirmedAmount != null) {
+                                bloc.add(
+                                  RecurringBillPaid(
+                                    userId: userId,
+                                    bill: b,
+                                    paidAmountMinor: confirmedAmount,
+                                    walletId: defaultWalletId!,
+                                  ),
+                                );
+                              }
                             },
                             child: const Text('Thanh toán'),
                           ),

@@ -33,6 +33,8 @@ abstract interface class VehicleRepository {
     required VehicleEntity vehicle,
     required VehicleCategory category,
     required String modelProfileKey,
+    String? updatedName,
+    String? updatedPlateNumber,
     DateTime? insuranceExpiryDate,
     DateTime? inspectionExpiryDate,
   });

@@ -186,6 +186,66 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
   }
 
   @override
+  Future<Result<DocumentVaultEntity>> updateDocument(
+    UpdateDocumentVaultParams params,
+  ) async {
+    final title = params.title.trim();
+    if (title.isEmpty) {
+      return const Err(
+        ValidationFailure(message: 'Vui lòng nhập tên tài liệu hoặc hồ sơ.'),
+      );
+    }
+    try {
+      final doc = params.existing;
+      final updated = DocumentVaultEntity(
+        id: doc.id,
+        ownerId: doc.ownerId,
+        familyId: doc.familyId,
+        isFamilyShared: doc.isFamilyShared,
+        folder: params.folder,
+        title: title,
+        referenceCode: params.referenceCode.trim(),
+        note: params.note.trim(),
+        uploadedByName: doc.uploadedByName,
+        expiryDate: params.expiryDate,
+        createdAt: doc.createdAt,
+        storageLifecycle: doc.storageLifecycle,
+        localAttachmentPath: doc.localAttachmentPath,
+      );
+
+      final updates = <String, dynamic>{
+        'folder': params.folder.key,
+        'title': updated.title,
+        'referenceCode': updated.referenceCode,
+        'note': updated.note,
+        'expiryDate': params.expiryDate?.toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      if (doc.isFamilyShared &&
+          doc.familyId != null &&
+          doc.familyId!.isNotEmpty) {
+        await _firestore
+            .collection('families')
+            .doc(doc.familyId)
+            .collection('documents')
+            .doc(doc.id)
+            .update(updates);
+      } else {
+        await _firestore
+            .collection('users')
+            .doc(params.userId)
+            .collection('documents')
+            .doc(doc.id)
+            .update(updates);
+      }
+      return Success(updated);
+    } catch (e) {
+      return Err(UnexpectedFailure(message: 'Không thể cập nhật tài liệu: $e'));
+    }
+  }
+
+  @override
   Future<Result<void>> deleteDocument({
     required String userId,
     required DocumentVaultEntity document,

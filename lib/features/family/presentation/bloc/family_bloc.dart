@@ -219,6 +219,28 @@ final class ShoppingItemToggled extends FamilyEvent {
   List<Object?> get props => [familyId, itemId, isPurchased];
 }
 
+final class ShoppingItemDeleted extends FamilyEvent {
+  final String familyId;
+  final String itemId;
+
+  const ShoppingItemDeleted({
+    required this.familyId,
+    required this.itemId,
+  });
+
+  @override
+  List<Object?> get props => [familyId, itemId];
+}
+
+final class PurchasedShoppingItemsCleared extends FamilyEvent {
+  final String familyId;
+
+  const PurchasedShoppingItemsCleared({required this.familyId});
+
+  @override
+  List<Object?> get props => [familyId];
+}
+
 final class SharedBillSplitCreated extends FamilyEvent {
   final CreateSharedBillSplitParams params;
   const SharedBillSplitCreated(this.params);
@@ -391,6 +413,11 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     on<FamilyLeaveConfirmed>(_onLeaveFamily, transformer: sequential());
     on<ShoppingItemAdded>(_onAddShoppingItem, transformer: sequential());
     on<ShoppingItemToggled>(_onToggleShoppingItem, transformer: sequential());
+    on<ShoppingItemDeleted>(_onDeleteShoppingItem, transformer: sequential());
+    on<PurchasedShoppingItemsCleared>(
+      _onClearPurchasedShoppingItems,
+      transformer: sequential(),
+    );
     on<SharedBillSplitCreated>(_onCreateSharedBill, transformer: sequential());
     on<DebtSettlementRecorded>(_onRecordSettlement, transformer: sequential());
   }
@@ -795,6 +822,59 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
       isPurchased: event.isPurchased,
     );
     res.fold((f) => emit(state.copyWith(failure: f)), (_) {});
+  }
+
+  Future<void> _onDeleteShoppingItem(
+    ShoppingItemDeleted event,
+    Emitter<FamilyState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
+    final res = await _repository.deleteShoppingItem(
+      familyId: event.familyId,
+      itemId: event.itemId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
+      (_) => emit(
+        state.copyWith(
+          isSubmitting: false,
+          message: 'Đã xóa món khỏi danh sách mua sắm.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onClearPurchasedShoppingItems(
+    PurchasedShoppingItemsCleared event,
+    Emitter<FamilyState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
+    final res = await _repository.clearPurchasedShoppingItems(
+      familyId: event.familyId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
+      (count) => emit(
+        state.copyWith(
+          isSubmitting: false,
+          message: count > 0
+              ? 'Đã dọn sạch $count món đã mua.'
+              : 'Chưa có món đã mua nào để dọn.',
+        ),
+      ),
+    );
   }
 
   Future<void> _onCreateSharedBill(

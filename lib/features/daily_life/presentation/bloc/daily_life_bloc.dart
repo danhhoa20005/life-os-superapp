@@ -90,6 +90,25 @@ final class MedicationReminderUpdated extends DailyLifeEvent {
   ];
 }
 
+final class MedicationInventoryUpdated extends DailyLifeEvent {
+  final String userId;
+  final MedicationCabinetItemEntity item;
+  final int remainingPills;
+  final DateTime expiryDate;
+  final String? dosage;
+
+  const MedicationInventoryUpdated({
+    required this.userId,
+    required this.item,
+    required this.remainingPills,
+    required this.expiryDate,
+    this.dosage,
+  });
+
+  @override
+  List<Object?> get props => [userId, item, remainingPills, expiryDate, dosage];
+}
+
 final class MedicationSnoozed15Min extends DailyLifeEvent {
   final MedicationCabinetItemEntity item;
   const MedicationSnoozed15Min(this.item);
@@ -258,6 +277,16 @@ final class HealthVitalLogAdded extends DailyLifeEvent {
   ];
 }
 
+final class HealthVitalLogDeleted extends DailyLifeEvent {
+  final String userId;
+  final String logId;
+
+  const HealthVitalLogDeleted({required this.userId, required this.logId});
+
+  @override
+  List<Object?> get props => [userId, logId];
+}
+
 final class EmergencyMedicalCardSaved extends DailyLifeEvent {
   final EmergencyMedicalCardEntity card;
   const EmergencyMedicalCardSaved(this.card);
@@ -320,12 +349,31 @@ final class GroceryItemBoughtToggled extends DailyLifeEvent {
   List<Object?> get props => [userId, item];
 }
 
-final class BoughtGroceriesCleared extends DailyLifeEvent {
+final class GroceryMovedToFridge extends DailyLifeEvent {
   final String userId;
-  const BoughtGroceriesCleared(this.userId);
+  final SmartGroceryItemEntity item;
+  final DateTime? expiryDate;
+
+  const GroceryMovedToFridge({
+    required this.userId,
+    required this.item,
+    this.expiryDate,
+  });
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [userId, item, expiryDate];
+}
+
+final class BoughtGroceriesCleared extends DailyLifeEvent {
+  final String userId;
+  final bool suppressSuccessBanner;
+  const BoughtGroceriesCleared(
+    this.userId, {
+    this.suppressSuccessBanner = false,
+  });
+
+  @override
+  List<Object?> get props => [userId, suppressSuccessBanner];
 }
 
 final class GroceryItemDeleted extends DailyLifeEvent {
@@ -348,6 +396,8 @@ final class UtilityReadingSaved extends DailyLifeEvent {
   final bool useEvnTieredTariff;
   final int fixedServicesMinor;
   final int totalAmountMinor;
+  final bool isPaid;
+  final bool suppressSuccessBanner;
 
   const UtilityReadingSaved({
     required this.userId,
@@ -359,6 +409,8 @@ final class UtilityReadingSaved extends DailyLifeEvent {
     required this.useEvnTieredTariff,
     required this.fixedServicesMinor,
     required this.totalAmountMinor,
+    this.isPaid = false,
+    this.suppressSuccessBanner = false,
   });
 
   @override
@@ -372,6 +424,8 @@ final class UtilityReadingSaved extends DailyLifeEvent {
     useEvnTieredTariff,
     fixedServicesMinor,
     totalAmountMinor,
+    isPaid,
+    suppressSuccessBanner,
   ];
 }
 
@@ -518,6 +572,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       _onMedReminderUpdated,
       transformer: sequential(),
     );
+    on<MedicationInventoryUpdated>(
+      _onMedInventoryUpdated,
+      transformer: sequential(),
+    );
     on<MedicationSnoozed15Min>(_onMedSnoozed, transformer: sequential());
     on<MedicationTakenToggled>(_onMedToggled, transformer: sequential());
     on<MedicationCabinetDeleted>(_onMedDeleted, transformer: sequential());
@@ -536,6 +594,7 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       transformer: sequential(),
     );
     on<HealthVitalLogAdded>(_onVitalAdded, transformer: sequential());
+    on<HealthVitalLogDeleted>(_onVitalDeleted, transformer: sequential());
     on<EmergencyMedicalCardSaved>(
       _onEmergencyCardSaved,
       transformer: sequential(),
@@ -549,6 +608,7 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       _onGroceryBoughtToggled,
       transformer: sequential(),
     );
+    on<GroceryMovedToFridge>(_onGroceryMovedToFridge, transformer: sequential());
     on<BoughtGroceriesCleared>(
       _onBoughtGroceriesCleared,
       transformer: sequential(),
@@ -637,6 +697,29 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
           successBanner: e.reminderEnabled
               ? '✓ Đã đặt chuông nhắc "${e.item.name}" lúc $hh:$mm.'
               : '✓ Đã tắt chuông nhắc "${e.item.name}".',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onMedInventoryUpdated(
+    MedicationInventoryUpdated e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.updateMedicationInventory(
+      userId: e.userId,
+      item: e.item,
+      remainingPills: e.remainingPills,
+      expiryDate: e.expiryDate,
+      dosage: e.dosage,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner:
+              '✓ Đã cập nhật tồn kho (${e.remainingPills} viên) & HSD cho "${e.item.name}".',
         ),
       ),
     );
@@ -843,6 +926,25 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     );
   }
 
+  Future<void> _onVitalDeleted(
+    HealthVitalLogDeleted e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.deleteHealthVitalLog(
+      userId: e.userId,
+      logId: e.logId,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner: '✓ Đã xóa bản ghi sinh hiệu.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _onEmergencyCardSaved(
     EmergencyMedicalCardSaved e,
     Emitter<DailyLifeState> emit,
@@ -920,6 +1022,27 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     );
   }
 
+  Future<void> _onGroceryMovedToFridge(
+    GroceryMovedToFridge e,
+    Emitter<DailyLifeState> emit,
+  ) async {
+    final res = await _repository.moveGroceryToFridge(
+      userId: e.userId,
+      item: e.item,
+      expiryDate: e.expiryDate,
+    );
+    res.fold(
+      (f) => emit(state.copyWith(failure: f)),
+      (_) => emit(
+        state.copyWith(
+          clearFailure: true,
+          successBanner:
+              '✓ Đã cất "${e.item.name}" vào Tủ lạnh theo dõi hạn dùng.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _onBoughtGroceriesCleared(
     BoughtGroceriesCleared e,
     Emitter<DailyLifeState> emit,
@@ -930,7 +1053,9 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       (_) => emit(
         state.copyWith(
           clearFailure: true,
-          successBanner: '✓ Đã chốt Giỏ chợ & dọn danh sách các món đã mua.',
+          successBanner: e.suppressSuccessBanner
+              ? null
+              : '✓ Đã chốt Giỏ chợ & dọn danh sách các món đã mua.',
         ),
       ),
     );
@@ -964,13 +1089,18 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       useEvnTieredTariff: e.useEvnTieredTariff,
       fixedServicesMinor: e.fixedServicesMinor,
       totalAmountMinor: e.totalAmountMinor,
+      isPaid: e.isPaid,
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
       (_) => emit(
         state.copyWith(
           clearFailure: true,
-          successBanner: '✓ Đã lưu sổ chỉ số Điện & Nước kỳ ${e.monthKey}.',
+          successBanner: e.suppressSuccessBanner
+              ? null
+              : (e.isPaid
+                    ? '✓ Đã lưu & đánh dấu đã thanh toán kỳ ${e.monthKey}.'
+                    : '✓ Đã lưu sổ chỉ số Điện & Nước kỳ ${e.monthKey}.'),
         ),
       ),
     );

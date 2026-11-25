@@ -226,12 +226,15 @@ abstract final class AppAssets {
         code == Icons.account_balance_outlined.codePoint ||
         code == Icons.account_balance_rounded.codePoint ||
         code == Icons.credit_card_rounded.codePoint ||
-        code == Icons.add_card_rounded.codePoint) {
+        code == Icons.add_card_rounded.codePoint ||
+        code == Icons.north_east_rounded.codePoint ||
+        code == Icons.call_made_rounded.codePoint) {
       return icNavFinance;
     }
     if (code == Icons.savings_outlined.codePoint ||
         code == Icons.savings_rounded.codePoint ||
         code == Icons.south_west_rounded.codePoint ||
+        code == Icons.call_received_rounded.codePoint ||
         code == Icons.trending_up_rounded.codePoint) {
       return icCatIncome;
     }
@@ -256,6 +259,7 @@ abstract final class AppAssets {
         code == Icons.notifications_rounded.codePoint ||
         code == Icons.alarm_on_rounded.codePoint ||
         code == Icons.alarm_add_rounded.codePoint ||
+        code == Icons.phonelink_ring_rounded.codePoint ||
         code == Icons.warning_amber_rounded.codePoint) {
       return ic3dAlarmBell;
     }
@@ -264,6 +268,7 @@ abstract final class AppAssets {
         code == Icons.calendar_today_rounded.codePoint ||
         code == Icons.calendar_today_outlined.codePoint ||
         code == Icons.event_available_rounded.codePoint ||
+        code == Icons.event_available_outlined.codePoint ||
         code == Icons.event_rounded.codePoint ||
         code == Icons.event_outlined.codePoint ||
         code == Icons.event_note_rounded.codePoint ||
@@ -276,6 +281,7 @@ abstract final class AppAssets {
     if (code == Icons.task_alt_rounded.codePoint ||
         code == Icons.fact_check_outlined.codePoint ||
         code == Icons.check_box_outlined.codePoint ||
+        code == Icons.check_circle_rounded.codePoint ||
         code == Icons.playlist_add_check_circle_outlined.codePoint) {
       return icLifeTasks;
     }
@@ -305,6 +311,7 @@ abstract final class AppAssets {
         code == Icons.directions_car_filled_outlined.codePoint ||
         code == Icons.directions_car_filled_rounded.codePoint ||
         code == Icons.car_repair_rounded.codePoint ||
+        code == Icons.speed_rounded.codePoint ||
         code == Icons.handyman_rounded.codePoint ||
         code == Icons.build_circle_outlined.codePoint ||
         code == Icons.oil_barrel_outlined.codePoint ||
@@ -313,7 +320,8 @@ abstract final class AppAssets {
     }
     if (code == Icons.water_drop_outlined.codePoint ||
         code == Icons.water_drop_rounded.codePoint ||
-        code == Icons.local_drink_outlined.codePoint) {
+        code == Icons.local_drink_outlined.codePoint ||
+        code == Icons.local_drink_rounded.codePoint) {
       return ic3dHydration;
     }
     if (code == Icons.mic_rounded.codePoint ||
@@ -342,6 +350,8 @@ abstract final class AppAssets {
     if (code == Icons.favorite_outline_rounded.codePoint ||
         code == Icons.favorite_rounded.codePoint ||
         code == Icons.favorite_border_rounded.codePoint ||
+        code == Icons.health_and_safety_outlined.codePoint ||
+        code == Icons.verified_rounded.codePoint ||
         code == Icons.medical_services_rounded.codePoint ||
         code == Icons.medication_outlined.codePoint ||
         code == Icons.medication_liquid_rounded.codePoint ||
@@ -353,6 +363,8 @@ abstract final class AppAssets {
     if (code == Icons.folder_open_rounded.codePoint ||
         code == Icons.folder_copy_outlined.codePoint ||
         code == Icons.folder_rounded.codePoint ||
+        code == Icons.folder_shared_outlined.codePoint ||
+        code == Icons.insert_drive_file_outlined.codePoint ||
         code == Icons.rule_folder_outlined.codePoint ||
         code == Icons.description_outlined.codePoint ||
         code == Icons.badge_outlined.codePoint) {
@@ -372,6 +384,7 @@ abstract final class AppAssets {
       return icToolAnalytics;
     }
     if (code == Icons.radar_rounded.codePoint ||
+        code == Icons.subscriptions_outlined.codePoint ||
         code == Icons.autorenew_rounded.codePoint ||
         code == Icons.sync_rounded.codePoint ||
         code == Icons.workspace_premium_rounded.codePoint ||
@@ -380,12 +393,14 @@ abstract final class AppAssets {
     }
     if (code == Icons.local_fire_department_outlined.codePoint ||
         code == Icons.local_fire_department_rounded.codePoint ||
+        code == Icons.timer_outlined.codePoint ||
         code == Icons.schedule_rounded.codePoint ||
         code == Icons.access_time_rounded.codePoint) {
       return icLifeHabits;
     }
     if (code == Icons.sticky_note_2_outlined.codePoint ||
         code == Icons.edit_note_rounded.codePoint ||
+        code == Icons.push_pin_rounded.codePoint ||
         code == Icons.note_add_outlined.codePoint ||
         code == Icons.notes_rounded.codePoint) {
       return icLifeNotes;
@@ -397,6 +412,7 @@ abstract final class AppAssets {
     }
     if (code == Icons.apps_rounded.codePoint ||
         code == Icons.menu_rounded.codePoint ||
+        code == Icons.layers_outlined.codePoint ||
         code == Icons.grid_view_rounded.codePoint ||
         code == Icons.widgets_outlined.codePoint ||
         code == Icons.inbox_rounded.codePoint) {
@@ -404,12 +420,15 @@ abstract final class AppAssets {
     }
     if (code == Icons.palette_outlined.codePoint ||
         code == Icons.palette_rounded.codePoint ||
+        code == Icons.text_fields_rounded.codePoint ||
         code == Icons.color_lens_outlined.codePoint ||
         code == Icons.light_mode_outlined.codePoint ||
         code == Icons.dark_mode_outlined.codePoint) {
       return ic3dAppearanceStudio;
     }
     if (code == Icons.settings_outlined.codePoint ||
+        code == Icons.person_outline_rounded.codePoint ||
+        code == Icons.visibility_off_outlined.codePoint ||
         code == Icons.shield_outlined.codePoint ||
         code == Icons.shield_moon_rounded.codePoint ||
         code == Icons.verified_user_outlined.codePoint ||

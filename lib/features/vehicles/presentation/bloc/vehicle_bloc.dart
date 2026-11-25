@@ -75,6 +75,8 @@ final class VehicleSpecProfileUpdated extends VehicleEvent {
   final VehicleEntity vehicle;
   final VehicleCategory category;
   final String modelProfileKey;
+  final String? updatedName;
+  final String? updatedPlateNumber;
   final DateTime? insuranceExpiryDate;
   final DateTime? inspectionExpiryDate;
 
@@ -82,6 +84,8 @@ final class VehicleSpecProfileUpdated extends VehicleEvent {
     required this.vehicle,
     required this.category,
     required this.modelProfileKey,
+    this.updatedName,
+    this.updatedPlateNumber,
     this.insuranceExpiryDate,
     this.inspectionExpiryDate,
   });
@@ -91,6 +95,8 @@ final class VehicleSpecProfileUpdated extends VehicleEvent {
     vehicle,
     category,
     modelProfileKey,
+    updatedName,
+    updatedPlateNumber,
     insuranceExpiryDate,
     inspectionExpiryDate,
   ];
@@ -399,6 +405,8 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
       vehicle: event.vehicle,
       category: event.category,
       modelProfileKey: event.modelProfileKey,
+      updatedName: event.updatedName,
+      updatedPlateNumber: event.updatedPlateNumber,
       insuranceExpiryDate: event.insuranceExpiryDate,
       inspectionExpiryDate: event.inspectionExpiryDate,
     );

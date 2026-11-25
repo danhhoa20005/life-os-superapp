@@ -184,77 +184,136 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                             ),
                             const SizedBox(height: 12),
 
-                            // 4 Canonical Folder Cards (matching Sheet 1 & Sheet 2 Screen 19)
-                            ...DocumentFolderCategory.values.map((folder) {
-                              final count = state.countForFolder(folder);
-                              final isSelected = state.selectedFolder == folder;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: LifeOsSoftCard(
-                                  backgroundColor: isSelected
-                                      ? c.primarySubtle
-                                      : c.surface,
-                                  borderColor: isSelected
-                                      ? c.primary
-                                      : c.separator,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 14,
-                                  ),
-                                  onTap: () => context
-                                      .read<DocumentVaultBloc>()
-                                      .add(
-                                        DocumentVaultFolderFilterChanged(
-                                          folder,
-                                        ),
-                                      ),
-                                  child: Row(
-                                    children: [
-                                      const LifeOsIconSquircle(
-                                        icon: Icons.folder_rounded,
-                                        tone: LifeOsAccentTone.amber,
-                                        size: 46,
-                                        iconSize: 25,
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
+                            // 2x2 Bento Folder Grid (UI/UX Pro Max — Distinct 3D Nano Banana Icons)
+                            LayoutBuilder(
+                              builder: (ctx, box) {
+                                final isTwoCol = box.maxWidth >= 280;
+                                final cardWidth = isTwoCol
+                                    ? (box.maxWidth - 10) / 2
+                                    : box.maxWidth;
+                                return Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: DocumentFolderCategory.values.map((
+                                    folder,
+                                  ) {
+                                    final count = state.countForFolder(folder);
+                                    final isSelected =
+                                        state.selectedFolder == folder;
+                                    final folderIcon = switch (folder) {
+                                      DocumentFolderCategory.billsAndContracts =>
+                                        Icons.electric_bolt_rounded,
+                                      DocumentFolderCategory.vehiclePapers =>
+                                        Icons.directions_car_outlined,
+                                      DocumentFolderCategory
+                                          .insuranceAndHealth =>
+                                        Icons.favorite_outline_rounded,
+                                      DocumentFolderCategory.importantDocs =>
+                                        Icons.folder_open_rounded,
+                                    };
+                                    final folderTone = switch (folder) {
+                                      DocumentFolderCategory.billsAndContracts =>
+                                        LifeOsAccentTone.amber,
+                                      DocumentFolderCategory.vehiclePapers =>
+                                        LifeOsAccentTone.blue,
+                                      DocumentFolderCategory
+                                          .insuranceAndHealth =>
+                                        LifeOsAccentTone.coral,
+                                      DocumentFolderCategory.importantDocs =>
+                                        LifeOsAccentTone.purple,
+                                    };
+                                    return SizedBox(
+                                      width: cardWidth,
+                                      child: LifeOsSoftCard(
+                                        backgroundColor: isSelected
+                                            ? c.primarySubtle
+                                            : c.surface,
+                                        borderColor: isSelected
+                                            ? c.primary
+                                            : c.separator,
+                                        padding: const EdgeInsets.all(12),
+                                        onTap: () => context
+                                            .read<DocumentVaultBloc>()
+                                            .add(
+                                              DocumentVaultFolderFilterChanged(
+                                                folder,
+                                              ),
+                                            ),
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                LifeOsIconSquircle(
+                                                  icon: folderIcon,
+                                                  tone: folderTone,
+                                                  size: 38,
+                                                  iconSize: 20,
+                                                ),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? c.primary
+                                                        : c.surfaceRaised,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          999,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    '$count tệp',
+                                                    style: TextStyle(
+                                                      fontSize: 11.5,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: isSelected
+                                                          ? Colors.white
+                                                          : c.textSecondary,
+                                                      fontFeatures: const [
+                                                        FontFeature
+                                                            .tabularFigures(),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
                                             Text(
                                               folder.displayTitle,
+                                              softWrap: true,
                                               style: TextStyle(
-                                                fontSize: 15.5,
+                                                fontSize: 13.8,
                                                 fontWeight: FontWeight.w800,
                                                 color: c.textPrimary,
                                               ),
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              '$count tệp · ${folder.subtitleHint}',
+                                              folder.subtitleHint,
                                               softWrap: true,
                                               style: TextStyle(
-                                                fontSize: 12.5,
+                                                fontSize: 11.5,
                                                 color: c.textSecondary,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      Icon(
-                                        isSelected
-                                            ? Icons.filter_alt_off_rounded
-                                            : Icons.chevron_right_rounded,
-                                        color: isSelected
-                                            ? c.primary
-                                            : c.textSecondary,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }),
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            ),
 
                             const SizedBox(height: 8),
                             Row(
@@ -464,6 +523,26 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                             ),
                                           ),
                                         IconButton(
+                                          key: Key(
+                                            'edit_doc_btn_${doc.id}',
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          tooltip: 'Sửa / Gia hạn tài liệu',
+                                          onPressed: () =>
+                                              _showAddDocumentDialog(
+                                                context,
+                                                userId: user.id,
+                                                userName: user.fullName,
+                                                familyId: user.activeFamilyId,
+                                                existingDocument: doc,
+                                              ),
+                                          icon: Icon(
+                                            Icons.edit_outlined,
+                                            size: 19,
+                                            color: c.textSecondary,
+                                          ),
+                                        ),
+                                        IconButton(
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Xóa tài liệu',
                                           onPressed: () async {
@@ -531,6 +610,7 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
     required String userName,
     String? familyId,
     DocumentFolderCategory? initialFolder,
+    DocumentVaultEntity? existingDocument,
   }) async {
     final bloc = context.read<DocumentVaultBloc>();
     await showDialog<void>(
@@ -541,6 +621,7 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
         userName: userName,
         familyId: familyId,
         initialFolder: initialFolder,
+        existingDocument: existingDocument,
       ),
     );
   }
@@ -552,6 +633,7 @@ class _AddDocumentVaultDialog extends StatefulWidget {
   final String userName;
   final String? familyId;
   final DocumentFolderCategory? initialFolder;
+  final DocumentVaultEntity? existingDocument;
 
   const _AddDocumentVaultDialog({
     required this.bloc,
@@ -559,6 +641,7 @@ class _AddDocumentVaultDialog extends StatefulWidget {
     required this.userName,
     required this.familyId,
     this.initialFolder,
+    this.existingDocument,
   });
 
   @override
@@ -567,9 +650,9 @@ class _AddDocumentVaultDialog extends StatefulWidget {
 }
 
 class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
-  final TextEditingController _titleCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
-  final TextEditingController _noteCtrl = TextEditingController();
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _codeCtrl;
+  late final TextEditingController _noteCtrl;
   late DocumentFolderCategory _folder;
   late bool _shareWithFamily;
   DateTime? _expiryDate;
@@ -577,8 +660,18 @@ class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
   @override
   void initState() {
     super.initState();
-    _folder = widget.initialFolder ?? DocumentFolderCategory.billsAndContracts;
-    _shareWithFamily = widget.familyId != null && widget.familyId!.isNotEmpty;
+    final existing = widget.existingDocument;
+    _titleCtrl = TextEditingController(text: existing?.title ?? '');
+    _codeCtrl = TextEditingController(text: existing?.referenceCode ?? '');
+    _noteCtrl = TextEditingController(text: existing?.note ?? '');
+    _folder =
+        existing?.folder ??
+        widget.initialFolder ??
+        DocumentFolderCategory.billsAndContracts;
+    _shareWithFamily =
+        existing?.isFamilyShared ??
+        (widget.familyId != null && widget.familyId!.isNotEmpty);
+    _expiryDate = existing?.expiryDate;
   }
 
   @override
@@ -592,7 +685,11 @@ class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Thêm Tài liệu Gia đình'),
+      title: Text(
+        widget.existingDocument != null
+            ? 'Sửa / Gia hạn Tài liệu'
+            : 'Thêm Tài liệu Gia đình',
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -682,7 +779,9 @@ class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
                 ],
               ],
             ),
-            if (widget.familyId != null && widget.familyId!.isNotEmpty)
+            if (widget.existingDocument == null &&
+                widget.familyId != null &&
+                widget.familyId!.isNotEmpty)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Chia sẻ trong Tài liệu chung Gia đình'),
@@ -708,24 +807,42 @@ class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
               );
               return;
             }
-            widget.bloc.add(
-              DocumentVaultCreateSubmitted(
-                CreateDocumentVaultParams(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                  familyId: widget.familyId,
-                  shareWithFamily: _shareWithFamily,
-                  folder: _folder,
-                  title: _titleCtrl.text,
-                  referenceCode: _codeCtrl.text,
-                  note: _noteCtrl.text,
-                  expiryDate: _expiryDate,
+            if (widget.existingDocument != null) {
+              widget.bloc.add(
+                DocumentVaultUpdateSubmitted(
+                  UpdateDocumentVaultParams(
+                    userId: widget.userId,
+                    existing: widget.existingDocument!,
+                    folder: _folder,
+                    title: _titleCtrl.text,
+                    referenceCode: _codeCtrl.text,
+                    note: _noteCtrl.text,
+                    expiryDate: _expiryDate,
+                  ),
                 ),
-              ),
-            );
+              );
+            } else {
+              widget.bloc.add(
+                DocumentVaultCreateSubmitted(
+                  CreateDocumentVaultParams(
+                    userId: widget.userId,
+                    userName: widget.userName,
+                    familyId: widget.familyId,
+                    shareWithFamily: _shareWithFamily,
+                    folder: _folder,
+                    title: _titleCtrl.text,
+                    referenceCode: _codeCtrl.text,
+                    note: _noteCtrl.text,
+                    expiryDate: _expiryDate,
+                  ),
+                ),
+              );
+            }
             Navigator.of(context).pop();
           },
-          child: const Text('Lưu tài liệu'),
+          child: Text(
+            widget.existingDocument != null ? 'Cập nhật' : 'Lưu tài liệu',
+          ),
         ),
       ],
     );

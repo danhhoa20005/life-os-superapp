@@ -110,22 +110,24 @@ class MedicationCabinetItemEntity extends Equatable {
       inventoryConfirmed && daysUntilExpiry(now) <= 30;
 
   MedicationCabinetItemEntity copyWith({
+    String? dosage,
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
     String? lastTakenDayKey,
     bool clearLastTaken = false,
     int? remainingPills,
+    DateTime? expiryDate,
     bool? inventoryConfirmed,
   }) {
     return MedicationCabinetItemEntity(
       id: id,
       ownerId: ownerId,
       name: name,
-      dosage: dosage,
+      dosage: dosage ?? this.dosage,
       slot: slot,
       remainingPills: remainingPills ?? this.remainingPills,
-      expiryDate: expiryDate,
+      expiryDate: expiryDate ?? this.expiryDate,
       inventoryConfirmed: inventoryConfirmed ?? this.inventoryConfirmed,
       lastTakenDayKey: clearLastTaken
           ? null

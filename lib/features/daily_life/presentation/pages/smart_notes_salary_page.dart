@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/navigation/feature_registry.dart';
+import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -13,6 +14,7 @@ import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
+import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../domain/entities/daily_life_entities.dart';
 import '../bloc/daily_life_bloc.dart';
 
@@ -30,6 +32,9 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
   final TextEditingController _noteSearchCtrl = TextEditingController();
   String _noteSearch = '';
   bool _pinnedOnly = false;
+  final Set<String> _revealedNoteIds = <String>{};
+  String? _selectedWalletId;
+  bool _isSubmittingSalary = false;
 
   // Vietnam Gross <-> Net & 5-Bracket 2026 PIT Salary Engine State (Luật 109/2025/QH15)
   bool _grossToNetMode = true;
@@ -73,9 +78,14 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     final user = context.watch<AuthBloc>().state.user;
     final userId = user?.id ?? '';
     final wallets = context.watch<TransactionListBloc>().state.wallets;
-    final primaryWalletId = UserBehaviorPrefs.resolvePreferredWalletId(
-      wallets.map((w) => w.id),
-    );
+    final String? resolvedWalletId = wallets.isEmpty
+        ? null
+        : (_selectedWalletId != null &&
+                  wallets.any((w) => w.id == _selectedWalletId)
+              ? _selectedWalletId!
+              : UserBehaviorPrefs.resolvePreferredWalletId(
+                  wallets.map((w) => w.id),
+                ));
 
     final salaryResult = _grossToNetMode
         ? VietnamGrossNetTaxEngine.fromGross(
@@ -97,15 +107,13 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           (n.successBanner != null && p.successBanner != n.successBanner),
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text(state.failure!.message)),
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
           );
         } else if (state.successBanner != null) {
-          LifeOsTopToast.fromSnackBar(
-            context,
-            SnackBar(content: Text(state.successBanner!)),
-          );
+          LifeOsTopToast.show(context, state.successBanner!);
         }
       },
       builder: (context, state) {
@@ -160,9 +168,13 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                                         ),
                                         Text(
                                           '${notes.length} ghi chú ($pinnedCount ghim) · Lương Net ước tính: ${VndAmount.format(salaryResult.netSalaryMinor)}',
+                                          softWrap: true,
                                           style: TextStyle(
                                             fontSize: 12.2,
                                             color: c.textSecondary,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -198,7 +210,8 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                                 context,
                                 c,
                                 userId,
-                                primaryWalletId,
+                                wallets,
+                                resolvedWalletId,
                                 salaryResult,
                               ),
                           ],
@@ -290,7 +303,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           icon: Icons.note_add_outlined,
           onPressed: userId.isEmpty
               ? null
-              : () => _showAddNoteSheet(context, userId),
+              : () => _showNoteEditorSheet(context, userId),
         ),
         const SizedBox(height: 12),
 
@@ -343,10 +356,20 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           )
         else
           ...filtered.map((note) {
+            final isSecret = note.categoryTag == 'Mã số & Wi-Fi';
+            final isRevealed = _revealedNoteIds.contains(note.id);
             return Padding(
               padding: const EdgeInsets.only(bottom: 9),
               child: LifeOsSoftCard(
+                key: Key('smart_note_card_${note.id}'),
                 padding: const EdgeInsets.all(14),
+                onTap: userId.isEmpty
+                    ? null
+                    : () => _showNoteEditorSheet(
+                        context,
+                        userId,
+                        existing: note,
+                      ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -368,6 +391,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                             children: [
                               Text(
                                 note.title,
+                                softWrap: true,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 14.5,
@@ -376,15 +400,20 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                               ),
                               Text(
                                 '${note.categoryTag} · ${dtFmt.format(note.updatedAt)}',
+                                softWrap: true,
                                 style: TextStyle(
                                   fontSize: 11.8,
                                   color: c.textSecondary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
+                          key: Key('pin_smart_note_${note.id}'),
                           visualDensity: VisualDensity.compact,
                           tooltip: note.isPinned ? 'Bỏ ghim' : 'Ghim đầu trang',
                           onPressed: () => context.read<DailyLifeBloc>().add(
@@ -399,10 +428,12 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                           ),
                         ),
                         IconButton(
+                          key: Key('delete_smart_note_${note.id}'),
                           visualDensity: VisualDensity.compact,
-                          onPressed: () => context.read<DailyLifeBloc>().add(
-                            SmartNoteDeleted(userId: userId, noteId: note.id),
-                          ),
+                          tooltip: 'Xóa ghi chú',
+                          onPressed: userId.isEmpty
+                              ? null
+                              : () => _confirmDeleteNote(context, userId, note),
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             size: 19,
@@ -413,10 +444,72 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                     ),
                     if (note.content.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Text(
-                        note.content,
-                        style: TextStyle(fontSize: 13.2, color: c.textPrimary),
-                      ),
+                      if (isSecret)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  isRevealed
+                                      ? note.content
+                                      : PrivacyMaskFormatter.maskNotePreview(
+                                          note.content,
+                                        ),
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isRevealed
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: isRevealed
+                                        ? c.textPrimary
+                                        : c.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                key: Key('toggle_note_reveal_${note.id}'),
+                                visualDensity: VisualDensity.compact,
+                                tooltip: isRevealed
+                                    ? 'Ẩn mã số / Wi-Fi'
+                                    : 'Hiện mã số / Wi-Fi',
+                                onPressed: () {
+                                  setState(() {
+                                    if (isRevealed) {
+                                      _revealedNoteIds.remove(note.id);
+                                    } else {
+                                      _revealedNoteIds.add(note.id);
+                                    }
+                                  });
+                                },
+                                icon: Icon(
+                                  isRevealed
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 19,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Text(
+                          note.content,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 13.2,
+                            color: c.textPrimary,
+                          ),
+                        ),
                     ],
                   ],
                 ),
@@ -427,11 +520,147 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     );
   }
 
+  Future<void> _recordSalaryToWallet({
+    required String userId,
+    required List<WalletEntity> wallets,
+    required String? selectedWalletId,
+    required VietnamSalaryTaxResult res,
+  }) async {
+    if (wallets.isEmpty || selectedWalletId == null) {
+      LifeOsTopToast.show(
+        context,
+        'Vui lòng tạo ít nhất 1 Ví trong tab Tài chính trước khi ghi lương.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
+    }
+    if (_isSubmittingSalary || res.netSalaryMinor <= 0) return;
+
+    final txActionBloc = context.read<TransactionActionBloc>();
+    setState(() => _isSubmittingSalary = true);
+    late final TransactionActionState outcome;
+    try {
+      outcome = await txActionBloc.submitAndAwaitCreate(
+        TransactionCreateSubmitted(
+          operationId: 'sal_${DateTime.now().millisecondsSinceEpoch}',
+          userId: userId,
+          walletId: selectedWalletId,
+          categoryId: 'cat_income_salary',
+          categoryName: 'Lương & Thu nhập',
+          kind: TransactionKind.income,
+          amountMinor: res.netSalaryMinor,
+          merchant: 'Lương thực nhận (Net)',
+          note:
+              'Gross ${VndAmount.format(res.grossSalaryMinor)} · Thuế TNCN ${VndAmount.format(res.personalIncomeTaxMinor)}',
+          occurredAt: DateTime.now(),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingSalary = false);
+      }
+    }
+
+    if (!mounted) return;
+    final createdTx = outcome.lastCreatedTransaction;
+    if (outcome.status != ActionStatus.success || createdTx == null) {
+      LifeOsTopToast.show(
+        context,
+        outcome.failure?.message ??
+            'Không thể ghi Lương thực nhận vào Ví — vui lòng thử lại.',
+        kind: LifeOsToastKind.error,
+      );
+      return;
+    }
+
+    await UserBehaviorPrefs.rememberWallet(selectedWalletId);
+    if (!mounted) return;
+    final confirmedTxId = createdTx.id;
+    LifeOsTopToast.show(
+      context,
+      'Đã cộng Lương thực nhận (${VndAmount.format(res.netSalaryMinor)}) vào Ví.',
+      actionLabel: 'Hoàn tác',
+      onAction: () {
+        txActionBloc.add(
+          TransactionReverseRequested(
+            userId: userId,
+            transactionId: confirmedTxId,
+            reason: 'Hoàn tác ghi nhận lương thực nhận',
+          ),
+        );
+        if (mounted) {
+          LifeOsTopToast.show(
+            context,
+            'Đã hoàn tác khoản Lương thực nhận.',
+            kind: LifeOsToastKind.info,
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _showExactSalaryDialog(BuildContext context) async {
+    final ctrl = TextEditingController(text: '$_salaryInputMinor');
+    final parsed = await showDialog<int>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(
+          _grossToNetMode
+              ? 'Nhập mức lương Gross chính xác'
+              : 'Nhập mức lương Net mong muốn',
+        ),
+        content: TextField(
+          key: const Key('salary_exact_amount_input'),
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+          decoration: const InputDecoration(
+            labelText: 'Số tiền (VNĐ)',
+            hintText: 'VD: 18500000',
+            suffixText: '₫',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            key: const Key('confirm_exact_salary_btn'),
+            onPressed: () {
+              final amt =
+                  VndAmount.tryParseInput(ctrl.text) ??
+                  int.tryParse(ctrl.text.trim()) ??
+                  0;
+              if (amt <= 0 || amt > 2000000000) {
+                LifeOsTopToast.show(
+                  dialogCtx,
+                  'Vui lòng nhập mức lương hợp lệ từ 1 ₫ đến 2.000.000.000 ₫.',
+                  kind: LifeOsToastKind.warning,
+                );
+                return;
+              }
+              Navigator.of(dialogCtx).pop(amt);
+            },
+            child: const Text('Áp dụng'),
+          ),
+        ],
+      ),
+    );
+    if (parsed != null && mounted) {
+      setState(() => _salaryInputMinor = parsed);
+    }
+  }
+
   Widget _buildSalaryTaxTab(
     BuildContext context,
     TammySemanticColors c,
     String userId,
-    String primaryWalletId,
+    List<WalletEntity> wallets,
+    String? resolvedWalletId,
     VietnamSalaryTaxResult res,
   ) {
     return Column(
@@ -458,8 +687,20 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                   SegmentedButton<bool>(
                     showSelectedIcon: false,
                     segments: const [
-                      ButtonSegment(value: true, label: Text('Gross → Net')),
-                      ButtonSegment(value: false, label: Text('Net → Gross')),
+                      ButtonSegment(
+                        value: true,
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Gross → Net'),
+                        ),
+                      ),
+                      ButtonSegment(
+                        value: false,
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Net → Gross'),
+                        ),
+                      ),
                     ],
                     selected: {_grossToNetMode},
                     onSelectionChanged: (s) =>
@@ -474,7 +715,12 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 children: _salaryPresets.map((amt) {
                   final active = _salaryInputMinor == amt;
                   return ChoiceChip(
-                    label: Text('${amt ~/ 1000000} triệu'),
+                    label: Text(
+                      '${amt ~/ 1000000} triệu',
+                      style: const TextStyle(
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
                     selected: active,
                     onSelected: (_) => setState(() => _salaryInputMinor = amt),
                   );
@@ -493,13 +739,44 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    VndAmount.format(_salaryInputMinor),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: c.primary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  Tooltip(
+                    message: 'Chạm để nhập số tiền lương chính xác',
+                    child: Material(
+                      color: c.primarySubtle,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        key: const Key('salary_exact_amount_tap'),
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _showExactSalaryDialog(context),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                VndAmount.format(_salaryInputMinor),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: c.primary,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 14,
+                                color: c.primary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -518,7 +795,11 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                     child: Text(
                       'Người phụ thuộc (${VndAmount.format(_taxPolicy.dependentDeductionVnd)}/người)',
                       softWrap: true,
-                      style: TextStyle(fontSize: 13, color: c.textSecondary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: c.textSecondary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -529,7 +810,12 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                         .map(
                           (d) => DropdownMenuItem(
                             value: d,
-                            child: Text('$d người'),
+                            child: Text(
+                              '$d người',
+                              style: const TextStyle(
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
                           ),
                         )
                         .toList(),
@@ -549,7 +835,15 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 ),
                 items: VietnamTaxPolicy.values
                     .map(
-                      (p) => DropdownMenuItem(value: p, child: Text(p.title)),
+                      (p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(
+                          p.title,
+                          style: const TextStyle(
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
                     )
                     .toList(),
                 onChanged: (v) {
@@ -647,7 +941,11 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
               const SizedBox(height: 6),
               Text(
                 'Tổng chi phí công ty chi trả: ${VndAmount.format(res.totalEmployerCostMinor)}',
-                style: TextStyle(fontSize: 11.8, color: c.textSecondary),
+                style: TextStyle(
+                  fontSize: 11.8,
+                  color: c.textSecondary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
               if (res.brackets.isNotEmpty) ...[
                 const SizedBox(height: 10),
@@ -665,40 +963,52 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                       .toList(),
                 ),
               ],
+              if (wallets.length > 1) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: const Key('salary_wallet_selector'),
+                  isExpanded: true,
+                  initialValue: resolvedWalletId,
+                  decoration: const InputDecoration(
+                    labelText: 'Chọn Ví nhận lương',
+                    isDense: true,
+                  ),
+                  items: wallets
+                      .map(
+                        (w) => DropdownMenuItem(
+                          value: w.id,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${w.name} (${VndAmount.format(w.balanceMinor)})',
+                              style: const TextStyle(
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedWalletId = v);
+                  },
+                ),
+              ],
               const SizedBox(height: 14),
               LifeOsPrimaryCtaButton(
                 key: const Key('record_net_salary_to_wallet_btn'),
                 label:
                     'Ghi Lương Thực Nhận ${VndAmount.format(res.netSalaryMinor)} Vào Ví',
                 icon: Icons.add_card_rounded,
-                onPressed: userId.isEmpty
+                onPressed: userId.isEmpty || _isSubmittingSalary
                     ? null
-                    : () {
-                        context.read<TransactionActionBloc>().add(
-                          TransactionCreateSubmitted(
-                            operationId:
-                                'sal_${DateTime.now().millisecondsSinceEpoch}',
-                            userId: userId,
-                            walletId: primaryWalletId,
-                            categoryId: 'cat_income_salary',
-                            categoryName: 'Lương & Thu nhập',
-                            kind: TransactionKind.income,
-                            amountMinor: res.netSalaryMinor,
-                            merchant: 'Lương thực nhận (Net)',
-                            note:
-                                'Gross ${VndAmount.format(res.grossSalaryMinor)} · Thuế TNCN ${VndAmount.format(res.personalIncomeTaxMinor)}',
-                            occurredAt: DateTime.now(),
-                          ),
-                        );
-                        LifeOsTopToast.fromSnackBar(
-                          context,
-                          const SnackBar(
-                            content: Text(
-                              '✓ Đã cộng Lương thực nhận (Net) vào Ví!',
-                            ),
-                          ),
-                        );
-                      },
+                    : () => _recordSalaryToWallet(
+                        userId: userId,
+                        wallets: wallets,
+                        selectedWalletId: resolvedWalletId,
+                        res: res,
+                      ),
               ),
             ],
           ),
@@ -707,15 +1017,72 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     );
   }
 
-  Future<void> _showAddNoteSheet(BuildContext context, String userId) async {
-    final titleCtrl = TextEditingController();
-    final contentCtrl = TextEditingController();
-    var category = 'Ghi chú nhanh';
-    var pin = true;
+  Future<void> _confirmDeleteNote(
+    BuildContext context,
+    String userId,
+    SmartLifeNoteEntity note,
+  ) async {
+    final bloc = context.read<DailyLifeBloc>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Xác nhận xóa "${note.title}"?'),
+        content: const Text(
+          'Ghi chú này sẽ bị xóa vĩnh viễn khỏi Sổ tay LifeOS.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Giữ lại'),
+          ),
+          FilledButton(
+            key: Key('confirm_delete_note_${note.id}'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Xóa ghi chú'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      bloc.add(SmartNoteDeleted(userId: userId, noteId: note.id));
+    }
+  }
+
+  Future<void> _showNoteEditorSheet(
+    BuildContext context,
+    String userId, {
+    SmartLifeNoteEntity? existing,
+  }) async {
+    final bloc = context.read<DailyLifeBloc>();
+    final titleCtrl = TextEditingController(text: existing?.title ?? '');
+    final contentCtrl = TextEditingController(text: existing?.content ?? '');
+    const defaultCategories = [
+      'Ghi chú nhanh',
+      'Mã số & Wi-Fi',
+      'Công việc & Ý tưởng',
+      'Sách & Học tập',
+    ];
+    final categories = <String>[
+      ...defaultCategories,
+      if (existing != null &&
+          existing.categoryTag.trim().isNotEmpty &&
+          !defaultCategories.contains(existing.categoryTag))
+        existing.categoryTag,
+    ];
+    var category = existing?.categoryTag ?? 'Ghi chú nhanh';
+    if (!categories.contains(category)) {
+      category = defaultCategories.first;
+    }
+    var pin = existing?.isPinned ?? true;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (ctx, setModal) => Padding(
@@ -725,77 +1092,93 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
               16,
               MediaQuery.of(ctx).viewInsets.bottom + 20,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Tạo Ghi chú Thông minh',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tiêu đề ghi chú',
-                    hintText:
-                        'VD: Mã két sắt, Lịch tiêm phòng cho bé, Ý tưởng...',
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    existing == null
+                        ? 'Tạo Ghi chú Thông minh'
+                        : 'Chỉnh sửa Ghi chú',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: contentCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Nội dung chi tiết / Checklist',
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('smart_note_title_input'),
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Tiêu đề ghi chú',
+                      hintText:
+                          'VD: Mã két sắt, Lịch tiêm phòng cho bé, Ý tưởng...',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: category,
-                  decoration: const InputDecoration(labelText: 'Phân loại'),
-                  items:
-                      const [
-                            'Ghi chú nhanh',
-                            'Mã số & Wi-Fi',
-                            'Công việc & Ý tưởng',
-                            'Sách & Học tập',
-                          ]
-                          .map(
-                            (t) => DropdownMenuItem(value: t, child: Text(t)),
-                          )
-                          .toList(),
-                  onChanged: (v) {
-                    if (v != null) setModal(() => category = v);
-                  },
-                ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Ghim lên đầu Sổ tay'),
-                  value: pin,
-                  onChanged: (v) => setModal(() => pin = v),
-                ),
-                const SizedBox(height: 8),
-                LifeOsPrimaryCtaButton(
-                  label: 'Lưu Ghi chú',
-                  icon: Icons.check_rounded,
-                  onPressed: () {
-                    final t = titleCtrl.text.trim();
-                    if (t.isEmpty) return;
-                    context.read<DailyLifeBloc>().add(
-                      SmartNoteSaved(
-                        userId: userId,
-                        title: t,
-                        content: contentCtrl.text.trim(),
-                        categoryTag: category,
-                        isPinned: pin,
-                      ),
-                    );
-                    Navigator.of(sheetCtx).pop();
-                  },
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  TextField(
+                    key: const Key('smart_note_content_input'),
+                    controller: contentCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Nội dung chi tiết / Checklist',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    key: const Key('smart_note_category_dropdown'),
+                    isExpanded: true,
+                    initialValue: category,
+                    decoration: const InputDecoration(labelText: 'Phân loại'),
+                    items: categories
+                        .map(
+                          (t) => DropdownMenuItem(value: t, child: Text(t)),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setModal(() => category = v);
+                    },
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Ghim lên đầu Sổ tay'),
+                    value: pin,
+                    onChanged: (v) => setModal(() => pin = v),
+                  ),
+                  const SizedBox(height: 8),
+                  LifeOsPrimaryCtaButton(
+                    key: const Key('confirm_save_smart_note_btn'),
+                    label: existing == null
+                        ? 'Lưu Ghi chú'
+                        : 'Cập nhật Ghi chú',
+                    icon: Icons.check_rounded,
+                    onPressed: () {
+                      final t = titleCtrl.text.trim();
+                      if (t.isEmpty) {
+                        LifeOsTopToast.show(
+                          ctx,
+                          'Vui lòng nhập tiêu đề ghi chú.',
+                          kind: LifeOsToastKind.warning,
+                        );
+                        return;
+                      }
+                      bloc.add(
+                        SmartNoteSaved(
+                          userId: userId,
+                          existingId: existing?.id,
+                          title: t,
+                          content: contentCtrl.text.trim(),
+                          categoryTag: category,
+                          mood: existing?.mood,
+                          isPinned: pin,
+                        ),
+                      );
+                      Navigator.of(sheetCtx).pop();
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -831,13 +1214,16 @@ class _TaxLine extends StatelessWidget {
           Flexible(
             child: Text(
               label,
+              softWrap: true,
               style: TextStyle(
                 fontSize: 12.8,
                 fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
                 color: bold ? c.textPrimary : c.textSecondary,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             formatted,
             style: TextStyle(

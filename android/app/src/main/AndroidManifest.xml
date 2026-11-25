@@ -153,6 +153,7 @@
     <queries>
         <package android:name="com.google.android.tts"/>
         <package android:name="com.google.android.googlequicksearchbox"/>
+        <package android:name="com.google.android.apps.searchlite"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
@@ -166,6 +167,9 @@
         </intent>
         <intent>
             <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.GET_LANGUAGE_DETAILS"/>
         </intent>
     </queries>
 </manifest>

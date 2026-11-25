@@ -85,6 +85,35 @@ class SubscriptionWarrantyEntity extends Equatable {
     return d >= 0 && d <= remindDaysBefore;
   }
 
+  /// Adds [monthsToAdd] safely clamping end-of-month days (e.g., Jan 31 + 1m -> Feb 28).
+  static DateTime addMonthsSafely(DateTime date, int monthsToAdd) {
+    final totalMonths = (date.year * 12) + (date.month - 1) + monthsToAdd;
+    final targetYear = totalMonths ~/ 12;
+    final targetMonth = (totalMonths % 12) + 1;
+    final maxDayInMonth = DateTime(targetYear, targetMonth + 1, 0).day;
+    final clampedDay = date.day > maxDayInMonth ? maxDayInMonth : date.day;
+    return DateTime(
+      targetYear,
+      targetMonth,
+      clampedDay,
+      date.hour,
+      date.minute,
+      date.second,
+    );
+  }
+
+  /// Computes the next renewal date for recurring subscriptions (`+1 / +3 / +12` months).
+  DateTime computeNextRenewalDate() {
+    final addMonths = switch (cycle) {
+      SubscriptionCycle.monthly => 1,
+      SubscriptionCycle.quarterly => 3,
+      SubscriptionCycle.yearly => 12,
+      SubscriptionCycle.warrantyOnly => 0,
+    };
+    if (addMonths == 0) return nextBillingOrExpiryDate;
+    return addMonthsSafely(nextBillingOrExpiryDate, addMonths);
+  }
+
   @override
   List<Object?> get props => [
     id,
