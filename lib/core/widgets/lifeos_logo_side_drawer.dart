@@ -617,126 +617,7 @@ class _LifeOsLogoSideDrawerSheetState
                       ),
                     ),
 
-                    // 2. Compact Account & Real-Time Daily Pulse Card
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Material(
-                        color: c.surfaceRaised,
-                        borderRadius: BorderRadius.circular(16),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          key: const Key('logo_drawer_profile_card'),
-                          onTap: () => _navigateToRoute(
-                            '/account-profile',
-                            isShellTab: false,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(11),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(11),
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: LifeOSBrandColors
-                                              .appIconBgGradient,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        initials,
-                                        style: const TextStyle(
-                                          fontSize: 13.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            fullName,
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: c.textPrimary,
-                                            ),
-                                          ),
-                                          Text(
-                                            activeFamilyName != null &&
-                                                    activeFamilyName.isNotEmpty
-                                                ? 'Không gian: $activeFamilyName'
-                                                : 'Không gian cá nhân',
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: c.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: c.textSecondary,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: [
-                                    LifeOsStatusPill(
-                                      icon:
-                                          Icons.account_balance_wallet_outlined,
-                                      label: _hideBalances
-                                          ? 'Ví: •••••• ₫'
-                                          : 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
-                                      tone: LifeOsAccentTone.emerald,
-                                    ),
-                                    LifeOsStatusPill(
-                                      icon: Icons.water_drop_outlined,
-                                      label:
-                                          'Nước: ${daily.hydration.waterMl}/${daily.hydration.targetWaterMl} ml',
-                                      tone: LifeOsAccentTone.blue,
-                                    ),
-                                    if (openTasksCount > 0)
-                                      LifeOsStatusPill(
-                                        icon: Icons.task_alt_rounded,
-                                        label: '$openTasksCount việc mở',
-                                        tone: LifeOsAccentTone.amber,
-                                      )
-                                    else if (vehiclesCount > 0)
-                                      LifeOsStatusPill(
-                                        icon: Icons.two_wheeler_rounded,
-                                        label: '$vehiclesCount xe',
-                                        tone: LifeOsAccentTone.neutral,
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 3. Instant Vietnamese Unaccented Search
+                    // 2. Instant Vietnamese Unaccented Search
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: TextField(
@@ -772,12 +653,12 @@ class _LifeOsLogoSideDrawerSheetState
                     ),
                     const SizedBox(height: 8),
 
-                    // 4. Category Pill Tabs ("Tất cả · Chính · Tài chính · Sức khỏe · Nhà & Xe")
+                    // 3. Category Pill Tabs ("Tất cả · Chính · Tài chính · Sức khỏe · Nhà & Xe")
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
+                        spacing: 5,
+                        runSpacing: 5,
                         children: [
                           for (final tab in _tabs)
                             ChoiceChip(
@@ -810,7 +691,7 @@ class _LifeOsLogoSideDrawerSheetState
                     const SizedBox(height: 8),
                     Divider(height: 1, thickness: 0.7, color: c.separator),
 
-                    // 5. Scannable Feature List with Active Highlight
+                    // 4. Scannable Feature List with Active Highlight (Profile & Motion Studio scroll naturally under Large Text)
                     Expanded(
                       child: grouped.isEmpty
                           ? Center(
@@ -850,8 +731,144 @@ class _LifeOsLogoSideDrawerSheetState
                             )
                           : ListView(
                               key: const Key('logo_drawer_feature_list'),
-                              padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
                               children: [
+                                if (!hasActiveFilters) ...[
+                                  Material(
+                                    color: c.surfaceRaised,
+                                    borderRadius: BorderRadius.circular(16),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: InkWell(
+                                      key: const Key(
+                                        'logo_drawer_profile_card',
+                                      ),
+                                      onTap: () => _navigateToRoute(
+                                        '/account-profile',
+                                        isShellTab: false,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(11),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 36,
+                                                  height: 36,
+                                                  alignment: Alignment.center,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          11,
+                                                        ),
+                                                    gradient: const LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
+                                                      colors: LifeOSBrandColors
+                                                          .appIconBgGradient,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    initials,
+                                                    style: const TextStyle(
+                                                      fontSize: 13.5,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        fullName,
+                                                        softWrap: true,
+                                                        style: TextStyle(
+                                                          fontSize: 13.5,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                          color: c.textPrimary,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        activeFamilyName !=
+                                                                    null &&
+                                                                activeFamilyName
+                                                                    .isNotEmpty
+                                                            ? 'Không gian: $activeFamilyName'
+                                                            : 'Không gian cá nhân',
+                                                        softWrap: true,
+                                                        style: TextStyle(
+                                                          fontSize: 11.5,
+                                                          color:
+                                                              c.textSecondary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Icon(
+                                                  Icons.chevron_right_rounded,
+                                                  size: 18,
+                                                  color: c.textSecondary,
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: [
+                                                LifeOsStatusPill(
+                                                  icon: Icons
+                                                      .account_balance_wallet_outlined,
+                                                  label: _hideBalances
+                                                      ? 'Ví: •••••• ₫'
+                                                      : 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
+                                                  tone:
+                                                      LifeOsAccentTone.emerald,
+                                                ),
+                                                LifeOsStatusPill(
+                                                  icon:
+                                                      Icons.water_drop_outlined,
+                                                  label:
+                                                      'Nước: ${daily.hydration.waterMl}/${daily.hydration.targetWaterMl} ml',
+                                                  tone: LifeOsAccentTone.blue,
+                                                ),
+                                                if (openTasksCount > 0)
+                                                  LifeOsStatusPill(
+                                                    icon:
+                                                        Icons.task_alt_rounded,
+                                                    label:
+                                                        '$openTasksCount việc mở',
+                                                    tone:
+                                                        LifeOsAccentTone.amber,
+                                                  )
+                                                else if (vehiclesCount > 0)
+                                                  LifeOsStatusPill(
+                                                    icon: Icons
+                                                        .two_wheeler_rounded,
+                                                    label: '$vehiclesCount xe',
+                                                    tone: LifeOsAccentTone
+                                                        .neutral,
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
                                 for (final section in grouped.entries) ...[
                                   if (_selectedTab == 'all')
                                     LifeOsSectionHeader(
@@ -878,151 +895,187 @@ class _LifeOsLogoSideDrawerSheetState
                                       ),
                                     ),
                                 ],
+                                if (!hasActiveFilters) ...[
+                                  const SizedBox(height: 4),
+                                  Material(
+                                    color:
+                                        widget.currentLocation.startsWith(
+                                          '/motion-gallery',
+                                        )
+                                        ? c.primarySubtle
+                                        : c.surfaceRaised,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      side: BorderSide(
+                                        color:
+                                            widget.currentLocation.startsWith(
+                                              '/motion-gallery',
+                                            )
+                                            ? c.primary.withValues(alpha: 0.45)
+                                            : c.border.withValues(alpha: 0.55),
+                                        width:
+                                            widget.currentLocation.startsWith(
+                                              '/motion-gallery',
+                                            )
+                                            ? 1.1
+                                            : 0.7,
+                                      ),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: InkWell(
+                                      key: const Key(
+                                        'drawer_motion_gallery_tile',
+                                      ),
+                                      onTap: () => _navigateToRoute(
+                                        '/motion-gallery',
+                                        isShellTab: false,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const LifeOsIconSquircle(
+                                              icon: Icons
+                                                  .auto_awesome_motion_rounded,
+                                              tone: LifeOsAccentTone.purple,
+                                              size: 34,
+                                              iconSize: 17,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Motion Studio',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      height: 1.2,
+                                                      color:
+                                                          widget.currentLocation
+                                                              .startsWith(
+                                                                '/motion-gallery',
+                                                              )
+                                                          ? c.primary
+                                                          : c.textPrimary,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    'Hiệu ứng chuyển động & giao diện',
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 11.2,
+                                                      height: 1.24,
+                                                      color: c.textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 18,
+                                              color: c.textSecondary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                     ),
 
-                    // 6. Motion Studio Compact Shortcut + Quick Utility Footer Bar
+                    // 5. Compact Single-Row Quick Utility Footer Bar
                     Divider(height: 1, thickness: 0.7, color: c.separator),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
-                      child: Material(
-                        color:
-                            widget.currentLocation.startsWith('/motion-gallery')
-                            ? c.primarySubtle
-                            : c.surfaceRaised,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(
-                            color:
-                                widget.currentLocation.startsWith(
-                                  '/motion-gallery',
-                                )
-                                ? c.primary.withValues(alpha: 0.45)
-                                : c.border.withValues(alpha: 0.55),
-                            width:
-                                widget.currentLocation.startsWith(
-                                  '/motion-gallery',
-                                )
-                                ? 1.1
-                                : 0.7,
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          key: const Key('drawer_motion_gallery_tile'),
-                          onTap: () => _navigateToRoute(
-                            '/motion-gallery',
-                            isShellTab: false,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                const LifeOsIconSquircle(
-                                  icon: Icons.auto_awesome_motion_rounded,
-                                  tone: LifeOsAccentTone.purple,
-                                  size: 34,
-                                  iconSize: 17,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Motion Studio',
-                                        softWrap: true,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                          height: 1.2,
-                                          color:
-                                              widget.currentLocation.startsWith(
-                                                '/motion-gallery',
-                                              )
-                                              ? c.primary
-                                              : c.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '66 mẫu vật lý lò xo, Shader & Lottie',
-                                        softWrap: true,
-                                        style: TextStyle(
-                                          fontSize: 11.2,
-                                          height: 1.24,
-                                          color: c.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: c.textSecondary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        alignment: WrapAlignment.spaceBetween,
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+                      child: Row(
                         children: [
-                          TextButton.icon(
-                            key: const Key('logo_drawer_theme_btn'),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
+                          Expanded(
+                            child: TextButton.icon(
+                              key: const Key('logo_drawer_theme_btn'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                if (widget.parentContext.mounted) {
+                                  showLifeOsAppearanceSheet(
+                                    widget.parentContext,
+                                  );
+                                }
+                              },
+                              icon: Icon(
+                                isDark
+                                    ? Icons.light_mode_outlined
+                                    : Icons.dark_mode_outlined,
+                                size: 16,
+                              ),
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Giao diện'),
+                              ),
                             ),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              if (widget.parentContext.mounted) {
-                                showLifeOsAppearanceSheet(widget.parentContext);
-                              }
-                            },
-                            icon: Icon(
-                              isDark
-                                  ? Icons.light_mode_outlined
-                                  : Icons.dark_mode_outlined,
-                              size: 17,
-                            ),
-                            label: const Text('Giao diện'),
                           ),
-                          TextButton.icon(
-                            key: const Key('logo_drawer_all_services_btn'),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
+                          Expanded(
+                            child: TextButton.icon(
+                              key: const Key('logo_drawer_all_services_btn'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                              ),
+                              onPressed: () => _navigateToRoute(
+                                '/super-app-hub',
+                                isShellTab: false,
+                              ),
+                              icon: const Icon(
+                                Icons.grid_view_rounded,
+                                size: 16,
+                              ),
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Tất cả 360°'),
+                              ),
                             ),
-                            onPressed: () => _navigateToRoute(
-                              '/super-app-hub',
-                              isShellTab: false,
-                            ),
-                            icon: const Icon(Icons.grid_view_rounded, size: 17),
-                            label: const Text('Tất cả 360°'),
                           ),
-                          TextButton.icon(
-                            key: const Key('logo_drawer_settings_btn'),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
+                          Expanded(
+                            child: TextButton.icon(
+                              key: const Key('logo_drawer_settings_btn'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                              ),
+                              onPressed: () => _navigateToRoute(
+                                '/settings-hub',
+                                isShellTab: false,
+                              ),
+                              icon: const Icon(
+                                Icons.settings_outlined,
+                                size: 16,
+                              ),
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Cài đặt'),
+                              ),
                             ),
-                            onPressed: () => _navigateToRoute(
-                              '/settings-hub',
-                              isShellTab: false,
-                            ),
-                            icon: const Icon(Icons.settings_outlined, size: 17),
-                            label: const Text('Cài đặt'),
                           ),
                         ],
                       ),

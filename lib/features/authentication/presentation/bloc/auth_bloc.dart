@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 
 import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/drafts/local_draft_store.dart';
 import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_home_widget_bridge.dart';
@@ -112,6 +113,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       onData: (user) {
         if (user == null) {
           UserBehaviorPrefs.clearSessionOnSignOut();
+          LocalDraftStore.clearAllInMemoryCaches();
           return state.copyWith(
             status: AuthStatus.unauthenticated,
             clearUser: true,
@@ -416,6 +418,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     await _signOut(const NoParams());
     UserBehaviorPrefs.clearSessionOnSignOut();
+    LocalDraftStore.clearAllInMemoryCaches();
     if (sl.isRegistered<NativeHomeWidgetBridge>()) {
       await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
     }

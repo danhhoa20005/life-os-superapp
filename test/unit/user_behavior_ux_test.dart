@@ -377,6 +377,7 @@ void main() {
           const Key('today_personalization_settings_btn'),
         );
         await tester.ensureVisible(settingsBtn);
+        await tester.pumpAndSettle();
         await tester.tap(settingsBtn);
         await tester.pumpAndSettle();
 

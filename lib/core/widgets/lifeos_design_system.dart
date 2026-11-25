@@ -970,6 +970,9 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                   maxWidth: AppSpacing.maxContentWidth,
                 ),
                 child: Row(
+                  mainAxisAlignment: (subtitle != null && subtitle!.isNotEmpty)
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.end,
                   children: [
                     if (subtitle != null && subtitle!.isNotEmpty)
                       Expanded(
@@ -983,9 +986,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                             color: c.textSecondary,
                           ),
                         ),
-                      )
-                    else
-                      const Spacer(),
+                      ),
                     if (extraBrandActions.isNotEmpty)
                       Row(
                         mainAxisSize: MainAxisSize.min,

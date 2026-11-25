@@ -4225,8 +4225,10 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                           ),
                       ],
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(14),
@@ -4234,7 +4236,7 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
-                              vertical: 2,
+                              vertical: 4,
                             ),
                             child: Text(
                               '✨ Tự động',
@@ -4246,14 +4248,13 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
                         InkWell(
                           borderRadius: BorderRadius.circular(14),
                           onTap: () => context.push('/finance-report'),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
-                              vertical: 2,
+                              vertical: 4,
                             ),
                             child: Text(
                               '📊 Báo cáo',

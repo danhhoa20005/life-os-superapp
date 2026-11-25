@@ -914,9 +914,9 @@ class _TodayPageState extends State<TodayPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.md,
-                  6,
+                  2,
                   AppSpacing.md,
-                  4,
+                  2,
                 ),
                 child: Center(
                   child: ConstrainedBox(
@@ -938,24 +938,31 @@ class _TodayPageState extends State<TodayPage> {
                                   child: Text(
                                     'Xin chào, $firstName',
                                     style: TextStyle(
-                                      fontSize: 20,
+                                      fontSize: 18.5,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: -0.4,
-                                      height: 1.18,
+                                      height: 1.12,
                                       color: c.textPrimary,
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                UserBehaviorPrefs.contextualTimeSubtitle(now),
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 12.2,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.2,
-                                  color: c.textSecondary,
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    UserBehaviorPrefs.contextualTimeSubtitle(
+                                      now,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 11.4,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.15,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -1427,6 +1434,8 @@ class _TodayPageState extends State<TodayPage> {
                     final showFirstActionTip =
                         allTransactions.isEmpty &&
                         calEvents.isEmpty &&
+                        dailySnap.medications.isEmpty &&
+                        dailySnap.hydration.waterMl == 0 &&
                         !_firstActionTipDismissed;
 
                     final pinnedSpecs = _allShortcuts
@@ -1452,8 +1461,8 @@ class _TodayPageState extends State<TodayPage> {
                             // Thẻ 1 — Thẻ Mint Pastel "Hôm nay"
                             LifeOsMintHeroCard(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 13,
-                                vertical: 11,
+                                horizontal: 12,
+                                vertical: 8,
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1463,14 +1472,14 @@ class _TodayPageState extends State<TodayPage> {
                                       const LifeOsIconSquircle(
                                         icon: Icons.calendar_today_rounded,
                                         tone: LifeOsAccentTone.emerald,
-                                        size: 28,
-                                        iconSize: 15,
+                                        size: 26,
+                                        iconSize: 14,
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
                                         'Hôm nay',
                                         style: TextStyle(
-                                          fontSize: 14,
+                                          fontSize: 13.8,
                                           fontWeight: FontWeight.w800,
                                           color: c.textPrimary,
                                         ),
@@ -1485,7 +1494,7 @@ class _TodayPageState extends State<TodayPage> {
                                             child: Text(
                                               _formatDateVi(now),
                                               style: TextStyle(
-                                                fontSize: 12,
+                                                fontSize: 11.8,
                                                 fontWeight: FontWeight.w600,
                                                 color: c.textSecondary,
                                               ),
@@ -1495,7 +1504,7 @@ class _TodayPageState extends State<TodayPage> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 5),
                                   IntrinsicHeight(
                                     child: Row(
                                       children: [
@@ -1840,7 +1849,7 @@ class _TodayPageState extends State<TodayPage> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 6),
                                     Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.center,
@@ -1861,25 +1870,25 @@ class _TodayPageState extends State<TodayPage> {
                                                       ? 'Tổng tài sản ròng đang ẩn riêng tư'
                                                       : 'Tổng tài sản ròng ${_fmtMoney(d.netWorthMinor)}',
                                                   style: const TextStyle(
-                                                    fontSize: 26,
+                                                    fontSize: 24,
                                                     fontWeight: FontWeight.w800,
                                                     letterSpacing: -0.5,
                                                     color: Colors.white,
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(height: 5),
+                                              const SizedBox(height: 4),
                                               Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
+                                                spacing: 5,
+                                                runSpacing: 4,
                                                 crossAxisAlignment:
                                                     WrapCrossAlignment.center,
                                                 children: [
                                                   Container(
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                          horizontal: 9,
-                                                          vertical: 3.5,
+                                                          horizontal: 8,
+                                                          vertical: 2.5,
                                                         ),
                                                     decoration: BoxDecoration(
                                                       color: Colors.white
@@ -1906,7 +1915,7 @@ class _TodayPageState extends State<TodayPage> {
                                                       child: Text(
                                                         '↑ +${_fmtMoney(d.monthlyIncomeMinor)} (thu tháng)',
                                                         style: const TextStyle(
-                                                          fontSize: 11.2,
+                                                          fontSize: 10.6,
                                                           fontWeight:
                                                               FontWeight.w700,
                                                           color: Color(
@@ -1925,8 +1934,8 @@ class _TodayPageState extends State<TodayPage> {
                                                     ),
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                          horizontal: 9,
-                                                          vertical: 3.5,
+                                                          horizontal: 8,
+                                                          vertical: 2.5,
                                                         ),
                                                     decoration: BoxDecoration(
                                                       color: Colors.white
@@ -1946,32 +1955,34 @@ class _TodayPageState extends State<TodayPage> {
                                                         width: 0.8,
                                                       ),
                                                     ),
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Icon(
-                                                          activeFamily != null
-                                                              ? Icons
-                                                                    .groups_2_outlined
-                                                              : Icons
-                                                                    .lock_outline_rounded,
-                                                          size: 12,
-                                                          color: Colors.white,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        Flexible(
-                                                          child: Text(
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      alignment:
+                                                          Alignment.centerLeft,
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            activeFamily != null
+                                                                ? Icons
+                                                                      .groups_2_outlined
+                                                                : Icons
+                                                                      .lock_outline_rounded,
+                                                            size: 11.5,
+                                                            color: Colors.white,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 4,
+                                                          ),
+                                                          Text(
                                                             activeFamily != null
                                                                 ? 'Ví riêng + Nhóm gia đình'
                                                                 : 'Ví cá nhân · Riêng tư',
-                                                            softWrap: true,
                                                             style:
                                                                 const TextStyle(
                                                                   fontSize:
-                                                                      11.0,
+                                                                      10.5,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w700,
@@ -1979,29 +1990,27 @@ class _TodayPageState extends State<TodayPage> {
                                                                       .white,
                                                                 ),
                                                           ),
-                                                        ),
-                                                      ],
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
+                                                  if (avatarNames.isNotEmpty)
+                                                    LifeOsAvatarStack(
+                                                      names: avatarNames,
+                                                      radius: 12,
+                                                      onAddTap: () =>
+                                                          context.go('/family'),
+                                                    ),
                                                 ],
                                               ),
-                                              if (avatarNames.isNotEmpty) ...[
-                                                const SizedBox(height: 8),
-                                                LifeOsAvatarStack(
-                                                  names: avatarNames,
-                                                  radius: 13.5,
-                                                  onAddTap: () =>
-                                                      context.go('/family'),
-                                                ),
-                                              ],
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(width: 10),
+                                        const SizedBox(width: 8),
                                         CustomPaint(
                                           foregroundPainter:
                                               const LiquidGlassRimPainter(
-                                                borderRadius: 18,
+                                                borderRadius: 16,
                                                 isDark: true,
                                                 accentRimColor: Color(
                                                   0xFF8CE99A,
@@ -2009,40 +2018,40 @@ class _TodayPageState extends State<TodayPage> {
                                                 intensity: 1.2,
                                               ),
                                           child: Container(
-                                            width: 68,
-                                            height: 68,
+                                            width: 58,
+                                            height: 58,
                                             decoration: BoxDecoration(
                                               borderRadius:
-                                                  BorderRadius.circular(18),
+                                                  BorderRadius.circular(16),
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: Colors.black
                                                       .withValues(alpha: 0.28),
-                                                  blurRadius: 14,
-                                                  offset: const Offset(0, 6),
+                                                  blurRadius: 12,
+                                                  offset: const Offset(0, 5),
                                                 ),
                                               ],
                                             ),
                                             clipBehavior: Clip.antiAlias,
                                             child: Image.asset(
                                               AppAssets.hero3dWealthVault,
-                                              width: 68,
-                                              height: 68,
-                                              cacheWidth: 204,
-                                              cacheHeight: 204,
+                                              width: 58,
+                                              height: 58,
+                                              cacheWidth: 174,
+                                              cacheHeight: 174,
                                               fit: BoxFit.cover,
                                               errorBuilder: (_, __, ___) =>
                                                   const Icon(
                                                     Icons.shield_outlined,
                                                     color: Colors.white,
-                                                    size: 32,
+                                                    size: 28,
                                                   ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 8),
                                     Row(
                                       children: [
                                         Expanded(
@@ -2751,112 +2760,15 @@ class _TodayPageState extends State<TodayPage> {
                                 ],
                               ),
                             ),
-                            if (showFirstActionTip) ...[
-                              const SizedBox(height: 10),
-                              LifeOsMintHeroCard(
-                                key: const Key('today_ftue_first_action_tip'),
-                                padding: const EdgeInsets.all(13),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const LifeOsIconSquircle(
-                                          icon: Icons.bolt_rounded,
-                                          tone: LifeOsAccentTone.emerald,
-                                          size: 30,
-                                          iconSize: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Bắt đầu trong 10 giây',
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: c.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Thử ghi nhanh một khoản chi hoặc lịch hẹn đầu tiên — mọi thứ sẽ được sắp xếp gọn gàng cho bạn.',
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        fontSize: 12.2,
-                                        height: 1.32,
-                                        color: c.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      children: [
-                                        FilledButton.tonalIcon(
-                                          key: const Key(
-                                            'today_ftue_quick_action_btn',
-                                          ),
-                                          style: FilledButton.styleFrom(
-                                            minimumSize: const Size(0, 44),
-                                          ),
-                                          onPressed: () {
-                                            BehaviorEventCollector().recordType(
-                                              BehaviorEventType.quickActionUsed,
-                                              metadata: const <String, Object?>{
-                                                'targetId':
-                                                    'ftue_first_expense',
-                                                'screenKey': 'today',
-                                              },
-                                            );
-                                            showLifeOsQuickCreateHub(context);
-                                          },
-                                          icon: const Icon(
-                                            Icons.add_circle_outline_rounded,
-                                            size: 17,
-                                          ),
-                                          label: const Text(
-                                            'Ghi khoản chi đầu tiên',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          key: const Key(
-                                            'today_ftue_dismiss_tip_btn',
-                                          ),
-                                          style: TextButton.styleFrom(
-                                            minimumSize: const Size(0, 44),
-                                          ),
-                                          onPressed: () async {
-                                            setState(
-                                              () => _firstActionTipDismissed =
-                                                  true,
-                                            );
-                                            await UserBehaviorPrefs.saveFirstActionTipDismissed(
-                                              true,
-                                            );
-                                          },
-                                          child: const Text('Ẩn gợi ý'),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             LifeOsSoftCard(
                               key: const Key(
                                 'today_contextual_recommendation_card',
                               ),
-                              padding: const EdgeInsets.all(13),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                                vertical: 8,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -2865,8 +2777,8 @@ class _TodayPageState extends State<TodayPage> {
                                       const LifeOsIconSquircle(
                                         icon: Icons.auto_awesome_outlined,
                                         tone: LifeOsAccentTone.emerald,
-                                        size: 28,
-                                        iconSize: 15,
+                                        size: 24,
+                                        iconSize: 13,
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
@@ -2874,7 +2786,7 @@ class _TodayPageState extends State<TodayPage> {
                                           'Gợi ý phù hợp',
                                           softWrap: true,
                                           style: TextStyle(
-                                            fontSize: 13.8,
+                                            fontSize: 13.2,
                                             fontWeight: FontWeight.w800,
                                             color: c.textPrimary,
                                           ),
@@ -2885,9 +2797,10 @@ class _TodayPageState extends State<TodayPage> {
                                           'today_personalization_settings_btn',
                                         ),
                                         style: TextButton.styleFrom(
-                                          minimumSize: const Size(0, 44),
+                                          minimumSize: const Size(0, 40),
+                                          visualDensity: VisualDensity.compact,
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
+                                            horizontal: 8,
                                           ),
                                         ),
                                         onPressed: () =>
@@ -2898,14 +2811,120 @@ class _TodayPageState extends State<TodayPage> {
                                       ),
                                     ],
                                   ),
+                                  if (showFirstActionTip) ...[
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      key: const Key(
+                                        'today_ftue_first_action_tip',
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: c.primarySubtle,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: c.primary.withValues(
+                                            alpha: 0.24,
+                                          ),
+                                          width: 0.85,
+                                        ),
+                                      ),
+                                      child: Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            'Bắt đầu trong 10 giây',
+                                            style: TextStyle(
+                                              fontSize: 12.2,
+                                              fontWeight: FontWeight.w800,
+                                              color: c.textPrimary,
+                                            ),
+                                          ),
+                                          InkWell(
+                                            key: const Key(
+                                              'today_ftue_quick_action_btn',
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            onTap: () {
+                                              BehaviorEventCollector().recordType(
+                                                BehaviorEventType
+                                                    .quickActionUsed,
+                                                metadata:
+                                                    const <String, Object?>{
+                                                      'targetId':
+                                                          'ftue_first_expense',
+                                                      'screenKey': 'today',
+                                                    },
+                                              );
+                                              showLifeOsQuickCreateHub(context);
+                                            },
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 4,
+                                                  ),
+                                              child: Text(
+                                                'Ghi khoản chi đầu tiên',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: c.primary,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          InkWell(
+                                            key: const Key(
+                                              'today_ftue_dismiss_tip_btn',
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            onTap: () async {
+                                              setState(
+                                                () => _firstActionTipDismissed =
+                                                    true,
+                                              );
+                                              await UserBehaviorPrefs.saveFirstActionTipDismissed(
+                                                true,
+                                              );
+                                            },
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 4,
+                                                  ),
+                                              child: Text(
+                                                'Ẩn gợi ý',
+                                                style: TextStyle(
+                                                  fontSize: 11.8,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: c.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   if (!_personalizationSettings.enabled) ...[
                                     const SizedBox(height: 4),
                                     Text(
                                       'Gợi ý thông minh đang tắt. Chạm "Tùy chỉnh" để bật lại bất cứ lúc nào.',
                                       softWrap: true,
                                       style: TextStyle(
-                                        fontSize: 12.2,
-                                        height: 1.32,
+                                        fontSize: 11.8,
+                                        height: 1.25,
                                         color: c.textSecondary,
                                       ),
                                     ),
@@ -2915,32 +2934,25 @@ class _TodayPageState extends State<TodayPage> {
                                       'Mọi gợi ý hiện tại đã gọn gàng. Bạn có thể thay đổi nhóm quan tâm trong "Tùy chỉnh".',
                                       softWrap: true,
                                       style: TextStyle(
-                                        fontSize: 12.2,
-                                        height: 1.32,
+                                        fontSize: 11.8,
+                                        height: 1.25,
                                         color: c.textSecondary,
                                       ),
                                     ),
                                   ] else ...[
-                                    const SizedBox(height: 8),
-                                    for (
-                                      var i = 0;
-                                      i < contextualRecs.length;
-                                      i++
-                                    ) ...[
-                                      if (i > 0) const SizedBox(height: 8),
-                                      _AdaptiveRecommendationTile(
-                                        recommendation: contextualRecs[i],
-                                        onActionTap: () =>
-                                            _handleRecommendationTap(
-                                              context,
-                                              contextualRecs[i],
-                                            ),
-                                        onDismissTap: () =>
-                                            _handleRecommendationDismiss(
-                                              contextualRecs[i],
-                                            ),
-                                      ),
-                                    ],
+                                    const SizedBox(height: 5),
+                                    _AdaptiveRecommendationTile(
+                                      recommendation: contextualRecs.first,
+                                      onActionTap: () =>
+                                          _handleRecommendationTap(
+                                            context,
+                                            contextualRecs.first,
+                                          ),
+                                      onDismissTap: () =>
+                                          _handleRecommendationDismiss(
+                                            contextualRecs.first,
+                                          ),
+                                    ),
                                   ],
                                 ],
                               ),
@@ -3065,106 +3077,87 @@ class _AdaptiveRecommendationTile extends StatelessWidget {
 
     return Container(
       key: Key('today_rec_card_${candidate.id}'),
-      padding: const EdgeInsets.all(11),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: c.surfaceRaised,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: c.border.withValues(alpha: 0.72),
           width: 0.85,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LifeOsIconSquircle(
-                icon: icon,
-                tone: tone,
-                size: 32,
-                iconSize: 16,
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      candidate.titleVi,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 13.4,
-                        fontWeight: FontWeight.w800,
-                        height: 1.24,
-                        color: c.textPrimary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      candidate.reasonVi,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 11.4,
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                        color: c.primary,
-                      ),
-                    ),
-                  ],
+          LifeOsIconSquircle(icon: icon, tone: tone, size: 30, iconSize: 15),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  candidate.titleVi,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 12.8,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                    color: c.textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(
-            candidate.subtitleVi,
-            softWrap: true,
-            style: TextStyle(
-              fontSize: 12.0,
-              height: 1.3,
-              color: c.textSecondary,
+                const SizedBox(height: 2),
+                Text(
+                  candidate.reasonVi,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 11.2,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    color: c.primary,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          const SizedBox(width: 6),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               FilledButton.tonal(
                 key: Key('today_rec_action_${candidate.id}'),
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size(48, 44),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(44, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
                 ),
                 onPressed: onActionTap,
                 child: Text(
                   candidate.actionLabelVi,
                   style: const TextStyle(
-                    fontSize: 12.2,
+                    fontSize: 11.6,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              TextButton(
+              InkWell(
                 key: Key('today_rec_dismiss_${candidate.id}'),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 44),
+                borderRadius: BorderRadius.circular(8),
+                onTap: onDismissTap,
+                child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 6,
+                    vertical: 3,
                   ),
-                ),
-                onPressed: onDismissTap,
-                child: const Text(
-                  'Ẩn',
-                  style: TextStyle(fontSize: 12.2, fontWeight: FontWeight.w600),
+                  child: Text(
+                    'Ẩn',
+                    style: TextStyle(
+                      fontSize: 11.2,
+                      fontWeight: FontWeight.w600,
+                      color: c.textSecondary,
+                    ),
+                  ),
                 ),
               ),
             ],
