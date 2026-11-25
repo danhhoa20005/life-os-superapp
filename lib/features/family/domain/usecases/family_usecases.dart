@@ -47,11 +47,15 @@ final class JoinFamilyParams {
   final String userId;
   final String userName;
   final String inviteCode;
+  final String? userEmail;
+  final String? userPhone;
 
   const JoinFamilyParams({
     required this.userId,
     required this.userName,
     required this.inviteCode,
+    this.userEmail,
+    this.userPhone,
   });
 }
 
@@ -74,6 +78,8 @@ class JoinFamilyByCodeUseCase
       userId: params.userId,
       userName: params.userName,
       inviteCode: code,
+      userEmail: params.userEmail,
+      userPhone: params.userPhone,
     );
   }
 }
@@ -239,6 +245,8 @@ final class RecordDebtSettlementParams {
   final String toUserName;
   final int amountMinor;
   final String? paymentCode;
+  final bool isPartial;
+  final String? settlementRequestId;
   final String? note;
 
   const RecordDebtSettlementParams({
@@ -249,6 +257,8 @@ final class RecordDebtSettlementParams {
     required this.toUserName,
     required this.amountMinor,
     this.paymentCode,
+    this.isPartial = false,
+    this.settlementRequestId,
     this.note,
   });
 }
@@ -294,7 +304,162 @@ class RecordDebtSettlementUseCase
       toUserName: params.toUserName,
       amountMinor: params.amountMinor,
       paymentCode: resolvedCode,
+      isPartial: params.isPartial,
+      settlementRequestId: params.settlementRequestId,
       note: params.note?.trim(),
+    );
+  }
+}
+
+final class RequestDebtSettlementParams {
+  final String familyId;
+  final String fromUserId;
+  final String fromUserName;
+  final String toUserId;
+  final String toUserName;
+  final int amountMinor;
+  final String? paymentCode;
+  final bool isPartial;
+  final String? note;
+
+  const RequestDebtSettlementParams({
+    required this.familyId,
+    required this.fromUserId,
+    required this.fromUserName,
+    required this.toUserId,
+    required this.toUserName,
+    required this.amountMinor,
+    this.paymentCode,
+    this.isPartial = false,
+    this.note,
+  });
+}
+
+class RequestDebtSettlementUseCase
+    implements UseCase<SettlementRequestEntity, RequestDebtSettlementParams> {
+  final FamilyRepository _repository;
+  const RequestDebtSettlementUseCase(this._repository);
+
+  @override
+  Future<Result<SettlementRequestEntity>> call(
+    RequestDebtSettlementParams params,
+  ) async {
+    if (params.fromUserId == params.toUserId) {
+      return const Err(
+        ValidationFailure(
+          message: 'Người trả nợ và người nhận không được là cùng một người.',
+        ),
+      );
+    }
+    if (params.amountMinor <= 0 ||
+        params.amountMinor > VndAmount.maxAllowedMinor) {
+      return const Err(
+        ValidationFailure(
+          message: 'Số tiền tất toán phải là số nguyên dương (VND).',
+        ),
+      );
+    }
+    final resolvedCode =
+        (params.paymentCode != null && params.paymentCode!.trim().isNotEmpty)
+        ? params.paymentCode!.trim()
+        : BankNotificationParser.buildSePayTransferCode(
+            scopePrefix: 'SPLIT',
+            seed:
+                '${params.familyId}:${params.fromUserId}:${params.toUserId}:${params.amountMinor}',
+          );
+
+    return _repository.requestDebtSettlement(
+      familyId: params.familyId,
+      fromUserId: params.fromUserId,
+      fromUserName: params.fromUserName,
+      toUserId: params.toUserId,
+      toUserName: params.toUserName,
+      amountMinor: params.amountMinor,
+      paymentCode: resolvedCode,
+      isPartial: params.isPartial,
+      note: params.note?.trim(),
+    );
+  }
+}
+
+final class ConfirmSettlementRequestParams {
+  final String familyId;
+  final String requestId;
+  final String actorUserId;
+  final bool approve;
+  final String? disputeReason;
+
+  const ConfirmSettlementRequestParams({
+    required this.familyId,
+    required this.requestId,
+    required this.actorUserId,
+    required this.approve,
+    this.disputeReason,
+  });
+}
+
+class ConfirmSettlementRequestUseCase
+    implements UseCase<DebtSettlementEntity?, ConfirmSettlementRequestParams> {
+  final FamilyRepository _repository;
+  const ConfirmSettlementRequestUseCase(this._repository);
+
+  @override
+  Future<Result<DebtSettlementEntity?>> call(
+    ConfirmSettlementRequestParams params,
+  ) {
+    if (params.requestId.trim().isEmpty || params.actorUserId.trim().isEmpty) {
+      return Future.value(
+        const Err(
+          ValidationFailure(message: 'Thiếu mã yêu cầu tất toán hợp lệ.'),
+        ),
+      );
+    }
+    return _repository.confirmSettlementRequest(
+      familyId: params.familyId,
+      requestId: params.requestId.trim(),
+      actorUserId: params.actorUserId.trim(),
+      approve: params.approve,
+      disputeReason: params.disputeReason?.trim(),
+    );
+  }
+}
+
+final class ReverseDebtSettlementParams {
+  final String familyId;
+  final String settlementId;
+  final String actorUserId;
+  final String? reason;
+
+  const ReverseDebtSettlementParams({
+    required this.familyId,
+    required this.settlementId,
+    required this.actorUserId,
+    this.reason,
+  });
+}
+
+class ReverseDebtSettlementUseCase
+    implements UseCase<DebtSettlementEntity, ReverseDebtSettlementParams> {
+  final FamilyRepository _repository;
+  const ReverseDebtSettlementUseCase(this._repository);
+
+  @override
+  Future<Result<DebtSettlementEntity>> call(
+    ReverseDebtSettlementParams params,
+  ) {
+    if (params.settlementId.trim().isEmpty ||
+        params.actorUserId.trim().isEmpty) {
+      return Future.value(
+        const Err(
+          ValidationFailure(message: 'Thiếu mã khoản tất toán cần hoàn tác.'),
+        ),
+      );
+    }
+    return _repository.reverseDebtSettlement(
+      familyId: params.familyId,
+      settlementId: params.settlementId.trim(),
+      actorUserId: params.actorUserId.trim(),
+      reason: params.reason?.trim(),
     );
   }
 }

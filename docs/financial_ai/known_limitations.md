@@ -26,8 +26,14 @@ Tài liệu này ghi nhận trung thực các giới hạn kỹ thuật hiện t
    - Trên tập kiểm thử độc lập (`eval_report.json`), hai lớp có độ chồng lấn ngữ nghĩa tự nhiên cao nhất là `family` (chi cho gia đình/con cái) và `income.gift` (nhận tiền mừng/biếu tặng). Hệ thống giảm thiểu rủi ro bằng cách lọc chặt theo chiều giao dịch (`debit` vs `credit`) và hiển thị Top-3 danh mục gợi ý trên thẻ duyệt nháp để người dùng đổi bằng 1 chạm.
 3. **Số tiền mập mờ không kèm đơn vị (`"mua bánh 1.500"`):**
    - Theo đúng thiết kế an toàn tài chính Phase 4.4, các con số dạng `d.ddd` dưới `10.000` không kèm chữ `đ`/`VND`/`k` được đánh dấu `AmbiguityFlag.ambiguousAmountSeparator` và **luôn bắt buộc người dùng xác nhận** thay vì tự suy diễn giữa `1.500 ₫` và `1.500.000 ₫`.
-4. **Chia hóa đơn nhiều người nâng cao:**
-   - Pipeline `FinancialAiRepository` tập trung vào tách câu đa giao dịch độc lập (`"đổ xăng 70k và mua nước 15k"`), chuyển khoản nội bộ/ngoài, hoàn tiền và phân loại danh mục cá nhân hóa. Các câu chia tiền nhóm phức tạp theo tỷ lệ từng thành viên gia đình (`"Ăn lẩu 450k chia đều 3 người"`) vẫn được phục vụ song song bởi `VoiceSmartCaptureSheet` hiện hữu của ứng dụng.
+4. **Chia hóa đơn nhiều người & Phân giải thành viên (`FIX-004`, `FIX-005`):**
+   - `SmartMoneySplitAiEngine` và `VoiceFinancialNlpEngine` thực hiện bóc tách và kiểm tra hợp lệ toàn bộ các chế độ chia tiền (`equal`, `percentage`, `shares`, `itemizedRemainder`, `exactAmounts`), áp dụng phép chia số nguyên `BigInt` (`apportionExactVnd`) đảm bảo tổng phần chia luôn khớp tuyệt đối `100%` tới từng đồng VND và **không bao giờ tự rơi ngầm về `SplitMethod.equal`** khi dữ liệu mâu thuẫn (`SplitValidationStatus != valid`).
+   - Giới hạn cố ý: khi có từ 2 thành viên trùng tên ngắn (ví dụ `"Lê Hà"` và `"Phạm Hà"` cùng gọi `"Hà"`), `ParticipantResolutionEngine` sẽ **từ chối đoán tự động**, gắn `ambiguousParticipant` và yêu cầu người dùng chọn rõ qua `ChoiceChip` trên `VoiceSmartCaptureSheet`.
+   - Khi giọng nói đọc khoản riêng lẻ có phần trùng lặp/lệch tổng ở biên lai đa danh mục (`sumLines > headTotal`), hệ thống yêu cầu người dùng tick xác nhận rõ trước khi khóa nút lưu.
+5. **Chặn mệnh đề phủ định / giả định & Ranh giới Hybrid Cloud (`Section 13`, `Section 16`):**
+   - `ClauseSafetyScreener` chủ động chặn các mệnh đề giả định/hủy (`"định mua..."`, `"dự định..."`, `"có nên... không"`, `"đừng ghi..."`, `"không lưu..."`); trong trường hợp câu quá phức tạp hoặc mang tính tư vấn mở, `SmartHybridGate` chỉ chuyển tiếp qua `GeminiPrivacySanitizer` + `OtpRedactor.redact` khi người dùng đã chủ động bật Gemini + có khóa API hợp lệ.
+6. **Phân tích biến động số dư Ngân hàng Android (`Section 27`):**
+   - `BankNotificationListenerService` chủ động bỏ qua thông báo tóm tắt nhóm (`FLAG_GROUP_SUMMARY`) và chỉ chặn mã OTP/PIN thực sự (`m[aã]\s*pin|pin\s*code`), tránh chặn nhầm tên ngân hàng hoặc mã tham chiếu hợp lệ; `BankNotificationParser` loại bỏ tin quảng cáo/mời bạn (`referral`, `voucher`, `hoàn tiền đến...`). Tuy nhiên các định dạng SMS/thông báo ngân hàng mới phát hành sau bản cập nhật vẫn có thể cần bổ sung regex nếu cấu trúc thay đổi hoàn toàn.
 
 ---
 

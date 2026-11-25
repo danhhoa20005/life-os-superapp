@@ -53,6 +53,12 @@ abstract interface class FinancialAiRepository {
     required String semanticKey,
     String directionCondition = 'any',
     String sourceContext = 'any',
+    String ruleKind = 'category',
+    String? preferredWalletId,
+    String? preferredWalletName,
+    String? participantUserId,
+    String? participantDisplayName,
+    String? ruleIdOverride,
   });
 
   Future<Result<({bool isDuplicate, String? matchedTransactionId})>>

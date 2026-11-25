@@ -181,15 +181,26 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
           merchantCanonicalKey.isNotEmpty) {
         final rules = await _localSync.getRulesForUser(userId);
         for (final rule in rules) {
+          if (rule.ruleKind == 'nickname') {
+            continue;
+          }
           if (rule.matchesContext(
             canonicalKey: merchantCanonicalKey,
             direction: direction,
             source: source,
             amountMinor: amountMinor,
           )) {
-            final matchingCat = categories
-                .where((c) => c.id == rule.selectedCategoryId)
-                .firstOrNull;
+            final matchingCat =
+                categories
+                    .where((c) => c.id == rule.selectedCategoryId)
+                    .firstOrNull ??
+                categories
+                    .where(
+                      (c) =>
+                          c.name.trim().toLowerCase() ==
+                          rule.selectedCategoryName.trim().toLowerCase(),
+                    )
+                    .firstOrNull;
             if (matchingCat != null) {
               return Success(
                 ResolvedCategoryMatch(
@@ -198,6 +209,19 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
                   suggestedCategoryName: matchingCat.name,
                   semanticKey: rule.semanticKey,
                   hasExactUserCategory: true,
+                ),
+              );
+            }
+            if (categories.isEmpty && rule.selectedCategoryName.isNotEmpty) {
+              return Success(
+                ResolvedCategoryMatch(
+                  categoryId: rule.selectedCategoryId.isNotEmpty
+                      ? rule.selectedCategoryId
+                      : null,
+                  displayCategoryName: rule.selectedCategoryName,
+                  suggestedCategoryName: rule.selectedCategoryName,
+                  semanticKey: rule.semanticKey,
+                  hasExactUserCategory: rule.selectedCategoryId.isNotEmpty,
                 ),
               );
             }
@@ -407,24 +431,38 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
         final flags = List<AmbiguityFlag>.from(ext.ambiguityFlags);
         final direction = ext.transactionType.expectedDirection;
 
-        // Stage 3: Check Personalization Engine first (if category still exists!)
+        // Stage 3: Check Personalization Engine first (merchant rule + wallet preference!)
         PersonalizationRule? matchedRule;
         CategoryEntity? matchedRuleCategory;
         if (ext.merchantCanonicalKey != null) {
           for (final rule in personalRules) {
+            if (rule.ruleKind == 'nickname') {
+              continue;
+            }
             if (rule.matchesContext(
               canonicalKey: ext.merchantCanonicalKey!,
               direction: direction,
               source: source,
               amountMinor: ext.amountMinor,
             )) {
-              final validCat = categories
-                  .where((c) => c.id == rule.selectedCategoryId)
-                  .firstOrNull;
+              final validCat =
+                  categories
+                      .where((c) => c.id == rule.selectedCategoryId)
+                      .firstOrNull ??
+                  categories
+                      .where(
+                        (c) =>
+                            c.name.trim().toLowerCase() ==
+                            rule.selectedCategoryName.trim().toLowerCase(),
+                      )
+                      .firstOrNull;
               if (validCat != null) {
                 matchedRule = rule;
                 matchedRuleCategory = validCat;
                 break;
+              } else if (rule.preferredWalletId != null &&
+                  rule.preferredWalletId!.isNotEmpty) {
+                matchedRule ??= rule;
               }
             }
           }
@@ -492,7 +530,11 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
         // Stage 6: Resolve Source & Destination Wallets safely (NEVER guess from merchant!)
         String? srcWalletId = _resolveWalletHint(ext.sourceAccountHint, wallets);
         if (srcWalletId == null && ext.sourceAccountHint == null) {
-          if (preferredWalletId != null &&
+          final ruleWalletId = matchedRule?.preferredWalletId;
+          if (ruleWalletId != null &&
+              wallets.any((w) => w.id == ruleWalletId)) {
+            srcWalletId = ruleWalletId;
+          } else if (preferredWalletId != null &&
               wallets.any((w) => w.id == preferredWalletId)) {
             srcWalletId = preferredWalletId;
           } else if (wallets.length == 1) {
@@ -751,6 +793,12 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
     required String semanticKey,
     String directionCondition = 'any',
     String sourceContext = 'any',
+    String ruleKind = 'category',
+    String? preferredWalletId,
+    String? preferredWalletName,
+    String? participantUserId,
+    String? participantDisplayName,
+    String? ruleIdOverride,
   }) async {
     try {
       final rule = await _localSync.upsertCorrectionRule(
@@ -763,6 +811,12 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
         directionCondition: directionCondition,
         sourceContext: sourceContext,
         modelVersion: _classifier.metadata.modelVersion,
+        ruleKind: ruleKind,
+        preferredWalletId: preferredWalletId,
+        preferredWalletName: preferredWalletName,
+        participantUserId: participantUserId,
+        participantDisplayName: participantDisplayName,
+        ruleIdOverride: ruleIdOverride,
       );
       return Success(rule);
     } catch (e) {

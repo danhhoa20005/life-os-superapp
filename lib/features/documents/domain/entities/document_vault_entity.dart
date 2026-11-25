@@ -44,6 +44,14 @@ extension DocumentFolderCategoryX on DocumentFolderCategory {
   }
 }
 
+enum DocumentStorageScope {
+  /// Encrypted binary stored in device hardware-backed vault + metadata only in cloud.
+  localEncryptedVault,
+
+  /// Only metadata stored in cloud (no local binary file).
+  cloudMetadataOnly,
+}
+
 enum DocumentStorageLifecycle {
   /// Metadata synced to Firestore; no binary file attached.
   metadataCloudSynced,
@@ -68,7 +76,11 @@ class DocumentVaultEntity extends Equatable {
   final DateTime? expiryDate;
   final DateTime createdAt;
   final DocumentStorageLifecycle storageLifecycle;
+  final DocumentStorageScope storageScope;
   final String? localAttachmentPath;
+  final String? localAttachmentStorageKey;
+  final String? attachmentSha256;
+  final int? encryptedSizeBytes;
 
   const DocumentVaultEntity({
     required this.id,
@@ -83,8 +95,18 @@ class DocumentVaultEntity extends Equatable {
     this.expiryDate,
     required this.createdAt,
     this.storageLifecycle = DocumentStorageLifecycle.metadataCloudSynced,
+    DocumentStorageScope? storageScope,
     this.localAttachmentPath,
-  });
+    this.localAttachmentStorageKey,
+    this.attachmentSha256,
+    this.encryptedSizeBytes,
+  }) : storageScope =
+           storageScope ??
+           ((localAttachmentPath != null && localAttachmentPath != '') ||
+                   storageLifecycle ==
+                       DocumentStorageLifecycle.localDeviceOnlyBinary
+               ? DocumentStorageScope.localEncryptedVault
+               : DocumentStorageScope.cloudMetadataOnly);
 
   /// Honest multi-device backup status label (`F19` / `DOC-01`).
   String get syncStatusLabelVi => switch (storageLifecycle) {
@@ -124,6 +146,10 @@ class DocumentVaultEntity extends Equatable {
     expiryDate,
     createdAt,
     storageLifecycle,
+    storageScope,
     localAttachmentPath,
+    localAttachmentStorageKey,
+    attachmentSha256,
+    encryptedSizeBytes,
   ];
 }

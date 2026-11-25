@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/security/bank_notification_parser.dart';
+import '../../domain/entities/financial_aggregation_engine.dart';
+import '../../domain/entities/ledger_integrity_engine.dart';
 import '../../domain/entities/transaction_entities.dart';
 import '../models/transaction_models.dart';
 
@@ -29,6 +31,12 @@ class TransactionRemoteDataSource {
           .collection('users')
           .doc(userId)
           .collection('net_worth_snapshots');
+
+  CollectionReference<Map<String, dynamic>> _monthlySummaryCol(String userId) =>
+      _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('monthly_summaries');
 
   static int _walletTypeRank(WalletType type) => switch (type) {
     WalletType.cash => 0,
@@ -71,6 +79,18 @@ class TransactionRemoteDataSource {
         .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
   }
 
+  /// Unbounded stream of all transactions in [monthKey] for exact VND aggregation (`FIX-001`).
+  Stream<List<TransactionModel>> watchAllTransactionsForAggregation({
+    required String userId,
+    required String monthKey,
+  }) {
+    return _txCol(userId)
+        .where('monthKey', isEqualTo: monthKey)
+        .orderBy('occurredAt', descending: true)
+        .snapshots(includeMetadataChanges: true)
+        .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
+  }
+
   Stream<List<TransactionModel>> watchTransactionsRange({
     required String userId,
     required DateTime startInclusive,
@@ -85,6 +105,23 @@ class TransactionRemoteDataSource {
         .where('occurredAt', isLessThan: Timestamp.fromDate(endExclusive))
         .orderBy('occurredAt', descending: true)
         .limit(limit)
+        .snapshots(includeMetadataChanges: true)
+        .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
+  }
+
+  /// Unbounded period stream `[startInclusive, endExclusive)` without artificial 100/600 cap (`FIX-001`).
+  Stream<List<TransactionModel>> watchTransactionsInPeriod({
+    required String userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+  }) {
+    return _txCol(userId)
+        .where(
+          'occurredAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startInclusive),
+        )
+        .where('occurredAt', isLessThan: Timestamp.fromDate(endExclusive))
+        .orderBy('occurredAt', descending: true)
         .snapshots(includeMetadataChanges: true)
         .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
   }
@@ -193,41 +230,116 @@ class TransactionRemoteDataSource {
           kind == TransactionKind.creditCardPayment) {
         newSourceBal = sourceBal - amountMinor;
         final newTargetBal = targetBal! + amountMinor;
+        final conservationCheck =
+            LedgerIntegrityEngine.validateTransferBalanceConservation(
+              sourceBeforeMinor: sourceBal,
+              sourceAfterMinor: newSourceBal,
+              targetBeforeMinor: targetBal,
+              targetAfterMinor: newTargetBal,
+              amountMinor: amountMinor,
+            );
+        if (conservationCheck is Err<void>) {
+          throw AppException(
+            code: conservationCheck.failure.code,
+            message: conservationCheck.failure.message,
+          );
+        }
+
+        final srcAuditId = 'aud_${operationId}_src';
+        final dstAuditId = 'aud_${operationId}_dst';
+        final srcAuditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: srcAuditId,
+          operationId: operationId,
+          transactionId: operationId,
+          walletId: walletId,
+          previousBalanceMinor: sourceBal,
+          deltaAmountMinor: -amountMinor,
+          newBalanceMinor: newSourceBal,
+          createdAt: now,
+          actorId: userId,
+          source: 'manual',
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
+          walletName: sourceName,
+          kind: kind.name,
+        );
+        final dstAuditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: dstAuditId,
+          operationId: operationId,
+          transactionId: operationId,
+          walletId: targetWalletId!,
+          previousBalanceMinor: targetBal,
+          deltaAmountMinor: amountMinor,
+          newBalanceMinor: newTargetBal,
+          createdAt: now,
+          actorId: userId,
+          source: 'manual',
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
+          walletName: targetName,
+          kind: kind.name,
+        );
+        if (srcAuditRes is Err<LedgerAuditRecord>) {
+          throw AppException(
+            code: srcAuditRes.failure.code,
+            message: srcAuditRes.failure.message,
+          );
+        }
+        if (dstAuditRes is Err<LedgerAuditRecord>) {
+          throw AppException(
+            code: dstAuditRes.failure.code,
+            message: dstAuditRes.failure.message,
+          );
+        }
+
+        final createdTs = Timestamp.fromDate(now);
         tx.update(sourceWalletRef, {
           'balanceMinor': newSourceBal,
-          'updatedAt': Timestamp.fromDate(now),
+          'lastAuditId': srcAuditId,
+          'updatedAt': createdTs,
         });
         tx.update(targetWalletRef!, {
           'balanceMinor': newTargetBal,
-          'updatedAt': Timestamp.fromDate(now),
+          'lastAuditId': dstAuditId,
+          'updatedAt': createdTs,
         });
-        tx.set(_auditCol(userId).doc('aud_${operationId}_src'), {
-          'id': 'aud_${operationId}_src',
-          'ownerId': userId,
-          'txId': operationId,
-          'walletId': walletId,
-          'walletName': sourceName,
-          'previousBalanceMinor': sourceBal,
-          'deltaMinor': -amountMinor,
-          'newBalanceMinor': newSourceBal,
-          'kind': kind.name,
-          'createdAt': Timestamp.fromDate(now),
-        });
-        tx.set(_auditCol(userId).doc('aud_${operationId}_dst'), {
-          'id': 'aud_${operationId}_dst',
-          'ownerId': userId,
-          'txId': operationId,
-          'walletId': targetWalletId,
-          'walletName': targetName,
-          'previousBalanceMinor': targetBal,
-          'deltaMinor': amountMinor,
-          'newBalanceMinor': newTargetBal,
-          'kind': kind.name,
-          'createdAt': Timestamp.fromDate(now),
-        });
+        tx.set(
+          _auditCol(userId).doc(srcAuditId),
+          (srcAuditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+            createdAtValue: createdTs,
+          ),
+        );
+        tx.set(
+          _auditCol(userId).doc(dstAuditId),
+          (dstAuditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+            createdAtValue: createdTs,
+          ),
+        );
       } else {
         final delta = direction == 'credit' ? amountMinor : -amountMinor;
         newSourceBal = sourceBal + delta;
+        final auditId = 'aud_$operationId';
+        final auditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: auditId,
+          operationId: operationId,
+          transactionId: operationId,
+          walletId: walletId,
+          previousBalanceMinor: sourceBal,
+          deltaAmountMinor: delta,
+          newBalanceMinor: newSourceBal,
+          createdAt: now,
+          actorId: userId,
+          source: 'manual',
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
+          walletName: sourceName,
+          kind: kind.name,
+        );
+        if (auditRes is Err<LedgerAuditRecord>) {
+          throw AppException(
+            code: auditRes.failure.code,
+            message: auditRes.failure.message,
+          );
+        }
+
+        final createdTs = Timestamp.fromDate(now);
         if (autoCreateDefaultCash) {
           tx.set(sourceWalletRef, {
             'id': walletId,
@@ -238,35 +350,30 @@ class TransactionRemoteDataSource {
             'maskedAccount': null,
             'balanceMinor': newSourceBal,
             'isEstimatedBalance': true,
-            'lastAuditId': 'aud_$operationId',
-            'createdAt': Timestamp.fromDate(now),
-            'updatedAt': Timestamp.fromDate(now),
+            'lastAuditId': auditId,
+            'createdAt': createdTs,
+            'updatedAt': createdTs,
           });
         } else {
           tx.update(sourceWalletRef, {
             'balanceMinor': newSourceBal,
-            'lastAuditId': 'aud_$operationId',
-            'updatedAt': Timestamp.fromDate(now),
+            'lastAuditId': auditId,
+            'updatedAt': createdTs,
           });
         }
-        tx.set(_auditCol(userId).doc('aud_$operationId'), {
-          'id': 'aud_$operationId',
-          'ownerId': userId,
-          'txId': operationId,
-          'walletId': walletId,
-          'walletName': sourceName,
-          'previousBalanceMinor': sourceBal,
-          'deltaMinor': delta,
-          'newBalanceMinor': newSourceBal,
-          'kind': kind.name,
-          'createdAt': Timestamp.fromDate(now),
-        });
+        tx.set(
+          _auditCol(userId).doc(auditId),
+          (auditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+            createdAtValue: createdTs,
+          ),
+        );
       }
 
       tx.set(
         txRef,
         TransactionModel.toFirestoreMap(
           id: operationId,
+          operationId: operationId,
           ownerId: userId,
           walletId: walletId,
           targetWalletId: targetWalletId,
@@ -280,6 +387,7 @@ class TransactionRemoteDataSource {
           occurredAt: occurredAt,
           sourceKind: TransactionSourceKind.manual,
           verification: TransactionVerification.userConfirmed,
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
           crossSourceFingerprint: fingerprint,
           isVehicleMaintenanceHint:
               inferred.isVehicleMaintenance ||
@@ -307,6 +415,11 @@ class TransactionRemoteDataSource {
 
     await _firestore.runTransaction((tx) async {
       final origSnap = await tx.get(origRef);
+      final existingRevSnap = await tx.get(revRef);
+      if (existingRevSnap.exists) {
+        // Idempotent reversal guard (`FIX-007`): return existing reversal record cleanly.
+        return;
+      }
       if (!origSnap.exists) {
         throw const AppException(
           code: 'NOT_FOUND',
@@ -331,47 +444,154 @@ class TransactionRemoteDataSource {
       final sourceSnap = await tx.get(sourceRef);
       final sourceBal =
           (sourceSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final sourceName = (sourceSnap.data()?['name'] as String?) ?? orig.walletName;
 
       DocumentReference<Map<String, dynamic>>? targetRef;
       int? targetBal;
+      String? targetName;
+      var targetExists = false;
       if (orig.targetWalletId != null) {
         targetRef = _walletsCol(userId).doc(orig.targetWalletId);
         final targetSnap = await tx.get(targetRef);
+        targetExists = targetSnap.exists;
         targetBal = (targetSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+        targetName = targetSnap.data()?['name'] as String?;
       }
 
       final now = DateTime.now();
+      final revTs = Timestamp.fromDate(now);
+      final srcAuditId = 'aud_rev_$transactionId';
+      late final int newSourceBal;
+
       if (orig.kind == TransactionKind.transfer ||
           orig.kind == TransactionKind.creditCardPayment) {
-        tx.update(sourceRef, {
-          'balanceMinor': sourceBal + orig.amountMinor,
-          'updatedAt': Timestamp.fromDate(now),
-        });
-        if (targetRef != null && targetBal != null) {
-          tx.update(targetRef, {
-            'balanceMinor': targetBal - orig.amountMinor,
-            'updatedAt': Timestamp.fromDate(now),
+        newSourceBal = sourceBal + orig.amountMinor;
+        final srcAuditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: srcAuditId,
+          operationId: revId,
+          transactionId: revId,
+          walletId: orig.walletId,
+          previousBalanceMinor: sourceBal,
+          deltaAmountMinor: orig.amountMinor,
+          newBalanceMinor: newSourceBal,
+          createdAt: now,
+          actorId: userId,
+          source: 'manual_reversal',
+          verificationStatus: LedgerVerificationStatuses.reversed,
+          walletName: sourceName,
+          kind: TransactionKind.reversal.name,
+        );
+        if (srcAuditRes is Err<LedgerAuditRecord>) {
+          throw AppException(
+            code: srcAuditRes.failure.code,
+            message: srcAuditRes.failure.message,
+          );
+        }
+
+        if (sourceSnap.exists) {
+          tx.update(sourceRef, {
+            'balanceMinor': newSourceBal,
+            'lastAuditId': srcAuditId,
+            'updatedAt': revTs,
           });
+        }
+        tx.set(
+          _auditCol(userId).doc(srcAuditId),
+          (srcAuditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+            createdAtValue: revTs,
+          ),
+        );
+
+        if (targetRef != null && targetBal != null) {
+          final newTargetBal = targetBal - orig.amountMinor;
+          final dstAuditId = 'aud_rev_${transactionId}_dst';
+          final dstAuditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+            auditId: dstAuditId,
+            operationId: revId,
+            transactionId: revId,
+            walletId: orig.targetWalletId!,
+            previousBalanceMinor: targetBal,
+            deltaAmountMinor: -orig.amountMinor,
+            newBalanceMinor: newTargetBal,
+            createdAt: now,
+            actorId: userId,
+            source: 'manual_reversal',
+            verificationStatus: LedgerVerificationStatuses.reversed,
+            walletName: targetName,
+            kind: TransactionKind.reversal.name,
+          );
+          if (dstAuditRes is Err<LedgerAuditRecord>) {
+            throw AppException(
+              code: dstAuditRes.failure.code,
+              message: dstAuditRes.failure.message,
+            );
+          }
+          if (targetExists) {
+            tx.update(targetRef, {
+              'balanceMinor': newTargetBal,
+              'lastAuditId': dstAuditId,
+              'updatedAt': revTs,
+            });
+          }
+          tx.set(
+            _auditCol(userId).doc(dstAuditId),
+            (dstAuditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+              createdAtValue: revTs,
+            ),
+          );
         }
       } else {
         final inverseDelta = orig.direction == 'credit'
             ? -orig.amountMinor
             : orig.amountMinor;
-        tx.update(sourceRef, {
-          'balanceMinor': sourceBal + inverseDelta,
-          'updatedAt': Timestamp.fromDate(now),
-        });
+        newSourceBal = sourceBal + inverseDelta;
+        final auditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: srcAuditId,
+          operationId: revId,
+          transactionId: revId,
+          walletId: orig.walletId,
+          previousBalanceMinor: sourceBal,
+          deltaAmountMinor: inverseDelta,
+          newBalanceMinor: newSourceBal,
+          createdAt: now,
+          actorId: userId,
+          source: 'manual_reversal',
+          verificationStatus: LedgerVerificationStatuses.reversed,
+          walletName: sourceName,
+          kind: TransactionKind.reversal.name,
+        );
+        if (auditRes is Err<LedgerAuditRecord>) {
+          throw AppException(
+            code: auditRes.failure.code,
+            message: auditRes.failure.message,
+          );
+        }
+        if (sourceSnap.exists) {
+          tx.update(sourceRef, {
+            'balanceMinor': newSourceBal,
+            'lastAuditId': srcAuditId,
+            'updatedAt': revTs,
+          });
+        }
+        tx.set(
+          _auditCol(userId).doc(srcAuditId),
+          (auditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+            createdAtValue: revTs,
+          ),
+        );
       }
 
       final revDirection = orig.direction == 'debit' ? 'credit' : 'debit';
       tx.update(origRef, {
         'reversedById': revId,
-        'updatedAt': Timestamp.fromDate(now),
+        'verificationStatus': LedgerVerificationStatuses.reversed,
+        'updatedAt': revTs,
       });
       tx.set(
         revRef,
         TransactionModel.toFirestoreMap(
           id: revId,
+          operationId: revId,
           ownerId: userId,
           walletId: orig.walletId,
           targetWalletId: orig.targetWalletId,
@@ -385,8 +605,11 @@ class TransactionRemoteDataSource {
           occurredAt: now,
           sourceKind: TransactionSourceKind.manual,
           verification: TransactionVerification.userConfirmed,
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
           crossSourceFingerprint: 'rev_${orig.crossSourceFingerprint}',
           reversalOfId: orig.id,
+          balanceAfterMinor: newSourceBal,
+          walletName: sourceName,
           now: now,
         ),
       );
@@ -415,17 +638,89 @@ class TransactionRemoteDataSource {
         );
       }
       final current = TransactionModel.fromFirestore(snap).entity;
+      if (LedgerIntegrityEngine.isImmutableVerified(current)) {
+        final mutationGuard = LedgerIntegrityEngine.validateClientMutation(
+          existing: current,
+          newAmountMinor: updatedAmountMinor,
+          newVerification: approve
+              ? TransactionVerification.userConfirmed
+              : TransactionVerification.rejected,
+        );
+        if (mutationGuard is Err<void>) {
+          throw AppException(
+            code: mutationGuard.failure.code,
+            message: mutationGuard.failure.message,
+          );
+        }
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message:
+              'Không thể sửa đổi hoặc duyệt lại giao dịch ngân hàng đã VERIFIED.',
+        );
+      }
+
       if (current.verification != TransactionVerification.provisional &&
           current.verification != TransactionVerification.needsReview) {
         return;
       }
 
+      final walletRef = _walletsCol(userId).doc(current.walletId);
+      final walletSnap = await tx.get(walletRef);
       final now = DateTime.now();
+      final tsNow = Timestamp.fromDate(now);
+
       if (!approve) {
+        int? newBalAfterReject;
+        if (current.ledgerApplied && walletSnap.exists) {
+          final bal =
+              (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+          final walletName =
+              (walletSnap.data()?['name'] as String?) ?? current.walletName;
+          final reverseDelta = current.direction == 'credit'
+              ? -current.amountMinor
+              : current.amountMinor;
+          newBalAfterReject = bal + reverseDelta;
+          final auditId = 'aud_reject_$transactionId';
+          final auditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+            auditId: auditId,
+            operationId: current.operationId ?? 'reject_$transactionId',
+            transactionId: transactionId,
+            walletId: current.walletId,
+            previousBalanceMinor: bal,
+            deltaAmountMinor: reverseDelta,
+            newBalanceMinor: newBalAfterReject,
+            createdAt: now,
+            actorId: userId,
+            source: 'provisional_rejection',
+            verificationStatus: LedgerVerificationStatuses.rejected,
+            walletName: walletName,
+            kind: current.kind.name,
+          );
+          if (auditRes is Err<LedgerAuditRecord>) {
+            throw AppException(
+              code: auditRes.failure.code,
+              message: auditRes.failure.message,
+            );
+          }
+          tx.update(walletRef, {
+            'balanceMinor': newBalAfterReject,
+            'lastAuditId': auditId,
+            'updatedAt': tsNow,
+          });
+          tx.set(
+            _auditCol(userId).doc(auditId),
+            (auditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+              createdAtValue: tsNow,
+            ),
+          );
+        }
+
         tx.update(txRef, {
           'verification': TransactionVerification.rejected.name,
-          'verificationStatus': 'REJECTED',
-          'updatedAt': Timestamp.fromDate(now),
+          'verificationStatus': LedgerVerificationStatuses.rejected,
+          'ledgerApplied': false,
+          if (newBalAfterReject != null) 'balanceAfterMinor': newBalAfterReject,
+          'updatedAt': tsNow,
         });
         return;
       }
@@ -435,34 +730,66 @@ class TransactionRemoteDataSource {
           ? updatedAmountMinor
           : current.amountMinor;
 
+      int? newBalAfterConfirm;
       // Single-balance-effect guard: ONLY apply delta if ledgerApplied was false!
-      if (!current.ledgerApplied) {
-        final walletRef = _walletsCol(userId).doc(current.walletId);
-        final walletSnap = await tx.get(walletRef);
-        if (walletSnap.exists) {
-          final bal =
-              (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
-          final delta = current.direction == 'credit'
-              ? effectiveAmount
-              : -effectiveAmount;
-          tx.update(walletRef, {
-            'balanceMinor': bal + delta,
-            'updatedAt': Timestamp.fromDate(now),
-          });
+      if (!current.ledgerApplied && walletSnap.exists) {
+        final bal = (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+        final walletName =
+            (walletSnap.data()?['name'] as String?) ?? current.walletName;
+        final delta = current.direction == 'credit'
+            ? effectiveAmount
+            : -effectiveAmount;
+        newBalAfterConfirm = bal + delta;
+        final auditId = 'aud_confirm_$transactionId';
+        final auditRes = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: auditId,
+          operationId: current.operationId ?? 'confirm_$transactionId',
+          transactionId: transactionId,
+          walletId: current.walletId,
+          previousBalanceMinor: bal,
+          deltaAmountMinor: delta,
+          newBalanceMinor: newBalAfterConfirm,
+          createdAt: now,
+          actorId: userId,
+          source: 'provisional_approval',
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
+          walletName: walletName,
+          kind: current.kind.name,
+        );
+        if (auditRes is Err<LedgerAuditRecord>) {
+          throw AppException(
+            code: auditRes.failure.code,
+            message: auditRes.failure.message,
+          );
         }
+        tx.update(walletRef, {
+          'balanceMinor': newBalAfterConfirm,
+          'lastAuditId': auditId,
+          'updatedAt': tsNow,
+        });
+        tx.set(
+          _auditCol(userId).doc(auditId),
+          (auditRes as Success<LedgerAuditRecord>).value.toPayloadMap(
+            createdAtValue: tsNow,
+          ),
+        );
       }
 
       tx.update(txRef, {
         'verification': TransactionVerification.userConfirmed.name,
-        'verificationStatus': 'USER_CONFIRMED',
+        'verificationStatus': LedgerVerificationStatuses.userConfirmed,
         'ledgerApplied': true,
         'amountMinor': effectiveAmount,
+        if (newBalAfterConfirm != null) 'balanceAfterMinor': newBalAfterConfirm,
+        if (newBalAfterConfirm != null &&
+            current.balanceType == TransactionBalanceType.unknownBalance)
+          'balanceType': TransactionBalanceType.estimatedWalletBalance.name,
         if (updatedCategoryName != null && updatedCategoryName.isNotEmpty)
           'categoryName': updatedCategoryName,
         if (updatedMerchant != null && updatedMerchant.isNotEmpty)
           'merchant': updatedMerchant,
         if (updatedNote != null) 'note': updatedNote,
-        'updatedAt': Timestamp.fromDate(now),
+        'updatedAt': tsNow,
       });
     });
   }
@@ -484,6 +811,33 @@ class TransactionRemoteDataSource {
       'monthlyIncomeMinor': summary.monthlyIncomeMinor,
       'monthlyExpenseMinor': summary.monthlyExpenseMinor,
       'financialHealthScore': summary.financialHealthScore,
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> upsertMonthlySummary({
+    required String userId,
+    required String monthKey,
+    required FinancialAggregationResult summary,
+  }) async {
+    final now = DateTime.now();
+    await _monthlySummaryCol(userId).doc(monthKey).set({
+      'id': monthKey,
+      'ownerId': userId,
+      'monthKey': monthKey,
+      'incomeMinor': summary.incomeMinor,
+      'grossExpenseMinor': summary.grossExpenseMinor,
+      'refundMinor': summary.refundMinor,
+      'netExpenseMinor': summary.netExpenseMinor,
+      'internalTransferMinor': summary.internalTransferMinor,
+      'netCashFlowMinor': summary.netCashFlowMinor,
+      'unconfirmedCount': summary.unconfirmedCount,
+      'provisionalAmountMinor': summary.provisionalAmountMinor,
+      'verifiedCount': summary.verifiedCount,
+      'userConfirmedCount': summary.userConfirmedCount,
+      'matchedPaymentOrderCount': summary.matchedPaymentOrderCount,
+      'totalEvaluatedCount': summary.totalEvaluatedCount,
+      'expenseByCategory': summary.expenseByCategory,
       'updatedAt': Timestamp.fromDate(now),
     }, SetOptions(merge: true));
   }

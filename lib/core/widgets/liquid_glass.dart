@@ -536,8 +536,8 @@ class LiquidGlassSheetFrame extends StatelessWidget {
   }
 }
 
-/// Signature 3D Glossy Apple Liquid Glass Emerald `+` Jewel Button (`48×48` tactile target)
-/// used at the center of LifeOS's floating Liquid Glass navigation dock.
+/// Signature Emerald `+` Center Action Button (`48×48` crisp modern 2D fintech target)
+/// used dead-center of LifeOS's bottom navigation bar.
 class LiquidGlassJewelButton extends StatelessWidget {
   final Key? buttonKey;
   final String tooltip;
@@ -557,7 +557,7 @@ class LiquidGlassJewelButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final radius = size * 0.38;
+    final radius = size * 0.5;
     return Tooltip(
       message: tooltip,
       child: LifeOsPressable(
@@ -569,42 +569,30 @@ class LiquidGlassJewelButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(radius),
             boxShadow: [
               BoxShadow(
-                color: c.primary.withValues(alpha: 0.38),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.22),
-                blurRadius: 2,
-                offset: const Offset(0, -0.5),
+                color: c.primary.withValues(alpha: 0.28),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Material(
-            color: Colors.transparent,
+            color: c.primary,
             borderRadius: BorderRadius.circular(radius),
             child: InkWell(
               key: buttonKey,
               borderRadius: BorderRadius.circular(radius),
               onTap: onTap,
-              child: CustomPaint(
-                foregroundPainter: _LiquidGlassJewelDomePainter(
-                  borderRadius: radius,
-                ),
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(radius),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: LifeOSBrandColors.appIconBgGradient,
-                      stops: LifeOSBrandColors.appIconBgStops,
-                    ),
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.28),
+                    width: 1.2,
                   ),
-                  child: Icon(icon, color: Colors.white, size: size * 0.58),
                 ),
+                child: Icon(icon, color: Colors.white, size: size * 0.58),
               ),
             ),
           ),
@@ -612,69 +600,6 @@ class LiquidGlassJewelButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LiquidGlassJewelDomePainter extends CustomPainter {
-  final double borderRadius;
-
-  const _LiquidGlassJewelDomePainter({required this.borderRadius});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(
-      rect.deflate(0.6),
-      Radius.circular(borderRadius),
-    );
-
-    // Curved top glass lens dome reflection
-    canvas.save();
-    canvas.clipRRect(rrect);
-    final domePath = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height * 0.38)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.54,
-        0,
-        size.height * 0.36,
-      )
-      ..close();
-    canvas.drawPath(
-      domePath,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: 0.38),
-            Colors.white.withValues(alpha: 0.04),
-          ],
-        ).createShader(Offset.zero & Size(size.width, size.height * 0.54)),
-    );
-    canvas.restore();
-
-    // Specular rim around the jewel
-    final rimPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..isAntiAlias = true
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withValues(alpha: 0.72),
-          Colors.white.withValues(alpha: 0.18),
-          const Color(0xFFA7F3D0).withValues(alpha: 0.48),
-        ],
-      ).createShader(rect);
-    canvas.drawRRect(rrect, rimPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LiquidGlassJewelDomePainter oldDelegate) =>
-      oldDelegate.borderRadius != borderRadius;
 }
 
 /// Metadata descriptor for each tab in [LiquidGlassSlidingDock].

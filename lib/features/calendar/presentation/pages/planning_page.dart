@@ -17,6 +17,7 @@ import '../../../tasks/presentation/pages/tasks_board_page.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../../domain/repositories/calendar_repository.dart';
 import '../bloc/calendar_bloc.dart';
+import '../widgets/daily_timeblock_planner_card.dart';
 
 class PlanningPage extends StatefulWidget {
   final String? initialViewMode;
@@ -1539,6 +1540,17 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (_viewMode == 'day' && !isSearching) ...[
+                  DailyTimeblockPlannerCard(
+                    selectedDate: _selectedDate,
+                    userId: widget.userId,
+                    userName: widget.userName,
+                    familyId: widget.familyId,
+                    dayEvents: periodEvents,
+                    openTasks: taskState.tasks,
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // 5. Compact, Unobtrusive 2-Way Google & Device Sync Footer Bar
                 LifeOsSoftCard(

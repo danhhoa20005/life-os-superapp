@@ -1,4 +1,5 @@
 import '../../../../core/security/bank_notification_parser.dart';
+import '../../../../core/utils/vietnamese_temporal_and_entity_resolver.dart';
 import '../../domain/entities/financial_ai_entities.dart';
 import '../normalization/financial_text_normalizer.dart';
 
@@ -54,7 +55,10 @@ class FinancialEntityExtractor {
   };
 
   /// Screens out OTPs, pure balance statements ("còn 2 triệu trong tài khoản"),
-  /// negations ("tôi không mua gì hôm nay"), and cancellation commands ("hủy giao dịch 100k vừa nhập").
+  /// negations ("tôi không mua gì hôm nay", "đừng ghi khoản ăn trưa 50k"),
+  /// hypothetical plans ("tôi định mua xe 30 triệu"), questions ("có nên mua 15tr không?"),
+  /// and cancellation commands ("hủy giao dịch 100k vừa nhập").
+  /// For compound sentences, only blocks whole input if EVERY clause is blocked!
   NonTransactionScreeningResult screenWholeInput(String rawInput) {
     final trimmed = rawInput.trim();
     if (trimmed.isEmpty) {
@@ -72,46 +76,61 @@ class FinancialEntityExtractor {
       );
     }
 
-    final ascii = FinancialTextNormalizer.stripVnAccents(trimmed);
-
-    // 1. Cancellation / undo command ("hủy giao dịch 100k vừa nhập", "xóa giao dịch vừa tạo")
-    if (RegExp(
-      r'^(?:huy|xoa|bo|hoan\s+tac)\s+(?:giao\s+dich|khoan\s+chi|khoan\s+thu| bút\s+toan|but\s+toan)\b',
-    ).hasMatch(ascii)) {
-      return const NonTransactionScreeningResult.blocked(
-        flag: AmbiguityFlag.cancellationCommandNotExpense,
-        explanationVi:
-            'Đây là yêu cầu hủy giao dịch đã nhập trước đó, hệ thống không tạo khoản chi tiêu mới.',
-      );
+    final parts = _splitRawCandidateClauses(trimmed);
+    if (parts.length <= 1) {
+      return _screenSingleClause(trimmed);
     }
 
-    // 2. Negated non-spending statement ("tôi không mua gì hôm nay", "hôm nay chưa tiêu gì", "không đổ xăng")
-    if (RegExp(
-      r'\b(?:khong|chua)\s+(?:mua|tieu|chi|an|uong|do\s+xang|di|phat\s+sinh)\b',
-    ).hasMatch(ascii)) {
-      return const NonTransactionScreeningResult.blocked(
-        flag: AmbiguityFlag.negatedStatement,
+    NonTransactionScreeningResult? firstBlocked;
+    for (final part in parts) {
+      final res = _screenSingleClause(part);
+      if (!res.isBlockedOrNonTransaction) {
+        return const NonTransactionScreeningResult.pass();
+      }
+      firstBlocked ??= res;
+    }
+    return firstBlocked ?? const NonTransactionScreeningResult.pass();
+  }
+
+  NonTransactionScreeningResult _screenSingleClause(String clause) {
+    final safety = ClauseSafetyScreener.screenClause(clause);
+    if (safety.isBlocked) {
+      final flag = switch (safety.status) {
+        ClauseSafetyStatus.blockedBalanceInquiry ||
+        ClauseSafetyStatus.financialQuery =>
+          AmbiguityFlag.balanceStatementNotIncome,
+        ClauseSafetyStatus.blockedNegated =>
+          clause.toLowerCase().startsWith('hủy') ||
+                  clause.toLowerCase().startsWith('huy') ||
+                  clause.toLowerCase().startsWith('xóa') ||
+                  clause.toLowerCase().startsWith('xoa')
+              ? AmbiguityFlag.cancellationCommandNotExpense
+              : AmbiguityFlag.negatedStatement,
+        ClauseSafetyStatus.blockedHypothetical ||
+        ClauseSafetyStatus.blockedQuestion =>
+          AmbiguityFlag.negatedStatement,
+        ClauseSafetyStatus.allowed => AmbiguityFlag.negatedStatement,
+      };
+      return NonTransactionScreeningResult.blocked(
+        flag: flag,
         explanationVi:
-            'Câu mang nghĩa phủ định (chưa phát sinh thu/chi thực tế), không ghi nhận giao dịch.',
+            safety.reasonVi ?? 'Nội dung không tạo giao dịch tài chính mới.',
       );
     }
-
-    // 3. Pure account balance inquiry/statement ("còn 2 triệu trong tài khoản", "số dư hiện còn 5tr")
-    final hasActionVerb = RegExp(
-      r'\b(?:mua|an|uong|chi|tra|thanh\s+toan|do\s+xang|di|nhan|cong|thuong|luong|chuyen|rut|hoan\s+tien|nap)\b',
-    ).hasMatch(ascii);
-    if (!hasActionVerb &&
-        RegExp(
-          r'(?:^|\b)(?:con|so\s+du|hien\s+con|hien\s+co|dang\s+co)\s+.+\b(?:trong\s+(?:tai\s+khoan|vi|the)|kha\s+dung)\b',
-        ).hasMatch(ascii)) {
-      return const NonTransactionScreeningResult.blocked(
-        flag: AmbiguityFlag.balanceStatementNotIncome,
-        explanationVi:
-            'Đây là câu thông báo số dư còn lại trong tài khoản/ví, không phải khoản thu nhập hay chi tiêu mới.',
-      );
-    }
-
     return const NonTransactionScreeningResult.pass();
+  }
+
+  List<String> _splitRawCandidateClauses(String text) {
+    final conjRegex = RegExp(
+      r'(?:\s*[;\n]\s*|(?<!\d)\s*,\s*(?!\d)|\s+(?:và|va|rồi|roi|xong|tiếp\s+theo)\s+)',
+      caseSensitive: false,
+      unicode: true,
+    );
+    return text
+        .split(conjRegex)
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
   }
 
   /// Extracts one or multiple structured [ExtractedFinancialEntity] items from a single user/voice/bank utterance.
@@ -149,18 +168,12 @@ class FinancialEntityExtractor {
   }
 
   /// Splits multi-transaction Vietnamese sentences accurately without breaking compound amounts
-  /// like `"2 triệu 300 nghìn"` or internal transfers like `"Chuyển 2tr từ MB sang VCB"`.
+  /// like `"2 triệu 300 nghìn"` or internal transfers like `"Chuyển 2tr từ MB sang VCB"`,
+  /// while also isolating trailing non-financial schedule/reminder/negated clauses.
   List<String> _segmentIntoClauses(String normalized) {
-    final amounts = _normalizer.extractAmounts(normalized);
-    if (amounts.length <= 1) {
-      return [normalized];
-    }
-
-    // First split on explicit conjunctions (",", ";", " và ", " rồi ", " với lại ", " xong ")
-    // ONLY when both sides contain at least one amount!
     final explicitParts = <String>[];
     final conjRegex = RegExp(
-      r'(?:\s*[,;]\s*|\s+(?:và|va|rồi|roi|xong|tiếp\s+theo)\s+)',
+      r'(?:\s*[;\n]\s*|(?<!\d)\s*,\s*(?!\d)|\s+(?:và|va|rồi|roi|xong|tiếp\s+theo)\s+)',
       caseSensitive: false,
       unicode: true,
     );
@@ -169,8 +182,11 @@ class FinancialEntityExtractor {
     for (final m in conjRegex.allMatches(normalized)) {
       final candidateLeft = normalized.substring(cursor, m.start).trim();
       final candidateRight = normalized.substring(m.end).trim();
-      if (_normalizer.extractAmounts(candidateLeft).isNotEmpty &&
-          _normalizer.extractAmounts(candidateRight).isNotEmpty) {
+      final leftHasAmount = _normalizer.extractAmounts(candidateLeft).isNotEmpty;
+      final rightHasBoundaryClause =
+          _normalizer.extractAmounts(candidateRight).isNotEmpty ||
+          _looksLikeNonFinancialOrBlockedTail(candidateRight);
+      if (leftHasAmount && rightHasBoundaryClause) {
         explicitParts.add(candidateLeft);
         cursor = m.end;
       }
@@ -192,7 +208,6 @@ class FinancialEntityExtractor {
         if (i < subAmounts.length - 1) {
           final nextAmt = subAmounts[i + 1];
           final between = part.substring(amt.endIndex, nextAmt.startIndex).trim();
-          // Determine whether `amt` was prefix-verb ("chi 50k ăn trưa") or postfix ("ăn 45k đổ xăng 70k")
           final beforeAmt = part.substring(subCursor, amt.startIndex).trim();
           final beforeWords = beforeAmt
               .replaceAll(
@@ -224,15 +239,27 @@ class FinancialEntityExtractor {
     return finalSegments.where((s) => s.isNotEmpty).toList(growable: false);
   }
 
+  bool _looksLikeNonFinancialOrBlockedTail(String tail) {
+    final safety = ClauseSafetyScreener.screenClause(tail);
+    if (safety.isBlocked) return true;
+    final ascii = FinancialTextNormalizer.stripVnAccents(tail);
+    return RegExp(
+      r'\b(?:nhac|lich|hop|hen|kham|bao\s+thuc|uong\s+\d+\s*(?:ml|lit|coc)|uong\s+thuoc|ghi\s+chu|di\s+cho)\b',
+    ).hasMatch(ascii);
+  }
+
   ExtractedFinancialEntity? _extractSingleClause(
     String clause, {
     required DateTime referenceTime,
     ParsedRelativeDate? inheritedDate,
   }) {
-    final screen = screenWholeInput(clause);
+    final screen = _screenSingleClause(clause);
     if (screen.isBlockedOrNonTransaction) return null;
 
     final amounts = _normalizer.extractAmounts(clause);
+    if (amounts.isEmpty && _looksLikeNonFinancialOrBlockedTail(clause)) {
+      return null;
+    }
     final flags = <AmbiguityFlag>[];
 
     int? amountMinor;
@@ -261,6 +288,7 @@ class FinancialEntityExtractor {
     final clauseDate =
         _normalizer.extractRelativeDate(clause, referenceTime: referenceTime) ??
         inheritedDate;
+    final entitySnap = VietnameseTemporalAndEntityResolver.extractEntities(clause);
     if (clauseDate != null && clauseDate.isAmbiguous) {
       // Keep date but note mild relative-window ambiguity if "tuần trước" / "tháng trước"
     }
@@ -278,7 +306,9 @@ class FinancialEntityExtractor {
     if (matchedAmountToken.isNotEmpty) {
       desc = desc.replaceFirst(matchedAmountToken, ' ');
     }
-    if (clauseDate != null && clause.contains(clauseDate.matchedPhrase)) {
+    if (clauseDate != null &&
+        clauseDate.matchedPhrase.isNotEmpty &&
+        clause.contains(clauseDate.matchedPhrase)) {
       desc = desc.replaceFirst(clauseDate.matchedPhrase, ' ');
     }
     desc = desc
@@ -325,8 +355,9 @@ class FinancialEntityExtractor {
       merchant: typeDetection.explicitMerchant ?? desc,
       merchantCanonicalKey: canonicalMerchant,
       description: desc,
-      sourceAccountHint: typeDetection.sourceAccountHint,
-      destinationAccountHint: typeDetection.destinationAccountHint,
+      sourceAccountHint: typeDetection.sourceAccountHint ?? entitySnap.walletHint,
+      destinationAccountHint:
+          typeDetection.destinationAccountHint ?? entitySnap.destinationWalletHint,
       recipient: typeDetection.recipient,
       paymentMethod: typeDetection.paymentMethod,
       candidateSemanticKey: typeDetection.deterministicSemanticHint,

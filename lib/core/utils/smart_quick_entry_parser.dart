@@ -1,4 +1,5 @@
 import '../../features/transactions/domain/entities/transaction_entities.dart';
+import 'vietnamese_temporal_and_entity_resolver.dart';
 
 class ParsedSmartEntry {
   final int amountMinor;
@@ -172,7 +173,13 @@ abstract final class SmartQuickEntryParser {
   );
 
   static final RegExp _rawVndNumber = RegExp(
-    r'(?<![\p{L}\p{N}])(\d{1,3}(?:[.,]\d{3})+|\d{4,11})(?:\s*(?:đ|d|₫|vnd|vnđ|đồng|dong))?(?![\p{L}\p{N}])',
+    r'(?<![\p{L}\p{N}])(\d{1,3}(?:[.,]\d{3})+|\d{4,11})(\s*(?:đ|d|₫|vnd|vnđ|đồng|dong))?(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _negativeMoneyRegex = RegExp(
+    r'(?:^|[\s,(])(?:-\s*\d|âm\s+\d|am\s+\d)',
     caseSensitive: false,
     unicode: true,
   );
@@ -375,6 +382,16 @@ abstract final class SmartQuickEntryParser {
     final trimmed = rawInput.trim();
     if (trimmed.isEmpty) return null;
 
+    // Section 13: Chặn mệnh đề phủ định, giả định, hỏi ý kiến hoặc hỏi số dư.
+    if (ClauseSafetyScreener.screenClause(trimmed).isBlocked) {
+      return null;
+    }
+
+    // FIX-004: Không tự ép số âm ("-500k", "âm 500k") thành giao dịch dương.
+    if (_negativeMoneyRegex.hasMatch(trimmed)) {
+      return null;
+    }
+
     final normalized = normalizeColloquialMoney(trimmed);
     if (normalized.isEmpty) return null;
 
@@ -429,14 +446,22 @@ abstract final class SmartQuickEntryParser {
         }
         amountMinor = total;
       } else {
-        final rawMatch = _rawVndNumber.firstMatch(normalized);
-        if (rawMatch != null) {
+        for (final rawMatch in _rawVndNumber.allMatches(normalized)) {
+          final hasCurrencySuffix = (rawMatch.group(2) ?? '').trim().isNotEmpty;
+          if (VietnameseTemporalAndEntityResolver.isFollowedByNonCurrencyUnit(
+            normalized,
+            rawMatch.end,
+            hasExplicitCurrencySuffix: hasCurrencySuffix,
+          )) {
+            continue;
+          }
           matchedToken = rawMatch.group(0) ?? '';
           final digits = (rawMatch.group(1) ?? '').replaceAll(
             RegExp(r'[.,]'),
             '',
           );
           amountMinor = int.tryParse(digits);
+          break;
         }
       }
     }

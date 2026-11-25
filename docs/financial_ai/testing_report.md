@@ -53,3 +53,15 @@ Toàn bộ lệnh kiểm định đã được chạy trực tiếp trên mã ng
 2. **Lỗi bóc tách `ND:` bị ăn vào chữ `VND ` trong `BankNotificationParser`:** Chuỗi `-55,000VND luc ... ND: THANH TOAN ...` ban đầu thiếu biên từ `\b` trước `ND`, làm khớp nhầm `ND ` cuối chữ `VND`. Đã thêm `\b` tại [`bank_notification_parser.dart`](file:///g:/superapp/lib/core/security/bank_notification_parser.dart#L526).
 3. **Lỗi biên từ regex `nhan\s+\d\b` với hậu tố đơn vị tiền (`200k`):** Đã mở rộng thành `nhan\s+\d[a-z0-9.,]*` để nhận diện chính xác `"nhận 200k từ bạn"`, `"nhận 1tr5"`.
 4. **Lỗi định kiểu động `StreamTransformer.fromHandlers`:** Đã khai báo tường minh kiểu tĩnh `StreamTransformer<Result<T>, Result<T>>.fromHandlers` trong `FinancialAiRepositoryImpl`.
+
+---
+
+## 4. Bổ sung Kiểm thử Wave 1C (`FIX-004`, `FIX-005`, `Section 13–16` & `Section 27`)
+
+- **Phân tích tĩnh nghiêm ngặt:** `flutter analyze --fatal-infos --fatal-warnings --no-pub` đạt `No issues found!` (`0` error, `0` warning, `0` info).
+- **Bảo vệ quy tắc mã nguồn (`lib/`):** `0` xuất hiện `TextOverflow`, `0` `.showSnackBar(`, `0` class `Cubit`, tầng `domain/` thuần Dart `100%`.
+- **Kiểm định 12 bộ Test trọng yếu (Unit + Widget `360×800` + Integration + AI Parity + Fuzz):** `90 / 90 PASS`, gồm thêm:
+  - [`test/unit/fix_004_005_ai_nlp_banking_fuzz_test.dart`](../../test/unit/fix_004_005_ai_nlp_banking_fuzz_test.dart): Xác minh `SplitValidationStatus` (không fallthrough về chia đều), `apportionExactVnd` số nguyên `BigInt` ở hóa đơn hàng chục tỷ đồng, `ParticipantResolutionEngine` 4 tầng + chặn `'anh'/'em'` cho chủ tài khoản + đồng điểm `"Hà"`, `ClauseSafetyScreener` chặn câu giả định/phủ định/hỏi, bóc tách đa tác vụ 4 miền (`SmartOmniIntentParser`), `SmartHybridGate` + `GeminiPrivacySanitizer` + `OtpRedactor`, và `BankNotificationParser` loại spam/lưu `referenceCode`.
+  - [`test/features/financial_ai/smart_money_split_ai_and_voice_fix_test.dart`](../../test/features/financial_ai/smart_money_split_ai_and_voice_fix_test.dart): Kiểm định `vn_money_split_fasttext_v1.ftq` (`SHA-256` khớp, `394,128 bytes < 450 KB`, `Test Accuracy = 99.57% >= 98%`, `ECE = 0.0405 < 0.05`, `OOD Rejection = 100%`, `False Auto-Assign = 0.0%`) và widget test khóa nút `confirm_voice_analysis_button` khi chia sai trên `VoiceSmartCaptureSheet`.
+  - [`test/features/financial_ai/offline_fasttext_v2_model_test.dart`](../../test/features/financial_ai/offline_fasttext_v2_model_test.dart): Bảo toàn nguyên vẹn `100%` golden vectors của `vn_financial_fasttext_v1.ftq` và `FinancialTextNormalizer.toClassifierInput`.
+- **Biên dịch Android Gradle/Kotlin trong Wave 1C:** `Not measured` (`NOT RUN` trong worktree này; chỉ kiểm tra cú pháp nguồn `.kt`).

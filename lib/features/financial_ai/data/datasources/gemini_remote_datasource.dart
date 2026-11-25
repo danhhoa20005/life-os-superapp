@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/error/app_exception.dart';
+import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/utils/smart_omni_intent_parser.dart';
 import '../../../daily_life/domain/entities/daily_life_entities.dart';
@@ -209,9 +210,10 @@ class GeminiRemoteDataSource {
       );
     }
 
+    // SEC-F04: ALWAYS run OtpRedactor even if maskSensitiveInfo toggle is off!
     final safeInput = config.maskSensitiveInfo
         ? GeminiPrivacySanitizer.sanitize(rawInput)
-        : rawInput;
+        : OtpRedactor.redact(rawInput);
 
     final contextLine = contextSnapshot == null
         ? ''

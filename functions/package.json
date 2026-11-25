@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit --pretty",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "test": "npm run build && node --test lib/test/realtime_banking.test.js lib/test/firestore_emulator.test.js"
+    "test": "npm run build && node --test lib/test/realtime_banking.test.js lib/test/family_invites.test.js lib/test/firestore_emulator.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

@@ -283,6 +283,15 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     SuperAppServiceEntry(
       domainKey: 'family_life',
       domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
+      shortLabel: 'Tự động hóa',
+      keywords: 'quy tắc tự động phân bổ lương xăng xe hóa đơn hoàn tác',
+      icon: Icons.bolt_rounded,
+      tone: LifeOsAccentTone.emerald,
+      route: '/automation-studio',
+    ),
+    SuperAppServiceEntry(
+      domainKey: 'family_life',
+      domainTitle: 'Lịch trình · Việc nhà · Tổ ấm & Hệ thống',
       shortLabel: 'Motion Studio',
       keywords:
           'motion studio gallery hieu ung chuyen dong lo xo shader lottie',

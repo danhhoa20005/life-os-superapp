@@ -14,6 +14,9 @@ import '../../features/authentication/data/repositories/auth_repository_impl.dar
 import '../../features/authentication/domain/repositories/auth_repository.dart';
 import '../../features/authentication/domain/usecases/auth_usecases.dart';
 import '../../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../../features/automation/data/repositories/automation_repository_impl.dart';
+import '../../features/automation/domain/repositories/automation_repository.dart';
+import '../../features/automation/presentation/bloc/automation_bloc.dart';
 import '../../features/budgets/data/repositories/budget_repository_impl.dart';
 import '../../features/budgets/domain/repositories/budget_repository.dart';
 import '../../features/budgets/domain/usecases/budget_usecases.dart';
@@ -66,11 +69,13 @@ import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/vehicles/data/repositories/vehicle_repository_impl.dart';
 import '../../features/vehicles/domain/repositories/vehicle_repository.dart';
 import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
+import '../offline/offline_outbox_service.dart';
 import '../services/android_notification_bridge.dart';
 import '../services/fcm_banking_messaging_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/native_app_updater_bridge.dart';
 import '../services/native_home_widget_bridge.dart';
+import '../services/native_receipt_picker_bridge.dart';
 import '../services/native_voice_assistant_bridge.dart';
 
 final GetIt sl = GetIt.instance;
@@ -131,6 +136,12 @@ Future<void> configureDependencies({
   );
   sl.registerLazySingleton<FileStorageService>(
     () => const SparkSafeFileStorageService(),
+  );
+  sl.registerLazySingleton<NativeReceiptPickerBridge>(
+    () => const NativeReceiptPickerBridge(),
+  );
+  sl.registerLazySingleton<OfflineOutboxService>(
+    () => OfflineOutboxService(),
   );
 
   // 2. Remote Data Sources
@@ -237,7 +248,13 @@ Future<void> configureDependencies({
     () => NotificationsRepositoryImpl(sl<NotificationsRemoteDataSource>()),
   );
   sl.registerLazySingleton<DocumentVaultRepository>(
-    () => DocumentVaultRepositoryImpl(sl<FirebaseFirestore>()),
+    () => DocumentVaultRepositoryImpl(
+      sl<FirebaseFirestore>(),
+      fileStorage: sl<FileStorageService>(),
+    ),
+  );
+  sl.registerLazySingleton<AutomationRepository>(
+    () => AutomationRepositoryImpl(sl<FirebaseFirestore>()),
   );
   sl.registerLazySingleton<ProUtilitiesRepository>(
     () => ProUtilitiesRepositoryImpl(sl<FirebaseFirestore>()),
@@ -444,6 +461,9 @@ Future<void> configureDependencies({
   );
   sl.registerFactory<DailyLifeBloc>(
     () => DailyLifeBloc(sl<DailyLifeRepository>()),
+  );
+  sl.registerFactory<AutomationBloc>(
+    () => AutomationBloc(repository: sl<AutomationRepository>()),
   );
 
   // Offline Financial AI UseCases & BLoC

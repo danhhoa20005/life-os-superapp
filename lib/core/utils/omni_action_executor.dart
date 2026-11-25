@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../features/authentication/domain/entities/user_entity.dart';
+import '../../features/budgets/domain/usecases/budget_usecases.dart';
+import '../../features/budgets/presentation/bloc/budget_bloc.dart';
 import '../../features/calendar/domain/entities/calendar_entities.dart';
 import '../../features/calendar/domain/repositories/calendar_repository.dart';
 import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
@@ -13,9 +15,11 @@ import '../../features/family/presentation/bloc/family_bloc.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/tasks/domain/repositories/task_repository.dart';
 import '../../features/tasks/presentation/bloc/task_bloc.dart';
+import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
 import '../../features/transactions/presentation/bloc/transaction_state.dart';
+import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../di/dependency_injection.dart';
 import '../widgets/lifeos_top_toast.dart';
 import 'smart_omni_intent_parser.dart';
@@ -33,16 +37,194 @@ abstract final class OmniActionExecutor {
     required OmniActionDraft draft,
     required UserEntity user,
     required String walletId,
+    List<WalletEntity> availableWallets = const <WalletEntity>[],
     TransactionActionBloc? txActionBloc,
     CalendarBloc? calBloc,
     TaskBloc? taskBloc,
     FamilyBloc? familyBloc,
     DailyLifeBloc? dailyBloc,
+    BudgetBloc? budgetBloc,
+    VehicleBloc? vehicleBloc,
     bool showSuccessToast = true,
   }) async {
+    final subtype = draft.resolvedSubtype;
+
+    // 1. Read-only financial query -> never mutates ledger
+    if (subtype == OmniIntentSubtype.financialOverviewQuery) {
+      return false;
+    }
+
+    // 2. Smart Note -> DailyLifeBloc SmartNoteSaved
+    if (subtype == OmniIntentSubtype.smartNote) {
+      if (dailyBloc == null || dailyBloc.isClosed) return false;
+      final waiter = dailyBloc.stream
+          .firstWhere((s) => s.successBanner != null || s.failure != null)
+          .timeout(_kConfirmTimeout, onTimeout: () => dailyBloc.state);
+      dailyBloc.add(
+        SmartNoteSaved(
+          userId: user.id,
+          title: draft.title,
+          content: draft.noteText ?? draft.title,
+          categoryTag: 'Ghi nhanh AI',
+        ),
+      );
+      final noteState = await waiter;
+      if (noteState.failure != null) {
+        if (toastContext.mounted) {
+          LifeOsTopToast.show(
+            toastContext,
+            noteState.failure!.message,
+            kind: LifeOsToastKind.error,
+          );
+        }
+        return false;
+      }
+      if (showSuccessToast && toastContext.mounted) {
+        LifeOsTopToast.show(
+          toastContext,
+          'Đã lưu ghi chú: "${draft.title}".',
+        );
+      }
+      return true;
+    }
+
+    // 3. Budget setup -> BudgetBloc BudgetUpsertSubmitted
+    if (subtype == OmniIntentSubtype.budgetSetup) {
+      if (draft.amountMinor <= 0) return false;
+      if (budgetBloc != null && !budgetBloc.isClosed) {
+        final now = DateTime.now();
+        final monthKey =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final waiter = budgetBloc.stream
+            .firstWhere((s) => s.actionMessage != null || s.failure != null)
+            .timeout(_kConfirmTimeout, onTimeout: () => budgetBloc.state);
+        budgetBloc.add(
+          BudgetUpsertSubmitted(
+            UpsertBudgetParams(
+              userId: user.id,
+              categoryId: draft.categoryId,
+              categoryName: draft.categoryName,
+              monthKey: monthKey,
+              limitMinor: draft.amountMinor,
+            ),
+          ),
+        );
+        final bState = await waiter;
+        if (bState.failure != null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              bState.failure!.message,
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
+        if (showSuccessToast && toastContext.mounted) {
+          LifeOsTopToast.show(
+            toastContext,
+            'Đã thiết lập ngân sách ${draft.categoryName}: ${VndAmount.format(draft.amountMinor)}',
+          );
+        }
+        return true;
+      }
+      if (toastContext.mounted) {
+        LifeOsTopToast.show(
+          toastContext,
+          'Chưa mở sổ ngân sách để lưu hạn mức "${draft.categoryName}".',
+          kind: LifeOsToastKind.warning,
+        );
+      }
+      return false;
+    }
+
+    // 4. Vehicle Maintenance / Odometer Log -> VehicleBloc (when available)
+    if (subtype == OmniIntentSubtype.vehicleMaintenance &&
+        vehicleBloc != null &&
+        !vehicleBloc.isClosed &&
+        vehicleBloc.state.vehicles.isNotEmpty) {
+      final vehicles = vehicleBloc.state.vehicles;
+      var matchedVehicle = vehicles.first;
+      if (draft.vehicleHint != null && draft.vehicleHint!.trim().isNotEmpty) {
+        final hintLower = draft.vehicleHint!.toLowerCase();
+        for (final v in vehicles) {
+          if (v.name.toLowerCase().contains(hintLower) ||
+              v.plateNumber.toLowerCase().contains(hintLower)) {
+            matchedVehicle = v;
+            break;
+          }
+        }
+      }
+      final newOdo = draft.odometerKm ?? matchedVehicle.currentOdometerKm;
+      if (draft.amountMinor > 0) {
+        final srcWalletId =
+            _resolveWalletId(
+              hint: draft.sourceWalletHint,
+              wallets: availableWallets,
+            ) ??
+            walletId;
+        vehicleBloc.add(
+          VehicleMaintenanceLogged(
+            vehicle: matchedVehicle,
+            serviceTitle: draft.title,
+            odometerKm: newOdo,
+            costMinor: draft.amountMinor,
+            walletIdForExpense: srcWalletId,
+          ),
+        );
+        if (showSuccessToast && toastContext.mounted) {
+          LifeOsTopToast.show(
+            toastContext,
+            'Đã ghi bảo dưỡng ${matchedVehicle.name}: ${draft.title} (${VndAmount.format(draft.amountMinor)})',
+          );
+        }
+        return true;
+      } else if (draft.odometerKm != null) {
+        vehicleBloc.add(
+          VehicleOdometerLogged(
+            vehicle: matchedVehicle,
+            newOdometerKm: draft.odometerKm!,
+          ),
+        );
+        if (showSuccessToast && toastContext.mounted) {
+          LifeOsTopToast.show(
+            toastContext,
+            'Đã cập nhật ODO ${matchedVehicle.name}: ${draft.odometerKm} km',
+          );
+        }
+        return true;
+      }
+    }
+
     switch (draft.kind) {
       case OmniActionKind.transaction:
         if (txActionBloc == null || draft.amountMinor <= 0) return false;
+        final resolvedSourceWalletId =
+            _resolveWalletId(
+              hint: draft.sourceWalletHint,
+              wallets: availableWallets,
+            ) ??
+            walletId;
+        String? resolvedTargetWalletId;
+        if (draft.transactionKind == TransactionKind.transfer ||
+            subtype == OmniIntentSubtype.internalTransfer) {
+          resolvedTargetWalletId = _resolveWalletId(
+            hint: draft.destinationWalletHint,
+            wallets: availableWallets,
+            excludeWalletId: resolvedSourceWalletId,
+          );
+          if (resolvedTargetWalletId == null ||
+              resolvedTargetWalletId == resolvedSourceWalletId) {
+            if (toastContext.mounted) {
+              LifeOsTopToast.show(
+                toastContext,
+                'Không tìm thấy ví đích khác ví nguồn cho lệnh chuyển tiền "${draft.title}".',
+                kind: LifeOsToastKind.warning,
+              );
+            }
+            return false;
+          }
+        }
         final opId = draft.id.trim().isNotEmpty
             ? 'omni_tx_${draft.id.trim()}'
             : _uuid.v4();
@@ -50,7 +232,8 @@ abstract final class OmniActionExecutor {
           TransactionCreateSubmitted(
             operationId: opId,
             userId: user.id,
-            walletId: walletId,
+            walletId: resolvedSourceWalletId,
+            targetWalletId: resolvedTargetWalletId,
             categoryId: draft.categoryId,
             categoryName: draft.categoryName,
             kind: draft.transactionKind,
@@ -73,7 +256,7 @@ abstract final class OmniActionExecutor {
           }
           return false;
         }
-        await UserBehaviorPrefs.rememberWallet(walletId);
+        await UserBehaviorPrefs.rememberWallet(resolvedSourceWalletId);
         await UserBehaviorPrefs.recordHabitExecution(
           label: '${draft.title} ${(draft.amountMinor / 1000).round()}k',
           commandText: '${draft.title} ${(draft.amountMinor / 1000).round()}k',
@@ -415,5 +598,23 @@ abstract final class OmniActionExecutor {
         }
         return true;
     }
+  }
+
+  static String? _resolveWalletId({
+    required String? hint,
+    required List<WalletEntity> wallets,
+    String? excludeWalletId,
+  }) {
+    if (hint == null || hint.trim().isEmpty || wallets.isEmpty) return null;
+    final hLower = hint.trim().toLowerCase();
+    for (final w in wallets) {
+      if (excludeWalletId != null && w.id == excludeWalletId) continue;
+      if (w.id.toLowerCase() == hLower ||
+          w.name.toLowerCase().contains(hLower) ||
+          (w.bankCode?.toLowerCase().contains(hLower) ?? false)) {
+        return w.id;
+      }
+    }
+    return null;
   }
 }

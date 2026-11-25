@@ -124,6 +124,12 @@ final class FinancialPersonalizationRuleAdded extends FinancialAiEvent {
   final String selectedCategoryName;
   final String semanticKey;
   final String directionCondition;
+  final String ruleKind;
+  final String? preferredWalletId;
+  final String? preferredWalletName;
+  final String? participantUserId;
+  final String? participantDisplayName;
+  final String? ruleIdOverride;
 
   const FinancialPersonalizationRuleAdded({
     required this.userId,
@@ -132,6 +138,12 @@ final class FinancialPersonalizationRuleAdded extends FinancialAiEvent {
     required this.selectedCategoryName,
     this.semanticKey = 'other',
     this.directionCondition = 'any',
+    this.ruleKind = 'category',
+    this.preferredWalletId,
+    this.preferredWalletName,
+    this.participantUserId,
+    this.participantDisplayName,
+    this.ruleIdOverride,
   });
 
   @override
@@ -142,6 +154,12 @@ final class FinancialPersonalizationRuleAdded extends FinancialAiEvent {
     selectedCategoryName,
     semanticKey,
     directionCondition,
+    ruleKind,
+    preferredWalletId,
+    preferredWalletName,
+    participantUserId,
+    participantDisplayName,
+    ruleIdOverride,
   ];
 }
 
@@ -459,6 +477,7 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
           semanticKey: target.topPrediction.semanticKey,
           directionCondition: target.transactionType.expectedDirection,
           sourceContext: target.source.name,
+          preferredWalletId: target.sourceWalletId,
         ),
       );
       res.fold(
@@ -615,6 +634,12 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
         selectedCategoryName: event.selectedCategoryName,
         semanticKey: event.semanticKey,
         directionCondition: event.directionCondition,
+        ruleKind: event.ruleKind,
+        preferredWalletId: event.preferredWalletId,
+        preferredWalletName: event.preferredWalletName,
+        participantUserId: event.participantUserId,
+        participantDisplayName: event.participantDisplayName,
+        ruleIdOverride: event.ruleIdOverride,
       ),
     );
 
@@ -625,12 +650,14 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
           rule,
           ...state.personalizationRules.where((r) => r.id != rule.id),
         ];
+        final msg = rule.ruleKind == 'nickname'
+            ? 'Đã học biệt danh "${rule.merchantDisplay}" → ${rule.participantDisplayName ?? rule.participantUserId}.'
+            : 'Đã dạy Agent Local: "$cleanDisplay" → ${event.selectedCategoryName}.';
         emit(
           state.copyWith(
             personalizationRules: nextRules,
             clearFailure: true,
-            feedbackMessage:
-                'Đã dạy Agent Local: "$cleanDisplay" → ${event.selectedCategoryName}.',
+            feedbackMessage: msg,
           ),
         );
       },

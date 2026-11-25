@@ -25,6 +25,7 @@ import '../../domain/repositories/transaction_repository.dart';
 import '../bloc/transaction_bloc.dart';
 import '../bloc/transaction_event.dart';
 import '../bloc/transaction_state.dart';
+import '../widgets/life_insights_cross_domain_card.dart';
 
 /// Screen 05: "Chi tiết giao dịch (Tự động)" (`05_Giao_dich_tu_dong.png`).
 /// Strictly operates on REAL pending provisional or push-targeted transactions — never fabricates charges.
@@ -1687,6 +1688,13 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              LifeInsightsCrossDomainCard(
+                                periodCode: _period,
+                                incomeMinor: totalIncome,
+                                expenseMinor: totalExpense,
+                                expenseByCategory: expenseByCat,
+                              ),
+                              const SizedBox(height: 12),
                               // Multi-Period Dual Income vs Expense Bar Chart Card
                               LifeOsSoftCard(
                           child: Column(

@@ -47,3 +47,23 @@
 1. **Khởi tạo lười duy nhất 1 lần (Lazy Single-Load):** `FastTextClassifier` chỉ nạp tệp `.ftq` khi người dùng mở tính năng AI hoặc nhận thông báo ngân hàng đầu tiên (`coldStartMs = 15.932 ms`).
 2. **Không bao giờ chặn luồng giao diện (Zero UI Jank):** Toàn bộ giải mã nhị phân, kiểm tra SHA-256 và nhân ma trận thực thi bên trong `Isolate` riêng (`LifeOS_FastText_AI_Worker`). Độ trễ khứ hồi ấm `p95 = 1.277 ms` nhỏ hơn **78 lần** so với trần thiết kế `100 ms` cho tác vụ nền!
 3. **Bộ nhớ đệm chuẩn hóa có giới hạn (`_maxCacheEntries = 256`):** Tránh cấp phát chuỗi lặp lại khi người dùng gõ hoặc nhận thông báo liên tiếp mà không gây rò rỉ bộ nhớ.
+
+---
+
+## 4. Benchmark Mô hình `vn_money_split_fasttext_v1` (Wave 1C — Recalibrated INT8 `LFTQ` v1)
+
+Đo trực tiếp từ [`tools/financial_ai/train_money_split_ai.py`](../../tools/financial_ai/train_money_split_ai.py) và [`tools/financial_ai/artifacts/vn_money_split_fasttext_v1_eval.json`](../../tools/financial_ai/artifacts/vn_money_split_fasttext_v1_eval.json):
+
+| Chỉ số | Giá trị đo thực tế | Nguồn kiểm chứng |
+| :--- | :--- | :--- |
+| **Model name** | `vn_money_split_fasttext_v1` (`v1.0.0`, `12` lớp) | `assets/models/vn_money_split_fasttext_v1_meta.json` |
+| **Model size** | **`394,128 bytes` (`384.89 KB`)** | `assets/models/vn_money_split_fasttext_v1.ftq` |
+| **SHA-256** | `c0365a61d930864da4d1e55477ea80d387d326c5569b29fa466a2376757f3bb1` | `vn_money_split_fasttext_v1_meta.json` |
+| **Dataset split** | Train `1,720` · Val `242` · Held-out Test `232` | `tools/financial_ai/datasets/money_split_*.jsonl` |
+| **Test Accuracy** | **`99.57%`** (`0.9957`) | `vn_money_split_fasttext_v1_eval.json` |
+| **Test Macro F1** | **`0.9958`** | `vn_money_split_fasttext_v1_eval.json` |
+| **ECE (`T* = 0.76`)** | **`0.0405`** (cải thiện từ `0.1001`) | `vn_money_split_fasttext_v1_eval.json` |
+| **False Auto-Assignment Rate** | **`0.00%`** (`0.0`) | `vn_money_split_fasttext_v1_eval.json` |
+| **OOD Rejection Rate** | **`100.00%`** (`1.0`) | `vn_money_split_fasttext_v1_eval.json` |
+| **Độ trễ ARM / iOS thiết bị vật lý** | `Not measured` (chạy trên Windows x64 worktree chưa gắn thiết bị vật lý) | — |
+| **SmartHybridGate local path** | Mặc định xử lý **100% offline** trên thiết bị; chỉ chuyển Gemini cloud khi bật cấu hình + khóa API + câu tư vấn/phức hợp chưa bóc tách hết | `lib/features/financial_ai/data/repositories/gemini_copilot_repository_impl.dart` |

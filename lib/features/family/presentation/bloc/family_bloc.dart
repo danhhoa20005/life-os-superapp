@@ -37,6 +37,14 @@ final class FamilyShoppingWatchRequested extends FamilyEvent {
   List<Object?> get props => [familyId];
 }
 
+final class FamilySettlementRequestsWatchRequested extends FamilyEvent {
+  final String familyId;
+  const FamilySettlementRequestsWatchRequested(this.familyId);
+
+  @override
+  List<Object?> get props => [familyId];
+}
+
 final class FamilyCreateSubmitted extends FamilyEvent {
   final String userId;
   final String userName;
@@ -62,6 +70,9 @@ final class FamilyInviteGenerated extends FamilyEvent {
   final String? invitedByName;
   final String? inviteeName;
   final String? inviteeContact;
+  final InviteKind? inviteKind;
+  final int maxUses;
+  final int ttlDays;
 
   const FamilyInviteGenerated({
     required this.userId,
@@ -71,6 +82,9 @@ final class FamilyInviteGenerated extends FamilyEvent {
     this.invitedByName,
     this.inviteeName,
     this.inviteeContact,
+    this.inviteKind,
+    this.maxUses = 1,
+    this.ttlDays = 7,
   });
 
   @override
@@ -82,6 +96,9 @@ final class FamilyInviteGenerated extends FamilyEvent {
     invitedByName,
     inviteeName,
     inviteeContact,
+    inviteKind,
+    maxUses,
+    ttlDays,
   ];
 }
 
@@ -158,15 +175,25 @@ final class FamilyJoinByCodeSubmitted extends FamilyEvent {
   final String userId;
   final String userName;
   final String inviteCode;
+  final String? userEmail;
+  final String? userPhone;
 
   const FamilyJoinByCodeSubmitted({
     required this.userId,
     required this.userName,
     required this.inviteCode,
+    this.userEmail,
+    this.userPhone,
   });
 
   @override
-  List<Object?> get props => [userId, userName, inviteCode];
+  List<Object?> get props => [
+    userId,
+    userName,
+    inviteCode,
+    userEmail,
+    userPhone,
+  ];
 }
 
 final class FamilyLeaveConfirmed extends FamilyEvent {
@@ -257,6 +284,30 @@ final class DebtSettlementRecorded extends FamilyEvent {
   List<Object?> get props => [params];
 }
 
+final class DebtSettlementRequested extends FamilyEvent {
+  final RequestDebtSettlementParams params;
+  const DebtSettlementRequested(this.params);
+
+  @override
+  List<Object?> get props => [params];
+}
+
+final class SettlementRequestDecided extends FamilyEvent {
+  final ConfirmSettlementRequestParams params;
+  const SettlementRequestDecided(this.params);
+
+  @override
+  List<Object?> get props => [params];
+}
+
+final class DebtSettlementReversed extends FamilyEvent {
+  final ReverseDebtSettlementParams params;
+  const DebtSettlementReversed(this.params);
+
+  @override
+  List<Object?> get props => [params];
+}
+
 final class FamilyState extends Equatable {
   final bool isLoading;
   final bool isSubmitting;
@@ -266,6 +317,7 @@ final class FamilyState extends Equatable {
   final List<ShoppingItemEntity> shoppingItems;
   final List<SharedBillSplitEntity> sharedBills;
   final List<DebtSettlementEntity> settlements;
+  final List<SettlementRequestEntity> settlementRequests;
   final String? latestInviteCode;
   final FamilyPendingInviteEntity? previewedInvite;
   final Failure? failure;
@@ -280,6 +332,7 @@ final class FamilyState extends Equatable {
     this.shoppingItems = const [],
     this.sharedBills = const [],
     this.settlements = const [],
+    this.settlementRequests = const [],
     this.latestInviteCode,
     this.previewedInvite,
     this.failure,
@@ -294,6 +347,11 @@ final class FamilyState extends Equatable {
     }
     return families.first;
   }
+
+  List<SettlementRequestEntity> get pendingSettlementRequests =>
+      settlementRequests
+          .where((r) => r.status == SettlementRequestStatus.pending)
+          .toList();
 
   SharedLedgerSummary get sharedLedger {
     final fam = activeFamily;
@@ -316,6 +374,7 @@ final class FamilyState extends Equatable {
     List<ShoppingItemEntity>? shoppingItems,
     List<SharedBillSplitEntity>? sharedBills,
     List<DebtSettlementEntity>? settlements,
+    List<SettlementRequestEntity>? settlementRequests,
     String? latestInviteCode,
     bool clearLatestInviteCode = false,
     FamilyPendingInviteEntity? previewedInvite,
@@ -342,6 +401,9 @@ final class FamilyState extends Equatable {
       settlements: settlements != null
           ? List.unmodifiable(settlements)
           : this.settlements,
+      settlementRequests: settlementRequests != null
+          ? List.unmodifiable(settlementRequests)
+          : this.settlementRequests,
       latestInviteCode: clearLatestInviteCode
           ? null
           : (latestInviteCode ?? this.latestInviteCode),
@@ -363,6 +425,7 @@ final class FamilyState extends Equatable {
     shoppingItems,
     sharedBills,
     settlements,
+    settlementRequests,
     latestInviteCode,
     previewedInvite,
     failure,
@@ -376,6 +439,9 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
   final JoinFamilyByCodeUseCase _joinFamily;
   final CreateSharedBillSplitUseCase _createSharedBillSplit;
   final RecordDebtSettlementUseCase _recordDebtSettlement;
+  final RequestDebtSettlementUseCase _requestDebtSettlement;
+  final ConfirmSettlementRequestUseCase _confirmSettlementRequest;
+  final ReverseDebtSettlementUseCase _reverseDebtSettlement;
 
   FamilyBloc({
     required FamilyRepository repository,
@@ -383,6 +449,9 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     required JoinFamilyByCodeUseCase joinFamily,
     CreateSharedBillSplitUseCase? createSharedBillSplit,
     RecordDebtSettlementUseCase? recordDebtSettlement,
+    RequestDebtSettlementUseCase? requestDebtSettlement,
+    ConfirmSettlementRequestUseCase? confirmSettlementRequest,
+    ReverseDebtSettlementUseCase? reverseDebtSettlement,
   }) : _repository = repository,
        _createFamily = createFamily,
        _joinFamily = joinFamily,
@@ -390,6 +459,13 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
            createSharedBillSplit ?? CreateSharedBillSplitUseCase(repository),
        _recordDebtSettlement =
            recordDebtSettlement ?? RecordDebtSettlementUseCase(repository),
+       _requestDebtSettlement =
+           requestDebtSettlement ?? RequestDebtSettlementUseCase(repository),
+       _confirmSettlementRequest =
+           confirmSettlementRequest ??
+           ConfirmSettlementRequestUseCase(repository),
+       _reverseDebtSettlement =
+           reverseDebtSettlement ?? ReverseDebtSettlementUseCase(repository),
        super(const FamilyState()) {
     on<FamilySubscriptionRequested>(
       _onSubscriptionRequested,
@@ -397,6 +473,10 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     );
     on<FamilyShoppingWatchRequested>(
       _onShoppingWatchRequested,
+      transformer: restartable(),
+    );
+    on<FamilySettlementRequestsWatchRequested>(
+      _onSettlementRequestsWatchRequested,
       transformer: restartable(),
     );
     on<FamilyCreateSubmitted>(_onCreateFamily, transformer: sequential());
@@ -420,6 +500,12 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     );
     on<SharedBillSplitCreated>(_onCreateSharedBill, transformer: sequential());
     on<DebtSettlementRecorded>(_onRecordSettlement, transformer: sequential());
+    on<DebtSettlementRequested>(_onRequestSettlement, transformer: sequential());
+    on<SettlementRequestDecided>(
+      _onDecideSettlementRequest,
+      transformer: sequential(),
+    );
+    on<DebtSettlementReversed>(_onReverseSettlement, transformer: sequential());
   }
 
   Future<void> _onSubscriptionRequested(
@@ -468,6 +554,9 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
                   : state.shoppingItems,
               sharedBills: shouldClearOldLists ? const [] : state.sharedBills,
               settlements: shouldClearOldLists ? const [] : state.settlements,
+              settlementRequests: shouldClearOldLists
+                  ? const []
+                  : state.settlementRequests,
               clearFailure: true,
               clearMessage: true,
             );
@@ -489,10 +578,15 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
         shoppingItems: isSwitchingFamily ? const [] : state.shoppingItems,
         sharedBills: isSwitchingFamily ? const [] : state.sharedBills,
         settlements: isSwitchingFamily ? const [] : state.settlements,
+        settlementRequests: isSwitchingFamily
+            ? const []
+            : state.settlementRequests,
         clearFailure: true,
         clearMessage: isSwitchingFamily ? true : false,
       ),
     );
+    add(FamilySettlementRequestsWatchRequested(event.familyId));
+
     final combined =
         StreamCombiner.combine3<
           Result<List<ShoppingItemEntity>>,
@@ -533,6 +627,26 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
         );
 
     await emit.forEach<FamilyState>(combined, onData: (next) => next);
+  }
+
+  Future<void> _onSettlementRequestsWatchRequested(
+    FamilySettlementRequestsWatchRequested event,
+    Emitter<FamilyState> emit,
+  ) async {
+    late final Stream<Result<List<SettlementRequestEntity>>> stream;
+    try {
+      stream = _repository.watchSettlementRequests(event.familyId);
+    } catch (_) {
+      return;
+    }
+
+    await emit.forEach<Result<List<SettlementRequestEntity>>>(
+      stream,
+      onData: (res) => res.fold(
+        (_) => state,
+        (reqs) => state.copyWith(settlementRequests: reqs),
+      ),
+    );
   }
 
   Future<void> _onCreateFamily(
@@ -587,6 +701,9 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
       invitedByName: event.invitedByName,
       inviteeName: event.inviteeName,
       inviteeContact: event.inviteeContact,
+      inviteKind: event.inviteKind,
+      maxUses: event.maxUses,
+      ttlDays: event.ttlDays,
     );
     res.fold((f) => emit(state.copyWith(isSubmitting: false, failure: f)), (
       code,
@@ -734,6 +851,8 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
         userId: event.userId,
         userName: event.userName,
         inviteCode: event.inviteCode,
+        userEmail: event.userEmail,
+        userPhone: event.userPhone,
       ),
     );
     res.fold((f) => emit(state.copyWith(isSubmitting: false, failure: f)), (
@@ -775,6 +894,7 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
           shoppingItems: const [],
           sharedBills: const [],
           settlements: const [],
+          settlementRequests: const [],
           message: 'Đã rời nhóm và thu hồi quyền chia sẻ.',
         ),
       ),
@@ -920,6 +1040,78 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
           isSubmitting: false,
           message:
               'Đã ghi nhận tất toán ${st.fromUserName} → ${st.toUserName} (${st.paymentCode}).',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onRequestSettlement(
+    DebtSettlementRequested event,
+    Emitter<FamilyState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
+    final res = await _requestDebtSettlement(event.params);
+    res.fold(
+      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
+      (req) => emit(
+        state.copyWith(
+          isSubmitting: false,
+          message:
+              'Đã gửi yêu cầu xác nhận tất toán tới ${req.toUserName} (${req.paymentCode}).',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onDecideSettlementRequest(
+    SettlementRequestDecided event,
+    Emitter<FamilyState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
+    final res = await _confirmSettlementRequest(event.params);
+    res.fold(
+      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
+      (stl) => emit(
+        state.copyWith(
+          isSubmitting: false,
+          message: stl != null
+              ? 'Đã xác nhận tất toán ${stl.fromUserName} → ${stl.toUserName}.'
+              : 'Đã từ chối yêu cầu tất toán.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onReverseSettlement(
+    DebtSettlementReversed event,
+    Emitter<FamilyState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        clearFailure: true,
+        clearMessage: true,
+      ),
+    );
+    final res = await _reverseDebtSettlement(event.params);
+    res.fold(
+      (f) => emit(state.copyWith(isSubmitting: false, failure: f)),
+      (rev) => emit(
+        state.copyWith(
+          isSubmitting: false,
+          message: 'Đã ghi nhận bút toán hoàn tác (${rev.paymentCode}).',
         ),
       ),
     );

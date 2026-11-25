@@ -1,10 +1,17 @@
 import * as admin from "firebase-admin";
-import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import { FunctionsErrorCode, HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { BANK_CAPABILITY_CATALOG } from "./capabilities";
 import { RealtimeBankingCoordinator } from "./bankingEngine";
+import {
+  CollaborationSpaceType,
+  FamilyInviteCoordinator,
+  FamilyInviteError,
+  FirestoreAdminFamilyInviteStore,
+  InviteKind
+} from "./familyInvites";
 import { FirebaseAdminFcmSender, FirestoreAdminBankingStore } from "./firestoreStore";
 import { sha256Hex } from "./security";
 
@@ -349,9 +356,148 @@ export const reconcileBankConnectionViaApi = onCall(
   }
 );
 
+function mapFamilyInviteErrorToHttps(err: unknown): HttpsError {
+  if (err instanceof HttpsError) return err;
+  if (err instanceof FamilyInviteError) {
+    const codeMap: Record<FamilyInviteError["code"], FunctionsErrorCode> = {
+      UNAUTHENTICATED: "unauthenticated",
+      INVALID_ARGUMENT: "invalid-argument",
+      PERMISSION_DENIED: "permission-denied",
+      NOT_FOUND: "not-found",
+      FAILED_PRECONDITION: "failed-precondition",
+      RESOURCE_EXHAUSTED: "resource-exhausted"
+    };
+    return new HttpsError(codeMap[err.code] ?? "internal", err.message);
+  }
+  return new HttpsError("internal", "Không thể xử lý yêu cầu lời mời nhóm lúc này.");
+}
+
+function createFamilyInviteCoordinator(): FamilyInviteCoordinator {
+  const store = new FirestoreAdminFamilyInviteStore(admin.firestore());
+  return new FamilyInviteCoordinator(store);
+}
+
+/**
+ * 8. Family Invite Callables (FIX-002 & FIX-003):
+ *    - `createFamilyInvite`: Server-authoritative 3-mode invite creation (`oneTime`, `targeted`, `reusableGroup`)
+ *      with SHA-256 `intendedRecipientHash` and ZERO plaintext contact PII on `family_invites/{code}`.
+ *    - `previewFamilyInvite`: Safe minimal metadata preview without exposing `families/{id}`, rate-limited by UID.
+ *    - `joinFamilyByInvite`: Atomic `runTransaction` consuming 1 slot and assigning `'member'` role safely.
+ *    - `revokeFamilyInvite`: Manager-only atomic revocation across `family_invites` and `families.pendingInvites`.
+ */
+export const createFamilyInvite = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để tạo mã mời.");
+    }
+    const data = (request.data ?? {}) as Record<string, unknown>;
+    const rawKind = typeof data.inviteKind === "string" ? data.inviteKind : undefined;
+    const inviteKind: InviteKind | undefined =
+      rawKind === "oneTime" || rawKind === "targeted" || rawKind === "reusableGroup"
+        ? rawKind
+        : undefined;
+    try {
+      return await createFamilyInviteCoordinator().createFamilyInvite({
+        actorUserId: uid,
+        familyId: String(data.familyId ?? ""),
+        invitedByName: typeof data.invitedByName === "string" ? data.invitedByName : undefined,
+        inviteKind,
+        maxUses: typeof data.maxUses === "number" ? data.maxUses : undefined,
+        ttlDays: typeof data.ttlDays === "number" ? data.ttlDays : undefined,
+        inviteeName: typeof data.inviteeName === "string" ? data.inviteeName : undefined,
+        inviteeContact: typeof data.inviteeContact === "string" ? data.inviteeContact : undefined
+      });
+    } catch (err) {
+      throw mapFamilyInviteErrorToHttps(err);
+    }
+  }
+);
+
+export const previewFamilyInvite = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để kiểm tra mã mời.");
+    }
+    const data = (request.data ?? {}) as Record<string, unknown>;
+    try {
+      const res = await createFamilyInviteCoordinator().previewFamilyInvite({
+        actorUserId: uid,
+        inviteCode: String(data.inviteCode ?? "")
+      });
+      return res as {
+        ok: true;
+        inviteCode: string;
+        familyId: string;
+        familyName: string;
+        spaceType: CollaborationSpaceType;
+        inviteKind: InviteKind;
+        isTargeted: boolean;
+        invitedByName: string;
+        inviteeName?: string;
+        maxUses: number;
+        usedCount: number;
+        expiresAtMs: number;
+        status: string;
+      };
+    } catch (err) {
+      throw mapFamilyInviteErrorToHttps(err);
+    }
+  }
+);
+
+export const joinFamilyByInvite = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để tham gia nhóm.");
+    }
+    const data = (request.data ?? {}) as Record<string, unknown>;
+    const token = (request.auth?.token ?? {}) as Record<string, unknown>;
+    const authEmail = typeof token.email === "string" ? token.email : undefined;
+    const authPhoneNumber = typeof token.phone_number === "string" ? token.phone_number : undefined;
+    try {
+      return await createFamilyInviteCoordinator().joinFamilyByInvite({
+        actorUserId: uid,
+        userName: String(data.userName ?? "Thành viên"),
+        inviteCode: String(data.inviteCode ?? ""),
+        authEmail,
+        authPhoneNumber
+      });
+    } catch (err) {
+      throw mapFamilyInviteErrorToHttps(err);
+    }
+  }
+);
+
+export const revokeFamilyInvite = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để thu hồi mã mời.");
+    }
+    const data = (request.data ?? {}) as Record<string, unknown>;
+    try {
+      return await createFamilyInviteCoordinator().revokeFamilyInvite({
+        actorUserId: uid,
+        familyId: String(data.familyId ?? ""),
+        inviteCode: String(data.inviteCode ?? "")
+      });
+    } catch (err) {
+      throw mapFamilyInviteErrorToHttps(err);
+    }
+  }
+);
+
 export { BANK_CAPABILITY_CATALOG };
 export * from "./bankingEngine";
 export * from "./capabilities";
+export * from "./familyInvites";
 export * from "./schema";
 export * from "./security";
 export * from "./memoryStore";

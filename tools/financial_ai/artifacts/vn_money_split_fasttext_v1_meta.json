@@ -6,7 +6,7 @@
   "language": "vi",
   "assetPath": "assets/models/vn_money_split_fasttext_v1.ftq",
   "sizeBytes": 394128,
-  "sha256": "b4f70d869409579cd0cc8eb692cb15d1d3ccc9ad743b42579d88967cacf744c0",
+  "sha256": "c0365a61d930864da4d1e55477ea80d387d326c5569b29fa466a2376757f3bb1",
   "numClasses": 12,
   "labels": [
     "split.equal",
@@ -28,25 +28,25 @@
     "wordNgrams": 2,
     "minSubword": 4,
     "maxSubword": 5,
-    "logitGain": 12.5,
-    "epochs": 32,
-    "qatEpochs": 10
+    "logitGain": 15.0,
+    "epochs": 38,
+    "qatEpochs": 12
   },
-  "calibratedTemperature": 1.2,
+  "calibratedTemperature": 0.76,
   "thresholds": {
     "highConfidence": 0.78,
     "mediumConfidence": 0.52,
     "lowConfidence": 0.35
   },
   "metrics": {
-    "trainSamples": 1650,
-    "valSamples": 366,
-    "heldOutTestSamples": 366,
-    "testAccuracy": 0.9863,
-    "testMacroF1": 0.9866,
-    "expectedCalibrationError": 0.1001,
+    "trainSamples": 1720,
+    "valSamples": 242,
+    "heldOutTestSamples": 232,
+    "testAccuracy": 0.9957,
+    "testMacroF1": 0.9958,
+    "expectedCalibrationError": 0.0405,
     "falseAutoAssignmentRate": 0.0,
     "oodUnknownRejectionRate": 1.0
   },
-  "exportedAtUtc": "2026-11-25T04:20:33Z"
+  "exportedAtUtc": "2026-11-25T05:54:42Z"
 }

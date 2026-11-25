@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="file" path="secure_doc_vault" />
+    <exclude domain="file" path="secure_doc_vault/" />
+    <exclude domain="sharedpref" path="lifeos_hardware_vault_prefs_v1.xml" />
+</full-backup-content>

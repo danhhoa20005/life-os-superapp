@@ -94,3 +94,14 @@ python tools/financial_ai/benchmark.py
 
 1. **Kiểm chứng trên macOS/Xcode cho bản phát hành iOS:** Khi chuyển sang máy Mac để đóng gói App Store, thêm tệp `lifeos_fasttext_ffi.cpp` vào Xcode Runner / Podspec nếu muốn bật C++ FFI trên iOS (hiện tại trên iOS Worker `Isolate` của Dart đã chạy sẵn nhân INT8 tương đương nên tính năng vẫn hoạt động offline ngay lập tức).
 2. **Thu thập tập mẫu thực tế ẩn danh (Opt-in):** Khi có lượng người dùng lớn hơn, có thể mở rộng bộ dữ liệu với tên viết tắt cửa hàng địa phương tại các tỉnh thành để nâng độ phủ cho các merchant nhỏ lẻ.
+
+---
+
+## 7. Cập nhật Wave 1C (`FIX-004`, `FIX-005`, `Section 13–16`, `Section 27`)
+
+- **FIX-004 (`SmartMoneySplitAiEngine`, `VoiceFinancialNlpEngine`, `VoiceSmartCaptureSheet`):** Thêm `SplitValidationStatus`, chuyển `apportionExactVnd` sang `BigInt`, loại bỏ hoàn toàn fallback ngầm về chia đều khi mâu thuẫn dữ liệu, thêm xác nhận cho biên lai đa danh mục lệch tổng và khóa nút `confirm_voice_analysis_button` cho tới khi hợp lệ.
+- **FIX-005 (`ParticipantResolutionEngine`):** Khớp 4 tầng kèm biệt danh cá nhân hóa, loại trừ đại từ `'anh'/'em'` hoặc khớp chuỗi con không an toàn sang chủ tài khoản, trả `ambiguousCandidates` để chọn qua `ChoiceChip`.
+- **Section 13 (`VietnameseTemporalAndEntityResolver`, `SmartOmniIntentParser`, `OmniActionExecutor`):** Thêm `ClauseSafetyScreener` chặn mệnh đề giả định/phủ định/hỏi, phân loại `20` nhóm ý định, tách câu đa tác vụ phức hợp (tài chính + lịch + nhắc việc + xe + ngân sách + ghi chú) không nuốt bản nháp phi tài chính.
+- **Section 14 (`vn_money_split_fasttext_v1`):** Tái huấn luyện QAT + Temperature Calibration (`T* = 0.76`) đạt `Test Accuracy = 99.57%`, `Macro F1 = 0.9958`, `ECE = 0.0405`, `False Auto-Assign = 0.0%`, `OOD Rejection = 100.0%`, dung lượng `394,128 bytes`; xuất đủ `money_split_{train,val,test}.jsonl` và giữ nguyên golden vectors `vn_financial_fasttext_v1.ftq`.
+- **Section 15 & 16 (`FinancialAiRepositoryImpl`, `GeminiCopilotRepositoryImpl`, `FinancialAiSettingsPage`):** Hợp nhất `ai_personalization_rules` với đồng bộ thông báo ngân hàng + học `preferredWalletId` + biệt danh; bổ sung `SmartHybridGate` (`localOnly` mặc định) và `GeminiPrivacySanitizer` + `OtpRedactor.redact`.
+- **Section 27 (`BankNotificationListenerService.kt`, `BankNotificationParser`, `NotificationsRepositoryImpl`):** Bỏ qua `FLAG_GROUP_SUMMARY`, thu hẹp `OTP_REGEX` vào `m[aã] pin|pin code`, chặn tin quảng cáo/referral, lưu `referenceCode` & khử trùng lặp ±15 phút theo `observedBalanceMinor` + ghi `ledger_audits`.

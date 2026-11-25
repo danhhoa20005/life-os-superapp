@@ -127,7 +127,13 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
     );
 
     final config = await _remote.readConfig();
-    if (forceGeminiIfConfigured && config.isReadyForCloud) {
+    final gateDecision = SmartHybridGate.evaluate(
+      rawInput: trimmed,
+      localDrafts: rawOfflineDrafts,
+      config: config,
+      allowCloudIfConfigured: forceGeminiIfConfigured,
+    );
+    if (gateDecision.shouldUseCloud && config.isReadyForCloud) {
       try {
         final cloudRes = await _remote.generateMultiDomainPlan(
           rawInput: trimmed,
@@ -261,25 +267,13 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
                 rule.selectedCategoryId.isNotEmpty &&
                 rule.selectedCategoryName.isNotEmpty) {
               enriched.add(
-                OmniActionDraft(
-                  id: d.id,
-                  kind: d.kind,
-                  title: d.title,
-                  amountMinor: d.amountMinor,
-                  transactionKind: d.transactionKind,
+                d.copyWith(
                   categoryId: rule.selectedCategoryId,
                   categoryName: rule.selectedCategoryName,
-                  participantCount: d.participantCount,
-                  participantNames: d.participantNames,
-                  scheduledAt: d.scheduledAt,
-                  durationMinutes: d.durationMinutes,
-                  location: d.location,
-                  taskPriority: d.taskPriority,
-                  quantityLabel: d.quantityLabel,
-                  waterMl: d.waterMl,
-                  medicationSlot: d.medicationSlot,
-                  dosage: d.dosage,
-                  originLabel: d.originLabel,
+                  sourceWalletHint:
+                      d.sourceWalletHint ??
+                      rule.preferredWalletName ??
+                      rule.preferredWalletId,
                 ),
               );
               matchedPersonalRule = true;

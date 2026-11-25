@@ -10,6 +10,10 @@ abstract interface class FamilyRepository {
 
   Stream<Result<List<DebtSettlementEntity>>> watchSettlements(String familyId);
 
+  Stream<Result<List<SettlementRequestEntity>>> watchSettlementRequests(
+    String familyId,
+  );
+
   Future<Result<FamilyEntity>> createFamily({
     required String userId,
     required String userName,
@@ -25,6 +29,9 @@ abstract interface class FamilyRepository {
     String? invitedByName,
     String? inviteeName,
     String? inviteeContact,
+    InviteKind? inviteKind,
+    int maxUses = 1,
+    int ttlDays = 7,
   });
 
   Future<Result<FamilyPendingInviteEntity>> previewInviteCode({
@@ -41,6 +48,8 @@ abstract interface class FamilyRepository {
     required String userId,
     required String userName,
     required String inviteCode,
+    String? userEmail,
+    String? userPhone,
   });
 
   Future<Result<void>> updateMemberRole({
@@ -105,6 +114,35 @@ abstract interface class FamilyRepository {
     required String toUserName,
     required int amountMinor,
     required String paymentCode,
+    bool isPartial = false,
+    String? settlementRequestId,
     String? note,
+  });
+
+  Future<Result<SettlementRequestEntity>> requestDebtSettlement({
+    required String familyId,
+    required String fromUserId,
+    required String fromUserName,
+    required String toUserId,
+    required String toUserName,
+    required int amountMinor,
+    required String paymentCode,
+    bool isPartial = false,
+    String? note,
+  });
+
+  Future<Result<DebtSettlementEntity?>> confirmSettlementRequest({
+    required String familyId,
+    required String requestId,
+    required String actorUserId,
+    required bool approve,
+    String? disputeReason,
+  });
+
+  Future<Result<DebtSettlementEntity>> reverseDebtSettlement({
+    required String familyId,
+    required String settlementId,
+    required String actorUserId,
+    String? reason,
   });
 }

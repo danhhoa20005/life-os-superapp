@@ -2,13 +2,66 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:life_os/app/app.dart';
+import 'package:life_os/core/di/dependency_injection.dart';
+import 'package:life_os/core/services/native_device_calendar_bridge.dart';
 import 'package:life_os/core/services/native_voice_assistant_bridge.dart';
 import 'package:life_os/core/utils/smart_money_split_ai_engine.dart';
 import 'package:life_os/core/utils/user_behavior_prefs.dart';
 import 'package:life_os/core/utils/voice_financial_nlp_engine.dart';
 import 'package:life_os/features/family/domain/entities/family_entities.dart';
 import 'package:life_os/features/financial_ai/data/inference/fasttext_binary_model.dart';
+import 'package:life_os/features/financial_ai/data/inference/fasttext_classifier.dart';
+
+class _NoOpCalDriver implements DeviceCalendarDriver {
+  const _NoOpCalDriver();
+  @override
+  bool get isSupportedPlatform => false;
+  @override
+  Future<bool> hasPermission() async => false;
+  @override
+  Future<bool> requestPermission() async => false;
+  @override
+  Future<List<DeviceCalendarInfo>> listCalendars() async => const [];
+  @override
+  Future<List<DeviceCalendarEventItem>> listEvents({
+    required DateTime windowStart,
+    required DateTime windowEnd,
+  }) async => const [];
+  @override
+  Future<int?> upsertEvent({
+    int? deviceEventId,
+    int? deviceCalendarId,
+    required String title,
+    String? description,
+    String? location,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    bool isAllDay = false,
+    String timeZone = 'Asia/Ho_Chi_Minh',
+    String? rrule,
+    int reminderMinutesBefore = 15,
+  }) async => null;
+  @override
+  Future<bool> deleteEvent(int deviceEventId) async => false;
+}
+
+class _StubVoiceDriver implements VoiceAssistantDriver {
+  @override
+  bool get isSupportedPlatform => false;
+  @override
+  Future<String> startListening() async => 'UNSUPPORTED';
+  @override
+  Future<void> stopListening() async {}
+  @override
+  Stream<VoiceAssistantSignal> watchSignals() => const Stream.empty();
+}
 
 void main() {
   late Uint8List splitModelBytes;
@@ -39,11 +92,15 @@ void main() {
       final metrics = splitMetaMap['metrics'] as Map<String, dynamic>;
       expect(
         (metrics['testAccuracy'] as num).toDouble(),
-        greaterThanOrEqualTo(0.97),
+        greaterThanOrEqualTo(0.98),
       );
       expect(
         (metrics['testMacroF1'] as num).toDouble(),
         greaterThanOrEqualTo(0.97),
+      );
+      expect(
+        (metrics['expectedCalibrationError'] as num).toDouble(),
+        lessThan(0.05),
       );
       expect(
         (metrics['falseAutoAssignmentRate'] as num).toDouble(),
@@ -216,6 +273,97 @@ void main() {
         (sig as VoiceEngineSwitchedSignal).modeWireValue,
         'system_dialog',
       );
+    });
+  });
+
+  group('4. VoiceSmartCaptureSheet FIX-004 Confirm Lock Widget Guard', () {
+    testWidgets('Disables confirm_voice_analysis_button on invalid split and enables once corrected', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      NativeDeviceCalendarBridge.setDriverOverride(const _NoOpCalDriver());
+      NativeVoiceAssistantBridge.setDriverOverride(_StubVoiceDriver());
+      addTearDown(() async {
+        NativeDeviceCalendarBridge.setDriverOverride(null);
+        NativeVoiceAssistantBridge.setDriverOverride(null);
+        await sl.reset();
+      });
+
+      final firestore = FakeFirebaseFirestore();
+      const uid = 'u_split_guard';
+      await firestore.collection('users').doc(uid).set({
+        'email': 'split@lifeos.vn',
+        'fullName': 'Hòa',
+        'onboardingCompleted': true,
+      });
+      await firestore
+          .collection('users')
+          .doc(uid)
+          .collection('wallets')
+          .doc('w_cash')
+          .set({
+            'id': 'w_cash',
+            'ownerId': uid,
+            'name': 'Tiền mặt',
+            'type': 'cash',
+            'balanceMinor': 1000000,
+            'currencyCode': 'VND',
+          });
+
+      final auth = MockFirebaseAuth(
+        signedIn: true,
+        mockUser: MockUser(
+          uid: uid,
+          email: 'split@lifeos.vn',
+          displayName: 'Hòa',
+        ),
+      );
+
+      await configureDependencies(
+        authOverride: auth,
+        firestoreOverride: firestore,
+        httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+        googleCalendarTokenOverride: ({required interactive}) async => null,
+        financialClassifierOverride: FastTextClassifier(useWorkerIsolate: false),
+      );
+
+      await tester.pumpWidget(const LifeOsApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home_quick_expense_btn')));
+      await tester.pumpAndSettle();
+
+      // Enter invalid split (110% != 100%)
+      await tester.enterText(
+        find.byKey(const Key('voice_transcript_input')),
+        'Tiền ăn 1 triệu, Hòa 60%, Minh 50%',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('voice_split_validation_warning')),
+        findsOneWidget,
+      );
+      final lockedBtn = tester.widget<ButtonStyleButton>(
+        find.byKey(const Key('confirm_voice_analysis_button')),
+      );
+      expect(lockedBtn.enabled, isFalse);
+
+      // Fix text to valid 60% + 40% = 100% -> unlocks confirm button!
+      await tester.enterText(
+        find.byKey(const Key('voice_transcript_input')),
+        'Tiền ăn 1 triệu, Hòa 60%, Minh 40%',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('voice_split_validation_warning')),
+        findsNothing,
+      );
+      final unlockedBtn = tester.widget<ButtonStyleButton>(
+        find.byKey(const Key('confirm_voice_analysis_button')),
+      );
+      expect(unlockedBtn.enabled, isTrue);
+      expect(tester.takeException(), isNull);
     });
   });
 }

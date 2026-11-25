@@ -44,11 +44,24 @@ class FinancialAiLocalSyncDataSource {
       .collection('ai_preferences')
       .doc('settings');
 
+  CollectionReference<Map<String, dynamic>> _legacyMerchantRulesCol(String userId) =>
+      _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('merchant_rules');
+
   PersonalizationRule _mapRule(String id, String userId, Map<String, dynamic> d) {
     final ts = d['lastCorrectedAt'];
+    final rawKind = (d['ruleKind'] as String?) ?? 'category';
+    final kind = rawKind == 'participantNickname' || rawKind == 'nickname'
+        ? 'nickname'
+        : rawKind == 'wallet'
+            ? 'wallet'
+            : 'category';
     return PersonalizationRule(
       id: id,
       userId: userId,
+      ruleKind: kind,
       merchantCanonicalKey: (d['merchantCanonicalKey'] as String?) ?? '',
       merchantDisplay: (d['merchantDisplay'] as String?) ?? '',
       selectedCategoryId: (d['selectedCategoryId'] as String?) ?? '',
@@ -58,6 +71,10 @@ class FinancialAiLocalSyncDataSource {
       sourceContext: (d['sourceContext'] as String?) ?? 'any',
       minAmountMinor: (d['minAmountMinor'] as num?)?.toInt(),
       maxAmountMinor: (d['maxAmountMinor'] as num?)?.toInt(),
+      preferredWalletId: d['preferredWalletId'] as String?,
+      preferredWalletName: d['preferredWalletName'] as String?,
+      participantUserId: d['participantUserId'] as String?,
+      participantDisplayName: d['participantDisplayName'] as String?,
       confirmationCount: (d['confirmationCount'] as num?)?.toInt() ?? 1,
       lastCorrectedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
       priority: (d['priority'] as num?)?.toInt() ?? 10,
@@ -74,11 +91,44 @@ class FinancialAiLocalSyncDataSource {
       final snap = await _rulesCol(userId).get();
       final list = snap.docs
           .map((doc) => _mapRule(doc.id, userId, doc.data()))
-          .toList()
-        ..sort((a, b) {
-          final p = b.priority.compareTo(a.priority);
-          return p != 0 ? p : b.confirmationCount.compareTo(a.confirmationCount);
-        });
+          .toList();
+
+      // Legacy fallback: include any rules saved only in `merchant_rules`
+      try {
+        final legacySnap = await _legacyMerchantRulesCol(userId).get();
+        final knownKeys = list.map((r) => r.merchantCanonicalKey).toSet();
+        for (final ldoc in legacySnap.docs) {
+          final ld = ldoc.data();
+          final canon = (ld['merchantKey'] as String?) ?? ldoc.id;
+          if (canon.isEmpty || knownKeys.contains(canon)) continue;
+          final ts = ld['updatedAt'];
+          list.add(
+            PersonalizationRule(
+              id: 'legacy_${ldoc.id}',
+              userId: userId,
+              merchantCanonicalKey: canon,
+              merchantDisplay:
+                  (ld['merchantSample'] as String?) ?? canon.replaceAll('_', ' '),
+              selectedCategoryId: '',
+              selectedCategoryName: (ld['categoryName'] as String?) ?? '',
+              semanticKey: 'other',
+              directionCondition: (ld['direction'] as String?) ?? 'debit',
+              sourceContext: 'bank_notification',
+              confirmationCount: (ld['hits'] as num?)?.toInt() ?? 1,
+              lastCorrectedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
+              priority: 8,
+              ruleConfidence: 0.88,
+              modelVersion: 'legacy_merchant_rules',
+              isEnabled: true,
+            ),
+          );
+        }
+      } catch (_) {}
+
+      list.sort((a, b) {
+        final p = b.priority.compareTo(a.priority);
+        return p != 0 ? p : b.confirmationCount.compareTo(a.confirmationCount);
+      });
       _rulesMemoryCache[userId] = list;
       return list;
     } catch (_) {
@@ -110,20 +160,30 @@ class FinancialAiLocalSyncDataSource {
     required String directionCondition,
     required String sourceContext,
     required String modelVersion,
+    String ruleKind = 'category',
+    String? preferredWalletId,
+    String? preferredWalletName,
+    String? participantUserId,
+    String? participantDisplayName,
+    String? ruleIdOverride,
   }) async {
     final now = DateTime.now();
     final cleanKey =
         FinancialTextNormalizer.canonicalizeMerchant(merchantCanonicalKey) ??
         merchantCanonicalKey.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-    // Deterministic composite rule ID per (merchantKey + direction + sourceContext)
-    // so conditional rules for the same merchant can coexist cleanly!
+    // Deterministic composite rule ID per (ruleKind + merchantKey + direction + sourceContext)
+    // so conditional rules and participant nickname rules coexist cleanly!
     final ruleHash = sha256
         .convert(
-          utf8.encode('$cleanKey|$directionCondition|$sourceContext'),
+          utf8.encode(
+            '$ruleKind|$cleanKey|$directionCondition|$sourceContext',
+          ),
         )
         .toString()
         .substring(0, 20);
-    final ruleId = 'prule_$ruleHash';
+    final ruleId = (ruleIdOverride != null && ruleIdOverride.trim().isNotEmpty)
+        ? ruleIdOverride.trim()
+        : 'prule_$ruleHash';
     final docRef = _rulesCol(userId).doc(ruleId);
 
     var confirmations = 1;
@@ -141,6 +201,7 @@ class FinancialAiLocalSyncDataSource {
     final rule = PersonalizationRule(
       id: ruleId,
       userId: userId,
+      ruleKind: ruleKind,
       merchantCanonicalKey: cleanKey,
       merchantDisplay: merchantDisplay,
       selectedCategoryId: selectedCategoryId,
@@ -148,6 +209,10 @@ class FinancialAiLocalSyncDataSource {
       semanticKey: semanticKey,
       directionCondition: directionCondition,
       sourceContext: sourceContext,
+      preferredWalletId: preferredWalletId,
+      preferredWalletName: preferredWalletName,
+      participantUserId: participantUserId,
+      participantDisplayName: participantDisplayName,
       confirmationCount: confirmations,
       lastCorrectedAt: now,
       priority: 10 + confirmations.clamp(0, 10),
@@ -167,6 +232,7 @@ class FinancialAiLocalSyncDataSource {
     batch.set(docRef, {
       'id': ruleId,
       'ownerId': userId,
+      'ruleKind': ruleKind,
       'merchantCanonicalKey': cleanKey,
       'merchantDisplay': merchantDisplay,
       'selectedCategoryId': selectedCategoryId,
@@ -174,6 +240,12 @@ class FinancialAiLocalSyncDataSource {
       'semanticKey': semanticKey,
       'directionCondition': directionCondition,
       'sourceContext': sourceContext,
+      if (preferredWalletId != null) 'preferredWalletId': preferredWalletId,
+      if (preferredWalletName != null)
+        'preferredWalletName': preferredWalletName,
+      if (participantUserId != null) 'participantUserId': participantUserId,
+      if (participantDisplayName != null)
+        'participantDisplayName': participantDisplayName,
       'confirmationCount': confirmations,
       'lastCorrectedAt': Timestamp.fromDate(now),
       'priority': rule.priority,

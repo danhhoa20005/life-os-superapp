@@ -4,8 +4,10 @@ import 'package:intl/intl.dart';
 import '../../features/daily_life/domain/entities/daily_life_entities.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
+import '../security/bank_notification_parser.dart';
 import 'smart_quick_entry_parser.dart';
 import 'vietnamese_search_matcher.dart';
+import 'vietnamese_temporal_and_entity_resolver.dart';
 import 'vnd_amount.dart';
 
 enum OmniActionKind {
@@ -18,11 +20,35 @@ enum OmniActionKind {
   medication,
 }
 
-/// Cross-domain actionable draft produced by either the `< 2ms` Offline `SmartOmniIntentParser`
+enum OmniIntentSubtype {
+  income,
+  expense,
+  internalTransfer,
+  refund,
+  loanOrBorrow,
+  groupBillSplit,
+  debtSettlement,
+  budgetSetup,
+  salaryAllocation,
+  calendarEvent,
+  task,
+  alarm,
+  reminder,
+  shoppingGrocery,
+  fuelRefill,
+  vehicleMaintenance,
+  waterLog,
+  medication,
+  smartNote,
+  financialOverviewQuery,
+}
+
+/// Cross-domain actionable draft produced by either the `< 5ms` Offline `SmartOmniIntentParser`
 /// or the opt-in Connected `GeminiCopilotRepository`.
 class OmniActionDraft extends Equatable {
   final String id;
   final OmniActionKind kind;
+  final OmniIntentSubtype? subtype;
   final String title;
   final int amountMinor;
   final TransactionKind transactionKind;
@@ -39,10 +65,18 @@ class OmniActionDraft extends Equatable {
   final MedicationScheduleSlot medicationSlot;
   final String dosage;
   final String originLabel;
+  final String? sourceWalletHint;
+  final String? destinationWalletHint;
+  final String? vehicleHint;
+  final int? odometerKm;
+  final String? noteText;
+  final bool requiresConfirmation;
+  final String? warningMessageVi;
 
   const OmniActionDraft({
     required this.id,
     required this.kind,
+    this.subtype,
     required this.title,
     this.amountMinor = 0,
     this.transactionKind = TransactionKind.expense,
@@ -59,19 +93,71 @@ class OmniActionDraft extends Equatable {
     this.medicationSlot = MedicationScheduleSlot.morning,
     this.dosage = '1 viên sau ăn',
     this.originLabel = 'Trên máy',
+    this.sourceWalletHint,
+    this.destinationWalletHint,
+    this.vehicleHint,
+    this.odometerKm,
+    this.noteText,
+    this.requiresConfirmation = false,
+    this.warningMessageVi,
   });
 
-  String get badgeLabelVi => switch (kind) {
-    OmniActionKind.transaction =>
-      transactionKind == TransactionKind.income ? 'Thu nhập' : 'Chi tiêu',
-    OmniActionKind.groupSplit => 'Chia nhóm',
-    OmniActionKind.calendarEvent => 'Lịch hẹn',
-    OmniActionKind.task =>
-      taskPriority == TaskPriorityLevel.high ? 'Việc gấp' : 'Việc làm',
-    OmniActionKind.grocery => 'Đi chợ',
-    OmniActionKind.waterLog => 'Uống nước',
-    OmniActionKind.medication => 'Nhắc thuốc',
-  };
+  OmniIntentSubtype get resolvedSubtype {
+    if (subtype != null) return subtype!;
+    return switch (kind) {
+      OmniActionKind.transaction =>
+        transactionKind == TransactionKind.income
+            ? OmniIntentSubtype.income
+            : transactionKind == TransactionKind.transfer
+                ? OmniIntentSubtype.internalTransfer
+                : OmniIntentSubtype.expense,
+      OmniActionKind.groupSplit => OmniIntentSubtype.groupBillSplit,
+      OmniActionKind.calendarEvent => OmniIntentSubtype.calendarEvent,
+      OmniActionKind.task => OmniIntentSubtype.task,
+      OmniActionKind.grocery => OmniIntentSubtype.shoppingGrocery,
+      OmniActionKind.waterLog => OmniIntentSubtype.waterLog,
+      OmniActionKind.medication => OmniIntentSubtype.medication,
+    };
+  }
+
+  String get badgeLabelVi {
+    if (subtype != null) {
+      return switch (subtype!) {
+        OmniIntentSubtype.income => 'Thu nhập',
+        OmniIntentSubtype.expense => 'Chi tiêu',
+        OmniIntentSubtype.internalTransfer => 'Chuyển ví',
+        OmniIntentSubtype.refund => 'Hoàn tiền',
+        OmniIntentSubtype.loanOrBorrow => 'Vay / Cho vay',
+        OmniIntentSubtype.groupBillSplit => 'Chia nhóm',
+        OmniIntentSubtype.debtSettlement => 'Tất toán nợ',
+        OmniIntentSubtype.budgetSetup => 'Ngân sách',
+        OmniIntentSubtype.salaryAllocation => 'Phân bổ lương',
+        OmniIntentSubtype.calendarEvent => 'Lịch hẹn',
+        OmniIntentSubtype.task =>
+          taskPriority == TaskPriorityLevel.high ? 'Việc gấp' : 'Việc làm',
+        OmniIntentSubtype.alarm => 'Báo thức',
+        OmniIntentSubtype.reminder => 'Nhắc nhở',
+        OmniIntentSubtype.shoppingGrocery => 'Đi chợ',
+        OmniIntentSubtype.fuelRefill => 'Đổ xăng',
+        OmniIntentSubtype.vehicleMaintenance => 'Bảo dưỡng xe',
+        OmniIntentSubtype.waterLog => 'Uống nước',
+        OmniIntentSubtype.medication => 'Nhắc thuốc',
+        OmniIntentSubtype.smartNote => 'Ghi chú',
+        OmniIntentSubtype.financialOverviewQuery => 'Truy vấn',
+      };
+    }
+    return switch (kind) {
+      OmniActionKind.transaction =>
+        transactionKind == TransactionKind.income ? 'Thu nhập' : 'Chi tiêu',
+      OmniActionKind.groupSplit => 'Chia nhóm',
+      OmniActionKind.calendarEvent => 'Lịch hẹn',
+      OmniActionKind.task =>
+        taskPriority == TaskPriorityLevel.high ? 'Việc gấp' : 'Việc làm',
+      OmniActionKind.grocery => 'Đi chợ',
+      OmniActionKind.waterLog => 'Uống nước',
+      OmniActionKind.medication => 'Nhắc thuốc',
+    };
+  }
 
   int get perPersonShareMinor {
     if (participantCount <= 0) return amountMinor;
@@ -81,6 +167,19 @@ class OmniActionDraft extends Equatable {
   String get summaryLineVi {
     final dtFmt = DateFormat('HH:mm dd/MM');
     final hmFmt = DateFormat('HH:mm');
+    final s = resolvedSubtype;
+    if (s == OmniIntentSubtype.budgetSetup) {
+      return 'Ngân sách · $title · Hạn mức ${VndAmount.format(amountMinor)}';
+    }
+    if (s == OmniIntentSubtype.salaryAllocation) {
+      return 'Phân bổ lương · $title · ${VndAmount.format(amountMinor)}';
+    }
+    if (s == OmniIntentSubtype.smartNote) {
+      return 'Ghi chú · $title';
+    }
+    if (s == OmniIntentSubtype.vehicleMaintenance && amountMinor <= 0) {
+      return 'Bảo dưỡng xe · $title${odometerKm != null ? " · $odometerKm km" : ""}';
+    }
     return switch (kind) {
       OmniActionKind.transaction =>
         '$badgeLabelVi · $title · $categoryName · ${VndAmount.format(amountMinor)}',
@@ -89,7 +188,7 @@ class OmniActionDraft extends Equatable {
       OmniActionKind.calendarEvent =>
         'Lịch hẹn · $title${scheduledAt != null ? " · ${dtFmt.format(scheduledAt!)}" : ""}',
       OmniActionKind.task =>
-        '$badgeLabelVi · $title${scheduledAt != null ? " · Hạn ${dtFmt.format(scheduledAt!)}" : ""}',
+        '$badgeLabelVi · $title${scheduledAt != null ? " · Lúc ${dtFmt.format(scheduledAt!)}" : ""}',
       OmniActionKind.grocery =>
         'Đi chợ · $title ($quantityLabel)${amountMinor > 0 ? " · ~${VndAmount.format(amountMinor)}" : ""}',
       OmniActionKind.waterLog => 'Uống nước · +$waterMl ml hôm nay',
@@ -98,10 +197,70 @@ class OmniActionDraft extends Equatable {
     };
   }
 
+  OmniActionDraft copyWith({
+    String? id,
+    OmniActionKind? kind,
+    OmniIntentSubtype? subtype,
+    String? title,
+    int? amountMinor,
+    TransactionKind? transactionKind,
+    String? categoryId,
+    String? categoryName,
+    int? participantCount,
+    List<String>? participantNames,
+    DateTime? scheduledAt,
+    int? durationMinutes,
+    String? location,
+    TaskPriorityLevel? taskPriority,
+    String? quantityLabel,
+    int? waterMl,
+    MedicationScheduleSlot? medicationSlot,
+    String? dosage,
+    String? originLabel,
+    String? sourceWalletHint,
+    String? destinationWalletHint,
+    String? vehicleHint,
+    int? odometerKm,
+    String? noteText,
+    bool? requiresConfirmation,
+    String? warningMessageVi,
+  }) {
+    return OmniActionDraft(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      subtype: subtype ?? this.subtype,
+      title: title ?? this.title,
+      amountMinor: amountMinor ?? this.amountMinor,
+      transactionKind: transactionKind ?? this.transactionKind,
+      categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      participantCount: participantCount ?? this.participantCount,
+      participantNames: participantNames ?? this.participantNames,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      location: location ?? this.location,
+      taskPriority: taskPriority ?? this.taskPriority,
+      quantityLabel: quantityLabel ?? this.quantityLabel,
+      waterMl: waterMl ?? this.waterMl,
+      medicationSlot: medicationSlot ?? this.medicationSlot,
+      dosage: dosage ?? this.dosage,
+      originLabel: originLabel ?? this.originLabel,
+      sourceWalletHint: sourceWalletHint ?? this.sourceWalletHint,
+      destinationWalletHint:
+          destinationWalletHint ?? this.destinationWalletHint,
+      vehicleHint: vehicleHint ?? this.vehicleHint,
+      odometerKm: odometerKm ?? this.odometerKm,
+      noteText: noteText ?? this.noteText,
+      requiresConfirmation: requiresConfirmation ?? this.requiresConfirmation,
+      warningMessageVi: warningMessageVi ?? this.warningMessageVi,
+    );
+  }
+
   @override
   List<Object?> get props => [
     id,
     kind,
+    subtype,
     title,
     amountMinor,
     transactionKind,
@@ -118,28 +277,92 @@ class OmniActionDraft extends Equatable {
     medicationSlot,
     dosage,
     originLabel,
+    sourceWalletHint,
+    destinationWalletHint,
+    vehicleHint,
+    odometerKm,
+    noteText,
+    requiresConfirmation,
+    warningMessageVi,
   ];
 }
 
-/// Scrubs PII (Vietnamese phone numbers, emails, national IDs, standalone bank account numbers)
-/// before any text is sent to an opt-in cloud LLM.
+class BlockedClauseInfo extends Equatable {
+  final String clause;
+  final ClauseSafetyStatus status;
+  final String reasonVi;
+
+  const BlockedClauseInfo({
+    required this.clause,
+    required this.status,
+    required this.reasonVi,
+  });
+
+  @override
+  List<Object?> get props => [clause, status, reasonVi];
+}
+
+class OmniParseEnvelope extends Equatable {
+  final List<OmniActionDraft> drafts;
+  final List<BlockedClauseInfo> blockedClauses;
+  final List<OmniActionDraft> queryDrafts;
+
+  const OmniParseEnvelope({
+    required this.drafts,
+    this.blockedClauses = const <BlockedClauseInfo>[],
+    this.queryDrafts = const <OmniActionDraft>[],
+  });
+
+  @override
+  List<Object?> get props => [drafts, blockedClauses, queryDrafts];
+}
+
+/// Scrubs PII (OTP, emails, spaced/standard phones, CCCD/BHYT/FAM codes, license plates,
+/// bank cards & standalone bank account numbers) before any text is sent to an opt-in cloud LLM.
 abstract final class GeminiPrivacySanitizer {
   static final RegExp _emailRegex = RegExp(
     r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
   );
   static final RegExp _vnPhoneRegex = RegExp(
-    r'(?<!\d)(?:\+?84|0)(?:3|5|7|8|9)\d{8}(?!\d)',
+    r'(?<!\d)(?:\+?84|0)(?:3|5|7|8|9)(?:[\s.\-]*\d){8}(?!\d)',
+  );
+  static final RegExp _famInviteRegex = RegExp(
+    r'\bFAM[-_\s]?[A-Z0-9]{4,12}\b',
+    caseSensitive: false,
+  );
+  static final RegExp _bhytRegex = RegExp(
+    r'\b[A-Z]{2}\d{13}\b',
+    caseSensitive: false,
+  );
+  static final RegExp _spacedCardRegex = RegExp(
+    r'(?<!\d)(?:\d{4}[\s\-]){3}\d{4}(?!\d)',
+  );
+  static final RegExp _plateRegex = RegExp(
+    r'(?<![\p{L}\p{N}])\d{2}[A-Z]\d?[-\s.]?\d{3,5}(?:\.\d{2})?(?![\p{L}\p{N}])',
+    unicode: true,
+  );
+  static final RegExp _cccdContextRegex = RegExp(
+    r'\b(?:cccd|cmnd|căn\s+cước|chứng\s+minh|hộ\s+chiếu|passport)\s*(?:số|:)?\s*([A-Z0-9\-\s]{8,16})',
+    caseSensitive: false,
+    unicode: true,
   );
   static final RegExp _longAccountOrIdRegex = RegExp(
-    r'(?<!\d)\d{9,19}(?!\d)(?!\s*(?:đ|d|vnd|vnđ|k|tr|triệu|trieu|nghìn|nghin|ngàn|ngan)\b)',
+    r'(?<!\d)\d{9,19}(?!\d)(?!\s*(?:đ|d|₫|vnd|vnđ|đồng|dong|k|tr|triệu|trieu|nghìn|nghin|ngàn|ngan)\b)',
     caseSensitive: false,
   );
 
   static String sanitize(String rawText) {
     if (rawText.trim().isEmpty) return rawText;
     var out = rawText.replaceAll(_emailRegex, '[ẨN_EMAIL]');
+    out = out.replaceAll(_famInviteRegex, '[ẨN_MÃ_NHÓM]');
+    out = out.replaceAll(_bhytRegex, '[ẨN_BHYT]');
+    out = out.replaceAllMapped(_cccdContextRegex, (m) => '[ẨN_CCCD]');
+    out = out.replaceAll(_plateRegex, '[ẨN_BIỂN_SỐ]');
     out = out.replaceAll(_vnPhoneRegex, '[ẨN_SĐT]');
     out = out.replaceAll(_longAccountOrIdRegex, '[ẨN_SỐ_TK]');
+    out = out.replaceAll(_spacedCardRegex, '[ẨN_SỐ_THẺ]');
+    // Always finish with OtpRedactor so OTP digits, Bearer tokens, and remaining PAN patterns are redacted.
+    out = OtpRedactor.redact(out);
     return out;
   }
 }
@@ -154,14 +377,21 @@ abstract final class SmartOmniIntentParser {
   );
 
   static final RegExp _explicitHourRegex = RegExp(
-    r'\b(\d{1,2})(?:h|:)(\d{0,2})\s*(sáng|sang|trưa|trua|chiều|chieu|tối|toi)?\b',
+    r'\b(\d{1,2})\s*(?:h|g|giờ|gio|:)\s*(\d{0,2})\s*(?:phút|phut)?\s*(sáng|sang|trưa|trua|chiều|chieu|tối|toi|đêm|dem)?\b',
     caseSensitive: false,
+    unicode: true,
+  );
+
+  static final RegExp _vnPhoneWithoutCurrencyRegex = RegExp(
+    r'(?:^|\s)(?:\+?84|0)(?:3|5|7|8|9)(?:[\s.\-]*\d){8}(?!\s*(?:đ|d|₫|vnd|vnđ|đồng|dong|k|tr|triệu|trieu)\b)',
+    caseSensitive: false,
+    unicode: true,
   );
 
   static final RegExp _hardClauseDelimiter = RegExp(r'[;\n]+');
 
   static final RegExp _candidateClauseConnector = RegExp(
-    r'(?:\s+(?:và|va|rồi|roi|xong|tiếp\s+theo|tiep\s+theo)\s+|(?<!\d),\s*|,\s+)',
+    r'(?:\s+(?:và|va|rồi|roi|xong|tiếp\s+theo|tiep\s+theo|sau\s+đó|sau\s+do)\s+|(?<!\d),\s*|,\s+)',
     caseSensitive: false,
     unicode: true,
   );
@@ -188,17 +418,29 @@ abstract final class SmartOmniIntentParser {
   }
 
   static List<OmniActionDraft> parseMulti(String rawInput, {DateTime? now}) {
+    return parseDetailed(rawInput, now: now).drafts;
+  }
+
+  /// Parses compound multi-domain utterances into validated actionable drafts
+  /// while surfacing safety-blocked clauses (negations, hypotheticals, questions, balance checks)
+  /// and read-only financial overview queries separately.
+  static OmniParseEnvelope parseDetailed(String rawInput, {DateTime? now}) {
     final trimmed = rawInput.trim();
-    if (trimmed.isEmpty) return const <OmniActionDraft>[];
+    if (trimmed.isEmpty) {
+      return const OmniParseEnvelope(drafts: <OmniActionDraft>[]);
+    }
 
     final refNow = now ?? DateTime.now();
 
     // Check if the entire sentence is a pure grocery list first ("đi chợ mua sữa, trứng, rau")
     final wholeLower = trimmed.toLowerCase();
-    if (_looksLikeGroceryCommand(wholeLower) &&
+    if (ClauseSafetyScreener.screenClause(trimmed).isAllowed &&
+        _looksLikeGroceryCommand(wholeLower) &&
         SmartQuickEntryParser.tryParse(trimmed) == null &&
         !_containsScheduleCue(wholeLower)) {
-      return _parseGroceryItems(trimmed, startIndex: 0);
+      return OmniParseEnvelope(
+        drafts: _parseGroceryItems(trimmed, startIndex: 0),
+      );
     }
 
     final hardBlocks = trimmed
@@ -212,9 +454,37 @@ abstract final class SmartOmniIntentParser {
     }
 
     final results = <OmniActionDraft>[];
+    final blocked = <BlockedClauseInfo>[];
+    final queries = <OmniActionDraft>[];
     var seq = 0;
 
     for (final clause in rawClauses) {
+      final safety = ClauseSafetyScreener.screenClause(clause);
+      if (safety.isBlocked) {
+        if (safety.status == ClauseSafetyStatus.financialQuery) {
+          queries.add(
+            OmniActionDraft(
+              id: 'omni_query_$seq',
+              kind: OmniActionKind.task,
+              subtype: OmniIntentSubtype.financialOverviewQuery,
+              title: _capitalizeFirst(clause),
+            ),
+          );
+          seq++;
+        } else {
+          blocked.add(
+            BlockedClauseInfo(
+              clause: clause,
+              status: safety.status,
+              reasonVi:
+                  safety.reasonVi ??
+                  'Mệnh đề này không tạo giao dịch để đảm bảo an toàn.',
+            ),
+          );
+        }
+        continue;
+      }
+
       final parsedClause = _parseSingleClause(
         clause,
         refNow: refNow,
@@ -226,7 +496,11 @@ abstract final class SmartOmniIntentParser {
       }
     }
 
-    return results;
+    return OmniParseEnvelope(
+      drafts: results,
+      blockedClauses: blocked,
+      queryDrafts: queries,
+    );
   }
 
   static List<String> _splitValidatedClauses(
@@ -255,18 +529,22 @@ abstract final class SmartOmniIntentParser {
             ? right
             : right.substring(0, nextMatch.start).trim();
         if (_parseSingleClause(
-          immediateRight,
-          refNow: refNow,
-          index: 0,
-        ).isEmpty) {
+              immediateRight,
+              refNow: refNow,
+              index: 0,
+            ).isEmpty &&
+            ClauseSafetyScreener.screenClause(immediateRight).isAllowed) {
           continue;
         }
       }
 
-      final leftDrafts = _parseSingleClause(left, refNow: refNow, index: 0);
-      if (leftDrafts.isEmpty) continue;
+      final leftIsBlocked = ClauseSafetyScreener.screenClause(left).isBlocked;
+      final leftDrafts = leftIsBlocked
+          ? const <OmniActionDraft>[]
+          : _parseSingleClause(left, refNow: refNow, index: 0);
+      if (!leftIsBlocked && leftDrafts.isEmpty) continue;
 
-      if (!_hasValidDraftInTail(right, refNow: refNow)) continue;
+      if (!_hasValidOrBlockedDraftInTail(right, refNow: refNow)) continue;
 
       out.add(left);
       cursor = m.end;
@@ -279,9 +557,15 @@ abstract final class SmartOmniIntentParser {
     return out;
   }
 
-  static bool _hasValidDraftInTail(String tail, {required DateTime refNow}) {
+  static bool _hasValidOrBlockedDraftInTail(
+    String tail, {
+    required DateTime refNow,
+  }) {
     final subClauses = _splitValidatedClauses(tail, refNow: refNow);
     for (final sub in subClauses) {
+      if (ClauseSafetyScreener.screenClause(sub).isBlocked) {
+        return true;
+      }
       if (_parseSingleClause(sub, refNow: refNow, index: 0).isNotEmpty) {
         return true;
       }
@@ -295,6 +579,8 @@ abstract final class SmartOmniIntentParser {
     required int index,
   }) {
     final lower = clause.toLowerCase();
+    final folded = VietnameseSearchMatcher.fold(lower);
+    final entities = VietnameseTemporalAndEntityResolver.extractEntities(clause);
 
     // 0A. Water Hydration Log ("uống 250ml nước", "uống 2 cốc nước", "nhắc uống nước")
     final waterDraft = _tryParseWaterClause(clause, lower, index: index);
@@ -313,6 +599,94 @@ abstract final class SmartOmniIntentParser {
       return <OmniActionDraft>[medDraft];
     }
 
+    // 0C. Smart Note ("ghi chú: ...", "note ...")
+    if (folded.startsWith('ghi chu') || folded.startsWith('note')) {
+      final noteBody = clause
+          .replaceFirst(
+            RegExp(r'^(?:ghi\s+chú|ghi\s+chu|note)\s*:?\s*', caseSensitive: false),
+            '',
+          )
+          .trim();
+      if (noteBody.isNotEmpty) {
+        return <OmniActionDraft>[
+          OmniActionDraft(
+            id: 'omni_note_$index',
+            kind: OmniActionKind.task,
+            subtype: OmniIntentSubtype.smartNote,
+            title: _capitalizeFirst(noteBody),
+            noteText: noteBody,
+          ),
+        ];
+      }
+    }
+
+    // 0D. Alarm ("báo thức 6 giờ 30 sáng mai", "đặt chuông 7h sáng")
+    if (folded.startsWith('bao thuc') || folded.startsWith('dat chuong')) {
+      final (alarmAt, cleanedTitle) = _extractDateTimeAndTitle(
+        clause.replaceFirst(
+          RegExp(r'^(?:báo\s+thức|bao\s+thuc|đặt\s+chuông|dat\s+chuong)\s*:?\s*', caseSensitive: false),
+          '',
+        ),
+        refNow: refNow,
+        defaultHour: 7,
+      );
+      return <OmniActionDraft>[
+        OmniActionDraft(
+          id: 'omni_alarm_$index',
+          kind: OmniActionKind.task,
+          subtype: OmniIntentSubtype.alarm,
+          title: cleanedTitle.isEmpty ? 'Báo thức' : cleanedTitle,
+          scheduledAt: alarmAt,
+          taskPriority: TaskPriorityLevel.high,
+        ),
+      ];
+    }
+
+    // Ignore Vietnamese phone tokens inside non-financial text before trying SmartQuickEntryParser
+    final clauseWithoutPhones = clause
+        .replaceAll(_vnPhoneWithoutCurrencyRegex, ' ')
+        .trim();
+    final moneyCandidate = SmartQuickEntryParser.tryParse(clauseWithoutPhones);
+
+    // 0E. Budget setup ("đặt ngân sách ăn uống 5 triệu", "hạn mức mua sắm 3tr")
+    if ((folded.contains('ngan sach') || folded.contains('han muc')) &&
+        moneyCandidate != null &&
+        moneyCandidate.amountMinor > 0) {
+      return <OmniActionDraft>[
+        OmniActionDraft(
+          id: 'omni_budget_$index',
+          kind: OmniActionKind.transaction,
+          subtype: OmniIntentSubtype.budgetSetup,
+          title: moneyCandidate.categoryName,
+          amountMinor: moneyCandidate.amountMinor,
+          categoryId: moneyCandidate.categoryId,
+          categoryName: moneyCandidate.categoryName,
+          sourceWalletHint: entities.walletHint,
+        ),
+      ];
+    }
+
+    // 0F. Salary allocation ("phân bổ lương 30 triệu", "chia lương 25tr")
+    if ((folded.contains('phan bo luong') ||
+            folded.contains('chia luong') ||
+            folded.contains('50/30/20') ||
+            folded.contains('6 lo')) &&
+        moneyCandidate != null &&
+        moneyCandidate.amountMinor > 0) {
+      return <OmniActionDraft>[
+        OmniActionDraft(
+          id: 'omni_alloc_$index',
+          kind: OmniActionKind.transaction,
+          subtype: OmniIntentSubtype.salaryAllocation,
+          title: moneyCandidate.merchant,
+          amountMinor: moneyCandidate.amountMinor,
+          transactionKind: TransactionKind.income,
+          categoryId: moneyCandidate.categoryId,
+          categoryName: 'Phân bổ thu nhập',
+        ),
+      ];
+    }
+
     // 1. Group Bill Split ("Ăn lẩu 600k chia 4 người")
     final splitMatch = _splitCountRegex.firstMatch(lower);
     if (splitMatch != null) {
@@ -320,7 +694,7 @@ abstract final class SmartOmniIntentParser {
         2,
         30,
       );
-      final cleanedForMoney = clause
+      final cleanedForMoney = clauseWithoutPhones
           .replaceFirst(splitMatch.group(0) ?? '', '')
           .trim();
       final tx = SmartQuickEntryParser.tryParse(cleanedForMoney);
@@ -329,6 +703,7 @@ abstract final class SmartOmniIntentParser {
           OmniActionDraft(
             id: 'omni_split_$index',
             kind: OmniActionKind.groupSplit,
+            subtype: OmniIntentSubtype.groupBillSplit,
             title: tx.merchant,
             amountMinor: tx.amountMinor,
             categoryId: tx.categoryId,
@@ -339,29 +714,99 @@ abstract final class SmartOmniIntentParser {
       }
     }
 
-    // 2. Grocery Basket ("Đi chợ mua sữa tươi, trứng gà" when no completed spend amount)
-    final moneyCandidate = SmartQuickEntryParser.tryParse(clause);
+    // 2. Vehicle Maintenance & Odometer Log
+    final hasVehicleMaintenanceCue =
+        folded.contains('bao duong') ||
+        folded.contains('thay nhot') ||
+        folded.contains('sua xe') ||
+        folded.contains('thay lop') ||
+        folded.contains('rua xe') ||
+        (entities.vehicleHint != null && entities.odometerKm != null);
+    if (hasVehicleMaintenanceCue) {
+      if (moneyCandidate != null && moneyCandidate.amountMinor > 0) {
+        return <OmniActionDraft>[
+          OmniActionDraft(
+            id: 'omni_veh_$index',
+            kind: OmniActionKind.transaction,
+            subtype: OmniIntentSubtype.vehicleMaintenance,
+            title: moneyCandidate.merchant,
+            amountMinor: moneyCandidate.amountMinor,
+            transactionKind: TransactionKind.expense,
+            categoryId: 'cat_transport',
+            categoryName: 'Bảo dưỡng xe',
+            sourceWalletHint: entities.walletHint,
+            vehicleHint: entities.vehicleHint,
+            odometerKm: entities.odometerKm,
+          ),
+        ];
+      } else {
+        return <OmniActionDraft>[
+          OmniActionDraft(
+            id: 'omni_veh_task_$index',
+            kind: OmniActionKind.task,
+            subtype: OmniIntentSubtype.vehicleMaintenance,
+            title: _capitalizeFirst(clause),
+            scheduledAt: refNow,
+            vehicleHint: entities.vehicleHint,
+            odometerKm: entities.odometerKm,
+          ),
+        ];
+      }
+    }
+
+    // 3. Grocery Basket ("Đi chợ mua sữa tươi, trứng gà" when no completed spend amount)
     if (_looksLikeGroceryCommand(lower) && moneyCandidate == null) {
       return _parseGroceryItems(clause, startIndex: index);
     }
 
-    // 3. Financial Transaction ("Ăn phở 55k", "Nhận lương 18tr5")
-    // Guard: ensure "9h" or "15h" in a schedule isn't misread as money (SmartQuickEntryParser requires k/tr/đ or >=4 digits).
-    if (moneyCandidate != null && !_isPureTimeNumberFalsePositive(lower)) {
+    // 4. Financial Transaction (Internal Transfer / Debt Settlement / Refund / Loan / Fuel / Expense / Income)
+    if (moneyCandidate != null &&
+        !_isPureTimeNumberFalsePositive(lower) &&
+        !(folded.contains('lich ') && _containsScheduleCue(lower)) &&
+        !(folded.contains('hop ') && _explicitHourRegex.hasMatch(folded))) {
+      final txSubtype = _inferFinancialSubtype(
+        folded: folded,
+        parsed: moneyCandidate,
+        entities: entities,
+      );
+      final resolvedTxKind = txSubtype == OmniIntentSubtype.internalTransfer
+          ? TransactionKind.transfer
+          : txSubtype == OmniIntentSubtype.refund
+              ? TransactionKind.income
+              : moneyCandidate.kind;
+      final resolvedCatId = txSubtype == OmniIntentSubtype.internalTransfer
+          ? 'cat_transfer'
+          : txSubtype == OmniIntentSubtype.fuelRefill
+              ? 'cat_transport'
+              : moneyCandidate.categoryId;
+      final resolvedCatName = switch (txSubtype) {
+        OmniIntentSubtype.internalTransfer => 'Chuyển khoản nội bộ',
+        OmniIntentSubtype.refund => 'Hoàn tiền',
+        OmniIntentSubtype.loanOrBorrow => 'Vay & Cho vay',
+        OmniIntentSubtype.debtSettlement => 'Tất toán nợ',
+        OmniIntentSubtype.fuelRefill => moneyCandidate.categoryName,
+        _ => moneyCandidate.categoryName,
+      };
       return <OmniActionDraft>[
         OmniActionDraft(
           id: 'omni_tx_$index',
           kind: OmniActionKind.transaction,
+          subtype: txSubtype,
           title: moneyCandidate.merchant,
           amountMinor: moneyCandidate.amountMinor,
-          transactionKind: moneyCandidate.kind,
-          categoryId: moneyCandidate.categoryId,
-          categoryName: moneyCandidate.categoryName,
+          transactionKind: resolvedTxKind,
+          categoryId: resolvedCatId,
+          categoryName: resolvedCatName,
+          sourceWalletHint: entities.walletHint,
+          destinationWalletHint: entities.destinationWalletHint,
+          vehicleHint: entities.vehicleHint,
+          odometerKm: entities.odometerKm,
+          location: entities.locationHint,
         ),
       ];
     }
 
-    // 4. Calendar Event ("Họp dự án 9h sáng mai", "Lịch khám răng 14:30 thứ 7")
+    // 5. Calendar Event ("Họp dự án 9h sáng mai", "Ngày mai có lịch họp lúc 9 giờ")
     if (_containsScheduleCue(lower)) {
       final (scheduledTime, strippedTitle) = _extractDateTimeAndTitle(
         clause,
@@ -372,14 +817,16 @@ abstract final class SmartOmniIntentParser {
         OmniActionDraft(
           id: 'omni_event_$index',
           kind: OmniActionKind.calendarEvent,
+          subtype: OmniIntentSubtype.calendarEvent,
           title: strippedTitle,
           scheduledAt: scheduledTime,
           durationMinutes: 60,
+          location: entities.locationHint,
         ),
       ];
     }
 
-    // 5. Task / Reminder ("Nhắc đóng tiền điện tối nay !gấp", "Việc: gửi báo cáo ngày mai")
+    // 6. Task / Reminder ("Tối 8 giờ nhắc tôi gọi mẹ", "Nhắc đóng tiền điện tối nay !gấp")
     if (_containsTaskCue(lower)) {
       final isUrgent =
           lower.contains('!gấp') ||
@@ -397,10 +844,14 @@ abstract final class SmartOmniIntentParser {
         refNow: refNow,
         defaultHour: 19,
       );
+      final isReminder = folded.contains('nhac');
       return <OmniActionDraft>[
         OmniActionDraft(
           id: 'omni_task_$index',
           kind: OmniActionKind.task,
+          subtype: isReminder
+              ? OmniIntentSubtype.reminder
+              : OmniIntentSubtype.task,
           title: strippedTitle,
           scheduledAt: dueTime,
           taskPriority: isUrgent
@@ -411,6 +862,39 @@ abstract final class SmartOmniIntentParser {
     }
 
     return const <OmniActionDraft>[];
+  }
+
+  static OmniIntentSubtype _inferFinancialSubtype({
+    required String folded,
+    required ParsedSmartEntry parsed,
+    required VietnameseEntitySnapshot entities,
+  }) {
+    if (folded.contains('tat toan') || folded.contains('tra no')) {
+      return OmniIntentSubtype.debtSettlement;
+    }
+    if ((folded.contains('chuyen') || folded.contains('nap sang')) &&
+        (entities.destinationWalletHint != null ||
+            folded.contains('tu vi') ||
+            folded.contains('sang vi') ||
+            folded.contains('noi bo'))) {
+      return OmniIntentSubtype.internalTransfer;
+    }
+    if (folded.contains('hoan tien') || folded.contains('refund')) {
+      return OmniIntentSubtype.refund;
+    }
+    if (folded.contains('cho vay') ||
+        folded.contains('muon ') ||
+        RegExp(r'\bvay\b').hasMatch(folded)) {
+      return OmniIntentSubtype.loanOrBorrow;
+    }
+    if (folded.contains('do xang') ||
+        folded.contains('xang') ||
+        folded.contains('sac xe')) {
+      return OmniIntentSubtype.fuelRefill;
+    }
+    return parsed.kind == TransactionKind.income
+        ? OmniIntentSubtype.income
+        : OmniIntentSubtype.expense;
   }
 
   static bool _isPureTimeNumberFalsePositive(String lower) {
@@ -480,9 +964,14 @@ abstract final class SmartOmniIntentParser {
     final folded = VietnameseSearchMatcher.fold(lower);
     if (folded.startsWith('lich ') ||
         folded.startsWith('lich:') ||
+        folded.startsWith('co lich') ||
         folded.startsWith('hop ') ||
         folded.startsWith('hen ') ||
         folded.startsWith('kham ')) {
+      return true;
+    }
+    if (RegExp(r'\b(co\s+)?lich\s+(hop|hen|kham|di|lam)\b').hasMatch(folded) ||
+        RegExp(r'\b(hop|hen|kham)\s+(?:luc|vao|\d)').hasMatch(folded)) {
       return true;
     }
     if (_explicitHourRegex.hasMatch(folded) &&
@@ -506,14 +995,19 @@ abstract final class SmartOmniIntentParser {
 
   static bool _containsTaskCue(String lower) {
     final folded = VietnameseSearchMatcher.fold(lower);
-    return folded.startsWith('nhac ') ||
+    if (folded.startsWith('nhac ') ||
         folded.startsWith('nho ') ||
         folded.startsWith('viec:') ||
         folded.startsWith('viec ') ||
         folded.startsWith('can lam') ||
         folded.startsWith('hoan thanh ') ||
         folded.startsWith('gui bao cao') ||
-        folded.startsWith('dong tien ');
+        folded.startsWith('dong tien ')) {
+      return true;
+    }
+    return RegExp(
+      r'\b(?:nhac\s+(?:toi|minh|nho|lai)?|can\s+lam|hoan\s+thanh|gui\s+bao\s+cao|bao\s+thuc)\b',
+    ).hasMatch(folded);
   }
 
   static (DateTime, String) _extractDateTimeAndTitle(
@@ -521,93 +1015,24 @@ abstract final class SmartOmniIntentParser {
     required DateTime refNow,
     required int defaultHour,
   }) {
-    final lower = rawClause.toLowerCase();
-    final folded = VietnameseSearchMatcher.fold(lower);
-    var dayOffset = 0;
-    if (folded.contains('ngay kia') ||
-        folded.contains('ngay mot') ||
-        folded.contains('sang mot') ||
-        folded.contains('trua mot') ||
-        folded.contains('chieu mot') ||
-        folded.contains('toi mot')) {
-      dayOffset = 2;
-    } else if (folded.contains('ngay mai') ||
-        folded.contains('sang mai') ||
-        folded.contains('trua mai') ||
-        folded.contains('chieu mai') ||
-        folded.contains('toi mai') ||
-        RegExp(r'\bmai\b').hasMatch(folded)) {
-      dayOffset = 1;
-    } else if (folded.contains('cuoi tuan')) {
-      final daysUntilSat = (DateTime.saturday - refNow.weekday) % 7;
-      dayOffset = daysUntilSat == 0 ? 1 : daysUntilSat;
-    } else {
-      final weekdayMap = <String, int>{
-        'thu 2': DateTime.monday,
-        'thu hai': DateTime.monday,
-        'thu 3': DateTime.tuesday,
-        'thu ba': DateTime.tuesday,
-        'thu 4': DateTime.wednesday,
-        'thu tu': DateTime.wednesday,
-        'thu 5': DateTime.thursday,
-        'thu nam': DateTime.thursday,
-        'thu 6': DateTime.friday,
-        'thu sau': DateTime.friday,
-        'thu 7': DateTime.saturday,
-        'thu bay': DateTime.saturday,
-        'chu nhat': DateTime.sunday,
-      };
-      for (final entry in weekdayMap.entries) {
-        if (folded.contains(entry.key)) {
-          var diff = entry.value - refNow.weekday;
-          if (diff <= 0) diff += 7;
-          dayOffset = diff;
-          break;
-        }
-      }
-    }
+    final temporal = VietnameseTemporalAndEntityResolver.resolveTemporal(
+      rawClause,
+      referenceNow: refNow,
+      defaultHour: defaultHour,
+    );
 
-    var hour = defaultHour;
-    var minute = 0;
-
-    if (folded.contains('sang')) {
-      hour = 8;
-    } else if (folded.contains('trua')) {
-      hour = 12;
-    } else if (folded.contains('chieu')) {
-      hour = 15;
-    } else if (folded.contains('toi')) {
-      hour = 20;
-    }
-
-    final hm = _explicitHourRegex.firstMatch(lower);
-    if (hm != null) {
-      final parsedH = int.tryParse(hm.group(1) ?? '');
-      final parsedM = int.tryParse(hm.group(2) ?? '');
-      final period = VietnameseSearchMatcher.fold(hm.group(3) ?? '');
-      if (parsedH != null && parsedH >= 0 && parsedH <= 23) {
-        hour = parsedH;
-        if ((period.contains('chieu') || period.contains('toi')) && hour < 12) {
-          hour += 12;
-        }
-      }
-      if (parsedM != null && parsedM >= 0 && parsedM <= 59) {
-        minute = parsedM;
-      }
-    }
-
-    var cleanTitle = rawClause
+    var cleanTitle = temporal.cleanedText
         .replaceFirst(
           RegExp(
-            r'^(?:nhắc nhở:?|nhac nho:?|nhắc:?|nhac:?|nhớ:?|nho:?|việc cần làm:?|viec can lam:?|việc:?|viec:?|cần làm:?|can lam:?|lịch:?|lich:?)\s*',
+            r'^(?:có\s+lịch\s+|co\s+lich\s+|nhắc nhở:?|nhac nho:?|nhắc\s+(?:tôi|mình|nhở)?:?|nhac\s+(?:toi|minh|nho)?:?|nhớ:?|nho:?|việc cần làm:?|viec can lam:?|việc:?|viec:?|cần làm:?|can lam:?|lịch:?|lich:?)\s*',
             caseSensitive: false,
+            unicode: true,
           ),
           '',
         )
-        .replaceAll(_explicitHourRegex, '')
         .replaceAll(
           RegExp(
-            r'(?<![\p{L}\p{N}])(?:lúc|luc|vào|vao|sáng\s+mai|sang\s+mai|chiều\s+mai|chieu\s+mai|tối\s+mai|toi\s+mai|trưa\s+mai|trua\s+mai|ngày\s+mai|ngay\s+mai|sáng\s+mốt|sang\s+mot|chiều\s+mốt|chieu\s+mot|tối\s+mốt|toi\s+mot|trưa\s+mốt|trua\s+mot|ngày\s+mốt|ngay\s+mot|ngày\s+kia|ngay\s+kia|hôm\s+nay|hom\s+nay|tối\s+nay|toi\s+nay|chiều\s+nay|chieu\s+nay|sáng\s+nay|sang\s+nay|trưa\s+nay|trua\s+nay|cuối\s+tuần|cuoi\s+tuan)(?![\p{L}\p{N}])',
+            r'\b(?:nhắc\s+(?:tôi|mình)|nhac\s+(?:toi|minh)|có\s+lịch|co\s+lich)\b',
             caseSensitive: false,
             unicode: true,
           ),
@@ -623,14 +1048,7 @@ abstract final class SmartOmniIntentParser {
       cleanTitle = _capitalizeFirst(cleanTitle);
     }
 
-    final targetDate = DateTime(
-      refNow.year,
-      refNow.month,
-      refNow.day + dayOffset,
-      hour,
-      minute,
-    );
-    return (targetDate, cleanTitle);
+    return (temporal.dateTime, cleanTitle);
   }
 
   static String _capitalizeFirst(String input) {

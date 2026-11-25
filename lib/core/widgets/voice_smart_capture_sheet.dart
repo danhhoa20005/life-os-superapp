@@ -11,6 +11,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../features/authentication/domain/entities/user_entity.dart';
 import '../../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../../features/budgets/presentation/bloc/budget_bloc.dart';
 import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
 import '../../features/daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../features/family/domain/entities/family_entities.dart';
@@ -22,6 +23,7 @@ import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
 import '../../features/transactions/presentation/bloc/transaction_state.dart';
+import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../constants/app_assets.dart';
 import '../di/dependency_injection.dart';
 import '../services/native_voice_assistant_bridge.dart';
@@ -57,6 +59,8 @@ Future<void> showVoiceSmartCaptureSheet(
   final calBloc = _tryReadBloc<CalendarBloc>(context);
   final taskBloc = _tryReadBloc<TaskBloc>(context);
   final dailyBloc = _tryReadBloc<DailyLifeBloc>(context);
+  final budgetBloc = _tryReadBloc<BudgetBloc>(context);
+  final vehicleBloc = _tryReadBloc<VehicleBloc>(context);
 
   final hasPrefilledText =
       initialTranscript != null && initialTranscript.trim().isNotEmpty;
@@ -76,6 +80,10 @@ Future<void> showVoiceSmartCaptureSheet(
           if (taskBloc != null) BlocProvider<TaskBloc>.value(value: taskBloc),
           if (dailyBloc != null)
             BlocProvider<DailyLifeBloc>.value(value: dailyBloc),
+          if (budgetBloc != null)
+            BlocProvider<BudgetBloc>.value(value: budgetBloc),
+          if (vehicleBloc != null)
+            BlocProvider<VehicleBloc>.value(value: vehicleBloc),
         ],
         child: _VoiceSmartCaptureSheetBody(
           parentContext: context,
@@ -123,6 +131,10 @@ class _VoiceSmartCaptureSheetBodyState
   String _batchSignature = '';
   final Map<int, String> _batchOperationIds = <int, String>{};
   final Set<int> _completedBatchIndices = <int>{};
+  final Map<String, String> _participantOverrides = <String, String>{};
+  final Set<int> _dismissedPersonalIndices = <int>{};
+  final Set<int> _dismissedOmniIndices = <int>{};
+  bool _multiCatMismatchConfirmed = false;
   String _sessionPrefixText = '';
   VoiceEngineMode _selectedEngineMode = VoiceEngineMode.googleService;
   VoiceDiagnosticsSnapshot? _diagnostics;
@@ -397,6 +409,10 @@ class _VoiceSmartCaptureSheetBodyState
     if (clearExisting) {
       _textCtrl.clear();
       _sessionPrefixText = '';
+      _participantOverrides.clear();
+      _dismissedPersonalIndices.clear();
+      _dismissedOmniIndices.clear();
+      _multiCatMismatchConfirmed = false;
     } else {
       _sessionPrefixText = _textCtrl.text.trim();
     }
@@ -496,8 +512,30 @@ class _VoiceSmartCaptureSheetBodyState
     required VoiceUtteranceEvaluation eval,
     required String targetWalletId,
     required FamilyEntity? activeFamily,
+    required List<WalletEntity> wallets,
   }) async {
     if (_isSubmittingConfirm) return;
+    final finResult = eval.financialAnalysis;
+    if (finResult?.groupSplit != null && !finResult!.groupSplit!.isValid) {
+      LifeOsTopToast.show(
+        context,
+        finResult.groupSplit!.validationMessageVi ??
+            'Bảng chia tiền chưa hợp lệ — vui lòng kiểm tra lại.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
+    }
+    if (finResult?.multiCategoryReceipt?.validationStatus ==
+            SplitValidationStatus.requiresConfirmation &&
+        !_multiCatMismatchConfirmed) {
+      LifeOsTopToast.show(
+        context,
+        'Vui lòng tích xác nhận chênh lệch tổng hóa đơn trước khi lưu.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
+    }
+
     setState(() => _isSubmittingConfirm = true);
 
     const uuid = Uuid();
@@ -507,7 +545,8 @@ class _VoiceSmartCaptureSheetBodyState
     final calBloc = _tryReadBloc<CalendarBloc>(context);
     final taskBloc = _tryReadBloc<TaskBloc>(context);
     final dailyBloc = _tryReadBloc<DailyLifeBloc>(context);
-    final finResult = eval.financialAnalysis;
+    final budgetBloc = _tryReadBloc<BudgetBloc>(context);
+    final vehicleBloc = _tryReadBloc<VehicleBloc>(context);
 
     final currentSig = '${_textCtrl.text.trim()}::$targetWalletId';
     if (_batchSignature != currentSig) {
@@ -515,6 +554,10 @@ class _VoiceSmartCaptureSheetBodyState
       _batchOperationIds.clear();
       _completedBatchIndices.clear();
     }
+
+    var savedFinancialSummary = '';
+    var savedSingleTxId = '';
+    var savedSingleMerchant = '';
 
     try {
       // Path A: Rich Financial / Group Split / Multi-Category Receipt
@@ -600,21 +643,17 @@ class _VoiceSmartCaptureSheetBodyState
               return;
             }
             await UserBehaviorPrefs.rememberWallet(targetWalletId);
-            _batchOperationIds.clear();
-            _completedBatchIndices.clear();
-            if (mounted) {
-              navigator.pop();
-            }
-            if (widget.parentContext.mounted) {
-              LifeOsTopToast.show(
-                widget.parentContext,
-                '✓ Đã chia hóa đơn "${split.title}" (${VndAmount.format(split.totalAmountMinor)}) cho ${split.shares.length} người!',
-              );
-            }
-            return;
+            savedFinancialSummary =
+                '✓ Đã chia hóa đơn "${split.title}" (${VndAmount.format(split.totalAmountMinor)}) cho ${split.shares.length} người!';
+            break;
 
           case VoiceSentenceIntentKind.multiCategoryReceipt:
             final rec = finResult.multiCategoryReceipt!;
+            final sumLines = rec.splitLines.fold<int>(
+              0,
+              (s, l) => s + l.amountMinor,
+            );
+            final effectiveTotal = math.max(rec.totalAmountMinor, sumLines);
             final opId = _batchOperationIds.putIfAbsent(0, () => uuid.v4());
             final outcome = await txActionBloc.submitAndAwaitCreate(
               TransactionCreateSubmitted(
@@ -623,7 +662,7 @@ class _VoiceSmartCaptureSheetBodyState
                 walletId: targetWalletId,
                 categoryName: rec.splitLines.first.categoryName,
                 kind: TransactionKind.expense,
-                amountMinor: rec.totalAmountMinor,
+                amountMinor: effectiveTotal,
                 merchant: rec.merchant,
                 note: 'Tách khoản bằng Giọng nói AI',
                 occurredAt: DateTime.now(),
@@ -643,26 +682,21 @@ class _VoiceSmartCaptureSheetBodyState
               return;
             }
             await UserBehaviorPrefs.rememberWallet(targetWalletId);
-            _batchOperationIds.clear();
-            _completedBatchIndices.clear();
-            if (mounted) {
-              navigator.pop();
-            }
-            if (widget.parentContext.mounted) {
-              LifeOsTopToast.show(
-                widget.parentContext,
-                '✓ Đã lưu hóa đơn tách khoản (${VndAmount.format(rec.totalAmountMinor)})',
-              );
-            }
-            return;
+            savedFinancialSummary =
+                '✓ Đã lưu hóa đơn tách khoản (${VndAmount.format(effectiveTotal)})';
+            break;
 
           case VoiceSentenceIntentKind.batchTransactions:
           case VoiceSentenceIntentKind.singleTransaction:
             final entries = finResult.personalEntries;
+            final activeEntryIndices = <int>[
+              for (var i = 0; i < entries.length; i++)
+                if (!_dismissedPersonalIndices.contains(i)) i,
+            ];
             final failedItems = <({String merchant, String? reason})>[];
             TransactionEntity? singleCreatedTx;
 
-            for (var i = 0; i < entries.length; i++) {
+            for (final i in activeEntryIndices) {
               if (_completedBatchIndices.contains(i)) {
                 continue;
               }
@@ -686,6 +720,7 @@ class _VoiceSmartCaptureSheetBodyState
                   outcome.lastCreatedTransaction != null) {
                 _completedBatchIndices.add(i);
                 singleCreatedTx = outcome.lastCreatedTransaction;
+                savedSingleMerchant = entry.merchant;
               } else {
                 failedItems.add((
                   merchant: entry.merchant,
@@ -699,81 +734,78 @@ class _VoiceSmartCaptureSheetBodyState
               final firstFail = failedItems.first;
               if (mounted) {
                 setState(() {
-                  _voiceStatusHint = entries.length == 1
+                  _voiceStatusHint = activeEntryIndices.length == 1
                       ? (firstFail.reason ??
                             'Chưa thể lưu giao dịch — bấm Xác nhận & Lưu để thử lại.')
-                      : 'Đã lưu $savedCount/${entries.length} khoản. Khoản "${firstFail.merchant}" gặp lỗi — bấm Xác nhận & Lưu để thử lại phần lỗi mà không tạo trùng.';
+                      : 'Đã lưu $savedCount/${activeEntryIndices.length} khoản. Khoản "${firstFail.merchant}" gặp lỗi — bấm Xác nhận & Lưu để thử lại phần lỗi mà không tạo trùng.';
                 });
               }
               if (context.mounted) {
                 LifeOsTopToast.show(
                   context,
-                  entries.length == 1
+                  activeEntryIndices.length == 1
                       ? (firstFail.reason ??
                             'Không thể lưu giao dịch "${firstFail.merchant}" — vui lòng thử lại.')
-                      : 'Đã lưu $savedCount/${entries.length} khoản — "${firstFail.merchant}" gặp lỗi. Bấm thử lại sẽ không bị trùng khoản đã lưu.',
+                      : 'Đã lưu $savedCount/${activeEntryIndices.length} khoản — "${firstFail.merchant}" gặp lỗi. Bấm thử lại sẽ không bị trùng khoản đã lưu.',
                   kind: LifeOsToastKind.error,
                 );
               }
               return;
             }
 
-            await UserBehaviorPrefs.rememberWallet(targetWalletId);
-            _batchOperationIds.clear();
-            _completedBatchIndices.clear();
-            if (mounted) {
-              navigator.pop();
-            }
-            if (widget.parentContext.mounted) {
-              final count = entries.length;
-              final first = entries.first;
-              if (count == 1 && singleCreatedTx != null) {
-                final createdId = singleCreatedTx.id;
-                LifeOsTopToast.show(
-                  widget.parentContext,
-                  '✓ Đã lưu: ${first.merchant} (${VndAmount.format(first.amountMinor)})',
-                  actionLabel: 'Hoàn tác',
-                  onAction: () {
-                    txActionBloc.add(
-                      TransactionReverseRequested(
-                        userId: widget.user.id,
-                        transactionId: createdId,
-                        reason: 'Hoàn tác giao dịch giọng nói',
-                      ),
-                    );
-                  },
-                );
+            if (activeEntryIndices.isNotEmpty) {
+              await UserBehaviorPrefs.rememberWallet(targetWalletId);
+              if (activeEntryIndices.length == 1 && singleCreatedTx != null) {
+                savedSingleTxId = singleCreatedTx.id;
+                final onlyEntry = entries[activeEntryIndices.single];
+                savedFinancialSummary =
+                    '✓ Đã lưu: ${onlyEntry.merchant} (${VndAmount.format(onlyEntry.amountMinor)})';
               } else {
-                LifeOsTopToast.show(
-                  widget.parentContext,
-                  '✓ Đã xác nhận & lưu $count khoản thu chi!',
-                );
+                savedFinancialSummary =
+                    '✓ Đã xác nhận & lưu ${activeEntryIndices.length} khoản thu chi!';
               }
             }
-            return;
+            break;
         }
       }
 
-      // Path B: Cross-Domain LifeOS Spoken Intents (Calendar, Task, Water, Medication, Grocery)
-      if (eval.omniDrafts.isNotEmpty) {
+      // Path B: Execute Cross-Domain Omni Drafts!
+      // IMPORTANT: Never swallow non-financial calendar/task/reminder drafts when Path A succeeded!
+      final omniToRun = finResult != null
+          ? eval.nonFinancialOmniDrafts
+          : eval.omniDrafts;
+      final activeOmniIndices = <int>[
+        for (var i = 0; i < omniToRun.length; i++)
+          if (!_dismissedOmniIndices.contains(i)) i,
+      ];
+
+      var omniExecutedCount = 0;
+      OmniActionDraft? lastExecutedOmni;
+      if (activeOmniIndices.isNotEmpty) {
         var failedCount = 0;
-        for (var i = 0; i < eval.omniDrafts.length; i++) {
-          if (_completedBatchIndices.contains(i)) continue;
+        for (final i in activeOmniIndices) {
+          final offsetKey = 1000 + i;
+          if (_completedBatchIndices.contains(offsetKey)) continue;
           if (!context.mounted) break;
           final ok = await OmniActionExecutor.executeDraft(
             toastContext: context,
-            draft: eval.omniDrafts[i],
+            draft: omniToRun[i],
             user: widget.user,
             walletId: targetWalletId,
+            availableWallets: wallets,
             txActionBloc: txActionBloc,
             calBloc: calBloc,
             taskBloc: taskBloc,
             familyBloc: familyBloc,
             dailyBloc: dailyBloc,
+            budgetBloc: budgetBloc,
+            vehicleBloc: vehicleBloc,
             showSuccessToast: false,
           );
           if (ok) {
-            _completedBatchIndices.add(i);
+            _completedBatchIndices.add(offsetKey);
+            omniExecutedCount++;
+            lastExecutedOmni = omniToRun[i];
           } else {
             failedCount++;
           }
@@ -781,19 +813,42 @@ class _VoiceSmartCaptureSheetBodyState
         if (failedCount > 0) {
           return;
         }
-        final draftsCount = eval.omniDrafts.length;
-        final lastDraft = eval.omniDrafts.last;
-        _batchOperationIds.clear();
-        _completedBatchIndices.clear();
-        if (mounted) {
-          navigator.pop();
-        }
-        if (widget.parentContext.mounted) {
+      }
+
+      _batchOperationIds.clear();
+      _completedBatchIndices.clear();
+      if (mounted) {
+        navigator.pop();
+      }
+      if (widget.parentContext.mounted) {
+        if (savedFinancialSummary.isNotEmpty && omniExecutedCount > 0) {
           LifeOsTopToast.show(
             widget.parentContext,
-            draftsCount == 1
-                ? '✓ Đã lưu: ${lastDraft.summaryLineVi}'
-                : '✓ Đã thực hiện & lưu $draftsCount thao tác thông minh!',
+            '$savedFinancialSummary & Đã thêm $omniExecutedCount lịch/nhắc việc!',
+          );
+        } else if (savedSingleTxId.isNotEmpty) {
+          LifeOsTopToast.show(
+            widget.parentContext,
+            savedFinancialSummary,
+            actionLabel: 'Hoàn tác',
+            onAction: () {
+              txActionBloc.add(
+                TransactionReverseRequested(
+                  userId: widget.user.id,
+                  transactionId: savedSingleTxId,
+                  reason: 'Hoàn tác giao dịch "$savedSingleMerchant"',
+                ),
+              );
+            },
+          );
+        } else if (savedFinancialSummary.isNotEmpty) {
+          LifeOsTopToast.show(widget.parentContext, savedFinancialSummary);
+        } else if (omniExecutedCount > 0) {
+          LifeOsTopToast.show(
+            widget.parentContext,
+            omniExecutedCount == 1 && lastExecutedOmni != null
+                ? '✓ Đã lưu: ${lastExecutedOmni.summaryLineVi}'
+                : '✓ Đã thực hiện & lưu $omniExecutedCount thao tác thông minh!',
           );
         }
       }
@@ -822,10 +877,31 @@ class _VoiceSmartCaptureSheetBodyState
       currentUserId: widget.user.id,
       currentUserName: widget.user.fullName,
       knownMembers: knownMembers,
+      explicitParticipantOverrides: _participantOverrides,
     );
     final analysis = eval.financialAnalysis;
-    final hasOmniOnly = analysis == null && eval.omniDrafts.isNotEmpty;
-    final hasAnyConfirmedDraft = analysis != null || hasOmniOnly;
+    final visiblePersonalCount = analysis == null
+        ? 0
+        : analysis.personalEntries.length - _dismissedPersonalIndices.length;
+    final trailingOmniDrafts = analysis != null
+        ? eval.nonFinancialOmniDrafts
+        : eval.omniDrafts;
+    final visibleOmniCount =
+        trailingOmniDrafts.length - _dismissedOmniIndices.length;
+    final hasAnyConfirmedDraft = analysis != null || eval.omniDrafts.isNotEmpty;
+    final isGroupSplitInvalid =
+        analysis?.groupSplit != null && !analysis!.groupSplit!.isValid;
+    final isReceiptNeedsConfirm =
+        analysis?.multiCategoryReceipt?.validationStatus ==
+            SplitValidationStatus.requiresConfirmation &&
+        !_multiCatMismatchConfirmed;
+    final isEverythingDismissed =
+        analysis != null &&
+        analysis.groupSplit == null &&
+        analysis.multiCategoryReceipt == null &&
+        visiblePersonalCount <= 0 &&
+        visibleOmniCount <= 0;
+    final isOmniOnlyDismissed = analysis == null && visibleOmniCount <= 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasSpokenText = _textCtrl.text.trim().isNotEmpty;
     final motion = LifeOsMotionScope.of(context);
@@ -1193,6 +1269,10 @@ class _VoiceSmartCaptureSheetBodyState
                 onChanged: (val) {
                   setState(() {
                     _awaitingConfirmation = true;
+                    _participantOverrides.clear();
+                    _dismissedPersonalIndices.clear();
+                    _dismissedOmniIndices.clear();
+                    _multiCatMismatchConfirmed = false;
                     if (!_isListening) {
                       _sessionPrefixText = val.trim();
                     }
@@ -1223,6 +1303,10 @@ class _VoiceSmartCaptureSheetBodyState
                                 setState(() {
                                   _textCtrl.clear();
                                   _sessionPrefixText = '';
+                                  _participantOverrides.clear();
+                                  _dismissedPersonalIndices.clear();
+                                  _dismissedOmniIndices.clear();
+                                  _multiCatMismatchConfirmed = false;
                                   _awaitingConfirmation = false;
                                   _voiceStatusHint = null;
                                 });
@@ -1324,6 +1408,38 @@ class _VoiceSmartCaptureSheetBodyState
               const SizedBox(height: 10),
 
               // 4. Structured Confirmation Preview Card (`cho xác nhận lại`)
+              if (eval.blockedClauses.isNotEmpty && !hasAnyConfirmedDraft) ...[
+                Container(
+                  key: const Key('voice_blocked_safety_banner'),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: c.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: c.warning.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.shield_outlined, size: 18, color: c.warning),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Đã bỏ qua (không tạo giao dịch): ${eval.blockedClauses.map((b) => '"${b.clause}" (${b.reasonVi})').join(' · ')}',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 12.2,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               if (hasAnyConfirmedDraft) ...[
                 Container(
                   key: const Key('voice_confirmation_preview_card'),
@@ -1332,7 +1448,8 @@ class _VoiceSmartCaptureSheetBodyState
                     color: c.surfaceRaised,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: c.primary.withValues(alpha: 0.38),
+                      color: (isGroupSplitInvalid ? c.error : c.primary)
+                          .withValues(alpha: 0.45),
                       width: 1.1,
                     ),
                   ),
@@ -1342,21 +1459,24 @@ class _VoiceSmartCaptureSheetBodyState
                       Row(
                         children: [
                           Icon(
-                            Icons.verified_rounded,
+                            isGroupSplitInvalid
+                                ? Icons.error_outline_rounded
+                                : Icons.verified_rounded,
                             size: 17,
-                            color: c.primary,
+                            color: isGroupSplitInvalid ? c.error : c.primary,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               analysis != null
                                   ? analysis.summaryHeadline
-                                  : 'Sẽ thực hiện ${eval.omniDrafts.length} mục sau khi bạn xác nhận',
+                                  : 'Sẽ thực hiện $visibleOmniCount mục sau khi bạn xác nhận',
                               softWrap: true,
                               style: TextStyle(
                                 fontSize: 12.8,
                                 fontWeight: FontWeight.w800,
-                                color: c.primary,
+                                color:
+                                    isGroupSplitInvalid ? c.error : c.primary,
                               ),
                             ),
                           ),
@@ -1364,6 +1484,107 @@ class _VoiceSmartCaptureSheetBodyState
                       ),
                       const Divider(height: 18),
                       if (analysis != null && analysis.groupSplit != null) ...[
+                        if (!analysis.groupSplit!.isValid) ...[
+                          Container(
+                            key: const Key('voice_split_validation_warning'),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: c.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: c.error.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.warning_amber_rounded,
+                                      size: 18,
+                                      color: c.error,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        analysis.groupSplit!.validationMessageVi ??
+                                            'Bảng chia tiền chưa hợp lệ — vui lòng sửa lại câu nói.',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 12.2,
+                                          fontWeight: FontWeight.w700,
+                                          color: c.error,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (analysis
+                                    .groupSplit!
+                                    .ambiguousParticipants
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  ...analysis.groupSplit!.ambiguousParticipants.map((
+                                    amb,
+                                  ) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Chọn đúng người cho "${amb.spokenName}":',
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              fontSize: 11.8,
+                                              fontWeight: FontWeight.w700,
+                                              color: c.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: amb.ambiguousCandidates
+                                                .map((cand) {
+                                              final isChosen =
+                                                  _participantOverrides[amb
+                                                          .spokenName] ==
+                                                      cand.participantId;
+                                              return ChoiceChip(
+                                                key: Key(
+                                                  'voice_disambiguate_${cand.participantId}',
+                                                ),
+                                                label: Text(
+                                                  cand.displayName,
+                                                ),
+                                                selected: isChosen,
+                                                materialTapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .padded,
+                                                onSelected: (_) {
+                                                  setState(() {
+                                                    _participantOverrides[amb
+                                                            .spokenName] =
+                                                        cand.participantId;
+                                                  });
+                                                },
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1452,6 +1673,53 @@ class _VoiceSmartCaptureSheetBodyState
                         ),
                       ] else if (analysis != null &&
                           analysis.multiCategoryReceipt != null) ...[
+                        if (analysis.multiCategoryReceipt!.validationStatus ==
+                            SplitValidationStatus.requiresConfirmation) ...[
+                          Container(
+                            key: const Key('voice_receipt_mismatch_warning'),
+                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: c.warning.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: c.warning.withValues(alpha: 0.45),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  analysis
+                                          .multiCategoryReceipt!
+                                          .validationMessageVi ??
+                                      'Tổng các dòng tách vượt tổng hóa đơn gốc.',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12.2,
+                                    fontWeight: FontWeight.w700,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                                CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  dense: true,
+                                  value: _multiCatMismatchConfirmed,
+                                  title: const Text(
+                                    'Xác nhận cập nhật theo tổng các dòng tách',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  onChanged: (v) {
+                                    setState(
+                                      () => _multiCatMismatchConfirmed =
+                                          v ?? false,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         ...analysis.multiCategoryReceipt!.splitLines.map((line) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 6),
@@ -1487,8 +1755,14 @@ class _VoiceSmartCaptureSheetBodyState
                           );
                         }),
                       ] else if (analysis != null) ...[
-                        ...analysis.personalEntries.map((item) {
+                        ...analysis.personalEntries.asMap().entries.where(
+                          (e) => !_dismissedPersonalIndices.contains(e.key),
+                        ).map((mapEntry) {
+                          final idx = mapEntry.key;
+                          final item = mapEntry.value;
                           final isInc = item.kind == TransactionKind.income;
+                          final allowDismiss =
+                              visiblePersonalCount + visibleOmniCount > 1;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 6),
                             child: Row(
@@ -1538,12 +1812,42 @@ class _VoiceSmartCaptureSheetBodyState
                                     ],
                                   ),
                                 ),
+                                if (allowDismiss)
+                                  IconButton(
+                                    key: Key('voice_remove_tx_$idx'),
+                                    tooltip: 'Bỏ khoản này',
+                                    constraints: const BoxConstraints(
+                                      minWidth: 48,
+                                      minHeight: 48,
+                                    ),
+                                    onPressed: () {
+                                      setState(
+                                        () => _dismissedPersonalIndices.add(idx),
+                                      );
+                                    },
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
                               ],
                             ),
                           );
                         }),
-                      ] else ...[
-                        ...eval.omniDrafts.map((draft) {
+                      ],
+                      if (trailingOmniDrafts.isNotEmpty) ...[
+                        ...trailingOmniDrafts.asMap().entries.where(
+                          (e) => !_dismissedOmniIndices.contains(e.key),
+                        ).map((mapEntry) {
+                          final idx = mapEntry.key;
+                          final draft = mapEntry.value;
+                          final allowDismiss =
+                              (analysis != null
+                                  ? visiblePersonalCount
+                                  : 0) +
+                              visibleOmniCount >
+                              1;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 7),
                             child: Row(
@@ -1565,10 +1869,40 @@ class _VoiceSmartCaptureSheetBodyState
                                     ),
                                   ),
                                 ),
+                                if (allowDismiss)
+                                  IconButton(
+                                    key: Key('voice_remove_omni_$idx'),
+                                    tooltip: 'Bỏ mục này',
+                                    constraints: const BoxConstraints(
+                                      minWidth: 48,
+                                      minHeight: 48,
+                                    ),
+                                    onPressed: () {
+                                      setState(
+                                        () => _dismissedOmniIndices.add(idx),
+                                      );
+                                    },
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
                               ],
                             ),
                           );
                         }),
+                      ],
+                      if (eval.blockedClauses.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Đã tự động bỏ qua: ${eval.blockedClauses.map((b) => '"${b.clause}"').join(', ')}',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 11.2,
+                            color: c.textSecondary,
+                          ),
+                        ),
                       ],
                       if (analysis != null &&
                           analysis.intentKind !=
@@ -1628,32 +1962,43 @@ class _VoiceSmartCaptureSheetBodyState
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                         ),
-                      onPressed: (_isListening || _isSubmittingConfirm)
-                          ? null
-                          : () => _confirmAndCommit(
-                              context: context,
-                              eval: eval,
-                              targetWalletId: resolvedWalletId,
-                              activeFamily: activeFamily,
-                            ),
-                      icon: Icon(
-                        _isSubmittingConfirm
-                            ? Icons.hourglass_top_rounded
-                            : Icons.check_circle_rounded,
-                        size: 19,
-                      ),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
+                        onPressed:
+                            (_isListening ||
+                                    _isSubmittingConfirm ||
+                                    isGroupSplitInvalid ||
+                                    isReceiptNeedsConfirm ||
+                                    isEverythingDismissed ||
+                                    isOmniOnlyDismissed)
+                                ? null
+                                : () => _confirmAndCommit(
+                                    context: context,
+                                    eval: eval,
+                                    targetWalletId: resolvedWalletId,
+                                    activeFamily: activeFamily,
+                                    wallets: wallets,
+                                  ),
+                        icon: Icon(
                           _isSubmittingConfirm
-                              ? 'Đang lưu...'
-                              : analysis?.intentKind ==
-                                    VoiceSentenceIntentKind.groupBillSplit
-                              ? 'Xác nhận chia (${analysis!.groupSplit!.shares.length} người)'
-                              : 'Xác nhận & Lưu',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                              ? Icons.hourglass_top_rounded
+                              : isGroupSplitInvalid
+                                  ? Icons.block_rounded
+                                  : Icons.check_circle_rounded,
+                          size: 19,
                         ),
-                      ),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _isSubmittingConfirm
+                                ? 'Đang lưu...'
+                                : isGroupSplitInvalid
+                                    ? 'Cần sửa lỗi chia tiền'
+                                    : analysis?.intentKind ==
+                                          VoiceSentenceIntentKind.groupBillSplit
+                                        ? 'Xác nhận chia (${analysis!.groupSplit!.shares.length} người)'
+                                        : 'Xác nhận & Lưu',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
                       ),
                     ),
                   ],

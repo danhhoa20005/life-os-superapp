@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'financial_aggregation_engine.dart';
 
 enum WalletType { cash, bank, creditCard, savings }
 
@@ -55,6 +56,7 @@ class WalletEntity extends Equatable {
   final int balanceMinor;
   final int? creditLimitMinor;
   final bool isEstimatedBalance;
+  final String? lastAuditId;
   final bool hasPendingWrites;
 
   const WalletEntity({
@@ -67,6 +69,7 @@ class WalletEntity extends Equatable {
     required this.balanceMinor,
     this.creditLimitMinor,
     this.isEstimatedBalance = true,
+    this.lastAuditId,
     this.hasPendingWrites = false,
   });
 
@@ -81,6 +84,7 @@ class WalletEntity extends Equatable {
     balanceMinor,
     creditLimitMinor,
     isEstimatedBalance,
+    lastAuditId,
     hasPendingWrites,
   ];
 }
@@ -140,6 +144,10 @@ class TransactionEntity extends Equatable {
   final DateTime? receivedAt;
   final String? reconciliationStatus;
   final String? sourceEventKey;
+  final String? operationId;
+  final String? verificationStatus;
+  final int? observedBalanceMinor;
+  final bool isRefund;
   final bool isRecurringCandidate;
   final bool hasPendingWrites;
 
@@ -179,6 +187,10 @@ class TransactionEntity extends Equatable {
     this.receivedAt,
     this.reconciliationStatus,
     this.sourceEventKey,
+    this.operationId,
+    this.verificationStatus,
+    this.observedBalanceMinor,
+    this.isRefund = false,
     this.isRecurringCandidate = false,
     this.hasPendingWrites = false,
   }) : ledgerApplied =
@@ -192,7 +204,9 @@ class TransactionEntity extends Equatable {
       verification == TransactionVerification.matchedPaymentOrder ||
       verification == TransactionVerification.verified;
 
-  bool get isReversed => reversedById != null && reversedById!.isNotEmpty;
+  bool get isReversed =>
+      (reversedById != null && reversedById!.isNotEmpty) ||
+      verificationStatus?.toUpperCase() == 'REVERSED';
 
   bool get isSplitTransaction => splitLines.length > 1;
 
@@ -233,6 +247,10 @@ class TransactionEntity extends Equatable {
     receivedAt,
     reconciliationStatus,
     sourceEventKey,
+    operationId,
+    verificationStatus,
+    observedBalanceMinor,
+    isRefund,
     isRecurringCandidate,
     hasPendingWrites,
   ];
@@ -260,10 +278,14 @@ class FinanceOverviewSummary extends Equatable {
   final int creditLiabilityMinor;
   final int monthlyIncomeMinor;
   final int monthlyExpenseMinor;
+  final int monthlyRefundMinor;
   final int monthlyInternalTransferMinor;
   final int provisionalCount;
+  final int needsReviewCount;
+  final int unconfirmedCount;
   final int verifiedCount;
   final int userConfirmedCount;
+  final int matchedPaymentOrderCount;
   final Map<String, int> expenseByCategory;
 
   const FinanceOverviewSummary({
@@ -273,19 +295,26 @@ class FinanceOverviewSummary extends Equatable {
     this.creditLiabilityMinor = 0,
     required this.monthlyIncomeMinor,
     required this.monthlyExpenseMinor,
+    this.monthlyRefundMinor = 0,
     required this.monthlyInternalTransferMinor,
     required this.provisionalCount,
+    this.needsReviewCount = 0,
+    int? unconfirmedCount,
     this.verifiedCount = 0,
     this.userConfirmedCount = 0,
+    this.matchedPaymentOrderCount = 0,
     required this.expenseByCategory,
-  });
+  }) : unconfirmedCount = unconfirmedCount ?? (provisionalCount + needsReviewCount);
 
-  int get netCashFlowMinor => monthlyIncomeMinor - monthlyExpenseMinor;
+  int get netMonthlyExpenseMinor => monthlyExpenseMinor - monthlyRefundMinor;
+
+  int get netCashFlowMinor =>
+      monthlyIncomeMinor + monthlyRefundMinor - monthlyExpenseMinor;
 
   /// Net personal savings rate (%) when income > 0.
   double get savingsRatePct {
     if (monthlyIncomeMinor <= 0) return 0.0;
-    final net = monthlyIncomeMinor - monthlyExpenseMinor;
+    final net = netCashFlowMinor;
     return (net * 100.0) / monthlyIncomeMinor;
   }
 
@@ -311,7 +340,8 @@ class FinanceOverviewSummary extends Equatable {
     } else {
       score -= 8;
     }
-    if (provisionalCount == 0 && (verifiedCount + userConfirmedCount) > 0) {
+    if (unconfirmedCount == 0 &&
+        (verifiedCount + userConfirmedCount + matchedPaymentOrderCount) > 0) {
       score += 4;
     }
     return score.clamp(20, 99);
@@ -337,7 +367,7 @@ class FinanceOverviewSummary extends Equatable {
         .toList(growable: false);
   }
 
-  /// Pure domain accounting calculation:
+  /// Pure domain accounting calculation backed by [FinancialAggregationEngine]:
   /// - Internal transfers and credit card payoffs NEVER inflate expense or income totals.
   /// - Provisional or rejected signals are excluded until confirmed.
   /// - Reversed transactions are excluded (netted out by immutable reversal).
@@ -346,80 +376,10 @@ class FinanceOverviewSummary extends Equatable {
     required List<WalletEntity> wallets,
     required List<TransactionEntity> transactions,
   }) {
-    final netWorth = wallets.fold<int>(0, (sum, w) => sum + w.balanceMinor);
-    var liquidAssets = 0;
-    var savingsAssets = 0;
-    var creditLiability = 0;
-    for (final w in wallets) {
-      switch (w.type) {
-        case WalletType.cash:
-        case WalletType.bank:
-          if (w.balanceMinor > 0) liquidAssets += w.balanceMinor;
-        case WalletType.savings:
-          if (w.balanceMinor > 0) savingsAssets += w.balanceMinor;
-        case WalletType.creditCard:
-          if (w.balanceMinor < 0) creditLiability += -w.balanceMinor;
-      }
-    }
-    var income = 0;
-    var expense = 0;
-    var internalTransfers = 0;
-    var provisionalCount = 0;
-    var verifiedCount = 0;
-    var userConfirmedCount = 0;
-    final breakdown = <String, int>{};
-
-    for (final tx in transactions) {
-      if (tx.verification == TransactionVerification.provisional) {
-        provisionalCount += 1;
-        continue;
-      }
-      if (!tx.isConfirmedInLedger || tx.isReversed) {
-        continue;
-      }
-
-      if (tx.verification == TransactionVerification.verified) {
-        verifiedCount += 1;
-      } else if (tx.verification == TransactionVerification.userConfirmed) {
-        userConfirmedCount += 1;
-      }
-
-      switch (tx.kind) {
-        case TransactionKind.expense:
-          expense += tx.amountMinor;
-          if (tx.splitLines.isNotEmpty) {
-            for (final line in tx.splitLines) {
-              breakdown[line.categoryName] =
-                  (breakdown[line.categoryName] ?? 0) + line.amountMinor;
-            }
-          } else {
-            breakdown[tx.categoryName] =
-                (breakdown[tx.categoryName] ?? 0) + tx.amountMinor;
-          }
-        case TransactionKind.income:
-          income += tx.amountMinor;
-        case TransactionKind.transfer:
-        case TransactionKind.creditCardPayment:
-          internalTransfers += tx.amountMinor;
-        case TransactionKind.reversal:
-          // Compensating entry paired with `reversedById` on original transaction
-          break;
-      }
-    }
-
-    return FinanceOverviewSummary(
-      netWorthMinor: netWorth,
-      liquidAssetsMinor: liquidAssets,
-      savingsAssetsMinor: savingsAssets,
-      creditLiabilityMinor: creditLiability,
-      monthlyIncomeMinor: income,
-      monthlyExpenseMinor: expense,
-      monthlyInternalTransferMinor: internalTransfers,
-      provisionalCount: provisionalCount,
-      verifiedCount: verifiedCount,
-      userConfirmedCount: userConfirmedCount,
-      expenseByCategory: Map.unmodifiable(breakdown),
-    );
+    return FinancialAggregationEngine.aggregate(
+      transactions,
+      wallets: wallets,
+    ).toOverviewSummary();
   }
 
   @override
@@ -430,10 +390,14 @@ class FinanceOverviewSummary extends Equatable {
     creditLiabilityMinor,
     monthlyIncomeMinor,
     monthlyExpenseMinor,
+    monthlyRefundMinor,
     monthlyInternalTransferMinor,
     provisionalCount,
+    needsReviewCount,
+    unconfirmedCount,
     verifiedCount,
     userConfirmedCount,
+    matchedPaymentOrderCount,
     expenseByCategory,
   ];
 }

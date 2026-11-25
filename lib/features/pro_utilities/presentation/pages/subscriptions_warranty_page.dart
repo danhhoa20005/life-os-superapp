@@ -17,6 +17,7 @@ import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../domain/entities/pro_utilities_entities.dart';
 import '../bloc/pro_utilities_bloc.dart';
+import '../widgets/subscription_intelligence_banner.dart';
 
 /// Tracks recurring subscription drains and appliance warranties.
 class SubscriptionsWarrantyPage extends StatefulWidget {
@@ -284,6 +285,16 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                 ),
                               ),
                               const SizedBox(height: 12),
+                              if (!_showWarranties)
+                                SubscriptionIntelligenceBanner(
+                                  subscriptions: state.subscriptionsOnly,
+                                  recentTransactions:
+                                      _maybeWatch<TransactionListBloc>(
+                                        context,
+                                      )?.state.allTransactions ??
+                                      const <TransactionEntity>[],
+                                  referenceNow: now,
+                                ),
 
                               // 2. Segmented Toggle: Subscriptions vs Appliance Warranties
                               LifeOsSegmentedPills<bool>(

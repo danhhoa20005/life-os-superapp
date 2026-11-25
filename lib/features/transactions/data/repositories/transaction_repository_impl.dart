@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
+import '../../domain/entities/financial_aggregation_engine.dart';
 import '../../domain/entities/transaction_entities.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../datasources/transaction_remote_datasource.dart';
@@ -81,6 +82,33 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Stream<Result<List<TransactionEntity>>> watchAllTransactionsForAggregation({
+    required String userId,
+    required String monthKey,
+  }) {
+    return _remoteDataSource
+        .watchAllTransactionsForAggregation(userId: userId, monthKey: monthKey)
+        .map<Result<List<TransactionEntity>>>(
+          (models) => Success(models.map((m) => m.entity).toList()),
+        )
+        .transform(
+          StreamTransformer<
+            Result<List<TransactionEntity>>,
+            Result<List<TransactionEntity>>
+          >.fromHandlers(
+            handleError:
+                (
+                  Object error,
+                  StackTrace _,
+                  EventSink<Result<List<TransactionEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(error)));
+                },
+          ),
+        );
+  }
+
+  @override
   Stream<Result<List<TransactionEntity>>> watchTransactionsRange({
     required String userId,
     required DateTime startInclusive,
@@ -93,6 +121,38 @@ class TransactionRepositoryImpl implements TransactionRepository {
           startInclusive: startInclusive,
           endExclusive: endExclusive,
           limit: limit,
+        )
+        .map<Result<List<TransactionEntity>>>(
+          (models) => Success(models.map((m) => m.entity).toList()),
+        )
+        .transform(
+          StreamTransformer<
+            Result<List<TransactionEntity>>,
+            Result<List<TransactionEntity>>
+          >.fromHandlers(
+            handleError:
+                (
+                  Object error,
+                  StackTrace _,
+                  EventSink<Result<List<TransactionEntity>>> sink,
+                ) {
+                  sink.add(Err(ErrorMapper.map(error)));
+                },
+          ),
+        );
+  }
+
+  @override
+  Stream<Result<List<TransactionEntity>>> watchTransactionsInPeriod({
+    required String userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+  }) {
+    return _remoteDataSource
+        .watchTransactionsInPeriod(
+          userId: userId,
+          startInclusive: startInclusive,
+          endExclusive: endExclusive,
         )
         .map<Result<List<TransactionEntity>>>(
           (models) => Success(models.map((m) => m.entity).toList()),
@@ -226,6 +286,24 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }) async {
     try {
       await _remoteDataSource.upsertNetWorthSnapshot(
+        userId: userId,
+        monthKey: monthKey,
+        summary: summary,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> saveMonthlySummary({
+    required String userId,
+    required String monthKey,
+    required FinancialAggregationResult summary,
+  }) async {
+    try {
+      await _remoteDataSource.upsertMonthlySummary(
         userId: userId,
         monthKey: monthKey,
         summary: summary,

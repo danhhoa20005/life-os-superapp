@@ -222,7 +222,20 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Quỹ gia đình & Tài sản'), findsOneWidget);
-        expect(find.text('Menu'), findsOneWidget);
+        expect(find.byKey(const Key('open_menu_directory_button')), findsOneWidget);
+
+        // Verify `+` button is centered INSIDE the bottom navigation bar!
+        final dockFinder = find.byKey(const Key('lifeos_liquid_glass_bottom_dock'));
+        final fabFinder = find.byKey(const Key('lifeos_center_quick_add_fab'));
+        expect(dockFinder, findsOneWidget);
+        expect(fabFinder, findsOneWidget);
+        expect(
+          find.descendant(of: dockFinder, matching: fabFinder),
+          findsOneWidget,
+        );
+        final dockRect = tester.getRect(dockFinder);
+        final fabRect = tester.getRect(fabFinder);
+        expect((fabRect.center.dx - dockRect.center.dx).abs(), lessThan(2.0));
 
         // Tap 1-Tap Eye Privacy Toggle -> masks balance & shows Top Toast at top of screen!
         await tester.ensureVisible(

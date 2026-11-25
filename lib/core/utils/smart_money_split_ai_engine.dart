@@ -7,7 +7,23 @@ import 'package:flutter/services.dart';
 import '../../features/family/domain/entities/family_entities.dart';
 import '../../features/financial_ai/data/inference/fasttext_binary_model.dart';
 import '../../features/financial_ai/data/normalization/financial_text_normalizer.dart';
+import 'participant_resolution_engine.dart';
 import 'smart_quick_entry_parser.dart';
+import 'vietnamese_temporal_and_entity_resolver.dart';
+
+export 'participant_resolution_engine.dart';
+
+enum SplitValidationStatus {
+  valid,
+  invalidAmount,
+  invalidPercentage,
+  duplicateParticipant,
+  ambiguousParticipant,
+  missingParticipant,
+  missingPayer,
+  inconsistentTotal,
+  requiresConfirmation,
+}
 
 enum AllocationStrategyKind {
   rule503020('alloc.rule_50_30_20', 'Quy tắc 50/30/20 Cân bằng'),
@@ -153,6 +169,9 @@ class AdvancedGroupSplitParseResult extends Equatable {
   final String? paidByDisplayName;
   final List<({String participantId, String displayName, int amountMinor, int? percentage, int? sharesWeight})> shares;
   final Map<String, int> rawInputValuesByUserId;
+  final SplitValidationStatus validationStatus;
+  final String? validationMessageVi;
+  final List<ParticipantResolutionOutcome> ambiguousParticipants;
 
   const AdvancedGroupSplitParseResult({
     required this.title,
@@ -163,7 +182,12 @@ class AdvancedGroupSplitParseResult extends Equatable {
     this.paidByDisplayName,
     required this.shares,
     required this.rawInputValuesByUserId,
+    this.validationStatus = SplitValidationStatus.valid,
+    this.validationMessageVi,
+    this.ambiguousParticipants = const <ParticipantResolutionOutcome>[],
   });
+
+  bool get isValid => validationStatus == SplitValidationStatus.valid;
 
   @override
   List<Object?> get props => [
@@ -175,6 +199,9 @@ class AdvancedGroupSplitParseResult extends Equatable {
     paidByDisplayName,
     shares,
     rawInputValuesByUserId,
+    validationStatus,
+    validationMessageVi,
+    ambiguousParticipants,
   ];
 }
 
@@ -255,34 +282,60 @@ abstract final class SmartMoneySplitAiEngine {
     );
   }
 
-  /// Exact Integer VND Hamilton (Largest Remainder) Apportionment.
-  /// Guarantees `result.fold(0, +) == totalMinor` with zero `1 ₫` drift!
+  /// Exact Integer VND Hamilton (Largest Remainder) Apportionment using `BigInt`
+  /// rational arithmetic (`exactNumerator = BigInt.from(totalMinor) * weightBig`).
+  /// Guarantees `result.fold(0, +) == totalMinor` with zero IEEE-754 float drift
+  /// even for multi-billion VND bills!
   static List<int> apportionExactVnd(int totalMinor, List<double> weights) {
     if (weights.isEmpty) return const <int>[];
     if (totalMinor <= 0) return List<int>.filled(weights.length, 0);
 
-    final sanitized = weights.map((w) => w > 0 ? w : 0.0).toList();
-    var weightSum = sanitized.fold<double>(0.0, (a, b) => a + b);
-    if (weightSum <= 0) {
+    final allWhole = weights.every(
+      (w) => w.isFinite && (w - w.roundToDouble()).abs() < 1e-9,
+    );
+    final bigWeights = weights.map((w) {
+      if (!w.isFinite || w <= 0) return BigInt.zero;
+      if (allWhole) return BigInt.from(w.round());
+      return BigInt.from((w * 1000000).round());
+    }).toList();
+
+    return apportionExactVndBigInt(totalMinor, bigWeights);
+  }
+
+  /// Pure `BigInt` Hamilton (Largest Remainder) integer apportionment.
+  static List<int> apportionExactVndBigInt(
+    int totalMinor,
+    List<BigInt> weights,
+  ) {
+    if (weights.isEmpty) return const <int>[];
+    if (totalMinor <= 0) return List<int>.filled(weights.length, 0);
+
+    final sanitized = weights
+        .map((w) => w > BigInt.zero ? w : BigInt.zero)
+        .toList();
+    var weightSum = sanitized.fold<BigInt>(BigInt.zero, (a, b) => a + b);
+    if (weightSum <= BigInt.zero) {
       for (var i = 0; i < sanitized.length; i++) {
-        sanitized[i] = 1.0;
+        sanitized[i] = BigInt.one;
       }
-      weightSum = sanitized.length.toDouble();
+      weightSum = BigInt.from(sanitized.length);
     }
 
+    final totalBig = BigInt.from(totalMinor);
     final floors = List<int>.filled(sanitized.length, 0);
-    final remainders = <({int index, double rem})>[];
-    var allocated = 0;
+    final remainders = <({int index, BigInt rem})>[];
+    var allocated = BigInt.zero;
 
     for (var i = 0; i < sanitized.length; i++) {
-      final exact = (totalMinor * sanitized[i]) / weightSum;
-      final fl = exact.floor();
-      floors[i] = fl;
+      final exactNumerator = totalBig * sanitized[i];
+      final fl = exactNumerator ~/ weightSum;
+      final rem = exactNumerator % weightSum;
+      floors[i] = fl.toInt();
       allocated += fl;
-      remainders.add((index: i, rem: exact - fl));
+      remainders.add((index: i, rem: rem));
     }
 
-    final leftover = totalMinor - allocated;
+    final leftover = (totalBig - allocated).toInt();
     if (leftover > 0) {
       remainders.sort((a, b) {
         final cmp = b.rem.compareTo(a.rem);
@@ -346,7 +399,7 @@ abstract final class SmartMoneySplitAiEngine {
   }
 
   static bool looksLikeGroupSplitUtterance(String lower) {
-    return lower.contains('chia ') ||
+    if (lower.contains('chia ') ||
         lower.contains('chia đều') ||
         lower.contains('campuchia') ||
         lower.contains('cưa đôi') ||
@@ -357,10 +410,19 @@ abstract final class SmartMoneySplitAiEngine {
         lower.contains('người chịu') ||
         lower.contains('còn lại') ||
         RegExp(
-          r'\b\d+\s*(?:%|(?:phần\s*trăm|suất|phần)\b)',
+          r'\b-?\d+\s*(?:%|(?:phần\s*trăm|suất|phần)\b)',
           caseSensitive: false,
           unicode: true,
-        ).hasMatch(lower);
+        ).hasMatch(lower)) {
+      return true;
+    }
+    // Named per-person payments like "Hòa đơn 500k, A trả 300k, B trả 300k"
+    final namedShareCount = RegExp(
+      r'(?:^|[,;\s])[A-Za-zÀ-ỹ]+\s+(?:đóng|trả|chịu|gửi|ứng|chiếm)\s+(?:-?\s*|âm\s+)?\d',
+      caseSensitive: false,
+      unicode: true,
+    ).allMatches(lower).length;
+    return namedShareCount >= 2;
   }
 
   /// Parses complex real-world Vietnamese group bill-splitting sentences:
@@ -370,12 +432,19 @@ abstract final class SmartMoneySplitAiEngine {
   /// - Itemized Individual Extras + Shared Equal Remainder (`Minh thêm cf 40k còn lại 4 người chia đều`)
   /// - Exact per-person + Remainder (`Hòa 200k Minh 180k còn lại Lan chịu`)
   /// - Upfront Payer extraction (`Hùng trả trước tiền lẩu 850k...`)
+  ///
+  /// FIX-004 & FIX-005: NEVER falls through silently to `SplitMethod.equal` when
+  /// another method's markers exist with invalid totals, percentages, missing/duplicate/
+  /// ambiguous participants, or negative/zero amounts.
   static AdvancedGroupSplitParseResult? tryParseAdvancedGroupSplit(
     String normalizedText, {
     required String currentUserId,
     required String currentUserName,
     required SharedExpenseTopic topic,
     List<FamilyMemberInfo> knownMembers = const <FamilyMemberInfo>[],
+    Map<String, List<String>> nicknamesByUserId =
+        const <String, List<String>>{},
+    Map<String, String> explicitParticipantOverrides = const <String, String>{},
   }) {
     final normalized = normalizedText
         .replaceAll(
@@ -383,12 +452,47 @@ abstract final class SmartMoneySplitAiEngine {
           '%',
         )
         .trim();
-    final allAmounts = _amountTokenRegex.allMatches(normalized).toList();
-    if (allAmounts.isEmpty) return null;
+
+    final allAmounts = _extractValidMoneyMatches(normalized);
+
+    final hasNegativeOrZeroBill = _hasNegativeMoneyBeforeOrAtFirst(
+      normalized,
+      allAmounts.isEmpty ? null : allAmounts.first.start,
+    );
+
+    if (allAmounts.isEmpty) {
+      if (hasNegativeOrZeroBill && looksLikeGroupSplitUtterance(normalized.toLowerCase())) {
+        return AdvancedGroupSplitParseResult(
+          title: 'Khoản chi chung nhóm',
+          totalAmountMinor: 0,
+          topic: topic,
+          splitMethod: SplitMethod.equal,
+          shares: const [],
+          rawInputValuesByUserId: const <String, int>{},
+          validationStatus: SplitValidationStatus.invalidAmount,
+          validationMessageVi:
+              'Tổng hóa đơn phải lớn hơn 0 ₫ (không chấp nhận 0 đ hoặc số âm).',
+        );
+      }
+      return null;
+    }
 
     final firstAmtMatch = allAmounts.first;
-    final totalMinor = _parseAmountToken(firstAmtMatch.group(0) ?? '');
-    if (totalMinor == null || totalMinor <= 0) return null;
+    final parsedTotal = _parseAmountToken(firstAmtMatch.group(0) ?? '');
+    if (hasNegativeOrZeroBill || parsedTotal == null || parsedTotal <= 0) {
+      return AdvancedGroupSplitParseResult(
+        title: 'Khoản chi chung nhóm',
+        totalAmountMinor: 0,
+        topic: topic,
+        splitMethod: SplitMethod.equal,
+        shares: const [],
+        rawInputValuesByUserId: const <String, int>{},
+        validationStatus: SplitValidationStatus.invalidAmount,
+        validationMessageVi:
+            'Tổng hóa đơn phải lớn hơn 0 ₫ (không chấp nhận 0 đ hoặc số âm).',
+      );
+    }
+    final totalMinor = parsedTotal;
 
     final headBeforeTotal = normalized.substring(0, firstAmtMatch.start).trim();
     final payerExtract = _extractUpfrontPayer(
@@ -396,6 +500,8 @@ abstract final class SmartMoneySplitAiEngine {
       currentUserId: currentUserId,
       currentUserName: currentUserName,
       knownMembers: knownMembers,
+      nicknamesByUserId: nicknamesByUserId,
+      explicitParticipantOverrides: explicitParticipantOverrides,
     );
 
     var rawTitle = payerExtract.cleanedTitle;
@@ -407,6 +513,7 @@ abstract final class SmartMoneySplitAiEngine {
     }
 
     final afterFirstAmount = normalized.substring(firstAmtMatch.end).trim();
+    final declaredHeadcount = _extractDeclaredHeadcount(afterFirstAmount);
 
     // 1. Itemized Individual Extras + Shared Equal Remainder
     // e.g. "Minh uống thêm cà phê 40k còn lại 4 người chia đều"
@@ -423,8 +530,33 @@ abstract final class SmartMoneySplitAiEngine {
           '${remEqualClause.group(1) ?? ''} ${remEqualClause.group(2) ?? ''}'
               .trim();
       final extras = _extractNamedExtras(itemizedSection);
-      final extraSum = extras.fold<int>(0, (s, e) => s + e.amountMinor);
-      if (extras.isNotEmpty && extraSum > 0 && extraSum < totalMinor) {
+      if (extras.isNotEmpty) {
+        final hasInvalidExtraAmt = extras.any((e) => e.amountMinor <= 0);
+        final extraSum = extras.fold<int>(0, (s, e) => s + e.amountMinor);
+        if (hasInvalidExtraAmt || extraSum <= 0) {
+          return _invalidSplitResult(
+            title: rawTitle,
+            totalMinor: totalMinor,
+            topic: topic,
+            method: SplitMethod.exact,
+            payerExtract: payerExtract,
+            status: SplitValidationStatus.invalidAmount,
+            messageVi: 'Số tiền món gọi riêng phải lớn hơn 0 ₫.',
+          );
+        }
+        if (extraSum >= totalMinor) {
+          return _invalidSplitResult(
+            title: rawTitle,
+            totalMinor: totalMinor,
+            topic: topic,
+            method: SplitMethod.exact,
+            payerExtract: payerExtract,
+            status: SplitValidationStatus.inconsistentTotal,
+            messageVi:
+                'Tổng món gọi riêng (${_formatVndStatic(extraSum)}) không thể lớn hơn hoặc bằng tổng hóa đơn (${_formatVndStatic(totalMinor)}).',
+          );
+        }
+
         final matchedEqualKeyword = remEqualClause.group(0) ?? 'chia đều';
         final participantClause = tailParticipantsSection.isEmpty
             ? matchedEqualKeyword
@@ -448,304 +580,458 @@ abstract final class SmartMoneySplitAiEngine {
           extraByLower[k] = (extraByLower[k] ?? 0) + ex.amountMinor;
         }
 
-        final shares = <({
-          String participantId,
-          String displayName,
+        final draftShares = <({
+          String name,
           int amountMinor,
           int? percentage,
           int? sharesWeight,
+          int? rawValue,
         })>[];
-        final rawMap = <String, int>{};
         for (var i = 0; i < n; i++) {
           final name = participantNames[i];
-          final pid = _resolveParticipantId(
-            name,
-            index: i,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
           final personalExtra = extraByLower[name.toLowerCase()] ?? 0;
           final finalAmt = equalBase[i] + personalExtra;
-          rawMap[pid] = finalAmt;
-          shares.add((
-            participantId: pid,
-            displayName: name,
+          draftShares.add((
+            name: name,
             amountMinor: finalAmt,
             percentage: null,
             sharesWeight: null,
+            rawValue: finalAmt,
           ));
         }
-        return AdvancedGroupSplitParseResult(
+        return _finalizeValidatedResult(
           title: rawTitle,
-          totalAmountMinor: totalMinor,
+          totalMinor: totalMinor,
           topic: topic,
-          splitMethod: SplitMethod.exact,
-          paidByParticipantId: payerExtract.payerId,
-          paidByDisplayName: payerExtract.payerName,
-          shares: shares,
-          rawInputValuesByUserId: rawMap,
+          method: SplitMethod.exact,
+          payerExtract: payerExtract,
+          draftShares: draftShares,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          knownMembers: knownMembers,
+          nicknamesByUserId: nicknamesByUserId,
+          explicitParticipantOverrides: explicitParticipantOverrides,
+          includeRawValues: true,
         );
       }
     }
 
     // 2. Percentage Split (supports "Hòa 60% Minh 40%" AND "Hòa 50% Minh 30% còn lại Lan")
-    final pctMatches = RegExp(
-      r'([A-Za-zÀ-ỹ]+)\s+(\d{1,3})\s*%',
+    final hasPercentMarker = RegExp(
+      r'-?\d+\s*%',
+      caseSensitive: false,
       unicode: true,
-    ).allMatches(afterFirstAmount).toList();
-    if (pctMatches.isNotEmpty) {
+    ).hasMatch(afterFirstAmount);
+    if (hasPercentMarker) {
+      final pctMatches = RegExp(
+        r'([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)\s+(?:chiếm\s+|đóng\s+|trả\s+|chịu\s+)?(-?\d{1,3})\s*%',
+        caseSensitive: false,
+        unicode: true,
+      ).allMatches(afterFirstAmount).toList();
+
       final entries = <({String name, int pct})>[];
       var pctSum = 0;
+      var hasNonPositivePct = false;
       for (final m in pctMatches) {
-        final rawName = m.group(1)!;
-        if (_isStopWord(rawName)) continue;
+        final cleaned = _cleanParticipantCandidateName(m.group(1)!);
+        if (cleaned.isEmpty || _isStopWord(cleaned)) continue;
         final pct = int.tryParse(m.group(2)!) ?? 0;
-        if (pct <= 0) continue;
-        entries.add((name: _capitalizeName(rawName), pct: pct));
+        if (pct <= 0) {
+          hasNonPositivePct = true;
+        }
+        entries.add((name: cleaned, pct: pct));
         pctSum += pct;
       }
+
       final remPctPerson = RegExp(
-        r'còn\s+lại\s+([A-Za-zÀ-ỹ]+)',
+        r'còn\s+lại\s+([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)',
         caseSensitive: false,
         unicode: true,
       ).firstMatch(afterFirstAmount);
-      if (remPctPerson != null && pctSum < 100) {
-        final remName = _capitalizeName(remPctPerson.group(1)!);
-        entries.add((name: remName, pct: 100 - pctSum));
-        pctSum = 100;
+      if (remPctPerson != null && pctSum < 100 && !hasNonPositivePct) {
+        final remName = _cleanParticipantCandidateName(remPctPerson.group(1)!);
+        if (remName.isNotEmpty && !_isStopWord(remName)) {
+          entries.add((name: remName, pct: 100 - pctSum));
+          pctSum = 100;
+        }
       }
-      if (entries.length >= 2 && pctSum == 100) {
-        final exactAmts = apportionExactVnd(
-          totalMinor,
-          entries.map((e) => e.pct.toDouble()).toList(),
+
+      if (hasNonPositivePct) {
+        return _invalidSplitResult(
+          title: rawTitle,
+          totalMinor: totalMinor,
+          topic: topic,
+          method: SplitMethod.percentage,
+          payerExtract: payerExtract,
+          status: SplitValidationStatus.invalidPercentage,
+          messageVi: 'Tỷ lệ phần trăm của từng thành viên phải lớn hơn 0%.',
         );
-        final shares = <({
-          String participantId,
-          String displayName,
-          int amountMinor,
-          int? percentage,
-          int? sharesWeight,
-        })>[];
-        final rawMap = <String, int>{};
-        for (var i = 0; i < entries.length; i++) {
-          final pid = _resolveParticipantId(
-            entries[i].name,
-            index: i,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
-          rawMap[pid] = entries[i].pct;
-          shares.add((
-            participantId: pid,
-            displayName: entries[i].name,
+      }
+
+      if (entries.isEmpty) {
+        return _invalidSplitResult(
+          title: rawTitle,
+          totalMinor: totalMinor,
+          topic: topic,
+          method: SplitMethod.percentage,
+          payerExtract: payerExtract,
+          status: SplitValidationStatus.missingParticipant,
+          messageVi: 'Chưa xác định được tên thành viên kèm tỷ lệ phần trăm.',
+        );
+      }
+
+      final exactAmts = apportionExactVnd(
+        totalMinor,
+        entries.map((e) => math.max(0, e.pct).toDouble()).toList(),
+      );
+      final draftShares = <({
+        String name,
+        int amountMinor,
+        int? percentage,
+        int? sharesWeight,
+        int? rawValue,
+      })>[
+        for (var i = 0; i < entries.length; i++)
+          (
+            name: entries[i].name,
             amountMinor: exactAmts[i],
             percentage: entries[i].pct,
             sharesWeight: null,
-          ));
-        }
-        return AdvancedGroupSplitParseResult(
-          title: rawTitle,
-          totalAmountMinor: totalMinor,
-          topic: topic,
-          splitMethod: SplitMethod.percentage,
-          paidByParticipantId: payerExtract.payerId,
-          paidByDisplayName: payerExtract.payerName,
-          shares: shares,
-          rawInputValuesByUserId: rawMap,
-        );
+            rawValue: entries[i].pct,
+          ),
+      ];
+
+      String? pctErrorMsg;
+      SplitValidationStatus? pctOverrideStatus;
+      if (declaredHeadcount != null && declaredHeadcount != entries.length) {
+        pctOverrideStatus = SplitValidationStatus.inconsistentTotal;
+        pctErrorMsg =
+            'Khai báo chia cho $declaredHeadcount người nhưng có ${entries.length} phần trăm phân bổ.';
+      } else if (pctSum != 100) {
+        pctOverrideStatus = SplitValidationStatus.invalidPercentage;
+        pctErrorMsg =
+            'Tổng tỷ lệ phần trăm đang là $pctSum% (phải bằng đúng 100%).';
+      } else if (entries.length < 2) {
+        pctOverrideStatus = SplitValidationStatus.missingParticipant;
+        pctErrorMsg = 'Cần ít nhất 2 thành viên để chia theo phần trăm.';
       }
+
+      return _finalizeValidatedResult(
+        title: rawTitle,
+        totalMinor: totalMinor,
+        topic: topic,
+        method: SplitMethod.percentage,
+        payerExtract: payerExtract,
+        draftShares: draftShares,
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        knownMembers: knownMembers,
+        nicknamesByUserId: nicknamesByUserId,
+        explicitParticipantOverrides: explicitParticipantOverrides,
+        includeRawValues: true,
+        postResolutionStatusOverride: pctOverrideStatus,
+        postResolutionMessageOverride: pctErrorMsg,
+      );
     }
 
     // 3. Weighted Shares / Ratio Split ("nhà Hòa 2 suất, Nam 1 suất, Lan 1 suất" / "phòng A 3 phần phòng B 2 phần")
-    final shareMatches = RegExp(
-      r'(?:nhà\s+|gia\s+đình\s+|phòng\s+|anh\s+|chị\s+|em\s+|bạn\s+)?([A-Za-zÀ-ỹ0-9]+)\s+(?:ăn\s+|lấy\s+|đóng\s+|chịu\s+)?(\d{1,2})\s*(?:suất|phần|cổ\s+phần)\b',
+    final hasShareMarker = RegExp(
+      r'\b-?\d{1,2}\s*(?:suất|phần|cổ\s+phần)\b',
       caseSensitive: false,
       unicode: true,
-    ).allMatches(afterFirstAmount).toList();
-    if (shareMatches.length >= 2) {
+    ).hasMatch(afterFirstAmount);
+    if (hasShareMarker) {
+      final shareMatches = RegExp(
+        r'(?:nhà\s+|gia\s+đình\s+|phòng\s+|anh\s+|chị\s+|em\s+|bạn\s+)?([A-Za-zÀ-ỹ0-9]+(?:\s+[A-Za-zÀ-ỹ0-9]+)?)\s+(?:ăn\s+|lấy\s+|đóng\s+|chịu\s+)?(-?\d{1,2})\s*(?:suất|phần|cổ\s+phần)\b',
+        caseSensitive: false,
+        unicode: true,
+      ).allMatches(afterFirstAmount).toList();
+
       final shareEntries = <({String name, int weight})>[];
+      var hasInvalidWeight = false;
       for (final m in shareMatches) {
-        final rawName = m.group(1)!;
-        if (_isStopWord(rawName)) continue;
+        final cleaned = _cleanParticipantCandidateName(m.group(1)!);
+        if (cleaned.isEmpty || _isStopWord(cleaned)) continue;
         final w = int.tryParse(m.group(2)!) ?? 0;
-        if (w <= 0) continue;
-        shareEntries.add((name: _capitalizeName(rawName), weight: w));
+        if (w <= 0) {
+          hasInvalidWeight = true;
+        }
+        shareEntries.add((name: cleaned, weight: w));
       }
-      if (shareEntries.length >= 2) {
-        final exactAmts = apportionExactVnd(
-          totalMinor,
-          shareEntries.map((e) => e.weight.toDouble()).toList(),
+
+      if (hasInvalidWeight) {
+        return _invalidSplitResult(
+          title: rawTitle,
+          totalMinor: totalMinor,
+          topic: topic,
+          method: SplitMethod.shares,
+          payerExtract: payerExtract,
+          status: SplitValidationStatus.invalidAmount,
+          messageVi: 'Số suất / phần chia của mỗi thành viên phải lớn hơn 0.',
         );
-        final shares = <({
-          String participantId,
-          String displayName,
-          int amountMinor,
-          int? percentage,
-          int? sharesWeight,
-        })>[];
-        final rawMap = <String, int>{};
-        for (var i = 0; i < shareEntries.length; i++) {
-          final pid = _resolveParticipantId(
-            shareEntries[i].name,
-            index: i,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
-          rawMap[pid] = shareEntries[i].weight;
-          shares.add((
-            participantId: pid,
-            displayName: shareEntries[i].name,
+      }
+
+      if (shareEntries.length < 2) {
+        return _invalidSplitResult(
+          title: rawTitle,
+          totalMinor: totalMinor,
+          topic: topic,
+          method: SplitMethod.shares,
+          payerExtract: payerExtract,
+          status: SplitValidationStatus.missingParticipant,
+          messageVi:
+              'Cần ít nhất 2 thành viên hoặc nhóm hợp lệ khi chia theo suất/tỷ trọng.',
+        );
+      }
+
+      final exactAmts = apportionExactVnd(
+        totalMinor,
+        shareEntries.map((e) => e.weight.toDouble()).toList(),
+      );
+      final draftShares = <({
+        String name,
+        int amountMinor,
+        int? percentage,
+        int? sharesWeight,
+        int? rawValue,
+      })>[
+        for (var i = 0; i < shareEntries.length; i++)
+          (
+            name: shareEntries[i].name,
             amountMinor: exactAmts[i],
             percentage: null,
             sharesWeight: shareEntries[i].weight,
-          ));
-        }
-        return AdvancedGroupSplitParseResult(
-          title: rawTitle,
-          totalAmountMinor: totalMinor,
-          topic: topic,
-          splitMethod: SplitMethod.shares,
-          paidByParticipantId: payerExtract.payerId,
-          paidByDisplayName: payerExtract.payerName,
-          shares: shares,
-          rawInputValuesByUserId: rawMap,
-        );
-      }
+            rawValue: shareEntries[i].weight,
+          ),
+      ];
+      return _finalizeValidatedResult(
+        title: rawTitle,
+        totalMinor: totalMinor,
+        topic: topic,
+        method: SplitMethod.shares,
+        payerExtract: payerExtract,
+        draftShares: draftShares,
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        knownMembers: knownMembers,
+        nicknamesByUserId: nicknamesByUserId,
+        explicitParticipantOverrides: explicitParticipantOverrides,
+        includeRawValues: true,
+        postResolutionStatusOverride:
+            (declaredHeadcount != null && declaredHeadcount != shareEntries.length)
+                ? SplitValidationStatus.inconsistentTotal
+                : null,
+        postResolutionMessageOverride:
+            (declaredHeadcount != null && declaredHeadcount != shareEntries.length)
+                ? 'Khai báo chia cho $declaredHeadcount người nhưng có ${shareEntries.length} suất phân bổ.'
+                : null,
+      );
     }
 
     // 4. Exact Per-Person Amounts + Optional "còn lại <Name> chịu"
-    if (allAmounts.length >= 2) {
-      final personAmtRegex = RegExp(
-        r'([A-Za-zÀ-ỹ]+)\s+(?:đóng\s+|trả\s+|chịu\s+|gửi\s+)?(\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu)(?:\s*\d{1,3})?|\d+(?:[.,]\d+)?\s*(?:k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,2})?|\d{1,3}(?:[.,]\d{3})+|\d{5,11})',
+    final personAmtRegex = RegExp(
+      r'([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)\s+(?:đóng\s+|trả\s+|chịu\s+|gửi\s+|ứng\s+)?((?:-\s*|âm\s+|am\s+)?(?:\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu)(?:\s*\d{1,3})?|\d+(?:[.,]\d+)?\s*(?:k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,2})?|\d{1,3}(?:[.,]\d{3})+|\d{5,11}|0\s*(?:đ|₫|vnđ|vnd|đồng|dong)))(?![\p{L}\p{N}])',
+      caseSensitive: false,
+      unicode: true,
+    );
+    final rawPersonMatches = personAmtRegex.allMatches(afterFirstAmount).toList();
+    final personMatches = <({String name, String amtToken, bool isNegative})>[];
+    for (final m in rawPersonMatches) {
+      final cleanedName = _cleanParticipantCandidateName(m.group(1)!);
+      if (cleanedName.isEmpty || _isStopWord(cleanedName)) continue;
+      final amtToken = (m.group(2) ?? '').trim();
+      final isNeg = RegExp(
+        r'^(?:-|âm\b|am\b)',
         caseSensitive: false,
         unicode: true,
-      );
-      final personMatches = personAmtRegex
-          .allMatches(afterFirstAmount)
-          .where((m) => !_isStopWord(m.group(1)!))
-          .toList();
+      ).hasMatch(amtToken);
+      personMatches.add((
+        name: cleanedName,
+        amtToken: amtToken,
+        isNegative: isNeg,
+      ));
+    }
 
-      if (personMatches.isNotEmpty) {
-        final shares = <({
-          String participantId,
-          String displayName,
-          int amountMinor,
-          int? percentage,
-          int? sharesWeight,
-        })>[];
-        final rawMap = <String, int>{};
-        var assignedSum = 0;
-        for (var i = 0; i < personMatches.length; i++) {
-          final name = _capitalizeName(personMatches[i].group(1)!);
-          final amt = _parseAmountToken(personMatches[i].group(2)!) ?? 0;
-          if (amt <= 0) continue;
-          final pid = _resolveParticipantId(
-            name,
-            index: i,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
-          assignedSum += amt;
-          rawMap[pid] = amt;
-          shares.add((
-            participantId: pid,
-            displayName: name,
-            amountMinor: amt,
+    if (personMatches.isNotEmpty) {
+      final draftShares = <({
+        String name,
+        int amountMinor,
+        int? percentage,
+        int? sharesWeight,
+        int? rawValue,
+      })>[];
+      var assignedSum = 0;
+      var hasBadShareAmount = false;
+      for (final pm in personMatches) {
+        if (pm.isNegative) {
+          hasBadShareAmount = true;
+          draftShares.add((
+            name: pm.name,
+            amountMinor: 0,
             percentage: null,
             sharesWeight: null,
+            rawValue: 0,
           ));
+          continue;
         }
-
-        final remMatch = RegExp(
-          r'còn\s+lại\s+([A-Za-zÀ-ỹ]+)',
-          caseSensitive: false,
-          unicode: true,
-        ).firstMatch(afterFirstAmount);
-        if (remMatch != null && assignedSum < totalMinor) {
-          final remName = _capitalizeName(remMatch.group(1)!);
-          final remAmt = totalMinor - assignedSum;
-          final pid = _resolveParticipantId(
-            remName,
-            index: shares.length,
-            currentUserId: currentUserId,
-            currentUserName: currentUserName,
-            knownMembers: knownMembers,
-          );
-          rawMap[pid] = remAmt;
-          shares.add((
-            participantId: pid,
-            displayName: remName,
-            amountMinor: remAmt,
-            percentage: null,
-            sharesWeight: null,
-          ));
-          assignedSum += remAmt;
+        final amt = _parseAmountToken(pm.amtToken) ?? 0;
+        if (amt <= 0) {
+          hasBadShareAmount = true;
         }
+        assignedSum += amt;
+        draftShares.add((
+          name: pm.name,
+          amountMinor: amt,
+          percentage: null,
+          sharesWeight: null,
+          rawValue: amt,
+        ));
+      }
 
-        if (shares.length >= 2 && assignedSum == totalMinor) {
-          return AdvancedGroupSplitParseResult(
-            title: rawTitle,
-            totalAmountMinor: totalMinor,
-            topic: topic,
-            splitMethod: SplitMethod.exact,
-            paidByParticipantId: payerExtract.payerId,
-            paidByDisplayName: payerExtract.payerName,
-            shares: shares,
-            rawInputValuesByUserId: rawMap,
-          );
+      if (hasBadShareAmount) {
+        return _invalidSplitResult(
+          title: rawTitle,
+          totalMinor: totalMinor,
+          topic: topic,
+          method: SplitMethod.exact,
+          payerExtract: payerExtract,
+          status: SplitValidationStatus.invalidAmount,
+          messageVi: 'Số tiền mỗi người đóng/chịu phải lớn hơn 0 ₫.',
+        );
+      }
+
+      final remMatch = RegExp(
+        r'còn\s+lại\s+([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)',
+        caseSensitive: false,
+        unicode: true,
+      ).firstMatch(afterFirstAmount);
+      var overflowRemainder = false;
+      if (remMatch != null) {
+        final remName = _cleanParticipantCandidateName(remMatch.group(1)!);
+        if (remName.isNotEmpty && !_isStopWord(remName)) {
+          if (assignedSum >= totalMinor) {
+            overflowRemainder = true;
+          } else {
+            final remAmt = totalMinor - assignedSum;
+            draftShares.add((
+              name: remName,
+              amountMinor: remAmt,
+              percentage: null,
+              sharesWeight: null,
+              rawValue: remAmt,
+            ));
+            assignedSum += remAmt;
+          }
         }
       }
+
+      SplitValidationStatus? exactStatus;
+      String? exactMessage;
+      if (overflowRemainder) {
+        exactStatus = SplitValidationStatus.inconsistentTotal;
+        exactMessage =
+            'Số tiền đã phân bổ (${_formatVndStatic(assignedSum)}) đã lớn hơn hoặc bằng tổng hóa đơn (${_formatVndStatic(totalMinor)}), không còn dư để chia phần còn lại.';
+      } else if (declaredHeadcount != null &&
+          declaredHeadcount != draftShares.length) {
+        exactStatus = SplitValidationStatus.inconsistentTotal;
+        exactMessage =
+            'Khai báo chia cho $declaredHeadcount người nhưng có ${draftShares.length} khoản phân bổ.';
+      } else if (assignedSum != totalMinor) {
+        exactStatus = SplitValidationStatus.inconsistentTotal;
+        exactMessage =
+            'Tổng các khoản chia (${_formatVndStatic(assignedSum)}) không khớp tổng hóa đơn (${_formatVndStatic(totalMinor)}).';
+      } else if (draftShares.length < 2) {
+        exactStatus = SplitValidationStatus.missingParticipant;
+        exactMessage = 'Cần ít nhất 2 thành viên hợp lệ để chia hóa đơn.';
+      }
+
+      return _finalizeValidatedResult(
+        title: rawTitle,
+        totalMinor: totalMinor,
+        topic: topic,
+        method: SplitMethod.exact,
+        payerExtract: payerExtract,
+        draftShares: draftShares,
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        knownMembers: knownMembers,
+        nicknamesByUserId: nicknamesByUserId,
+        explicitParticipantOverrides: explicitParticipantOverrides,
+        includeRawValues: true,
+        postResolutionStatusOverride: exactStatus,
+        postResolutionMessageOverride: exactMessage,
+      );
     }
 
     // 5. Equal Split (Headcount / Cưa đôi / Campuchia / Named list)
+    if (RegExp(
+      r'(?:chia(?:\s+đều)?\s+cho|cùng\s+với)\s*$',
+      caseSensitive: false,
+      unicode: true,
+    ).hasMatch(afterFirstAmount)) {
+      return _invalidSplitResult(
+        title: rawTitle,
+        totalMinor: totalMinor,
+        topic: topic,
+        method: SplitMethod.equal,
+        payerExtract: payerExtract,
+        status: SplitValidationStatus.missingParticipant,
+        messageVi: 'Chưa có danh sách thành viên để chia tiền.',
+      );
+    }
+
     final participantNames = _resolveEqualParticipantNames(
       afterFirstAmount,
       currentUserName: currentUserName,
       knownMembers: knownMembers,
     );
+    if (participantNames.length < 2) {
+      return _invalidSplitResult(
+        title: rawTitle,
+        totalMinor: totalMinor,
+        topic: topic,
+        method: SplitMethod.equal,
+        payerExtract: payerExtract,
+        status: SplitValidationStatus.missingParticipant,
+        messageVi: 'Cần ít nhất 2 người tham gia để chia đều.',
+      );
+    }
+
     final n = participantNames.length;
     final exactAmts = apportionExactVnd(
       totalMinor,
       List<double>.filled(n, 1.0),
     );
-    final shares = <({
-      String participantId,
-      String displayName,
+    final draftShares = <({
+      String name,
       int amountMinor,
       int? percentage,
       int? sharesWeight,
-    })>[];
-    for (var i = 0; i < n; i++) {
-      final name = participantNames[i];
-      final pid = _resolveParticipantId(
-        name,
-        index: i,
-        currentUserId: currentUserId,
-        currentUserName: currentUserName,
-        knownMembers: knownMembers,
-      );
-      shares.add((
-        participantId: pid,
-        displayName: name,
-        amountMinor: exactAmts[i],
-        percentage: null,
-        sharesWeight: null,
-      ));
-    }
+      int? rawValue,
+    })>[
+      for (var i = 0; i < n; i++)
+        (
+          name: participantNames[i],
+          amountMinor: exactAmts[i],
+          percentage: null,
+          sharesWeight: null,
+          rawValue: null,
+        ),
+    ];
 
-    return AdvancedGroupSplitParseResult(
+    return _finalizeValidatedResult(
       title: rawTitle,
-      totalAmountMinor: totalMinor,
+      totalMinor: totalMinor,
       topic: topic,
-      splitMethod: SplitMethod.equal,
-      paidByParticipantId: payerExtract.payerId,
-      paidByDisplayName: payerExtract.payerName,
-      shares: shares,
-      rawInputValuesByUserId: const <String, int>{},
+      method: SplitMethod.equal,
+      payerExtract: payerExtract,
+      draftShares: draftShares,
+      currentUserId: currentUserId,
+      currentUserName: currentUserName,
+      knownMembers: knownMembers,
+      nicknamesByUserId: nicknamesByUserId,
+      explicitParticipantOverrides: explicitParticipantOverrides,
+      includeRawValues: false,
     );
   }
 
@@ -1202,15 +1488,22 @@ abstract final class SmartMoneySplitAiEngine {
     return (incomeMinor: income, rentMinor: rent, debtMinor: debt);
   }
 
-  static ({String? payerId, String? payerName, String cleanedTitle})
-      _extractUpfrontPayer(
+  static ({
+    String? payerId,
+    String? payerName,
+    String cleanedTitle,
+    ParticipantResolutionOutcome? payerOutcome,
+  }) _extractUpfrontPayer(
     String headBeforeTotal, {
     required String currentUserId,
     required String currentUserName,
     required List<FamilyMemberInfo> knownMembers,
+    Map<String, List<String>> nicknamesByUserId =
+        const <String, List<String>>{},
+    Map<String, String> explicitParticipantOverrides = const <String, String>{},
   }) {
     final payerMatch = RegExp(
-      r'^([A-Za-zÀ-ỹ]+)\s+(?:trả\s+trước|ứng\s+trước|ứng|thanh\s+toán\s+trước|bao\s+trước)\s*(.*)$',
+      r'^([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)\s+(?:trả\s+trước|ứng\s+trước|ứng|thanh\s+toán\s+trước|bao\s+trước)\s*(.*)$',
       caseSensitive: false,
       unicode: true,
     ).firstMatch(headBeforeTotal);
@@ -1219,29 +1512,33 @@ abstract final class SmartMoneySplitAiEngine {
         payerId: null,
         payerName: null,
         cleanedTitle: headBeforeTotal,
+        payerOutcome: null,
       );
     }
-    final rawPayer = payerMatch.group(1)!.trim();
-    if (_isStopWord(rawPayer)) {
+    final rawPayer = _cleanParticipantCandidateName(payerMatch.group(1)!);
+    if (rawPayer.isEmpty || _isStopWord(rawPayer)) {
       return (
         payerId: null,
         payerName: null,
         cleanedTitle: headBeforeTotal,
+        payerOutcome: null,
       );
     }
-    final capPayer = _capitalizeName(rawPayer);
-    final pid = _resolveParticipantId(
-      capPayer,
+    final outcome = ParticipantResolutionEngine.resolve(
+      spokenName: rawPayer,
       index: 0,
       currentUserId: currentUserId,
       currentUserName: currentUserName,
       knownMembers: knownMembers,
+      nicknamesByUserId: nicknamesByUserId,
+      explicitOverridesBySpoken: explicitParticipantOverrides,
     );
     final restTitle = (payerMatch.group(2) ?? '').trim();
     return (
-      payerId: pid,
-      payerName: capPayer,
+      payerId: outcome.participantId,
+      payerName: outcome.displayName.isNotEmpty ? outcome.displayName : rawPayer,
       cleanedTitle: restTitle.isEmpty ? 'Khoản chi chung nhóm' : restTitle,
+      payerOutcome: outcome,
     );
   }
 
@@ -1249,17 +1546,32 @@ abstract final class SmartMoneySplitAiEngine {
     String section,
   ) {
     final results = <({String name, int amountMinor})>[];
-    final regex = RegExp(
-      r'([A-Za-zÀ-ỹ]+)\s+(?:uống\s+thêm|gọi\s+thêm|mua\s+riêng|lấy\s+riêng|thêm|gọi\s+riêng|uống\s+riêng|tính\s+riêng|đặt\s+thêm)[^0-9]*?(\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,3})?|\d{1,3}(?:[.,]\d{3})+|\d{5,11})',
+    final verbRegex = RegExp(
+      r'([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)\s+(?:uống\s+thêm|gọi\s+thêm|mua\s+riêng|lấy\s+riêng|thêm|gọi\s+riêng|uống\s+riêng|tính\s+riêng|đặt\s+thêm)[^0-9]*?((?:-\s*|âm\s+)?(?:\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,3})?|\d{1,3}(?:[.,]\d{3})+|\d{5,11}|0\s*(?:đ|₫|vnđ|vnd|đồng|dong)))',
       caseSensitive: false,
       unicode: true,
     );
-    for (final m in regex.allMatches(section)) {
-      final rawName = m.group(1)!;
-      if (_isStopWord(rawName)) continue;
-      final amt = _parseAmountToken(m.group(2)!) ?? 0;
-      if (amt > 0) {
-        results.add((name: _capitalizeName(rawName), amountMinor: amt));
+    for (final m in verbRegex.allMatches(section)) {
+      final cleaned = _cleanParticipantCandidateName(m.group(1)!);
+      if (cleaned.isEmpty || _isStopWord(cleaned)) continue;
+      final token = m.group(2)!.trim();
+      final isNeg = RegExp(r'^(?:-|âm\b)', caseSensitive: false).hasMatch(token);
+      final amt = isNeg ? 0 : (_parseAmountToken(token) ?? 0);
+      results.add((name: cleaned, amountMinor: amt));
+    }
+    if (results.isEmpty && section.trim().isNotEmpty) {
+      final fallbackRegex = RegExp(
+        r'([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)\s+(?:đóng\s+|trả\s+|chịu\s+|uống\s+|ăn\s+)?((?:-\s*|âm\s+)?(?:\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,3})?|\d{1,3}(?:[.,]\d{3})+|\d{5,11}|0\s*(?:đ|₫|vnđ|vnd|đồng|dong)))',
+        caseSensitive: false,
+        unicode: true,
+      );
+      for (final m in fallbackRegex.allMatches(section)) {
+        final cleaned = _cleanParticipantCandidateName(m.group(1)!);
+        if (cleaned.isEmpty || _isStopWord(cleaned)) continue;
+        final token = m.group(2)!.trim();
+        final isNeg = RegExp(r'^(?:-|âm\b)', caseSensitive: false).hasMatch(token);
+        final amt = isNeg ? 0 : (_parseAmountToken(token) ?? 0);
+        results.add((name: cleaned, amountMinor: amt));
       }
     }
     return results;
@@ -1275,15 +1587,15 @@ abstract final class SmartMoneySplitAiEngine {
 
     // Check "cưa đôi với <Name>" / "chia đôi với <Name>"
     final pairWithMatch = RegExp(
-      r'(?:cưa\s+đôi|chia\s+đôi)\s+(?:với|cùng)\s+([A-Za-zÀ-ỹ]+)',
+      r'(?:cưa\s+đôi|chia\s+đôi)\s+(?:với|cùng)\s+([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)',
       caseSensitive: false,
       unicode: true,
     ).firstMatch(clause);
     if (pairWithMatch != null) {
-      return <String>[
-        currentUserName,
-        _capitalizeName(pairWithMatch.group(1)!),
-      ];
+      final partner = _cleanParticipantCandidateName(pairWithMatch.group(1)!);
+      if (partner.isNotEmpty) {
+        return <String>[currentUserName, partner];
+      }
     }
     if (lower.contains('cưa đôi') || lower.contains('chia đôi')) {
       if (knownMembers.length >= 2) {
@@ -1392,35 +1704,282 @@ abstract final class SmartMoneySplitAiEngine {
   }
 
   static int? _parseAmountToken(String token) {
-    final entry = SmartQuickEntryParser.tryParse('chi $token');
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) return null;
+    final bilMatch = RegExp(
+      r'^(\d+(?:[.,]\d+)?)\s*(?:tỷ|ty)\b(?:\s*(\d{1,3}))?',
+      caseSensitive: false,
+      unicode: true,
+    ).firstMatch(trimmed);
+    if (bilMatch != null) {
+      final rawWhole = (bilMatch.group(1) ?? '').replaceAll(',', '.');
+      final parts = rawWhole.split('.');
+      final whole = int.tryParse(parts[0]) ?? 0;
+      var minor = whole * 1000000000;
+      if (parts.length > 1 && parts[1].isNotEmpty) {
+        final frac = parts[1].padRight(9, '0').substring(0, 9);
+        minor += int.parse(frac);
+      } else if ((bilMatch.group(2) ?? '').isNotEmpty) {
+        final mil = int.tryParse(bilMatch.group(2)!) ?? 0;
+        minor += mil * 1000000;
+      }
+      return minor > 0 ? minor : null;
+    }
+    final entry = SmartQuickEntryParser.tryParse('chi $trimmed');
     return entry?.amountMinor;
   }
 
-  static String _resolveParticipantId(
-    String spokenName, {
-    required int index,
+  static List<RegExpMatch> _extractValidMoneyMatches(String text) {
+    final matches = <RegExpMatch>[];
+    for (final m in _amountTokenRegex.allMatches(text)) {
+      final token = m.group(0) ?? '';
+      final hasSuffix = RegExp(
+        r'(?:đ|₫|vnđ|vnd|đồng|dong|tỷ|ty|triệu|trieu|tr|củ|cu|nghìn|nghin|ngàn|ngan|k|xị|xi|lít|lit|cành|canh)\s*$',
+        caseSensitive: false,
+        unicode: true,
+      ).hasMatch(token.trim());
+      if (VietnameseTemporalAndEntityResolver.isFollowedByNonCurrencyUnit(
+        text,
+        m.end,
+        hasExplicitCurrencySuffix: hasSuffix,
+      )) {
+        continue;
+      }
+      matches.add(m);
+    }
+    return matches;
+  }
+
+  static bool _hasNegativeMoneyBeforeOrAtFirst(String text, int? firstStart) {
+    final head = firstStart == null ? text : text.substring(0, firstStart);
+    if (RegExp(
+      r'(?:^|[\s,(])(?:-\s*|âm\s+|am\s+)$',
+      caseSensitive: false,
+      unicode: true,
+    ).hasMatch(head)) {
+      return true;
+    }
+    if (RegExp(
+      r'(?:^|[\s,(])(?:-\s*\d|âm\s+\d|am\s+\d)',
+      caseSensitive: false,
+      unicode: true,
+    ).hasMatch(head)) {
+      return true;
+    }
+    if (RegExp(
+      r'\b0\s*(?:đ|₫|vnđ|vnd|đồng|dong|k|tr|triệu|củ)\b',
+      caseSensitive: false,
+      unicode: true,
+    ).hasMatch(head)) {
+      return true;
+    }
+    if (firstStart == null &&
+        RegExp(
+          r'(?:^|[\s,(])(?:-\s*\d|âm\s+\d|am\s+\d)',
+          caseSensitive: false,
+          unicode: true,
+        ).hasMatch(text)) {
+      return true;
+    }
+    return false;
+  }
+
+  static int? _extractDeclaredHeadcount(String afterFirstAmount) {
+    final m = RegExp(
+      r'^(?:[,;:\s]*)?(?:chia|cho)\s+(\d{1,2}|hai|ba|bốn|tư|năm|sáu|bảy|tám|chín|mười)\s*(?:người|bạn|anh\s+em|chị\s+em|thành\s+viên)\b',
+      caseSensitive: false,
+      unicode: true,
+    ).firstMatch(afterFirstAmount);
+    if (m == null) return null;
+    final parsed = _parseHeadcountToken(m.group(1)!);
+    if (parsed == null || parsed < 2) return null;
+    // Ignore when followed by "chia đều" (e.g. "chia 4 người đều" handled by equal/remainder)
+    final tail = afterFirstAmount.substring(m.end).trim().toLowerCase();
+    if (tail.isEmpty || tail.startsWith('đều')) return null;
+    return parsed;
+  }
+
+  static AdvancedGroupSplitParseResult _invalidSplitResult({
+    required String title,
+    required int totalMinor,
+    required SharedExpenseTopic topic,
+    required SplitMethod method,
+    required ({
+      String? payerId,
+      String? payerName,
+      String cleanedTitle,
+      ParticipantResolutionOutcome? payerOutcome,
+    }) payerExtract,
+    required SplitValidationStatus status,
+    required String messageVi,
+    List<ParticipantResolutionOutcome> ambiguousParticipants =
+        const <ParticipantResolutionOutcome>[],
+  }) {
+    return AdvancedGroupSplitParseResult(
+      title: title,
+      totalAmountMinor: totalMinor,
+      topic: topic,
+      splitMethod: method,
+      paidByParticipantId: payerExtract.payerId,
+      paidByDisplayName: payerExtract.payerName,
+      shares: const [],
+      rawInputValuesByUserId: const <String, int>{},
+      validationStatus: status,
+      validationMessageVi: messageVi,
+      ambiguousParticipants: ambiguousParticipants,
+    );
+  }
+
+  static AdvancedGroupSplitParseResult _finalizeValidatedResult({
+    required String title,
+    required int totalMinor,
+    required SharedExpenseTopic topic,
+    required SplitMethod method,
+    required ({
+      String? payerId,
+      String? payerName,
+      String cleanedTitle,
+      ParticipantResolutionOutcome? payerOutcome,
+    }) payerExtract,
+    required List<
+      ({
+        String name,
+        int amountMinor,
+        int? percentage,
+        int? sharesWeight,
+        int? rawValue,
+      })
+    >
+    draftShares,
     required String currentUserId,
     required String currentUserName,
     required List<FamilyMemberInfo> knownMembers,
+    required Map<String, List<String>> nicknamesByUserId,
+    required Map<String, String> explicitParticipantOverrides,
+    required bool includeRawValues,
+    SplitValidationStatus? postResolutionStatusOverride,
+    String? postResolutionMessageOverride,
   }) {
-    final lower = spokenName.toLowerCase().trim();
-    if (lower == 'tôi' ||
-        lower == 'mình' ||
-        lower == 'em' ||
-        lower == 'anh' ||
-        currentUserName.toLowerCase().contains(lower)) {
-      return currentUserId;
+    final ambiguousOutcomes = <ParticipantResolutionOutcome>[];
+    if (payerExtract.payerOutcome != null &&
+        payerExtract.payerOutcome!.isAmbiguous) {
+      ambiguousOutcomes.add(payerExtract.payerOutcome!);
     }
-    for (final m in knownMembers) {
-      final mLower = m.fullName.toLowerCase();
-      if (mLower == lower ||
-          mLower.endsWith(' $lower') ||
-          mLower.contains(lower)) {
-        return m.userId;
+
+    final shares = <({
+      String participantId,
+      String displayName,
+      int amountMinor,
+      int? percentage,
+      int? sharesWeight,
+    })>[];
+    final rawMap = <String, int>{};
+    final seenIdentityKeys = <String>{};
+    String? duplicateDisplayName;
+
+    for (var i = 0; i < draftShares.length; i++) {
+      final item = draftShares[i];
+      final outcome = ParticipantResolutionEngine.resolve(
+        spokenName: item.name,
+        index: i,
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        knownMembers: knownMembers,
+        nicknamesByUserId: nicknamesByUserId,
+        explicitOverridesBySpoken: explicitParticipantOverrides,
+      );
+      if (outcome.isAmbiguous) {
+        ambiguousOutcomes.add(outcome);
       }
+
+      final isKnownParticipant =
+          outcome.status == ParticipantResolutionStatus.resolved ||
+          outcome.participantId == currentUserId;
+      final identityKey = isKnownParticipant
+          ? outcome.participantId
+          : 'guest:${FinancialTextNormalizer.stripVnAccents(item.name).replaceAll(RegExp(r'\s+'), '_')}';
+      if (!seenIdentityKeys.add(identityKey)) {
+        duplicateDisplayName ??=
+            outcome.displayName.isNotEmpty ? outcome.displayName : item.name;
+      }
+
+      final display =
+          outcome.displayName.isNotEmpty ? outcome.displayName : item.name;
+      if (includeRawValues && item.rawValue != null) {
+        rawMap[outcome.participantId] = item.rawValue!;
+      }
+      shares.add((
+        participantId: outcome.participantId,
+        displayName: display,
+        amountMinor: item.amountMinor,
+        percentage: item.percentage,
+        sharesWeight: item.sharesWeight,
+      ));
     }
-    final slug = lower.replaceAll(RegExp(r'\s+'), '_');
-    return 'voice_member_${index}_$slug';
+
+    var status = SplitValidationStatus.valid;
+    String? messageVi;
+    if (ambiguousOutcomes.isNotEmpty) {
+      final firstAmb = ambiguousOutcomes.first;
+      final candList = firstAmb.ambiguousCandidates
+          .map((c) => c.displayName)
+          .join(', ');
+      status = SplitValidationStatus.ambiguousParticipant;
+      messageVi = candList.isNotEmpty
+          ? 'Tên "${firstAmb.spokenName}" có thể là nhiều người ($candList). Vui lòng chọn đúng thành viên.'
+          : 'Có thành viên trùng tên "${firstAmb.spokenName}", vui lòng chọn đúng người trước khi lưu.';
+    } else if (duplicateDisplayName != null) {
+      status = SplitValidationStatus.duplicateParticipant;
+      messageVi =
+          'Thành viên "$duplicateDisplayName" bị trùng trong danh sách chia tiền.';
+    } else if (postResolutionStatusOverride != null) {
+      status = postResolutionStatusOverride;
+      messageVi = postResolutionMessageOverride;
+    }
+
+    return AdvancedGroupSplitParseResult(
+      title: title,
+      totalAmountMinor: totalMinor,
+      topic: topic,
+      splitMethod: method,
+      paidByParticipantId: payerExtract.payerId,
+      paidByDisplayName: payerExtract.payerName,
+      shares: shares,
+      rawInputValuesByUserId: includeRawValues ? rawMap : const <String, int>{},
+      validationStatus: status,
+      validationMessageVi: messageVi,
+      ambiguousParticipants: ambiguousOutcomes,
+    );
+  }
+
+  static String _formatVndStatic(int minor) {
+    final abs = minor.abs();
+    final str = abs.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < str.length; i++) {
+      final revIdx = str.length - i;
+      if (i > 0 && revIdx % 3 == 0) {
+        buf.write('.');
+      }
+      buf.write(str[i]);
+    }
+    return '${minor < 0 ? '-' : ''}${buf.toString()} ₫';
+  }
+
+  static String _cleanParticipantCandidateName(String raw) {
+    var tokens = raw
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    while (tokens.isNotEmpty && _isStopWord(tokens.first)) {
+      tokens = tokens.sublist(1);
+    }
+    while (tokens.isNotEmpty && _isStopWord(tokens.last)) {
+      tokens = tokens.sublist(0, tokens.length - 1);
+    }
+    if (tokens.isEmpty) return '';
+    return _capitalizeName(tokens.join(' '));
   }
 
   static bool _isStopWord(String word) {
@@ -1449,6 +2008,41 @@ abstract final class SmartMoneySplitAiEngine {
       'tiền',
       'hóa',
       'đơn',
+      'hôm',
+      'nay',
+      'qua',
+      'và',
+      'nhưng',
+      'của',
+      'thì',
+      'là',
+      'nhà',
+      'bạn',
+      'anh',
+      'chị',
+      'em',
+      'đứa',
+      'triệu',
+      'trieu',
+      'nghìn',
+      'nghin',
+      'ngàn',
+      'ngan',
+      'trăm',
+      'tram',
+      'đồng',
+      'dong',
+      'vnd',
+      'vnđ',
+      'âm',
+      'khoản',
+      'phân',
+      'bổ',
+      'ăn',
+      'uống',
+      'đi',
+      'chơi',
+      'tiệc',
     };
     return stops.contains(word.toLowerCase().trim());
   }

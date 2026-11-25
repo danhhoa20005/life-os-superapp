@@ -1,4 +1,5 @@
 import '../../../../core/error/app_exception.dart';
+import '../entities/financial_aggregation_engine.dart';
 import '../entities/transaction_entities.dart';
 
 abstract interface class TransactionRepository {
@@ -12,11 +13,22 @@ abstract interface class TransactionRepository {
     int limit = 100,
   });
 
+  Stream<Result<List<TransactionEntity>>> watchAllTransactionsForAggregation({
+    required String userId,
+    required String monthKey,
+  });
+
   Stream<Result<List<TransactionEntity>>> watchTransactionsRange({
     required String userId,
     required DateTime startInclusive,
     required DateTime endExclusive,
     int limit = 600,
+  });
+
+  Stream<Result<List<TransactionEntity>>> watchTransactionsInPeriod({
+    required String userId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
   });
 
   Future<Result<WalletEntity>> createWallet({
@@ -63,5 +75,11 @@ abstract interface class TransactionRepository {
     required String userId,
     required String monthKey,
     required FinanceOverviewSummary summary,
+  });
+
+  Future<Result<void>> saveMonthlySummary({
+    required String userId,
+    required String monthKey,
+    required FinancialAggregationResult summary,
   });
 }

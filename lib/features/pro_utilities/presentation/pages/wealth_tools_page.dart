@@ -29,6 +29,8 @@ import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../domain/entities/pro_utilities_entities.dart';
+import '../../domain/services/receipt_intelligence_engine.dart';
+import '../widgets/receipt_itemized_split_panel.dart';
 
 /// Financial Pro Tools: Smart Receipt AI Scanner, Loan Amortization & FIRE 6-Jars.
 class WealthToolsPage extends StatefulWidget {
@@ -506,6 +508,12 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
           ),
         ),
         const SizedBox(height: 12),
+        ReceiptItemizedSplitPanel(
+          rawOcrText: _receiptCtrl.text,
+          currentUserId: userId,
+          currentUserName: userName,
+        ),
+        const SizedBox(height: 12),
 
         // Wallet & Category Selector Card
         LifeOsSoftCard(
@@ -636,6 +644,34 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                           txActionBloc == null)
                       ? null
                       : () async {
+                          final structured =
+                              ReceiptIntelligenceEngine.analyzeOcrText(
+                                _receiptCtrl.text,
+                              );
+                          if (structured.discrepancyMinor != 0) {
+                            final proceed = await showDialog<bool>(
+                              context: context,
+                              builder: (dCtx) => AlertDialog(
+                                title: const Text('Tổng tiền hóa đơn chưa khớp'),
+                                content: Text(
+                                  'Tổng các món bóc tách chênh lệch ${VndAmount.format(structured.discrepancyMinor.abs())} so với dòng Tổng cộng (${VndAmount.format(parsed.totalMinor)}). Bạn vẫn muốn lưu theo Tổng cộng này?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dCtx).pop(false),
+                                    child: const Text('Kiểm tra lại'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.of(dCtx).pop(true),
+                                    child: const Text('Xác nhận lưu'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (proceed != true || !context.mounted) return;
+                          }
                           setState(() => _isCommittingReceipt = true);
                           final res = await txActionBloc.submitAndAwaitCreate(
                             TransactionCreateSubmitted(

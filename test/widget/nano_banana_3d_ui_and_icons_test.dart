@@ -211,18 +211,23 @@ void main() {
         );
         expect(tester.takeException(), isNull);
 
-        // Navigate to Finance tab -> 3D wallet skin + scroll to 3D category badge (`BananaGlassIcon`)
+        // Navigate to Finance tab -> wallet skin + scroll to 2D category badge (`BananaGlassIcon`)
+        // (4 symmetrical bottom-bar 2D tab icons + center `+` button + category badge = >= 5)
         await tester.tap(find.text('Tài chính'));
         await tester.pumpAndSettle();
         expect(find.byType(ProWalletCreditCard), findsWidgets);
         await tester.drag(find.byType(ListView).first, const Offset(0, -280));
         await tester.pumpAndSettle();
         expect(find.text('Phở Thìn'), findsOneWidget);
-        expect(find.byType(BananaGlassIcon), findsAtLeastNWidgets(6));
+        expect(find.byType(BananaGlassIcon), findsAtLeastNWidgets(5));
+        expect(
+          find.byKey(const Key('lifeos_center_quick_add_fab')),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
 
-        // Navigate to Menu tab -> all 21 service items render 3D BananaGlassIcons cleanly
-        await tester.tap(find.text('Menu'));
+        // Navigate to Menu directory via top Menu button -> all 21 service items render 2D icons cleanly
+        await tester.tap(find.byKey(const Key('open_menu_directory_button')));
         await tester.pumpAndSettle();
         expect(find.byType(BananaGlassIcon), findsAtLeastNWidgets(10));
         expect(tester.takeException(), isNull);

@@ -9,6 +9,8 @@ import '../../../../core/utils/smart_omni_intent_parser.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../family/domain/entities/family_entities.dart';
+import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../domain/entities/financial_ai_entities.dart';
@@ -455,6 +457,8 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                 )
                               else
                                 ...rules.map((rule) {
+                                  final isNickname =
+                                      rule.ruleKind == 'nickname';
                                   final dirLabel = switch (
                                     rule.directionCondition
                                   ) {
@@ -462,14 +466,26 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                     'debit' => ' · Chiều: Chi tiêu',
                                     _ => '',
                                   };
+                                  final walletLabel =
+                                      (rule.preferredWalletName ?? '')
+                                          .isNotEmpty
+                                      ? ' · Ví: ${rule.preferredWalletName}'
+                                      : '';
+                                  final headline = isNickname
+                                      ? 'Biệt danh "${rule.merchantDisplay}" → ${rule.participantDisplayName ?? rule.participantUserId ?? ''}'
+                                      : '${rule.merchantDisplay} → ${rule.selectedCategoryName}';
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 10),
                                     child: LifeOsSoftCard(
                                       child: Row(
                                         children: [
-                                          const LifeOsIconSquircle(
-                                            icon: Icons.psychology_rounded,
-                                            tone: LifeOsAccentTone.emerald,
+                                          LifeOsIconSquircle(
+                                            icon: isNickname
+                                                ? Icons.badge_outlined
+                                                : Icons.psychology_rounded,
+                                            tone: isNickname
+                                                ? LifeOsAccentTone.blue
+                                                : LifeOsAccentTone.emerald,
                                             size: 40,
                                           ),
                                           const SizedBox(width: 12),
@@ -479,7 +495,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  '${rule.merchantDisplay} → ${rule.selectedCategoryName}',
+                                                  headline,
                                                   softWrap: true,
                                                   style: TextStyle(
                                                     fontSize: 14,
@@ -488,7 +504,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                                   ),
                                                 ),
                                                 Text(
-                                                  'Đã xác nhận ${rule.confirmationCount} lần$dirLabel · Cập nhật ${dateFmt.format(rule.lastCorrectedAt)}',
+                                                  'Đã xác nhận ${rule.confirmationCount} lần$dirLabel$walletLabel · Cập nhật ${dateFmt.format(rule.lastCorrectedAt)}',
                                                   softWrap: true,
                                                   style: TextStyle(
                                                     fontSize: 12,
@@ -502,10 +518,32 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                             ),
                                           ),
                                           IconButton(
+                                            key: Key('edit_ai_rule_${rule.id}'),
+                                            tooltip: 'Sửa quy tắc này',
+                                            constraints: const BoxConstraints(
+                                              minWidth: 48,
+                                              minHeight: 48,
+                                            ),
+                                            onPressed: () =>
+                                                _showAddManualRuleSheet(
+                                                  context,
+                                                  user.id,
+                                                  existingRule: rule,
+                                                ),
+                                            icon: Icon(
+                                              Icons.edit_outlined,
+                                              color: c.primary,
+                                            ),
+                                          ),
+                                          IconButton(
                                             key: Key(
                                               'delete_ai_rule_${rule.id}',
                                             ),
                                             tooltip: 'Xóa quy tắc này',
+                                            constraints: const BoxConstraints(
+                                              minWidth: 48,
+                                              minHeight: 48,
+                                            ),
                                             onPressed: () => context
                                                 .read<FinancialAiBloc>()
                                                 .add(
@@ -541,12 +579,16 @@ class _FinancialAiSettingsView extends StatelessWidget {
 
   Future<void> _showAddManualRuleSheet(
     BuildContext context,
-    String userId,
-  ) async {
+    String userId, {
+    PersonalizationRule? existingRule,
+  }) async {
     final aiBloc = context.read<FinancialAiBloc>();
-    final txCategories =
-        _tryReadOptionalBloc<TransactionListBloc>(context)?.state.categories ??
-        const <CategoryEntity>[];
+    final txState = _tryReadOptionalBloc<TransactionListBloc>(context)?.state;
+    final txCategories = txState?.categories ?? const <CategoryEntity>[];
+    final txWallets = txState?.wallets ?? const <WalletEntity>[];
+    final familyMembers =
+        _tryReadOptionalBloc<FamilyBloc>(context)?.state.activeFamily?.members ??
+        const <FamilyMemberInfo>[];
 
     await showModalBottomSheet<void>(
       context: context,
@@ -556,6 +598,9 @@ class _FinancialAiSettingsView extends StatelessWidget {
         userId: userId,
         aiBloc: aiBloc,
         userCategories: txCategories,
+        userWallets: txWallets,
+        familyMembers: familyMembers,
+        existingRule: existingRule,
       ),
     );
   }
@@ -1190,11 +1235,17 @@ class _AddManualAiRuleSheet extends StatefulWidget {
   final String userId;
   final FinancialAiBloc aiBloc;
   final List<CategoryEntity> userCategories;
+  final List<WalletEntity> userWallets;
+  final List<FamilyMemberInfo> familyMembers;
+  final PersonalizationRule? existingRule;
 
   const _AddManualAiRuleSheet({
     required this.userId,
     required this.aiBloc,
     required this.userCategories,
+    this.userWallets = const <WalletEntity>[],
+    this.familyMembers = const <FamilyMemberInfo>[],
+    this.existingRule,
   });
 
   @override
@@ -1203,8 +1254,12 @@ class _AddManualAiRuleSheet extends StatefulWidget {
 
 class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
   final TextEditingController _keywordCtrl = TextEditingController();
+  final TextEditingController _memberDisplayCtrl = TextEditingController();
+  String _ruleKind = 'category';
   String _direction = 'debit';
   late String _selectedCategoryId;
+  String? _selectedWalletId;
+  String? _selectedMemberUserId;
 
   List<_StandardCategorySpec> get _availableCategories {
     if (widget.userCategories.isNotEmpty) {
@@ -1240,12 +1295,30 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedCategoryId = _availableCategories.first.id;
+    final existing = widget.existingRule;
+    if (existing != null) {
+      _keywordCtrl.text = existing.merchantDisplay;
+      _ruleKind = existing.ruleKind;
+      _direction = existing.directionCondition;
+      _selectedWalletId = existing.preferredWalletId;
+      _selectedMemberUserId = existing.participantUserId;
+      _memberDisplayCtrl.text = existing.participantDisplayName ?? '';
+      final opts = _availableCategories;
+      _selectedCategoryId = opts.any((c) => c.id == existing.selectedCategoryId)
+          ? existing.selectedCategoryId
+          : opts.first.id;
+    } else {
+      _selectedCategoryId = _availableCategories.first.id;
+      if (widget.familyMembers.isNotEmpty) {
+        _selectedMemberUserId = widget.familyMembers.first.userId;
+      }
+    }
   }
 
   @override
   void dispose() {
     _keywordCtrl.dispose();
+    _memberDisplayCtrl.dispose();
     super.dispose();
   }
 
@@ -1261,16 +1334,59 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
     if (kw.length < 2) {
       LifeOsTopToast.show(
         context,
-        'Vui lòng nhập tên cửa hàng hoặc từ khóa tối thiểu 2 ký tự.',
+        'Vui lòng nhập từ khóa hoặc biệt danh tối thiểu 2 ký tự.',
         kind: LifeOsToastKind.warning,
       );
       return;
     }
+
+    if (_ruleKind == 'nickname') {
+      final targetId = _selectedMemberUserId;
+      var targetName = _memberDisplayCtrl.text.trim();
+      if (widget.familyMembers.isNotEmpty && targetId != null) {
+        final mem = widget.familyMembers
+            .where((m) => m.userId == targetId)
+            .firstOrNull;
+        if (mem != null) {
+          targetName = mem.fullName;
+        }
+      }
+      if (targetName.isEmpty) {
+        LifeOsTopToast.show(
+          context,
+          'Vui lòng chọn hoặc nhập tên thành viên nhận biệt danh.',
+          kind: LifeOsToastKind.warning,
+        );
+        return;
+      }
+      widget.aiBloc.add(
+        FinancialPersonalizationRuleAdded(
+          userId: widget.userId,
+          merchantKeyword: kw,
+          selectedCategoryId: '',
+          selectedCategoryName: targetName,
+          semanticKey: 'participant_nickname',
+          directionCondition: 'any',
+          ruleKind: 'nickname',
+          participantUserId: targetId ?? targetName.toLowerCase(),
+          participantDisplayName: targetName,
+          ruleIdOverride: widget.existingRule?.id,
+        ),
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
     final options = _availableCategories;
     final chosen = options.firstWhere(
       (c) => c.id == _selectedCategoryId,
       orElse: () => options.first,
     );
+    final chosenWallet = _selectedWalletId == null
+        ? null
+        : widget.userWallets
+              .where((w) => w.id == _selectedWalletId)
+              .firstOrNull;
 
     widget.aiBloc.add(
       FinancialPersonalizationRuleAdded(
@@ -1280,6 +1396,10 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
         selectedCategoryName: chosen.name,
         semanticKey: chosen.semanticKey,
         directionCondition: _direction,
+        ruleKind: 'category',
+        preferredWalletId: chosenWallet?.id,
+        preferredWalletName: chosenWallet?.name,
+        ruleIdOverride: widget.existingRule?.id,
       ),
     );
     Navigator.of(context).pop();
@@ -1292,6 +1412,11 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
     final activeCategoryId = options.any((item) => item.id == _selectedCategoryId)
         ? _selectedCategoryId
         : options.first.id;
+    final activeWalletId =
+        (_selectedWalletId != null &&
+                widget.userWallets.any((w) => w.id == _selectedWalletId))
+            ? _selectedWalletId!
+            : '';
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1306,7 +1431,9 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Dạy quy tắc mới cho Agent Local',
+                widget.existingRule != null
+                    ? 'Chỉnh sửa quy tắc Agent Local'
+                    : 'Dạy quy tắc mới cho Agent Local',
                 softWrap: true,
                 style: TextStyle(
                   fontSize: 17,
@@ -1316,9 +1443,27 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Tự động gán đúng danh mục ngay trên thiết bị mỗi khi gặp tên cửa hàng hoặc từ khóa này.',
+                'Tự động gán đúng danh mục, ví ưu tiên hoặc biệt danh thành viên ngay trên thiết bị.',
                 softWrap: true,
                 style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              LifeOsSegmentedPills<String>(
+                key: const Key('manual_rule_kind_selector'),
+                selected: _ruleKind,
+                onChanged: (nextKind) => setState(() => _ruleKind = nextKind),
+                options: const [
+                  (
+                    'category',
+                    'Cửa hàng & Ví',
+                    Icons.storefront_outlined,
+                  ),
+                  (
+                    'nickname',
+                    'Biệt danh',
+                    Icons.badge_outlined,
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1326,65 +1471,142 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
                 controller: _keywordCtrl,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submitRule(),
-                decoration: const InputDecoration(
-                  labelText: 'Tên cửa hàng / Từ khóa',
-                  hintText: 'VD: Circle K, Xanh SM',
+                decoration: InputDecoration(
+                  labelText: _ruleKind == 'nickname'
+                      ? 'Biệt danh thường gọi'
+                      : 'Tên cửa hàng / Từ khóa',
+                  hintText: _ruleKind == 'nickname'
+                      ? 'VD: Gấu, Sếp, Anh Hai'
+                      : 'VD: Circle K, Xanh SM',
                   hintMaxLines: 2,
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Chiều giao dịch áp dụng',
-                style: TextStyle(
-                  fontSize: 12.8,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
+              if (_ruleKind == 'nickname') ...[
+                const SizedBox(height: 12),
+                if (widget.familyMembers.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    key: const Key('manual_rule_member_dropdown'),
+                    isExpanded: true,
+                    initialValue:
+                        widget.familyMembers.any(
+                              (m) => m.userId == _selectedMemberUserId,
+                            )
+                            ? _selectedMemberUserId
+                            : widget.familyMembers.first.userId,
+                    decoration: const InputDecoration(
+                      labelText: 'Thành viên tương ứng',
+                      isDense: true,
+                    ),
+                    items: widget.familyMembers
+                        .map(
+                          (m) => DropdownMenuItem<String>(
+                            value: m.userId,
+                            child: Text(m.fullName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (val) =>
+                        setState(() => _selectedMemberUserId = val),
+                  )
+                else
+                  TextField(
+                    key: const Key('manual_rule_member_name_input'),
+                    controller: _memberDisplayCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Tên đầy đủ của thành viên',
+                      hintText: 'VD: Lê Văn Minh',
+                      isDense: true,
+                    ),
+                  ),
+              ] else ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Chiều giao dịch áp dụng',
+                  style: TextStyle(
+                    fontSize: 12.8,
+                    fontWeight: FontWeight.w700,
+                    color: c.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              LifeOsSegmentedPills<String>(
-                key: const Key('manual_rule_direction_selector'),
-                selected: _direction,
-                onChanged: (nextDir) {
-                  setState(() {
-                    _direction = nextDir;
-                    _syncSelectedCategoryWithDirection();
-                  });
-                },
-                options: const [
-                  ('debit', 'Chi tiêu', Icons.north_east_rounded),
-                  ('credit', 'Thu nhập', Icons.south_west_rounded),
-                  ('any', 'Mọi chiều', Icons.swap_vert_rounded),
-                ],
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: const Key('manual_rule_category_dropdown'),
-                isExpanded: true,
-                initialValue: activeCategoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Danh mục đích',
-                  isDense: true,
+                const SizedBox(height: 6),
+                LifeOsSegmentedPills<String>(
+                  key: const Key('manual_rule_direction_selector'),
+                  selected: _direction,
+                  onChanged: (nextDir) {
+                    setState(() {
+                      _direction = nextDir;
+                      _syncSelectedCategoryWithDirection();
+                    });
+                  },
+                  options: const [
+                    ('debit', 'Chi tiêu', Icons.north_east_rounded),
+                    ('credit', 'Thu nhập', Icons.south_west_rounded),
+                    ('any', 'Mọi chiều', Icons.swap_vert_rounded),
+                  ],
                 ),
-                items: options
-                    .map(
-                      (item) => DropdownMenuItem<String>(
-                        value: item.id,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(item.name),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: const Key('manual_rule_category_dropdown'),
+                  isExpanded: true,
+                  initialValue: activeCategoryId,
+                  decoration: const InputDecoration(
+                    labelText: 'Danh mục đích',
+                    isDense: true,
+                  ),
+                  items: options
+                      .map(
+                        (item) => DropdownMenuItem<String>(
+                          value: item.id,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(item.name),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedCategoryId = val);
+                    }
+                  },
+                ),
+                if (widget.userWallets.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: const Key('manual_rule_wallet_dropdown'),
+                    isExpanded: true,
+                    initialValue: activeWalletId,
+                    decoration: const InputDecoration(
+                      labelText: 'Ví ưu tiên (tùy chọn)',
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('Không cố định ví'),
+                      ),
+                      ...widget.userWallets.map(
+                        (w) => DropdownMenuItem<String>(
+                          value: w.id,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(w.name),
+                          ),
                         ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _selectedCategoryId = val);
-                  }
-                },
-              ),
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedWalletId =
+                            (val == null || val.isEmpty) ? null : val;
+                      });
+                    },
+                  ),
+                ],
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [

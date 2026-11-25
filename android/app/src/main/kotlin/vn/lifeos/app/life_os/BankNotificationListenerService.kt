@@ -233,7 +233,7 @@ class BankNotificationListenerService : NotificationListenerService() {
         var eventSink: EventChannel.EventSink? = null
 
         private val OTP_REGEX = Regex(
-            "\\b(otp|smart\\s*otp|m[aã]\\s*x[aá]c\\s*th[uự]c|m[aã]\\s*b[aả]o\\s*m[aậ]t|verification\\s*code|cvv|pin|m[aậ]t\\s*kh[aẩ]u)\\b",
+            "\\b(otp|smart\\s*otp|m[aã]\\s*x[aá]c\\s*th[uự]c|m[aã]\\s*b[aả]o\\s*m[aậ]t|verification\\s*code|cvv|m[aã]\\s*pin|pin\\s*code|m[aậ]t\\s*kh[aẩ]u)\\b",
             RegexOption.IGNORE_CASE
         )
 
@@ -244,6 +244,7 @@ class BankNotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
+        if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_ENABLED, false)) return
 

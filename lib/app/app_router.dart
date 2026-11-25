@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,6 +23,8 @@ import '../features/authentication/presentation/bloc/auth_state.dart';
 import '../features/authentication/presentation/pages/account_profile_page.dart';
 import '../features/authentication/presentation/pages/auth_pages.dart';
 import '../features/authentication/presentation/pages/splash_page.dart';
+import '../features/automation/presentation/bloc/automation_bloc.dart';
+import '../features/automation/presentation/pages/automation_studio_page.dart';
 import '../features/budgets/presentation/bloc/budget_bloc.dart';
 import '../features/calendar/domain/entities/calendar_entities.dart';
 import '../features/calendar/presentation/bloc/calendar_bloc.dart';
@@ -227,16 +228,19 @@ GoRouter createAppRouter(
               GoRoute(path: '/family', builder: (_, __) => const FamilyPage()),
             ],
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/menu',
-                builder: (_, __) =>
-                    const SuperAppDirectoryPage(isEmbeddedShellTab: true),
-              ),
-            ],
-          ),
         ],
+      ),
+      GoRoute(
+        path: '/menu',
+        pageBuilder: (_, state) => _motionPage(state, (context) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const SuperAppDirectoryPage(isEmbeddedShellTab: false),
+          );
+        }),
       ),
       GoRoute(
         path: '/assets',
@@ -585,6 +589,18 @@ GoRouter createAppRouter(
           );
         }),
       ),
+      GoRoute(
+        path: '/automation-studio',
+        pageBuilder: (_, state) => _motionPage(state, (context) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const AutomationStudioPage(),
+          );
+        }),
+      ),
     ],
   );
 }
@@ -698,6 +714,9 @@ class _ScopedAuthenticatedProviders extends StatelessWidget {
           create: (_) =>
               sl<DailyLifeBloc>()..add(DailyLifeWatchStarted(userId)),
         ),
+        BlocProvider<AutomationBloc>(
+          create: (_) => sl<AutomationBloc>()..add(AutomationStarted(userId)),
+        ),
       ],
       child: child,
     );
@@ -746,13 +765,6 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
       activeIcon: Icons.groups_rounded,
       bananaAsset: AppAssets.icNavFamily,
       label: 'Gia đình',
-    ),
-    (
-      branchIndex: 4,
-      icon: Icons.menu_rounded,
-      activeIcon: Icons.menu_rounded,
-      bananaAsset: AppAssets.icSysAllServices,
-      label: 'Menu',
     ),
   ];
 
@@ -807,10 +819,18 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             IconButton.filled(
-                              tooltip: 'Tạo nhanh LifeOS',
+                              key: const Key('lifeos_center_quick_add_fab'),
+                              tooltip: 'Thêm nhanh',
                               onPressed: () =>
                                   showLifeOsQuickCreateHub(context),
                               icon: const Icon(Icons.add_rounded),
+                            ),
+                            const SizedBox(height: 6),
+                            IconButton.outlined(
+                              key: const Key('open_menu_directory_button'),
+                              tooltip: 'Menu',
+                              onPressed: () => context.push('/menu'),
+                              icon: const Icon(Icons.grid_view_rounded),
                             ),
                           ],
                         ),
@@ -887,196 +907,50 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                 ],
               ),
               bottomNavigationBar: RepaintBoundary(
-                child: _FacebookStandardBottomBar(
-                  barKey: const Key('lifeos_liquid_glass_bottom_dock'),
-                  selectedIndex: navigationShell.currentIndex,
-                  tabs: _tabs,
-                  onDestinationSelected: (branchIdx) =>
-                      navigationShell.goBranch(
-                        branchIdx,
-                        initialLocation:
-                            branchIdx == navigationShell.currentIndex,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                    child: LiquidGlassSlidingDock(
+                      dockKey: const Key('lifeos_liquid_glass_bottom_dock'),
+                      selectedIndex: navigationShell.currentIndex.clamp(0, 3),
+                      onDestinationSelected: (branchIdx) =>
+                          navigationShell.goBranch(
+                            branchIdx,
+                            initialLocation:
+                                branchIdx == navigationShell.currentIndex,
+                          ),
+                      jewelSlotWidth: 58,
+                      centerJewel: LiquidGlassJewelButton(
+                        buttonKey: const Key('lifeos_center_quick_add_fab'),
+                        tooltip: 'Thêm nhanh',
+                        size: 48,
+                        onTap: () => showLifeOsQuickCreateHub(context),
                       ),
+                      items: _tabs
+                          .map(
+                            (t) => LiquidGlassDockItem(
+                              branchIndex: t.branchIndex,
+                              label: t.label,
+                              iconBuilder: (ctx, isSelected, color) =>
+                                  BananaGlassIcon(
+                                    assetPath: t.bananaAsset,
+                                    fallbackIcon:
+                                        isSelected ? t.activeIcon : t.icon,
+                                    fallbackColor: color,
+                                    size: isSelected ? 26 : 24,
+                                    borderRadius: 8,
+                                    isSelected: isSelected,
+                                  ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
                 ),
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-/// Facebook-Standard Edge-to-Edge Docked Bottom Navigation Bar:
-/// - Clean full-width bar with subtle top hairline border (`#FFFFFF` Light / `#121815` Dark)
-/// - Signature top active indicator bar (`Key('lifeos_sliding_dock_pill')`) gliding across 5 tabs
-/// - 5 balanced columns: `Hôm nay` · `Tài chính` · `Lịch & Việc` · `Gia đình` · `Menu`
-class _FacebookStandardBottomBar extends StatelessWidget {
-  final Key? barKey;
-  final int selectedIndex;
-  final List<
-    ({
-      int branchIndex,
-      IconData icon,
-      IconData activeIcon,
-      String bananaAsset,
-      String label,
-    })
-  >
-  tabs;
-  final ValueChanged<int> onDestinationSelected;
-
-  const _FacebookStandardBottomBar({
-    this.barKey,
-    required this.selectedIndex,
-    required this.tabs,
-    required this.onDestinationSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final motion = LifeOsMotionScope.of(context);
-    final dur = motion.resolveDuration(LifeOsMotionTokens.standard);
-    final safeIdx = selectedIndex.clamp(0, tabs.length - 1);
-
-    return ClipRect(
-      key: barKey,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: c.surface.withValues(alpha: isDark ? 0.94 : 0.96),
-            border: Border(
-              top: BorderSide(color: c.separator, width: 0.8),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 62,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final count = tabs.isEmpty ? 1 : tabs.length;
-                  final slotWidth = constraints.maxWidth / count;
-                  final indicatorInset = (slotWidth * 0.18).clamp(8.0, 20.0);
-                  final indicatorWidth = (slotWidth - indicatorInset * 2).clamp(
-                    24.0,
-                    72.0,
-                  );
-
-                  return GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragUpdate: (details) {
-                      if (slotWidth <= 0) return;
-                      final target = (details.localPosition.dx / slotWidth)
-                          .floor()
-                          .clamp(0, count - 1);
-                      if (target != safeIdx) {
-                        onDestinationSelected(tabs[target].branchIndex);
-                      }
-                    },
-                    child: Stack(
-                      children: [
-                        AnimatedPositioned(
-                          key: const Key('lifeos_sliding_dock_pill'),
-                          duration: dur,
-                          curve: motion.resolveCurve(
-                            LifeOsMotionTokens.standardCurve,
-                          ),
-                          left: safeIdx * slotWidth + indicatorInset,
-                          top: 0,
-                          width: indicatorWidth,
-                          height: 3.0,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: c.primary,
-                              borderRadius: const BorderRadius.vertical(
-                                bottom: Radius.circular(3),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final tab in tabs)
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () =>
-                                      onDestinationSelected(tab.branchIndex),
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      2,
-                                      5,
-                                      2,
-                                      3,
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        AnimatedScale(
-                                          scale: tab.branchIndex == safeIdx
-                                              ? 1.05
-                                              : 0.96,
-                                          duration: dur,
-                                          curve: motion.resolveCurve(
-                                            LifeOsMotionTokens.standardCurve,
-                                          ),
-                                          child: AnimatedOpacity(
-                                            opacity: tab.branchIndex == safeIdx
-                                                ? 1.0
-                                                : 0.84,
-                                            duration: dur,
-                                            child: BananaGlassIcon(
-                                              assetPath: tab.bananaAsset,
-                                              fallbackIcon:
-                                                  tab.branchIndex == safeIdx
-                                                  ? tab.activeIcon
-                                                  : tab.icon,
-                                              size: tab.branchIndex == safeIdx
-                                                  ? 27
-                                                  : 25,
-                                              borderRadius: 8.5,
-                                              isSelected:
-                                                  tab.branchIndex == safeIdx,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            tab.label,
-                                            style: TextStyle(
-                                              fontSize: 10.8,
-                                              fontWeight:
-                                                  tab.branchIndex == safeIdx
-                                                  ? FontWeight.w800
-                                                  : FontWeight.w600,
-                                              height: 1.1,
-                                              color: tab.branchIndex == safeIdx
-                                                  ? c.primary
-                                                  : c.textSecondary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
         ),
       ),
     );

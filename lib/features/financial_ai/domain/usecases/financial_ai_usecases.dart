@@ -216,6 +216,12 @@ final class SaveCategoryCorrectionParams {
   final String semanticKey;
   final String directionCondition;
   final String sourceContext;
+  final String ruleKind;
+  final String? preferredWalletId;
+  final String? preferredWalletName;
+  final String? participantUserId;
+  final String? participantDisplayName;
+  final String? ruleIdOverride;
 
   const SaveCategoryCorrectionParams({
     required this.userId,
@@ -226,6 +232,12 @@ final class SaveCategoryCorrectionParams {
     required this.semanticKey,
     this.directionCondition = 'any',
     this.sourceContext = 'any',
+    this.ruleKind = 'category',
+    this.preferredWalletId,
+    this.preferredWalletName,
+    this.participantUserId,
+    this.participantDisplayName,
+    this.ruleIdOverride,
   });
 }
 
@@ -238,7 +250,9 @@ class SaveCategoryCorrectionUseCase
   Future<Result<PersonalizationRule>> call(
     SaveCategoryCorrectionParams params,
   ) {
-    if (params.selectedCategoryId.trim().isEmpty) {
+    if (params.ruleKind == 'category' &&
+        params.selectedCategoryId.trim().isEmpty &&
+        (params.preferredWalletId ?? '').trim().isEmpty) {
       return Future.value(
         const Err(
           ValidationFailure(message: 'Danh mục được chọn không hợp lệ.'),
@@ -254,6 +268,12 @@ class SaveCategoryCorrectionUseCase
       semanticKey: params.semanticKey,
       directionCondition: params.directionCondition,
       sourceContext: params.sourceContext,
+      ruleKind: params.ruleKind,
+      preferredWalletId: params.preferredWalletId,
+      preferredWalletName: params.preferredWalletName,
+      participantUserId: params.participantUserId,
+      participantDisplayName: params.participantDisplayName,
+      ruleIdOverride: params.ruleIdOverride,
     );
   }
 }

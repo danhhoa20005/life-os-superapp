@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/utils/stream_combiner.dart';
+import '../../../transactions/data/models/transaction_models.dart';
+import '../../../transactions/domain/entities/financial_aggregation_engine.dart';
 import '../../domain/entities/budget_entities.dart';
 import '../../domain/repositories/budget_repository.dart';
 
@@ -33,34 +35,11 @@ class BudgetRemoteDataSource {
         .snapshots();
 
     return StreamCombiner.combine2(budgetsStream, txsStream, (bSnap, txSnap) {
-      final spentByCat = <String, int>{};
-      for (final doc in txSnap.docs) {
-        final d = doc.data();
-        final kind = d['kind'] as String?;
-        final ver = d['verification'] as String?;
-        final reversedBy = d['reversedById'] as String?;
-        if (kind == 'expense' &&
-            (ver == 'userConfirmed' || ver == 'verified') &&
-            (reversedBy == null || reversedBy.isEmpty)) {
-          final rawSplits =
-              d['splitLines'] as List<dynamic>? ?? const <dynamic>[];
-          if (rawSplits.isNotEmpty) {
-            for (final rawLine in rawSplits) {
-              if (rawLine is Map) {
-                final lineCat = (rawLine['categoryName'] as String?) ?? '';
-                final lineAmt = (rawLine['amountMinor'] as num?)?.toInt() ?? 0;
-                if (lineCat.isNotEmpty && lineAmt > 0) {
-                  spentByCat[lineCat] = (spentByCat[lineCat] ?? 0) + lineAmt;
-                }
-              }
-            }
-          } else {
-            final catName = (d['categoryName'] as String?) ?? '';
-            final amt = (d['amountMinor'] as num?)?.toInt() ?? 0;
-            spentByCat[catName] = (spentByCat[catName] ?? 0) + amt;
-          }
-        }
-      }
+      final txs = txSnap.docs
+          .map((doc) => TransactionModel.fromFirestore(doc).entity)
+          .toList(growable: false);
+      final agg = FinancialAggregationEngine.aggregate(txs);
+      final spentByCat = agg.expenseByCategory;
 
       return bSnap.docs.map((doc) {
         final d = doc.data();

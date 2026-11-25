@@ -242,6 +242,9 @@ final class ParsedBankSignal {
   /// Extracted LifeOS QR / Group Split payment reference code (e.g. `LO482910`, `SPLIT...`) for instant auto-reconciliation!
   final String? matchedPaymentCode;
 
+  /// Extracted bank transfer trace/reference code (e.g. `FT2512...`, `REF...`) when available.
+  final String? referenceCode;
+
   const ParsedBankSignal({
     required this.amountMinor,
     required this.direction,
@@ -256,6 +259,7 @@ final class ParsedBankSignal {
     this.observedBalanceMinor,
     this.accountTail,
     this.matchedPaymentCode,
+    this.referenceCode,
   });
 }
 
@@ -471,10 +475,17 @@ abstract final class BankNotificationParser {
       );
     }
 
+    // Filter promotional / referral marketing notifications unless they carry an actual post-tx balance (`SD:` / `Số dư:`).
     if (RegExp(
-      r'\b(khuy[eế]n\s*m[aã]i|[uư]u\s*đ[aã]i|vay\s*nhanh|m[oở]\s*th[eẻ])\b',
-      caseSensitive: false,
-    ).hasMatch(combined)) {
+          r'(?<![\p{L}\p{N}])(khuy[eế]n\s*m[aã]i|[uư]u\s*[dđ][aã]i|vay\s*nhanh|m[oở]\s*th[eẻ]|gi[oơớờởỡợ]i\s*thi[eệ]u\s*b[aạ]n\s*b[eè]|t[aặ]ng\s+voucher|voucher|ho[aà]n\s*ti[eề]n\s*[dđ][eế]n|t[oố]i\s*[dđ]a|c[oơ]\s*h[oộ]i\s*nh[aậ]n|tr[uú]ng\s*th[uư][oở]ng|quay\s*th[uư][oở]ng|gi[aả]m\s*gi[aá]|flash\s*sale)(?![\p{L}\p{N}])',
+          caseSensitive: false,
+          unicode: true,
+        ).hasMatch(combined) &&
+        !RegExp(
+          r'(?:SD|S[oố]\s*d[uư])\s*[:=]?\s*\d',
+          caseSensitive: false,
+          unicode: true,
+        ).hasMatch(combined)) {
       return const BankSignalParseOutcome.dropped(
         BankSignalDropReason.nonFinancial,
       );
@@ -493,12 +504,14 @@ abstract final class BankNotificationParser {
       amountMinor = VndAmount.tryParseInput(signedMatch.group(2) ?? '');
     } else {
       final verbMatch = RegExp(
-        r'\b(thanh\s*to[aá]n|chi\s*ti[eê]u|tr[uừ]|nh[aậ]n\s*đ[uư][oợ]c|c[oộ]ng)\s+(\d{1,3}(?:[.,]\d{3})+|\d{4,15})\s*(VND|VNĐ|đ|₫)',
+        r'\b(thanh\s*to[aá]n|chi\s*ti[eê]u|tr[uừ]|nh[aậ]n\s*[dđ][uư][oợ]c|c[oộ]ng|chuy[eể]n\s*v[aà]o|ghi\s*c[oó])\s+(\d{1,3}(?:[.,]\d{3})+|\d{4,15})\s*(VND|VNĐ|[dđ]|₫)',
         caseSensitive: false,
       ).firstMatch(combined);
       if (verbMatch != null) {
         final verb = (verbMatch.group(1) ?? '').toLowerCase();
-        direction = RegExp(r'(nh[aậ]n|c[oộ]ng)').hasMatch(verb)
+        direction = RegExp(
+              r'(nh[aậ]n|c[oộ]ng|chuy[eể]n\s*v[aà]o|ghi\s*c[oó])',
+            ).hasMatch(verb)
             ? 'credit'
             : 'debit';
         amountMinor = VndAmount.tryParseInput(verbMatch.group(2) ?? '');
@@ -614,6 +627,7 @@ abstract final class BankNotificationParser {
         observedBalanceMinor: observedBalanceMinor,
         accountTail: accountTail,
         matchedPaymentCode: matchedPaymentCode,
+        referenceCode: refCode,
       ),
     );
   }

@@ -1,4 +1,5 @@
 import '../../../../core/security/bank_notification_parser.dart';
+import '../../../../core/utils/vietnamese_temporal_and_entity_resolver.dart';
 import '../../domain/entities/financial_ai_entities.dart';
 
 /// Result of parsing a monetary amount in integer minor units (ZERO floating-point math!).
@@ -672,8 +673,15 @@ class FinancialTextNormalizer {
       caseSensitive: false,
       unicode: true,
     );
+    final nonCurrencyAfterK = RegExp(
+      r'^(?:km|ki\s*l[oô]\s*m[eé]t|kilomet|c[aâ]y\s*s[oố]|m[eé]t|ml|l[ií]t|vi[eê]n|mg|gam|kg|k[yý])(?![\p{L}\p{N}])',
+      caseSensitive: false,
+      unicode: true,
+    );
     for (final m in thousandRegex.allMatches(text)) {
       if (!isRangeFree(m.start, m.end)) continue;
+      final afterK = text.substring(m.end).trimLeft();
+      if (nonCurrencyAfterK.hasMatch(afterK)) continue;
       final wholeK = int.tryParse(m.group(1) ?? '');
       if (wholeK == null) continue;
       final dec = m.group(3);
@@ -753,6 +761,30 @@ class FinancialTextNormalizer {
       final numPart = m.group(1)!;
       final unitPart = m.group(3);
       final hasExplicitUnit = unitPart != null && unitPart.trim().isNotEmpty;
+
+      // BUG-010: Never treat ODO ("14.000 km"), volume ("300ml"), dosage ("2000 mg"), or time/percent as VND!
+      if (VietnameseTemporalAndEntityResolver.isFollowedByNonCurrencyUnit(
+        text,
+        m.end,
+        hasExplicitCurrencySuffix: hasExplicitUnit,
+      )) {
+        continue;
+      }
+
+      final beforeLower = text.substring(0, m.start).toLowerCase().trimRight();
+      if (!hasExplicitUnit &&
+          RegExp(r'(?:^|\b)(?:odo|km|số\s+km|công\s+tơ\s+mét)\s*[:=]?$')
+              .hasMatch(beforeLower)) {
+        continue;
+      }
+
+      // Skip negative standalone user amounts ("-500.000", "âm 500.000") when not bank debit
+      if (RegExp(r'(?:^|\s)(?:-\s*|âm\s+)$').hasMatch(beforeLower) &&
+          !beforeLower.contains('gd') &&
+          !beforeLower.contains('vcb') &&
+          !beforeLower.contains('tcb')) {
+        continue;
+      }
 
       // Skip long bare account/reference numbers (e.g. 1017588888 without currency suffix)
       final digitsOnly = numPart.replaceAll(RegExp(r'[.,]'), '');
@@ -1117,6 +1149,19 @@ class FinancialTextNormalizer {
           ref.minute,
         ),
         matchedPhrase: text.substring(nayMatch.start, nayMatch.end),
+      );
+    }
+
+    // 9. Extended Vietnamese future/relative temporal expressions (Section 13)
+    final extended = VietnameseTemporalAndEntityResolver.resolveTemporal(
+      text,
+      referenceNow: ref,
+      defaultHour: ref.hour,
+    );
+    if (extended.hasExplicitDate || extended.hasExplicitTime) {
+      return ParsedRelativeDate(
+        resolvedDateTime: extended.dateTime,
+        matchedPhrase: '',
       );
     }
 

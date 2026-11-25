@@ -22,6 +22,7 @@ abstract final class FeatureRegistry {
   static const String routeHealthCabinet = '/health-hub?tab=meds';
 
   static const String routeMotionGallery = '/motion-gallery';
+  static const String routeAutomationStudio = '/automation-studio';
 
   /// Normalizes `?tab=` query values for `WealthToolsPage`.
   static String normalizeWealthToolTab(String? rawTab) {

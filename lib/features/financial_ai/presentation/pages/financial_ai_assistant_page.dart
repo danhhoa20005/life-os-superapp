@@ -19,6 +19,7 @@ import '../../../../core/utils/voice_utterance_completeness.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../budgets/presentation/bloc/budget_bloc.dart';
 import '../../../calendar/presentation/bloc/calendar_bloc.dart';
 import '../../../daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../../dashboard/presentation/bloc/dashboard_bloc.dart';
@@ -26,6 +27,7 @@ import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../tasks/presentation/bloc/task_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
+import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../domain/entities/financial_ai_entities.dart';
 import '../../domain/entities/gemini_copilot_entities.dart';
 import '../bloc/financial_ai_bloc.dart';
@@ -1930,6 +1932,40 @@ class _GeminiHybridInsightAndOmniActionsSectionState
           ),
           const SizedBox(height: 12),
         ],
+        if (widget.geminiState.lastResult != null) ...[
+          Builder(
+            builder: (context) {
+              final blocked = SmartOmniIntentParser.parseDetailed(
+                widget.geminiState.lastResult!.originalInput,
+              ).blockedClauses;
+              if (blocked.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: LifeOsSoftCard(
+                  key: const Key('ai_assistant_blocked_clauses_card'),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.shield_outlined, size: 18, color: c.warning),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Đã chặn vế không phát sinh giao dịch: ${blocked.map((b) => '"${b.clause}" (${b.reasonVi})').join(' · ')}',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 12.2,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
         if (extraDrafts.isNotEmpty) ...[
           LifeOsSectionHeader(
             title: 'Tác vụ liên thông đề xuất (${extraDrafts.length})',
@@ -2044,6 +2080,13 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                                               draft: item,
                                               user: user,
                                               walletId: widget.defaultWalletId,
+                                              availableWallets:
+                                                  _tryReadOptionalBloc<
+                                                        TransactionListBloc
+                                                      >(context)
+                                                      ?.state
+                                                      .wallets ??
+                                                  const <WalletEntity>[],
                                               txActionBloc:
                                                   _tryReadOptionalBloc<
                                                     TransactionActionBloc
@@ -2063,6 +2106,14 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                                               dailyBloc:
                                                   _tryReadOptionalBloc<
                                                     DailyLifeBloc
+                                                  >(context),
+                                              budgetBloc:
+                                                  _tryReadOptionalBloc<
+                                                    BudgetBloc
+                                                  >(context),
+                                              vehicleBloc:
+                                                  _tryReadOptionalBloc<
+                                                    VehicleBloc
                                                   >(context),
                                             );
                                         if (ok && mounted) {

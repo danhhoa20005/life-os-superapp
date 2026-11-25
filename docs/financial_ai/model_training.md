@@ -79,3 +79,39 @@ python tools/financial_ai/export_metadata.py
 # Bước 5: Đo tốc độ inference chuẩn trên host Python
 python tools/financial_ai/benchmark.py
 ```
+
+---
+
+## 6. Mô hình Thứ 2: `vn_money_split_fasttext_v1` (Chia tiền Nhóm & Phân bổ Thu nhập — Section 14)
+
+Bên cạnh `vn_financial_fasttext_v1` (giữ nguyên toàn vẹn cho phân loại 30 danh mục tài chính & 14 golden vectors), Wave 1C hiệu chỉnh lại toàn bộ mô hình thứ 2 [`assets/models/vn_money_split_fasttext_v1.ftq`](../../assets/models/vn_money_split_fasttext_v1.ftq) bằng QAT + Temperature Calibration trên tập dữ liệu mới chống rò rỉ mẫu câu:
+
+### 6.1. Siêu tham số & Định dạng Đóng gói ([`vn_money_split_fasttext_v1_meta.json`](../../assets/models/vn_money_split_fasttext_v1_meta.json))
+
+| Tham số | Giá trị | Ghi chú |
+| :--- | :--- | :--- |
+| `modelId` / `modelVersion` | `vn_money_split_fasttext_v1` / `1.0.0` | Định dạng `INT8` `LFTQ` v1 (MIT License) |
+| `numClasses` ($K$) | `12` | `7` lớp `split.*` + `5` lớp `alloc.*` |
+| `numBuckets` / `dim` | `24,576` / `12` | Word bigrams (`wordNgrams = 2`) + subword `4..5` ký tự |
+| `logitGain` | `15.0` | Khớp bit-for-bit với `FastTextBinaryModel` |
+| `epochs` / `qatEpochs` | `38` / `12` | Huấn luyện Quantization-Aware Training + Outlier Exposure |
+| `calibratedTemperature` ($T^*$) | **`0.76`** | Giảm `ECE` từ `0.1001` xuống **`0.0405`** |
+| **Dung lượng `.ftq`** | **`394,128 bytes` (`384.89 KB`)** | Nhỏ hơn ngưỡng `< 450 KB` |
+| **SHA-256** | `c0365a61d930864da4d1e55477ea80d387d326c5569b29fa466a2376757f3bb1` | Khớp Runtime verification |
+
+### 6.2. Chỉ số Đánh giá Held-Out Test (`232` mẫu) & Ma trận Nhầm lẫn (`vn_money_split_fasttext_v1_eval.json`)
+
+- **Test Accuracy:** **`99.57%`** (`0.9957`)
+- **Macro F1:** **`0.9958`**
+- **Expected Calibration Error (ECE):** **`0.0405`** (`< 0.05`)
+- **False Auto-Assignment Rate:** **`0.00%`** (`0.0`)
+- **OOD Unknown Rejection Rate:** **`100.00%`** (`1.0`)
+- **Độ chính xác theo từng lớp:** 11/12 lớp đạt `F1 = 1.0000`; duy nhất `alloc.family_household` đạt `precision = 1.0000`, `recall = 0.9500` (`19/20`, `1` mẫu nghiêng về `alloc.fire_high_savings` -> `alloc.fire_high_savings` `precision = 0.9524`, `recall = 1.0000`, `f1 = 0.9756`).
+
+### 6.3. Lệnh Tái huấn luyện & Kiểm định `vn_money_split_fasttext_v1`
+
+```powershell
+python tools/financial_ai/train_money_split_ai.py
+```
+
+Lệnh trên tự động xuất đồng bộ 3 tập [`money_split_train.jsonl`](../../tools/financial_ai/datasets/money_split_train.jsonl) (`1,720` mẫu), [`money_split_val.jsonl`](../../tools/financial_ai/datasets/money_split_val.jsonl) (`242` mẫu), [`money_split_test.jsonl`](../../tools/financial_ai/datasets/money_split_test.jsonl) (`232` mẫu), thực hiện tìm $T^*$ tối ưu ECE, đóng gói `.ftq`, cập nhật `_meta.json` và xuất báo cáo `vn_money_split_fasttext_v1_eval.json`.

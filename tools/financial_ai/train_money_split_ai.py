@@ -24,6 +24,7 @@ from feature_spec import extract_feature_buckets, normalize_for_classifier, stri
 
 BASE_DIR = Path(__file__).resolve().parent
 ART_DIR = BASE_DIR / "artifacts"
+DATASETS_DIR = BASE_DIR / "datasets"
 REPO_ROOT = BASE_DIR.parent.parent
 FLUTTER_MODELS_DIR = REPO_ROOT / "assets" / "models"
 
@@ -58,12 +59,13 @@ TRAIN_WRAPPERS = [
     "nhờ ai tính giúp {core}",
     "ghi nhanh {core}",
     "tối nay cả nhóm {core}",
+    "báo giùm {core}",
 ]
 
 VAL_WRAPPERS = [
     "{core}",
     "trưa nay {core}",
-    "mới thanh toán {core}",
+    "vừa xong {core}",
 ]
 
 TEST_WRAPPERS = [
@@ -91,6 +93,9 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "tiền vé khu vui chơi 800k chia đều mỗi bạn một phần bằng nhau",
             "ăn tối hải sản 1tr2 campuchia đều 4 anh em",
             "chi phí thuê lều cắm trại 440k chia đều 4 người",
+            "uống trà đào 110k cưa đôi cùng bạn",
+            "tiền ăn vặt 80k cưa đôi với hoa",
+            "mua nước ép hoa quả 100k chia đôi hai đứa",
         ],
         "val": [
             "ăn lẩu thái 450k chia đều 3 người",
@@ -107,6 +112,8 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "lan ứng trước tiền bánh ngọt 240k chia đều cho ba người",
             "tiền phòng khách sạn vũng tàu 1tr8 chia đều 3 bạn",
             "hóa đơn cơm trưa 280k chia đều bốn thành viên trong nhóm",
+            "hùng trả trước tiền lẩu thái 840k chia đều bốn bạn",
+            "chia đều 4 người hóa đơn ăn vặt chiều 160k",
         ],
     },
     "split.percentage": {
@@ -317,6 +324,8 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "chia lương tháng 26 triệu thành 50 phần trăm thiết yếu 30 mong muốn 20 tích lũy",
             "tư vấn phân chia thu nhập cân bằng năm mươi ba mươi hai mươi",
             "lập ngân sách từ thu nhập 17 triệu bằng phương pháp 50 30 20",
+            "áp dụng công thức quản lý tiền bạc 50 30 20 cho mức thu nhập 20tr",
+            "chia quỹ tháng 50 30 20 cho nhu cầu cá nhân và tiết kiệm",
         ],
         "val": [
             "lương về 21 triệu chia theo quy tắc 50 30 20 giúp mình",
@@ -347,6 +356,8 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "tính số tiền từng hũ trong mô hình 6 chiếc lọ với thu nhập 18 triệu",
             "cách phân bổ lương thưởng 35tr vào sáu lọ quản lý tài chính thông minh",
             "áp dụng 6 lọ tài chính vào ngân sách tháng cho thu nhập 22tr",
+            "phân bổ thu nhập tháng 25tr vào sáu hũ chi tiêu giáo dục và tự do tài chính",
+            "tính định mức 6 lọ chi tiêu và quỹ đầu tư từ tiền lương 21 triệu",
         ],
         "val": [
             "chia lương 24 triệu theo phương pháp 6 chiếc lọ tài chính",
@@ -461,6 +472,8 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
 OOD_CHATTER_SAMPLES = [
     "alo một hai ba kiểm tra mic",
     "hôm nay trời nắng đẹp quá nhỉ",
+    "thời tiết buổi sáng nắng ấm gió nhẹ",
+    "chiều nay bầu trời dịu mát dễ chịu",
     "nhớ uống hai cốc nước ấm buổi sáng",
     "hẹn báo thức sáu giờ rưỡi sáng mai",
     "chiều nay họp giao ban phòng tầng ba",
@@ -469,6 +482,7 @@ OOD_CHATTER_SAMPLES = [
     "nhớ mang theo áo mưa kẻo chiều mưa to",
     "chúc cả nhà buổi tối cuối tuần vui vẻ",
     "mật khẩu wifi phòng khách là gì vậy",
+    "nhớ tắt điều hòa quạt máy trước khi khóa cửa",
     "ăn sáng phở bò tái nạm một mình",
     "đổ đầy bình xăng xe máy đi làm",
     "dự báo thời tiết cuối tuần trời mát mẻ có mưa nhẹ",
@@ -477,8 +491,38 @@ OOD_CHATTER_SAMPLES = [
     "tập thể dục chạy bộ quanh hồ ba mươi phút",
     "nhớ khóa cửa cẩn thận tắt bình nóng lạnh trước khi ngủ",
     "gửi biên bản tổng kết qua hộp thư điện tử cho sếp",
+    "soạn thảo văn bản báo cáo định kỳ gửi thư điện tử",
     "chúc mừng ngày lễ nhiều niềm vui và bình an",
     "alo tín hiệu mạng bên đó nghe rõ tiếng nói chưa",
+    "hỏi đường ra bến xe miền đông mới sáng nay",
+    "đọc sách kỹ năng ba mươi trang trước giờ đi ngủ",
+    "đặt chuông đồng hồ bảy giờ kém mười lăm",
+    "ngày mai thứ hai nhớ họp đầu tuần với đối tác",
+    "tôi định sang năm mới mua chiếc xe máy mới",
+    "đừng ghi nhận thông tin nháp này vào sổ",
+    "có nên nâng cấp điện thoại vào dịp cuối năm không",
+    "thời tiết ngoài trời dịu mát dễ chịu rất thích hợp đi dạo",
+    "chiều mai có hẹn khám nha khoa định kỳ lúc ba giờ rưỡi",
+    "gửi tập tin báo cáo công việc qua thư điện tử",
+    "nhớ tắt điều hòa đèn điện trước lúc rời khỏi phòng",
+    "uống bốn trăm ml nước lọc ấm sau giờ tập gym",
+    "nhắc lịch gọi điện hỏi thăm sức khỏe bố mẹ buổi tối",
+    "căn phòng trọ này đổi khóa cửa sổ lại cho an toàn",
+    "hôm nay gió mát dễ chịu quá chừng",
+    "dự báo thời tiết tuần sau trời mát và có mưa rào nhẹ",
+    "tập thể dục giãn cơ ngoài công viên buổi chiều gần nhà",
+    "buổi sáng đi dạo hít thở không khí trong lành ở công viên",
+    "nghe bản tin thời sự khoảng ba mươi phút mỗi buổi sáng",
+    "chờ xe buýt khoảng hai mươi phút tại trạm dừng chân",
+]
+
+VAL_OOD_SAMPLES = [
+    "thời tiết chiều nay mát mẻ dễ chịu",
+    "nhắc tôi gọi điện hỏi thăm bố mẹ tối nay",
+    "uống bốn trăm ml nước lọc sau khi tập thể dục",
+    "mật khẩu cửa phòng trọ đổi lại chưa",
+    "chiều mai đi khám răng định kỳ lúc ba giờ",
+    "nhớ tắt điều hòa trước khi ra khỏi nhà",
 ]
 
 OOD_HELD_OUT_TEST = [
@@ -490,6 +534,8 @@ OOD_HELD_OUT_TEST = [
     "nhớ khóa cửa tắt điện trước khi đi ngủ",
     "gửi tài liệu báo cáo qua thư điện tử",
     "chúc mừng sinh nhật nhiều niềm vui sức khỏe",
+    "báo thức sáu giờ rưỡi sáng mai đi làm sớm",
+    "thay dầu máy định kỳ xe tay ga hai vạn cây",
 ]
 
 
@@ -511,7 +557,12 @@ def simulate_int8_row(row: list[float]) -> list[float]:
     return [max(-127, min(127, int(round(v * inv)))) * scale for v in row]
 
 
-def build_split_rows(rng: random.Random, split_name: str, wrappers: list[str]) -> list[tuple[int, str, str]]:
+def build_split_rows(
+    rng: random.Random,
+    split_name: str,
+    wrappers: list[str],
+    seen_norms: set[str],
+) -> list[tuple[int, str, str]]:
     label_to_idx = {lbl: i for i, lbl in enumerate(SPLIT_ALLOC_LABELS)}
     rows: list[tuple[int, str, str]] = []
     for lbl in SPLIT_ALLOC_LABELS:
@@ -520,13 +571,49 @@ def build_split_rows(rng: random.Random, split_name: str, wrappers: list[str]) -
             for tpl in wrappers:
                 sent = tpl.format(core=core, amt=rng.choice(AMOUNTS))
                 norm_acc = normalize_for_classifier(sent)
-                if norm_acc:
+                if norm_acc and norm_acc not in seen_norms:
+                    seen_norms.add(norm_acc)
                     rows.append((idx, sent, norm_acc))
                 no_acc = strip_vn_accents(sent)
                 norm_no_acc = normalize_for_classifier(no_acc)
-                if norm_no_acc:
+                if norm_no_acc and norm_no_acc not in seen_norms:
+                    seen_norms.add(norm_no_acc)
                     rows.append((idx, no_acc, norm_no_acc))
     return rows
+
+
+def evaluate_ood_rejection(
+    ood_texts: list[str],
+    q_a_dequant: list[list[float]],
+    logit_gain: float,
+    temp: float,
+    threshold: float = 0.50,
+) -> float:
+    if not ood_texts:
+        return 1.0
+    k = len(SPLIT_ALLOC_LABELS)
+    rejected = 0
+    for s in ood_texts:
+        norm = normalize_for_classifier(s)
+        b_ids = extract_feature_buckets(
+            norm,
+            num_buckets=NUM_BUCKETS,
+            word_ngrams=WORD_NGRAMS,
+            min_subword=MIN_SUBWORD,
+            max_subword=MAX_SUBWORD,
+        )
+        if not b_ids:
+            rejected += 1
+            continue
+        scale = logit_gain / len(b_ids)
+        h = [0.0] * k
+        for b_id in b_ids:
+            for c in range(k):
+                h[c] += q_a_dequant[b_id][c]
+        probs = softmax_probs([scale * h[c] for c in range(k)], temp=temp)
+        if max(probs) < threshold:
+            rejected += 1
+    return rejected / len(ood_texts)
 
 
 def evaluate_quantized(
@@ -594,6 +681,72 @@ def evaluate_quantized(
     return sum(accs) / n, sum(f1s) / k, ece, false_high / n
 
 
+def export_jsonl(path: Path, split_name: str, rows: list[tuple[int, str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="\n") as fh:
+        for y, raw, norm in rows:
+            rec = {
+                "split": split_name,
+                "label": SPLIT_ALLOC_LABELS[y],
+                "text": raw,
+                "normalized": norm,
+            }
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def compute_detailed_eval(
+    rows: list[tuple[int, str, str]],
+    q_a_dequant: list[list[float]],
+    logit_gain: float,
+    temp: float,
+) -> dict[str, object]:
+    k = len(SPLIT_ALLOC_LABELS)
+    conf_mat = [[0] * k for _ in range(k)]
+    for true_y, _, norm in rows:
+        b_ids = extract_feature_buckets(
+            norm,
+            num_buckets=NUM_BUCKETS,
+            word_ngrams=WORD_NGRAMS,
+            min_subword=MIN_SUBWORD,
+            max_subword=MAX_SUBWORD,
+        )
+        if not b_ids:
+            pred_y = 0
+        else:
+            scale = logit_gain / len(b_ids)
+            h = [0.0] * k
+            for b_id in b_ids:
+                r = q_a_dequant[b_id]
+                for c in range(k):
+                    h[c] += r[c]
+            probs = softmax_probs([scale * h[c] for c in range(k)], temp=temp)
+            pred_y = max(range(k), key=lambda c: probs[c])
+        conf_mat[true_y][pred_y] += 1
+
+    per_class = {}
+    for c, lbl in enumerate(SPLIT_ALLOC_LABELS):
+        tp = conf_mat[c][c]
+        fp = sum(conf_mat[r][c] for r in range(k) if r != c)
+        fn = sum(conf_mat[c][col] for col in range(k) if col != c)
+        pr = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        rc = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = (2 * pr * rc / (pr + rc)) if (pr + rc) > 0 else 0.0
+        per_class[lbl] = {
+            "support": sum(conf_mat[c]),
+            "tp": tp,
+            "fp": fp,
+            "fn": fn,
+            "precision": round(pr, 4),
+            "recall": round(rc, 4),
+            "f1": round(f1, 4),
+        }
+    return {
+        "labels": SPLIT_ALLOC_LABELS,
+        "confusionMatrix": conf_mat,
+        "perClass": per_class,
+    }
+
+
 def pack_lftq_binary(
     labels: list[str],
     A: list[list[float]],
@@ -647,18 +800,24 @@ def pack_lftq_binary(
 def main() -> None:
     rng = random.Random(20261125)
     ART_DIR.mkdir(parents=True, exist_ok=True)
+    DATASETS_DIR.mkdir(parents=True, exist_ok=True)
     FLUTTER_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    train_rows = build_split_rows(rng, "train", TRAIN_WRAPPERS)
-    val_rows = build_split_rows(rng, "val", VAL_WRAPPERS)
-    test_rows = build_split_rows(rng, "test", TEST_WRAPPERS)
+    seen_norms: set[str] = set()
+    train_rows = build_split_rows(rng, "train", TRAIN_WRAPPERS, seen_norms)
+    val_rows = build_split_rows(rng, "val", VAL_WRAPPERS, seen_norms)
+    test_rows = build_split_rows(rng, "test", TEST_WRAPPERS, seen_norms)
+
+    export_jsonl(DATASETS_DIR / "money_split_train.jsonl", "train", train_rows)
+    export_jsonl(DATASETS_DIR / "money_split_val.jsonl", "val", val_rows)
+    export_jsonl(DATASETS_DIR / "money_split_test.jsonl", "test", test_rows)
 
     k = len(SPLIT_ALLOC_LABELS)
-    logit_gain = 12.5
-    lr = 0.34
-    l2 = 8e-6
-    epochs = 32
-    qat_epochs = 10
+    logit_gain = 15.0
+    lr = 0.36
+    l2 = 6e-6
+    epochs = 38
+    qat_epochs = 12
     label_smoothing = 0.005
 
     A = [[0.0] * k for _ in range(NUM_BUCKETS)]
@@ -680,7 +839,7 @@ def main() -> None:
             cnts[b_id] = cnts.get(b_id, 0) + 1
         compiled.append((y, logit_gain / len(b_ids), list(cnts.items())))
 
-    for ood in OOD_CHATTER_SAMPLES * 9:
+    for ood in OOD_CHATTER_SAMPLES * 18:
         for variant in (ood, strip_vn_accents(ood)):
             norm = normalize_for_classifier(variant)
             b_ids = extract_feature_buckets(
@@ -714,13 +873,13 @@ def main() -> None:
                     h[c] += row[c] * cnt
             probs = softmax_probs([scale_factor * h[c] for c in range(k)])
             if y >= 0:
-                if ep >= 5 and probs[y] > 0.98:
+                if ep >= 6 and probs[y] > 0.99:
                     continue
                 grad_z = [probs[c] - (smooth_pos if c == y else smooth_neg) for c in range(k)]
             else:
-                if max(probs) < 0.12:
+                if max(probs) < 0.095:
                     continue
-                grad_z = [0.75 * (probs[c] - uniform_p) for c in range(k)]
+                grad_z = [1.85 * (probs[c] - uniform_p) for c in range(k)]
             for b_id, cnt in bucket_counts:
                 row = A[b_id]
                 grow = gA[b_id]
@@ -734,7 +893,7 @@ def main() -> None:
     qA = [simulate_int8_row(r) for r in A]
     for qep in range(qat_epochs):
         rng.shuffle(indices)
-        qat_lr = lr * 0.12 * (1.0 - 0.5 * (qep / max(qat_epochs, 1)))
+        qat_lr = lr * 0.14 * (1.0 - 0.5 * (qep / max(qat_epochs, 1)))
         for idx in indices:
             y, scale_factor, bucket_counts = compiled[idx]
             h = [0.0] * k
@@ -744,13 +903,13 @@ def main() -> None:
                     h[c] += qrow[c] * cnt
             probs = softmax_probs([scale_factor * h[c] for c in range(k)])
             if y >= 0:
-                if probs[y] > 0.98:
+                if probs[y] > 0.99:
                     continue
                 grad_z = [probs[c] - (smooth_pos if c == y else smooth_neg) for c in range(k)]
             else:
-                if max(probs) < 0.12:
+                if max(probs) < 0.095:
                     continue
-                grad_z = [0.75 * (probs[c] - uniform_p) for c in range(k)]
+                grad_z = [1.85 * (probs[c] - uniform_p) for c in range(k)]
             for b_id, cnt in bucket_counts:
                 row = A[b_id]
                 grow = gA[b_id]
@@ -761,41 +920,25 @@ def main() -> None:
                     row[c] -= (qat_lr / math.sqrt(grow[c])) * g
                 qA[b_id] = simulate_int8_row(row)
 
-    # Temperature calibration on held-out val split (preserving OOD uniform rejection)
-    best_temp = 1.05
+    # Temperature calibration over 0.72..1.50 step 0.02 on held-out val split
+    # optimizing ECE minimization with 0.0% false auto-assign & 100% val OOD rejection!
+    best_temp = 1.00
     best_score = 1e9
-    for step in range(95, 145, 5):
+    for step in range(72, 151, 2):
         cand_t = step / 100.0
         val_acc, _, val_ece, val_false = evaluate_quantized(val_rows, qA, logit_gain, cand_t)
-        score = val_ece + 3.0 * val_false - 0.25 * val_acc
+        val_ood = evaluate_ood_rejection(
+            VAL_OOD_SAMPLES, qA, logit_gain, cand_t, threshold=0.45
+        )
+        ood_penalty = 5.0 * max(0.0, 1.0 - val_ood)
+        score = val_ece + 3.0 * val_false + ood_penalty - 0.10 * val_acc
         if score < best_score:
             best_score = score
             best_temp = cand_t
 
     test_acc, test_f1, test_ece, test_false = evaluate_quantized(test_rows, qA, logit_gain, best_temp)
-
-    ood_rejected = 0
-    for s in OOD_HELD_OUT_TEST:
-        norm = normalize_for_classifier(s)
-        b_ids = extract_feature_buckets(
-            norm,
-            num_buckets=NUM_BUCKETS,
-            word_ngrams=WORD_NGRAMS,
-            min_subword=MIN_SUBWORD,
-            max_subword=MAX_SUBWORD,
-        )
-        if not b_ids:
-            ood_rejected += 1
-            continue
-        scale = logit_gain / len(b_ids)
-        h = [0.0] * k
-        for b_id in b_ids:
-            for c in range(k):
-                h[c] += qA[b_id][c]
-        probs = softmax_probs([scale * h[c] for c in range(k)], temp=best_temp)
-        if max(probs) < 0.50:
-            ood_rejected += 1
-    ood_rate = ood_rejected / len(OOD_HELD_OUT_TEST)
+    ood_rate = evaluate_ood_rejection(OOD_HELD_OUT_TEST, qA, logit_gain, best_temp)
+    detailed_eval = compute_detailed_eval(test_rows, qA, logit_gain, best_temp)
 
     ftq_bytes = pack_lftq_binary(SPLIT_ALLOC_LABELS, A, logit_gain, best_temp)
     sha256_hex = hashlib.sha256(ftq_bytes).hexdigest()
@@ -848,6 +991,23 @@ def main() -> None:
     meta_text = json.dumps(metadata, indent=2, ensure_ascii=False) + "\n"
     (ART_DIR / "vn_money_split_fasttext_v1_meta.json").write_text(meta_text, encoding="utf-8")
     (FLUTTER_MODELS_DIR / "vn_money_split_fasttext_v1_meta.json").write_text(meta_text, encoding="utf-8")
+    (ART_DIR / "vn_money_split_fasttext_v1_eval.json").write_text(
+        json.dumps(
+            {
+                "calibratedTemperature": round(best_temp, 4),
+                "testAccuracy": round(test_acc, 4),
+                "testMacroF1": round(test_f1, 4),
+                "expectedCalibrationError": round(test_ece, 4),
+                "falseAutoAssignmentRate": round(test_false, 4),
+                "oodUnknownRejectionRate": round(ood_rate, 4),
+                **detailed_eval,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     print(
         f"[MONEY SPLIT AI TRAINED] Size={len(ftq_bytes):,}B | SHA256={sha256_hex}\n"

@@ -37,6 +37,7 @@ class MainActivity : FlutterActivity() {
     private val alarmSchedulerChannelName = "vn.lifeos.app/alarm_scheduler"
     private val deviceCalendarChannelName = "vn.lifeos.app/device_calendar"
     private val permissionsChannelName = "vn.lifeos.app/permissions"
+    private val receiptPickerChannelName = "vn.lifeos.app/receipt_picker"
 
     private var pendingWidgetAction: String? = null
     private var pendingAlarmPayload: Map<String, String>? = null
@@ -46,6 +47,8 @@ class MainActivity : FlutterActivity() {
     private var pendingCalendarPermissionResult: MethodChannel.Result? = null
     private var pendingBatchPermissionsResult: MethodChannel.Result? = null
     private var pendingSinglePermissionKind: String? = null
+    private var pendingReceiptPickerResult: MethodChannel.Result? = null
+    private var pendingCameraReceiptFile: File? = null
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private var activeVoiceSessionToken: String? = null
     private var activeVoiceEngineMode: String = "google_service"
@@ -478,7 +481,7 @@ class MainActivity : FlutterActivity() {
                             return@setMethodCallHandler
                         }
                         // APP-03: Verify APK packageName & signing certificate lineage BEFORE launching installer!
-                        val certError = verifyApkPackageAndSigningCert(apkFile)
+                        val certError = LifeOsApkSignatureVerifier.verifyApkPackageAndSigningCert(this, apkFile)
                         if (certError != null) {
                             try {
                                 apkFile.delete()
@@ -598,14 +601,39 @@ class MainActivity : FlutterActivity() {
                     }
                     "clearAllSecrets" -> {
                         LifeOsSecureVault.clearAll(applicationContext)
-                        val vaultDir = File(filesDir, "secure_doc_vault")
-                        if (vaultDir.exists()) vaultDir.deleteRecursively()
                         result.success(true)
                     }
                     "getVaultDirectoryPath" -> {
-                        val vaultDir = File(filesDir, "secure_doc_vault")
-                        if (!vaultDir.exists()) vaultDir.mkdirs()
-                        result.success(vaultDir.absolutePath)
+                        result.success(LifeOsSecureVault.getVaultDirectory(applicationContext).absolutePath)
+                    }
+                    "getLegacyVaultDirectoryPath" -> {
+                        result.success(LifeOsSecureVault.getLegacyVaultDirectory(applicationContext).absolutePath)
+                    }
+                    "encryptBytes" -> {
+                        val plainBytes = call.argument<ByteArray>("plainBytes")
+                        val aad = call.argument<String>("aad") ?: ""
+                        if (plainBytes == null) {
+                            result.error("INVALID_BYTES", "Dữ liệu cần mã hóa trống.", null)
+                        } else {
+                            try {
+                                result.success(LifeOsSecureVault.encryptBytes(applicationContext, plainBytes, aad))
+                            } catch (e: Exception) {
+                                result.error("VAULT_ENCRYPT_FAILED", e.message, null)
+                            }
+                        }
+                    }
+                    "decryptBytes" -> {
+                        val cipherPack = call.argument<ByteArray>("cipherPack")
+                        val aad = call.argument<String>("aad") ?: ""
+                        if (cipherPack == null) {
+                            result.error("INVALID_CIPHER", "Gói mã hóa trống.", null)
+                        } else {
+                            try {
+                                result.success(LifeOsSecureVault.decryptBytes(applicationContext, cipherPack, aad))
+                            } catch (e: Exception) {
+                                result.error("VAULT_DECRYPT_FAILED", e.message, null)
+                            }
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -1029,6 +1057,33 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // 9. Native Receipt Image Picker & Camera Capture (`vn.lifeos.app/receipt_picker`)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, receiptPickerChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "pickFromGallery" -> {
+                        pendingReceiptPickerResult?.success(null)
+                        pendingReceiptPickerResult = result
+                        if (!LifeOsReceiptPickerHelper.launchGalleryPicker(this)) {
+                            pendingReceiptPickerResult = null
+                            result.success(null)
+                        }
+                    }
+                    "captureFromCamera" -> {
+                        pendingReceiptPickerResult?.success(null)
+                        pendingReceiptPickerResult = result
+                        val file = LifeOsReceiptPickerHelper.launchCameraCapture(this)
+                        if (file == null) {
+                            pendingReceiptPickerResult = null
+                            result.success(null)
+                        } else {
+                            pendingCameraReceiptFile = file
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     private fun collectPermissionsSnapshot(): Map<String, Boolean> {
@@ -1203,6 +1258,34 @@ class MainActivity : FlutterActivity() {
                     "message" to "Đã dừng hộp thoại thu âm. Chạm Mic để nói lại hoặc nhập bên dưới."
                 )
             )
+        } else if (requestCode == LifeOsReceiptPickerHelper.REQ_PICK_GALLERY) {
+            val cb = pendingReceiptPickerResult
+            pendingReceiptPickerResult = null
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                cb?.success(LifeOsReceiptPickerHelper.copyUriToReceiptCache(applicationContext, data.data!!))
+            } else {
+                cb?.success(null)
+            }
+        } else if (requestCode == LifeOsReceiptPickerHelper.REQ_CAPTURE_CAMERA) {
+            val cb = pendingReceiptPickerResult
+            val file = pendingCameraReceiptFile
+            pendingReceiptPickerResult = null
+            pendingCameraReceiptFile = null
+            if (resultCode == Activity.RESULT_OK && file != null && file.exists() && file.length() > 0L) {
+                cb?.success(
+                    mapOf(
+                        "filePath" to file.absolutePath,
+                        "fileName" to file.name,
+                        "sizeBytes" to file.length()
+                    )
+                )
+            } else {
+                try {
+                    file?.delete()
+                } catch (_: Exception) {
+                }
+                cb?.success(null)
+            }
         }
     }
 
@@ -1228,79 +1311,5 @@ class MainActivity : FlutterActivity() {
         val cn = ComponentName(this, BankNotificationListenerService::class.java)
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
         return flat != null && flat.contains(cn.flattenToString())
-    }
-
-    /**
-     * APP-03: Validates that a downloaded OTA APK matches this app's `packageName` AND is signed
-     * by the exact same signing certificate SHA-256 before handing off to Android PackageInstaller.
-     */
-    private fun verifyApkPackageAndSigningCert(apkFile: File): String? {
-        return try {
-            val archiveInfo = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageArchiveInfo(
-                    apkFile.absolutePath,
-                    PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
-                )
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNATURES)
-            }) ?: return "Tệp APK không hợp lệ hoặc bị hỏng."
-
-            if (archiveInfo.packageName != packageName) {
-                return "Tên gói APK (${archiveInfo.packageName}) không khớp với ứng dụng LifeOS ($packageName)."
-            }
-
-            val installedBytes = getSigningCertBytesForInstalledApp()
-            val archiveBytes = extractCertBytes(archiveInfo)
-            if (installedBytes != null && archiveBytes != null) {
-                val md = java.security.MessageDigest.getInstance("SHA-256")
-                val installedHash = md.digest(installedBytes)
-                val archiveHash = java.security.MessageDigest.getInstance("SHA-256").digest(archiveBytes)
-                if (!installedHash.contentEquals(archiveHash)) {
-                    return "Chứng chỉ ký của gói APK mới không khớp với phiên bản đang cài đặt (APP-03)."
-                }
-            }
-            null
-        } catch (e: Exception) {
-            "Không thể xác minh chữ ký số của tệp APK: ${e.message}"
-        }
-    }
-
-    private fun getSigningCertBytesForInstalledApp(): ByteArray? {
-        return try {
-            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageInfo(
-                    packageName,
-                    PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
-                )
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
-            }
-            extractCertBytes(info)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun extractCertBytes(pkgInfo: android.content.pm.PackageInfo): ByteArray? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val signingInfo = pkgInfo.signingInfo ?: return null
-            val sigs = if (signingInfo.hasMultipleSigners()) {
-                signingInfo.apkContentsSigners
-            } else {
-                signingInfo.signingCertificateHistory
-            }
-            sigs?.firstOrNull()?.toByteArray()
-        } else {
-            @Suppress("DEPRECATION")
-            pkgInfo.signatures?.firstOrNull()?.toByteArray()
-        }
     }
 }

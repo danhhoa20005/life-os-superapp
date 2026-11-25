@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 
@@ -33,6 +35,44 @@ enum CollaborationSpaceType {
     CollaborationSpaceType.roommates =>
       'Chia tiền phòng, điện nước & ăn chung.',
     CollaborationSpaceType.group => 'Chia hóa đơn ăn uống & chuyến đi.',
+  };
+}
+
+enum InviteKind {
+  oneTime,
+  targeted,
+  reusableGroup;
+
+  String get displayLabel => switch (this) {
+    InviteKind.oneTime => 'Dùng 1 lần',
+    InviteKind.targeted => 'Đích danh',
+    InviteKind.reusableGroup => 'Mã nhóm nhiều lượt',
+  };
+}
+
+enum InviteStatus {
+  active,
+  consumed,
+  revoked,
+  expired;
+
+  String get displayLabel => switch (this) {
+    InviteStatus.active => 'Đang chờ',
+    InviteStatus.consumed => 'Đã dùng hết',
+    InviteStatus.revoked => 'Đã thu hồi',
+    InviteStatus.expired => 'Đã hết hạn',
+  };
+}
+
+enum SettlementRequestStatus {
+  pending,
+  confirmed,
+  rejected;
+
+  String get displayLabel => switch (this) {
+    SettlementRequestStatus.pending => 'Chờ xác nhận',
+    SettlementRequestStatus.confirmed => 'Đã xác nhận',
+    SettlementRequestStatus.rejected => 'Đã từ chối',
   };
 }
 
@@ -87,41 +127,103 @@ class FamilyMemberInfo extends Equatable {
 
 /// Represents a pending or previewed invitation to join a Family / Roommates / Group space.
 class FamilyPendingInviteEntity extends Equatable {
+  final String inviteId;
   final String inviteCode;
   final String familyId;
   final String familyName;
   final CollaborationSpaceType spaceType;
+  final InviteKind inviteKind;
   final String? inviteeName;
   final String? inviteeContact;
+  final String? intendedRecipientHash;
   final String invitedByUserId;
   final String invitedByName;
   final DateTime createdAt;
   final DateTime expiresAt;
+  final int maxUses;
+  final int usedCount;
+  final String? consumedBy;
+  final DateTime? consumedAt;
+  final DateTime? revokedAt;
   final bool revoked;
+  final InviteStatus status;
 
   const FamilyPendingInviteEntity({
+    String? inviteId,
     required this.inviteCode,
     required this.familyId,
     required this.familyName,
     this.spaceType = CollaborationSpaceType.family,
+    InviteKind? inviteKind,
     this.inviteeName,
     this.inviteeContact,
+    this.intendedRecipientHash,
     required this.invitedByUserId,
     required this.invitedByName,
     required this.createdAt,
     required this.expiresAt,
+    this.maxUses = 1,
+    this.usedCount = 0,
+    this.consumedBy,
+    this.consumedAt,
+    this.revokedAt,
     this.revoked = false,
-  });
+    InviteStatus? status,
+  }) : inviteId = inviteId ?? inviteCode,
+       inviteKind =
+           inviteKind ??
+           ((intendedRecipientHash != null && intendedRecipientHash != '')
+               ? InviteKind.targeted
+               : (maxUses > 1 ? InviteKind.reusableGroup : InviteKind.oneTime)),
+       status =
+           status ??
+           (revoked
+               ? InviteStatus.revoked
+               : (usedCount >= maxUses
+                     ? InviteStatus.consumed
+                     : InviteStatus.active));
+
+  String get createdBy => invitedByUserId;
 
   bool get isTargetedInvite =>
       inviteeName != null && inviteeName!.trim().isNotEmpty;
 
-  String get displayInviteeTitle =>
-      isTargetedInvite ? inviteeName!.trim() : 'Mã mời chung cho nhóm';
+  bool get isTargeted =>
+      inviteKind == InviteKind.targeted ||
+      (intendedRecipientHash != null &&
+          intendedRecipientHash!.trim().isNotEmpty) ||
+      isTargetedInvite;
 
-  bool isExpiredAt(DateTime now) => expiresAt.isBefore(now);
+  bool get hasRemainingUses => usedCount < maxUses;
 
-  bool isActiveAt(DateTime now) => !revoked && !isExpiredAt(now);
+  int get remainingUses => (maxUses - usedCount) < 0 ? 0 : (maxUses - usedCount);
+
+  String get displayInviteeTitle {
+    if (isTargetedInvite) return inviteeName!.trim();
+    if (inviteKind == InviteKind.reusableGroup) {
+      return 'Mã mời nhóm ($usedCount/$maxUses lượt)';
+    }
+    if (inviteKind == InviteKind.targeted) {
+      return 'Lời mời đích danh';
+    }
+    return 'Mã mời chung cho nhóm';
+  }
+
+  bool isExpiredAt(DateTime now) => !expiresAt.isAfter(now);
+
+  InviteStatus effectiveStatusAt(DateTime now) {
+    if (revoked || status == InviteStatus.revoked) return InviteStatus.revoked;
+    if (usedCount >= maxUses || status == InviteStatus.consumed) {
+      return InviteStatus.consumed;
+    }
+    if (isExpiredAt(now) || status == InviteStatus.expired) {
+      return InviteStatus.expired;
+    }
+    return InviteStatus.active;
+  }
+
+  bool isActiveAt(DateTime now) =>
+      effectiveStatusAt(now) == InviteStatus.active;
 
   int remainingDaysFrom(DateTime now) {
     final diff = expiresAt.difference(now);
@@ -133,22 +235,31 @@ class FamilyPendingInviteEntity extends Equatable {
 
   @override
   List<Object?> get props => [
+    inviteId,
     inviteCode,
     familyId,
     familyName,
     spaceType,
+    inviteKind,
     inviteeName,
     inviteeContact,
+    intendedRecipientHash,
     invitedByUserId,
     invitedByName,
     createdAt,
     expiresAt,
+    maxUses,
+    usedCount,
+    consumedBy,
+    consumedAt,
+    revokedAt,
     revoked,
+    status,
   ];
 }
 
 /// Pure Domain helper extracting a clean `FAM-XXXXXX` code even if the user pastes
-/// a full Zalo / Messenger / SMS invitation paragraph.
+/// a full Zalo / Messenger / SMS invitation paragraph, plus contact normalization & SHA-256 hashing.
 abstract final class FamilyInviteCodeExtractor {
   static final RegExp _famPattern = RegExp(r'FAM-[A-Z0-9]{4,12}');
 
@@ -159,6 +270,46 @@ abstract final class FamilyInviteCodeExtractor {
       return match.group(0)!;
     }
     return upper.replaceAll(RegExp(r'\s+'), '');
+  }
+
+  /// Normalizes emails (lowercase trim) and Vietnamese phone numbers (`+84...` / `84...` -> `0...`).
+  static String normalizeRecipientContact(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.contains('@')) {
+      return trimmed.toLowerCase();
+    }
+    final compact = trimmed.replaceAll(RegExp(r'[\s\-\.\(\)]'), '');
+    if (RegExp(r'^\+84\d{8,11}$').hasMatch(compact)) {
+      return '0${compact.substring(3)}';
+    }
+    if (RegExp(r'^84\d{8,11}$').hasMatch(compact)) {
+      return '0${compact.substring(2)}';
+    }
+    return compact.toLowerCase();
+  }
+
+  /// Computes deterministic SHA-256 hex digest of normalized recipient contact/identifier.
+  static String hashRecipientContact(String raw) {
+    final normalized = normalizeRecipientContact(raw);
+    if (normalized.isEmpty) return '';
+    return sha256.convert(utf8.encode(normalized)).toString();
+  }
+
+  /// Returns true if raw text appears to contain raw email or phone contact PII.
+  static bool looksLikeContactPii(String raw) {
+    final clean = raw.trim();
+    if (clean.isEmpty) return false;
+    if (clean.contains('@')) return true;
+    return RegExp(r'\d').allMatches(clean).length >= 6;
+  }
+
+  /// Strips email/phone PII before storing an optional display label on public invite documents.
+  static String? sanitizePublicInviteeName(String? rawName) {
+    if (rawName == null) return null;
+    final clean = rawName.trim();
+    if (clean.isEmpty || looksLikeContactPii(clean)) return null;
+    return clean;
   }
 }
 
@@ -257,8 +408,7 @@ class SharedBillSplitEntity extends Equatable {
   final String paidByName;
   final int totalAmountMinor;
   final SplitMethod splitMethod;
-  final Map<String, int>
-  sharesByUserId; // Exact VND integer owed by each userId
+  final Map<String, int> sharesByUserId; // Exact VND integer owed by each userId
   final Map<String, String> participantNames;
   final String? choreOrTaskNote;
   final DateTime createdAt;
@@ -295,9 +445,8 @@ class SharedBillSplitEntity extends Equatable {
   ];
 }
 
-/// Records an actual debt settlement transfer between two group/family members
-/// with a VietQR/SePay compatible transfer reference code (`SEVQR LIFEOS ...`).
-class DebtSettlementEntity extends Equatable {
+/// Two-step debt settlement consent request: Debtor initiates `'pending'`, Creditor confirms/rejects.
+class SettlementRequestEntity extends Equatable {
   final String id;
   final String familyId;
   final String fromUserId;
@@ -307,9 +456,15 @@ class DebtSettlementEntity extends Equatable {
   final int amountMinor;
   final String paymentCode;
   final String? note;
+  final SettlementRequestStatus status;
+  final bool isPartial;
   final DateTime createdAt;
+  final String? confirmedBy;
+  final DateTime? confirmedAt;
+  final String? disputeReason;
+  final String? settlementId;
 
-  const DebtSettlementEntity({
+  const SettlementRequestEntity({
     required this.id,
     required this.familyId,
     required this.fromUserId,
@@ -319,7 +474,13 @@ class DebtSettlementEntity extends Equatable {
     required this.amountMinor,
     required this.paymentCode,
     this.note,
+    this.status = SettlementRequestStatus.pending,
+    this.isPartial = false,
     required this.createdAt,
+    this.confirmedBy,
+    this.confirmedAt,
+    this.disputeReason,
+    this.settlementId,
   });
 
   @override
@@ -333,6 +494,72 @@ class DebtSettlementEntity extends Equatable {
     amountMinor,
     paymentCode,
     note,
+    status,
+    isPartial,
+    createdAt,
+    confirmedBy,
+    confirmedAt,
+    disputeReason,
+    settlementId,
+  ];
+}
+
+/// Records an actual debt settlement transfer between two group/family members
+/// (or an append-only contra reversal entry when `reversalOfId != null`)
+/// with a VietQR/SePay compatible transfer reference code (`SEVQR LIFEOS ...`).
+class DebtSettlementEntity extends Equatable {
+  final String id;
+  final String familyId;
+  final String fromUserId;
+  final String fromUserName;
+  final String toUserId;
+  final String toUserName;
+  final int amountMinor;
+  final String paymentCode;
+  final String? note;
+  final String status;
+  final String? reversalOfId;
+  final String? reversedById;
+  final String? settlementRequestId;
+  final bool isPartial;
+  final DateTime createdAt;
+
+  const DebtSettlementEntity({
+    required this.id,
+    required this.familyId,
+    required this.fromUserId,
+    required this.fromUserName,
+    required this.toUserId,
+    required this.toUserName,
+    required this.amountMinor,
+    required this.paymentCode,
+    this.note,
+    this.status = 'confirmed',
+    this.reversalOfId,
+    this.reversedById,
+    this.settlementRequestId,
+    this.isPartial = false,
+    required this.createdAt,
+  });
+
+  bool get isReversal => reversalOfId != null && reversalOfId!.isNotEmpty;
+
+  @override
+  List<Object?> get props => [
+    id,
+    familyId,
+    fromUserId,
+    fromUserName,
+    toUserId,
+    toUserName,
+    amountMinor,
+    paymentCode,
+    note,
+    status,
+    reversalOfId,
+    reversedById,
+    settlementRequestId,
+    isPartial,
     createdAt,
   ];
 }
@@ -404,12 +631,14 @@ class SharedLedgerSummary extends Equatable {
   final Map<SharedExpenseTopic, int> spendByTopic;
   final List<MemberNetBalance> memberBalances;
   final List<SimplifiedDebtTransfer> suggestedTransfers;
+  final bool isExactOptimal;
 
   const SharedLedgerSummary({
     this.totalSharedSpendMinor = 0,
     this.spendByTopic = const {},
     this.memberBalances = const [],
     this.suggestedTransfers = const [],
+    this.isExactOptimal = true,
   });
 
   @override
@@ -418,6 +647,7 @@ class SharedLedgerSummary extends Equatable {
     spendByTopic,
     memberBalances,
     suggestedTransfers,
+    isExactOptimal,
   ];
 }
 
@@ -492,14 +722,23 @@ abstract final class SplitBillCalculator {
   }
 }
 
-/// Pure Domain Minimum-Transfer Graph Debt Simplifier for Roommates, Groups & Families.
+/// Pure Domain Hybrid Minimum-Transfer Graph Debt Simplifier (`FIX-006`):
+/// - Eliminates ghost `'bank_transfer'` nodes unless uniquely resolved via deterministic payment code.
+/// - Enforces zero-sum invariant (`sum(netBalances) == 0`).
+/// - For M <= 12 non-zero balances: uses Exact Zero-Sum Subset Decomposition DP (`isExactOptimal: true`).
+/// - For M > 12 (or time-budget fallback): uses bounded deterministic Greedy (`isExactOptimal: false`).
+/// - Guarantees `amountMinor > 0`, `fromUserId != toUserId`, exact debt conservation & deterministic sort.
 abstract final class DebtSimplifier {
+  static const int exactDpMaxMembers = 12;
+  static const int _exactDpBudgetMs = 50;
+
   static SharedLedgerSummary summarize({
     required String familyId,
     required List<FamilyMemberInfo> members,
     required List<SharedBillSplitEntity> bills,
     required List<DebtSettlementEntity> settlements,
   }) {
+    final realMemberIds = members.map((m) => m.userId).toSet();
     final namesById = <String, String>{
       for (final m in members) m.userId: m.fullName,
     };
@@ -511,14 +750,32 @@ abstract final class DebtSimplifier {
     var totalSpend = 0;
 
     for (final bill in bills) {
+      if (bill.totalAmountMinor <= 0) continue;
+      final positiveShares = <MapEntry<String, int>>[];
+      var sharesSum = 0;
+      for (final entry in bill.sharesByUserId.entries) {
+        if (entry.value > 0 && entry.key.trim().isNotEmpty) {
+          positiveShares.add(entry);
+          sharesSum += entry.value;
+        }
+      }
+      if (sharesSum <= 0) continue;
+
       totalSpend += bill.totalAmountMinor;
       topicSpend[bill.topic] =
           (topicSpend[bill.topic] ?? 0) + bill.totalAmountMinor;
-      namesById.putIfAbsent(bill.paidByUserId, () => bill.paidByName);
-      paidMap[bill.paidByUserId] =
-          (paidMap[bill.paidByUserId] ?? 0) + bill.totalAmountMinor;
 
-      for (final entry in bill.sharesByUserId.entries) {
+      final payerId = bill.paidByUserId;
+      if (payerId.trim().isEmpty ||
+          (payerId == 'bank_transfer' && !realMemberIds.contains(payerId))) {
+        continue;
+      }
+      namesById.putIfAbsent(payerId, () => bill.paidByName);
+      // Use sharesSum if a malformed bill had rounding mismatch so net-zero invariant strictly holds
+      paidMap[payerId] = (paidMap[payerId] ?? 0) + sharesSum;
+      owedMap.putIfAbsent(payerId, () => 0);
+
+      for (final entry in positiveShares) {
         final uid = entry.key;
         final share = entry.value;
         namesById.putIfAbsent(
@@ -530,22 +787,61 @@ abstract final class DebtSimplifier {
       }
     }
 
+    final explicitlyReversedIds = <String>{
+      for (final st in settlements)
+        if (st.status == 'reversed') st.id,
+    };
+
     for (final st in settlements) {
-      namesById.putIfAbsent(st.fromUserId, () => st.fromUserName);
+      if (st.amountMinor <= 0) continue;
+      if (st.fromUserId.trim().isEmpty ||
+          st.toUserId.trim().isEmpty ||
+          st.fromUserId == st.toUserId) {
+        continue;
+      }
+      if (st.status == 'reversed') continue;
+      if (st.reversalOfId != null &&
+          explicitlyReversedIds.contains(st.reversalOfId)) {
+        continue;
+      }
+
+      var effectiveFromId = st.fromUserId;
+      if (effectiveFromId == 'bank_transfer' &&
+          !realMemberIds.contains('bank_transfer')) {
+        final resolved = _resolveBankTransferSenderId(
+          familyId: familyId,
+          toUserId: st.toUserId,
+          amountMinor: st.amountMinor,
+          paymentCode: st.paymentCode,
+          candidateIds: namesById.keys,
+        );
+        if (resolved == null) {
+          // Never create a ghost 'bank_transfer' member or break zero-sum invariant!
+          continue;
+        }
+        effectiveFromId = resolved;
+      }
+
+      if (effectiveFromId == st.toUserId) continue;
+
+      if (effectiveFromId == st.fromUserId) {
+        namesById.putIfAbsent(effectiveFromId, () => st.fromUserName);
+      }
       namesById.putIfAbsent(st.toUserId, () => st.toUserName);
-      sentMap[st.fromUserId] = (sentMap[st.fromUserId] ?? 0) + st.amountMinor;
+      sentMap[effectiveFromId] =
+          (sentMap[effectiveFromId] ?? 0) + st.amountMinor;
       receivedMap[st.toUserId] =
           (receivedMap[st.toUserId] ?? 0) + st.amountMinor;
-      paidMap.putIfAbsent(st.fromUserId, () => 0);
+      paidMap.putIfAbsent(effectiveFromId, () => 0);
       paidMap.putIfAbsent(st.toUserId, () => 0);
-      owedMap.putIfAbsent(st.fromUserId, () => 0);
+      owedMap.putIfAbsent(effectiveFromId, () => 0);
       owedMap.putIfAbsent(st.toUserId, () => 0);
     }
 
     final allUserIds = namesById.keys.toList()..sort();
     final balances = <MemberNetBalance>[];
-    final debtors = <({String userId, int debtMinor})>[];
-    final creditors = <({String userId, int creditMinor})>[];
+    final nonZero = <({String userId, int netMinor})>[];
+    var totalNetSum = 0;
 
     for (final uid in allUserIds) {
       final paid = paidMap[uid] ?? 0;
@@ -553,6 +849,7 @@ abstract final class DebtSimplifier {
       final sent = sentMap[uid] ?? 0;
       final received = receivedMap[uid] ?? 0;
       final net = paid - owed + sent - received;
+      totalNetSum += net;
 
       balances.add(
         MemberNetBalance(
@@ -566,14 +863,197 @@ abstract final class DebtSimplifier {
         ),
       );
 
-      if (net < 0) {
-        debtors.add((userId: uid, debtMinor: -net));
-      } else if (net > 0) {
-        creditors.add((userId: uid, creditMinor: net));
+      if (net != 0) {
+        nonZero.add((userId: uid, netMinor: net));
       }
     }
 
-    // Greedy largest-creditor vs largest-debtor matching -> at most (N - 1) transfers!
+    if (totalNetSum != 0) {
+      return SharedLedgerSummary(
+        totalSharedSpendMinor: totalSpend,
+        spendByTopic: Map.unmodifiable(topicSpend),
+        memberBalances: List.unmodifiable(balances),
+        suggestedTransfers: const [],
+        isExactOptimal: false,
+      );
+    }
+
+    if (nonZero.isEmpty) {
+      return SharedLedgerSummary(
+        totalSharedSpendMinor: totalSpend,
+        spendByTopic: Map.unmodifiable(topicSpend),
+        memberBalances: List.unmodifiable(balances),
+        suggestedTransfers: const [],
+        isExactOptimal: true,
+      );
+    }
+
+    // Deterministic ordering before optimization: magnitude desc, userId asc
+    nonZero.sort((a, b) {
+      final magCmp = b.netMinor.abs().compareTo(a.netMinor.abs());
+      return magCmp != 0 ? magCmp : a.userId.compareTo(b.userId);
+    });
+
+    var isExactOptimal = false;
+    late List<SimplifiedDebtTransfer> transfers;
+
+    if (nonZero.length <= exactDpMaxMembers) {
+      final exact = _solveExactSubsetDp(
+        familyId: familyId,
+        nonZero: nonZero,
+        namesById: namesById,
+      );
+      if (exact != null) {
+        transfers = exact;
+        isExactOptimal = true;
+      } else {
+        transfers = _solveGreedySlice(
+          familyId: familyId,
+          entries: nonZero,
+          namesById: namesById,
+        );
+        isExactOptimal = false;
+      }
+    } else {
+      transfers = _solveGreedySlice(
+        familyId: familyId,
+        entries: nonZero,
+        namesById: namesById,
+      );
+      isExactOptimal = false;
+    }
+
+    // Enforce deterministic final transfer sort: (amountMinor desc, fromUserId asc, toUserId asc)
+    transfers.sort((a, b) {
+      final amtCmp = b.amountMinor.compareTo(a.amountMinor);
+      if (amtCmp != 0) return amtCmp;
+      final fromCmp = a.fromUserId.compareTo(b.fromUserId);
+      if (fromCmp != 0) return fromCmp;
+      return a.toUserId.compareTo(b.toUserId);
+    });
+
+    return SharedLedgerSummary(
+      totalSharedSpendMinor: totalSpend,
+      spendByTopic: Map.unmodifiable(topicSpend),
+      memberBalances: List.unmodifiable(balances),
+      suggestedTransfers: List.unmodifiable(transfers),
+      isExactOptimal: isExactOptimal,
+    );
+  }
+
+  static String? _resolveBankTransferSenderId({
+    required String familyId,
+    required String toUserId,
+    required int amountMinor,
+    required String paymentCode,
+    required Iterable<String> candidateIds,
+  }) {
+    final cleanCode = paymentCode.trim().toUpperCase().replaceFirst(
+      RegExp(r'^SEVQR\s+'),
+      '',
+    );
+    if (cleanCode.isEmpty) return null;
+    for (final cid in candidateIds) {
+      if (cid == toUserId || cid == 'bank_transfer') continue;
+      final expected = BankNotificationParser.buildSePayTransferCode(
+        scopePrefix: 'SPLIT',
+        seed: '$familyId:$cid:$toUserId:$amountMinor',
+      ).trim().toUpperCase();
+      if (cleanCode == expected) {
+        return cid;
+      }
+    }
+    return null;
+  }
+
+  static List<SimplifiedDebtTransfer>? _solveExactSubsetDp({
+    required String familyId,
+    required List<({String userId, int netMinor})> nonZero,
+    required Map<String, String> namesById,
+  }) {
+    final n = nonZero.length;
+    final totalMasks = 1 << n;
+    final subsetSum = List<int>.filled(totalMasks, 0);
+    for (var mask = 1; mask < totalMasks; mask++) {
+      final lsb = mask & -mask;
+      final bitIdx = lsb.bitLength - 1;
+      subsetSum[mask] = subsetSum[mask ^ lsb] + nonZero[bitIdx].netMinor;
+    }
+
+    final stopwatch = Stopwatch()..start();
+    final dp = List<int>.filled(totalMasks, 0);
+    final firstSub = List<int>.filled(totalMasks, 0);
+
+    for (var mask = 1; mask < totalMasks; mask++) {
+      if (subsetSum[mask] != 0) continue;
+      if (stopwatch.elapsedMilliseconds > _exactDpBudgetMs) {
+        return null;
+      }
+
+      var bestCount = 1;
+      var bestSub = mask;
+      final lsb = mask & -mask;
+      for (var sub = (mask - 1) & mask; sub > 0; sub = (sub - 1) & mask) {
+        if ((sub & lsb) == 0) continue;
+        if (subsetSum[sub] != 0) continue;
+        final candidate = dp[sub] + dp[mask ^ sub];
+        if (candidate > bestCount) {
+          bestCount = candidate;
+          bestSub = sub;
+        }
+      }
+      dp[mask] = bestCount;
+      firstSub[mask] = bestSub;
+    }
+
+    final components = <int>[];
+    void collect(int mask) {
+      if (mask == 0) return;
+      final sub = firstSub[mask];
+      if (sub == 0 || sub == mask) {
+        components.add(mask);
+      } else {
+        collect(sub);
+        collect(mask ^ sub);
+      }
+    }
+
+    collect(totalMasks - 1);
+
+    final transfers = <SimplifiedDebtTransfer>[];
+    for (final compMask in components) {
+      final compEntries = <({String userId, int netMinor})>[];
+      for (var i = 0; i < n; i++) {
+        if ((compMask & (1 << i)) != 0) {
+          compEntries.add(nonZero[i]);
+        }
+      }
+      transfers.addAll(
+        _solveGreedySlice(
+          familyId: familyId,
+          entries: compEntries,
+          namesById: namesById,
+        ),
+      );
+    }
+    return transfers;
+  }
+
+  static List<SimplifiedDebtTransfer> _solveGreedySlice({
+    required String familyId,
+    required List<({String userId, int netMinor})> entries,
+    required Map<String, String> namesById,
+  }) {
+    final debtors = <({String userId, int debtMinor})>[];
+    final creditors = <({String userId, int creditMinor})>[];
+    for (final e in entries) {
+      if (e.netMinor < 0) {
+        debtors.add((userId: e.userId, debtMinor: -e.netMinor));
+      } else if (e.netMinor > 0) {
+        creditors.add((userId: e.userId, creditMinor: e.netMinor));
+      }
+    }
+
     debtors.sort((a, b) {
       final cmp = b.debtMinor.compareTo(a.debtMinor);
       return cmp != 0 ? cmp : a.userId.compareTo(b.userId);
@@ -588,8 +1068,11 @@ abstract final class DebtSimplifier {
     var cIdx = 0;
     final remDebt = debtors.map((d) => d.debtMinor).toList();
     final remCred = creditors.map((c) => c.creditMinor).toList();
+    final maxOps = (debtors.length + creditors.length) * 2 + 4;
+    var ops = 0;
 
-    while (dIdx < debtors.length && cIdx < creditors.length) {
+    while (dIdx < debtors.length && cIdx < creditors.length && ops < maxOps) {
+      ops += 1;
       final dVal = remDebt[dIdx];
       final cVal = remCred[cIdx];
       final settleAmt = dVal < cVal ? dVal : cVal;
@@ -597,19 +1080,21 @@ abstract final class DebtSimplifier {
       if (settleAmt > 0) {
         final fromId = debtors[dIdx].userId;
         final toId = creditors[cIdx].userId;
-        transfers.add(
-          SimplifiedDebtTransfer(
-            fromUserId: fromId,
-            fromUserName: namesById[fromId] ?? 'Thành viên',
-            toUserId: toId,
-            toUserName: namesById[toId] ?? 'Thành viên',
-            amountMinor: settleAmt,
-            sePayTransferCode: BankNotificationParser.buildSePayTransferCode(
-              scopePrefix: 'SPLIT',
-              seed: '$familyId:$fromId:$toId:$settleAmt',
+        if (fromId != toId) {
+          transfers.add(
+            SimplifiedDebtTransfer(
+              fromUserId: fromId,
+              fromUserName: namesById[fromId] ?? 'Thành viên',
+              toUserId: toId,
+              toUserName: namesById[toId] ?? 'Thành viên',
+              amountMinor: settleAmt,
+              sePayTransferCode: BankNotificationParser.buildSePayTransferCode(
+                scopePrefix: 'SPLIT',
+                seed: '$familyId:$fromId:$toId:$settleAmt',
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
 
       remDebt[dIdx] -= settleAmt;
@@ -618,11 +1103,6 @@ abstract final class DebtSimplifier {
       if (remCred[cIdx] == 0) cIdx += 1;
     }
 
-    return SharedLedgerSummary(
-      totalSharedSpendMinor: totalSpend,
-      spendByTopic: Map.unmodifiable(topicSpend),
-      memberBalances: List.unmodifiable(balances),
-      suggestedTransfers: List.unmodifiable(transfers),
-    );
+    return transfers;
   }
 }

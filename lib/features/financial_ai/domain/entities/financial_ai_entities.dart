@@ -652,6 +652,13 @@ class PersonalizationRule extends Equatable {
   final String modelVersion;
   final bool isEnabled;
 
+  /// Section 15: `'category'` | `'wallet'` | `'nickname'`
+  final String ruleKind;
+  final String? preferredWalletId;
+  final String? preferredWalletName;
+  final String? participantUserId;
+  final String? participantDisplayName;
+
   const PersonalizationRule({
     required this.id,
     required this.userId,
@@ -670,6 +677,11 @@ class PersonalizationRule extends Equatable {
     required this.ruleConfidence,
     required this.modelVersion,
     this.isEnabled = true,
+    this.ruleKind = 'category',
+    this.preferredWalletId,
+    this.preferredWalletName,
+    this.participantUserId,
+    this.participantDisplayName,
   });
 
   bool matchesContext({
@@ -678,7 +690,7 @@ class PersonalizationRule extends Equatable {
     required FinancialInputSource source,
     required int? amountMinor,
   }) {
-    if (!isEnabled) return false;
+    if (!isEnabled || ruleKind == 'nickname') return false;
     final normIncoming = canonicalKey
         .trim()
         .toLowerCase()
@@ -688,7 +700,10 @@ class PersonalizationRule extends Equatable {
         .toLowerCase()
         .replaceAll(RegExp(r'\s+'), '_');
     if (normRule.isEmpty || normIncoming.isEmpty) return false;
-    if (normIncoming != normRule && !normIncoming.contains(normRule)) {
+    final boundaryPattern = RegExp(
+      '(?:^|_)${RegExp.escape(normRule)}(?:_|\$)',
+    );
+    if (normIncoming != normRule && !boundaryPattern.hasMatch(normIncoming)) {
       return false;
     }
     if (directionCondition != 'any' && directionCondition != direction) {
@@ -729,6 +744,11 @@ class PersonalizationRule extends Equatable {
     ruleConfidence,
     modelVersion,
     isEnabled,
+    ruleKind,
+    preferredWalletId,
+    preferredWalletName,
+    participantUserId,
+    participantDisplayName,
   ];
 }
 

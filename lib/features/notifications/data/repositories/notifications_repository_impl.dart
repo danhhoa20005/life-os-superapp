@@ -632,16 +632,24 @@ class NotificationsRemoteDataSource {
         return true;
       }
 
-      if (existingSource == 'androidNotification' &&
-          dtDiff <= const Duration(seconds: 45) &&
-          data['merchant'] == '${signal.bankCode}: ${signal.merchant}') {
+      if (existingSource == 'androidNotification') {
         final existingObsBal =
             (data['observedBalanceMinor'] as num?)?.toInt() ??
             (data['balanceAfterMinor'] as num?)?.toInt();
+        final existingRef = data['referenceCode'] as String?;
+        if (signal.referenceCode != null &&
+            existingRef != null &&
+            signal.referenceCode != existingRef) {
+          return false;
+        }
         if (signal.observedBalanceMinor != null && existingObsBal != null) {
+          // Within ±15m, an identical observed post-tx balance indicates an OS repost of the exact same notification.
           return existingObsBal == signal.observedBalanceMinor;
         }
-        return signal.observedBalanceMinor == null && existingObsBal == null;
+        if (dtDiff <= const Duration(seconds: 45) &&
+            data['merchant'] == '${signal.bankCode}: ${signal.merchant}') {
+          return signal.observedBalanceMinor == null && existingObsBal == null;
+        }
       }
       return false;
     }).toList();
@@ -774,8 +782,28 @@ class NotificationsRemoteDataSource {
             'balanceMinor': newWalletBal,
             if (syncObservedBalance && signal.observedBalanceMinor != null)
               'isEstimatedBalance': false,
+            'lastAuditId': 'aud_$txId',
             'updatedAt': Timestamp.fromDate(now),
           });
+          tx.set(
+            _firestore
+                .collection('users')
+                .doc(userId)
+                .collection('ledger_audits')
+                .doc('aud_$txId'),
+            {
+              'id': 'aud_$txId',
+              'ownerId': userId,
+              'txId': txId,
+              'walletId': targetWalletId,
+              'walletName': resolvedWalletName,
+              'previousBalanceMinor': curBal,
+              'deltaMinor': newWalletBal - curBal,
+              'newBalanceMinor': newWalletBal,
+              'kind': signal.direction == 'credit' ? 'income' : 'expense',
+              'createdAt': Timestamp.fromDate(now),
+            },
+          );
         }
       }
 
@@ -854,6 +882,9 @@ class NotificationsRemoteDataSource {
           'bankCode': signal.bankCode,
           if (signal.accountTail != null)
             'accountMasked': '•••• ${signal.accountTail}',
+          if (signal.referenceCode != null &&
+              signal.referenceCode!.isNotEmpty)
+            'referenceCode': signal.referenceCode,
           'merchant': matchedOrder != null
               ? '${matchedOrder.description} (${matchedOrder.paymentCode})'
               : '${signal.bankCode}: ${signal.merchant}',
@@ -1143,25 +1174,69 @@ class NotificationsRemoteDataSource {
 
       var newWalletBalance = currentBal;
       var balanceType = 'unknownBalance';
+      final resolvedWalletName =
+          (walletSnap.data()?['name'] as String?) ?? 'Ngân hàng';
       if (!isAmbiguousCollision) {
         if (hasObservedBankBalance) {
           newWalletBalance = accumulatedBalanceMinor;
           balanceType = 'observedBankBalance';
           if (walletSnap.exists) {
+            final auditId = 'aud_${targetTxId}_ver';
             tx.update(walletRef, {
               'balanceMinor': newWalletBalance,
               'isEstimatedBalance': false,
+              'lastAuditId': auditId,
               'updatedAt': Timestamp.fromDate(now),
             });
+            tx.set(
+              _firestore
+                  .collection('users')
+                  .doc(userId)
+                  .collection('ledger_audits')
+                  .doc(auditId),
+              {
+                'id': auditId,
+                'ownerId': userId,
+                'txId': targetTxId,
+                'walletId': walletId,
+                'walletName': resolvedWalletName,
+                'previousBalanceMinor': currentBal,
+                'deltaMinor': newWalletBalance - currentBal,
+                'newBalanceMinor': newWalletBalance,
+                'kind': direction == 'credit' ? 'income' : 'expense',
+                'createdAt': Timestamp.fromDate(now),
+              },
+            );
           }
         } else if (!alreadyAppliedInLedger) {
           newWalletBalance = currentBal + delta;
           balanceType = 'estimatedWalletBalance';
           if (walletSnap.exists) {
+            final auditId = 'aud_${targetTxId}_ver';
             tx.update(walletRef, {
               'balanceMinor': newWalletBalance,
+              'lastAuditId': auditId,
               'updatedAt': Timestamp.fromDate(now),
             });
+            tx.set(
+              _firestore
+                  .collection('users')
+                  .doc(userId)
+                  .collection('ledger_audits')
+                  .doc(auditId),
+              {
+                'id': auditId,
+                'ownerId': userId,
+                'txId': targetTxId,
+                'walletId': walletId,
+                'walletName': resolvedWalletName,
+                'previousBalanceMinor': currentBal,
+                'deltaMinor': delta,
+                'newBalanceMinor': newWalletBalance,
+                'kind': direction == 'credit' ? 'income' : 'expense',
+                'createdAt': Timestamp.fromDate(now),
+              },
+            );
           }
         } else {
           // T24: Balance delta was ALREADY applied when Android signal was confirmed -> DO NOT apply twice!
@@ -1171,9 +1246,6 @@ class NotificationsRemoteDataSource {
               : 'estimatedWalletBalance';
         }
       }
-
-      final resolvedWalletName =
-          (walletSnap.data()?['name'] as String?) ?? 'Ngân hàng';
 
       tx.set(eventRef, {
         'eventKey': eventKey,
@@ -1410,10 +1482,33 @@ class NotificationsRemoteDataSource {
         });
 
         if (wSnap.exists) {
+          final walletName =
+              (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
+          final auditId = 'aud_$txId';
           tx.update(walletRef, {
             'balanceMinor': currentBal + delta,
+            'lastAuditId': auditId,
             'updatedAt': Timestamp.fromDate(now),
           });
+          tx.set(
+            _firestore
+                .collection('users')
+                .doc(userId)
+                .collection('ledger_audits')
+                .doc(auditId),
+            {
+              'id': auditId,
+              'ownerId': userId,
+              'txId': txId,
+              'walletId': walletId,
+              'walletName': walletName,
+              'previousBalanceMinor': currentBal,
+              'deltaMinor': delta,
+              'newBalanceMinor': currentBal + delta,
+              'kind': direction == 'credit' ? 'income' : 'expense',
+              'createdAt': Timestamp.fromDate(now),
+            },
+          );
         }
 
         tx.set(txRef, {
@@ -1907,16 +2002,60 @@ class NotificationsRemoteDataSource {
     required String categoryName,
   }) async {
     final cleanKw = keyword.trim();
-    if (cleanKw.isEmpty) return;
+    final cleanCat = categoryName.trim();
+    if (cleanKw.isEmpty || cleanCat.isEmpty) return;
     final id =
         'rule_${cleanKw.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
     await _merchantRulesCol(userId).doc(id).set({
       'id': id,
       'ownerId': userId,
       'keyword': cleanKw,
-      'categoryName': categoryName.trim(),
+      'categoryName': cleanCat,
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     });
+
+    // Section 15 unification: sync merchant rules directly into ai_personalization_rules!
+    final aiRepo = _financialAiRepository;
+    if (aiRepo != null) {
+      try {
+        final canonical =
+            FinancialTextNormalizer.canonicalizeMerchant(cleanKw) ??
+            FinancialTextNormalizer.stripVnAccents(cleanKw)
+                .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+                .replaceAll(RegExp(r'^_|_$'), '');
+        if (canonical.isNotEmpty) {
+          String matchedCatId = 'auto_$canonical';
+          String directionCond = 'any';
+          try {
+            final catsSnap = await _firestore
+                .collection('users')
+                .doc(userId)
+                .collection('categories')
+                .get();
+            for (final doc in catsSnap.docs) {
+              final d = doc.data();
+              final name = (d['name'] as String?) ?? '';
+              if (name.trim().toLowerCase() == cleanCat.toLowerCase()) {
+                matchedCatId = (d['id'] as String?) ?? doc.id;
+                directionCond = (d['direction'] as String?) ?? 'any';
+                break;
+              }
+            }
+          } catch (_) {}
+
+          await aiRepo.saveCategoryCorrection(
+            userId: userId,
+            merchantDisplay: cleanKw,
+            merchantCanonicalKey: canonical,
+            selectedCategoryId: matchedCatId,
+            selectedCategoryName: cleanCat,
+            semanticKey: 'other',
+            directionCondition: directionCond,
+            sourceContext: 'bank_notification',
+          );
+        }
+      } catch (_) {}
+    }
   }
 }
 

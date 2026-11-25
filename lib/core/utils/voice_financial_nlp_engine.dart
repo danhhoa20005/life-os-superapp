@@ -2,6 +2,10 @@ import '../../features/family/domain/entities/family_entities.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import 'smart_money_split_ai_engine.dart';
 import 'smart_quick_entry_parser.dart';
+import 'vietnamese_temporal_and_entity_resolver.dart';
+
+export 'smart_money_split_ai_engine.dart'
+    show SplitValidationStatus, ParticipantResolutionOutcome;
 
 enum VoiceSentenceIntentKind {
   singleTransaction,
@@ -35,6 +39,9 @@ class ParsedGroupSplitIntent {
   final String? paidByDisplayName;
   final List<ParsedParticipantShare> shares;
   final Map<String, int> rawInputValuesByUserId;
+  final SplitValidationStatus validationStatus;
+  final String? validationMessageVi;
+  final List<ParticipantResolutionOutcome> ambiguousParticipants;
 
   const ParsedGroupSplitIntent({
     required this.title,
@@ -45,19 +52,30 @@ class ParsedGroupSplitIntent {
     this.paidByDisplayName,
     required this.shares,
     required this.rawInputValuesByUserId,
+    this.validationStatus = SplitValidationStatus.valid,
+    this.validationMessageVi,
+    this.ambiguousParticipants = const <ParticipantResolutionOutcome>[],
   });
+
+  bool get isValid => validationStatus == SplitValidationStatus.valid;
 }
 
 class ParsedMultiCategoryReceiptIntent {
   final String merchant;
   final int totalAmountMinor;
   final List<TransactionSplitLine> splitLines;
+  final SplitValidationStatus validationStatus;
+  final String? validationMessageVi;
 
   const ParsedMultiCategoryReceiptIntent({
     required this.merchant,
     required this.totalAmountMinor,
     required this.splitLines,
+    this.validationStatus = SplitValidationStatus.valid,
+    this.validationMessageVi,
   });
+
+  bool get isValid => validationStatus == SplitValidationStatus.valid;
 }
 
 class VoiceFinancialAnalysisResult {
@@ -169,10 +187,19 @@ abstract final class VoiceFinancialNlpEngine {
       (m) => '${m.group(1)}50k',
     );
 
-    // Convert "<number> lít" -> "<number>00k" (Vietnamese slang: 1 lít = 100k)
+    // Convert "<number> lít" -> "<number>00k" (Vietnamese slang: 1 lít = 100k, skipping fuel/liquid)
     s = s.replaceAllMapped(
-      RegExp(r'\b(\d+)\s*lít\b', caseSensitive: false),
+      RegExp(
+        r'\b(\d+)\s*lít\b(?!(?:\s+(?:xăng|dầu|nước|sữa|bia|rượu|nhớt|gas)\b))',
+        caseSensitive: false,
+      ),
       (m) => '${(int.tryParse(m.group(1) ?? '0') ?? 0) * 100}k',
+    );
+
+    // Convert "<number> chục" -> "<number>0k" ("5 chục" -> "50k")
+    s = s.replaceAllMapped(
+      RegExp(r'\b(\d+)\s*chục\b', caseSensitive: false),
+      (m) => '${(int.tryParse(m.group(1) ?? '0') ?? 0) * 10}k',
     );
 
     // Convert "<number> cành" -> "<number>k"
@@ -311,12 +338,34 @@ abstract final class VoiceFinancialNlpEngine {
     return SharedExpenseTopic.other;
   }
 
+  static List<RegExpMatch> _extractValidMoneyMatches(String text) {
+    final matches = <RegExpMatch>[];
+    for (final m in _amountTokenRegex.allMatches(text)) {
+      final tok = (m.group(0) ?? '').trim();
+      final hasSuffix = RegExp(
+        r'(?:đ|d|₫|vnd|vnđ|đồng|dong|tr|triệu|trieu|củ|cu|k|nghìn|nghin|ngàn|ngan)\s*$',
+        caseSensitive: false,
+      ).hasMatch(tok);
+      if (VietnameseTemporalAndEntityResolver.isFollowedByNonCurrencyUnit(
+        text,
+        m.end,
+        hasExplicitCurrencySuffix: hasSuffix,
+      )) {
+        continue;
+      }
+      matches.add(m);
+    }
+    return matches;
+  }
+
   /// Analyzes any spoken or typed Vietnamese sentence and returns structured financial intent.
   static VoiceFinancialAnalysisResult? analyze(
     String rawTranscript, {
     String currentUserId = 'me',
     String currentUserName = 'Tôi',
     List<FamilyMemberInfo> knownMembers = const [],
+    Map<String, List<String>> nicknamesByUserId = const {},
+    Map<String, String> explicitParticipantOverrides = const {},
   }) {
     final raw = rawTranscript.trim();
     if (raw.isEmpty) return null;
@@ -326,6 +375,9 @@ abstract final class VoiceFinancialNlpEngine {
 
     // 1. Check Multi-Category Single Receipt Split ("siêu thị 500k gồm ăn uống 320k việc nhà 180k")
     if (_looksLikeMultiCategoryReceipt(lower)) {
+      if (ClauseSafetyScreener.screenClause(raw).isBlocked) {
+        return null;
+      }
       final receipt = _tryParseMultiCategoryReceipt(normalized);
       if (receipt != null) {
         return VoiceFinancialAnalysisResult(
@@ -334,65 +386,103 @@ abstract final class VoiceFinancialNlpEngine {
           intentKind: VoiceSentenceIntentKind.multiCategoryReceipt,
           multiCategoryReceipt: receipt,
           summaryHeadline:
-              'Tách 1 hóa đơn (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}',
+              receipt.validationStatus ==
+                      SplitValidationStatus.requiresConfirmation
+                  ? 'Cảnh báo lệch tổng (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}'
+                  : 'Tách 1 hóa đơn (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}',
         );
       }
     }
 
     // 2. Check Group / Family / Roommate Bill Split ("chia đều", "chia cho", "%", per-person shares)
     if (_looksLikeGroupSplit(lower)) {
-      final split = _tryParseGroupSplit(
-        normalized,
-        currentUserId: currentUserId,
-        currentUserName: currentUserName,
-        knownMembers: knownMembers,
-      );
-      if (split != null) {
-        return VoiceFinancialAnalysisResult(
-          originalText: raw,
-          normalizedText: normalized,
-          intentKind: VoiceSentenceIntentKind.groupBillSplit,
-          groupSplit: split,
-          summaryHeadline:
-              'Chia tiền nhóm (${split.shares.length} người · ${split.splitMethod.displayLabel.split('(').first.trim()})',
+      if (!ClauseSafetyScreener.screenClause(raw).isBlocked) {
+        final split = _tryParseGroupSplit(
+          normalized,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          knownMembers: knownMembers,
+          nicknamesByUserId: nicknamesByUserId,
+          explicitParticipantOverrides: explicitParticipantOverrides,
         );
+        if (split != null) {
+          return VoiceFinancialAnalysisResult(
+            originalText: raw,
+            normalizedText: normalized,
+            intentKind: VoiceSentenceIntentKind.groupBillSplit,
+            groupSplit: split,
+            summaryHeadline:
+                split.isValid
+                    ? 'Chia tiền nhóm (${split.shares.length} người · ${split.splitMethod.displayLabel.split('(').first.trim()})'
+                    : 'Cần kiểm tra chia tiền (${split.validationMessageVi ?? 'Chưa hợp lệ'})',
+          );
+        }
+      } else {
+        return null;
       }
     }
 
-    // 3. Check Multi-Item Batch Spoken Transactions ("ăn phở 65k đổ xăng 90k nhận lương 18tr5")
-    final amountMatches = _amountTokenRegex.allMatches(normalized).toList();
-    if (amountMatches.length >= 2) {
-      final batch = <ParsedSmartEntry>[];
-      var cursor = 0;
-      for (final m in amountMatches) {
-        final segment = normalized.substring(cursor, m.end).trim();
-        cursor = m.end;
-        final cleanedSeg = segment
-            .replaceAll(
-              RegExp(r'^[,;.\s]+|\b(và|rồi|xong|tiếp)\b', caseSensitive: false),
-              ' ',
-            )
-            .trim();
-        final parsed = SmartQuickEntryParser.tryParse(cleanedSeg);
+    // 3. Clause-safe Multi-Item / Single Ledger Extraction
+    final clauses = raw
+        .split(
+          RegExp(
+            r'(?:[,;\n]+|\s+(?:và|rồi|sau\s+đó|với\s+lại|kèm\s+theo)\s+)',
+            caseSensitive: false,
+          ),
+        )
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+
+    final extractedEntries = <ParsedSmartEntry>[];
+    for (final rawClause in clauses) {
+      if (ClauseSafetyScreener.screenClause(rawClause).isBlocked) {
+        continue;
+      }
+      final normClause = normalizeSpokenVietnamese(rawClause);
+      final amountMatches = _extractValidMoneyMatches(normClause);
+      if (amountMatches.isEmpty) continue;
+
+      if (amountMatches.length >= 2) {
+        var cursor = 0;
+        for (final m in amountMatches) {
+          final segment = normClause.substring(cursor, m.end).trim();
+          cursor = m.end;
+          final cleanedSeg = segment
+              .replaceAll(
+                RegExp(
+                  r'^[,;.\s]+|\b(và|rồi|xong|tiếp)\b',
+                  caseSensitive: false,
+                ),
+                ' ',
+              )
+              .trim();
+          final parsed = SmartQuickEntryParser.tryParse(cleanedSeg);
+          if (parsed != null) {
+            extractedEntries.add(parsed);
+          }
+        }
+      } else {
+        final parsed = SmartQuickEntryParser.tryParse(normClause);
         if (parsed != null) {
-          batch.add(parsed);
+          extractedEntries.add(parsed);
         }
       }
-      if (batch.length >= 2) {
-        return VoiceFinancialAnalysisResult(
-          originalText: raw,
-          normalizedText: normalized,
-          intentKind: VoiceSentenceIntentKind.batchTransactions,
-          personalEntries: batch,
-          summaryHeadline:
-              'Ghi hàng loạt ${batch.length} bút toán trong 1 câu nói',
-        );
-      }
     }
 
-    // 4. Fallback: Single Smart Personal Transaction
-    final single = SmartQuickEntryParser.tryParse(normalized);
-    if (single != null) {
+    if (extractedEntries.length >= 2) {
+      return VoiceFinancialAnalysisResult(
+        originalText: raw,
+        normalizedText: normalized,
+        intentKind: VoiceSentenceIntentKind.batchTransactions,
+        personalEntries: extractedEntries,
+        summaryHeadline:
+            'Ghi hàng loạt ${extractedEntries.length} bút toán trong 1 câu nói',
+      );
+    }
+
+    if (extractedEntries.length == 1) {
+      final single = extractedEntries.single;
       return VoiceFinancialAnalysisResult(
         originalText: raw,
         normalizedText: normalized,
@@ -429,7 +519,7 @@ abstract final class VoiceFinancialNlpEngine {
     final tail = normalized.substring(splitMatch.end).trim();
 
     final headEntry = SmartQuickEntryParser.tryParse(head);
-    final matches = _amountTokenRegex.allMatches(tail).toList();
+    final matches = _extractValidMoneyMatches(tail);
     if (matches.isEmpty) return null;
 
     final lines = <TransactionSplitLine>[];
@@ -451,6 +541,21 @@ abstract final class VoiceFinancialNlpEngine {
       }
     }
     if (lines.isEmpty) return null;
+
+    // FIX-004: Nếu tổng các dòng chi tiết vượt quá tổng hóa đơn gốc,
+    // KHÔNG tự ghi đè total = sumLines âm thầm mà gắn cảnh báo yêu cầu xác nhận!
+    if (headEntry != null &&
+        headEntry.amountMinor > 0 &&
+        sumLines > headEntry.amountMinor) {
+      return ParsedMultiCategoryReceiptIntent(
+        merchant: headEntry.merchant,
+        totalAmountMinor: headEntry.amountMinor,
+        splitLines: lines,
+        validationStatus: SplitValidationStatus.requiresConfirmation,
+        validationMessageVi:
+            'Tổng các hạng mục (${_fmtShort(sumLines)}) vượt quá tổng hóa đơn ban đầu (${_fmtShort(headEntry.amountMinor)}). Vui lòng xác nhận hoặc chỉnh lại số tiền.',
+      );
+    }
 
     final total = (headEntry != null && headEntry.amountMinor >= sumLines)
         ? headEntry.amountMinor
@@ -482,6 +587,8 @@ abstract final class VoiceFinancialNlpEngine {
     required String currentUserId,
     required String currentUserName,
     required List<FamilyMemberInfo> knownMembers,
+    Map<String, List<String>> nicknamesByUserId = const {},
+    Map<String, String> explicitParticipantOverrides = const {},
   }) {
     final topic = inferSharedTopic(normalized);
     final adv = SmartMoneySplitAiEngine.tryParseAdvancedGroupSplit(
@@ -490,6 +597,8 @@ abstract final class VoiceFinancialNlpEngine {
       currentUserName: currentUserName,
       topic: topic,
       knownMembers: knownMembers,
+      nicknamesByUserId: nicknamesByUserId,
+      explicitParticipantOverrides: explicitParticipantOverrides,
     );
     if (adv == null) return null;
     return ParsedGroupSplitIntent(
@@ -511,6 +620,9 @@ abstract final class VoiceFinancialNlpEngine {
           )
           .toList(),
       rawInputValuesByUserId: adv.rawInputValuesByUserId,
+      validationStatus: adv.validationStatus,
+      validationMessageVi: adv.validationMessageVi,
+      ambiguousParticipants: adv.ambiguousParticipants,
     );
   }
 

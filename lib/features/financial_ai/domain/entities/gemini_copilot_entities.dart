@@ -155,3 +155,84 @@ class GeminiHybridAnalysisResult extends Equatable {
     latencyMs,
   ];
 }
+
+enum SmartHybridRoute { localOnly, cloudGemini }
+
+class SmartHybridDecision extends Equatable {
+  final SmartHybridRoute route;
+  final String reasonVi;
+  final bool hasComplexMultiIntent;
+  final bool hasAdvisoryOrQuestion;
+
+  const SmartHybridDecision({
+    required this.route,
+    required this.reasonVi,
+    this.hasComplexMultiIntent = false,
+    this.hasAdvisoryOrQuestion = false,
+  });
+
+  bool get shouldUseCloud => route == SmartHybridRoute.cloudGemini;
+
+  @override
+  List<Object?> get props => [
+    route,
+    reasonVi,
+    hasComplexMultiIntent,
+    hasAdvisoryOrQuestion,
+  ];
+}
+
+/// Section 16 Hybrid Routing Policy:
+/// - Default Local AI (`< 5ms`) for straightforward single-intent utterances or when Gemini is off.
+/// - Escalates to opt-in Gemini Cloud ONLY when user enabled + provided API key AND input
+///   is an advisory/financial question, complex multi-intent, or unparsed locally.
+abstract final class SmartHybridGate {
+  static final RegExp _advisoryOrQuestionRegex = RegExp(
+    r'(?:\?|\b(?:tư\s+vấn|tu\s+van|có\s+nên|co\s+nen|nên\s+hay|bao\s+nhiêu|bao\s+nhieu|phân\s+tích|phan\s+tich|kế\s+hoạch|ke\s+hoach|so\s+sánh|so\s+sanh|tối\s+ưu|toi\s+uu|gợi\s+ý|goi\s+y|nhận\s+xét|nhan\s+xet|đánh\s+giá|danh\s+gia|cố\s+vấn|co\s+van)\b)',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static SmartHybridDecision evaluate({
+    required String rawInput,
+    required GeminiConnectionConfig config,
+    required List<OmniActionDraft> localDrafts,
+    bool allowCloudIfConfigured = true,
+  }) {
+    if (!allowCloudIfConfigured || !config.isReadyForCloud) {
+      return const SmartHybridDecision(
+        route: SmartHybridRoute.localOnly,
+        reasonVi:
+            'Xử lý hoàn toàn trên máy (< 5ms) — chưa bật hoặc chưa liên kết Gemini Cloud.',
+      );
+    }
+
+    final trimmed = rawInput.trim();
+    final isAdvisory = _advisoryOrQuestionRegex.hasMatch(trimmed);
+    final isMultiIntent = localDrafts.length >= 2;
+    final hasMultipleConnectors =
+        RegExp(r'[,;\n]|\s+(?:và|rồi)\s+', caseSensitive: false)
+            .allMatches(trimmed)
+            .isNotEmpty;
+    final unparsedLocally = localDrafts.isEmpty;
+
+    if (isAdvisory || isMultiIntent || unparsedLocally || hasMultipleConnectors) {
+      return SmartHybridDecision(
+        route: SmartHybridRoute.cloudGemini,
+        reasonVi: isAdvisory
+            ? 'Câu hỏi tư vấn / phân tích chuyên sâu — kết hợp Gemini Cloud đã che PII.'
+            : (unparsedLocally
+                  ? 'Câu nói tự nhiên chưa khớp mẫu cục bộ — nhờ Gemini Cloud bóc tách an toàn.'
+                  : 'Câu ghép đa tác vụ — kết hợp Gemini Cloud để chuẩn hóa đa miền.'),
+        hasComplexMultiIntent: isMultiIntent || hasMultipleConnectors,
+        hasAdvisoryOrQuestion: isAdvisory,
+      );
+    }
+
+    return const SmartHybridDecision(
+      route: SmartHybridRoute.localOnly,
+      reasonVi:
+          'Câu lệnh đơn rõ ràng — AI trên máy đã xử lý tức thì (< 5ms) mà không cần gọi Gemini.',
+    );
+  }
+}

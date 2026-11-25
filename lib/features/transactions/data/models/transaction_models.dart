@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../domain/entities/ledger_integrity_engine.dart';
 import '../../domain/entities/transaction_entities.dart';
 
 class WalletModel {
@@ -11,6 +12,7 @@ class WalletModel {
   final int balanceMinor;
   final int? creditLimitMinor;
   final bool isEstimatedBalance;
+  final String? lastAuditId;
   final bool hasPendingWrites;
 
   const WalletModel({
@@ -23,6 +25,7 @@ class WalletModel {
     required this.balanceMinor,
     this.creditLimitMinor,
     required this.isEstimatedBalance,
+    this.lastAuditId,
     required this.hasPendingWrites,
   });
 
@@ -47,6 +50,7 @@ class WalletModel {
       balanceMinor: (d['balanceMinor'] as num?)?.toInt() ?? 0,
       creditLimitMinor: (d['creditLimitMinor'] as num?)?.toInt(),
       isEstimatedBalance: (d['isEstimatedBalance'] as bool?) ?? true,
+      lastAuditId: d['lastAuditId'] as String?,
       hasPendingWrites: doc.metadata.hasPendingWrites,
     );
   }
@@ -62,6 +66,7 @@ class WalletModel {
       balanceMinor: balanceMinor,
       creditLimitMinor: creditLimitMinor,
       isEstimatedBalance: isEstimatedBalance,
+      lastAuditId: lastAuditId,
       hasPendingWrites: hasPendingWrites,
     );
   }
@@ -209,6 +214,10 @@ class TransactionModel {
         receivedAt: receivedAt,
         reconciliationStatus: d['reconciliationStatus'] as String?,
         sourceEventKey: d['sourceEventKey'] as String?,
+        operationId: d['operationId'] as String?,
+        verificationStatus: d['verificationStatus'] as String?,
+        observedBalanceMinor: (d['observedBalanceMinor'] as num?)?.toInt(),
+        isRefund: (d['isRefund'] as bool?) ?? false,
         isRecurringCandidate: (d['isRecurringCandidate'] as bool?) ?? false,
         hasPendingWrites: doc.metadata.hasPendingWrites,
       ),
@@ -217,6 +226,7 @@ class TransactionModel {
 
   static Map<String, dynamic> toFirestoreMap({
     required String id,
+    String? operationId,
     required String ownerId,
     required String walletId,
     String? targetWalletId,
@@ -230,19 +240,36 @@ class TransactionModel {
     required DateTime occurredAt,
     required TransactionSourceKind sourceKind,
     required TransactionVerification verification,
+    String? verificationStatus,
     required String crossSourceFingerprint,
     String? reversalOfId,
     String? reversedById,
     bool isVehicleMaintenanceHint = false,
+    bool isRefund = false,
     List<TransactionSplitLine> splitLines = const [],
     int? balanceAfterMinor,
+    int? observedBalanceMinor,
     String? walletName,
     required DateTime now,
   }) {
     final monthKey =
         '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}';
+    final effectiveVerifStatus =
+        verificationStatus ??
+        LedgerVerificationStatuses.fromVerification(
+          verification,
+          isReversed: reversedById != null && reversedById.isNotEmpty,
+        );
+    final effectiveBalanceType =
+        (observedBalanceMinor != null && observedBalanceMinor > 0)
+        ? 'observedBankBalance'
+        : (balanceAfterMinor != null
+              ? 'estimatedWalletBalance'
+              : 'unknownBalance');
+
     return {
       'id': id,
+      'operationId': operationId ?? id,
       'ownerId': ownerId,
       'walletId': walletId,
       'targetWalletId': targetWalletId,
@@ -258,14 +285,16 @@ class TransactionModel {
       'monthKey': monthKey,
       'sourceKind': sourceKind.name,
       'verification': verification.name,
+      'verificationStatus': effectiveVerifStatus,
       'crossSourceFingerprint': crossSourceFingerprint,
       'reversalOfId': reversalOfId,
       'reversedById': reversedById,
       'isVehicleMaintenanceHint': isVehicleMaintenanceHint,
+      if (isRefund) 'isRefund': true,
       if (balanceAfterMinor != null) 'balanceAfterMinor': balanceAfterMinor,
-      'balanceType': balanceAfterMinor != null
-          ? 'estimatedWalletBalance'
-          : 'unknownBalance',
+      if (observedBalanceMinor != null)
+        'observedBalanceMinor': observedBalanceMinor,
+      'balanceType': effectiveBalanceType,
       'ledgerApplied':
           verification == TransactionVerification.userConfirmed ||
           verification == TransactionVerification.matchedPaymentOrder ||

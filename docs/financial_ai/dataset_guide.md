@@ -69,3 +69,18 @@ Khi muốn mở rộng thêm từ lóng, merchant địa phương hoặc dữ li
 python tools/financial_ai/generate_synthetic_data.py
 python tools/financial_ai/prepare_dataset.py
 ```
+
+---
+
+## 5. Bộ dữ liệu Chia tiền & Phân bổ Thu nhập (`money_split_*.jsonl` — Section 14)
+
+Bên cạnh bộ `train.jsonl` / `val.jsonl` / `test.jsonl` cho `vn_financial_fasttext_v1` (30 danh mục tài chính), pipeline [`tools/financial_ai/train_money_split_ai.py`](../../tools/financial_ai/train_money_split_ai.py) tạo và xuất bộ dữ liệu chuyên biệt cho 12 ý định chia tiền nhóm & phân bổ thu nhập đa vùng miền/ASR không trùng lặp:
+
+| Tệp JSONL | Số mẫu duy nhất | Nội dung |
+| :--- | :---: | :--- |
+| `tools/financial_ai/datasets/money_split_train.jsonl` | `1,720` | 12 lớp `split.*` / `alloc.*` kèm biến thể có dấu, không dấu ASR, khẩu ngữ Bắc–Trung–Nam |
+| `tools/financial_ai/datasets/money_split_val.jsonl` | `242` | Tập validation dùng tìm `T* = 0.76` và kiểm soát ECE + OOD calibration |
+| `tools/financial_ai/datasets/money_split_test.jsonl` | `232` | Held-out test set hoàn toàn tách biệt mẫu câu với train/val |
+
+### Kiểm định chống trùng lặp & rò rỉ
+Script `train_money_split_ai.py` thực thi tách mẫu theo nhóm cấu trúc + khử trùng lặp chuẩn hóa giữa `train`, `val` và `test`, đồng thời bổ sung mẫu ngoài miền (OOD: thời tiết, đặt báo thức, nhắc lịch, câu hỏi phi tài chính) để giữ `oodUnknownRejectionRate = 1.0000` và `falseAutoAssignmentRate = 0.0000`.

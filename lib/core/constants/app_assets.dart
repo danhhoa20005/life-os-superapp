@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
-import '../widgets/liquid_glass.dart';
 
-/// Centralized Nano Banana Pro 3D Apple Liquid Glass Icon & Bank Card Skin registry for LifeOS.
+/// Centralized Nano Banana 2D Flat Duotone Icon & Bank Card Skin registry for LifeOS.
 abstract final class AppAssets {
   // Brand Logo & Hero Illustrations (Official LifeOS BrandKit 1.0)
   static const String logo = 'assets/images/logo_life_os.png';
@@ -443,7 +442,7 @@ abstract final class AppAssets {
   }
 }
 
-/// Tactile Apple Liquid Glass squircle wrapper for Nano Banana Pro 3D icons (60/120 FPS GPU mipmapped).
+/// Clean flat 2D squircle wrapper for Nano Banana 2D icons (60/120 FPS GPU mipmapped).
 class BananaGlassIcon extends StatelessWidget {
   final String assetPath;
   final IconData fallbackIcon;
@@ -472,53 +471,39 @@ class BananaGlassIcon extends StatelessWidget {
     final decodePx = (size * dpr).round().clamp(64, 512);
     final effectiveColor = fallbackColor ?? c.primary;
 
-    final badge = DecoratedBox(
+    final badge = Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2A24) : const Color(0xFFF6F9F7),
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: effectiveColor.withValues(
-              alpha: isSelected ? 0.30 : (isDark ? 0.24 : 0.14),
-            ),
-            blurRadius: isSelected ? 14 : 9,
-            offset: Offset(0, isSelected ? 4.5 : 3.0),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
-            blurRadius: 3,
-            offset: const Offset(0, 1.2),
-          ),
-        ],
-      ),
-      child: CustomPaint(
-        foregroundPainter: LiquidGlassRimPainter(
-          borderRadius: borderRadius,
-          isDark: isDark,
-          accentRimColor: isSelected ? c.primary : effectiveColor,
-          strokeWidth: isSelected ? 1.5 : 1.05,
-          intensity: isSelected ? 1.35 : 1.08,
+        border: Border.all(
+          color: isSelected
+              ? c.primary
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : c.separator.withValues(alpha: 0.85)),
+          width: isSelected ? 1.4 : 0.85,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(borderRadius),
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: Image.asset(
-              assetPath,
-              width: size,
-              height: size,
-              cacheWidth: decodePx,
-              cacheHeight: decodePx,
-              filterQuality: FilterQuality.medium,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => ColoredBox(
-                color: effectiveColor.withValues(alpha: 0.14),
-                child: Icon(
-                  fallbackIcon,
-                  color: effectiveColor,
-                  size: size * 0.54,
-                ),
-              ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(
+          (borderRadius - 0.8).clamp(0.0, borderRadius),
+        ),
+        child: Image.asset(
+          assetPath,
+          width: size,
+          height: size,
+          cacheWidth: decodePx,
+          cacheHeight: decodePx,
+          filterQuality: FilterQuality.medium,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => ColoredBox(
+            color: effectiveColor.withValues(alpha: 0.14),
+            child: Icon(
+              fallbackIcon,
+              color: effectiveColor,
+              size: size * 0.54,
             ),
           ),
         ),
