@@ -55,6 +55,38 @@ class _NoOpDeviceCalendarDriver implements DeviceCalendarDriver {
   Future<bool> deleteEvent(int deviceEventId) async => false;
 }
 
+/// Scrolls the Today "Sức khỏe" tile to the vertical centre of the viewport before tapping.
+///
+/// A fixed `drag()` offset previously pushed the tile underneath the pinned header whenever
+/// content above it changed height (CI showed the tap landing at y=43.6), so the hub never
+/// opened. Missed taps are made fatal here so a hidden tile fails loudly at the tap itself.
+Future<void> _openHealthHubFromToday(WidgetTester tester) async {
+  final tile = find.byKey(const Key('home_tile_health'));
+  await tester.scrollUntilVisible(
+    tile,
+    220,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  // ignore: unawaited_futures
+  Scrollable.ensureVisible(
+    tester.element(tile),
+    alignment: 0.5,
+    duration: Duration.zero,
+  );
+  await tester.pumpAndSettle();
+
+  final previous = WidgetController.hitTestWarningShouldBeFatal;
+  WidgetController.hitTestWarningShouldBeFatal = true;
+  try {
+    await tester.tap(tile);
+  } finally {
+    WidgetController.hitTestWarningShouldBeFatal = previous;
+  }
+  await tester.pumpAndSettle();
+  expect(find.byKey(const Key('open_add_medication_btn')), findsOneWidget);
+}
+
 void main() {
   setUp(() {
     NativeAlarmSchedulerBridge.instance.resetDebugCounters();
@@ -473,15 +505,7 @@ void main() {
           await tester.pumpAndSettle();
 
           // Navigate to Health & Medication Hub via 4x2 Dock
-          await tester.scrollUntilVisible(
-            find.byKey(const Key('home_tile_health')),
-            220,
-            scrollable: find.byType(Scrollable).first,
-          );
-          await tester.drag(find.byType(ListView).first, const Offset(0, -180));
-          await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const Key('home_tile_health')));
-          await tester.pumpAndSettle();
+          await _openHealthHubFromToday(tester);
 
           // 1. Add Vitamin D3 + K2 MK7 via primary "+ Thêm thuốc & Hẹn giờ nhắc" sheet
           await tester.tap(find.byKey(const Key('open_add_medication_btn')));
@@ -716,15 +740,7 @@ void main() {
           await tester.pumpWidget(const LifeOsApp());
           await tester.pumpAndSettle();
 
-          await tester.scrollUntilVisible(
-            find.byKey(const Key('home_tile_health')),
-            220,
-            scrollable: find.byType(Scrollable).first,
-          );
-          await tester.drag(find.byType(ListView).first, const Offset(0, -180));
-          await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const Key('home_tile_health')));
-          await tester.pumpAndSettle();
+          await _openHealthHubFromToday(tester);
 
           await tester.tap(find.text('Uống nước'));
           await tester.pumpAndSettle();
