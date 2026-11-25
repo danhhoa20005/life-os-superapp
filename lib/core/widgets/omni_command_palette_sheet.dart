@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +24,7 @@ import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/vehicles/domain/entities/vehicle_entities.dart';
 import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../search/global_search_and_command_engine.dart';
+import '../services/native_secure_vault_bridge.dart';
 import '../utils/vnd_amount.dart';
 import 'lifeos_design_system.dart';
 
@@ -32,9 +36,19 @@ T? _maybeBloc<T extends StateStreamableSource<Object?>>(BuildContext context) {
   }
 }
 
-/// Global Omni-Search & Command Palette Sheet (Section 18).
-/// Combines all 12 domain entities (strictly RBAC-filtered by `GlobalSearchAndCommandEngine`)
-/// with Quick Commands and app destinations.
+typedef _AppScreenDef = ({
+  String id,
+  String title,
+  String subtitle,
+  IconData icon,
+  String route,
+  LifeOsAccentTone tone,
+  List<String> keywords,
+});
+
+/// Global Omni-Search & Command Palette Sheet (Section 18 / Global Search 2.0).
+/// Combines all 12 domain entities (strictly RBAC-filtered by `GlobalSearchAndCommandEngine`),
+/// bidirectional Vietnamese synonym discovery, account-scoped Recent Searches, and grouped results.
 Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
   final authBloc = _maybeBloc<AuthBloc>(context);
   final txListBloc = _maybeBloc<TransactionListBloc>(context);
@@ -55,172 +69,242 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
     for (final f in famBloc?.state.families ?? const <FamilyEntity>[]) f.id,
   };
 
-  const appScreens =
-      <
-        ({
-          String id,
-          String title,
-          String subtitle,
-          IconData icon,
-          String route,
-          LifeOsAccentTone tone,
-          List<String> keywords,
-        })
-      >[
-        (
-          id: 'scr_today',
-          title: 'Trang chủ LifeOS',
-          subtitle: 'Tổng quan hôm nay',
-          icon: Icons.home_rounded,
-          route: '/today',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['hom nay', 'trang chu'],
-        ),
-        (
-          id: 'scr_finance',
-          title: 'Chi tiêu & Ngân sách',
-          subtitle: 'Ví, thu chi & ngân sách tháng',
-          icon: Icons.payments_outlined,
-          route: '/finance',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['so thu chi', 'du bao dong tien', 'ngan sach'],
-        ),
-        (
-          id: 'scr_auto_tx',
-          title: 'Chi tiết giao dịch (Tự động)',
-          subtitle: 'Xác nhận giao dịch ngân hàng mới',
-          icon: Icons.auto_awesome_rounded,
-          route: '/auto-tx-review',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['duyet giao dich', 'ngan hang'],
-        ),
-        (
-          id: 'scr_report',
-          title: 'Báo cáo chi tiêu & Gia đình',
-          subtitle: 'Thống kê thu chi, Life Insights & xuất báo cáo',
-          icon: Icons.bar_chart_rounded,
-          route: '/finance-report',
-          tone: LifeOsAccentTone.blue,
-          keywords: ['bao cao', 'thong ke', 'insights'],
-        ),
-        (
-          id: 'scr_planning',
-          title: 'Lịch trình & Google Calendar',
-          subtitle: 'Lịch hẹn, khung giờ trống & đồng bộ Google Calendar',
-          icon: Icons.calendar_month_rounded,
-          route: '/planning',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['lich hen', 'time block', 'ke hoach ngay'],
-        ),
-        (
-          id: 'scr_tasks',
-          title: 'Việc cần làm',
-          subtitle: 'Việc cá nhân & phân công gia đình',
-          icon: Icons.task_alt_rounded,
-          route: '/tasks-board',
-          tone: LifeOsAccentTone.blue,
-          keywords: ['cong viec', 'nhiem vu'],
-        ),
-        (
-          id: 'scr_funds',
-          title: 'Quỹ gia đình & Mục tiêu chung',
-          subtitle: 'Tiết kiệm chung & lịch sử đóng góp',
-          icon: Icons.savings_outlined,
-          route: '/family-funds',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['quy chung', 'tiet kiem'],
-        ),
-        (
-          id: 'scr_docs',
-          title: 'Tài liệu gia đình',
-          subtitle: 'Hợp đồng, giấy tờ xe & bảo hiểm mã hóa',
-          icon: Icons.folder_copy_outlined,
-          route: '/family-documents',
-          tone: LifeOsAccentTone.amber,
-          keywords: ['cccd', 'ho chieu', 'bhyt', 'giay to'],
-        ),
-        (
-          id: 'scr_vehicles',
-          title: 'Xe cộ & Bảo dưỡng',
-          subtitle: 'Nhật ký đổ xăng, chi phí/km, thay dầu & đăng kiểm',
-          icon: Icons.directions_car_outlined,
-          route: '/assets',
-          tone: LifeOsAccentTone.blue,
-          keywords: ['xe may', 'o to', 'xang', 'odo'],
-        ),
-        (
-          id: 'scr_subs',
-          title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
-          subtitle: 'Theo dõi phí gia hạn, dùng thử & hạn bảo hành',
-          icon: Icons.radar_rounded,
-          route: '/subscriptions-warranty',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['thue bao', 'netflix', 'bao hanh'],
-        ),
-        (
-          id: 'scr_wealth',
-          title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
-          subtitle: 'Tách hóa đơn theo món, tính lãi vay & tiết kiệm',
-          icon: Icons.calculate_outlined,
-          route: '/wealth-tools',
-          tone: LifeOsAccentTone.blue,
-          keywords: ['quet hoa don', 'tach bill', 'lai vay'],
-        ),
-        (
-          id: 'scr_automation',
-          title: 'Tự động hóa Thông minh',
-          subtitle: 'Quy tắc gợi ý lương, xăng xe, hóa đơn & nhật ký hoàn tác',
-          icon: Icons.bolt_rounded,
-          route: '/automation-studio',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['automation', 'quy tac tu dong'],
-        ),
-        (
-          id: 'scr_health',
-          title: 'Sức khỏe & Tủ thuốc',
-          subtitle: 'Nhắc uống thuốc, nước uống & thẻ y tế khẩn cấp',
-          icon: Icons.favorite_outline_rounded,
-          route: '/health-hub',
-          tone: LifeOsAccentTone.coral,
-          keywords: ['thuoc', 'bhyt', 'nuoc uong'],
-        ),
-        (
-          id: 'scr_kitchen',
-          title: 'Bếp & Đi chợ Thông minh',
-          subtitle: 'Thực đơn, giỏ đi chợ & tủ lạnh',
-          icon: Icons.shopping_basket_outlined,
-          route: '/kitchen-groceries',
-          tone: LifeOsAccentTone.emerald,
-          keywords: ['di cho', 'bep', 'thuc don'],
-        ),
-        (
-          id: 'scr_evn',
-          title: 'Điện nước EVN & Nhà cửa',
-          subtitle: 'Tính điện 5 bậc, nước & tiền thuê nhà',
-          icon: Icons.electric_bolt_rounded,
-          route: '/home-living',
-          tone: LifeOsAccentTone.amber,
-          keywords: ['evn', 'tien dien', 'tien nuoc'],
-        ),
-        (
-          id: 'scr_notes',
-          title: 'Ghi chú & Lương Gross–Net',
-          subtitle: 'Sổ tay nhanh & tính lương thực nhận',
-          icon: Icons.sticky_note_2_outlined,
-          route: '/smart-notes-hub',
-          tone: LifeOsAccentTone.purple,
-          keywords: ['ghi chu', 'luong', 'thue tncn'],
-        ),
-        (
-          id: 'scr_settings',
-          title: 'Cài đặt & Sao lưu',
-          subtitle: 'Tài khoản, giao diện, sao lưu & kết nối ngân hàng',
-          icon: Icons.settings_outlined,
-          route: '/settings-hub',
-          tone: LifeOsAccentTone.neutral,
-          keywords: ['cai dat', 'sao luu', 'khoi phuc'],
-        ),
-      ];
+  const appScreens = <_AppScreenDef>[
+    (
+      id: 'scr_today',
+      title: 'Trang chủ LifeOS',
+      subtitle: 'Tổng quan hôm nay',
+      icon: Icons.home_rounded,
+      route: '/today',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['hom nay', 'trang chu'],
+    ),
+    (
+      id: 'scr_finance',
+      title: 'Chi tiêu & Ngân sách',
+      subtitle: 'Ví, thu chi & ngân sách tháng',
+      icon: Icons.payments_outlined,
+      route: '/finance',
+      tone: LifeOsAccentTone.emerald,
+      keywords: [
+        'so thu chi',
+        'du bao dong tien',
+        'ngan sach',
+        'giao dich',
+        'chuyen khoan',
+        'chuyen vi',
+      ],
+    ),
+    (
+      id: 'scr_auto_tx',
+      title: 'Chi tiết giao dịch (Tự động)',
+      subtitle: 'Xác nhận giao dịch ngân hàng mới',
+      icon: Icons.auto_awesome_rounded,
+      route: '/auto-tx-review',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['duyet giao dich', 'ngan hang'],
+    ),
+    (
+      id: 'scr_report',
+      title: 'Báo cáo chi tiêu & Gia đình',
+      subtitle: 'Thống kê thu chi, Life Insights & xuất báo cáo',
+      icon: Icons.bar_chart_rounded,
+      route: '/finance-report',
+      tone: LifeOsAccentTone.blue,
+      keywords: ['bao cao', 'thong ke', 'insights'],
+    ),
+    (
+      id: 'scr_planning',
+      title: 'Lịch trình & Google Calendar',
+      subtitle: 'Lịch hẹn, khung giờ trống & đồng bộ Google Calendar',
+      icon: Icons.calendar_month_rounded,
+      route: '/planning',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['lich hen', 'time block', 'ke hoach ngay'],
+    ),
+    (
+      id: 'scr_tasks',
+      title: 'Việc cần làm',
+      subtitle: 'Việc cá nhân & phân công gia đình',
+      icon: Icons.task_alt_rounded,
+      route: '/tasks-board',
+      tone: LifeOsAccentTone.blue,
+      keywords: ['cong viec', 'nhiem vu'],
+    ),
+    (
+      id: 'scr_family_split',
+      title: 'Chia tiền nhóm',
+      subtitle: 'Chia bill, quyết toán & nhắc nợ thành viên',
+      icon: Icons.groups_outlined,
+      route: '/family',
+      tone: LifeOsAccentTone.blue,
+      keywords: [
+        'chia bill',
+        'chia tien',
+        'chia hoa don',
+        'campuchia',
+        'cua doi',
+        'nhom',
+        'gia dinh',
+      ],
+    ),
+    (
+      id: 'scr_funds',
+      title: 'Quỹ gia đình & Mục tiêu chung',
+      subtitle: 'Tiết kiệm chung & lịch sử đóng góp',
+      icon: Icons.savings_outlined,
+      route: '/family-funds',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['quy chung', 'tiet kiem'],
+    ),
+    (
+      id: 'scr_docs',
+      title: 'Tài liệu gia đình',
+      subtitle: 'Hợp đồng, giấy tờ xe & bảo hiểm mã hóa',
+      icon: Icons.folder_copy_outlined,
+      route: '/family-documents',
+      tone: LifeOsAccentTone.amber,
+      keywords: [
+        'cccd',
+        'can cuoc',
+        'ho chieu',
+        'bhyt',
+        'bao hiem y te',
+        'giay to',
+      ],
+    ),
+    (
+      id: 'scr_vehicles',
+      title: 'Xe cộ & Bảo dưỡng',
+      subtitle: 'Nhật ký đổ xăng, thay nhớt, chi phí/km & đăng kiểm',
+      icon: Icons.directions_car_outlined,
+      route: '/assets',
+      tone: LifeOsAccentTone.blue,
+      keywords: [
+        'xe may',
+        'o to',
+        'xang',
+        'odo',
+        'thay nhot',
+        'bao duong',
+        'sua xe',
+        'thay dau',
+        'xe co',
+      ],
+    ),
+    (
+      id: 'scr_subs',
+      title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
+      subtitle: 'Theo dõi phí gia hạn, dùng thử & hạn bảo hành',
+      icon: Icons.radar_rounded,
+      route: '/subscriptions-warranty',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['thue bao', 'netflix', 'bao hanh'],
+    ),
+    (
+      id: 'scr_wealth',
+      title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
+      subtitle: 'Tách hóa đơn theo món, tính lãi vay & tiết kiệm',
+      icon: Icons.calculate_outlined,
+      route: '/wealth-tools',
+      tone: LifeOsAccentTone.blue,
+      keywords: ['quet hoa don', 'tach bill', 'lai vay'],
+    ),
+    (
+      id: 'scr_automation',
+      title: 'Tự động hóa Thông minh',
+      subtitle: 'Quy tắc gợi ý lương, xăng xe, hóa đơn & nhật ký hoàn tác',
+      icon: Icons.bolt_rounded,
+      route: '/automation-studio',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['automation', 'quy tac tu dong'],
+    ),
+    (
+      id: 'scr_health',
+      title: 'Sức khỏe & Tủ thuốc',
+      subtitle: 'Nhắc uống thuốc, nước uống & thẻ y tế khẩn cấp',
+      icon: Icons.favorite_outline_rounded,
+      route: '/health-hub',
+      tone: LifeOsAccentTone.coral,
+      keywords: ['thuoc', 'bhyt', 'bao hiem y te', 'suc khoe', 'nuoc uong'],
+    ),
+    (
+      id: 'scr_kitchen',
+      title: 'Bếp & Đi chợ Thông minh',
+      subtitle: 'Thực đơn, giỏ đi chợ & tủ lạnh',
+      icon: Icons.shopping_basket_outlined,
+      route: '/kitchen-groceries',
+      tone: LifeOsAccentTone.emerald,
+      keywords: ['di cho', 'bep', 'thuc don'],
+    ),
+    (
+      id: 'scr_evn',
+      title: 'Điện nước EVN & Nhà cửa',
+      subtitle: 'Tính điện 5 bậc, nước & tiền thuê nhà',
+      icon: Icons.electric_bolt_rounded,
+      route: '/home-living',
+      tone: LifeOsAccentTone.amber,
+      keywords: [
+        'evn',
+        'tien dien',
+        'tien nuoc',
+        'dien nuoc',
+        'tien nha',
+        'thue nha',
+        'nha cua',
+        'phong tro',
+        'hoa don',
+      ],
+    ),
+    (
+      id: 'scr_notes',
+      title: 'Ghi chú & Lương Gross–Net',
+      subtitle: 'Sổ tay nhanh, mật khẩu Wifi & tính lương thực nhận',
+      icon: Icons.sticky_note_2_outlined,
+      route: '/smart-notes-hub',
+      tone: LifeOsAccentTone.purple,
+      keywords: [
+        'ghi chu',
+        'luong',
+        'thue tncn',
+        'wifi',
+        'mat khau',
+        'tai khoan',
+      ],
+    ),
+    (
+      id: 'scr_security_pin',
+      title: 'Bảo mật & Mã PIN',
+      subtitle: 'Khóa ứng dụng, bảo vệ quyền riêng tư & sao lưu',
+      icon: Icons.lock_outline_rounded,
+      route: '/settings-hub',
+      tone: LifeOsAccentTone.blue,
+      keywords: [
+        'mat khau',
+        'bao mat',
+        'ma pin',
+        'pin',
+        'tai khoan',
+        'khoa ung dung',
+      ],
+    ),
+    (
+      id: 'scr_settings',
+      title: 'Cài đặt & Sao lưu',
+      subtitle: 'Tài khoản, giao diện, sao lưu & kết nối ngân hàng',
+      icon: Icons.settings_outlined,
+      route: '/settings-hub',
+      tone: LifeOsAccentTone.neutral,
+      keywords: [
+        'cai dat',
+        'sao luu',
+        'khoi phuc',
+        'bao mat',
+        'mat khau',
+        'ma pin',
+      ],
+    ),
+  ];
 
   final dateFmt = DateFormat('dd/MM HH:mm');
   final corpus = <SearchableEntityRecord>[
@@ -422,10 +506,11 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
     );
   }
 
-  // 8. Notes, Groceries & Medications
+  // 8. Notes, Groceries & Medications (strict ownerUserId RBAC propagation!)
   final dailySnap = dailyBloc?.state.snapshot;
   if (dailySnap != null) {
     for (final n in dailySnap.notes) {
+      if (n.ownerId != activeUserId) continue;
       corpus.add(
         SearchableEntityRecord(
           id: 'note_${n.id}',
@@ -434,12 +519,14 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
           subtitle: n.content,
           trailingBadge: 'Ghi chú',
           targetRoute: '/smart-notes-hub',
-          ownerUserId: activeUserId,
+          ownerUserId: n.ownerId,
+          isPrivateToOwner: true,
           keywords: <String>[n.categoryTag],
         ),
       );
     }
     for (final g in dailySnap.groceryItems) {
+      if (g.ownerId != activeUserId) continue;
       corpus.add(
         SearchableEntityRecord(
           id: 'groc_${g.id}',
@@ -450,11 +537,13 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
               ? VndAmount.format(g.estimatedMinor)
               : 'Đi chợ',
           targetRoute: '/kitchen-groceries',
-          ownerUserId: activeUserId,
+          ownerUserId: g.ownerId,
+          isPrivateToOwner: true,
         ),
       );
     }
     for (final m in dailySnap.medications) {
+      if (m.ownerId != activeUserId) continue;
       corpus.add(
         SearchableEntityRecord(
           id: 'med_${m.id}',
@@ -463,14 +552,171 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
           subtitle: 'Thuốc · ${m.dosage} · ${m.formattedReminderTime}',
           trailingBadge: 'Thuốc',
           targetRoute: '/health-hub',
-          ownerUserId: activeUserId,
+          ownerUserId: m.ownerId,
+          isPrivateToOwner: true,
         ),
       );
     }
   }
 
-  IconData iconForDomain(SearchableEntityRecord rec) {
-    for (final s in appScreens) {
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    showDragHandle: false,
+    builder: (sheetCtx) {
+      return _OmniCommandPaletteBody(
+        parentContext: context,
+        sheetContext: sheetCtx,
+        activeUserId: activeUserId,
+        allowedFamilyIds: allowedFamilyIds,
+        corpus: corpus,
+        appScreens: appScreens,
+      );
+    },
+  );
+}
+
+class _OmniCommandPaletteBody extends StatefulWidget {
+  final BuildContext parentContext;
+  final BuildContext sheetContext;
+  final String activeUserId;
+  final Set<String> allowedFamilyIds;
+  final List<SearchableEntityRecord> corpus;
+  final List<_AppScreenDef> appScreens;
+
+  const _OmniCommandPaletteBody({
+    required this.parentContext,
+    required this.sheetContext,
+    required this.activeUserId,
+    required this.allowedFamilyIds,
+    required this.corpus,
+    required this.appScreens,
+  });
+
+  @override
+  State<_OmniCommandPaletteBody> createState() =>
+      _OmniCommandPaletteBodyState();
+}
+
+class _OmniCommandPaletteBodyState extends State<_OmniCommandPaletteBody> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _debounceTimer;
+  DateTime? _lastSearchAt;
+  String _debouncedQuery = '';
+  List<String> _recentSearches = const <String>[];
+
+  String get _recentStorageKey =>
+      'ux_recent_searches_v1__u_${widget.activeUserId}';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentSearches();
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _recentStorageKey,
+    );
+    if (raw == null || raw.trim().isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List && mounted) {
+        setState(() {
+          _recentSearches = decoded
+              .whereType<String>()
+              .map((s) => s.trim())
+              .where((s) => s.length >= 2)
+              .take(8)
+              .toList(growable: false);
+        });
+      }
+    } catch (_) {
+      // Ignore malformed local history safely
+    }
+  }
+
+  Future<void> _recordRecentQuery(String query) async {
+    final updated = GlobalSearchAndCommandEngine.recordRecentQuery(
+      _recentSearches,
+      query,
+    );
+    if (updated == _recentSearches) return;
+    if (mounted) {
+      setState(() => _recentSearches = updated);
+    }
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _recentStorageKey,
+      value: jsonEncode(updated),
+    );
+  }
+
+  Future<void> _clearRecentSearches() async {
+    if (mounted) {
+      setState(() => _recentSearches = const <String>[]);
+    }
+    await NativeSecureVaultBridge.instance.deleteSecret(_recentStorageKey);
+  }
+
+  void _onSearchTextChanged(String raw) {
+    _debounceTimer?.cancel();
+    final now = DateTime.now();
+    final shouldRunLeading =
+        _lastSearchAt == null ||
+        now.difference(_lastSearchAt!) >= const Duration(milliseconds: 120);
+
+    if (shouldRunLeading || raw.trim().isEmpty) {
+      _lastSearchAt = now;
+      setState(() => _debouncedQuery = raw);
+    } else {
+      setState(() {}); // Refresh clear button visibility immediately
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      _lastSearchAt = DateTime.now();
+      if (_debouncedQuery != _searchCtrl.text) {
+        setState(() => _debouncedQuery = _searchCtrl.text);
+      }
+    });
+  }
+
+  void _applySearchQuery(String query) {
+    _debounceTimer?.cancel();
+    _searchCtrl.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
+    _lastSearchAt = DateTime.now();
+    setState(() => _debouncedQuery = query);
+  }
+
+  Future<void> _navigateToRoute(String route, {String? recordQuery}) async {
+    if (recordQuery != null && recordQuery.trim().length >= 2) {
+      await _recordRecentQuery(recordQuery.trim());
+    }
+    if (!widget.sheetContext.mounted || !widget.parentContext.mounted) return;
+    Navigator.of(widget.sheetContext).pop();
+    if (route == '/today' ||
+        route == '/finance' ||
+        route == '/planning' ||
+        route == '/family') {
+      widget.parentContext.go(route);
+    } else {
+      widget.parentContext.push(route);
+    }
+  }
+
+  IconData _iconForDomain(SearchableEntityRecord rec) {
+    for (final s in widget.appScreens) {
       if (s.id == rec.id) return s.icon;
     }
     return switch (rec.domain) {
@@ -490,8 +736,8 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
     };
   }
 
-  LifeOsAccentTone toneForDomain(SearchableEntityRecord rec) {
-    for (final s in appScreens) {
+  LifeOsAccentTone _toneForDomain(SearchableEntityRecord rec) {
+    for (final s in widget.appScreens) {
       if (s.id == rec.id) return s.tone;
     }
     return switch (rec.domain) {
@@ -511,295 +757,360 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
     };
   }
 
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    showDragHandle: false,
-    builder: (sheetCtx) {
-      return _PaletteControllerHost(
-        builder: (ctx, searchCtrl, setModalState) {
-          final c = TammySemanticColors.of(ctx);
-          final query = searchCtrl.text;
-          final q = query.trim();
-
-          final hits = q.isEmpty
-              ? <SearchScoredHit>[
-                  ...GlobalSearchAndCommandEngine.builtInQuickCommands(
-                    activeUserId,
-                  ).map((r) => SearchScoredHit(record: r, score: 100)),
-                  ...corpus
-                      .where((r) => r.domain == SearchDomainKind.appFeature)
-                      .map((r) => SearchScoredHit(record: r, score: 80)),
-                ]
-              : GlobalSearchAndCommandEngine.search(
-                  rawQuery: q,
-                  activeUserId: activeUserId,
-                  corpus: corpus,
-                  allowedFamilyIds: allowedFamilyIds,
-                  limit: 40,
-                );
-
-          return DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.76,
-            maxChildSize: 0.94,
-            minChildSize: 0.48,
-            builder: (_, scrollCtrl) => LiquidGlassSheetFrame(
-              showHandle: true,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      key: const Key('omni_search_text_field'),
-                      controller: searchCtrl,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Tìm giao dịch, lệnh nhanh, lịch hẹn, việc làm, giấy tờ...',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: query.isEmpty
-                            ? null
-                            : IconButton(
-                                key: const Key('omni_search_clear_btn'),
-                                tooltip: 'Xóa',
-                                onPressed: () => setModalState(() {
-                                  searchCtrl.clear();
-                                }),
-                                icon: const Icon(Icons.close_rounded, size: 18),
-                              ),
-                      ),
-                      onChanged: (_) => setModalState(() {}),
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children:
-                            GlobalSearchAndCommandEngine.builtInQuickCommands(
-                              activeUserId,
-                            ).take(4).map((cmd) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: ActionChip(
-                                  key: Key('omni_quick_cmd_${cmd.id}'),
-                                  visualDensity: VisualDensity.compact,
-                                  avatar: Icon(
-                                    Icons.bolt_rounded,
-                                    size: 15,
-                                    color: c.primary,
-                                  ),
-                                  label: Text(cmd.title),
-                                  onPressed: () {
-                                    Navigator.of(sheetCtx).pop();
-                                    if (cmd.targetRoute == '/today' ||
-                                        cmd.targetRoute == '/finance' ||
-                                        cmd.targetRoute == '/planning' ||
-                                        cmd.targetRoute == '/family') {
-                                      context.go(cmd.targetRoute);
-                                    } else {
-                                      context.push(cmd.targetRoute);
-                                    }
-                                  },
-                                ),
-                              );
-                            }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: hits.isEmpty
-                          ? ListView(
-                              controller: scrollCtrl,
-                              children: [
-                                const SizedBox(height: 24),
-                                Icon(
-                                  Icons.search_off_rounded,
-                                  size: 42,
-                                  color: c.textSecondary,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Chưa tìm thấy "$query" trong dữ liệu của bạn',
-                                  textAlign: TextAlign.center,
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
-                                    color: c.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Thử gõ từ khóa khác (kể cả không dấu hoặc viết tắt như cf, ck, bhyt) hoặc tạo nhanh bên dưới.',
-                                  textAlign: TextAlign.center,
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  alignment: WrapAlignment.center,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () => setModalState(() {
-                                        searchCtrl.clear();
-                                      }),
-                                      icon: const Icon(
-                                        Icons.filter_alt_off_rounded,
-                                        size: 17,
-                                      ),
-                                      label: const Text('Xem tất cả tiện ích'),
-                                    ),
-                                    FilledButton.icon(
-                                      onPressed: () {
-                                        Navigator.of(sheetCtx).pop();
-                                        showLifeOsQuickCreateHub(context);
-                                      },
-                                      icon: const Icon(Icons.add_rounded),
-                                      label: const Text('Mở Thêm nhanh (+)'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          : ListView.separated(
-                              controller: scrollCtrl,
-                              itemCount: hits.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (_, idx) {
-                                final item = hits[idx].record;
-                                final badge =
-                                    item.trailingBadge ??
-                                    (item.domain ==
-                                            SearchDomainKind.quickCommand
-                                        ? 'Lệnh nhanh'
-                                        : null);
-                                return LifeOsSoftCard(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 11,
-                                  ),
-                                  onTap: () {
-                                    Navigator.of(sheetCtx).pop();
-                                    if (item.targetRoute == '/today' ||
-                                        item.targetRoute == '/finance' ||
-                                        item.targetRoute == '/planning' ||
-                                        item.targetRoute == '/family') {
-                                      context.go(item.targetRoute);
-                                    } else {
-                                      context.push(item.targetRoute);
-                                    }
-                                  },
-                                  child: Row(
-                                    children: [
-                                      LifeOsIconSquircle(
-                                        icon: iconForDomain(item),
-                                        tone: toneForDomain(item),
-                                        size: 40,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item.title,
-                                              softWrap: true,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 14.5,
-                                              ),
-                                            ),
-                                            Text(
-                                              item.subtitle,
-                                              softWrap: true,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (badge != null) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: c.primarySubtle,
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            badge,
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: c.primary,
-                                              fontFeatures: const [
-                                                FontFeature.tabularFigures(),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ] else
-                                        const Icon(
-                                          Icons.chevron_right_rounded,
-                                          size: 20,
-                                        ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+  Widget _buildHitCard(
+    SearchableEntityRecord item,
+    TammySemanticColors c, {
+    required String? queryToRecord,
+  }) {
+    final badge =
+        item.trailingBadge ??
+        (item.domain == SearchDomainKind.quickCommand ? 'Lệnh nhanh' : null);
+    return LifeOsSoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      onTap: () =>
+          _navigateToRoute(item.targetRoute, recordQuery: queryToRecord),
+      child: Row(
+        children: [
+          LifeOsIconSquircle(
+            icon: _iconForDomain(item),
+            tone: _toneForDomain(item),
+            size: 40,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  softWrap: true,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                  ),
+                ),
+                Text(
+                  item.subtitle,
+                  softWrap: true,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          if (badge != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: c.primarySubtle,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                badge,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: c.primary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
-          );
-        },
-      );
-    },
-  );
-}
-
-class _PaletteControllerHost extends StatefulWidget {
-  final Widget Function(
-    BuildContext context,
-    TextEditingController controller,
-    StateSetter setModalState,
-  )
-  builder;
-
-  const _PaletteControllerHost({required this.builder});
-
-  @override
-  State<_PaletteControllerHost> createState() => _PaletteControllerHostState();
-}
-
-class _PaletteControllerHostState extends State<_PaletteControllerHost> {
-  final TextEditingController _ctrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
+          ] else
+            const Icon(Icons.chevron_right_rounded, size: 20),
+        ],
+      ),
+    );
   }
 
   @override
-  Widget build(BuildContext context) =>
-      widget.builder(context, _ctrl, setState);
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final rawText = _searchCtrl.text;
+    final effectiveQ = _debouncedQuery.trim();
+    final isSearching = effectiveQ.isNotEmpty;
+
+    final hits = !isSearching
+        ? <SearchScoredHit>[
+            ...GlobalSearchAndCommandEngine.builtInQuickCommands(
+              widget.activeUserId,
+            ).map((r) => SearchScoredHit(record: r, score: 100)),
+            ...widget.corpus
+                .where((r) => r.domain == SearchDomainKind.appFeature)
+                .map((r) => SearchScoredHit(record: r, score: 80)),
+          ]
+        : GlobalSearchAndCommandEngine.search(
+            rawQuery: effectiveQ,
+            activeUserId: widget.activeUserId,
+            corpus: widget.corpus,
+            allowedFamilyIds: widget.allowedFamilyIds,
+            limit: 40,
+          );
+
+    final groupedHits = isSearching
+        ? GlobalSearchAndCommandEngine.groupByDomain(hits)
+        : const <SearchDomainKind, List<SearchScoredHit>>{};
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.76,
+      maxChildSize: 0.94,
+      minChildSize: 0.48,
+      builder: (_, scrollCtrl) => LiquidGlassSheetFrame(
+        showHandle: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                key: const Key('omni_search_text_field'),
+                controller: _searchCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText:
+                      'Tìm giao dịch, lệnh nhanh, lịch hẹn, việc làm, giấy tờ...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: rawText.isEmpty
+                      ? null
+                      : IconButton(
+                          key: const Key('omni_search_clear_btn'),
+                          tooltip: 'Xóa',
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          onPressed: () => _applySearchQuery(''),
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                        ),
+                ),
+                onChanged: _onSearchTextChanged,
+                onSubmitted: (val) async {
+                  final clean = val.trim();
+                  _applySearchQuery(clean);
+                  if (clean.length >= 2) {
+                    await _recordRecentQuery(clean);
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children:
+                      GlobalSearchAndCommandEngine.builtInQuickCommands(
+                        widget.activeUserId,
+                      ).take(4).map((cmd) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ActionChip(
+                            key: Key('omni_quick_cmd_${cmd.id}'),
+                            materialTapTargetSize: MaterialTapTargetSize.padded,
+                            avatar: Icon(
+                              Icons.bolt_rounded,
+                              size: 15,
+                              color: c.primary,
+                            ),
+                            label: Text(cmd.title),
+                            onPressed: () => _navigateToRoute(
+                              cmd.targetRoute,
+                              recordQuery: isSearching ? effectiveQ : null,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ),
+              if (!isSearching && _recentSearches.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      size: 16,
+                      color: c.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Tìm kiếm gần đây',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: c.textSecondary,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      key: const Key('omni_clear_recent_searches_btn'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 40),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                      ),
+                      onPressed: _clearRecentSearches,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 15),
+                      label: const Text('Xóa lịch sử'),
+                    ),
+                  ],
+                ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (var i = 0; i < _recentSearches.length; i++)
+                      ActionChip(
+                        key: Key('omni_recent_search_$i'),
+                        materialTapTargetSize: MaterialTapTargetSize.padded,
+                        avatar: Icon(
+                          Icons.history_rounded,
+                          size: 15,
+                          color: c.textSecondary,
+                        ),
+                        label: Text(_recentSearches[i]),
+                        onPressed: () => _applySearchQuery(_recentSearches[i]),
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 10),
+              Expanded(
+                child: hits.isEmpty
+                    ? ListView(
+                        controller: scrollCtrl,
+                        children: [
+                          const SizedBox(height: 24),
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 42,
+                            color: c.textSecondary,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Chưa tìm thấy "$rawText" trong dữ liệu của bạn',
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Thử gõ từ khóa khác (kể cả không dấu hoặc viết tắt như cf, ck, bhyt, thay nhớt, chia bill) hoặc tạo nhanh bên dưới.',
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: () => _applySearchQuery(''),
+                                icon: const Icon(
+                                  Icons.filter_alt_off_rounded,
+                                  size: 17,
+                                ),
+                                label: const Text('Xem tất cả tiện ích'),
+                              ),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  Navigator.of(widget.sheetContext).pop();
+                                  showLifeOsQuickCreateHub(
+                                    widget.parentContext,
+                                  );
+                                },
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Mở Thêm nhanh (+)'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : !isSearching
+                    ? ListView.separated(
+                        controller: scrollCtrl,
+                        itemCount: hits.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, idx) => _buildHitCard(
+                          hits[idx].record,
+                          c,
+                          queryToRecord: null,
+                        ),
+                      )
+                    : ListView(
+                        controller: scrollCtrl,
+                        children: [
+                          for (final entry in groupedHits.entries) ...[
+                            Padding(
+                              key: Key('omni_group_header_${entry.key.name}'),
+                              padding: const EdgeInsets.only(
+                                top: 6,
+                                bottom: 6,
+                                left: 2,
+                                right: 2,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      entry.key.labelVi,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: c.primarySubtle,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${entry.value.length}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.primary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            for (final hit in entry.value) ...[
+                              _buildHitCard(
+                                hit.record,
+                                c,
+                                queryToRecord: effectiveQ,
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ],
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

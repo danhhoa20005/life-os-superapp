@@ -74,17 +74,42 @@ abstract final class VietnameseSearchMatcher {
   static final RegExp _combiningMarks = RegExp(r'[\u0300-\u036f]');
   static final RegExp _whitespace = RegExp(r'\s+');
   static final RegExp _nonDigits = RegExp(r'[^0-9]');
+  static final RegExp _kShorthand = RegExp(r'^(\d+)(?:[.,](\d{1,3}))?k$');
+  static final RegExp _trShorthand = RegExp(
+    r'^(\d+)(?:[.,](\d{1,3}))?tr(\d{0,3})$',
+  );
 
   /// Folds Vietnamese accents/tones (`ă/â -> a`, `đ -> d`, etc.), lowercases, and trims whitespace.
   static String fold(String input) {
     if (input.isEmpty) return '';
-    final lower = input.toLowerCase().replaceAll(_combiningMarks, '');
+    final lower = input
+        .replaceAll('\u00A0', ' ')
+        .toLowerCase()
+        .replaceAll(_combiningMarks, '');
     final sb = StringBuffer();
     for (var i = 0; i < lower.length; i++) {
       final ch = lower[i];
       sb.write(_diacriticMap[ch] ?? ch);
     }
     return sb.toString().replaceAll(_whitespace, ' ').trim();
+  }
+
+  /// Splits a query/label into folded non-empty tokens.
+  static List<String> tokenize(String input) {
+    final folded = fold(input);
+    if (folded.isEmpty) return const <String>[];
+    return folded.split(' ').where((t) => t.isNotEmpty).toList(growable: false);
+  }
+
+  /// Checks whether [foldedHaystack] contains [foldedPhrase] using token boundaries
+  /// for short abbreviations (`<= 4` chars) to avoid accidental substring matches.
+  static bool containsPhrase(String foldedHaystack, String foldedPhrase) {
+    if (foldedHaystack.isEmpty || foldedPhrase.isEmpty) return false;
+    if (foldedPhrase.length <= 4 && !foldedPhrase.contains(' ')) {
+      final escaped = RegExp.escape(foldedPhrase);
+      return RegExp('(?:^|\\s)$escaped(?:\\s|\$)').hasMatch(foldedHaystack);
+    }
+    return foldedHaystack.contains(foldedPhrase);
   }
 
   /// Returns `true` when every whitespace-separated token in [rawQuery] matches across [fields]
@@ -118,11 +143,7 @@ abstract final class VietnameseSearchMatcher {
 
     for (final token in queryTokens) {
       if (haystack.contains(token)) continue;
-      // Numeric amount convenience: "85.000" or "85000" or "85k"
-      var normalizedDigits = token.replaceAll(_nonDigits, '');
-      if (token.endsWith('k') && normalizedDigits.isNotEmpty) {
-        normalizedDigits = '${normalizedDigits}000';
-      }
+      final normalizedDigits = _expandNumericTokenDigits(token);
       if (normalizedDigits.length >= 2 &&
           digitsHaystack.contains(normalizedDigits)) {
         continue;
@@ -130,5 +151,37 @@ abstract final class VietnameseSearchMatcher {
       return false;
     }
     return true;
+  }
+
+  static String _expandNumericTokenDigits(String token) {
+    final kMatch = _kShorthand.firstMatch(token);
+    if (kMatch != null) {
+      final whole = int.tryParse(kMatch.group(1) ?? '') ?? 0;
+      final dec = kMatch.group(2);
+      var total = whole * 1000;
+      if (dec != null && dec.isNotEmpty) {
+        total += int.parse(dec.padRight(3, '0').substring(0, 3));
+      }
+      if (total > 0) return total.toString();
+    }
+    final trMatch = _trShorthand.firstMatch(token);
+    if (trMatch != null) {
+      final whole = int.tryParse(trMatch.group(1) ?? '') ?? 0;
+      final dec = trMatch.group(2);
+      final tail = trMatch.group(3);
+      var total = whole * 1000000;
+      if (dec != null && dec.isNotEmpty) {
+        total += int.parse(dec.padRight(6, '0').substring(0, 6));
+      } else if (tail != null && tail.isNotEmpty) {
+        final scale = switch (tail.length) {
+          1 => 100000,
+          2 => 10000,
+          _ => 1000,
+        };
+        total += (int.tryParse(tail) ?? 0) * scale;
+      }
+      if (total > 0) return total.toString();
+    }
+    return token.replaceAll(_nonDigits, '');
   }
 }

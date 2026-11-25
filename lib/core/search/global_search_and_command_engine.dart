@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:equatable/equatable.dart';
 
+import '../utils/vietnamese_search_matcher.dart';
+
 enum SearchDomainKind {
   quickCommand('Lệnh nhanh'),
   appFeature('Tính năng'),
@@ -94,6 +96,48 @@ abstract final class GlobalSearchAndCommandEngine {
     'evn': 'tien dien',
   };
 
+  static const List<List<String>> _synonymGroups = <List<String>>[
+    <String>[
+      'thay nhot',
+      'bao duong',
+      'sua xe',
+      'xe co',
+      'xe may',
+      'thay dau',
+      'odo',
+    ],
+    <String>[
+      'tien nha',
+      'thue nha',
+      'nha cua',
+      'phong tro',
+      'hoa don',
+      'giao dich',
+    ],
+    <String>[
+      'mat khau',
+      'bao mat',
+      'ma pin',
+      'pin',
+      'tai khoan',
+      'wifi',
+      'ghi chu',
+    ],
+    <String>[
+      'chia bill',
+      'chia tien',
+      'chia hoa don',
+      'campuchia',
+      'cua doi',
+      'nhom',
+    ],
+    <String>['tien dien', 'evn', 'dien nuoc', 'hoa don', 'tien nuoc'],
+    <String>['cf', 'ca phe', 'cafe'],
+    <String>['ck', 'chuyen khoan', 'chuyen vi'],
+    <String>['bhyt', 'bao hiem y te', 'suc khoe', 'giay to'],
+    <String>['cccd', 'can cuoc', 'can cuoc cong dan', 'giay to'],
+  ];
+
   static List<SearchableEntityRecord> builtInQuickCommands(
     String activeUserId,
   ) {
@@ -170,7 +214,9 @@ abstract final class GlobalSearchAndCommandEngine {
     final accessible = fullCorpus.where((rec) {
       if (rec.ownerUserId == activeUserId) return true;
       if (rec.isPrivateToOwner) return false;
-      return rec.familyId != null && allowedFamilyIds.contains(rec.familyId);
+      return rec.familyId != null &&
+          rec.familyId!.isNotEmpty &&
+          allowedFamilyIds.contains(rec.familyId);
     }).toList();
 
     final cleanQuery = rawQuery.trim();
@@ -182,6 +228,7 @@ abstract final class GlobalSearchAndCommandEngine {
           .toList();
     }
 
+    final rawFoldedQuery = _foldSimple(cleanQuery);
     final foldedQuery = _expandAndFold(cleanQuery);
     final queryTokens = foldedQuery
         .split(' ')
@@ -189,22 +236,35 @@ abstract final class GlobalSearchAndCommandEngine {
         .toList();
     if (queryTokens.isEmpty) return const <SearchScoredHit>[];
 
+    final synonymPhrases = _collectExpandedSynonyms(
+      rawFoldedQuery: rawFoldedQuery,
+      expandedFoldedQuery: foldedQuery,
+    );
+
     final hits = <SearchScoredHit>[];
 
     for (final rec in accessible) {
+      final rawTitle = _foldSimple(rec.title);
+      final rawSub = _foldSimple(rec.subtitle);
+      final rawKw = rec.keywords.map(_foldSimple).join(' ');
+      final rawCombined = '$rawTitle $rawSub $rawKw';
+
       final foldedTitle = _expandAndFold(rec.title);
       final foldedSub = _expandAndFold(rec.subtitle);
       final foldedKw = rec.keywords.map(_expandAndFold).join(' ');
       final combined = '$foldedTitle $foldedSub $foldedKw';
 
       var score = 0.0;
-      if (foldedTitle == foldedQuery) {
+      if (foldedTitle == foldedQuery || rawTitle == rawFoldedQuery) {
         score += 120.0;
-      } else if (foldedTitle.startsWith(foldedQuery)) {
+      } else if (foldedTitle.startsWith(foldedQuery) ||
+          rawTitle.startsWith(rawFoldedQuery)) {
         score += 95.0;
-      } else if (foldedTitle.contains(foldedQuery)) {
+      } else if (foldedTitle.contains(foldedQuery) ||
+          rawTitle.contains(rawFoldedQuery)) {
         score += 75.0;
-      } else if (combined.contains(foldedQuery)) {
+      } else if (combined.contains(foldedQuery) ||
+          rawCombined.contains(rawFoldedQuery)) {
         score += 55.0;
       }
 
@@ -221,6 +281,27 @@ abstract final class GlobalSearchAndCommandEngine {
           score += 9.0;
         }
       }
+
+      // Bidirectional synonym matching across related Vietnamese terms
+      var synonymHits = 0;
+      var synonymScore = 0.0;
+      for (final syn in synonymPhrases) {
+        final inTitle =
+            VietnameseSearchMatcher.containsPhrase(rawTitle, syn) ||
+            VietnameseSearchMatcher.containsPhrase(foldedTitle, syn);
+        final inAny =
+            inTitle ||
+            VietnameseSearchMatcher.containsPhrase(rawCombined, syn) ||
+            VietnameseSearchMatcher.containsPhrase(combined, syn);
+        if (!inAny) continue;
+        synonymHits++;
+        if (synonymHits == 1) {
+          synonymScore += inTitle ? 52.0 : 42.0;
+        } else if (synonymHits <= 4) {
+          synonymScore += inTitle ? 6.0 : 4.0;
+        }
+      }
+      score += synonymScore;
 
       if (matchedTokens == queryTokens.length) {
         score += 20.0;
@@ -239,6 +320,68 @@ abstract final class GlobalSearchAndCommandEngine {
 
     hits.sort((a, b) => b.score.compareTo(a.score));
     return hits.take(limit).toList();
+  }
+
+  /// Groups scored search results by [SearchDomainKind] while preserving highest-scoring
+  /// domain order (and highest-scoring hit order inside each domain).
+  static Map<SearchDomainKind, List<SearchScoredHit>> groupByDomain(
+    List<SearchScoredHit> hits,
+  ) {
+    if (hits.isEmpty) return const <SearchDomainKind, List<SearchScoredHit>>{};
+    final buckets = <SearchDomainKind, List<SearchScoredHit>>{};
+    final maxScoreByDomain = <SearchDomainKind, double>{};
+
+    for (final hit in hits) {
+      final domain = hit.record.domain;
+      buckets.putIfAbsent(domain, () => <SearchScoredHit>[]).add(hit);
+      final prevMax = maxScoreByDomain[domain];
+      if (prevMax == null || hit.score > prevMax) {
+        maxScoreByDomain[domain] = hit.score;
+      }
+    }
+
+    final sortedDomains = buckets.keys.toList()
+      ..sort((a, b) {
+        final cmp = (maxScoreByDomain[b] ?? 0).compareTo(
+          maxScoreByDomain[a] ?? 0,
+        );
+        return cmp != 0 ? cmp : a.index.compareTo(b.index);
+      });
+
+    final grouped = <SearchDomainKind, List<SearchScoredHit>>{};
+    for (final domain in sortedDomains) {
+      final list = buckets[domain]!..sort((a, b) => b.score.compareTo(a.score));
+      grouped[domain] = List<SearchScoredHit>.unmodifiable(list);
+    }
+    return Map<SearchDomainKind, List<SearchScoredHit>>.unmodifiable(grouped);
+  }
+
+  static Set<String> _collectExpandedSynonyms({
+    required String rawFoldedQuery,
+    required String expandedFoldedQuery,
+  }) {
+    final synonyms = <String>{};
+    for (final group in _synonymGroups) {
+      final triggered = group.any(
+        (term) =>
+            VietnameseSearchMatcher.containsPhrase(rawFoldedQuery, term) ||
+            VietnameseSearchMatcher.containsPhrase(expandedFoldedQuery, term),
+      );
+      if (!triggered) continue;
+      for (final term in group) {
+        if (term != rawFoldedQuery && term != expandedFoldedQuery) {
+          synonyms.add(term);
+        }
+      }
+    }
+    return synonyms;
+  }
+
+  static String _foldSimple(String raw) {
+    return stripVnAccents(raw)
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   static String stripVnAccents(String input) {
