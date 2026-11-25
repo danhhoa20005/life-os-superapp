@@ -7,6 +7,9 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/behavior/behavior_domain.dart';
+import '../../../../core/behavior/behavior_engine.dart';
+import '../../../../core/behavior/local_behavior_store.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -203,6 +206,13 @@ class _TodayPageState extends State<TodayPage> {
 
   bool _hideBalances = false;
   bool _isSyncingHideBalances = false;
+  bool _firstActionTipDismissed = false;
+  bool _didInitialDependencySync = false;
+  String? _hydratedUserId;
+  PersonalizationSettings _personalizationSettings =
+      const PersonalizationSettings();
+  List<HabitShortcut> _habits = const <HabitShortcut>[];
+  final Set<String> _sessionDismissedRecIds = <String>{};
   final Set<String> _approvingProvisionalIds = <String>{};
 
   @override
@@ -216,6 +226,18 @@ class _TodayPageState extends State<TodayPage> {
     super.didChangeDependencies();
     final isTickerEnabled = TickerMode.valuesOf(context).enabled;
     final isCurrentRoute = ModalRoute.isCurrentOf(context) ?? true;
+    String? currentUid;
+    try {
+      currentUid = context.read<AuthBloc>().state.user?.id;
+    } catch (_) {}
+    if (!_didInitialDependencySync) {
+      _didInitialDependencySync = true;
+      _hydratedUserId = currentUid;
+    } else if (_hydratedUserId != currentUid) {
+      _hydratedUserId = currentUid;
+      _sessionDismissedRecIds.clear();
+      _hydrateUserPrefs();
+    }
     if (isTickerEnabled && isCurrentRoute) {
       _syncHideBalancesFromPrefs();
     }
@@ -239,9 +261,20 @@ class _TodayPageState extends State<TodayPage> {
 
   Future<void> _hydrateUserPrefs() async {
     await UserBehaviorPrefs.loadLastWalletId();
-    await UserBehaviorPrefs.loadHabitShortcuts();
+    final loadedHabits = await UserBehaviorPrefs.loadHabitShortcuts();
     final savedPinned = await UserBehaviorPrefs.loadPinnedShortcuts();
     final savedHide = await UserBehaviorPrefs.loadHideBalances();
+    final tipDismissed = await UserBehaviorPrefs.loadFirstActionTipDismissed();
+    final prefEnabled = await UserBehaviorPrefs.loadPersonalizationEnabled();
+    final prefInterests = await UserBehaviorPrefs.loadUserInterests();
+    var settings = await LocalBehaviorStore.instance.loadSettings();
+    final parsedInterests = UserInterestGroup.fromIds(prefInterests);
+    settings = settings.copyWith(
+      enabled: prefEnabled,
+      selectedInterests: parsedInterests.isNotEmpty
+          ? Set<UserInterestGroup>.unmodifiable(parsedInterests)
+          : settings.selectedInterests,
+    );
     if (!mounted) return;
     setState(() {
       if (savedPinned != null) {
@@ -250,6 +283,9 @@ class _TodayPageState extends State<TodayPage> {
           ..addAll(savedPinned);
       }
       _hideBalances = savedHide;
+      _firstActionTipDismissed = tipDismissed;
+      _personalizationSettings = settings;
+      _habits = loadedHabits;
     });
   }
 
@@ -333,6 +369,7 @@ class _TodayPageState extends State<TodayPage> {
     final c = TammySemanticColors.of(context);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       useSafeArea: true,
       builder: (sheetCtx) {
         return StatefulBuilder(
@@ -380,8 +417,23 @@ class _TodayPageState extends State<TodayPage> {
                           } else {
                             _pinnedIds.remove(item.id);
                           }
+                          _personalizationSettings = _personalizationSettings
+                              .copyWith(
+                                pinnedFeatureIds: List<String>.unmodifiable(
+                                  _pinnedIds,
+                                ),
+                              );
                         });
                         UserBehaviorPrefs.savePinnedShortcuts(_pinnedIds);
+                        BehaviorEventCollector().recordType(
+                          val
+                              ? BehaviorEventType.shortcutPinned
+                              : BehaviorEventType.shortcutUnpinned,
+                          metadata: <String, Object?>{
+                            'targetId': item.id,
+                            'featureKey': item.id,
+                          },
+                        );
                         setModal(() {});
                       },
                     );
@@ -390,6 +442,429 @@ class _TodayPageState extends State<TodayPage> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  List<ScoredRecommendation> _computeRecommendations({
+    required BehaviorContextSignal signal,
+    required List<TransactionEntity> provisionalTxs,
+    required List<TaskEntity> openTasks,
+    required List<TaskEntity> overdueTasks,
+    required int upcomingEventCount,
+    required List<VehicleEntity> dueVehicles,
+    required List<RecurringBillEntity> dueBills,
+    required bool hasConfiguredBudget,
+    required int spentPct,
+  }) {
+    if (!_personalizationSettings.enabled) {
+      return const <ScoredRecommendation>[];
+    }
+
+    final effectiveSettings = _personalizationSettings.copyWith(
+      pinnedFeatureIds: List<String>.unmodifiable(_pinnedIds),
+    );
+
+    final candidates = <RecommendationCandidate>[
+      if (provisionalTxs.isNotEmpty)
+        RecommendationCandidate(
+          id: 'ctx_provisional_tx',
+          featureKey: 'auto_tx_review',
+          titleVi: 'Kiểm tra ${provisionalTxs.length} giao dịch chờ duyệt',
+          subtitleVi: 'Xác nhận trước khi cộng vào sổ thu chi.',
+          reasonVi: 'Có giao dịch mới từ thông báo ngân hàng',
+          targetRoute: '/auto-tx-review',
+          actionLabelVi: 'Xem & duyệt',
+          interestGroup: UserInterestGroup.spending,
+          urgencyScore: 0.95,
+          habitConsistencyScore: 0.5,
+          isFinancialMutation: true,
+          isStarterSuggestion: false,
+        ),
+      if (openTasks.isNotEmpty)
+        RecommendationCandidate(
+          id: 'ctx_open_tasks',
+          featureKey: 'tasks_board',
+          titleVi: overdueTasks.isNotEmpty
+              ? 'Xử lý ${overdueTasks.length} việc quá hạn'
+              : 'Rà soát ${openTasks.length} việc cần làm',
+          subtitleVi: 'Mở bảng việc để sắp xếp thứ tự ưu tiên.',
+          reasonVi: overdueTasks.isNotEmpty
+              ? 'Có công việc đã quá hạn cần chú ý'
+              : 'Phù hợp nhịp lập kế hoạch trong ngày',
+          targetRoute: '/tasks-board',
+          actionLabelVi: 'Mở bảng việc',
+          interestGroup: UserInterestGroup.schedule,
+          urgencyScore: overdueTasks.isNotEmpty ? 0.90 : 0.65,
+          isFinancialMutation: false,
+          isStarterSuggestion: true,
+        ),
+      if (upcomingEventCount > 0)
+        RecommendationCandidate(
+          id: 'ctx_upcoming_schedule',
+          featureKey: 'planning_schedule',
+          titleVi: 'Xem $upcomingEventCount lịch hẹn sắp tới',
+          subtitleVi: 'Kiểm tra khung giờ rảnh và nhắc nhở quan trọng.',
+          reasonVi: 'Có lịch hẹn sắp diễn ra',
+          targetRoute: '/planning',
+          actionLabelVi: 'Xem lịch trình',
+          interestGroup: UserInterestGroup.schedule,
+          urgencyScore: 0.65,
+          isFinancialMutation: false,
+          isStarterSuggestion: true,
+        ),
+      if (hasConfiguredBudget &&
+          (signal.budgetUsageRatio >= 0.75 || signal.isEndOfMonth))
+        RecommendationCandidate(
+          id: 'ctx_budget_review',
+          featureKey: 'finance_report',
+          titleVi: 'Theo dõi ngân sách tháng ($spentPct%)',
+          subtitleVi: 'Xem chi tiết các khoản chi để cân đối cuối tháng.',
+          reasonVi: signal.budgetUsageRatio >= 0.85
+              ? 'Mức chi đã chạm $spentPct% hạn mức tháng'
+              : 'Cuối tháng là lúc rà soát ngân sách',
+          targetRoute: '/finance-report',
+          actionLabelVi: 'Xem báo cáo',
+          interestGroup: UserInterestGroup.spending,
+          urgencyScore: signal.budgetUsageRatio >= 0.85 ? 0.88 : 0.60,
+          isFinancialMutation: false,
+          isStarterSuggestion: false,
+        ),
+      if (dueBills.isNotEmpty || signal.isEndOfMonth)
+        RecommendationCandidate(
+          id: 'ctx_utilities_bills',
+          featureKey: 'home_living_evn',
+          titleVi: dueBills.isNotEmpty
+              ? 'Kiểm tra ${dueBills.length} hóa đơn sắp đến hạn'
+              : 'Kiểm tra chỉ số điện nước EVN',
+          subtitleVi: 'Theo dõi bậc thang điện và hóa đơn định kỳ.',
+          reasonVi: dueBills.isNotEmpty
+              ? 'Có hóa đơn đến hạn trong 7 ngày tới'
+              : 'Cuối tháng phù hợp chốt số điện nước',
+          targetRoute: '/home-living',
+          actionLabelVi: 'Mở tiện ích nhà',
+          interestGroup: UserInterestGroup.home,
+          urgencyScore: dueBills.isNotEmpty ? 0.85 : 0.50,
+          isFinancialMutation: false,
+          isStarterSuggestion: true,
+        ),
+      if (dueVehicles.isNotEmpty || signal.isWeekend)
+        RecommendationCandidate(
+          id: 'ctx_vehicle_care',
+          featureKey: 'vehicles_assets',
+          titleVi: dueVehicles.isNotEmpty
+              ? 'Bảo dưỡng xe ${dueVehicles.first.name}'
+              : 'Kiểm tra sổ xe & lịch bảo dưỡng',
+          subtitleVi: 'Cập nhật ODO và hạn bảo hiểm xe an toàn.',
+          reasonVi: dueVehicles.isNotEmpty
+              ? 'Xe sắp đến mốc bảo dưỡng định kỳ'
+              : 'Cuối tuần thuận tiện kiểm tra xe cộ',
+          targetRoute: '/assets',
+          actionLabelVi: 'Mở xe cộ',
+          interestGroup: UserInterestGroup.vehicle,
+          urgencyScore: dueVehicles.isNotEmpty ? 0.85 : 0.45,
+          isFinancialMutation: false,
+          isStarterSuggestion: true,
+        ),
+      if (signal.hasActiveFamily || signal.isWeekend)
+        RecommendationCandidate(
+          id: 'ctx_family_space',
+          featureKey: 'family_space',
+          titleVi: signal.hasActiveFamily
+              ? 'Xem quỹ & chia tiền gia đình'
+              : 'Tìm hiểu không gian gia đình',
+          subtitleVi: 'Quản lý quỹ chung minh bạch, tách bạch ví riêng.',
+          reasonVi: signal.isWeekend
+              ? 'Cuối tuần phù hợp tổng kết sinh hoạt gia đình'
+              : 'Nhóm gia đình đang hoạt động',
+          targetRoute: '/family',
+          actionLabelVi: 'Mở gia đình',
+          interestGroup: UserInterestGroup.family,
+          urgencyScore: 0.48,
+          isFinancialMutation: false,
+          isStarterSuggestion: true,
+        ),
+    ];
+
+    if (!effectiveSettings.isColdStart) {
+      for (final habit in _habits.take(4)) {
+        candidates.add(
+          RecommendationCandidate.fromHabitShortcut(
+            habit,
+            isPinnedByUser: _pinnedIds.contains(habit.id),
+            isFinancialMutation: true,
+          ),
+        );
+      }
+    }
+
+    candidates.addAll(
+      RecommendationEngine.coldStartStarterSuggestions(
+        settings: effectiveSettings,
+        signal: signal,
+      ),
+    );
+
+    final seenIds = <String>{};
+    final deduped = <RecommendationCandidate>[];
+    for (final item in candidates) {
+      if (_sessionDismissedRecIds.contains(item.id)) continue;
+      final lastDismissMs =
+          effectiveSettings.lastDismissedEpochMs[item.id] ?? 0;
+      if (lastDismissMs > 0 &&
+          signal.now.millisecondsSinceEpoch - lastDismissMs < 86400000) {
+        continue;
+      }
+      if (seenIds.add(item.id)) {
+        deduped.add(item);
+      }
+    }
+
+    return RecommendationEngine.recommend(
+      candidates: deduped,
+      settings: effectiveSettings,
+      signal: signal,
+      limit: 2,
+    );
+  }
+
+  void _handleRecommendationTap(
+    BuildContext context,
+    ScoredRecommendation rec,
+  ) {
+    FeedbackEngine()
+        .recordRecommendationAccepted(
+          rec.candidate.id,
+          featureKey: rec.candidate.featureKey,
+        )
+        .then((updated) {
+          if (mounted) {
+            setState(() => _personalizationSettings = updated);
+          }
+        });
+
+    final prefill = rec.candidate.prefillText;
+    if (prefill != null && prefill.isNotEmpty) {
+      showVoiceSmartCaptureSheet(
+        context,
+        autoStartListening: false,
+        initialTranscript: prefill,
+      );
+      return;
+    }
+
+    final route = rec.candidate.targetRoute;
+    if (route == '/today' ||
+        route == '/finance' ||
+        route == '/planning' ||
+        route == '/family') {
+      context.go(route);
+    } else {
+      context.push(route);
+    }
+  }
+
+  void _handleRecommendationDismiss(ScoredRecommendation rec) {
+    setState(() {
+      _sessionDismissedRecIds.add(rec.candidate.id);
+    });
+    FeedbackEngine()
+        .recordRecommendationDismissed(
+          rec.candidate.id,
+          featureKey: rec.candidate.featureKey,
+        )
+        .then((updated) {
+          if (mounted) {
+            setState(() => _personalizationSettings = updated);
+          }
+        });
+  }
+
+  void _showPersonalizationSettingsSheet(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            final enabled = _personalizationSettings.enabled;
+            final selectedGroups = _personalizationSettings.selectedInterests;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tùy chỉnh gợi ý thông minh',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Mọi phân tích đều chạy cục bộ trên thiết bị, không gửi dữ liệu cá nhân ra ngoài.',
+                    softWrap: true,
+                    style: TextStyle(
+                      fontSize: 12.2,
+                      height: 1.35,
+                      color: c.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    key: const Key('personalization_enable_switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Bật gợi ý thông minh',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Hiển thị tối đa 2 gợi ý phù hợp nhịp sinh hoạt.',
+                      softWrap: true,
+                      style: TextStyle(fontSize: 12, color: c.textSecondary),
+                    ),
+                    value: enabled,
+                    onChanged: (val) async {
+                      final next = _personalizationSettings.copyWith(
+                        enabled: val,
+                      );
+                      setState(() => _personalizationSettings = next);
+                      setModal(() {});
+                      await UserBehaviorPrefs.savePersonalizationEnabled(val);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Nhóm quan tâm',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: UserInterestGroup.values.map((group) {
+                      final isSelected = selectedGroups.contains(group);
+                      return FilterChip(
+                        key: Key('personalization_interest_${group.id}'),
+                        selected: isSelected,
+                        label: Text(group.shortLabelVi),
+                        onSelected: (val) async {
+                          final nextGroups = Set<UserInterestGroup>.from(
+                            selectedGroups,
+                          );
+                          if (group == UserInterestGroup.all) {
+                            nextGroups
+                              ..clear()
+                              ..add(UserInterestGroup.all);
+                          } else {
+                            nextGroups.remove(UserInterestGroup.all);
+                            if (val) {
+                              nextGroups.add(group);
+                            } else {
+                              nextGroups.remove(group);
+                            }
+                            if (nextGroups.isEmpty) {
+                              nextGroups.add(UserInterestGroup.all);
+                            }
+                          }
+                          final immutableGroups =
+                              Set<UserInterestGroup>.unmodifiable(nextGroups);
+                          setState(() {
+                            _personalizationSettings = _personalizationSettings
+                                .copyWith(selectedInterests: immutableGroups);
+                          });
+                          setModal(() {});
+                          await UserBehaviorPrefs.saveUserInterests(
+                            immutableGroups.map((e) => e.id).toSet(),
+                          );
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('personalization_reset_btn'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        foregroundColor: c.error,
+                        side: BorderSide(
+                          color: c.error.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      icon: const Icon(Icons.restart_alt_rounded, size: 19),
+                      label: const Text(
+                        'Đặt lại dữ liệu hành vi',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: ctx,
+                          builder: (dlgCtx) => AlertDialog(
+                            title: const Text('Đặt lại dữ liệu hành vi?'),
+                            content: const Text(
+                              'Xóa thói quen đã học, bộ đếm ẩn gợi ý và nhóm quan tâm của tài khoản hiện tại. Ví, số dư và mã PIN vẫn được giữ nguyên.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(dlgCtx).pop(false),
+                                child: const Text('Hủy'),
+                              ),
+                              FilledButton(
+                                key: const Key(
+                                  'personalization_reset_confirm_btn',
+                                ),
+                                onPressed: () => Navigator.of(dlgCtx).pop(true),
+                                child: const Text('Đặt lại'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed != true) return;
+                        await UserBehaviorPrefs.resetAllBehaviorDataForActiveUser();
+                        if (!mounted) return;
+                        setState(() {
+                          _personalizationSettings =
+                              const PersonalizationSettings();
+                          _habits = const <HabitShortcut>[];
+                          _sessionDismissedRecIds.clear();
+                          _firstActionTipDismissed = false;
+                        });
+                        if (ctx.mounted) {
+                          Navigator.of(ctx).pop();
+                        }
+                        if (mounted) {
+                          LifeOsTopToast.show(
+                            this.context,
+                            'Đã đặt lại dữ liệu hành vi cho tài khoản này.',
+                            kind: LifeOsToastKind.success,
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -451,22 +926,39 @@ class _TodayPageState extends State<TodayPage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Xin chào, $firstName',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.4,
-                                  height: 1.18,
-                                  color: c.textPrimary,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Xin chào, $firstName',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.4,
+                                      height: 1.18,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 2),
+                              Text(
+                                UserBehaviorPrefs.contextualTimeSubtitle(now),
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 12.2,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -897,13 +1389,45 @@ class _TodayPageState extends State<TodayPage> {
                         ),
                     ];
 
+                    final hasExternalSync = gcalConnected || bankConnected;
                     final syncStatusLabel = gcalConnected && bankConnected
                         ? 'Đã nối Lịch & Ngân hàng'
                         : gcalConnected
                         ? 'Đã nối Google Calendar'
                         : bankConnected
                         ? 'Đã nối Ngân hàng'
-                        : 'Đang đồng bộ';
+                        : 'Lưu cục bộ an toàn';
+
+                    final budgetUsageRatio = hasConfiguredBudget
+                        ? (d.monthlyExpenseMinor / totalBudgetLimit).clamp(
+                            0.0,
+                            2.0,
+                          )
+                        : 0.0;
+                    final contextSignal = BehaviorContextSignal(
+                      now: now,
+                      pendingTaskCount: openTasks.length,
+                      upcomingEventCount: upcomingEvents.length,
+                      upcomingBillCount: dueBills.length,
+                      budgetUsageRatio: budgetUsageRatio,
+                      hasProvisionalBankTx: provisionalTxs.isNotEmpty,
+                      hasActiveFamily: activeFamily != null,
+                    );
+                    final contextualRecs = _computeRecommendations(
+                      signal: contextSignal,
+                      provisionalTxs: provisionalTxs,
+                      openTasks: openTasks,
+                      overdueTasks: overdueTasks,
+                      upcomingEventCount: upcomingEvents.length,
+                      dueVehicles: dueVehicles,
+                      dueBills: dueBills,
+                      hasConfiguredBudget: hasConfiguredBudget,
+                      spentPct: spentPct,
+                    );
+                    final showFirstActionTip =
+                        allTransactions.isEmpty &&
+                        calEvents.isEmpty &&
+                        !_firstActionTipDismissed;
 
                     final pinnedSpecs = _allShortcuts
                         .where((s) => _pinnedIds.contains(s.id))
@@ -1280,17 +1804,23 @@ class _TodayPageState extends State<TodayPage> {
                                                 ),
                                               );
                                             },
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(
-                                                6.5,
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                minWidth: 44,
+                                                minHeight: 44,
                                               ),
-                                              child: Icon(
-                                                _hideBalances
-                                                    ? Icons
-                                                          .visibility_off_outlined
-                                                    : Icons.visibility_outlined,
-                                                size: 16,
-                                                color: Colors.white,
+                                              child: Center(
+                                                widthFactor: 1,
+                                                heightFactor: 1,
+                                                child: Icon(
+                                                  _hideBalances
+                                                      ? Icons
+                                                            .visibility_off_outlined
+                                                      : Icons
+                                                            .visibility_outlined,
+                                                  size: 18,
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1339,44 +1869,121 @@ class _TodayPageState extends State<TodayPage> {
                                                 ),
                                               ),
                                               const SizedBox(height: 5),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 9,
-                                                      vertical: 3.5,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.18),
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        AppSpacing.radiusPill,
-                                                      ),
-                                                  border: Border.all(
-                                                    color: Colors.white
-                                                        .withValues(
-                                                          alpha: 0.26,
+                                              Wrap(
+                                                spacing: 6,
+                                                runSpacing: 6,
+                                                crossAxisAlignment:
+                                                    WrapCrossAlignment.center,
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 9,
+                                                          vertical: 3.5,
                                                         ),
-                                                    width: 0.8,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.18,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            AppSpacing
+                                                                .radiusPill,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                              alpha: 0.26,
+                                                            ),
+                                                        width: 0.8,
+                                                      ),
+                                                    ),
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      alignment:
+                                                          Alignment.centerLeft,
+                                                      child: Text(
+                                                        '↑ +${_fmtMoney(d.monthlyIncomeMinor)} (thu tháng)',
+                                                        style: const TextStyle(
+                                                          fontSize: 11.2,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Color(
+                                                            0xFFB2F2BB,
+                                                          ),
+                                                          fontFeatures: [
+                                                            FontFeature.tabularFigures(),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    '↑ +${_fmtMoney(d.monthlyIncomeMinor)} (thu tháng)',
-                                                    style: const TextStyle(
-                                                      fontSize: 11.2,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: Color(0xFFB2F2BB),
-                                                      fontFeatures: [
-                                                        FontFeature.tabularFigures(),
+                                                  Container(
+                                                    key: const Key(
+                                                      'today_hero_scope_pill',
+                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 9,
+                                                          vertical: 3.5,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.14,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            AppSpacing
+                                                                .radiusPill,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                              alpha: 0.24,
+                                                            ),
+                                                        width: 0.8,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          activeFamily != null
+                                                              ? Icons
+                                                                    .groups_2_outlined
+                                                              : Icons
+                                                                    .lock_outline_rounded,
+                                                          size: 12,
+                                                          color: Colors.white,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        Flexible(
+                                                          child: Text(
+                                                            activeFamily != null
+                                                                ? 'Ví riêng + Nhóm gia đình'
+                                                                : 'Ví cá nhân · Riêng tư',
+                                                            softWrap: true,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize:
+                                                                      11.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                  color: Colors
+                                                                      .white,
+                                                                ),
+                                                          ),
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
-                                                ),
+                                                ],
                                               ),
                                               if (avatarNames.isNotEmpty) ...[
                                                 const SizedBox(height: 8),
@@ -1688,18 +2295,28 @@ class _TodayPageState extends State<TodayPage> {
                                                   mainAxisSize:
                                                       MainAxisSize.min,
                                                   children: [
-                                                    Container(
-                                                      width: 6.5,
-                                                      height: 6.5,
-                                                      decoration:
-                                                          const BoxDecoration(
-                                                            color: Color(
-                                                              0xFF86EFAC,
+                                                    if (hasExternalSync)
+                                                      Container(
+                                                        width: 6.5,
+                                                        height: 6.5,
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                              color: Color(
+                                                                0xFF86EFAC,
+                                                              ),
+                                                              shape: BoxShape
+                                                                  .circle,
                                                             ),
-                                                            shape:
-                                                                BoxShape.circle,
-                                                          ),
-                                                    ),
+                                                      )
+                                                    else
+                                                      Icon(
+                                                        Icons.shield_outlined,
+                                                        size: 13,
+                                                        color: Colors.white
+                                                            .withValues(
+                                                              alpha: 0.78,
+                                                            ),
+                                                      ),
                                                     const SizedBox(width: 5),
                                                     Flexible(
                                                       child: Text(
@@ -2134,6 +2751,200 @@ class _TodayPageState extends State<TodayPage> {
                                 ],
                               ),
                             ),
+                            if (showFirstActionTip) ...[
+                              const SizedBox(height: 10),
+                              LifeOsMintHeroCard(
+                                key: const Key('today_ftue_first_action_tip'),
+                                padding: const EdgeInsets.all(13),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const LifeOsIconSquircle(
+                                          icon: Icons.bolt_rounded,
+                                          tone: LifeOsAccentTone.emerald,
+                                          size: 30,
+                                          iconSize: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Bắt đầu trong 10 giây',
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: c.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Thử ghi nhanh một khoản chi hoặc lịch hẹn đầu tiên — mọi thứ sẽ được sắp xếp gọn gàng cho bạn.',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        height: 1.32,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        FilledButton.tonalIcon(
+                                          key: const Key(
+                                            'today_ftue_quick_action_btn',
+                                          ),
+                                          style: FilledButton.styleFrom(
+                                            minimumSize: const Size(0, 44),
+                                          ),
+                                          onPressed: () {
+                                            BehaviorEventCollector().recordType(
+                                              BehaviorEventType.quickActionUsed,
+                                              metadata: const <String, Object?>{
+                                                'targetId':
+                                                    'ftue_first_expense',
+                                                'screenKey': 'today',
+                                              },
+                                            );
+                                            showLifeOsQuickCreateHub(context);
+                                          },
+                                          icon: const Icon(
+                                            Icons.add_circle_outline_rounded,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'Ghi khoản chi đầu tiên',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          key: const Key(
+                                            'today_ftue_dismiss_tip_btn',
+                                          ),
+                                          style: TextButton.styleFrom(
+                                            minimumSize: const Size(0, 44),
+                                          ),
+                                          onPressed: () async {
+                                            setState(
+                                              () => _firstActionTipDismissed =
+                                                  true,
+                                            );
+                                            await UserBehaviorPrefs.saveFirstActionTipDismissed(
+                                              true,
+                                            );
+                                          },
+                                          child: const Text('Ẩn gợi ý'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            LifeOsSoftCard(
+                              key: const Key(
+                                'today_contextual_recommendation_card',
+                              ),
+                              padding: const EdgeInsets.all(13),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.auto_awesome_outlined,
+                                        tone: LifeOsAccentTone.emerald,
+                                        size: 28,
+                                        iconSize: 15,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Gợi ý phù hợp',
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 13.8,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        key: const Key(
+                                          'today_personalization_settings_btn',
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          minimumSize: const Size(0, 44),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                        ),
+                                        onPressed: () =>
+                                            _showPersonalizationSettingsSheet(
+                                              context,
+                                            ),
+                                        child: const Text('Tùy chỉnh'),
+                                      ),
+                                    ],
+                                  ),
+                                  if (!_personalizationSettings.enabled) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Gợi ý thông minh đang tắt. Chạm "Tùy chỉnh" để bật lại bất cứ lúc nào.',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        height: 1.32,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ] else if (contextualRecs.isEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Mọi gợi ý hiện tại đã gọn gàng. Bạn có thể thay đổi nhóm quan tâm trong "Tùy chỉnh".',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        height: 1.32,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    const SizedBox(height: 8),
+                                    for (
+                                      var i = 0;
+                                      i < contextualRecs.length;
+                                      i++
+                                    ) ...[
+                                      if (i > 0) const SizedBox(height: 8),
+                                      _AdaptiveRecommendationTile(
+                                        recommendation: contextualRecs[i],
+                                        onActionTap: () =>
+                                            _handleRecommendationTap(
+                                              context,
+                                              contextualRecs[i],
+                                            ),
+                                        onDismissTap: () =>
+                                            _handleRecommendationDismiss(
+                                              contextualRecs[i],
+                                            ),
+                                      ),
+                                    ],
+                                  ],
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -2202,6 +3013,163 @@ class _TodayMintMetricColumn extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AdaptiveRecommendationTile extends StatelessWidget {
+  final ScoredRecommendation recommendation;
+  final VoidCallback onActionTap;
+  final VoidCallback onDismissTap;
+
+  const _AdaptiveRecommendationTile({
+    required this.recommendation,
+    required this.onActionTap,
+    required this.onDismissTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final candidate = recommendation.candidate;
+    final (
+      IconData icon,
+      LifeOsAccentTone tone,
+    ) = switch (candidate.interestGroup) {
+      UserInterestGroup.spending => (
+        Icons.payments_outlined,
+        LifeOsAccentTone.emerald,
+      ),
+      UserInterestGroup.schedule => (
+        Icons.event_note_rounded,
+        LifeOsAccentTone.blue,
+      ),
+      UserInterestGroup.family => (
+        Icons.groups_2_outlined,
+        LifeOsAccentTone.purple,
+      ),
+      UserInterestGroup.home => (
+        Icons.electric_bolt_rounded,
+        LifeOsAccentTone.amber,
+      ),
+      UserInterestGroup.vehicle => (
+        Icons.two_wheeler_rounded,
+        LifeOsAccentTone.coral,
+      ),
+      UserInterestGroup.all => (
+        Icons.auto_awesome_outlined,
+        LifeOsAccentTone.emerald,
+      ),
+    };
+
+    return Container(
+      key: Key('today_rec_card_${candidate.id}'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: c.surfaceRaised,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: c.border.withValues(alpha: 0.72),
+          width: 0.85,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LifeOsIconSquircle(
+                icon: icon,
+                tone: tone,
+                size: 32,
+                iconSize: 16,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      candidate.titleVi,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 13.4,
+                        fontWeight: FontWeight.w800,
+                        height: 1.24,
+                        color: c.textPrimary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      candidate.reasonVi,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 11.4,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        color: c.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            candidate.subtitleVi,
+            softWrap: true,
+            style: TextStyle(
+              fontSize: 12.0,
+              height: 1.3,
+              color: c.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.tonal(
+                key: Key('today_rec_action_${candidate.id}'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                onPressed: onActionTap,
+                child: Text(
+                  candidate.actionLabelVi,
+                  style: const TextStyle(
+                    fontSize: 12.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: Key('today_rec_dismiss_${candidate.id}'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                onPressed: onDismissTap,
+                child: const Text(
+                  'Ẩn',
+                  style: TextStyle(fontSize: 12.2, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -1,90 +1,16 @@
 import 'dart:convert';
 
-import 'package:equatable/equatable.dart';
-
+import '../behavior/behavior_domain.dart';
+import '../behavior/behavior_engine.dart';
+import '../behavior/local_behavior_store.dart';
 import '../services/native_secure_vault_bridge.dart';
 import 'vnd_amount.dart';
 
-/// Represents a learned user habit ranked by Recency × Frequency × Circadian Time Affinity
-/// (inspired by MoMo, Grab, Revolut & Todoist quick-replay chips).
-class HabitShortcut extends Equatable {
-  final String id;
-  final String label;
-  final String commandText;
-  final String categoryName;
-  final int amountMinor;
-  final int frequency;
-  final int lastUsedEpochMs;
-  final int typicalHour;
-
-  const HabitShortcut({
-    required this.id,
-    required this.label,
-    required this.commandText,
-    this.categoryName = '',
-    this.amountMinor = 0,
-    this.frequency = 1,
-    required this.lastUsedEpochMs,
-    required this.typicalHour,
-  });
-
-  /// Computes behavioral relevance score at [now] combining frequency, 14-day recency decay,
-  /// and ±2h circadian time-of-day affinity.
-  double scoreAt(DateTime now) {
-    final freqScore = frequency * 2.2;
-    final ageHours =
-        ((now.millisecondsSinceEpoch - lastUsedEpochMs) / 3600000.0).clamp(
-          0.0,
-          720.0,
-        );
-    final recencyScore = (1.0 - (ageHours / 336.0)).clamp(0.0, 1.0) * 4.0;
-    final hourDiff = (now.hour - typicalHour).abs();
-    final wrappedHourDiff = hourDiff > 12 ? 24 - hourDiff : hourDiff;
-    final circadianBonus = wrappedHourDiff <= 2
-        ? 3.2
-        : (wrappedHourDiff <= 4 ? 1.2 : 0.0);
-    return freqScore + recencyScore + circadianBonus;
-  }
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'id': id,
-    'label': label,
-    'commandText': commandText,
-    'categoryName': categoryName,
-    'amountMinor': amountMinor,
-    'frequency': frequency,
-    'lastUsedEpochMs': lastUsedEpochMs,
-    'typicalHour': typicalHour,
-  };
-
-  factory HabitShortcut.fromJson(Map<String, dynamic> json) {
-    return HabitShortcut(
-      id: (json['id'] as String?) ?? '',
-      label: (json['label'] as String?) ?? '',
-      commandText: (json['commandText'] as String?) ?? '',
-      categoryName: (json['categoryName'] as String?) ?? '',
-      amountMinor: (json['amountMinor'] as num?)?.toInt() ?? 0,
-      frequency: (json['frequency'] as num?)?.toInt() ?? 1,
-      lastUsedEpochMs: (json['lastUsedEpochMs'] as num?)?.toInt() ?? 0,
-      typicalHour: (json['typicalHour'] as num?)?.toInt() ?? 12,
-    );
-  }
-
-  @override
-  List<Object?> get props => [
-    id,
-    label,
-    commandText,
-    categoryName,
-    amountMinor,
-    frequency,
-    lastUsedEpochMs,
-    typicalHour,
-  ];
-}
+export '../behavior/behavior_domain.dart' show HabitShortcut;
 
 /// Persists everyday user habits & preferences (last-used wallet, privacy balance mask,
-/// pinned home shortcuts, RFM habit memory) and provides Vietnamese shorthand & circadian helpers.
+/// pinned home shortcuts, RFM habit memory, personalization settings) and provides
+/// Vietnamese shorthand & circadian helpers.
 abstract final class UserBehaviorPrefs {
   static const String _keyLastWallet = 'ux_last_used_wallet_id';
   static const String _keyPinnedShortcuts = 'ux_home_pinned_shortcuts_v1';
@@ -95,6 +21,13 @@ abstract final class UserBehaviorPrefs {
       'ux_permissions_popup_dismissed_v1';
   static const String _keyPreferredVoiceEngineMode =
       'ux_preferred_voice_engine_mode_v2';
+  static const String _keyUserInterests = 'ux_user_interests_v1';
+  static const String _keyOnboardingSkipped = 'ux_onboarding_skipped_v1';
+  static const String _keyPersonalizationEnabled =
+      'ux_personalization_enabled_v1';
+  static const String _keyFirstActionTipDismissed =
+      'ux_first_action_tip_dismissed_v1';
+  static const String _keyRecentSearches = 'ux_recent_searches_v1';
 
   static String? _activeUserId;
   static String? _cachedLastWalletId;
@@ -102,6 +35,12 @@ abstract final class UserBehaviorPrefs {
   static String? _cachedAppPin;
   static bool? _cachedPermissionsPopupDismissed;
   static String? _cachedVoiceEngineMode;
+  static Set<String>? _cachedUserInterests;
+  static bool? _cachedOnboardingSkipped;
+  static bool? _cachedPersonalizationEnabled;
+  static bool? _cachedFirstActionTipDismissed;
+  static List<String>? _cachedRecentSearches;
+  static bool _habitsLoadedForActiveUser = false;
   static List<HabitShortcut> _cachedHabits = const <HabitShortcut>[];
   static final Set<String> _trackedScopedKeys = <String>{};
 
@@ -114,36 +53,44 @@ abstract final class UserBehaviorPrefs {
     return key;
   }
 
-  /// Binds local user-preference storage to [userId] so wallets, privacy masks,
-  /// PIN codes, and RFM habit chips never leak across accounts on a shared device.
-  static void bindActiveUser(String? userId) {
-    final cleaned = (userId ?? '').trim();
-    final nextId = cleaned.isEmpty ? null : cleaned;
-    if (_activeUserId == nextId) return;
-    _activeUserId = nextId;
-    _cachedLastWalletId = null;
-    _cachedHideBalances = null;
-    _cachedAppPin = null;
-    _cachedHabits = const <HabitShortcut>[];
-  }
-
-  /// Clears in-memory session caches immediately when the active user signs out.
-  static void clearSessionOnSignOut() {
-    _activeUserId = null;
-    _cachedLastWalletId = null;
-    _cachedHideBalances = null;
-    _cachedAppPin = null;
-    _cachedHabits = const <HabitShortcut>[];
-  }
-
-  static Future<void> resetForTest() async {
-    _activeUserId = null;
+  static void _clearInMemoryCaches() {
     _cachedLastWalletId = null;
     _cachedHideBalances = null;
     _cachedAppPin = null;
     _cachedPermissionsPopupDismissed = null;
     _cachedVoiceEngineMode = null;
+    _cachedUserInterests = null;
+    _cachedOnboardingSkipped = null;
+    _cachedPersonalizationEnabled = null;
+    _cachedFirstActionTipDismissed = null;
+    _cachedRecentSearches = null;
+    _habitsLoadedForActiveUser = false;
     _cachedHabits = const <HabitShortcut>[];
+  }
+
+  /// Binds local user-preference storage to [userId] so wallets, privacy masks,
+  /// PIN codes, voice mode, permissions prompt, and RFM habit chips never leak
+  /// across accounts on a shared device.
+  static void bindActiveUser(String? userId) {
+    final cleaned = (userId ?? '').trim();
+    final nextId = cleaned.isEmpty ? null : cleaned;
+    if (_activeUserId == nextId) return;
+    _activeUserId = nextId;
+    _clearInMemoryCaches();
+    LocalBehaviorStore.instance.bindActiveUser(nextId);
+  }
+
+  /// Clears in-memory session caches immediately when the active user signs out.
+  static void clearSessionOnSignOut() {
+    _activeUserId = null;
+    _clearInMemoryCaches();
+    LocalBehaviorStore.instance.clearSessionOnSignOut();
+  }
+
+  static Future<void> resetForTest() async {
+    _activeUserId = null;
+    _clearInMemoryCaches();
+    await LocalBehaviorStore.instance.resetForTest();
     for (final k in _trackedScopedKeys.toList()) {
       await NativeSecureVaultBridge.instance.deleteSecret(k);
     }
@@ -159,6 +106,15 @@ abstract final class UserBehaviorPrefs {
     await NativeSecureVaultBridge.instance.deleteSecret(
       _keyPreferredVoiceEngineMode,
     );
+    await NativeSecureVaultBridge.instance.deleteSecret(_keyUserInterests);
+    await NativeSecureVaultBridge.instance.deleteSecret(_keyOnboardingSkipped);
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _keyPersonalizationEnabled,
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _keyFirstActionTipDismissed,
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(_keyRecentSearches);
   }
 
   static String get cachedVoiceEngineMode =>
@@ -167,7 +123,7 @@ abstract final class UserBehaviorPrefs {
   static Future<String> loadPreferredVoiceEngineMode() async {
     if (_cachedVoiceEngineMode != null) return _cachedVoiceEngineMode!;
     final raw = await NativeSecureVaultBridge.instance.readSecret(
-      _keyPreferredVoiceEngineMode,
+      _scopedKey(_keyPreferredVoiceEngineMode),
     );
     _cachedVoiceEngineMode = raw == 'system_dialog'
         ? 'system_dialog'
@@ -181,7 +137,7 @@ abstract final class UserBehaviorPrefs {
         : 'google_service';
     _cachedVoiceEngineMode = normalized;
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keyPreferredVoiceEngineMode,
+      key: _scopedKey(_keyPreferredVoiceEngineMode),
       value: normalized,
     );
   }
@@ -191,7 +147,7 @@ abstract final class UserBehaviorPrefs {
       return _cachedPermissionsPopupDismissed!;
     }
     final raw = await NativeSecureVaultBridge.instance.readSecret(
-      _keyPermissionsPopupDismissed,
+      _scopedKey(_keyPermissionsPopupDismissed),
     );
     _cachedPermissionsPopupDismissed = raw == '1';
     return _cachedPermissionsPopupDismissed!;
@@ -202,7 +158,7 @@ abstract final class UserBehaviorPrefs {
   ]) async {
     _cachedPermissionsPopupDismissed = dismissed;
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keyPermissionsPopupDismissed,
+      key: _scopedKey(_keyPermissionsPopupDismissed),
       value: dismissed ? '1' : '0',
     );
   }
@@ -331,6 +287,7 @@ abstract final class UserBehaviorPrefs {
     final raw = await NativeSecureVaultBridge.instance.readSecret(
       _scopedKey(_keyHabitActions),
     );
+    _habitsLoadedForActiveUser = true;
     if (raw == null || raw.trim().isEmpty) {
       _cachedHabits = const <HabitShortcut>[];
       return _cachedHabits;
@@ -350,7 +307,9 @@ abstract final class UserBehaviorPrefs {
     return _cachedHabits;
   }
 
-  /// Records a completed quick action into RFM habit memory (max 16 habits).
+  /// Records a completed quick action into RFM habit memory (max 16 habits),
+  /// hydrating existing habits first, merging amount-free canonical IDs, and
+  /// computing midnight-safe circular-mean typical hours.
   static Future<void> recordHabitExecution({
     required String label,
     required String commandText,
@@ -362,54 +321,238 @@ abstract final class UserBehaviorPrefs {
     final cleanLabel = label.trim();
     if (cleanCmd.isEmpty || cleanLabel.isEmpty) return;
 
+    if (!_habitsLoadedForActiveUser) {
+      await loadHabitShortcuts();
+    }
+
     final refNow = now ?? DateTime.now();
-    final canonicalId = cleanLabel.toLowerCase().replaceAll(
-      RegExp(r'\s+'),
-      '_',
+    _cachedHabits = RecencyFrequencyEngine.upsertHabitShortcut(
+      existing: _cachedHabits,
+      label: cleanLabel,
+      commandText: cleanCmd,
+      categoryName: categoryName,
+      amountMinor: amountMinor,
+      now: refNow,
+      maxItems: 16,
     );
-    final mutable = List<HabitShortcut>.from(_cachedHabits);
-    final idx = mutable.indexWhere((h) => h.id == canonicalId);
-
-    if (idx >= 0) {
-      final prev = mutable[idx];
-      mutable[idx] = HabitShortcut(
-        id: canonicalId,
-        label: cleanLabel,
-        commandText: cleanCmd,
-        categoryName: categoryName.isNotEmpty
-            ? categoryName
-            : prev.categoryName,
-        amountMinor: amountMinor > 0 ? amountMinor : prev.amountMinor,
-        frequency: prev.frequency + 1,
-        lastUsedEpochMs: refNow.millisecondsSinceEpoch,
-        typicalHour: ((prev.typicalHour + refNow.hour) / 2).round(),
-      );
-    } else {
-      mutable.insert(
-        0,
-        HabitShortcut(
-          id: canonicalId,
-          label: cleanLabel,
-          commandText: cleanCmd,
-          categoryName: categoryName,
-          amountMinor: amountMinor,
-          frequency: 1,
-          lastUsedEpochMs: refNow.millisecondsSinceEpoch,
-          typicalHour: refNow.hour,
-        ),
-      );
-    }
-
-    mutable.sort((a, b) => b.scoreAt(refNow).compareTo(a.scoreAt(refNow)));
-    if (mutable.length > 16) {
-      mutable.removeRange(16, mutable.length);
-    }
-    _cachedHabits = List<HabitShortcut>.unmodifiable(mutable);
 
     await NativeSecureVaultBridge.instance.writeSecret(
       key: _scopedKey(_keyHabitActions),
       value: jsonEncode(_cachedHabits.map((h) => h.toJson()).toList()),
     );
+
+    final canonicalId = RecencyFrequencyEngine.canonicalizeHabitId(cleanLabel);
+    await BehaviorEventCollector().recordType(
+      BehaviorEventType.quickActionUsed,
+      timestamp: refNow,
+      metadata: <String, Object?>{
+        'targetId': canonicalId,
+        'hourOfDay': refNow.hour,
+        'weekday': refNow.weekday,
+      },
+    );
+  }
+
+  /// Loads account-scoped interest group IDs (`ux_user_interests_v1`).
+  static Future<Set<String>> loadUserInterests() async {
+    if (_cachedUserInterests != null) return _cachedUserInterests!;
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedKey(_keyUserInterests),
+    );
+    if (raw == null || raw.trim().isEmpty) {
+      _cachedUserInterests = const <String>{};
+      return _cachedUserInterests!;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        _cachedUserInterests = Set<String>.unmodifiable(
+          decoded.map((e) => e.toString().trim()).where((s) => s.isNotEmpty),
+        );
+        return _cachedUserInterests!;
+      }
+    } catch (_) {
+      // Fallback to comma-separated format if needed
+    }
+    _cachedUserInterests = Set<String>.unmodifiable(
+      raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty),
+    );
+    return _cachedUserInterests!;
+  }
+
+  /// Saves account-scoped interest group IDs (`ux_user_interests_v1`).
+  static Future<void> saveUserInterests(Set<String> ids) async {
+    final cleaned = ids.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    _cachedUserInterests = Set<String>.unmodifiable(cleaned);
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _scopedKey(_keyUserInterests),
+      value: jsonEncode(cleaned.toList()),
+    );
+
+    final currentSettings = await LocalBehaviorStore.instance.loadSettings();
+    final parsedGroups = UserInterestGroup.fromIds(cleaned);
+    await LocalBehaviorStore.instance.saveSettings(
+      currentSettings.copyWith(
+        selectedInterests: parsedGroups.isEmpty
+            ? const <UserInterestGroup>{UserInterestGroup.all}
+            : Set<UserInterestGroup>.unmodifiable(parsedGroups),
+      ),
+    );
+  }
+
+  /// Loads whether the active user skipped onboarding (`ux_onboarding_skipped_v1`).
+  static Future<bool> loadOnboardingSkipped() async {
+    if (_cachedOnboardingSkipped != null) return _cachedOnboardingSkipped!;
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedKey(_keyOnboardingSkipped),
+    );
+    _cachedOnboardingSkipped = raw == '1';
+    return _cachedOnboardingSkipped!;
+  }
+
+  /// Saves whether the active user skipped onboarding (`ux_onboarding_skipped_v1`).
+  static Future<void> saveOnboardingSkipped(bool skipped) async {
+    _cachedOnboardingSkipped = skipped;
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _scopedKey(_keyOnboardingSkipped),
+      value: skipped ? '1' : '0',
+    );
+  }
+
+  /// Loads whether smart adaptive personalization is enabled (`ux_personalization_enabled_v1`).
+  static Future<bool> loadPersonalizationEnabled() async {
+    if (_cachedPersonalizationEnabled != null) {
+      return _cachedPersonalizationEnabled!;
+    }
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedKey(_keyPersonalizationEnabled),
+    );
+    _cachedPersonalizationEnabled = raw != '0';
+    return _cachedPersonalizationEnabled!;
+  }
+
+  /// Saves whether smart adaptive personalization is enabled (`ux_personalization_enabled_v1`).
+  static Future<void> savePersonalizationEnabled(bool enabled) async {
+    _cachedPersonalizationEnabled = enabled;
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _scopedKey(_keyPersonalizationEnabled),
+      value: enabled ? '1' : '0',
+    );
+
+    final currentSettings = await LocalBehaviorStore.instance.loadSettings();
+    await LocalBehaviorStore.instance.saveSettings(
+      currentSettings.copyWith(enabled: enabled),
+    );
+  }
+
+  /// Loads whether the FTUE first-action tip card was dismissed (`ux_first_action_tip_dismissed_v1`).
+  static Future<bool> loadFirstActionTipDismissed() async {
+    if (_cachedFirstActionTipDismissed != null) {
+      return _cachedFirstActionTipDismissed!;
+    }
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedKey(_keyFirstActionTipDismissed),
+    );
+    _cachedFirstActionTipDismissed = raw == '1';
+    return _cachedFirstActionTipDismissed!;
+  }
+
+  /// Saves whether the FTUE first-action tip card was dismissed (`ux_first_action_tip_dismissed_v1`).
+  static Future<void> saveFirstActionTipDismissed(bool dismissed) async {
+    _cachedFirstActionTipDismissed = dismissed;
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _scopedKey(_keyFirstActionTipDismissed),
+      value: dismissed ? '1' : '0',
+    );
+  }
+
+  /// Loads account-scoped recent search queries (`ux_recent_searches_v1`).
+  static Future<List<String>> loadRecentSearches() async {
+    if (_cachedRecentSearches != null) return _cachedRecentSearches!;
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedKey(_keyRecentSearches),
+    );
+    if (raw == null || raw.trim().isEmpty) {
+      _cachedRecentSearches = const <String>[];
+      return _cachedRecentSearches!;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        _cachedRecentSearches = List<String>.unmodifiable(
+          decoded
+              .map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty)
+              .take(10),
+        );
+        return _cachedRecentSearches!;
+      }
+    } catch (_) {
+      // Ignore malformed cache safely
+    }
+    _cachedRecentSearches = const <String>[];
+    return _cachedRecentSearches!;
+  }
+
+  /// Persists deduplicated account-scoped recent search queries (`ux_recent_searches_v1`).
+  static Future<void> saveRecentSearches(List<String> queries) async {
+    final seen = <String>{};
+    final cleaned = <String>[];
+    for (final raw in queries) {
+      final item = raw.trim();
+      if (item.isEmpty) continue;
+      if (seen.add(item.toLowerCase())) {
+        cleaned.add(item);
+      }
+      if (cleaned.length >= 10) break;
+    }
+    _cachedRecentSearches = List<String>.unmodifiable(cleaned);
+    if (cleaned.isEmpty) {
+      await NativeSecureVaultBridge.instance.deleteSecret(
+        _scopedKey(_keyRecentSearches),
+      );
+      return;
+    }
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _scopedKey(_keyRecentSearches),
+      value: jsonEncode(cleaned),
+    );
+  }
+
+  /// Clears account-scoped recent search queries (`ux_recent_searches_v1`).
+  static Future<void> clearRecentSearches() async {
+    _cachedRecentSearches = const <String>[];
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _scopedKey(_keyRecentSearches),
+    );
+  }
+
+  /// Resets ALL behavior, habit, interest, recommendation dismissal, and local UX
+  /// metrics data strictly for the active user without touching other accounts.
+  static Future<void> resetAllBehaviorDataForActiveUser() async {
+    _cachedHabits = const <HabitShortcut>[];
+    _habitsLoadedForActiveUser = true;
+    _cachedUserInterests = const <String>{};
+    _cachedPersonalizationEnabled = true;
+    _cachedFirstActionTipDismissed = false;
+    _cachedRecentSearches = const <String>[];
+
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _scopedKey(_keyHabitActions),
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _scopedKey(_keyUserInterests),
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _scopedKey(_keyPersonalizationEnabled),
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _scopedKey(_keyFirstActionTipDismissed),
+    );
+    await NativeSecureVaultBridge.instance.deleteSecret(
+      _scopedKey(_keyRecentSearches),
+    );
+    await LocalBehaviorStore.instance.resetAllForActiveUser();
   }
 
   /// Returns top habits ranked by RFM + Circadian Time-of-Day score.
