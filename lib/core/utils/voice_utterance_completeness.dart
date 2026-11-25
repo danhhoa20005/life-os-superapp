@@ -53,9 +53,10 @@ class VoiceUtteranceEvaluation {
 /// whether the speaker is mid-sentence or has uttered a complete, valid command,
 /// driving smart auto-endpointing and structured confirmation review.
 abstract final class VoiceUtteranceEvaluator {
-  /// Trailing connectors/prepositions indicating the speaker is still mid-clause.
+  /// Trailing connectors/prepositions indicating the speaker is still mid-clause
+  /// (Unicode-safe boundaries so Vietnamese words starting with `ăn`/`đổ`/`ở` match cleanly).
   static final RegExp _danglingTailRegex = RegExp(
-    r'\b(?:và|với|cùng|rồi|thêm|hoặc|chia|chia cho|chia đều|chia đều cho|gồm|'
+    r'(?<![\p{L}\p{N}])(?:và|với|cùng|rồi|thêm|hoặc|chia|chia cho|chia đều|chia đều cho|gồm|'
     r'gồm có|lúc|vào|vào lúc|hết|mất|giá|khoảng|tầm|từ|sang|cho|ở|tại|'
     r'nhắc|uống|mua|ăn|đổ|chuyển|nhận)$',
     caseSensitive: false,
@@ -103,7 +104,10 @@ abstract final class VoiceUtteranceEvaluator {
       nicknamesByUserId: nicknamesByUserId,
       explicitParticipantOverrides: explicitParticipantOverrides,
     );
-    final omniEnvelope = SmartOmniIntentParser.parseDetailed(trimmed);
+    final normalizedForOmni = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
+      trimmed,
+    );
+    final omniEnvelope = SmartOmniIntentParser.parseDetailed(normalizedForOmni);
     final omniDrafts = omniEnvelope.drafts;
 
     final hasStructuredIntent = finAnalysis != null || omniDrafts.isNotEmpty;

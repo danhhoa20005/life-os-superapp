@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/services/native_voice_assistant_bridge.dart';
 import '../../domain/entities/voice_engine_capability.dart';
 import '../../domain/entities/voice_event.dart';
 import '../../domain/entities/voice_session.dart';
@@ -63,6 +64,192 @@ class FlutterVoiceMethodChannelClient implements VoiceMethodChannelClient {
   ) {
     if (!isSupportedPlatform || !_hasServicesBinding) return;
     _channel.setMethodCallHandler(handler);
+  }
+}
+
+/// Bridges [VoiceMethodChannelClient] transparently to [NativeVoiceAssistantBridge.currentDriver]
+/// whenever a widget test installs a driver override via `NativeVoiceAssistantBridge.setDriverOverride`,
+/// while delegating directly to the real Android [MethodChannel] in production.
+class BridgeAwareVoiceMethodChannelClient implements VoiceMethodChannelClient {
+  final FlutterVoiceMethodChannelClient _platformClient;
+  Future<dynamic> Function(MethodCall call)? _handler;
+  StreamSubscription<VoiceAssistantSignal>? _overrideSub;
+  VoiceAssistantDriver? _subscribedDriver;
+
+  BridgeAwareVoiceMethodChannelClient([
+    FlutterVoiceMethodChannelClient? platformClient,
+  ]) : _platformClient =
+           platformClient ?? const FlutterVoiceMethodChannelClient();
+
+  @override
+  bool get isSupportedPlatform =>
+      NativeVoiceAssistantBridge.hasTestDriverOverride
+      ? NativeVoiceAssistantBridge.currentDriver.isSupportedPlatform
+      : _platformClient.isSupportedPlatform;
+
+  void _syncOverrideSubscription() {
+    if (!NativeVoiceAssistantBridge.hasTestDriverOverride) {
+      _overrideSub?.cancel();
+      _overrideSub = null;
+      _subscribedDriver = null;
+      return;
+    }
+    final drv = NativeVoiceAssistantBridge.currentDriver;
+    if (identical(_subscribedDriver, drv) && _overrideSub != null) return;
+    _overrideSub?.cancel();
+    _subscribedDriver = drv;
+    _overrideSub = drv.watchSignals().listen((sig) {
+      final cb = _handler;
+      if (cb == null) return;
+      final map = switch (sig) {
+        VoiceStateSignal(:final status, :final sessionToken) =>
+          <String, dynamic>{
+            'type': 'state',
+            'status': status,
+            if (sessionToken != null) 'sessionToken': sessionToken,
+            if (sessionToken != null) 'sessionId': sessionToken,
+          },
+        VoiceRmsSignal(:final rmsDb, :final sessionToken) => <String, dynamic>{
+          'type': 'rms',
+          'rms': rmsDb,
+          if (sessionToken != null) 'sessionToken': sessionToken,
+          if (sessionToken != null) 'sessionId': sessionToken,
+        },
+        VoiceTranscriptSignal(
+          :final text,
+          :final isFinal,
+          :final sessionToken,
+        ) =>
+          <String, dynamic>{
+            'type': isFinal ? 'final' : 'partial',
+            'text': text,
+            if (sessionToken != null) 'sessionToken': sessionToken,
+            if (sessionToken != null) 'sessionId': sessionToken,
+          },
+        VoiceErrorSignal(:final message, :final code, :final sessionToken) =>
+          <String, dynamic>{
+            'type': 'error',
+            'message': message,
+            if (code != null) 'code': code,
+            if (sessionToken != null) 'sessionToken': sessionToken,
+            if (sessionToken != null) 'sessionId': sessionToken,
+          },
+        VoiceEngineSwitchedSignal(:final modeWireValue, :final sessionToken) =>
+          <String, dynamic>{
+            'type': 'engine_switched',
+            'mode': modeWireValue,
+            if (sessionToken != null) 'sessionToken': sessionToken,
+            if (sessionToken != null) 'sessionId': sessionToken,
+          },
+      };
+      cb(MethodCall('onVoiceEvent', map));
+    });
+  }
+
+  @override
+  Future<T?> invokeMethod<T>(String method, [Object? arguments]) async {
+    if (!NativeVoiceAssistantBridge.hasTestDriverOverride) {
+      return _platformClient.invokeMethod<T>(method, arguments);
+    }
+    _syncOverrideSubscription();
+    const bridge = NativeVoiceAssistantBridge();
+    final args = arguments is Map
+        ? Map<String, dynamic>.from(arguments)
+        : const <String, dynamic>{};
+    switch (method) {
+      case 'startListening':
+        final modeStr = (args['engineMode'] ?? 'google_service').toString();
+        final preferDialog =
+            args['preferSystemDialog'] == true || modeStr == 'system_dialog';
+        final status = await bridge.startListening(
+          sessionToken:
+              args['sessionId']?.toString() ?? args['sessionToken']?.toString(),
+          preferSystemDialog: preferDialog,
+          engineMode: VoiceEngineMode.fromWireValue(modeStr),
+          forceInlineProbe: args['forceInlineProbe'] == true,
+        );
+        return status as T?;
+      case 'stopListening':
+        await bridge.stopListening(
+          sessionToken:
+              args['sessionId']?.toString() ?? args['sessionToken']?.toString(),
+        );
+        return null;
+      case 'cancelListening':
+        await bridge.cancelListening(
+          sessionToken:
+              args['sessionId']?.toString() ?? args['sessionToken']?.toString(),
+        );
+        return null;
+      case 'openMicrophoneSettings':
+        final ok = await bridge.openMicrophoneSettings();
+        return ok as T?;
+      case 'hasRecordPermission':
+        final snap = await bridge.getDiagnostics();
+        return snap.hasRecordPermission as T?;
+      case 'resetCapabilityCache':
+        return true as T?;
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> invokeMapMethod(
+    String method, [
+    Object? arguments,
+  ]) async {
+    if (!NativeVoiceAssistantBridge.hasTestDriverOverride) {
+      return _platformClient.invokeMapMethod(method, arguments);
+    }
+    _syncOverrideSubscription();
+    const bridge = NativeVoiceAssistantBridge();
+    if (method == 'getVoiceDiagnosticsV2' ||
+        method == 'getDiagnostics' ||
+        method == 'checkRecognitionSupport') {
+      final snap = await bridge.getDiagnostics();
+      return <String, dynamic>{
+        'hardwareMicAvailable': snap.hardwareMicAvailable,
+        'hasRecordPermission': snap.hasRecordPermission,
+        'hasMicPermission': snap.hasRecordPermission,
+        'isRecognitionAvailable': snap.isRecognitionAvailable,
+        'isOnDeviceAvailable': snap.isOnDeviceAvailable,
+        'supportsVietnameseOnDevice': snap.isOnDeviceAvailable,
+        'hasSystemSpeechDialog': snap.hasSystemSpeechDialog,
+        'availableEngines': snap.availableEngines,
+        'activeEngineLabel': snap.activeEngineLabel,
+        'sdkInt': snap.sdkInt,
+        'manufacturer': snap.manufacturer,
+        'model': 'test_device',
+        'osBuild': 'test_build',
+      };
+    }
+    if (method == 'runMicrophoneSelfTest') {
+      return const <String, dynamic>{
+        'success': true,
+        'passed': true,
+        'peakDbfs': -18.5,
+        'avgDbfs': -28.0,
+        'audioRoute': 'built_in_mic',
+        'reason': 'OK',
+      };
+    }
+    return null;
+  }
+
+  @override
+  void setMethodCallHandler(
+    Future<dynamic> Function(MethodCall call)? handler,
+  ) {
+    _handler = handler;
+    if (handler == null) {
+      _overrideSub?.cancel();
+      _overrideSub = null;
+      _subscribedDriver = null;
+    } else if (NativeVoiceAssistantBridge.hasTestDriverOverride) {
+      _syncOverrideSubscription();
+    }
+    _platformClient.setMethodCallHandler(handler);
   }
 }
 
@@ -333,7 +520,9 @@ class VoiceNativeChannelDataSource {
       _client.setMethodCallHandler(null);
       _handlerInstalled = false;
     }
-    await _eventController.close();
+    if (!_eventController.isClosed) {
+      unawaited(_eventController.close());
+    }
   }
 
   /// Parses v2 envelope events and legacy Kotlin event maps into [VoiceEnvelopeEvent].

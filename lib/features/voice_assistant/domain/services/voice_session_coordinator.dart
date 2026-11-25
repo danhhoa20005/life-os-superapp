@@ -159,6 +159,7 @@ class VoiceSessionCoordinator {
   })?
   _permissionRequester;
   final Future<VoiceEnvironmentSnapshot> Function()? _environmentProvider;
+  final Future<Map<String, dynamic>> Function()? _nativeDiagnosticsProvider;
   final SemanticCompletenessHint Function(String text)? _semanticHintBuilder;
   final String Function()? _sessionIdGenerator;
 
@@ -208,6 +209,7 @@ class VoiceSessionCoordinator {
     Future<void> Function({required String sessionId, required int attemptId})?
     permissionRequester,
     Future<VoiceEnvironmentSnapshot> Function()? environmentProvider,
+    Future<Map<String, dynamic>> Function()? nativeDiagnosticsProvider,
     SemanticCompletenessHint Function(String text)? semanticHintBuilder,
     String Function()? sessionIdGenerator,
   }) : _engineRegistry = engineRegistry,
@@ -222,6 +224,7 @@ class VoiceSessionCoordinator {
        _permissionChecker = permissionChecker,
        _permissionRequester = permissionRequester,
        _environmentProvider = environmentProvider,
+       _nativeDiagnosticsProvider = nativeDiagnosticsProvider,
        _semanticHintBuilder = semanticHintBuilder,
        _sessionIdGenerator = sessionIdGenerator {
     _snapshot = VoiceSessionStateSnapshot(
@@ -871,10 +874,12 @@ class VoiceSessionCoordinator {
     _generationToken += 1;
     _cancelAllTimers();
     for (final sub in _eventSubscriptions) {
-      await sub.cancel();
+      unawaited(sub.cancel());
     }
     _eventSubscriptions.clear();
-    await _snapshotController.close();
+    if (!_snapshotController.isClosed) {
+      unawaited(_snapshotController.close());
+    }
   }
 
   Future<VoiceStartResult> _prepareAndLaunch({
@@ -1890,17 +1895,62 @@ class VoiceSessionCoordinator {
     final checks = await _engineRegistry.checkAll(locale: locale);
     final caps = await _capabilityRepository.loadEntries();
     final models = await _modelRepository.listModels();
+    Map<String, dynamic>? nativeDiag;
+    if (_nativeDiagnosticsProvider != null) {
+      try {
+        nativeDiag = await _nativeDiagnosticsProvider();
+      } catch (_) {
+        nativeDiag = null;
+      }
+    }
     if (_disposed) return;
 
-    final available = checks.entries
+    final nativeEngines =
+        (nativeDiag?['availableEngines'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    final adapterEngines = checks.entries
         .where((e) => e.value.isAvailable)
-        .map((e) => e.key.wireValue)
-        .toList(growable: false);
-    final anyVn = checks.values.any(
-      (c) => c.isAvailable && c.supportsVietnamese,
-    );
+        .map((e) => e.key.wireValue);
+    final available = <String>{
+      ...nativeEngines,
+      ...adapterEngines,
+    }.toList(growable: false);
+    final anyVn =
+        checks.values.any((c) => c.isAvailable && c.supportsVietnamese) ||
+        nativeDiag?['vietnameseInstalled'] == true ||
+        nativeDiag?['vietnameseSupported'] == true;
+    final hasMicPerm =
+        nativeDiag?['hasRecordPermission'] == true ||
+        nativeDiag?['hasMicPermission'] == true;
+    final sdkInt =
+        (nativeDiag?['sdkInt'] as num?)?.toInt() ??
+        _snapshot.diagnostics.androidSdkInt;
+    final manufacturer =
+        nativeDiag?['manufacturer']?.toString() ??
+        _snapshot.diagnostics.manufacturer;
+    final model =
+        nativeDiag?['model']?.toString() ?? _snapshot.diagnostics.model;
+    final micPrivacyBlocked = nativeDiag?['isMicPrivacyBlocked'] is bool
+        ? nativeDiag!['isMicPrivacyBlocked'] as bool
+        : _snapshot.diagnostics.isMicPrivacyBlocked;
+    final audioRoute = nativeDiag?['currentAudioRoute'] != null
+        ? VoiceAudioRoute.fromWireValue(
+            nativeDiag!['currentAudioRoute']?.toString(),
+          )
+        : _snapshot.diagnostics.currentAudioRoute;
 
     final updatedDiag = _snapshot.diagnostics.copyWith(
+      androidSdkInt: sdkInt,
+      manufacturer: manufacturer,
+      model: model,
+      hasMicPermission: nativeDiag != null
+          ? hasMicPerm
+          : _snapshot.diagnostics.hasMicPermission,
+      isMicPrivacyBlocked: micPrivacyBlocked,
+      currentAudioRoute: audioRoute,
       availableEngines: available,
       vietnameseSupportStatus: anyVn ? 'supported' : 'unavailable',
       capabilityEntries: caps,

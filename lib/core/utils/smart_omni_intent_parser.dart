@@ -880,7 +880,9 @@ abstract final class SmartOmniIntentParser {
     if (folded.contains('tat toan') || folded.contains('tra no')) {
       return OmniIntentSubtype.debtSettlement;
     }
-    if ((folded.contains('chuyen') || folded.contains('nap sang')) &&
+    if ((folded.contains('chuyen') ||
+            folded.contains('nap sang') ||
+            (folded.contains('nap ') && folded.contains(' sang '))) &&
         (entities.destinationWalletHint != null ||
             folded.contains('tu vi') ||
             folded.contains('sang vi') ||
@@ -969,24 +971,30 @@ abstract final class SmartOmniIntentParser {
   }
 
   static bool _containsScheduleCue(String lower) {
-    final folded = VietnameseSearchMatcher.fold(lower);
+    final cleanedUrgent = lower.replaceAll(
+      RegExp(r'!gấp|!gap|!quan trọng', caseSensitive: false),
+      '',
+    );
+    final folded = VietnameseSearchMatcher.fold(cleanedUrgent);
     if (folded.startsWith('lich ') ||
         folded.startsWith('lich:') ||
         folded.startsWith('co lich') ||
         folded.startsWith('hop ') ||
         folded.startsWith('hen ') ||
-        folded.startsWith('kham ')) {
+        folded.startsWith('kham ') ||
+        folded.startsWith('di kham ')) {
       return true;
     }
     if (RegExp(r'\b(co\s+)?lich\s+(hop|hen|kham|di|lam)\b').hasMatch(folded) ||
-        RegExp(r'\b(hop|hen|kham)\s+(?:luc|vao|\d)').hasMatch(folded)) {
+        RegExp(r'\b(hop|hen|kham)\s+(?:luc|vao|\d)').hasMatch(folded) ||
+        RegExp(r'\bdi\s+kham\b').hasMatch(folded)) {
       return true;
     }
     if (_explicitHourRegex.hasMatch(folded) &&
         (folded.contains('hop') ||
             folded.contains('hen') ||
             folded.contains('lich') ||
-            folded.contains('gap') ||
+            RegExp(r'\bgap\b').hasMatch(folded) ||
             folded.contains('kham') ||
             folded.contains('sang mai') ||
             folded.contains('chieu mai') ||

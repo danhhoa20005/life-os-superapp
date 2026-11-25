@@ -44,7 +44,11 @@ class AndroidOnDeviceEngine implements SpeechEngineAdapter {
     final diag = await _dataSource.checkRecognitionSupport(locale: locale);
     final sdkInt = (diag['sdkInt'] as num?)?.toInt() ?? 0;
     final onDeviceFlag = diag['isOnDeviceAvailable'] == true;
-    final vnFlag = diag['supportsVietnameseOnDevice'] as bool? ?? onDeviceFlag;
+    final vnFlag =
+        diag['supportsVietnameseOnDevice'] as bool? ??
+        diag['vietnameseInstalled'] as bool? ??
+        diag['vietnameseSupported'] as bool? ??
+        onDeviceFlag;
     final eligible = sdkInt >= 31 && onDeviceFlag;
     return EngineAvailabilityCheck(
       engineId: engineId,
@@ -81,7 +85,9 @@ class AndroidOnDeviceEngine implements SpeechEngineAdapter {
         errorCode: status,
       );
     }
-    return const EngineStartOutcome.success();
+    return EngineStartOutcome.success(
+      awaitsExternalActivity: status == 'PERMISSION_REQUESTED',
+    );
   }
 
   @override

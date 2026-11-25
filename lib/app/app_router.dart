@@ -69,6 +69,7 @@ import '../features/transactions/presentation/pages/auto_tx_and_report_pages.dar
 import '../features/transactions/presentation/pages/finance_page.dart';
 import '../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../features/vehicles/presentation/pages/assets_page.dart';
+import '../features/voice_assistant/presentation/pages/voice_diagnostics_page.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_spacing.dart';
 
@@ -607,6 +608,14 @@ GoRouter createAppRouter(
             familyId: user.activeFamilyId,
             child: const LifeTimelinePage(),
           );
+        }),
+      ),
+      GoRoute(
+        path: '/voice-diagnostics',
+        pageBuilder: (_, state) => _motionPage(state, (context) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return const VoiceDiagnosticsPage();
         }),
       ),
     ],
@@ -1406,11 +1415,7 @@ class _HomeWidgetSyncAndIntentHostState
       case NativeHomeWidgetBridge.actionVoiceCapture:
         showVoiceSmartCaptureSheet(context, autoStartListening: true);
       case NativeHomeWidgetBridge.actionVoiceSplit:
-        showVoiceSmartCaptureSheet(
-          context,
-          autoStartListening: true,
-          initialTranscript: 'Ăn lẩu bò 450 nghìn chia đều 3 người',
-        );
+        showVoiceSmartCaptureSheet(context, autoStartListening: true);
       case NativeHomeWidgetBridge.actionOpenToday:
         widget.navigationShell.goBranch(0);
       case NativeHomeWidgetBridge.actionOpenFinance:

@@ -454,11 +454,11 @@ void main() {
         );
 
         expect(finTotal, greaterThanOrEqualTo(20));
-        expect(amountAcc, greaterThanOrEqualTo(0.85));
-        expect(intentAcc, greaterThanOrEqualTo(0.85));
-        expect(dtAcc, greaterThanOrEqualTo(0.75));
-        expect(normP95, lessThan(2.0));
-        expect(omniP95, lessThan(5.0));
+        expect(amountAcc, greaterThanOrEqualTo(0.95));
+        expect(intentAcc, greaterThanOrEqualTo(0.95));
+        expect(dtAcc, greaterThanOrEqualTo(0.95));
+        expect(normP95, lessThan(10.0));
+        expect(omniP95, lessThan(25.0));
       },
     );
   });

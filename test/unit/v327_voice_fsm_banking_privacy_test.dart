@@ -390,7 +390,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         expect(voiceDriver.startCount, 1);
-        expect(find.text('Đang tự động thu âm...'), findsOneWidget);
+        expect(find.text('Đang nghe tiếng Việt...'), findsOneWidget);
 
         // Stale session event from another token MUST NOT pollute active sheet transcript!
         voiceDriver.controller.add(
@@ -423,7 +423,7 @@ void main() {
         tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
         await tester.pumpAndSettle();
         expect(voiceDriver.cancelCount, 1);
-        expect(find.text('Đang tự động thu âm...'), findsNothing);
+        expect(find.text('Đang nghe tiếng Việt...'), findsNothing);
 
         // Transcript remains editable before save!
         final editableField = tester.widget<TextField>(

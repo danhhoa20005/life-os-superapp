@@ -133,92 +133,230 @@ abstract final class VoiceFinancialNlpEngine {
     var s = raw.trim();
     if (s.isEmpty) return s;
 
-    // Normalize common spoken currency slang & words
+    // Normalize common spoken currency slang & words (Unicode-safe boundaries for Vietnamese!)
     s = s
-        .replaceAll(RegExp(r'\bnửa\s+triệu\b', caseSensitive: false), '500k')
-        .replaceAll(RegExp(r'\bnửa\s+củ\b', caseSensitive: false), '500k')
         .replaceAll(
-          RegExp(r'\bmột\s+củ\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])nửa\s+triệu(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '500k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])nửa\s+củ(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '500k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])một\s+củ\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '1tr5',
         )
         .replaceAll(
-          RegExp(r'\bmột\s+triệu\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])một\s+triệu\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '1tr5',
         )
         .replaceAll(
-          RegExp(r'\bhai\s+trăm\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])hai\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '250k',
         )
         .replaceAll(
-          RegExp(r'\bba\s+trăm\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])ba\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '350k',
         )
         .replaceAll(
-          RegExp(r'\bbốn\s+trăm\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])bốn\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '450k',
         )
         .replaceAll(
-          RegExp(r'\bnăm\s+trăm\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])năm\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '550k',
         )
         .replaceAll(
-          RegExp(r'\bmột\s+trăm\s+rưỡi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])sáu\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '650k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])bảy\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '750k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])tám\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '850k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])chín\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '950k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])một\s+trăm\s+rưỡi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           '150k',
         )
-        .replaceAll(RegExp(r'\bphần\s+trăm\b', caseSensitive: false), '%')
         .replaceAll(
-          RegExp(r'\bchia\s+đôi\b', caseSensitive: false),
+          RegExp(
+            r'(?<![\p{L}\p{N}])phần\s+trăm(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '%',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])chia\s+đôi(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
           'chia đều 2 người',
         )
-        .replaceAll(RegExp(r'\bcampuchia\b', caseSensitive: false), 'chia đều');
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])campuchia(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          'chia đều',
+        );
 
     // Convert "<number> triệu rưỡi" / "<number> củ rưỡi" -> "<number>tr5"
     s = s.replaceAllMapped(
       RegExp(
-        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi\b',
+        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi(?![\p{L}\p{N}])',
         caseSensitive: false,
+        unicode: true,
       ),
       (m) => '${m.group(1)}tr5',
     );
 
     // Convert "<number> trăm rưỡi" -> "<number>50k"
     s = s.replaceAllMapped(
-      RegExp(r'(\d+)\s*trăm\s*rưỡi\b', caseSensitive: false),
+      RegExp(
+        r'(\d+)\s*trăm\s*rưỡi(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
       (m) => '${m.group(1)}50k',
     );
 
     // Convert "<number> lít" -> "<number>00k" (Vietnamese slang: 1 lít = 100k, skipping fuel/liquid)
     s = s.replaceAllMapped(
       RegExp(
-        r'\b(\d+)\s*lít\b(?!(?:\s+(?:xăng|dầu|nước|sữa|bia|rượu|nhớt|gas)\b))',
+        r'(?<![\p{L}\p{N}])(\d+)\s*lít(?![\p{L}\p{N}])(?!(?:\s+(?:xăng|dầu|nước|sữa|bia|rượu|nhớt|gas)(?![\p{L}\p{N}])))',
         caseSensitive: false,
+        unicode: true,
       ),
       (m) => '${(int.tryParse(m.group(1) ?? '0') ?? 0) * 100}k',
     );
 
-    // Convert "<number> chục" -> "<number>0k" ("5 chục" -> "50k")
+    // Convert "<number> chục" -> "<number>0k" (skipping item counts like "2 chục trứng")
     s = s.replaceAllMapped(
-      RegExp(r'\b(\d+)\s*chục\b', caseSensitive: false),
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+)\s*chục(?![\p{L}\p{N}])(?!(?:\s+(?:trứng|quả|trái|cái|chiếc|bông|cành|cây|lon|chai|gói|hộp|quyển|cuốn)(?![\p{L}\p{N}])))',
+        caseSensitive: false,
+        unicode: true,
+      ),
       (m) => '${(int.tryParse(m.group(1) ?? '0') ?? 0) * 10}k',
     );
 
-    // Convert "<number> cành" -> "<number>k"
+    // Convert "<number> cành" -> "<number>k" (skipping flowers/plants like "5 cành hoa")
     s = s.replaceAllMapped(
-      RegExp(r'\b(\d+)\s*cành\b', caseSensitive: false),
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+)\s*cành(?![\p{L}\p{N}])(?!(?:\s+(?:hoa|cây|lá|hồng|đào|mai|lan|huệ|cúc)(?![\p{L}\p{N}])))',
+        caseSensitive: false,
+        unicode: true,
+      ),
       (m) => '${m.group(1)}k',
     );
 
-    // Convert simple spoken Vietnamese tens/hundreds before triệu/nghìn/ngàn
-    // e.g. "mười tám triệu rưỡi", "bốn trăm năm mươi nghìn", "sáu mươi lăm nghìn"
+    // Convert spoken Vietnamese tens/hundreds before triệu/nghìn/ngàn/củ/người/chục/cành
     s = _replaceSpokenNumberBeforeUnit(s);
 
-    // Re-apply "<number> triệu rưỡi" after word-to-digit conversion!
+    // Re-apply "<number> chục" / "<number> cành" after spoken word conversion (e.g. "sáu chục ngàn" / "ba lăm cành")
     s = s.replaceAllMapped(
       RegExp(
-        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi\b',
+        r'(?<![\p{L}\p{N}])(\d+)\s*chục\s*(?:nghìn|ngàn|nghin|ngan)?(?![\p{L}\p{N}])(?!(?:\s+(?:trứng|quả|trái|cái|chiếc|bông|cành|cây|lon|chai|gói|hộp)(?![\p{L}\p{N}])))',
         caseSensitive: false,
+        unicode: true,
+      ),
+      (m) => '${(int.tryParse(m.group(1) ?? '0') ?? 0) * 10}k',
+    );
+    s = s.replaceAllMapped(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(\d+)\s*cành(?![\p{L}\p{N}])(?!(?:\s+(?:hoa|cây|lá|hồng|đào|mai|lan|huệ|cúc)(?![\p{L}\p{N}])))',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) => '${m.group(1)}k',
+    );
+
+    // Re-apply "<number> triệu rưỡi" & "<number> triệu <spoken-digit>" (e.g. "một triệu hai" -> "1tr2")!
+    s = s.replaceAllMapped(
+      RegExp(
+        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s*rưỡi(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
       ),
       (m) => '${m.group(1)}tr5',
+    );
+    s = s.replaceAllMapped(
+      RegExp(
+        r'(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s+(một|mốt|hai|ba|bốn|tư|năm|lăm|nhăm|sáu|bảy|bẩy|tám|chín)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      (m) {
+        final whole = m.group(1) ?? '';
+        final fracWord = (m.group(2) ?? '').toLowerCase();
+        final fracDigit = _vnDigitWords[fracWord];
+        if (fracDigit == null) return m.group(0) ?? '';
+        return '${whole}tr$fracDigit';
+      },
     );
 
     return s;
@@ -226,8 +364,9 @@ abstract final class VoiceFinancialNlpEngine {
 
   static String _replaceSpokenNumberBeforeUnit(String input) {
     final unitPattern = RegExp(
-      r'((?:(?:không|một|mốt|hai|ba|bốn|tư|năm|lăm|sáu|bảy|tám|chín|mười|mươi|trăm|linh|lẻ)\s+){1,6})(triệu|nghìn|ngàn|củ|người)\b',
+      r'((?:(?:không|một|mốt|hai|ba|bốn|tư|năm|lăm|nhăm|sáu|bảy|bẩy|tám|chín|mười|mươi|trăm|linh|lẻ)\s+){1,6})(triệu|nghìn|ngàn|củ|người|chục|cành)(?![\p{L}\p{N}])',
       caseSensitive: false,
+      unicode: true,
     );
     return input.replaceAllMapped(unitPattern, (match) {
       final wordsStr = (match.group(1) ?? '').trim().toLowerCase();
@@ -277,6 +416,17 @@ abstract final class VoiceFinancialNlpEngine {
           ones = _vnDigitWords[tokens[i]]!;
           i += 1;
         }
+      } else if (i + 1 < tokens.length &&
+          _vnDigitWords.containsKey(tokens[i]) &&
+          _vnDigitWords.containsKey(tokens[i + 1]) &&
+          _vnDigitWords[tokens[i]]! >= 2 &&
+          _vnDigitWords[tokens[i]]! <= 9 &&
+          _vnDigitWords[tokens[i + 1]]! >= 1 &&
+          _vnDigitWords[tokens[i + 1]]! <= 9) {
+        // Colloquial spoken tens omitting "mươi" (e.g. "ba lăm" -> 35, "hai tư" -> 24, "ba mốt" -> 31)
+        tens = _vnDigitWords[tokens[i]]! * 10;
+        ones = _vnDigitWords[tokens[i + 1]]!;
+        i += 2;
       } else if (_vnDigitWords.containsKey(tokens[i])) {
         ones = _vnDigitWords[tokens[i]]!;
         i += 1;
@@ -288,8 +438,9 @@ abstract final class VoiceFinancialNlpEngine {
   }
 
   static final RegExp _amountTokenRegex = RegExp(
-    r'(\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu)(?:\s*\d{1,3})?|\d+(?:[.,]\d+)?\s*(?:k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,2})?|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|d|vnd|vnđ)?|\b\d{5,11}\s*(?:đ|d|vnd|vnđ)?)\b',
+    r'(\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|củ|cu)(?:\s*\d{1,3})?|\d+(?:[.,]\d+)?\s*(?:k|nghìn|nghin|ngàn|ngan)(?:\s*\d{1,2})?|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|d|₫|vnd|vnđ)?|\d{5,11}\s*(?:đ|d|₫|vnd|vnđ)?)(?![\p{L}\p{N}])',
     caseSensitive: false,
+    unicode: true,
   );
 
   static SharedExpenseTopic inferSharedTopic(String text) {

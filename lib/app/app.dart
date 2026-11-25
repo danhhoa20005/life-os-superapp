@@ -12,6 +12,8 @@ import '../features/app_update/presentation/bloc/app_update_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../features/authentication/presentation/bloc/auth_event.dart';
 import '../features/authentication/presentation/bloc/auth_state.dart';
+import '../features/voice_assistant/presentation/bloc/voice_assistant_bloc.dart';
+import '../features/voice_assistant/presentation/bloc/voice_assistant_event.dart';
 import 'app_router.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_bloc.dart';
@@ -27,6 +29,7 @@ class _LifeOsAppState extends State<LifeOsApp> {
   late final AuthBloc _authBloc;
   late final ThemeBloc _themeBloc;
   late final AppUpdateBloc _appUpdateBloc;
+  late final VoiceAssistantBloc _voiceAssistantBloc;
   late final BlocRouterRefreshStream _routerRefresh;
   late final GoRouter _router;
 
@@ -37,6 +40,7 @@ class _LifeOsAppState extends State<LifeOsApp> {
     _themeBloc = sl<ThemeBloc>()..add(const ThemeHydratedFromDisk());
     _appUpdateBloc = sl<AppUpdateBloc>()
       ..add(const AppUpdateCheckRequested(silent: true));
+    _voiceAssistantBloc = sl<VoiceAssistantBloc>();
     _routerRefresh = BlocRouterRefreshStream(_authBloc.stream);
     _router = createAppRouter(_authBloc, _routerRefresh);
   }
@@ -48,6 +52,7 @@ class _LifeOsAppState extends State<LifeOsApp> {
     _authBloc.close();
     _themeBloc.close();
     _appUpdateBloc.close();
+    _voiceAssistantBloc.close();
     super.dispose();
   }
 
@@ -58,13 +63,16 @@ class _LifeOsAppState extends State<LifeOsApp> {
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<ThemeBloc>.value(value: _themeBloc),
         BlocProvider<AppUpdateBloc>.value(value: _appUpdateBloc),
+        BlocProvider<VoiceAssistantBloc>.value(value: _voiceAssistantBloc),
       ],
       child: BlocListener<AuthBloc, AuthState>(
-        listenWhen: (prev, curr) =>
-            prev.status != curr.status &&
-            curr.status == AuthStatus.authenticated,
-        listener: (_, __) {
-          _appUpdateBloc.add(const AppUpdateCheckRequested(silent: true));
+        listenWhen: (prev, curr) => prev.status != curr.status,
+        listener: (_, state) {
+          if (state.status == AuthStatus.authenticated) {
+            _appUpdateBloc.add(const AppUpdateCheckRequested(silent: true));
+          } else if (state.status == AuthStatus.unauthenticated) {
+            _voiceAssistantBloc.add(const VoiceAccountResetRequested());
+          }
         },
         child: BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, themeState) {

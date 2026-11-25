@@ -1,9 +1,25 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 
 import '../../app/theme/theme_bloc.dart';
+import '../../features/voice_assistant/data/datasources/local_asr_model_manager.dart';
+import '../../features/voice_assistant/data/datasources/voice_native_channel_datasource.dart';
+import '../../features/voice_assistant/data/engines/android_on_device_engine.dart';
+import '../../features/voice_assistant/data/engines/android_speech_engine.dart';
+import '../../features/voice_assistant/data/engines/local_asr_engine.dart';
+import '../../features/voice_assistant/data/engines/system_dialog_engine.dart';
+import '../../features/voice_assistant/data/repositories/voice_capability_repository_impl.dart';
+import '../../features/voice_assistant/domain/entities/voice_engine_capability.dart';
+import '../../features/voice_assistant/domain/repositories/local_asr_model_repository.dart';
+import '../../features/voice_assistant/domain/repositories/voice_capability_repository.dart';
+import '../../features/voice_assistant/domain/services/engine_selection_policy.dart';
+import '../../features/voice_assistant/domain/services/speech_engine_adapter.dart';
+import '../../features/voice_assistant/domain/services/voice_session_coordinator.dart';
+import '../../features/voice_assistant/presentation/bloc/voice_assistant_bloc.dart';
 import '../../features/app_update/data/datasources/app_update_remote_datasource.dart';
 import '../../features/app_update/data/repositories/app_update_repository_impl.dart';
 import '../../features/app_update/domain/repositories/app_update_repository.dart';
@@ -508,5 +524,74 @@ Future<void> configureDependencies({
   );
   sl.registerFactory<GeminiCopilotBloc>(
     () => GeminiCopilotBloc(repository: sl<GeminiCopilotRepository>()),
+  );
+
+  // Voice Engine 2.0 (Clean Architecture Single-Owner Coordinator, Model Manager & BLoC)
+  sl.registerLazySingleton<VoiceNativeChannelDataSource>(
+    () => VoiceNativeChannelDataSource(
+      client: BridgeAwareVoiceMethodChannelClient(),
+    ),
+    dispose: (ds) => ds.dispose(),
+  );
+  sl.registerLazySingleton<VoiceCapabilityRepository>(
+    () => VoiceCapabilityRepositoryImpl(),
+  );
+  sl.registerLazySingleton<LocalAsrModelRepository>(
+    () => LocalAsrModelManager.lazy(
+      rootDirectoryProvider: () async =>
+          Directory('${Directory.systemTemp.path}/lifeos_asr_models'),
+      httpClient: httpClientOverride,
+    ),
+  );
+  sl.registerLazySingleton<SpeechEngineRegistry>(
+    () => SpeechEngineRegistry(<SpeechEngineAdapter>[
+      AndroidOnDeviceEngine(sl<VoiceNativeChannelDataSource>()),
+      LocalAsrEngine(
+        modelRepository: sl<LocalAsrModelRepository>(),
+        dataSource: sl<VoiceNativeChannelDataSource>(),
+      ),
+      AndroidSpeechEngine(sl<VoiceNativeChannelDataSource>()),
+      SystemDialogEngine(sl<VoiceNativeChannelDataSource>()),
+    ]),
+  );
+  sl.registerLazySingleton<VoiceSessionCoordinator>(
+    () => VoiceSessionCoordinator(
+      engineRegistry: sl<SpeechEngineRegistry>(),
+      capabilityRepository: sl<VoiceCapabilityRepository>(),
+      modelRepository: sl<LocalAsrModelRepository>(),
+      initialPreference: VoiceRecognitionPreference.onlineGoogle,
+      nativeDiagnosticsProvider: () =>
+          sl<VoiceNativeChannelDataSource>().getVoiceDiagnosticsV2(),
+      environmentProvider: () async {
+        final ds = sl<VoiceNativeChannelDataSource>();
+        final diag = await ds.getVoiceDiagnosticsV2();
+        final sdkInt = (diag['sdkInt'] as num?)?.toInt() ?? 0;
+        final route = VoiceAudioRoute.fromWireValue(
+          diag['currentAudioRoute']?.toString(),
+        );
+        return VoiceEnvironmentSnapshot(
+          androidSdkInt: sdkInt,
+          osBuildFingerprint: (diag['osBuild'] ?? 'unknown').toString(),
+          recognitionServiceVersion: (diag['activeEngineLabel'] ?? 'unknown')
+              .toString(),
+          locale: 'vi-VN',
+          audioRoute: route,
+          isNetworkAvailable: true,
+          isGoogleSpeechAvailable: diag['isRecognitionAvailable'] == true,
+          isAndroidOnDeviceAvailable:
+              sdkInt >= 31 && diag['isOnDeviceAvailable'] == true,
+          isSystemDialogAvailable: diag['hasSystemSpeechDialog'] == true,
+          nowEpochMs: DateTime.now().millisecondsSinceEpoch,
+        );
+      },
+    ),
+    dispose: (c) => c.dispose(),
+  );
+  sl.registerFactory<VoiceAssistantBloc>(
+    () => VoiceAssistantBloc(
+      coordinator: sl<VoiceSessionCoordinator>(),
+      modelRepository: sl<LocalAsrModelRepository>(),
+      disposeCoordinatorOnClose: false,
+    ),
   );
 }

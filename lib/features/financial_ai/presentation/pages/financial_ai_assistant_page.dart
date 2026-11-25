@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +16,6 @@ import '../../../../core/utils/omni_action_executor.dart';
 import '../../../../core/utils/smart_omni_intent_parser.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vnd_amount.dart';
-import '../../../../core/utils/voice_utterance_completeness.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -28,6 +28,20 @@ import '../../../tasks/presentation/bloc/task_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
+import '../../../voice_assistant/data/datasources/local_asr_model_manager.dart';
+import '../../../voice_assistant/data/datasources/voice_native_channel_datasource.dart';
+import '../../../voice_assistant/data/engines/android_on_device_engine.dart';
+import '../../../voice_assistant/data/engines/android_speech_engine.dart';
+import '../../../voice_assistant/data/engines/local_asr_engine.dart';
+import '../../../voice_assistant/data/engines/system_dialog_engine.dart';
+import '../../../voice_assistant/data/repositories/voice_capability_repository_impl.dart';
+import '../../../voice_assistant/domain/entities/voice_engine_capability.dart';
+import '../../../voice_assistant/domain/entities/voice_session.dart';
+import '../../../voice_assistant/domain/services/speech_engine_adapter.dart';
+import '../../../voice_assistant/domain/services/voice_session_coordinator.dart';
+import '../../../voice_assistant/presentation/bloc/voice_assistant_bloc.dart';
+import '../../../voice_assistant/presentation/bloc/voice_assistant_event.dart';
+import '../../../voice_assistant/presentation/bloc/voice_assistant_state.dart';
 import '../../domain/entities/financial_ai_entities.dart';
 import '../../domain/entities/gemini_copilot_entities.dart';
 import '../bloc/financial_ai_bloc.dart';
@@ -79,191 +93,173 @@ class _FinancialAiAssistantBody extends StatefulWidget {
       _FinancialAiAssistantBodyState();
 }
 
-class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
+class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
+    with WidgetsBindingObserver {
   late final TextEditingController _inputCtrl;
-  final String _voiceSessionToken = const Uuid().v4();
-  StreamSubscription<VoiceAssistantSignal>? _voiceSub;
-  Timer? _autoEndpointTimer;
-  Timer? _processingGuardTimer;
-  DateTime? _lastVadRearmAt;
+  late final VoiceAssistantBloc _voiceBloc;
+  bool _ownsLocalVoiceBloc = false;
+  final String _ownerId = 'financial_ai_${const Uuid().v4()}';
+  Timer? _tapDebounceTimer;
+  StreamSubscription<VoiceAssistantState>? _voiceBlocSub;
+  VoiceSessionPhase _lastOwnedPhase = VoiceSessionPhase.idle;
   bool _isListening = false;
-  String _sessionPrefixText = '';
+  bool _isFinalizing = false;
   String? _voiceHint;
-  String? _lastVoiceErrorCode;
+  VoiceErrorKind? _lastVoiceErrorKind;
   FinancialInputSource _activeSource = FinancialInputSource.manualText;
+
+  static const int _kTapDebounceMs = 250;
+
+  bool _consumeTapDebounce() {
+    if (_tapDebounceTimer?.isActive ?? false) {
+      return false;
+    }
+    _tapDebounceTimer = Timer(
+      const Duration(milliseconds: _kTapDebounceMs),
+      () {},
+    );
+    return true;
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _activeSource = widget.initialSource;
-    final initial = (widget.initialText ?? '').trim();
     _inputCtrl = TextEditingController(text: widget.initialText ?? '');
-    _sessionPrefixText = initial;
 
-    final bridge = sl<NativeVoiceAssistantBridge>();
-    _voiceSub = bridge.watchSignals().listen((sig) {
-      if (!mounted) return;
-      switch (sig) {
-        case VoiceStateSignal(:final status):
-          setState(() {
-            if (status == 'requesting_permission') {
-              _processingGuardTimer?.cancel();
-              _isListening = false;
-              _lastVoiceErrorCode = null;
-              _voiceHint =
-                  'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
-            } else if (status == 'initializing') {
-              _processingGuardTimer?.cancel();
-              _isListening = true;
-              _lastVoiceErrorCode = null;
-              _voiceHint = 'Đang mở kênh Micro tiếng Việt...';
-            } else if (status == 'listening') {
-              _processingGuardTimer?.cancel();
-              _isListening = true;
-              _lastVoiceErrorCode = null;
-              _voiceHint =
-                  'Đang tự động thu âm — nói xong hệ thống sẽ tự dừng để bạn xác nhận.';
-            } else if (status == 'processing') {
-              _voiceHint = 'Đang chốt câu vừa nói...';
-              _processingGuardTimer?.cancel();
-              _processingGuardTimer = Timer(
-                const Duration(milliseconds: 1600),
-                () {
-                  if (!mounted || !_isListening) return;
-                  setState(() => _isListening = false);
-                  if (_inputCtrl.text.trim().isNotEmpty) {
-                    _submitAnalysis();
-                  }
-                },
-              );
-            } else {
-              _processingGuardTimer?.cancel();
-              _isListening = false;
-            }
-          });
-        case VoiceRmsSignal(:final rmsDb):
-          if (_isListening &&
-              rmsDb >= 3.0 &&
-              _autoEndpointTimer != null &&
-              _autoEndpointTimer!.isActive) {
-            final now = DateTime.now();
-            if (_lastVadRearmAt == null ||
-                now.difference(_lastVadRearmAt!).inMilliseconds >= 180) {
-              _lastVadRearmAt = now;
-              final currentText = _inputCtrl.text.trim();
-              if (currentText.isNotEmpty) {
-                _scheduleAutoEndpointAndAnalyze(currentText);
-              }
-            }
-          }
-        case VoiceTranscriptSignal(:final text, :final isFinal):
-          _processingGuardTimer?.cancel();
-          final cleanSegment = text.trim();
-          final combined = cleanSegment.isEmpty
-              ? _sessionPrefixText
-              : NativeVoiceAssistantBridge.combinePrefixAndSegment(
-                  _sessionPrefixText,
-                  text,
-                );
-          final cleanCombined = combined.trim();
-          setState(() {
-            _lastVoiceErrorCode = null;
-            if (combined.isNotEmpty || cleanSegment.isNotEmpty) {
-              _inputCtrl.text = combined;
-              _inputCtrl.selection = TextSelection.collapsed(
-                offset: combined.length,
-              );
-            }
-            _activeSource = FinancialInputSource.voiceTranscript;
-            if (isFinal) {
-              _autoEndpointTimer?.cancel();
-              _isListening = false;
-              _sessionPrefixText = cleanCombined;
-              _voiceHint = cleanCombined.isNotEmpty
-                  ? '✓ Đã nhận diện giọng nói — kiểm tra các thẻ xác nhận bên dưới!'
-                  : null;
-            }
-          });
-          if (isFinal) {
-            if (cleanCombined.isNotEmpty) {
-              HapticFeedback.mediumImpact();
-              _submitAnalysis();
-            }
-          } else if (cleanCombined.isNotEmpty) {
-            _scheduleAutoEndpointAndAnalyze(cleanCombined);
-          }
-        case VoiceErrorSignal(:final message, :final code):
-          _autoEndpointTimer?.cancel();
-          _processingGuardTimer?.cancel();
-          final hasPartial = _inputCtrl.text.trim().isNotEmpty;
-          setState(() {
-            _isListening = false;
-            if (hasPartial) {
-              _sessionPrefixText = _inputCtrl.text.trim();
-            }
-            _lastVoiceErrorCode = hasPartial ? null : code;
-            _voiceHint = hasPartial
-                ? '✓ Đã giữ câu vừa nói — kiểm tra & xác nhận bên dưới.'
-                : message;
-          });
-          if (hasPartial) {
-            _submitAnalysis();
-          }
-        case VoiceEngineSwitchedSignal(:final modeWireValue):
-          unawaited(
-            UserBehaviorPrefs.savePreferredVoiceEngineMode(modeWireValue),
-          );
-      }
-    });
+    final existingBloc = _tryReadOptionalBloc<VoiceAssistantBloc>(context);
+    if (existingBloc != null) {
+      _voiceBloc = existingBloc;
+    } else if (sl.isRegistered<VoiceAssistantBloc>()) {
+      _ownsLocalVoiceBloc = true;
+      _voiceBloc = sl<VoiceAssistantBloc>();
+    } else {
+      _ownsLocalVoiceBloc = true;
+      final ds = VoiceNativeChannelDataSource(
+        client: BridgeAwareVoiceMethodChannelClient(),
+      );
+      final capRepo = VoiceCapabilityRepositoryImpl(
+        store: InMemoryVoiceCapabilityStore(),
+      );
+      final modelRepo = LocalAsrModelManager.lazy(
+        rootDirectoryProvider: () async =>
+            Directory('${Directory.systemTemp.path}/lifeos_asr_models'),
+      );
+      final registry = SpeechEngineRegistry(<SpeechEngineAdapter>[
+        AndroidOnDeviceEngine(ds),
+        LocalAsrEngine(modelRepository: modelRepo, dataSource: ds),
+        AndroidSpeechEngine(ds),
+        SystemDialogEngine(ds),
+      ]);
+      final coordinator = VoiceSessionCoordinator(
+        engineRegistry: registry,
+        capabilityRepository: capRepo,
+        modelRepository: modelRepo,
+        initialPreference: VoiceRecognitionPreference.onlineGoogle,
+        nativeDiagnosticsProvider: ds.getVoiceDiagnosticsV2,
+      );
+      _voiceBloc = VoiceAssistantBloc(
+        coordinator: coordinator,
+        modelRepository: modelRepo,
+        disposeCoordinatorOnClose: true,
+      );
+    }
+
+    _voiceBlocSub = _voiceBloc.stream.listen(_onVoiceStateChanged);
 
     if (widget.initialText != null && widget.initialText!.trim().isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _submitAnalysis());
     }
   }
 
-  void _scheduleAutoEndpointAndAnalyze(String liveText) {
-    _autoEndpointTimer?.cancel();
-    final user = context.read<AuthBloc>().state.user;
-    final eval = VoiceUtteranceEvaluator.evaluate(
-      liveText,
-      currentUserId: user?.id ?? 'u_voice',
-      currentUserName: user?.fullName ?? 'Tôi',
-    );
-    if (mounted) {
-      setState(() => _voiceHint = eval.liveStatusVi);
-    }
+  void _onVoiceStateChanged(VoiceAssistantState vState) {
+    if (!mounted || vState.session.ownerId != _ownerId) return;
+    final phase = vState.phase;
+    final prevPhase = _lastOwnedPhase;
+    _lastOwnedPhase = phase;
+    final nextText = vState.effectiveText;
 
-    final wordCount = liveText.split(RegExp(r'\s+')).length;
-    if (!eval.isReadyComplete && !eval.hasActionableDraft && wordCount < 4) {
-      return;
-    }
-
-    _autoEndpointTimer = Timer(eval.silenceAutoStopDelay, () async {
-      if (!mounted || !_isListening) return;
-      await sl<NativeVoiceAssistantBridge>().stopListening();
-      if (!mounted) return;
-      _processingGuardTimer?.cancel();
-      HapticFeedback.mediumImpact();
-      setState(() {
-        _isListening = false;
-        _sessionPrefixText = _inputCtrl.text.trim();
-        _voiceHint =
-            '✓ Đã nhận diện chuẩn và tự dừng — mời bạn kiểm tra & xác nhận bên dưới!';
-      });
-      if (_inputCtrl.text.trim().isNotEmpty) {
-        _submitAnalysis();
+    setState(() {
+      _isListening = phase.isActiveCapture;
+      _isFinalizing = phase == VoiceSessionPhase.finalizing;
+      _lastVoiceErrorKind = phase == VoiceSessionPhase.error
+          ? vState.session.lastErrorKind
+          : null;
+      if (nextText.isNotEmpty &&
+          nextText != _inputCtrl.text &&
+          (phase.isActiveCapture || phase == VoiceSessionPhase.review)) {
+        _inputCtrl.text = nextText;
+        _inputCtrl.selection = TextSelection.collapsed(offset: nextText.length);
+        _activeSource = FinancialInputSource.voiceTranscript;
       }
+      _voiceHint = switch (phase) {
+        VoiceSessionPhase.requestingPermission =>
+          'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...',
+        VoiceSessionPhase.preparing => 'Đang mở kênh Micro tiếng Việt...',
+        VoiceSessionPhase.listening =>
+          'Đang nghe tiếng Việt — bấm Dừng khi nói xong để hệ thống xử lý.',
+        VoiceSessionPhase.finalizing => 'Đang hoàn tất câu vừa nói...',
+        VoiceSessionPhase.review =>
+          nextText.isNotEmpty
+              ? '✓ Đã nhận diện giọng nói — kiểm tra các thẻ xác nhận bên dưới!'
+              : null,
+        VoiceSessionPhase.error =>
+          vState.session.lastErrorMessageVi ??
+              vState.session.lastErrorKind?.friendlyMessageVi ??
+              'Tạm gián đoạn thu âm — mời bạn thử lại.',
+        VoiceSessionPhase.cancelled =>
+          nextText.isNotEmpty
+              ? '✓ Đã giữ câu vừa nói — kiểm tra & xác nhận bên dưới.'
+              : 'Đã dừng phiên thu âm.',
+        _ => vState.actionableHintVi,
+      };
     });
+
+    if (phase == VoiceSessionPhase.review &&
+        prevPhase != VoiceSessionPhase.review &&
+        nextText.trim().isNotEmpty) {
+      HapticFeedback.mediumImpact();
+      _submitAnalysis();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted || _voiceBloc.isClosed) return;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      if (_voiceBloc.state.session.ownerId == _ownerId) {
+        _voiceBloc.add(const VoiceAppLifecycleChanged(true));
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_voiceBloc.state.session.ownerId == _ownerId) {
+        _voiceBloc.add(const VoiceAppLifecycleChanged(false));
+      }
+    }
   }
 
   @override
   void dispose() {
-    _autoEndpointTimer?.cancel();
-    _processingGuardTimer?.cancel();
-    _voiceSub?.cancel();
-    sl<NativeVoiceAssistantBridge>().cancelListening(
-      sessionToken: _voiceSessionToken,
-    );
+    _tapDebounceTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _voiceBlocSub?.cancel();
+    if (!_voiceBloc.isClosed) {
+      final activeSession = _voiceBloc.state.session;
+      if (activeSession.ownerId == _ownerId &&
+          activeSession.sessionId.isNotEmpty &&
+          activeSession.phase.isActiveCapture) {
+        _voiceBloc.add(
+          VoiceCancelRequested(
+            sessionId: activeSession.sessionId,
+            reason: 'financial_ai_disposed',
+          ),
+        );
+      }
+      if (_ownsLocalVoiceBloc) {
+        _voiceBloc.close();
+      }
+    }
     _inputCtrl.dispose();
     super.dispose();
   }
@@ -272,65 +268,54 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
     bool clearExisting = false,
     bool preferSystemDialog = false,
   }) async {
-    _autoEndpointTimer?.cancel();
-    _processingGuardTimer?.cancel();
-    final bridge = sl<NativeVoiceAssistantBridge>();
-    if (_isListening && !clearExisting && !preferSystemDialog) {
-      await bridge.stopListening();
-      if (mounted) {
-        setState(() {
-          _isListening = false;
-          _sessionPrefixText = _inputCtrl.text.trim();
-          if (_inputCtrl.text.trim().isNotEmpty) {
-            _voiceHint =
-                '✓ Đã dừng thu âm — kiểm tra các thẻ xác nhận bên dưới.';
-          }
-        });
-        if (_inputCtrl.text.trim().isNotEmpty) {
-          _submitAnalysis();
-        }
+    if (!_consumeTapDebounce()) return;
+    if (_isFinalizing) return;
+
+    final currentSession = _voiceBloc.state.session;
+    if (_isListening &&
+        currentSession.ownerId == _ownerId &&
+        !clearExisting &&
+        !preferSystemDialog) {
+      if (currentSession.phase == VoiceSessionPhase.listening) {
+        _voiceBloc.add(VoiceStopRequested(sessionId: currentSession.sessionId));
+      } else {
+        _voiceBloc.add(
+          VoiceCancelRequested(
+            sessionId: currentSession.sessionId,
+            reason: 'user_cancelled',
+          ),
+        );
       }
       return;
     }
+
     if (clearExisting) {
       _inputCtrl.clear();
-      _sessionPrefixText = '';
-    } else {
-      _sessionPrefixText = _inputCtrl.text.trim();
+    } else if (_inputCtrl.text.trim().isNotEmpty) {
+      _voiceBloc.add(VoiceTranscriptEdited(_inputCtrl.text.trim()));
     }
-    setState(() {
-      _isListening = true;
-      _lastVoiceErrorCode = null;
-      _voiceHint =
-          'Đang kết nối Google Speech tiếng Việt — nói xong hệ thống tự dừng để bạn xác nhận.';
-    });
+
     final savedModeWire =
         await UserBehaviorPrefs.loadPreferredVoiceEngineMode();
-    final savedMode = VoiceEngineMode.fromWireValue(savedModeWire);
-    final useDialog =
-        preferSystemDialog || savedMode == VoiceEngineMode.systemDialog;
-    final res = await bridge.startListening(
-      sessionToken: _voiceSessionToken,
-      preferSystemDialog: useDialog,
-      engineMode: useDialog
-          ? VoiceEngineMode.systemDialog
-          : VoiceEngineMode.googleService,
-    );
     if (!mounted) return;
-    if (res == 'PERMISSION_REQUESTED') {
-      setState(() {
-        _isListening = false;
-        _voiceHint =
-            'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...';
-      });
-    } else if (res == 'UNSUPPORTED' || res == 'ERROR') {
-      setState(() {
-        _isListening = false;
-        _lastVoiceErrorCode = res;
-        _voiceHint =
-            'Thiết bị chưa bật thu âm hệ thống — vui lòng nhập văn bản bên dưới.';
-      });
-    }
+    final pref = preferSystemDialog
+        ? VoiceRecognitionPreference.systemDialog
+        : (savedModeWire ==
+                      VoiceRecognitionPreference.offlineStrict.wireValue ||
+                  savedModeWire == VoiceEngineMode.onDevice.wireValue
+              ? VoiceRecognitionPreference.offlineStrict
+              : (savedModeWire == VoiceEngineMode.systemDialog.wireValue
+                    ? VoiceRecognitionPreference.systemDialog
+                    : VoiceRecognitionPreference.onlineGoogle));
+
+    _voiceBloc.add(
+      VoiceStartRequested(
+        ownerId: _ownerId,
+        entryPoint: VoiceEntryPoint.financialAi,
+        preference: pref,
+        clearTranscript: clearExisting,
+      ),
+    );
   }
 
   void _submitAnalysis() {
@@ -583,7 +568,11 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                         .manualText;
                                               }
                                               if (!_isListening) {
-                                                _sessionPrefixText = val.trim();
+                                                _voiceBloc.add(
+                                                  VoiceTranscriptEdited(
+                                                    val.trim(),
+                                                  ),
+                                                );
                                               }
                                             });
                                           },
@@ -597,15 +586,17 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                 'financial_ai_mic_btn',
                                               ),
                                               tooltip: _isListening
-                                                  ? 'Chốt câu ngay'
-                                                  : 'Tự động thu âm giọng nói',
-                                              onPressed: () => _toggleMic(),
+                                                  ? 'Dừng thu âm'
+                                                  : 'Bắt đầu thu âm giọng nói',
+                                              onPressed: _isFinalizing
+                                                  ? null
+                                                  : () => _toggleMic(),
                                               icon: Icon(
                                                 _isListening
-                                                    ? Icons.check_circle_rounded
+                                                    ? Icons.stop_circle_rounded
                                                     : Icons.mic_rounded,
                                                 color: _isListening
-                                                    ? const Color(0xFF059669)
+                                                    ? const Color(0xFFDC2626)
                                                     : c.primary,
                                               ),
                                             ),
@@ -657,19 +648,18 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                             ],
                                           ),
                                           if (!_isListening &&
-                                              _lastVoiceErrorCode != null &&
-                                              _inputCtrl.text
-                                                  .trim()
-                                                  .isEmpty) ...[
+                                              _lastVoiceErrorKind != null) ...[
                                             const SizedBox(height: 6),
                                             Wrap(
                                               spacing: 6,
                                               runSpacing: 6,
                                               children: [
-                                                if (_lastVoiceErrorCode ==
-                                                        'PERMISSION_DENIED' ||
-                                                    _lastVoiceErrorCode ==
-                                                        'PERMISSION_PERMANENTLY_DENIED')
+                                                if (_lastVoiceErrorKind ==
+                                                        VoiceErrorKind
+                                                            .permissionDenied ||
+                                                    _lastVoiceErrorKind ==
+                                                        VoiceErrorKind
+                                                            .permissionPermanentlyDenied)
                                                   FilledButton.tonalIcon(
                                                     key: const Key(
                                                       'fin_ai_grant_mic_btn',
@@ -681,8 +671,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                                   .compact,
                                                         ),
                                                     onPressed: () async {
-                                                      if (_lastVoiceErrorCode ==
-                                                          'PERMISSION_PERMANENTLY_DENIED') {
+                                                      if (_lastVoiceErrorKind ==
+                                                          VoiceErrorKind
+                                                              .permissionPermanentlyDenied) {
                                                         await sl<
                                                               NativeVoiceAssistantBridge
                                                             >()
@@ -697,8 +688,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                       size: 15,
                                                     ),
                                                     label: Text(
-                                                      _lastVoiceErrorCode ==
-                                                              'PERMISSION_PERMANENTLY_DENIED'
+                                                      _lastVoiceErrorKind ==
+                                                              VoiceErrorKind
+                                                                  .permissionPermanentlyDenied
                                                           ? 'Mở Cài đặt Micro'
                                                           : 'Cấp quyền Micro',
                                                       style: const TextStyle(
@@ -822,9 +814,12 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                                       .command
                                                                       .length,
                                                                 );
-                                                            _sessionPrefixText =
-                                                                sample.command;
                                                           });
+                                                          _voiceBloc.add(
+                                                            VoiceTranscriptEdited(
+                                                              sample.command,
+                                                            ),
+                                                          );
                                                           _submitAnalysis();
                                                         },
                                                 ),
@@ -844,13 +839,17 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                 onPressed: () {
                                                   setState(() {
                                                     _inputCtrl.clear();
-                                                    _sessionPrefixText = '';
                                                     _voiceHint = null;
-                                                    _lastVoiceErrorCode = null;
+                                                    _lastVoiceErrorKind = null;
                                                     _activeSource =
                                                         FinancialInputSource
                                                             .manualText;
                                                   });
+                                                  _voiceBloc.add(
+                                                    const VoiceResetToIdleRequested(
+                                                      clearTranscript: true,
+                                                    ),
+                                                  );
                                                   context
                                                       .read<FinancialAiBloc>()
                                                       .add(

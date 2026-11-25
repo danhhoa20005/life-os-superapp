@@ -1343,6 +1343,19 @@ class _SettingsHubPageState extends State<SettingsHubPage>
             .then((_) => _refreshSystemAndSecurityStatus()),
       ),
       _SettingsItemSpec(
+        itemKey: const Key('settings_voice_diagnostics_row'),
+        sectionTitle: 'Tài khoản & Kết nối tự động',
+        sectionTone: LifeOsAccentTone.emerald,
+        icon: Icons.graphic_eq_rounded,
+        tone: LifeOsAccentTone.blue,
+        title: 'Chẩn đoán Giọng nói & Mô hình Offline',
+        subtitle:
+            'Kiểm tra Micro, chế độ Offline/Online, độ trễ & xuất báo cáo ẩn PII',
+        keywords:
+            'giong noi voice micro mic offline asr chan doan diagnostics speech',
+        onTap: () => context.push('/voice-diagnostics'),
+      ),
+      _SettingsItemSpec(
         itemKey: const Key('settings_permissions_popup_row'),
         sectionTitle: 'Tài khoản & Kết nối tự động',
         sectionTone: LifeOsAccentTone.emerald,

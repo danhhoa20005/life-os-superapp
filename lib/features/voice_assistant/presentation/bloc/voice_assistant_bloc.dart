@@ -388,7 +388,7 @@ class VoiceAssistantBloc
 
   @override
   Future<void> close() async {
-    await _snapshotSubscription?.cancel();
+    unawaited(_snapshotSubscription?.cancel());
     _snapshotSubscription = null;
     if (_disposeCoordinatorOnClose) {
       await _coordinator.dispose();

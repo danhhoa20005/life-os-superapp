@@ -285,8 +285,9 @@ void main() {
           await tester.pump(const Duration(milliseconds: 50));
           expect(find.text('Đang thu âm... Hãy nói tự nhiên'), findsOneWidget);
 
-          // 3. Partial complete clause arrives ("Ăn phở 55 nghìn"), normally auto-stops at 850ms.
-          // Simulate speaker continuing to talk (RMS = 6.8 dB at 450ms & 750ms) -> MUST NOT cut off!
+          // 3. Partial complete clause arrives ("Ăn phở 55 nghìn").
+          // Under Voice Engine 2.0 (VOICE-005 & VOICE-006), explicit stop is the default
+          // and RMS never prematurely stops or switches engine!
           voiceDriver.controller.add(
             const VoiceTranscriptSignal(
               text: 'Ăn phở 55 nghìn',
@@ -295,18 +296,24 @@ void main() {
           );
           await tester.pump(const Duration(milliseconds: 450));
           voiceDriver.controller.add(const VoiceRmsSignal(6.8));
-          await tester.pump(const Duration(milliseconds: 300));
-          voiceDriver.controller.add(const VoiceRmsSignal(7.2));
-          await tester.pump(const Duration(milliseconds: 250));
-          // Total 1000ms (> 850ms), yet speaker was actively speaking -> stopCount MUST still be 0!
+          await tester.pump(const Duration(milliseconds: 600));
           expect(voiceDriver.stopCount, 0);
 
-          // 4. Speaker now pauses silently -> auto-stops cleanly after ~850ms of true silence
-          await tester.pump(const Duration(milliseconds: 900));
-          await tester.pumpAndSettle();
+          // 4. User taps explicit Stop -> enters FINALIZING (VOICE-001: NO premature review!),
+          // then native emits final result -> cleanly enters REVIEW!
+          await tester.tap(find.byKey(const Key('voice_mic_toggle_button')));
+          await tester.pump(const Duration(milliseconds: 60));
           expect(voiceDriver.stopCount, 1);
+          expect(find.text('Đang xử lý câu nói...'), findsOneWidget);
 
-          // 5. User taps Mic button again (`voice_mic_toggle_button`) to ADD a second expense
+          voiceDriver.controller.add(
+            const VoiceTranscriptSignal(text: 'Ăn phở 55 nghìn', isFinal: true),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Kiểm tra & Xác nhận lại'), findsOneWidget);
+
+          // 5. User taps Mic button again (`voice_mic_toggle_button`) after debounce to ADD a second expense
+          await tester.pump(const Duration(milliseconds: 300));
           await tester.tap(find.byKey(const Key('voice_mic_toggle_button')));
           await tester.pump(const Duration(milliseconds: 60));
           voiceDriver.controller.add(const VoiceStateSignal('listening'));
@@ -323,7 +330,7 @@ void main() {
             'Ăn phở 55 nghìn, Cà phê 35 nghìn',
           );
 
-          // 6. Expand 'Chi tiết thu âm' -> ONLY Google modes shown (broken OEM/non-VN modes removed!)
+          // 6. Expand 'Chi tiết thu âm' -> Offline Strict, Google Speech, System Dialog & Diagnostics link!
           await tester.ensureVisible(
             find.byKey(const Key('voice_mic_details_toggle')),
           );
@@ -344,12 +351,16 @@ void main() {
             find.byKey(const Key('voice_engine_chip_system_dialog')),
             findsOneWidget,
           );
-          expect(find.byKey(const Key('voice_engine_chip_auto')), findsNothing);
           expect(
-            find.byKey(const Key('voice_engine_chip_on_device')),
-            findsNothing,
+            find.byKey(const Key('voice_engine_chip_offline_strict')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('voice_open_diagnostics_btn')),
+            findsOneWidget,
           );
 
+          await tester.pump(const Duration(milliseconds: 300));
           await tester.ensureVisible(
             find.byKey(const Key('voice_engine_chip_system_dialog')),
           );
@@ -418,12 +429,12 @@ void main() {
           );
           voiceDriver.controller.add(const VoiceStateSignal('processing'));
           await tester.pump(const Duration(milliseconds: 100));
-          expect(find.text('Đang tự động thu âm...'), findsOneWidget);
+          expect(find.text('Đang xử lý câu nói...'), findsOneWidget);
 
-          // After 1650ms processing safety guard fires -> exits listening hang cleanly!
-          await tester.pump(const Duration(milliseconds: 1700));
+          // After 2300ms finalizing safety guard fires -> rescues partial transcript to REVIEW cleanly!
+          await tester.pump(const Duration(milliseconds: 2400));
           await tester.pumpAndSettle();
-          expect(find.text('Đang tự động thu âm...'), findsNothing);
+          expect(find.text('Đang xử lý câu nói...'), findsNothing);
           expect(find.text('Kiểm tra & Xác nhận lại'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },

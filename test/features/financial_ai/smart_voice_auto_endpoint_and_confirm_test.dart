@@ -222,9 +222,10 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
         expect(voiceDriver.startCount, 1);
-        expect(find.text('Đang tự động thu âm...'), findsOneWidget);
+        expect(find.text('Đang nghe tiếng Việt...'), findsOneWidget);
 
-        // 2. Partial incomplete speech ("Ăn phở") -> does NOT cut off after 900ms!
+        // 2. Partial speech ("Ăn phở" -> "Ăn phở 55 nghìn") -> under Voice Engine 2.0 (VOICE-005),
+        // explicit stop is the default so pausing 1s MUST NOT prematurely cut off multi-clause speech!
         voiceDriver.controller.add(
           const VoiceTranscriptSignal(text: 'Ăn phở', isFinal: false),
         );
@@ -232,16 +233,25 @@ void main() {
         await tester.pump(const Duration(milliseconds: 950));
         expect(voiceDriver.stopCount, 0);
 
-        // 3. Speaker finishes with complete amount ("Ăn phở 55 nghìn") -> auto-stops after ~850ms!
         voiceDriver.controller.add(
           const VoiceTranscriptSignal(text: 'Ăn phở 55 nghìn', isFinal: false),
         );
         await tester.pump(const Duration(milliseconds: 50));
         expect(find.textContaining('Đã nhận diện chuẩn'), findsOneWidget);
-        await tester.pump(const Duration(milliseconds: 900));
+        await tester.pump(const Duration(milliseconds: 950));
+        expect(voiceDriver.stopCount, 0);
+
+        // 3. Explicit Stop -> FINALIZING -> native final result -> REVIEW!
+        await tester.tap(find.byKey(const Key('voice_stop_session_btn')));
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(voiceDriver.stopCount, 1);
+        expect(find.text('Đang xử lý câu nói...'), findsOneWidget);
+
+        voiceDriver.controller.add(
+          const VoiceTranscriptSignal(text: 'Ăn phở 55 nghìn', isFinal: true),
+        );
         await tester.pumpAndSettle();
 
-        expect(voiceDriver.stopCount, greaterThanOrEqualTo(1));
         expect(find.text('Kiểm tra & Xác nhận lại'), findsOneWidget);
         expect(
           find.byKey(const Key('voice_confirmation_preview_card')),
@@ -255,6 +265,7 @@ void main() {
         expect(txListBloc.state.allTransactions, isEmpty);
 
         // 4. User taps 'Nói lại' -> clears and restarts recording immediately!
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.ensureVisible(
           find.byKey(const Key('voice_retry_bottom_button')),
         );
@@ -263,12 +274,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expect(voiceDriver.startCount, 2);
 
-        // 5. Speaker says "Đổ xăng 70 nghìn" -> auto-stops -> user taps 'Xác nhận & Lưu' -> saved!
+        // 5. Speaker says "Đổ xăng 70 nghìn" (final) -> user taps 'Xác nhận & Lưu' -> saved!
         voiceDriver.controller.add(
-          const VoiceTranscriptSignal(text: 'Đổ xăng 70 nghìn', isFinal: false),
+          const VoiceTranscriptSignal(text: 'Đổ xăng 70 nghìn', isFinal: true),
         );
-        await tester.pump(const Duration(milliseconds: 50));
-        await tester.pump(const Duration(milliseconds: 900));
         await tester.pumpAndSettle();
 
         await tester.ensureVisible(
@@ -375,7 +384,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Đang tự động thu âm...'), findsNothing);
+        expect(find.text('Đang nghe tiếng Việt...'), findsNothing);
         expect(
           find.byKey(const Key('voice_grant_mic_permission_btn')),
           findsOneWidget,
@@ -386,6 +395,7 @@ void main() {
         );
 
         // Tapping 'Thu âm hệ thống' launches system fallback cleanly
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(
           find.byKey(const Key('voice_system_dialog_fallback_btn')),
         );

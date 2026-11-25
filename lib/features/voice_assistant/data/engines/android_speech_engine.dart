@@ -84,7 +84,9 @@ class AndroidSpeechEngine implements SpeechEngineAdapter {
         errorCode: status,
       );
     }
-    return const EngineStartOutcome.success();
+    return EngineStartOutcome.success(
+      awaitsExternalActivity: status == 'PERMISSION_REQUESTED',
+    );
   }
 
   @override

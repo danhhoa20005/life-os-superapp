@@ -8,6 +8,7 @@ import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_home_widget_bridge.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
+import '../../../voice_assistant/domain/services/voice_session_coordinator.dart';
 import '../../domain/usecases/auth_usecases.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -114,6 +115,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         if (user == null) {
           UserBehaviorPrefs.clearSessionOnSignOut();
           LocalDraftStore.clearAllInMemoryCaches();
+          if (sl.isRegistered<VoiceSessionCoordinator>()) {
+            sl<VoiceSessionCoordinator>().onUserAccountChangedOrSignedOut();
+          }
           return state.copyWith(
             status: AuthStatus.unauthenticated,
             clearUser: true,

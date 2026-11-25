@@ -478,9 +478,9 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     final root = await _rootDirectoryProvider();
     final currentDir = _currentDir(root, spec.id);
     final backupDir = _backupDir(root, spec.id);
-    final hasBackup = await backupDir.exists();
+    final hasBackup = backupDir.existsSync();
 
-    if (!await currentDir.exists()) {
+    if (!currentDir.existsSync()) {
       final transient = _transientStates[spec.id];
       if (transient != null &&
           (transient.status == LocalAsrModelStatus.corrupted ||
@@ -509,9 +509,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
 
     final version = manifest['version']?.toString();
     final primaryFile = File('${currentDir.path}/${spec.primaryFileName}');
-    final fileBytes = await primaryFile.exists()
-        ? await primaryFile.length()
-        : 0;
+    final fileBytes = primaryFile.existsSync() ? primaryFile.lengthSync() : 0;
 
     final intact = await verifyModelIntegrity(
       spec.id,
@@ -560,9 +558,9 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
 
   Future<Map<String, dynamic>?> _readManifest(Directory dir) async {
     final file = File('${dir.path}/manifest.json');
-    if (!await file.exists()) return null;
+    if (!file.existsSync()) return null;
     try {
-      final decoded = jsonDecode(await file.readAsString());
+      final decoded = jsonDecode(file.readAsStringSync());
       if (decoded is Map<String, dynamic>) return decoded;
       if (decoded is Map) return Map<String, dynamic>.from(decoded);
       return null;

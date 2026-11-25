@@ -144,6 +144,7 @@ enum VoiceEngineMode {
 
   static VoiceEngineMode fromWireValue(String? raw) {
     if (raw == systemDialog.wireValue) return systemDialog;
+    if (raw == onDevice.wireValue || raw == 'offline_strict') return onDevice;
     return googleService;
   }
 }
@@ -405,8 +406,10 @@ class MethodChannelVoiceAssistantDriver
       final status = await _methodChannel
           .invokeMethod<String>('startListening', <String, dynamic>{
             if (sessionToken != null) 'sessionToken': sessionToken,
+            if (sessionToken != null) 'sessionId': sessionToken,
             'preferSystemDialog': useDialog,
             'engineMode': normalizedMode,
+            'strictOffline': normalizedMode == 'on_device',
             'forceInlineProbe': forceInlineProbe,
           });
       return status ?? 'STARTED';
@@ -416,10 +419,14 @@ class MethodChannelVoiceAssistantDriver
   }
 
   @override
-  Future<void> stopListening() async {
+  Future<void> stopListening({String? sessionToken}) async {
     if (!isSupportedPlatform || !_hasServicesBinding) return;
     try {
-      await _methodChannel.invokeMethod<void>('stopListening');
+      await _methodChannel
+          .invokeMethod<void>('stopListening', <String, dynamic>{
+            if (sessionToken != null) 'sessionToken': sessionToken,
+            if (sessionToken != null) 'sessionId': sessionToken,
+          });
     } catch (_) {}
   }
 
@@ -459,11 +466,11 @@ class MethodChannelVoiceAssistantDriver
         'getDiagnostics',
       );
       if (raw == null) {
-        return const VoiceDiagnosticsSnapshot.fallback(supported: true);
+        return const VoiceDiagnosticsSnapshot.fallback(supported: false);
       }
       return VoiceDiagnosticsSnapshot.fromMap(raw);
     } catch (_) {
-      return const VoiceDiagnosticsSnapshot.fallback(supported: true);
+      return const VoiceDiagnosticsSnapshot.fallback(supported: false);
     }
   }
 
@@ -483,6 +490,11 @@ class NativeVoiceAssistantBridge {
   static String? _activeOwnerSessionToken;
 
   const NativeVoiceAssistantBridge();
+
+  static VoiceAssistantDriver get currentDriver => _driver;
+
+  static bool get hasTestDriverOverride =>
+      _driver is! MethodChannelVoiceAssistantDriver;
 
   @visibleForTesting
   static void setDriverOverride(VoiceAssistantDriver? overrideDriver) {
@@ -551,7 +563,19 @@ class NativeVoiceAssistantBridge {
     return drv.startListening();
   }
 
-  Future<void> stopListening() => _driver.stopListening();
+  Future<void> stopListening({String? sessionToken}) async {
+    if (sessionToken != null &&
+        _activeOwnerSessionToken != null &&
+        sessionToken != _activeOwnerSessionToken) {
+      return;
+    }
+    final drv = _driver;
+    if (drv is MethodChannelVoiceAssistantDriver) {
+      await drv.stopListening(sessionToken: sessionToken);
+      return;
+    }
+    await drv.stopListening();
+  }
 
   /// Safely cancels listening on widget `dispose()` ONLY if [sessionToken] still owns
   /// the active voice session — preventing a closing sheet from killing a newly opened sheet!
