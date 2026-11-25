@@ -75,6 +75,7 @@ import '../services/fcm_banking_messaging_service.dart';
 import '../services/file_storage_service.dart';
 import '../services/native_app_updater_bridge.dart';
 import '../services/native_home_widget_bridge.dart';
+import '../services/native_privacy_screen_bridge.dart';
 import '../services/native_receipt_picker_bridge.dart';
 import '../services/native_voice_assistant_bridge.dart';
 
@@ -140,6 +141,9 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<NativeReceiptPickerBridge>(
     () => const NativeReceiptPickerBridge(),
   );
+  sl.registerLazySingleton<NativePrivacyScreenBridge>(
+    () => NativePrivacyScreenBridge.instance,
+  );
   sl.registerLazySingleton<OfflineOutboxService>(
     () => OfflineOutboxService(),
   );
@@ -169,7 +173,11 @@ Future<void> configureDependencies({
     () => BudgetRemoteDataSource(sl<FirebaseFirestore>()),
   );
   sl.registerLazySingleton<FamilyRemoteDataSource>(
-    () => FamilyRemoteDataSource(sl<FirebaseFirestore>()),
+    () => FamilyRemoteDataSource(
+      sl<FirebaseFirestore>(),
+      firebaseAuth: sl<FirebaseAuth>(),
+      functionsInvoker: functionsInvokerOverride,
+    ),
   );
   sl.registerLazySingleton<GoogleCalendarApiDataSource>(
     () => GoogleCalendarApiDataSource(

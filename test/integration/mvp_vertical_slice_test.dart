@@ -467,7 +467,23 @@ void main() {
           0,
         ); // Duplicate CSV import safely ignored!
 
-        // 6. Self-Service Account & Personal Data Deletion (PDPL 91/2025)
+        // 6. Self-Service Account & Personal Data Deletion (PDPL 91/2025 + AUD-007 Owner Guard)
+        // 6a. Deleting while still owner of a multi-member family MUST be blocked safely first!
+        final blockedDelete = await notifRepo.deleteAccountAndPersonalData(
+          minh.id,
+        );
+        expect(blockedDelete, isA<Err<void>>());
+        expect(
+          (blockedDelete as Err<void>).failure.code,
+          'FAMILY_OWNER_TRANSFER_REQUIRED',
+        );
+
+        // 6b. After removing other members so owner can safely disband, deletion succeeds cleanly!
+        await familyRepo.removeMember(
+          familyId: fam.id,
+          actorUserId: minh.id,
+          targetUserId: 'user_lan',
+        );
         final deleteRes = await notifRepo.deleteAccountAndPersonalData(minh.id);
         expect(deleteRes.isSuccess, isTrue);
         final deletedUserSnap = await fakeFirestore

@@ -75,13 +75,16 @@ void main() {
           contains("request.resource.data.memberRoles[resource.data.createdBy] == 'owner'"),
         );
 
-        // F04 / SEC-04: Actor must be fromUserId or toUserId, plus two-step settlement_requests
+        // F04 / SEC-04 / AUD-002: Creditor-only direct receipt or atomic 2-step settlement_requests
+        // confirmation (`stl_req_`) and deterministic single reversal (`rev_`); forbids unilateral debtor forgery
         expect(rules, contains('match /settlement_requests/{requestId}'));
         expect(
           rules,
-          contains(
-            'request.auth.uid == request.resource.data.fromUserId || request.auth.uid == request.resource.data.toUserId',
-          ),
+          contains("settlementId == 'stl_req_' + request.resource.data.settlementRequestId"),
+        );
+        expect(
+          rules,
+          contains("settlementId == 'rev_' + request.resource.data.reversalOfId"),
         );
 
         // F05: Locked/settled split_bills cannot be mutated
