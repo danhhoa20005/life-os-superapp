@@ -295,47 +295,50 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
           final clsInput = norm.toClassifierInput(d.title);
           if (clsInput.isNotEmpty) {
             final clsRes = await classifier.classify(clsInput);
-            final minConf = prefs?.minAutoSuggestConfidence ?? 0.45;
-            SemanticCategorySpec? matchedSpec;
-            var matchedProb = 0.0;
-            for (final pred in clsRes.predictions) {
-              final spec = FinancialTaxonomyCatalog.specs
-                  .where(
-                    (s) =>
-                        s.semanticKey == pred.semanticKey &&
-                        s.direction == expectedDirection,
-                  )
-                  .firstOrNull;
-              if (spec != null) {
-                matchedSpec = spec;
-                matchedProb = pred.probability;
-                break;
+            if (!clsRes.isOutOfDomain) {
+              final minConf = prefs?.minAutoSuggestConfidence ?? 0.45;
+              SemanticCategorySpec? matchedSpec;
+              var matchedProb = 0.0;
+              for (final pred in clsRes.predictions) {
+                if (pred.isOutOfDomain) continue;
+                final spec = FinancialTaxonomyCatalog.specs
+                    .where(
+                      (s) =>
+                          s.semanticKey == pred.semanticKey &&
+                          s.direction == expectedDirection,
+                    )
+                    .firstOrNull;
+                if (spec != null) {
+                  matchedSpec = spec;
+                  matchedProb = pred.probability;
+                  break;
+                }
               }
-            }
-            if (matchedSpec != null && matchedProb >= minConf) {
-              enriched.add(
-                OmniActionDraft(
-                  id: d.id,
-                  kind: d.kind,
-                  title: d.title,
-                  amountMinor: d.amountMinor,
-                  transactionKind: d.transactionKind,
-                  categoryId: matchedSpec.defaultSystemCategoryIdHint,
-                  categoryName: matchedSpec.defaultSystemCategoryName,
-                  participantCount: d.participantCount,
-                  participantNames: d.participantNames,
-                  scheduledAt: d.scheduledAt,
-                  durationMinutes: d.durationMinutes,
-                  location: d.location,
-                  taskPriority: d.taskPriority,
-                  quantityLabel: d.quantityLabel,
-                  waterMl: d.waterMl,
-                  medicationSlot: d.medicationSlot,
-                  dosage: d.dosage,
-                  originLabel: d.originLabel,
-                ),
-              );
-              continue;
+              if (matchedSpec != null && matchedProb >= minConf) {
+                enriched.add(
+                  OmniActionDraft(
+                    id: d.id,
+                    kind: d.kind,
+                    title: d.title,
+                    amountMinor: d.amountMinor,
+                    transactionKind: d.transactionKind,
+                    categoryId: matchedSpec.defaultSystemCategoryIdHint,
+                    categoryName: matchedSpec.defaultSystemCategoryName,
+                    participantCount: d.participantCount,
+                    participantNames: d.participantNames,
+                    scheduledAt: d.scheduledAt,
+                    durationMinutes: d.durationMinutes,
+                    location: d.location,
+                    taskPriority: d.taskPriority,
+                    quantityLabel: d.quantityLabel,
+                    waterMl: d.waterMl,
+                    medicationSlot: d.medicationSlot,
+                    dosage: d.dosage,
+                    originLabel: d.originLabel,
+                  ),
+                );
+                continue;
+              }
             }
           }
         } catch (_) {

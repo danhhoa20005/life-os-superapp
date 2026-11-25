@@ -1,65 +1,52 @@
-"""Globally Convex Supervised FastText Rank-K + Outlier Exposure + INT8 QAT Trainer v2.0.
+"""Globally Convex Supervised FastText Rank-(K+1) + Explicit __ood__ Class + INT8 QAT Trainer v3.0.
 
 Key Capabilities:
-1. Coordinate-Wise Convex AdaGrad (`W = logit_gain * I_{30}`) with Cosine LR Schedule.
-2. Outlier Exposure (Hendrycks et al., ICLR 2019): Non-financial Vietnamese conversational,
-   schedule, weather, and reminder utterances (disjoint from test OOD) are trained toward the
-   maximum-entropy uniform distribution `1/30`, guaranteeing low confidence (`< 0.35`) on OOD inputs!
+1. Explicit (K+1)-th `__ood__` class (`ALL_FINANCIAL_LABELS` = 30 semantic categories + `__ood__`)
+   trained jointly with strictly disjoint `ood_financial_train.jsonl` + synthetic unknown/zero-vector
+   noise samples so `biasB[__ood__]` naturally learns a positive prior (`b[__ood__] > 0`).
+2. Coordinate-Wise AdaGrad (`W = logit_gain * I_{31}`) with Cosine LR Schedule + learned per-class bias `b`.
 3. Straight-Through Symmetric INT8 Quantization-Aware Fine-Tuning (`[-127, 127]`).
-4. Post-Quantization Temperature Calibration jointly minimizing validation NLL + ECE while
-   preserving OOD rejection sharpness.
+4. Post-Quantization Temperature Calibration (`T* >= 0.85`) strictly on disjoint `val + ood_financial_val`
+   minimizing NLL + ECE while enforcing OOD rejection sharpness and 0% false auto-assignment.
 """
 
 from __future__ import annotations
+
 import json
 import math
 import random
 import time
 from pathlib import Path
-from feature_spec import SEMANTIC_LABELS, extract_feature_buckets, normalize_for_classifier, strip_vn_accents
+
+from feature_spec import (
+    ALL_FINANCIAL_LABELS,
+    FINANCIAL_THRESHOLDS,
+    OOD_LABEL,
+    extract_feature_buckets,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "datasets"
 ART_DIR = BASE_DIR / "artifacts"
 
-# Strictly disjoint from `evaluate.py`'s OOD_UNKNOWN_SAMPLES!
-# Teaches the model that everyday non-financial Vietnamese chatter/reminders carry uniform entropy.
-OOD_EXPOSURE_CORPUS = [
-    "alo kiểm tra âm thanh mic nghe rõ chưa",
-    "tín hiệu đường dây mạng hôm nay chập chờn",
-    "dự báo thời tiết ngày mai nắng đẹp",
-    "ra đường nhớ đội mũ bảo hiểm cẩn thận",
-    "cuộc họp giao ban sáng thứ hai tại phòng họp lớn",
-    "chúc buổi sáng tốt lành nhiều năng lượng",
-    "đường nguyễn trãi giờ tan tầm đông xe quá",
-    "nhớ uống đủ nước ấm mỗi buổi sáng",
-    "hẹn báo thức dậy tập thể dục lúc năm giờ sáng",
-    "nhờ anh xem giúp tài liệu kế hoạch gửi qua mail",
-    "mở tivi xem bản tin dự báo thời tiết tối",
-    "ngoài trời gió lạnh nhớ quàng khăn ấm",
-    "mình đang đợi ở quầy lễ tân tầng một nhé",
-    "cho hỏi mật khẩu mạng phòng khách là gì",
-    "cảm thấy tinh thần vui tươi làm việc hiệu quả",
-    "nghe điện thoại xong gọi lại cho anh nhé",
-    "đổi ca trực lịch làm việc sang chiều thứ tư",
-    "xin nghỉ phép buổi chiều giải quyết việc cá nhân",
-    "nghỉ trưa mười lăm phút tại bàn làm việc",
-    "asdf jkl zxcv bnm qwer",
-    "một hai ba bốn năm sáu bảy tám",
-    "hẹn gặp nhau ở công viên lúc chiều mát",
-    "gửi biên bản cuộc họp nhóm lên hệ thống",
-    "trời sắp đổ cơn mưa dông buổi chiều",
-    "nhớ khóa cửa tắt đèn trước khi rời văn phòng",
-]
 
-
-def load_split(name: str) -> list[tuple[int, str]]:
-    label_to_idx = {lbl: i for i, lbl in enumerate(SEMANTIC_LABELS)}
+def load_in_domain_split(name: str, label_to_idx: dict[str, int]) -> list[tuple[int, str]]:
     rows: list[tuple[int, str]] = []
     with (DATA_DIR / f"{name}.jsonl").open("r", encoding="utf-8") as f:
         for line in f:
             obj = json.loads(line)
             rows.append((label_to_idx[obj["label"]], obj["normalized_text"]))
+    return rows
+
+
+def load_ood_split(name: str, ood_idx: int) -> list[tuple[int, str]]:
+    rows: list[tuple[int, str]] = []
+    with (DATA_DIR / f"{name}.jsonl").open("r", encoding="utf-8") as f:
+        for line in f:
+            obj = json.loads(line)
+            norm = obj.get("normalized_text") or ""
+            if norm:
+                rows.append((ood_idx, norm))
     return rows
 
 
@@ -72,25 +59,32 @@ def softmax_probs(logits: list[float], temp: float = 1.0) -> list[float]:
     return [e * inv_s for e in exps]
 
 
-def compute_macro_f1(y_true: list[int], y_pred: list[int], num_classes: int) -> tuple[float, float]:
+def compute_macro_f1(
+    y_true: list[int],
+    y_pred: list[int],
+    eval_num_classes: int,
+) -> tuple[float, float]:
     correct = sum(1 for t, p in zip(y_true, y_pred) if t == p)
     acc = correct / max(len(y_true), 1)
-    tp = [0] * num_classes
-    fp = [0] * num_classes
-    fn = [0] * num_classes
+    tp = [0] * eval_num_classes
+    fp = [0] * eval_num_classes
+    fn = [0] * eval_num_classes
     for t, p in zip(y_true, y_pred):
         if t == p:
-            tp[t] += 1
+            if t < eval_num_classes:
+                tp[t] += 1
         else:
-            fp[p] += 1
-            fn[t] += 1
+            if p < eval_num_classes:
+                fp[p] += 1
+            if t < eval_num_classes:
+                fn[t] += 1
     f1s: list[float] = []
-    for c in range(num_classes):
+    for c in range(eval_num_classes):
         prec = tp[c] / (tp[c] + fp[c]) if (tp[c] + fp[c]) > 0 else 0.0
         rec = tp[c] / (tp[c] + fn[c]) if (tp[c] + fn[c]) > 0 else 0.0
         f1 = (2 * prec * rec / (prec + rec)) if (prec + rec) > 0 else 0.0
         f1s.append(f1)
-    return acc, sum(f1s) / num_classes
+    return acc, sum(f1s) / eval_num_classes
 
 
 def simulate_int8_row(row: list[float]) -> list[float]:
@@ -117,8 +111,9 @@ def eval_int8_logits(
     for y, buckets in feats:
         y_true.append(y)
         if not buckets:
-            y_pred.append(0)
-            all_logits.append([0.0] * num_classes)
+            logits = list(b)
+            all_logits.append(logits)
+            y_pred.append(max(range(num_classes), key=lambda c: logits[c]))
             continue
         scale = logit_gain / len(buckets)
         h = [0.0] * num_classes
@@ -134,150 +129,11 @@ def eval_int8_logits(
     return y_true, y_pred, all_logits
 
 
-def train_fasttext_convex_qat(
-    train_feats: list[tuple[int, list[int]]],
-    ood_feats: list[list[int]],
-    val_feats: list[tuple[int, list[int]]],
-    num_classes: int,
-    num_buckets: int,
-    lr: float,
-    epochs: int,
-    qat_epochs: int,
-    l2: float,
-    label_smoothing: float = 0.006,
-    logit_gain: float = 12.0,
-    seed: int = 42,
-) -> dict[str, object]:
-    rng = random.Random(seed)
-    dim = num_classes
-    A = [[0.0] * dim for _ in range(num_buckets)]
-    W = [[logit_gain if r == c else 0.0 for c in range(dim)] for r in range(num_classes)]
-    # Zero bias `b = 0` ensures any zero/unknown feature vector produces exact uniform 1/K = 0.0333!
-    b = [0.0] * num_classes
-
-    gA = [[1e-2] * dim for _ in range(num_buckets)]
-
-    # y >= 0: supervised class; y == -1: Outlier Exposure (uniform 1/K target)
-    compiled_train: list[tuple[int, float, list[tuple[int, int]]]] = []
-    for y, buckets in train_feats:
-        if not buckets:
-            continue
-        counts: dict[int, int] = {}
-        for b_id in buckets:
-            counts[b_id] = counts.get(b_id, 0) + 1
-        compiled_train.append((y, logit_gain / len(buckets), list(counts.items())))
-
-    # Repeat OOD exposure samples x5 so conversational distractors stay softly near 0 logit
-    for buckets in ood_feats * 5:
-        if not buckets:
-            continue
-        counts = {}
-        for b_id in buckets:
-            counts[b_id] = counts.get(b_id, 0) + 1
-        compiled_train.append((-1, logit_gain / len(buckets), list(counts.items())))
-
-    smooth_neg = label_smoothing / num_classes
-    smooth_pos = (1.0 - label_smoothing) + smooth_neg
-    uniform_p = 1.0 / num_classes
-    indices = list(range(len(compiled_train)))
-    sqrt = math.sqrt
-
-    for ep in range(epochs):
-        rng.shuffle(indices)
-        progress = ep / max(epochs - 1, 1)
-        cur_lr = lr * (0.18 + 0.82 * 0.5 * (1.0 + math.cos(math.pi * progress)))
-
-        for idx in indices:
-            y, scale_factor, bucket_counts = compiled_train[idx]
-            h = [0.0] * dim
-            for b_id, cnt in bucket_counts:
-                row = A[b_id]
-                if cnt == 1:
-                    for c in range(dim):
-                        h[c] += row[c]
-                else:
-                    for c in range(dim):
-                        h[c] += row[c] * cnt
-
-            logits = [scale_factor * h[c] for c in range(dim)]
-            probs = softmax_probs(logits)
-
-            if y >= 0:
-                if ep >= 5 and probs[y] > 0.975:
-                    continue
-                grad_z = [
-                    probs[c] - (smooth_pos if c == y else smooth_neg)
-                    for c in range(dim)
-                ]
-            else:
-                if max(probs) < 0.14:
-                    continue
-                grad_z = [0.55 * (probs[c] - uniform_p) for c in range(dim)]
-
-            for b_id, cnt in bucket_counts:
-                row = A[b_id]
-                grow = gA[b_id]
-                mult = scale_factor * cnt
-                for c in range(dim):
-                    g = grad_z[c] * mult + l2 * row[c]
-                    grow[c] += g * g
-                    row[c] -= (cur_lr / sqrt(grow[c])) * g
-
-    # Stage 2: INT8 Quantization-Aware Straight-Through Fine-Tuning
-    qA = [simulate_int8_row(r) for r in A]
-    for qep in range(qat_epochs):
-        rng.shuffle(indices)
-        qat_lr = lr * 0.12 * (1.0 - 0.5 * (qep / max(qat_epochs, 1)))
-        for idx in indices:
-            y, scale_factor, bucket_counts = compiled_train[idx]
-            h = [0.0] * dim
-            for b_id, cnt in bucket_counts:
-                qrow = qA[b_id]
-                for c in range(dim):
-                    h[c] += qrow[c] * cnt
-
-            logits = [scale_factor * h[c] for c in range(dim)]
-            probs = softmax_probs(logits)
-            if y >= 0:
-                if probs[y] > 0.975:
-                    continue
-                grad_z = [
-                    probs[c] - (smooth_pos if c == y else smooth_neg)
-                    for c in range(dim)
-                ]
-            else:
-                if max(probs) < 0.14:
-                    continue
-                grad_z = [0.55 * (probs[c] - uniform_p) for c in range(dim)]
-
-            for b_id, cnt in bucket_counts:
-                row = A[b_id]
-                grow = gA[b_id]
-                mult = scale_factor * cnt
-                for c in range(dim):
-                    g = grad_z[c] * mult + l2 * row[c]
-                    grow[c] += g * g
-                    row[c] -= (qat_lr / sqrt(grow[c])) * g
-                qA[b_id] = simulate_int8_row(row)
-
-    y_true, y_pred, val_int8_logits = eval_int8_logits(val_feats, A, logit_gain, b, num_classes)
-    val_acc, val_f1 = compute_macro_f1(y_true, y_pred, num_classes)
-
-    # Also compute INT8 logits on OOD exposure validation to ensure T* never inflates OOD above 0.35
-    _, _, ood_int8_logits = eval_int8_logits([(-1, f) for f in ood_feats], A, logit_gain, b, num_classes)
-    return {
-        "A": A,
-        "W": W,
-        "b": b,
-        "val_acc": val_acc,
-        "val_macro_f1": val_f1,
-        "val_logits": val_int8_logits,
-        "val_labels": y_true,
-        "ood_logits": ood_int8_logits,
-    }
-
-
-def compute_ece_fast(confidences: list[float], accuracies: list[int], n_bins: int = 10) -> float:
+def compute_ece_fast(
+    confidences: list[float],
+    accuracies: list[int],
+    n_bins: int = 10,
+) -> float:
     n = max(len(confidences), 1)
     ece = 0.0
     for b_idx in range(n_bins):
@@ -296,138 +152,390 @@ def compute_ece_fast(confidences: list[float], accuracies: list[int], n_bins: in
     return ece
 
 
+def train_fasttext_with_ood_qat(
+    train_id_feats: list[tuple[int, list[int]]],
+    train_ood_feats: list[tuple[int, list[int]]],
+    val_id_feats: list[tuple[int, list[int]]],
+    val_ood_feats: list[tuple[int, list[int]]],
+    num_classes: int,
+    ood_idx: int,
+    num_buckets: int,
+    lr: float,
+    epochs: int,
+    qat_epochs: int,
+    l2: float,
+    l2_bias: float = 8e-3,
+    label_smoothing: float = 0.005,
+    logit_gain: float = 26.0,
+    seed: int = 20261125,
+) -> dict[str, object]:
+    rng = random.Random(seed)
+    dim = num_classes
+    A = [[0.0] * dim for _ in range(num_buckets)]
+    W = [[logit_gain if r == c else 0.0 for c in range(dim)] for r in range(num_classes)]
+    # Initialize moderate positive OOD bias prior; AdaGrad calibrates final class biases cleanly
+    b = [-0.15] * num_classes
+    b[ood_idx] = 1.6
+
+    gA = [[1e-2] * dim for _ in range(num_buckets)]
+    gb = [1e-2] * num_classes
+
+    # Sample tuple: (y, scale_factor, bucket_counts, weight, is_zero_vec)
+    compiled_train: list[tuple[int, float, list[tuple[int, int]], float, bool]] = []
+
+    def compile_sample(y: int, buckets: list[int], weight: float = 1.0, is_zero: bool = False) -> None:
+        if not buckets:
+            compiled_train.append((y, 0.0, [], weight, True))
+            return
+        counts: dict[int, int] = {}
+        for b_id in buckets:
+            counts[b_id] = counts.get(b_id, 0) + 1
+        compiled_train.append((y, logit_gain / len(buckets), list(counts.items()), weight, is_zero))
+
+    for y, buckets in train_id_feats:
+        if buckets:
+            compile_sample(y, buckets, 1.15)
+            # Mild subword/word-drop resilience so unseen wrapper words never dilute core entity tokens
+            if len(buckets) >= 18:
+                kept = rng.sample(buckets, k=max(10, (len(buckets) * 2) // 3))
+                compile_sample(y, kept, 0.70)
+
+    in_domain_buckets = {b_id for _, bkts in train_id_feats for b_id in bkts}
+    unseen_bucket_pool = [b_id for b_id in range(num_buckets) if b_id not in in_domain_buckets]
+    if not unseen_bucket_pool:
+        unseen_bucket_pool = list(range(num_buckets))
+
+    for y, buckets in train_ood_feats:
+        if not buckets:
+            continue
+        compile_sample(y, buckets, 0.36)
+
+    # Synthetic unknown-subword / zero-vector OOD samples (stopped once P(__ood__) >= 0.30
+    # so b[__ood__] learns a crisp positive prior without over-rejecting valid short ID phrases!)
+    for _ in range(80):
+        compile_sample(ood_idx, [], 0.42, is_zero=True)
+    for _ in range(100):
+        syn_bkts = rng.sample(unseen_bucket_pool, k=rng.randint(3, 12))
+        compile_sample(ood_idx, syn_bkts, 0.42, is_zero=True)
+
+    smooth_neg = label_smoothing / num_classes
+    smooth_pos = (1.0 - label_smoothing) + smooth_neg
+    indices = list(range(len(compiled_train)))
+    sqrt = math.sqrt
+
+    for ep in range(epochs):
+        rng.shuffle(indices)
+        progress = ep / max(epochs - 1, 1)
+        cur_lr = lr * (0.18 + 0.82 * 0.5 * (1.0 + math.cos(math.pi * progress)))
+        bias_lr = cur_lr * 0.025
+
+        for idx in indices:
+            y, scale_factor, bucket_counts, weight, is_zero = compiled_train[idx]
+            if not bucket_counts:
+                logits = list(b)
+            else:
+                h = [0.0] * dim
+                for b_id, cnt in bucket_counts:
+                    row = A[b_id]
+                    if cnt == 1:
+                        for c in range(dim):
+                            h[c] += row[c]
+                    else:
+                        for c in range(dim):
+                            h[c] += row[c] * cnt
+                logits = [b[c] + scale_factor * h[c] for c in range(dim)]
+
+            probs = softmax_probs(logits)
+            if is_zero:
+                if probs[y] > 0.30:
+                    continue
+            else:
+                skip_thresh = 0.994 if y != ood_idx else 0.70
+                if (y == ood_idx or ep >= 5) and probs[y] > skip_thresh:
+                    continue
+
+            grad_z = [
+                weight * (probs[c] - (smooth_pos if c == y else smooth_neg))
+                for c in range(dim)
+            ]
+
+            for c in range(dim):
+                bg = grad_z[c] + l2_bias * b[c]
+                gb[c] += bg * bg
+                b[c] -= (bias_lr / sqrt(gb[c])) * bg
+
+            for b_id, cnt in bucket_counts:
+                row = A[b_id]
+                grow = gA[b_id]
+                mult = scale_factor * cnt
+                for c in range(dim):
+                    g = grad_z[c] * mult + l2 * row[c]
+                    grow[c] += g * g
+                    row[c] -= (cur_lr / sqrt(grow[c])) * g
+
+    # Stage 2: Straight-Through Symmetric INT8 Quantization-Aware Fine-Tuning
+    qA = [simulate_int8_row(r) for r in A]
+    for qep in range(qat_epochs):
+        rng.shuffle(indices)
+        qat_lr = lr * 0.14 * (1.0 - 0.5 * (qep / max(qat_epochs, 1)))
+        bias_lr = qat_lr * 0.025
+        for idx in indices:
+            y, scale_factor, bucket_counts, weight, is_zero = compiled_train[idx]
+            if not bucket_counts:
+                logits = list(b)
+            else:
+                h = [0.0] * dim
+                for b_id, cnt in bucket_counts:
+                    qrow = qA[b_id]
+                    for c in range(dim):
+                        h[c] += qrow[c] * cnt
+                logits = [b[c] + scale_factor * h[c] for c in range(dim)]
+
+            probs = softmax_probs(logits)
+            if is_zero:
+                if probs[y] > 0.30:
+                    continue
+            else:
+                skip_thresh = 0.994 if y != ood_idx else 0.70
+                if probs[y] > skip_thresh:
+                    continue
+
+            grad_z = [
+                weight * (probs[c] - (smooth_pos if c == y else smooth_neg))
+                for c in range(dim)
+            ]
+
+            for c in range(dim):
+                bg = grad_z[c] + l2_bias * b[c]
+                gb[c] += bg * bg
+                b[c] -= (bias_lr / sqrt(gb[c])) * bg
+
+            for b_id, cnt in bucket_counts:
+                row = A[b_id]
+                grow = gA[b_id]
+                mult = scale_factor * cnt
+                for c in range(dim):
+                    g = grad_z[c] * mult + l2 * row[c]
+                    grow[c] += g * g
+                    row[c] -= (qat_lr / sqrt(grow[c])) * g
+                qA[b_id] = simulate_int8_row(row)
+
+    y_val_true, y_val_pred, val_int8_logits = eval_int8_logits(
+        val_id_feats, A, logit_gain, b, num_classes
+    )
+    val_acc, val_f1 = compute_macro_f1(y_val_true, y_val_pred, ood_idx)
+
+    _, _, ood_int8_logits = eval_int8_logits(
+        val_ood_feats, A, logit_gain, b, num_classes
+    )
+    return {
+        "A": A,
+        "W": W,
+        "b": b,
+        "val_acc": val_acc,
+        "val_macro_f1": val_f1,
+        "val_logits": val_int8_logits,
+        "val_labels": y_val_true,
+        "ood_logits": ood_int8_logits,
+    }
+
+
 def calibrate_post_quant_temperature(
     val_logits: list[list[float]],
     val_labels: list[int],
     ood_logits: list[list[float]],
-) -> float:
-    best_t = 0.56
+    ood_idx: int,
+    ood_reject_threshold: float,
+    low_conf_threshold: float,
+    high_conf_threshold: float,
+) -> tuple[float, dict[str, float]]:
+    """Calibrates temperature T* >= 0.92 strictly on disjoint val + ood_val."""
+    best_t = 0.96
     best_obj = float("inf")
-    n = max(len(val_labels), 1)
-    for step in range(56, 120, 2):
+    best_stats: dict[str, float] = {}
+
+    n_id = max(len(val_labels), 1)
+    n_ood = max(len(ood_logits), 1)
+
+    for step in range(92, 181, 1):
         t = step / 100.0
-        nll = 0.0
+        nll_id = 0.0
         confs: list[float] = []
         accs: list[int] = []
+        false_auto_id = 0
+        id_rejected_as_ood = 0
+
         for logits, y in zip(val_logits, val_labels):
             probs = softmax_probs(logits, temp=t)
-            nll -= math.log(max(probs[y], 1e-12))
+            nll_id -= math.log(max(probs[y], 1e-12))
             pred_c = max(range(len(probs)), key=lambda c: probs[c])
+            ood_p = probs[ood_idx]
+            best_id_p = max(probs[c] for c in range(ood_idx))
+            is_ood = (
+                pred_c == ood_idx
+                or ood_p >= ood_reject_threshold
+                or best_id_p < low_conf_threshold
+            )
+            if is_ood:
+                id_rejected_as_ood += 1
             confs.append(probs[pred_c])
-            accs.append(1 if pred_c == y else 0)
-        nll /= n
-        ece = compute_ece_fast(confs, accs)
+            ok = 1 if pred_c == y else 0
+            accs.append(ok)
+            if not is_ood and ok == 0 and probs[pred_c] >= high_conf_threshold:
+                false_auto_id += 1
 
-        ood_over = 0.0
+        nll_ood = 0.0
+        ood_rejected = 0
+        ood_false_auto = 0
         for o_log in ood_logits:
-            o_p = max(softmax_probs(o_log, temp=t))
-            if o_p > 0.36:
-                ood_over += (o_p - 0.36) * 3.0
-        ood_pen = ood_over / max(len(ood_logits), 1)
+            probs = softmax_probs(o_log, temp=t)
+            nll_ood -= math.log(max(probs[ood_idx], 1e-12))
+            pred_c = max(range(len(probs)), key=lambda c: probs[c])
+            ood_p = probs[ood_idx]
+            best_id_p = max(probs[c] for c in range(ood_idx))
+            is_ood = (
+                pred_c == ood_idx
+                or ood_p >= ood_reject_threshold
+                or best_id_p < low_conf_threshold
+            )
+            if is_ood:
+                ood_rejected += 1
+            elif best_id_p >= high_conf_threshold:
+                ood_false_auto += 1
+            confs.append(probs[pred_c])
+            accs.append(1 if pred_c == ood_idx else 0)
 
-        obj = nll + 2.5 * ece + ood_pen
+        comb_nll = (nll_id + nll_ood) / (n_id + n_ood)
+        comb_ece = compute_ece_fast(confs, accs)
+        ood_rej_rate = ood_rejected / n_ood
+        id_false_rej_rate = id_rejected_as_ood / n_id
+        false_auto_rate = (false_auto_id + ood_false_auto) / (n_id + n_ood)
+
+        obj = (
+            0.4 * comb_nll
+            + 2.5 * comb_ece
+            + 5.0 * max(0.0, 0.98 - ood_rej_rate)
+            + 3.0 * id_false_rej_rate
+            + 30.0 * false_auto_rate
+        )
         if obj < best_obj:
             best_obj = obj
             best_t = t
-    return round(best_t, 3)
+            best_stats = {
+                "val_combined_nll": round(comb_nll, 4),
+                "val_combined_ece": round(comb_ece, 4),
+                "val_ood_rejection_rate": round(ood_rej_rate, 4),
+                "val_id_false_rejection_rate": round(id_false_rej_rate, 4),
+                "val_false_auto_rate": round(false_auto_rate, 4),
+            }
+
+    return round(best_t, 2), best_stats
 
 
 def main() -> None:
     t0 = time.perf_counter()
     ART_DIR.mkdir(parents=True, exist_ok=True)
-    train_raw = load_split("train")
-    val_raw = load_split("val")
-    num_classes = len(SEMANTIC_LABELS)
+    num_classes = len(ALL_FINANCIAL_LABELS)
+    ood_idx = ALL_FINANCIAL_LABELS.index(OOD_LABEL)
+    label_to_idx = {lbl: i for i, lbl in enumerate(ALL_FINANCIAL_LABELS)}
 
-    ood_norm_texts = []
-    for s in OOD_EXPOSURE_CORPUS:
-        n1 = normalize_for_classifier(s)
-        n2 = strip_vn_accents(n1)
-        if n1:
-            ood_norm_texts.append(n1)
-        if n2 and n2 != n1:
-            ood_norm_texts.append(n2)
+    train_id_raw = load_in_domain_split("train", label_to_idx)
+    val_id_raw = load_in_domain_split("val", label_to_idx)
+    train_ood_raw = load_ood_split("ood_financial_train", ood_idx)
+    val_ood_raw = load_ood_split("ood_financial_val", ood_idx)
 
-    candidate_configs = [
-        {"num_buckets": 28672, "dim": num_classes, "lr": 0.45, "epochs": 18, "qat_epochs": 4, "word_ngrams": 2, "min_sub": 4, "max_sub": 5, "l2": 2e-5},
-    ]
+    # Compact < 1 MB binary (28672 * 31 INT8 + scales + W + b ~= 984 KB < 1,048,576 B)
+    cfg = {
+        "num_buckets": 28672,
+        "dim": num_classes,
+        "lr": 0.45,
+        "epochs": 26,
+        "qat_epochs": 6,
+        "word_ngrams": 2,
+        "min_sub": 4,
+        "max_sub": 5,
+        "l2": 1.0e-5,
+        "l2_bias": 1.4e-2,
+        "logit_gain": 26.0,
+    }
 
-    search_logs: list[dict[str, object]] = []
-    best_result: dict[str, object] | None = None
-    best_cfg: dict[str, object] | None = None
+    nb = int(cfg["num_buckets"])
+    wn = int(cfg["word_ngrams"])
+    ms = int(cfg["min_sub"])
+    xs = int(cfg["max_sub"])
 
-    for cfg in candidate_configs:
-        t_trial = time.perf_counter()
-        nb = int(cfg["num_buckets"])
-        wn = int(cfg["word_ngrams"])
-        ms = int(cfg["min_sub"])
-        xs = int(cfg["max_sub"])
-        train_feats = [
-            (y, extract_feature_buckets(txt, nb, wn, ms, xs))
-            for y, txt in train_raw
-        ]
-        ood_feats = [
-            extract_feature_buckets(txt, nb, wn, ms, xs)
-            for txt in ood_norm_texts
-        ]
-        val_feats = [
-            (y, extract_feature_buckets(txt, nb, wn, ms, xs))
-            for y, txt in val_raw
-        ]
-        res = train_fasttext_convex_qat(
-            train_feats=train_feats,
-            ood_feats=ood_feats,
-            val_feats=val_feats,
-            num_classes=num_classes,
-            num_buckets=nb,
-            lr=float(cfg["lr"]),
-            epochs=int(cfg["epochs"]),
-            qat_epochs=int(cfg["qat_epochs"]),
-            l2=float(cfg["l2"]),
-        )
-        entry = {
-            **cfg,
-            "val_int8_acc": round(float(res["val_acc"]), 4),
-            "val_int8_macro_f1": round(float(res["val_macro_f1"]), 4),
-            "seconds": round(time.perf_counter() - t_trial, 2),
-        }
-        search_logs.append(entry)
-        print(
-            f"Trial buckets={nb}, ngrams={wn}, sub={ms}..{xs} -> INT8 val_acc={entry['val_int8_acc']:.4f}, val_macro_f1={entry['val_int8_macro_f1']:.4f} ({entry['seconds']}s)",
-            flush=True,
-        )
-        if best_result is None or float(res["val_macro_f1"]) > float(best_result["val_macro_f1"]):
-            best_result = res
-            best_cfg = cfg
+    train_id_feats = [(y, extract_feature_buckets(txt, nb, wn, ms, xs)) for y, txt in train_id_raw]
+    train_ood_feats = [(y, extract_feature_buckets(txt, nb, wn, ms, xs)) for y, txt in train_ood_raw]
+    val_id_feats = [(y, extract_feature_buckets(txt, nb, wn, ms, xs)) for y, txt in val_id_raw]
+    val_ood_feats = [(y, extract_feature_buckets(txt, nb, wn, ms, xs)) for y, txt in val_ood_raw]
 
-    assert best_result is not None and best_cfg is not None
-    opt_temp = calibrate_post_quant_temperature(
-        best_result["val_logits"],  # type: ignore[arg-type]
-        best_result["val_labels"],  # type: ignore[arg-type]
-        best_result["ood_logits"],  # type: ignore[arg-type]
+    res = train_fasttext_with_ood_qat(
+        train_id_feats=train_id_feats,
+        train_ood_feats=train_ood_feats,
+        val_id_feats=val_id_feats,
+        val_ood_feats=val_ood_feats,
+        num_classes=num_classes,
+        ood_idx=ood_idx,
+        num_buckets=nb,
+        lr=float(cfg["lr"]),
+        epochs=int(cfg["epochs"]),
+        qat_epochs=int(cfg["qat_epochs"]),
+        l2=float(cfg["l2"]),
+        l2_bias=float(cfg["l2_bias"]),
+        logit_gain=float(cfg["logit_gain"]),
     )
 
+    opt_temp, val_cal_stats = calibrate_post_quant_temperature(
+        val_logits=res["val_logits"],  # type: ignore[arg-type]
+        val_labels=res["val_labels"],  # type: ignore[arg-type]
+        ood_logits=res["ood_logits"],  # type: ignore[arg-type]
+        ood_idx=ood_idx,
+        ood_reject_threshold=FINANCIAL_THRESHOLDS["oodReject"],
+        low_conf_threshold=FINANCIAL_THRESHOLDS["lowConfidence"],
+        high_conf_threshold=FINANCIAL_THRESHOLDS["highConfidence"],
+    )
+
+    b_vec: list[float] = res["b"]  # type: ignore[assignment]
     elapsed = time.perf_counter() - t0
     fp32_payload = {
-        "version": 2,
-        "labels": SEMANTIC_LABELS,
-        "config": best_cfg,
+        "version": 3,
+        "labels": ALL_FINANCIAL_LABELS,
+        "config": cfg,
         "temperature": opt_temp,
-        "val_acc": best_result["val_acc"],
-        "val_macro_f1": best_result["val_macro_f1"],
+        "val_acc": res["val_acc"],
+        "val_macro_f1": res["val_macro_f1"],
+        "val_calibration": val_cal_stats,
         "training_seconds": round(elapsed, 2),
-        "A": best_result["A"],
-        "W": best_result["W"],
-        "b": best_result["b"],
+        "A": res["A"],
+        "W": res["W"],
+        "b": b_vec,
     }
     with (ART_DIR / "model_fp32.json").open("w", encoding="utf-8") as f:
         json.dump(fp32_payload, f)
+
+    search_log = {
+        "trials": [
+            {
+                **cfg,
+                "val_int8_acc": round(float(res["val_acc"]), 4),
+                "val_int8_macro_f1": round(float(res["val_macro_f1"]), 4),
+                "val_calibration": val_cal_stats,
+                "learned_ood_bias": round(b_vec[ood_idx], 4),
+                "max_in_domain_bias": round(max(b_vec[:ood_idx]), 4),
+                "seconds": round(elapsed, 2),
+            }
+        ],
+        "selected": cfg,
+        "calibrated_temperature": opt_temp,
+    }
     with (ART_DIR / "hyperparam_search.json").open("w", encoding="utf-8") as f:
-        json.dump({"trials": search_logs, "selected": best_cfg, "calibrated_temperature": opt_temp}, f, indent=2)
+        json.dump(search_log, f, indent=2)
 
     print(
-        f"Selected best FastText v2.0 QAT config: dim={best_cfg['dim']}, buckets={best_cfg['num_buckets']}, word_ngrams={best_cfg['word_ngrams']}, sub={best_cfg['min_sub']}..{best_cfg['max_sub']} "
-        f"| INT8 val_macro_f1={float(best_result['val_macro_f1']):.4f} | calibrated T*={opt_temp} ({elapsed:.1f}s)",
+        f"[FINANCIAL AI v3.0 QAT+OOD] classes={num_classes} (30+__ood__) | "
+        f"val_acc={float(res['val_acc']):.4f} | val_macro_f1={float(res['val_macro_f1']):.4f} | "
+        f"T*={opt_temp:.2f} | b[__ood__]={b_vec[ood_idx]:.3f} (max_id_b={max(b_vec[:ood_idx]):.3f}) | "
+        f"val_cal={val_cal_stats} ({elapsed:.1f}s)",
         flush=True,
     )
 

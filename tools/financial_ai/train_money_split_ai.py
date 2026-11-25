@@ -20,7 +20,14 @@ import struct
 from datetime import datetime, timezone
 from pathlib import Path
 
-from feature_spec import extract_feature_buckets, normalize_for_classifier, strip_vn_accents
+from evaluate import QuantizedFastTextReader, evaluate_model_on_splits
+from feature_spec import (
+    MONEY_SPLIT_THRESHOLDS,
+    OOD_LABEL,
+    extract_feature_buckets,
+    normalize_for_classifier,
+    strip_vn_accents,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 ART_DIR = BASE_DIR / "artifacts"
@@ -43,6 +50,8 @@ SPLIT_ALLOC_LABELS: list[str] = [
     "alloc.fire_high_savings",
 ]
 
+SPLIT_ALLOC_ALL_LABELS: list[str] = [*SPLIT_ALLOC_LABELS, OOD_LABEL]
+
 NUM_BUCKETS = 24576
 WORD_NGRAMS = 2
 MIN_SUBWORD = 4
@@ -55,11 +64,12 @@ AMOUNTS = [
 
 TRAIN_WRAPPERS = [
     "{core}",
-    "hôm nay {core}",
     "nhờ ai tính giúp {core}",
     "ghi nhanh {core}",
     "tối nay cả nhóm {core}",
     "báo giùm {core}",
+    "chốt nhanh {core}",
+    "xem giùm {core}",
 ]
 
 VAL_WRAPPERS = [
@@ -96,6 +106,16 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "uống trà đào 110k cưa đôi cùng bạn",
             "tiền ăn vặt 80k cưa đôi với hoa",
             "mua nước ép hoa quả 100k chia đôi hai đứa",
+            "hóa đơn ăn tối 640k chia đều cho bình khoa minh và sơn",
+            "hóa đơn cơm tối 480k chia đều bốn bạn nam hòa tuấn khôi",
+            "cả bàn ăn tối 520k chia đều cho tất cả thành viên nhóm",
+            "uống trà sữa và nước ép 140k cưa đôi hai bạn",
+            "ăn tối cơm niêu cá kho 360k chia đều cho bốn người",
+            "mua vé xem phim và bắp nước 320k cưa đôi hai đứa",
+            "góp tiền mua bình nước chung phòng trọ 120k chia đều 4 bạn",
+            "uống nước mát 95k cưa đôi cùng bạn",
+            "uống cà phê đá 80k cưa đôi với hùng",
+            "tiền thuê xe máy du lịch 500k campuchia đều bạn bè",
         ],
         "val": [
             "ăn lẩu thái 450k chia đều 3 người",
@@ -230,6 +250,9 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "tiền sửa khóa phòng trọ 320k chủ nhà 180k phòng mình 140k",
             "mua quà chia tay đồng nghiệp 950k nam đóng 400k tuấn 300k còn lại mình chịu",
             "góp tiền từ thiện nhóm 1tr4 hùng 500k bình 500k khoa 400k",
+            "ăn trưa gọi từng món riêng 210k bình 75k khoa 70k sơn 65k",
+            "đặt đồ uống văn phòng 160k bình 60k hòa 50k nam 50k",
+            "tiền ăn gọi theo món hòa 70k bình 65k khôi 55k",
         ],
         "val": [
             "tiền ăn trưa gọi theo món 215k hòa 75k minh 80k lan 60k",
@@ -260,6 +283,12 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "hóa đơn tổng hợp 950k bao gồm xăng xe 150k ăn trưa 300k mua sắm 500k",
             "tách khoản thanh toán thẻ 2tr gồm tiền điện nước 1tr1 giải trí xem phim 900k",
             "mua sắm siêu thị 720k gồm nguyên liệu bếp 480k nước rửa chén bột giặt 240k",
+            "siêu thị coopmart 620k gồm đồ ăn tươi sống 400k vật dụng gia đình 220k",
+            "thanh toán tổng hợp 850k bao gồm khám sức khỏe 550k thuốc 300k",
+            "tách hóa đơn mua hàng trực tuyến 900k gồm quần áo 550k đồ bếp 350k",
+            "hóa đơn tổng hợp tháng này 1tr3 bao gồm tiền điện 850k gói cước truyền hình 450k",
+            "mua đơn hàng thương mại điện tử 780k gồm phụ kiện máy tính 480k sách vở 300k",
+            "đi siêu thị big c 690k trong đó thực phẩm tươi 490k hóa mỹ phẩm 200k",
         ],
         "val": [
             "hóa đơn siêu thị 650k gồm thực phẩm 430k việc nhà gia dụng 220k",
@@ -290,6 +319,12 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "trả hết phần tiền thiếu trong quỹ nhóm ăn uống cho mai 175k",
             "đối chiếu công nợ nhóm tối ưu số lần chuyển khoản tất toán",
             "gửi lại tiền bạn trả hộ bữa nhậu tối thứ sáu 250k",
+            "tất toán khoản nợ nhóm bạn đi chơi cuối tuần với nhau",
+            "hoàn lại tiền đồng nghiệp ứng trước đặt cơm buổi trưa",
+            "cấn trừ công nợ chia hóa đơn chung giữa các thành viên phòng trọ",
+            "chuyển khoản trả lại phần tiền bạn ứng hộ mua đồ du lịch 320k",
+            "cấn trừ nợ nhóm bạn tối giản số lượt chuyển khoản ngân hàng",
+            "nhận tiền thành viên nhóm gửi trả phần chia hóa đơn thể thao 140k",
         ],
         "val": [
             "tuấn chuyển trả lại tiền chia hóa đơn cà phê 65k",
@@ -325,7 +360,10 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "tư vấn phân chia thu nhập cân bằng năm mươi ba mươi hai mươi",
             "lập ngân sách từ thu nhập 17 triệu bằng phương pháp 50 30 20",
             "áp dụng công thức quản lý tiền bạc 50 30 20 cho mức thu nhập 20tr",
+            "áp dụng công thức quản lý tài chính 50 30 20 chia lương hàng tháng",
             "chia quỹ tháng 50 30 20 cho nhu cầu cá nhân và tiết kiệm",
+            "phân bổ thu nhập theo quy tắc năm mươi ba mươi hai mươi chuẩn tài chính",
+            "lập kế hoạch tài chính cá nhân theo tỷ lệ 50 30 20 từng tháng",
         ],
         "val": [
             "lương về 21 triệu chia theo quy tắc 50 30 20 giúp mình",
@@ -358,6 +396,8 @@ CORPUS_POOLS: dict[str, dict[str, list[str]]] = {
             "áp dụng 6 lọ tài chính vào ngân sách tháng cho thu nhập 22tr",
             "phân bổ thu nhập tháng 25tr vào sáu hũ chi tiêu giáo dục và tự do tài chính",
             "tính định mức 6 lọ chi tiêu và quỹ đầu tư từ tiền lương 21 triệu",
+            "quản lý tiền bằng mô hình chiếc lọ chia lương hàng tháng",
+            "lập kế hoạch quản lý tiền bằng chiếc lọ cho thu nhập tháng",
         ],
         "val": [
             "chia lương 24 triệu theo phương pháp 6 chiếc lọ tài chính",
@@ -582,88 +622,130 @@ def build_split_rows(
     return rows
 
 
-def evaluate_ood_rejection(
-    ood_texts: list[str],
+def load_ood_entries(split_name: str) -> list[tuple[str, str]]:
+    path = DATASETS_DIR / f"ood_money_split_{split_name}.jsonl"
+    out: list[tuple[str, str]] = []
+    with path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            obj = json.loads(line)
+            norm = obj.get("normalized_text") or obj.get("normalized") or ""
+            stratum = obj.get("stratum") or "unknown"
+            if norm:
+                out.append((stratum, norm))
+    return out
+
+
+def load_ood_norms(split_name: str) -> list[str]:
+    return [norm for _, norm in load_ood_entries(split_name)]
+
+
+def predict_probs_q(
+    norm: str,
     q_a_dequant: list[list[float]],
     logit_gain: float,
+    b: list[float],
     temp: float,
-    threshold: float = 0.50,
+    total_classes: int,
+) -> list[float]:
+    b_ids = extract_feature_buckets(
+        norm,
+        num_buckets=NUM_BUCKETS,
+        word_ngrams=WORD_NGRAMS,
+        min_subword=MIN_SUBWORD,
+        max_subword=MAX_SUBWORD,
+    )
+    if not b_ids:
+        return [1.0 / total_classes] * total_classes
+    scale = logit_gain / len(b_ids)
+    h = [0.0] * total_classes
+    for b_id in b_ids:
+        r = q_a_dequant[b_id]
+        for c in range(total_classes):
+            h[c] += r[c]
+    logits = [b[c] + scale * h[c] for c in range(total_classes)]
+    return softmax_probs(logits, temp=temp)
+
+
+def is_ood_decision(
+    probs: list[float],
+    ood_idx: int,
+    ood_reject_threshold: float,
+    low_conf_threshold: float,
+) -> bool:
+    pred_y = max(range(len(probs)), key=lambda c: probs[c])
+    ood_prob = probs[ood_idx]
+    best_id_prob = max(probs[c] for c in range(ood_idx))
+    return (
+        pred_y == ood_idx
+        or ood_prob >= ood_reject_threshold
+        or best_id_prob < low_conf_threshold
+    )
+
+
+def evaluate_ood_rejection(
+    ood_norms: list[str],
+    q_a_dequant: list[list[float]],
+    logit_gain: float,
+    b: list[float],
+    temp: float,
+    ood_reject_threshold: float,
+    low_conf_threshold: float,
 ) -> float:
-    if not ood_texts:
+    if not ood_norms:
         return 1.0
-    k = len(SPLIT_ALLOC_LABELS)
+    total_classes = len(SPLIT_ALLOC_ALL_LABELS)
+    ood_idx = total_classes - 1
     rejected = 0
-    for s in ood_texts:
-        norm = normalize_for_classifier(s)
-        b_ids = extract_feature_buckets(
-            norm,
-            num_buckets=NUM_BUCKETS,
-            word_ngrams=WORD_NGRAMS,
-            min_subword=MIN_SUBWORD,
-            max_subword=MAX_SUBWORD,
-        )
-        if not b_ids:
+    for norm in ood_norms:
+        probs = predict_probs_q(norm, q_a_dequant, logit_gain, b, temp, total_classes)
+        if is_ood_decision(probs, ood_idx, ood_reject_threshold, low_conf_threshold):
             rejected += 1
-            continue
-        scale = logit_gain / len(b_ids)
-        h = [0.0] * k
-        for b_id in b_ids:
-            for c in range(k):
-                h[c] += q_a_dequant[b_id][c]
-        probs = softmax_probs([scale * h[c] for c in range(k)], temp=temp)
-        if max(probs) < threshold:
-            rejected += 1
-    return rejected / len(ood_texts)
+    return rejected / len(ood_norms)
 
 
 def evaluate_quantized(
     rows: list[tuple[int, str, str]],
     q_a_dequant: list[list[float]],
     logit_gain: float,
+    b: list[float],
     temp: float,
-) -> tuple[float, float, float, float]:
-    k = len(SPLIT_ALLOC_LABELS)
-    tp = [0] * k
-    fp = [0] * k
-    fn = [0] * k
+    ood_reject_threshold: float,
+    low_conf_threshold: float,
+    high_conf_threshold: float,
+) -> tuple[float, float, float, float, float]:
+    in_k = len(SPLIT_ALLOC_LABELS)
+    total_classes = len(SPLIT_ALLOC_ALL_LABELS)
+    ood_idx = total_classes - 1
+    tp = [0] * in_k
+    fp = [0] * in_k
+    fn = [0] * in_k
     confs: list[float] = []
     accs: list[int] = []
     false_high = 0
+    false_ood = 0
 
     for true_y, _, norm in rows:
-        b_ids = extract_feature_buckets(
-            norm,
-            num_buckets=NUM_BUCKETS,
-            word_ngrams=WORD_NGRAMS,
-            min_subword=MIN_SUBWORD,
-            max_subword=MAX_SUBWORD,
-        )
-        if not b_ids:
-            probs = [1.0 / k] * k
-        else:
-            scale = logit_gain / len(b_ids)
-            h = [0.0] * k
-            for b_id in b_ids:
-                r = q_a_dequant[b_id]
-                for c in range(k):
-                    h[c] += r[c]
-            logits = [scale * h[c] for c in range(k)]
-            probs = softmax_probs(logits, temp=temp)
-        pred_y = max(range(k), key=lambda c: probs[c])
+        probs = predict_probs_q(norm, q_a_dequant, logit_gain, b, temp, total_classes)
+        pred_y = max(range(total_classes), key=lambda c: probs[c])
+        rejected = is_ood_decision(probs, ood_idx, ood_reject_threshold, low_conf_threshold)
         top_p = probs[pred_y]
-        ok = 1 if pred_y == true_y else 0
+        ok = 1 if (not rejected and pred_y == true_y) else 0
         confs.append(top_p)
         accs.append(ok)
-        if top_p >= 0.78 and ok == 0:
-            false_high += 1
-        if ok:
-            tp[true_y] += 1
-        else:
-            fp[pred_y] += 1
+        if rejected:
+            false_ood += 1
             fn[true_y] += 1
+        else:
+            if top_p >= high_conf_threshold and pred_y != true_y:
+                false_high += 1
+            if pred_y == true_y:
+                tp[true_y] += 1
+            else:
+                fp[pred_y] += 1
+                fn[true_y] += 1
 
     f1s: list[float] = []
-    for c in range(k):
+    for c in range(in_k):
         pr = tp[c] / (tp[c] + fp[c]) if (tp[c] + fp[c]) > 0 else 0.0
         rc = tp[c] / (tp[c] + fn[c]) if (tp[c] + fn[c]) > 0 else 0.0
         f1s.append((2 * pr * rc / (pr + rc)) if (pr + rc) > 0 else 0.0)
@@ -678,7 +760,7 @@ def evaluate_quantized(
             avg_a = sum(accs[i] for i in idxs) / len(idxs)
             ece += (len(idxs) / n) * abs(avg_a - avg_c)
 
-    return sum(accs) / n, sum(f1s) / k, ece, false_high / n
+    return sum(accs) / n, sum(f1s) / in_k, ece, false_high / n, false_ood / n
 
 
 def export_jsonl(path: Path, split_name: str, rows: list[tuple[int, str, str]]) -> None:
@@ -696,38 +778,35 @@ def export_jsonl(path: Path, split_name: str, rows: list[tuple[int, str, str]]) 
 
 def compute_detailed_eval(
     rows: list[tuple[int, str, str]],
+    ood_norms: list[str],
     q_a_dequant: list[list[float]],
     logit_gain: float,
+    b: list[float],
     temp: float,
+    ood_reject_threshold: float,
+    low_conf_threshold: float,
 ) -> dict[str, object]:
-    k = len(SPLIT_ALLOC_LABELS)
-    conf_mat = [[0] * k for _ in range(k)]
+    total_classes = len(SPLIT_ALLOC_ALL_LABELS)
+    ood_idx = total_classes - 1
+    conf_mat = [[0] * total_classes for _ in range(total_classes)]
+
     for true_y, _, norm in rows:
-        b_ids = extract_feature_buckets(
-            norm,
-            num_buckets=NUM_BUCKETS,
-            word_ngrams=WORD_NGRAMS,
-            min_subword=MIN_SUBWORD,
-            max_subword=MAX_SUBWORD,
-        )
-        if not b_ids:
-            pred_y = 0
-        else:
-            scale = logit_gain / len(b_ids)
-            h = [0.0] * k
-            for b_id in b_ids:
-                r = q_a_dequant[b_id]
-                for c in range(k):
-                    h[c] += r[c]
-            probs = softmax_probs([scale * h[c] for c in range(k)], temp=temp)
-            pred_y = max(range(k), key=lambda c: probs[c])
+        probs = predict_probs_q(norm, q_a_dequant, logit_gain, b, temp, total_classes)
+        rejected = is_ood_decision(probs, ood_idx, ood_reject_threshold, low_conf_threshold)
+        pred_y = ood_idx if rejected else max(range(ood_idx), key=lambda c: probs[c])
         conf_mat[true_y][pred_y] += 1
 
+    for norm in ood_norms:
+        probs = predict_probs_q(norm, q_a_dequant, logit_gain, b, temp, total_classes)
+        rejected = is_ood_decision(probs, ood_idx, ood_reject_threshold, low_conf_threshold)
+        pred_y = ood_idx if rejected else max(range(ood_idx), key=lambda c: probs[c])
+        conf_mat[ood_idx][pred_y] += 1
+
     per_class = {}
-    for c, lbl in enumerate(SPLIT_ALLOC_LABELS):
+    for c, lbl in enumerate(SPLIT_ALLOC_ALL_LABELS):
         tp = conf_mat[c][c]
-        fp = sum(conf_mat[r][c] for r in range(k) if r != c)
-        fn = sum(conf_mat[c][col] for col in range(k) if col != c)
+        fp = sum(conf_mat[r][c] for r in range(total_classes) if r != c)
+        fn = sum(conf_mat[c][col] for col in range(total_classes) if col != c)
         pr = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         rc = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         f1 = (2 * pr * rc / (pr + rc)) if (pr + rc) > 0 else 0.0
@@ -741,7 +820,7 @@ def compute_detailed_eval(
             "f1": round(f1, 4),
         }
     return {
-        "labels": SPLIT_ALLOC_LABELS,
+        "labels": SPLIT_ALLOC_ALL_LABELS,
         "confusionMatrix": conf_mat,
         "perClass": per_class,
     }
@@ -751,6 +830,7 @@ def pack_lftq_binary(
     labels: list[str],
     A: list[list[float]],
     logit_gain: float,
+    b: list[float],
     temperature: float,
 ) -> bytes:
     k = len(labels)
@@ -792,8 +872,7 @@ def pack_lftq_binary(
     parts.append(struct.pack(f"<{NUM_BUCKETS * dim}b", *q_flat))
     w_flat = [float(logit_gain if r == c else 0.0) for r in range(k) for c in range(dim)]
     parts.append(struct.pack(f"<{k * dim}f", *w_flat))
-    b_flat = [0.0] * k
-    parts.append(struct.pack(f"<{k}f", *b_flat))
+    parts.append(struct.pack(f"<{k}f", *b))
     return b"".join(parts)
 
 
@@ -812,19 +891,88 @@ def main() -> None:
     export_jsonl(DATASETS_DIR / "money_split_val.jsonl", "val", val_rows)
     export_jsonl(DATASETS_DIR / "money_split_test.jsonl", "test", test_rows)
 
-    k = len(SPLIT_ALLOC_LABELS)
-    logit_gain = 15.0
+    ood_train_entries = load_ood_entries("train")
+    ood_val_norms = load_ood_norms("val")
+    ood_test_norms = load_ood_norms("test")
+
+    k = len(SPLIT_ALLOC_ALL_LABELS)
+    ood_idx = k - 1
+    logit_gain = 28.0
     lr = 0.36
     l2 = 6e-6
-    epochs = 38
-    qat_epochs = 12
+    l2_bias = 0.015
+    epochs = 36
+    qat_epochs = 10
     label_smoothing = 0.005
 
     A = [[0.0] * k for _ in range(NUM_BUCKETS)]
+    b = [-0.04] * k
+    b[ood_idx] = 0.85
     gA = [[1e-2] * k for _ in range(NUM_BUCKETS)]
+    gb = [1e-2] * k
 
-    compiled: list[tuple[int, float, list[tuple[int, int]]]] = []
-    for y, _, norm in train_rows:
+    # (y, scale_factor, bucket_counts, weight, skip_thresh)
+    compiled: list[tuple[int, float, list[tuple[int, int]], float, float]] = []
+
+    def compile_sample(y: int, buckets: list[int], weight: float, skip_thresh: float) -> None:
+        if not buckets:
+            compiled.append((y, 0.0, [], weight, skip_thresh))
+            return
+        cnts: dict[int, int] = {}
+        for b_id in buckets:
+            cnts[b_id] = cnts.get(b_id, 0) + 1
+        compiled.append((y, logit_gain / len(buckets), list(cnts.items()), weight, skip_thresh))
+
+    id_bucket_set: set[int] = set()
+    preamble_fillers = (
+        "giúp tôi",
+        "xem giúp",
+    )
+    for row_idx, (y, _, norm) in enumerate(train_rows):
+        b_ids = extract_feature_buckets(
+            norm,
+            num_buckets=NUM_BUCKETS,
+            word_ngrams=WORD_NGRAMS,
+            min_subword=MIN_SUBWORD,
+            max_subword=MAX_SUBWORD,
+        )
+        if b_ids:
+            id_bucket_set.update(b_ids)
+            compile_sample(y, b_ids, 1.55, 0.996)
+            if len(b_ids) >= 16:
+                compile_sample(y, rng.sample(b_ids, k=max(9, (len(b_ids) * 3) // 4)), 0.90, 0.994)
+            toks = norm.split(" ")
+            if len(toks) >= 7:
+                trimmed_norm = " ".join(toks[1:])
+                t_bkts = extract_feature_buckets(
+                    trimmed_norm,
+                    num_buckets=NUM_BUCKETS,
+                    word_ngrams=WORD_NGRAMS,
+                    min_subword=MIN_SUBWORD,
+                    max_subword=MAX_SUBWORD,
+                )
+                if t_bkts:
+                    id_bucket_set.update(t_bkts)
+                    compile_sample(y, t_bkts, 0.60, 0.992)
+            if row_idx % 4 == 0:
+                filler = preamble_fillers[row_idx % len(preamble_fillers)]
+                aug_norm = f"{filler} {norm}"
+                a_bkts = extract_feature_buckets(
+                    aug_norm,
+                    num_buckets=NUM_BUCKETS,
+                    word_ngrams=WORD_NGRAMS,
+                    min_subword=MIN_SUBWORD,
+                    max_subword=MAX_SUBWORD,
+                )
+                if a_bkts:
+                    id_bucket_set.update(a_bkts)
+                    compile_sample(y, a_bkts, 0.55, 0.993)
+
+    unseen_pool = [b_id for b_id in range(NUM_BUCKETS) if b_id not in id_bucket_set]
+    if not unseen_pool:
+        unseen_pool = list(range(NUM_BUCKETS))
+
+    for stratum, norm in ood_train_entries:
         b_ids = extract_feature_buckets(
             norm,
             num_buckets=NUM_BUCKETS,
@@ -834,52 +982,48 @@ def main() -> None:
         )
         if not b_ids:
             continue
-        cnts: dict[int, int] = {}
-        for b_id in b_ids:
-            cnts[b_id] = cnts.get(b_id, 0) + 1
-        compiled.append((y, logit_gain / len(b_ids), list(cnts.items())))
+        if stratum == "e_single_person_near_ood":
+            compile_sample(ood_idx, b_ids, 0.34, 0.76)
+        elif stratum == "d_negated_hypothetical_balance_otp":
+            compile_sample(ood_idx, b_ids, 0.28, 0.74)
+        else:
+            compile_sample(ood_idx, b_ids, 0.25, 0.71)
 
-    for ood in OOD_CHATTER_SAMPLES * 18:
-        for variant in (ood, strip_vn_accents(ood)):
-            norm = normalize_for_classifier(variant)
-            b_ids = extract_feature_buckets(
-                norm,
-                num_buckets=NUM_BUCKETS,
-                word_ngrams=WORD_NGRAMS,
-                min_subword=MIN_SUBWORD,
-                max_subword=MAX_SUBWORD,
-            )
-            if not b_ids:
-                continue
-            cnts = {}
-            for b_id in b_ids:
-                cnts[b_id] = cnts.get(b_id, 0) + 1
-            compiled.append((-1, logit_gain / len(b_ids), list(cnts.items())))
+    for _ in range(70):
+        compile_sample(ood_idx, [], 0.30, 0.28)
+    for _ in range(80):
+        compile_sample(ood_idx, rng.sample(unseen_pool, k=rng.randint(3, 12)), 0.36, 0.38)
 
     smooth_neg = label_smoothing / k
     smooth_pos = (1.0 - label_smoothing) + smooth_neg
-    uniform_p = 1.0 / k
     indices = list(range(len(compiled)))
 
     for ep in range(epochs):
         rng.shuffle(indices)
         cur_lr = lr * (0.18 + 0.82 * 0.5 * (1.0 + math.cos(math.pi * ep / max(epochs - 1, 1))))
+        bias_lr = cur_lr * 0.015
         for idx in indices:
-            y, scale_factor, bucket_counts = compiled[idx]
-            h = [0.0] * k
-            for b_id, cnt in bucket_counts:
-                row = A[b_id]
-                for c in range(k):
-                    h[c] += row[c] * cnt
-            probs = softmax_probs([scale_factor * h[c] for c in range(k)])
-            if y >= 0:
-                if ep >= 6 and probs[y] > 0.99:
-                    continue
-                grad_z = [probs[c] - (smooth_pos if c == y else smooth_neg) for c in range(k)]
+            y, scale_factor, bucket_counts, weight, skip_thresh = compiled[idx]
+            if not bucket_counts:
+                logits = list(b)
             else:
-                if max(probs) < 0.095:
-                    continue
-                grad_z = [1.85 * (probs[c] - uniform_p) for c in range(k)]
+                h = [0.0] * k
+                for b_id, cnt in bucket_counts:
+                    row = A[b_id]
+                    for c in range(k):
+                        h[c] += row[c] * cnt
+                logits = [b[c] + scale_factor * h[c] for c in range(k)]
+            probs = softmax_probs(logits)
+            if (not bucket_counts or y == ood_idx or ep >= 6) and probs[y] > skip_thresh:
+                continue
+            grad_z = [
+                weight * (probs[c] - (smooth_pos if c == y else smooth_neg))
+                for c in range(k)
+            ]
+            for c in range(k):
+                bg = grad_z[c] + l2_bias * b[c]
+                gb[c] += bg * bg
+                b[c] -= (bias_lr / math.sqrt(gb[c])) * bg
             for b_id, cnt in bucket_counts:
                 row = A[b_id]
                 grow = gA[b_id]
@@ -894,22 +1038,29 @@ def main() -> None:
     for qep in range(qat_epochs):
         rng.shuffle(indices)
         qat_lr = lr * 0.14 * (1.0 - 0.5 * (qep / max(qat_epochs, 1)))
+        bias_lr = qat_lr * 0.015
         for idx in indices:
-            y, scale_factor, bucket_counts = compiled[idx]
-            h = [0.0] * k
-            for b_id, cnt in bucket_counts:
-                qrow = qA[b_id]
-                for c in range(k):
-                    h[c] += qrow[c] * cnt
-            probs = softmax_probs([scale_factor * h[c] for c in range(k)])
-            if y >= 0:
-                if probs[y] > 0.99:
-                    continue
-                grad_z = [probs[c] - (smooth_pos if c == y else smooth_neg) for c in range(k)]
+            y, scale_factor, bucket_counts, weight, skip_thresh = compiled[idx]
+            if not bucket_counts:
+                logits = list(b)
             else:
-                if max(probs) < 0.095:
-                    continue
-                grad_z = [1.85 * (probs[c] - uniform_p) for c in range(k)]
+                h = [0.0] * k
+                for b_id, cnt in bucket_counts:
+                    qrow = qA[b_id]
+                    for c in range(k):
+                        h[c] += qrow[c] * cnt
+                logits = [b[c] + scale_factor * h[c] for c in range(k)]
+            probs = softmax_probs(logits)
+            if (not bucket_counts or y == ood_idx or qep >= 0) and probs[y] > skip_thresh:
+                continue
+            grad_z = [
+                weight * (probs[c] - (smooth_pos if c == y else smooth_neg))
+                for c in range(k)
+            ]
+            for c in range(k):
+                bg = grad_z[c] + l2_bias * b[c]
+                gb[c] += bg * bg
+                b[c] -= (bias_lr / math.sqrt(gb[c])) * bg
             for b_id, cnt in bucket_counts:
                 row = A[b_id]
                 grow = gA[b_id]
@@ -920,27 +1071,134 @@ def main() -> None:
                     row[c] -= (qat_lr / math.sqrt(grow[c])) * g
                 qA[b_id] = simulate_int8_row(row)
 
-    # Temperature calibration over 0.72..1.50 step 0.02 on held-out val split
-    # optimizing ECE minimization with 0.0% false auto-assign & 100% val OOD rejection!
+    ood_rej_th = MONEY_SPLIT_THRESHOLDS["oodReject"]
+    low_th = MONEY_SPLIT_THRESHOLDS["lowConfidence"]
+    high_th = MONEY_SPLIT_THRESHOLDS["highConfidence"]
+
+    # Temperature calibration over [0.95, 1.85] strictly on disjoint val + ood_val
+    ood_val_entries = load_ood_entries("val")
+    base_ftq = pack_lftq_binary(SPLIT_ALLOC_ALL_LABELS, A, logit_gain, b, 1.0)
+    cal_reader = QuantizedFastTextReader(base_ftq)
+
+    def precompute_logits(norm: str) -> list[float] | None:
+        b_ids = extract_feature_buckets(
+            norm,
+            num_buckets=NUM_BUCKETS,
+            word_ngrams=WORD_NGRAMS,
+            min_subword=MIN_SUBWORD,
+            max_subword=MAX_SUBWORD,
+        )
+        if not b_ids:
+            return None
+        h = [0.0] * k
+        for b_id in b_ids:
+            sc = cal_reader.scales[b_id]
+            if sc == 0.0:
+                continue
+            base = b_id * k
+            for d in range(k):
+                h[d] += cal_reader.q_a[base + d] * sc
+        inv_len = 1.0 / len(b_ids)
+        for d in range(k):
+            h[d] *= inv_len
+        out_logits: list[float] = []
+        for c in range(k):
+            w_base = c * k
+            s = cal_reader.b[c]
+            for d in range(k):
+                s += cal_reader.w[w_base + d] * h[d]
+            out_logits.append(s)
+        return out_logits
+
+    val_id_logits = [(y, precompute_logits(norm)) for y, _, norm in val_rows]
+    val_ood_logits = [precompute_logits(norm) for _, norm in ood_val_entries]
+    uniform_probs = [1.0 / k] * k
+
     best_temp = 1.00
     best_score = 1e9
-    for step in range(72, 151, 2):
+    for step in range(88, 131, 1):
         cand_t = step / 100.0
-        val_acc, _, val_ece, val_false = evaluate_quantized(val_rows, qA, logit_gain, cand_t)
-        val_ood = evaluate_ood_rejection(
-            VAL_OOD_SAMPLES, qA, logit_gain, cand_t, threshold=0.45
+        conf_mat = [[0] * k for _ in range(k)]
+        confs: list[float] = []
+        accs: list[int] = []
+        false_auto = 0
+        false_ood = 0
+        ood_rej = 0
+
+        for true_y, raw_l in val_id_logits:
+            probs = uniform_probs if raw_l is None else softmax_probs(raw_l, temp=cand_t)
+            top_c = max(range(k), key=lambda c: probs[c])
+            best_id_c = max(range(ood_idx), key=lambda c: probs[c])
+            best_id_p = probs[best_id_c]
+            rejected = (
+                top_c == ood_idx
+                or probs[ood_idx] >= ood_rej_th
+                or best_id_p < low_th
+            )
+            pred_c = ood_idx if rejected else best_id_c
+            conf_mat[true_y][pred_c] += 1
+            ok = 1 if (not rejected and best_id_c == true_y) else 0
+            confs.append(probs[top_c])
+            accs.append(ok)
+            if rejected:
+                false_ood += 1
+            elif best_id_p >= high_th and ok == 0:
+                false_auto += 1
+
+        for raw_l in val_ood_logits:
+            probs = uniform_probs if raw_l is None else softmax_probs(raw_l, temp=cand_t)
+            top_c = max(range(k), key=lambda c: probs[c])
+            best_id_c = max(range(ood_idx), key=lambda c: probs[c])
+            best_id_p = probs[best_id_c]
+            rejected = (
+                top_c == ood_idx
+                or probs[ood_idx] >= ood_rej_th
+                or best_id_p < low_th
+            )
+            conf_mat[ood_idx][ood_idx if rejected else best_id_c] += 1
+            confs.append(probs[top_c])
+            accs.append(1 if rejected else 0)
+            if rejected:
+                ood_rej += 1
+            elif best_id_p >= high_th:
+                false_auto += 1
+
+        n_all = max(len(val_id_logits) + len(val_ood_logits), 1)
+        val_ece = 0.0
+        for b_i in range(10):
+            lo, hi = b_i / 10.0, (b_i + 1) / 10.0
+            idxs = [i for i, cf in enumerate(confs) if (lo <= cf < hi) or (b_i == 9 and cf == 1.0)]
+            if idxs:
+                val_ece += (len(idxs) / n_all) * abs(
+                    sum(accs[i] for i in idxs) / len(idxs)
+                    - sum(confs[i] for i in idxs) / len(idxs)
+                )
+        f1s: list[float] = []
+        for c in range(ood_idx):
+            tp = conf_mat[c][c]
+            fp = sum(conf_mat[r][c] for r in range(k) if r != c)
+            fn = sum(conf_mat[c][col] for col in range(k) if col != c)
+            pr = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            rc = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            f1s.append((2 * pr * rc / (pr + rc)) if (pr + rc) > 0 else 0.0)
+        val_macro_f1 = sum(f1s) / ood_idx
+        val_ood_rate = ood_rej / max(len(val_ood_logits), 1)
+        val_false_rate = false_auto / n_all
+        val_false_ood_rate = false_ood / max(len(val_id_logits), 1)
+
+        ood_penalty = 6.0 * max(0.0, 0.98 - val_ood_rate)
+        score = (
+            val_ece
+            + 25.0 * val_false_rate
+            + 3.0 * val_false_ood_rate
+            + ood_penalty
+            - 2.0 * val_macro_f1
         )
-        ood_penalty = 5.0 * max(0.0, 1.0 - val_ood)
-        score = val_ece + 3.0 * val_false + ood_penalty - 0.10 * val_acc
         if score < best_score:
             best_score = score
             best_temp = cand_t
 
-    test_acc, test_f1, test_ece, test_false = evaluate_quantized(test_rows, qA, logit_gain, best_temp)
-    ood_rate = evaluate_ood_rejection(OOD_HELD_OUT_TEST, qA, logit_gain, best_temp)
-    detailed_eval = compute_detailed_eval(test_rows, qA, logit_gain, best_temp)
-
-    ftq_bytes = pack_lftq_binary(SPLIT_ALLOC_LABELS, A, logit_gain, best_temp)
+    ftq_bytes = pack_lftq_binary(SPLIT_ALLOC_ALL_LABELS, A, logit_gain, b, best_temp)
     sha256_hex = hashlib.sha256(ftq_bytes).hexdigest()
 
     art_ftq = ART_DIR / "vn_money_split_fasttext_v1.ftq"
@@ -948,17 +1206,32 @@ def main() -> None:
     art_ftq.write_bytes(ftq_bytes)
     shutil.copy2(art_ftq, dst_ftq)
 
+    test_id_pairs = [(SPLIT_ALLOC_LABELS[y], norm) for y, _, norm in test_rows]
+    ood_test_entries = load_ood_entries("test")
+    final_reader = QuantizedFastTextReader(ftq_bytes)
+    test_rep = evaluate_model_on_splits(
+        model=final_reader,
+        id_rows=test_id_pairs,
+        ood_rows=ood_test_entries,
+        ood_reject_threshold=ood_rej_th,
+        low_conf_threshold=low_th,
+        high_conf_threshold=high_th,
+    )
+
     metadata = {
         "modelId": "vn_money_split_fasttext_v1",
-        "modelVersion": "1.0.0",
-        "architecture": "FastText QAT Subword + Word Bigram + Outlier Exposure (INT8 LFTQ v1)",
+        "modelVersion": "2.0.0",
+        "architecture": "FastText QAT Subword + Word Bigram + Explicit __ood__ Class (INT8 LFTQ v1)",
         "license": "MIT",
         "language": "vi",
         "assetPath": "assets/models/vn_money_split_fasttext_v1.ftq",
         "sizeBytes": len(ftq_bytes),
         "sha256": sha256_hex,
-        "numClasses": k,
-        "labels": SPLIT_ALLOC_LABELS,
+        "numClasses": len(SPLIT_ALLOC_LABELS),
+        "totalOutputClasses": k,
+        "hasExplicitOodClass": True,
+        "oodLabel": OOD_LABEL,
+        "labels": SPLIT_ALLOC_ALL_LABELS,
         "hyperparameters": {
             "numBuckets": NUM_BUCKETS,
             "dim": k,
@@ -970,20 +1243,19 @@ def main() -> None:
             "qatEpochs": qat_epochs,
         },
         "calibratedTemperature": round(best_temp, 4),
-        "thresholds": {
-            "highConfidence": 0.78,
-            "mediumConfidence": 0.52,
-            "lowConfidence": 0.35,
-        },
+        "thresholds": MONEY_SPLIT_THRESHOLDS,
         "metrics": {
             "trainSamples": len(train_rows),
             "valSamples": len(val_rows),
-            "heldOutTestSamples": len(test_rows),
-            "testAccuracy": round(test_acc, 4),
-            "testMacroF1": round(test_f1, 4),
-            "expectedCalibrationError": round(test_ece, 4),
-            "falseAutoAssignmentRate": round(test_false, 4),
-            "oodUnknownRejectionRate": round(ood_rate, 4),
+            "heldOutTestSamples": test_rep["test_samples"],
+            "heldOutOodTestSamples": test_rep["ood_test_samples"],
+            "testAccuracy": test_rep["accuracy"],
+            "testMacroF1": test_rep["macro_f1"],
+            "expectedCalibrationError": test_rep["ece"],
+            "falseAutoAssignmentRate": test_rep["false_auto_assignment_rate"],
+            "inDomainFalseOodRejectionRate": test_rep["in_domain_false_ood_rejection_rate"],
+            "oodUnknownRejectionRate": test_rep["ood_unknown_rejection_rate"],
+            "oodAuroc": test_rep["ood_auroc"],
         },
         "exportedAtUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -995,12 +1267,7 @@ def main() -> None:
         json.dumps(
             {
                 "calibratedTemperature": round(best_temp, 4),
-                "testAccuracy": round(test_acc, 4),
-                "testMacroF1": round(test_f1, 4),
-                "expectedCalibrationError": round(test_ece, 4),
-                "falseAutoAssignmentRate": round(test_false, 4),
-                "oodUnknownRejectionRate": round(ood_rate, 4),
-                **detailed_eval,
+                **test_rep,
             },
             indent=2,
             ensure_ascii=False,
@@ -1010,10 +1277,13 @@ def main() -> None:
     )
 
     print(
-        f"[MONEY SPLIT AI TRAINED] Size={len(ftq_bytes):,}B | SHA256={sha256_hex}\n"
-        f"Train={len(train_rows)} | Val={len(val_rows)} | Test={len(test_rows)} | Temp={best_temp:.2f}\n"
-        f"Test Accuracy={test_acc:.4f} | Macro F1={test_f1:.4f} | ECE={test_ece:.4f} | "
-        f"False Auto-Assign={test_false:.4f} | OOD Rejection={ood_rate:.2%}"
+        f"[MONEY SPLIT AI v2.0 + OOD] Size={len(ftq_bytes):,}B | SHA256={sha256_hex}\n"
+        f"Train={len(train_rows)} (+{len(ood_train_entries)} OOD) | Val={len(val_rows)} (+{len(ood_val_norms)} OOD) | "
+        f"Test={test_rep['test_samples']} (+{test_rep['ood_test_samples']} OOD) | Temp={best_temp:.2f} | b[__ood__]={b[ood_idx]:.3f}\n"
+        f"Test Accuracy={float(test_rep['accuracy']):.4f} | Macro F1={float(test_rep['macro_f1']):.4f} | ECE={float(test_rep['ece']):.4f} | "
+        f"False Auto-Assign={float(test_rep['false_auto_assignment_rate']):.4f} | "
+        f"ID->OOD={float(test_rep['in_domain_false_ood_rejection_rate']):.4f} | "
+        f"OOD Rejection={float(test_rep['ood_unknown_rejection_rate']):.2%} | AUROC={float(test_rep['ood_auroc']):.4f}"
     )
 
 

@@ -265,6 +265,15 @@ abstract final class FinancialTaxonomyCatalog {
     ),
   ];
 
+  static const SemanticCategorySpec oodSpec = SemanticCategorySpec(
+    semanticKey: CategoryPrediction.oodSemanticKey,
+    suggestedDisplayNameVi: 'Ngoài phạm vi tài chính (OOD)',
+    direction: 'unknown',
+    defaultSystemCategoryName: 'Chưa xác định',
+    defaultSystemCategoryIdHint: '',
+    matchAliases: <String>[],
+  );
+
   static final Map<String, SemanticCategorySpec> _byKey = {
     for (final s in specs) s.semanticKey: s,
   };
@@ -273,6 +282,9 @@ abstract final class FinancialTaxonomyCatalog {
     String semanticKey, {
     String fallbackDirection = 'debit',
   }) {
+    if (semanticKey == CategoryPrediction.oodSemanticKey) {
+      return oodSpec;
+    }
     final hit = _byKey[semanticKey];
     if (hit != null) return hit;
     return fallbackDirection == 'credit'
@@ -281,6 +293,7 @@ abstract final class FinancialTaxonomyCatalog {
   }
 
   /// Dynamically maps a `semanticKey` onto the user's real `CategoryEntity` list:
+  /// - NEVER maps `__ood__` onto `'other'` or invents a `categoryId`!
   /// - NEVER returns a non-existent `categoryId` if user deleted the category!
   /// - Detects ambiguous duplicate category groups (`hasMultipleMatches: true`)!
   static ResolvedCategoryMatch resolveAgainstUserCategories({
@@ -288,6 +301,15 @@ abstract final class FinancialTaxonomyCatalog {
     required String direction,
     required List<CategoryEntity> userCategories,
   }) {
+    if (semanticKey == CategoryPrediction.oodSemanticKey) {
+      return const ResolvedCategoryMatch(
+        categoryId: null,
+        displayCategoryName: 'Chưa xác định',
+        suggestedCategoryName: 'Ngoài phạm vi tài chính (OOD)',
+        semanticKey: CategoryPrediction.oodSemanticKey,
+        hasExactUserCategory: false,
+      );
+    }
     final spec = bySemanticKey(semanticKey, fallbackDirection: direction);
     if (userCategories.isEmpty) {
       // User categories not yet synced or empty -> return null ID + safe suggested name!

@@ -1,13 +1,16 @@
 {
   "modelId": "vn_money_split_fasttext_v1",
-  "modelVersion": "1.0.0",
-  "architecture": "FastText QAT Subword + Word Bigram + Outlier Exposure (INT8 LFTQ v1)",
+  "modelVersion": "2.0.0",
+  "architecture": "FastText QAT Subword + Word Bigram + Explicit __ood__ Class (INT8 LFTQ v1)",
   "license": "MIT",
   "language": "vi",
   "assetPath": "assets/models/vn_money_split_fasttext_v1.ftq",
-  "sizeBytes": 394128,
-  "sha256": "c0365a61d930864da4d1e55477ea80d387d326c5569b29fa466a2376757f3bb1",
+  "sizeBytes": 418817,
+  "sha256": "6f0daa594f6f5766edc193361c25aaaf6483f0ced023423fa5d1b2b6bb6dc4b6",
   "numClasses": 12,
+  "totalOutputClasses": 13,
+  "hasExplicitOodClass": true,
+  "oodLabel": "__ood__",
   "labels": [
     "split.equal",
     "split.percentage",
@@ -20,33 +23,38 @@
     "alloc.six_jars",
     "alloc.family_household",
     "alloc.debt_payoff",
-    "alloc.fire_high_savings"
+    "alloc.fire_high_savings",
+    "__ood__"
   ],
   "hyperparameters": {
     "numBuckets": 24576,
-    "dim": 12,
+    "dim": 13,
     "wordNgrams": 2,
     "minSubword": 4,
     "maxSubword": 5,
-    "logitGain": 15.0,
-    "epochs": 38,
-    "qatEpochs": 12
+    "logitGain": 28.0,
+    "epochs": 36,
+    "qatEpochs": 10
   },
-  "calibratedTemperature": 0.76,
+  "calibratedTemperature": 0.88,
   "thresholds": {
-    "highConfidence": 0.78,
+    "highConfidence": 0.87,
     "mediumConfidence": 0.52,
-    "lowConfidence": 0.35
+    "lowConfidence": 0.36,
+    "oodReject": 0.44
   },
   "metrics": {
-    "trainSamples": 1720,
+    "trainSamples": 2828,
     "valSamples": 242,
     "heldOutTestSamples": 232,
-    "testAccuracy": 0.9957,
-    "testMacroF1": 0.9958,
-    "expectedCalibrationError": 0.0405,
-    "falseAutoAssignmentRate": 0.0,
-    "oodUnknownRejectionRate": 1.0
+    "heldOutOodTestSamples": 441,
+    "testAccuracy": 0.9784,
+    "testMacroF1": 0.968,
+    "expectedCalibrationError": 0.0439,
+    "falseAutoAssignmentRate": 0.0104,
+    "inDomainFalseOodRejectionRate": 0.0172,
+    "oodUnknownRejectionRate": 0.9773,
+    "oodAuroc": 0.9931
   },
-  "exportedAtUtc": "2026-11-25T05:54:42Z"
+  "exportedAtUtc": "2026-11-25T10:05:30Z"
 }

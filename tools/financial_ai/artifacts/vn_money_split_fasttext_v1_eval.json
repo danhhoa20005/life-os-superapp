@@ -1,10 +1,40 @@
 {
-  "calibratedTemperature": 0.76,
-  "testAccuracy": 0.9957,
-  "testMacroF1": 0.9958,
-  "expectedCalibrationError": 0.0405,
-  "falseAutoAssignmentRate": 0.0,
-  "oodUnknownRejectionRate": 1.0,
+  "calibratedTemperature": 0.88,
+  "testAccuracy": 0.9784,
+  "testMacroF1": 0.968,
+  "expectedCalibrationError": 0.0439,
+  "falseAutoAssignmentRate": 0.0104,
+  "oodUnknownRejectionRate": 0.9773,
+  "oodAuroc": 0.9931,
+  "perStratumOodRejection": {
+    "a_chatter_homonyms": {
+      "total": 101,
+      "rejected": 100,
+      "rejection_rate": 0.9901
+    },
+    "b_non_financial_lifeos": {
+      "total": 89,
+      "rejected": 89,
+      "rejection_rate": 1.0
+    },
+    "c_english_gibberish_code_fragments": {
+      "total": 53,
+      "rejected": 52,
+      "rejection_rate": 0.9811
+    },
+    "d_negated_hypothetical_balance_otp": {
+      "total": 88,
+      "rejected": 88,
+      "rejection_rate": 1.0
+    },
+    "e_single_person_near_ood": {
+      "total": 110,
+      "rejected": 102,
+      "rejection_rate": 0.9273
+    }
+  },
+  "heldOutTestSamples": 232,
+  "heldOutOodTestSamples": 441,
   "labels": [
     "split.equal",
     "split.percentage",
@@ -17,11 +47,12 @@
     "alloc.six_jars",
     "alloc.family_household",
     "alloc.debt_payoff",
-    "alloc.fire_high_savings"
+    "alloc.fire_high_savings",
+    "__ood__"
   ],
   "confusionMatrix": [
     [
-      32,
+      30,
       0,
       0,
       0,
@@ -32,11 +63,13 @@
       0,
       0,
       0,
-      0
+      0,
+      2
     ],
     [
       0,
       20,
+      0,
       0,
       0,
       0,
@@ -60,6 +93,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -67,6 +101,7 @@
       0,
       0,
       20,
+      0,
       0,
       0,
       0,
@@ -88,9 +123,26 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
       0,
       0,
       0,
@@ -111,22 +163,9 @@
       0,
       0,
       0,
-      20,
       0,
-      0,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      12,
+      11,
+      1,
       0,
       0,
       0,
@@ -144,6 +183,7 @@
       20,
       0,
       0,
+      0,
       0
     ],
     [
@@ -156,11 +196,28 @@
       0,
       0,
       0,
-      19,
+      18,
       0,
-      1
+      0,
+      2
     ],
     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
       0,
       0,
       0,
@@ -178,125 +235,96 @@
       0,
       0,
       0,
+      1,
+      0,
+      2,
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      20
+      1,
+      5,
+      1,
+      431
     ]
   ],
   "perClass": {
     "split.equal": {
-      "support": 32,
-      "tp": 32,
-      "fp": 0,
-      "fn": 0,
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
+      "recall": 0.9375,
+      "f1": 0.9677,
+      "support": 32
     },
     "split.percentage": {
-      "support": 20,
-      "tp": 20,
-      "fp": 0,
-      "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "f1": 1.0
+      "f1": 1.0,
+      "support": 20
     },
     "split.shares_ratio": {
-      "support": 16,
-      "tp": 16,
-      "fp": 0,
-      "fn": 0,
       "precision": 1.0,
       "recall": 1.0,
-      "f1": 1.0
+      "f1": 1.0,
+      "support": 16
     },
     "split.itemized_remainder": {
-      "support": 20,
-      "tp": 20,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "split.exact_custom": {
-      "support": 12,
-      "tp": 12,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "split.multi_category_receipt": {
-      "support": 20,
-      "tp": 20,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "split.settle_repayment": {
-      "support": 20,
-      "tp": 20,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "alloc.rule_50_30_20": {
-      "support": 12,
-      "tp": 12,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "alloc.six_jars": {
-      "support": 20,
-      "tp": 20,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "alloc.family_household": {
-      "support": 20,
-      "tp": 19,
-      "fp": 0,
-      "fn": 1,
-      "precision": 1.0,
-      "recall": 0.95,
-      "f1": 0.9744
-    },
-    "alloc.debt_payoff": {
-      "support": 20,
-      "tp": 20,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0
-    },
-    "alloc.fire_high_savings": {
-      "support": 20,
-      "tp": 20,
-      "fp": 1,
-      "fn": 0,
       "precision": 0.9524,
       "recall": 1.0,
-      "f1": 0.9756
+      "f1": 0.9756,
+      "support": 20
+    },
+    "split.exact_custom": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 12
+    },
+    "split.multi_category_receipt": {
+      "precision": 0.9091,
+      "recall": 1.0,
+      "f1": 0.9524,
+      "support": 20
+    },
+    "split.settle_repayment": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 20
+    },
+    "alloc.rule_50_30_20": {
+      "precision": 1.0,
+      "recall": 0.9167,
+      "f1": 0.9565,
+      "support": 12
+    },
+    "alloc.six_jars": {
+      "precision": 0.9524,
+      "recall": 1.0,
+      "f1": 0.9756,
+      "support": 20
+    },
+    "alloc.family_household": {
+      "precision": 0.9474,
+      "recall": 0.9,
+      "f1": 0.9231,
+      "support": 20
+    },
+    "alloc.debt_payoff": {
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1": 0.8889,
+      "support": 20
+    },
+    "alloc.fire_high_savings": {
+      "precision": 0.9524,
+      "recall": 1.0,
+      "f1": 0.9756,
+      "support": 20
+    },
+    "__ood__": {
+      "precision": 0.9908,
+      "recall": 0.9773,
+      "f1": 0.984,
+      "support": 441
     }
   }
 }

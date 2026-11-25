@@ -25,6 +25,7 @@ abstract final class ConfidencePolicyEngine {
     required bool isDuplicateCandidate,
     required List<AmbiguityFlag> allFlags,
     double? mediumConfidenceThresholdOverride,
+    double? oodProbability,
   }) {
     final amountConf = extracted.amountConfidence.clamp(0.0, 1.0);
     final typeConf = extracted.typeConfidence.clamp(0.0, 1.0);
@@ -32,15 +33,30 @@ abstract final class ConfidencePolicyEngine {
     final merchConf = extracted.merchantConfidence.clamp(0.0, 1.0);
     final srcConf = sourceReliability(source);
 
-    // Critical bottleneck: if amount or transaction type is missing/unknown, overall tier drops immediately!
+    final isTransferType =
+        extracted.transactionType == FinancialTransactionType.internalTransfer ||
+        extracted.transactionType ==
+            FinancialTransactionType.investmentTransfer;
+    final isPersonalized =
+        topPrediction.origin == ClassifierInferenceOrigin.personalizationRule;
+    final isRejectedOod =
+        !isTransferType &&
+        !isPersonalized &&
+        (topPrediction.isOutOfDomain ||
+            (oodProbability != null &&
+                oodProbability >= modelMeta.oodRejectThreshold) ||
+            catConf < modelMeta.lowConfidenceThreshold);
+
+    // Critical bottleneck: if amount/type missing or OOD rejected, tier drops to unknown!
     if (extracted.amountMinor == null ||
         extracted.amountMinor! <= 0 ||
         extracted.transactionType == FinancialTransactionType.unknown ||
-        extracted.transactionType == FinancialTransactionType.nonTransaction) {
+        extracted.transactionType == FinancialTransactionType.nonTransaction ||
+        isRejectedOod) {
       return ClassificationConfidence(
         amountConfidence: amountConf,
         typeConfidence: typeConf,
-        categoryConfidence: catConf,
+        categoryConfidence: topPrediction.isOutOfDomain ? 0.0 : catConf,
         merchantConfidence: merchConf,
         sourceConfidence: srcConf,
         tier: ConfidenceTier.unknown,

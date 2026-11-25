@@ -195,6 +195,8 @@ class ClassificationConfidence extends Equatable {
 }
 
 class CategoryPrediction extends Equatable {
+  static const String oodSemanticKey = '__ood__';
+
   final String semanticKey;
   final String suggestedDisplayName;
   final double probability;
@@ -206,6 +208,8 @@ class CategoryPrediction extends Equatable {
     required this.probability,
     required this.origin,
   });
+
+  bool get isOutOfDomain => semanticKey == oodSemanticKey;
 
   @override
   List<Object?> get props => [
@@ -222,6 +226,8 @@ class ClassificationResult extends Equatable {
   final String modelVersion;
   final ClassifierInferenceOrigin origin;
   final bool usedFallback;
+  final bool isOutOfDomain;
+  final double oodProbability;
 
   const ClassificationResult({
     required this.predictions,
@@ -229,6 +235,8 @@ class ClassificationResult extends Equatable {
     required this.modelVersion,
     required this.origin,
     this.usedFallback = false,
+    this.isOutOfDomain = false,
+    this.oodProbability = 0.0,
   });
 
   CategoryPrediction get topPrediction => predictions.isNotEmpty
@@ -240,6 +248,13 @@ class ClassificationResult extends Equatable {
           origin: ClassifierInferenceOrigin.deterministicRuleFallback,
         );
 
+  CategoryPrediction? get bestInDomainPrediction {
+    for (final p in predictions) {
+      if (!p.isOutOfDomain) return p;
+    }
+    return null;
+  }
+
   @override
   List<Object?> get props => [
     predictions,
@@ -247,6 +262,8 @@ class ClassificationResult extends Equatable {
     modelVersion,
     origin,
     usedFallback,
+    isOutOfDomain,
+    oodProbability,
   ];
 }
 
@@ -258,10 +275,12 @@ class FinancialModelMetadata extends Equatable {
   final int sizeBytes;
   final String sha256;
   final int numClasses;
+  final int totalOutputClasses;
   final double calibratedTemperature;
   final double highConfidenceThreshold;
   final double mediumConfidenceThreshold;
   final double lowConfidenceThreshold;
+  final double oodRejectThreshold;
   final bool isLoaded;
   final bool isNativeFfiActive;
   final bool usingRuleFallback;
@@ -274,10 +293,12 @@ class FinancialModelMetadata extends Equatable {
     required this.sizeBytes,
     required this.sha256,
     required this.numClasses,
+    this.totalOutputClasses = 0,
     this.calibratedTemperature = 1.0,
-    this.highConfidenceThreshold = 0.78,
+    this.highConfidenceThreshold = 0.87,
     this.mediumConfidenceThreshold = 0.52,
-    this.lowConfidenceThreshold = 0.32,
+    this.lowConfidenceThreshold = 0.34,
+    this.oodRejectThreshold = 0.40,
     this.isLoaded = false,
     this.isNativeFfiActive = false,
     this.usingRuleFallback = false,
@@ -290,6 +311,7 @@ class FinancialModelMetadata extends Equatable {
     sizeBytes: 0,
     sha256: '',
     numClasses: 30,
+    totalOutputClasses: 30,
     isLoaded: true,
     isNativeFfiActive: false,
     usingRuleFallback: true,
@@ -303,7 +325,12 @@ class FinancialModelMetadata extends Equatable {
     sizeBytes,
     sha256,
     numClasses,
+    totalOutputClasses,
     calibratedTemperature,
+    highConfidenceThreshold,
+    mediumConfidenceThreshold,
+    lowConfidenceThreshold,
+    oodRejectThreshold,
     isLoaded,
     isNativeFfiActive,
     usingRuleFallback,

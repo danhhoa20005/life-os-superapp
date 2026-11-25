@@ -1,11 +1,41 @@
 {
   "test_samples": 1297,
-  "accuracy": 0.9931,
-  "macro_f1": 0.9943,
-  "ece": 0.0246,
-  "high_confidence_threshold": 0.78,
-  "false_auto_assignment_rate": 0.0,
-  "ood_unknown_rejection_rate": 0.6,
+  "ood_test_samples": 339,
+  "accuracy": 0.9645,
+  "macro_f1": 0.9772,
+  "ece": 0.0491,
+  "ece_in_domain_only": 0.0389,
+  "high_confidence_threshold": 0.87,
+  "low_confidence_threshold": 0.34,
+  "ood_reject_threshold": 0.4,
+  "false_auto_assignment_rate": 0.0018,
+  "id_false_auto_assignments": 0,
+  "ood_false_auto_assignments": 3,
+  "in_domain_false_ood_rejection_rate": 0.0293,
+  "ood_unknown_rejection_rate": 0.9794,
+  "ood_auroc": 0.9947,
+  "per_stratum_ood_rejection": {
+    "a_chatter_homonyms": {
+      "total": 106,
+      "rejected": 105,
+      "rejection_rate": 0.9906
+    },
+    "b_non_financial_lifeos": {
+      "total": 90,
+      "rejected": 90,
+      "rejection_rate": 1.0
+    },
+    "c_english_gibberish_code_fragments": {
+      "total": 53,
+      "rejected": 48,
+      "rejection_rate": 0.9057
+    },
+    "d_negated_hypothetical_balance_otp": {
+      "total": 90,
+      "rejected": 89,
+      "rejection_rate": 0.9889
+    }
+  },
   "per_category": {
     "food.meals": {
       "precision": 1.0,
@@ -15,8 +45,8 @@
     },
     "food.drinks": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "recall": 0.9091,
+      "f1": 0.9524,
       "support": 66
     },
     "food.groceries": {
@@ -50,39 +80,39 @@
       "support": 54
     },
     "housing.rent": {
-      "precision": 0.96,
+      "precision": 0.9412,
       "recall": 1.0,
-      "f1": 0.9796,
+      "f1": 0.9697,
       "support": 48
     },
     "housing.utilities": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "recall": 0.8571,
+      "f1": 0.9231,
       "support": 49
     },
     "housing.housework": {
       "precision": 1.0,
-      "recall": 0.9412,
-      "f1": 0.9697,
+      "recall": 0.8039,
+      "f1": 0.8913,
       "support": 51
     },
     "shopping.clothes": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "recall": 0.98,
+      "f1": 0.9899,
       "support": 50
     },
     "shopping.electronics": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "recall": 0.9348,
+      "f1": 0.9663,
       "support": 46
     },
     "shopping.general": {
-      "precision": 0.9778,
-      "recall": 0.88,
-      "f1": 0.9263,
+      "precision": 0.9783,
+      "recall": 0.9,
+      "f1": 0.9375,
       "support": 50
     },
     "health.medicine": {
@@ -92,15 +122,15 @@
       "support": 42
     },
     "health.hospital": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "precision": 0.975,
+      "recall": 0.8864,
+      "f1": 0.9286,
       "support": 44
     },
     "education": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "recall": 0.8913,
+      "f1": 0.9425,
       "support": 46
     },
     "entertainment": {
@@ -140,9 +170,9 @@
       "support": 38
     },
     "other": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "precision": 0.9706,
+      "recall": 0.8919,
+      "f1": 0.9296,
       "support": 37
     },
     "income.salary": {
@@ -164,9 +194,9 @@
       "support": 22
     },
     "income.business": {
-      "precision": 1.0,
+      "precision": 0.9565,
       "recall": 1.0,
-      "f1": 1.0,
+      "f1": 0.9778,
       "support": 22
     },
     "income.interest": {
@@ -182,10 +212,16 @@
       "support": 16
     },
     "income.other": {
-      "precision": 1.0,
+      "precision": 0.913,
       "recall": 1.0,
-      "f1": 1.0,
+      "f1": 0.9545,
       "support": 21
+    },
+    "__ood__": {
+      "precision": 0.8973,
+      "recall": 0.9794,
+      "f1": 0.9365,
+      "support": 339
     }
   },
   "confusion_matrix_labels": [
@@ -218,7 +254,8 @@
     "income.business",
     "income.interest",
     "income.gift",
-    "income.other"
+    "income.other",
+    "__ood__"
   ],
   "confusion_matrix": [
     [
@@ -251,11 +288,12 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
       0,
-      66,
+      60,
       0,
       0,
       0,
@@ -283,12 +321,14 @@
       0,
       0,
       0,
-      0
+      0,
+      6
     ],
     [
       0,
       0,
       61,
+      0,
       0,
       0,
       0,
@@ -347,6 +387,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -355,6 +396,7 @@
       0,
       0,
       51,
+      0,
       0,
       0,
       0,
@@ -411,6 +453,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -443,6 +486,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -475,10 +519,79 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
       0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      42,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      6
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      41,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      9
+    ],
+    [
+      0,
+      0,
+      1,
       0,
       0,
       0,
@@ -506,71 +619,6 @@
       0,
       0,
       0,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      2,
-      0,
-      48,
-      0,
-      0,
-      1,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      50,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
       0
     ],
     [
@@ -585,7 +633,7 @@
       0,
       0,
       0,
-      46,
+      43,
       0,
       0,
       0,
@@ -603,12 +651,13 @@
       0,
       0,
       0,
-      0
+      0,
+      3
     ],
     [
       0,
       0,
-      6,
+      5,
       0,
       0,
       0,
@@ -618,7 +667,8 @@
       0,
       0,
       0,
-      44,
+      45,
+      0,
       0,
       0,
       0,
@@ -667,37 +717,6 @@
       0,
       0,
       0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      44,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
       0,
       0
     ],
@@ -716,9 +735,7 @@
       0,
       0,
       0,
-      0,
-      46,
-      0,
+      39,
       0,
       0,
       0,
@@ -731,7 +748,43 @@
       0,
       0,
       0,
-      0
+      0,
+      0,
+      0,
+      5
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      41,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5
     ],
     [
       0,
@@ -751,6 +804,7 @@
       0,
       0,
       48,
+      0,
       0,
       0,
       0,
@@ -795,6 +849,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -817,6 +872,7 @@
       0,
       0,
       46,
+      0,
       0,
       0,
       0,
@@ -859,6 +915,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -883,6 +940,7 @@
       0,
       0,
       47,
+      0,
       0,
       0,
       0,
@@ -923,6 +981,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -948,14 +1007,15 @@
       0,
       0,
       0,
-      37,
+      33,
       0,
       0,
       0,
       0,
       0,
       0,
-      0
+      0,
+      4
     ],
     [
       0,
@@ -982,6 +1042,7 @@
       0,
       0,
       22,
+      0,
       0,
       0,
       0,
@@ -1019,6 +1080,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -1051,6 +1113,7 @@
       0,
       0,
       0,
+      0,
       0
     ],
     [
@@ -1081,6 +1144,7 @@
       0,
       0,
       22,
+      0,
       0,
       0,
       0
@@ -1114,6 +1178,7 @@
       0,
       0,
       20,
+      0,
       0,
       0
     ],
@@ -1147,6 +1212,7 @@
       0,
       0,
       16,
+      0,
       0
     ],
     [
@@ -1179,7 +1245,41 @@
       0,
       0,
       0,
-      21
+      21,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      2,
+      332
     ]
   ]
 }

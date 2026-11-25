@@ -45,6 +45,23 @@ SEMANTIC_LABELS: list[str] = [
     "income.other",
 ]
 
+OOD_LABEL: str = "__ood__"
+ALL_FINANCIAL_LABELS: list[str] = [*SEMANTIC_LABELS, OOD_LABEL]
+
+FINANCIAL_THRESHOLDS: dict[str, float] = {
+    "highConfidence": 0.87,
+    "mediumConfidence": 0.52,
+    "lowConfidence": 0.34,
+    "oodReject": 0.40,
+}
+
+MONEY_SPLIT_THRESHOLDS: dict[str, float] = {
+    "highConfidence": 0.87,
+    "mediumConfidence": 0.52,
+    "lowConfidence": 0.36,
+    "oodReject": 0.44,
+}
+
 ABBREVIATION_MAP: dict[str, str] = {
     "cf": "cà phê",
     "cafe": "cà phê",

@@ -492,12 +492,25 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
             origin: ClassifierInferenceOrigin.personalizationRule,
           );
           altPreds = alignedPreds.take(3).toList(growable: false);
+        } else if (rawClassRes.isOutOfDomain &&
+            ext.candidateSemanticKey == null) {
+          topPred = CategoryPrediction(
+            semanticKey: CategoryPrediction.oodSemanticKey,
+            suggestedDisplayName:
+                FinancialTaxonomyCatalog.oodSpec.suggestedDisplayNameVi,
+            probability: rawClassRes.oodProbability,
+            origin: rawClassRes.origin,
+          );
+          altPreds = alignedPreds
+              .where((p) => !p.isOutOfDomain)
+              .take(3)
+              .toList(growable: false);
         } else {
           topPred = alignedPreds.first;
           altPreds = alignedPreds.skip(1).take(3).toList(growable: false);
         }
 
-        // Stage 5: Resolve User Category ID safely (NEVER invent missing ID!)
+        // Stage 5: Resolve User Category ID safely (NEVER invent missing ID or map __ood__ to 'other'!)
         ResolvedCategoryMatch resolvedCat;
         if (matchedRule != null && matchedRuleCategory != null) {
           resolvedCat = ResolvedCategoryMatch(
@@ -522,7 +535,8 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
           if (resolvedCat.hasMultipleMatches) {
             flags.add(AmbiguityFlag.multipleMatchingUserCategories);
           }
-          if (topPred.probability < prefs.minAutoSuggestConfidence) {
+          if (topPred.isOutOfDomain ||
+              topPred.probability < prefs.minAutoSuggestConfidence) {
             flags.add(AmbiguityFlag.lowCategoryConfidence);
           }
         }
@@ -611,6 +625,9 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
           isDuplicateCandidate: isDup,
           allFlags: flags,
           mediumConfidenceThresholdOverride: prefs.minAutoSuggestConfidence,
+          oodProbability: (matchedRule != null || ext.candidateSemanticKey != null)
+              ? 0.0
+              : rawClassRes.oodProbability,
         );
 
         final requiresConfirm =

@@ -61,6 +61,7 @@ void _fastTextWorkerEntryPoint(_WorkerInitPayload init) {
       'port': commandPort.sendPort,
       'ffiActive': ffiActive,
       'numClasses': dartModel.numClasses,
+      'totalClasses': dartModel.totalClasses,
       'temperature': dartModel.temperature,
     });
   } catch (e) {
@@ -84,15 +85,18 @@ void _fastTextWorkerEntryPoint(_WorkerInitPayload init) {
       Float32List? probs;
       var usedNative = false;
       if (ffiActive) {
-        probs = ffiBinding.predictProbs(buckets, model.numClasses);
+        probs = ffiBinding.predictProbs(buckets, model.totalClasses);
         if (probs != null) {
           usedNative = true;
         }
       }
       probs ??= model.evaluateProbsFromBuckets(buckets);
 
+      final oodProb = model.oodProbabilityFrom(probs);
+      final bestInDomainProb = model.bestInDomainFrom(probs).probability;
+
       // Rank top-4 predictions in worker isolate to minimize message copy
-      final indexed = List<int>.generate(model.numClasses, (i) => i)
+      final indexed = List<int>.generate(model.totalClasses, (i) => i)
         ..sort((a, b) => probs![b].compareTo(probs[a]));
       final topIndices = indexed.take(4).toList(growable: false);
       final topLabels = <String>[
@@ -107,6 +111,8 @@ void _fastTextWorkerEntryPoint(_WorkerInitPayload init) {
         'id': msg.id,
         'labels': topLabels,
         'probs': topProbs,
+        'oodProb': oodProb,
+        'bestInDomainProb': bestInDomainProb,
         'micros': sw.elapsedMicroseconds,
         'native': usedNative,
       });
@@ -192,10 +198,11 @@ class FastTextClassifier implements FinancialClassifier {
     try {
       String? expectedSha;
       var modelId = 'vn_financial_fasttext_v1';
-      var modelVer = '1.0.0';
-      var highTh = 0.78;
+      var modelVer = '3.0.0';
+      var highTh = 0.87;
       var medTh = 0.52;
-      var lowTh = 0.32;
+      var lowTh = 0.34;
+      var oodRejTh = 0.40;
 
       try {
         final rawJson = await _jsonLoader(metaAssetPath);
@@ -208,6 +215,7 @@ class FastTextClassifier implements FinancialClassifier {
           highTh = (th['highConfidence'] as num?)?.toDouble() ?? highTh;
           medTh = (th['mediumConfidence'] as num?)?.toDouble() ?? medTh;
           lowTh = (th['lowConfidence'] as num?)?.toDouble() ?? lowTh;
+          oodRejTh = (th['oodReject'] as num?)?.toDouble() ?? oodRejTh;
         }
       } catch (_) {
         // Metadata JSON optional if raw model bytes verified via LFTQ header
@@ -228,10 +236,12 @@ class FastTextClassifier implements FinancialClassifier {
           sizeBytes: modelBytes.length,
           sha256: expectedSha ?? '',
           numClasses: parsed.numClasses,
+          totalOutputClasses: parsed.totalClasses,
           calibratedTemperature: parsed.temperature,
           highConfidenceThreshold: highTh,
           mediumConfidenceThreshold: medTh,
           lowConfidenceThreshold: lowTh,
+          oodRejectThreshold: oodRejTh,
           isLoaded: true,
           isNativeFfiActive: false,
           usingRuleFallback: false,
@@ -281,6 +291,7 @@ class FastTextClassifier implements FinancialClassifier {
       _workerSendPort = readyMsg['port'] as SendPort;
       final ffiActive = (readyMsg['ffiActive'] as bool?) ?? false;
       final numClasses = (readyMsg['numClasses'] as int?) ?? 30;
+      final totalClasses = (readyMsg['totalClasses'] as int?) ?? numClasses;
       final temp = (readyMsg['temperature'] as num?)?.toDouble() ?? 1.0;
 
       _metadata = FinancialModelMetadata(
@@ -292,10 +303,12 @@ class FastTextClassifier implements FinancialClassifier {
         sizeBytes: modelBytes.length,
         sha256: expectedSha ?? '',
         numClasses: numClasses,
+        totalOutputClasses: totalClasses,
         calibratedTemperature: temp,
         highConfidenceThreshold: highTh,
         mediumConfidenceThreshold: medTh,
         lowConfidenceThreshold: lowTh,
+        oodRejectThreshold: oodRejTh,
         isLoaded: true,
         isNativeFfiActive: ffiActive,
         usingRuleFallback: false,
@@ -324,7 +337,7 @@ class FastTextClassifier implements FinancialClassifier {
       final sw = Stopwatch()..start();
       final buckets = inline.extractFeatureBuckets(normalizedText);
       final probs = inline.evaluateProbsFromBuckets(buckets);
-      final indexed = List<int>.generate(inline.numClasses, (i) => i)
+      final indexed = List<int>.generate(inline.totalClasses, (i) => i)
         ..sort((a, b) => probs[b].compareTo(probs[a]));
       final preds = <CategoryPrediction>[
         for (final idx in indexed.take(4))
@@ -337,12 +350,21 @@ class FastTextClassifier implements FinancialClassifier {
             origin: ClassifierInferenceOrigin.fastTextIsolateInt8,
           ),
       ];
+      final oodProb = inline.oodProbabilityFrom(probs);
+      final bestInDomainProb = inline.bestInDomainFrom(probs).probability;
+      final isOod = inline.isRejectedAsOod(
+        probs,
+        oodRejectThreshold: _metadata.oodRejectThreshold,
+        lowConfidenceThreshold: _metadata.lowConfidenceThreshold,
+      );
       sw.stop();
       return ClassificationResult(
         predictions: preds,
         latencyMicros: sw.elapsedMicroseconds,
         modelVersion: _metadata.modelVersion,
         origin: ClassifierInferenceOrigin.fastTextIsolateInt8,
+        isOutOfDomain: isOod || bestInDomainProb < _metadata.lowConfidenceThreshold,
+        oodProbability: oodProb,
       );
     }
     if (_metadata.usingRuleFallback || _workerSendPort == null) {
@@ -360,6 +382,13 @@ class FastTextClassifier implements FinancialClassifier {
       final rawProbs = (resp['probs'] as List<dynamic>)
           .map((e) => (e as num).toDouble())
           .toList();
+      final oodProb = (resp['oodProb'] as num?)?.toDouble() ?? 0.0;
+      final bestInDomainProb =
+          (resp['bestInDomainProb'] as num?)?.toDouble() ??
+          (rawLabels.isNotEmpty &&
+                  rawLabels.first != CategoryPrediction.oodSemanticKey
+              ? rawProbs.first
+              : (rawProbs.length > 1 ? rawProbs[1] : 0.0));
       final micros = (resp['micros'] as int?) ?? 0;
       final usedNative = (resp['native'] as bool?) ?? false;
       final origin = usedNative
@@ -378,11 +407,18 @@ class FastTextClassifier implements FinancialClassifier {
           ),
         );
       }
+      final topLabel = rawLabels.isNotEmpty ? rawLabels.first : '';
+      final isOod =
+          topLabel == CategoryPrediction.oodSemanticKey ||
+          oodProb >= _metadata.oodRejectThreshold ||
+          bestInDomainProb < _metadata.lowConfidenceThreshold;
       return ClassificationResult(
         predictions: preds,
         latencyMicros: micros,
         modelVersion: _metadata.modelVersion,
         origin: origin,
+        isOutOfDomain: isOod,
+        oodProbability: oodProb,
       );
     } catch (_) {
       _pendingRequests.remove(reqId);

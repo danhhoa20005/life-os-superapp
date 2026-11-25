@@ -9,8 +9,14 @@ import '../normalization/financial_text_normalizer.dart';
 /// Validates magic header, bounds, and optional SHA-256 checksum so corrupt/truncated
 /// model files fail cleanly without crashing or corrupting memory.
 class FastTextBinaryModel {
+  static const String oodLabel = '__ood__';
+
   final int version;
+
+  /// Number of in-domain semantic classes (excluding optional `__ood__` rejection label).
+  /// Use [totalClasses] for the raw `LFTQ` output tensor length.
   final int numClasses;
+  final int totalClasses;
   final int dim;
   final int numBuckets;
   final int wordNgrams;
@@ -18,6 +24,7 @@ class FastTextBinaryModel {
   final int maxSubword;
   final double temperature;
   final List<String> labels;
+  final int oodClassIndex;
   final Float32List scalesA;
   final Int8List weightsA;
   final Float32List weightsW;
@@ -26,6 +33,7 @@ class FastTextBinaryModel {
   const FastTextBinaryModel._({
     required this.version,
     required this.numClasses,
+    required this.totalClasses,
     required this.dim,
     required this.numBuckets,
     required this.wordNgrams,
@@ -33,11 +41,14 @@ class FastTextBinaryModel {
     required this.maxSubword,
     required this.temperature,
     required this.labels,
+    required this.oodClassIndex,
     required this.scalesA,
     required this.weightsA,
     required this.weightsW,
     required this.biasB,
   });
+
+  bool get hasExplicitOodClass => oodClassIndex >= 0;
 
   static FastTextBinaryModel parseAndVerify(
     Uint8List bytes, {
@@ -127,9 +138,13 @@ class FastTextBinaryModel {
       biasB[i] = bd.getFloat32(offset + i * 4, Endian.little);
     }
 
+    final oodIndex = labels.indexOf(oodLabel);
+    final inDomainCount = oodIndex >= 0 ? (k - 1) : k;
+
     return FastTextBinaryModel._(
       version: ver,
-      numClasses: k,
+      numClasses: inDomainCount,
+      totalClasses: k,
       dim: dim,
       numBuckets: buckets,
       wordNgrams: wordNgrams,
@@ -137,6 +152,7 @@ class FastTextBinaryModel {
       maxSubword: maxSub,
       temperature: temp > 1e-4 ? temp : 1.0,
       labels: List.unmodifiable(labels),
+      oodClassIndex: oodIndex,
       scalesA: scalesA,
       weightsA: weightsA,
       weightsW: weightsW,
@@ -213,10 +229,11 @@ class FastTextBinaryModel {
   }
 
   Float32List evaluateProbsFromBuckets(List<int> bucketIds) {
-    final probs = Float32List(numClasses);
+    final k = totalClasses;
+    final probs = Float32List(k);
     if (bucketIds.isEmpty) {
-      final u = 1.0 / numClasses;
-      for (var c = 0; c < numClasses; c++) {
+      final u = 1.0 / k;
+      for (var c = 0; c < k; c++) {
         probs[c] = u;
       }
       return probs;
@@ -238,7 +255,7 @@ class FastTextBinaryModel {
 
     final invTemp = 1.0 / temperature;
     var maxLogit = -1e30;
-    for (var c = 0; c < numClasses; c++) {
+    for (var c = 0; c < k; c++) {
       final wBase = c * dim;
       var sum = biasB[c];
       for (var d = 0; d < dim; d++) {
@@ -252,15 +269,56 @@ class FastTextBinaryModel {
     }
 
     var expSum = 0.0;
-    for (var c = 0; c < numClasses; c++) {
+    for (var c = 0; c < k; c++) {
       final e = math.exp(probs[c] - maxLogit);
       probs[c] = e;
       expSum += e;
     }
-    final invSum = expSum > 0.0 ? (1.0 / expSum) : (1.0 / numClasses);
-    for (var c = 0; c < numClasses; c++) {
+    final invSum = expSum > 0.0 ? (1.0 / expSum) : (1.0 / k);
+    for (var c = 0; c < k; c++) {
       probs[c] *= invSum;
     }
     return probs;
+  }
+
+  /// Unified OOD probability lookup (`0.0` when model has no `__ood__` class).
+  double oodProbabilityFrom(Float32List probs) {
+    if (oodClassIndex < 0 || oodClassIndex >= probs.length) return 0.0;
+    return probs[oodClassIndex];
+  }
+
+  /// Best in-domain `(label, probability)` excluding `__ood__`.
+  ({String label, double probability}) bestInDomainFrom(Float32List probs) {
+    var bestIdx = -1;
+    var bestProb = -1.0;
+    for (var i = 0; i < labels.length && i < probs.length; i++) {
+      if (i == oodClassIndex) continue;
+      if (probs[i] > bestProb) {
+        bestProb = probs[i];
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0) {
+      return (label: oodLabel, probability: 0.0);
+    }
+    return (label: labels[bestIdx], probability: bestProb);
+  }
+
+  /// Unified runtime OOD check synchronized with `evaluate_all_models.py` and `meta.json`.
+  bool isRejectedAsOod(
+    Float32List probs, {
+    double oodRejectThreshold = 0.40,
+    double lowConfidenceThreshold = 0.34,
+  }) {
+    var topIdx = 0;
+    for (var i = 1; i < probs.length; i++) {
+      if (probs[i] > probs[topIdx]) topIdx = i;
+    }
+    final topLabel = labels[topIdx];
+    final oodProb = oodProbabilityFrom(probs);
+    final bestInDomain = bestInDomainFrom(probs).probability;
+    return topLabel == oodLabel ||
+        oodProb >= oodRejectThreshold ||
+        bestInDomain < lowConfidenceThreshold;
   }
 }
