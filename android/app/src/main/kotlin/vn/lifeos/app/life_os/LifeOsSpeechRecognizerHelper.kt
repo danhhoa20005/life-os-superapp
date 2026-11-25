@@ -10,63 +10,62 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
+import android.os.SystemClock
 import android.speech.RecognitionListener
+import android.speech.RecognitionSupport
+import android.speech.RecognitionSupportCallback
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
-import kotlin.math.max
-import kotlin.math.min
+import java.util.UUID
 
 /**
- * Google-Verified Vietnamese Speech Recognition Coordinator v3.26 for Android 10–16
- * (Samsung One UI, Xiaomi HyperOS/MIUI, OPPO ColorOS, Vivo OriginOS, Pixel/AOSP).
- *
- * Root-cause fixes aligned with upstream `csdcorp/speech_to_text` (`SpeechToTextPlugin.kt`):
- * 1. **System Broker First (`SpeechRecognizer.createSpeechRecognizer(applicationContext)`)**:
- *    On Android 12–15, third-party apps lack the `signature|system` permission
- *    `android.permission.BIND_RECOGNITION_SERVICE`, and passing explicit `ComponentName`s first
- *    either fails with `ERROR_CLIENT (5)` / `ERROR_INSUFFICIENT_PERMISSIONS (9)` or binds to legacy
- *    `com.google.android.googlequicksearchbox` stubs that emit `onReadyForSpeech` and then sit mute!
- *    Routing through `SpeechRecognizer.createSpeechRecognizer(applicationContext)` first (whenever
- *    the OS default is Google/standard) lets Android's privileged `RecognitionManagerService` proxy
- *    `BIND_RECOGNITION_SERVICE` and `OPSTR_RECORD_AUDIO` attribution cleanly.
- * 2. **Acoustic Dead-Stream Watchdog (`2100ms`) + Full Error Cascade**:
- *    On OEM ROMs (MIUI/HyperOS, OriginOS, ColorOS) that mute background `RecognitionService` streams
- *    (`rmsSpread < 0.35 dB` and zero partial text) or return `ERROR_NETWORK` / `ERROR_CLIENT` /
- *    dead-stream `ERROR_SPEECH_TIMEOUT`, the helper immediately tears down the dead binder and
- *    auto-launches Google's `ACTION_RECOGNIZE_SPEECH` Activity popup in the exact same tap!
- * 3. **Smart Device Capability Memory (`lifeos_voice_engine_caps`)**:
- *    Once a device's inline `SpeechRecognizer` fails and Google's `ACTION_RECOGNIZE_SPEECH` popup
- *    succeeds, the helper remembers `auto_prefer_google_dialog = true` so every future Mic tap opens
- *    Google's 100%-working recognizer in `0ms` without waiting on broken background binders.
+ * LifeOS v2 Speech Recognition Coordinator (VOICE-001..008, Section 6 & 13):
+ * - Public Android `SpeechRecognizer` API first (`createSpeechRecognizer` / API 31+ `createOnDeviceSpeechRecognizer`).
+ * - Real API 33+ `checkRecognitionSupport` inspection without faking offline availability on API < 31.
+ * - Strictly monotonic timeouts (`SystemClock.elapsedRealtime()`) and `(sessionId, attemptId, generation)` guards.
+ * - Zero dead-mic RMS watchdogs, zero silent online fallback in offline mode, zero infinite retries.
+ * - Deterministic AudioFocus & Soundbox TTS mutual exclusion on every entry and terminal exit.
  */
 class LifeOsSpeechRecognizerHelper(
     private val activity: Activity,
-    private val onStateChanged: (String) -> Unit,
-    private val onRmsChanged: (Double) -> Unit,
-    private val onPartialTranscript: (String) -> Unit,
-    private val onFinalTranscript: (String) -> Unit,
-    private val onError: (code: String, message: String) -> Unit,
-    private val onLaunchSystemDialog: (Intent) -> Boolean,
+    private val ownerId: String = VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY,
+    private val onEnvelopeEvent: ((Map<String, Any?>) -> Unit)? = null,
+    private val onStateChanged: (String) -> Unit = {},
+    private val onRmsChanged: (Double) -> Unit = {},
+    private val onPartialTranscript: (String) -> Unit = {},
+    private val onFinalTranscript: (String) -> Unit = {},
+    private val onError: (code: String, message: String) -> Unit = { _, _ -> },
+    private val onLaunchSystemDialog: (intent: Intent, sessionId: String, attemptId: Int) -> Boolean,
     private val onEngineAutoSwitched: ((String) -> Unit)? = null,
     private val onDialogStateChanged: ((Boolean) -> Unit)? = null
 ) {
+
     sealed class EngineCandidate(val label: String) {
+        data object OnDevice : EngineCandidate("on_device_speech_recognizer")
         data object SystemBrokerDefault : EngineCandidate("system_default")
         data class ExplicitGoogleComponent(val componentName: ComponentName) :
             EngineCandidate("service:${componentName.packageName}")
     }
 
+    private val appContext: Context = activity.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val audioFocusCoordinator = LifeOsAudioFocusCoordinator(appContext)
+
     private var speechRecognizer: SpeechRecognizer? = null
-    private var activeSessionId: Int = 0
-    private var startupWatchdog: Runnable? = null
-    private var deadStreamWatchdog: Runnable? = null
-    private var stopFinalizeWatchdog: Runnable? = null
-    private var pendingStartRunnable: Runnable? = null
-    private var activeStopFlushHook: (() -> Unit)? = null
-    private var lastDialogWasAutoEscalated: Boolean = false
+    private var currentSessionId: String? = null
+    private var currentAttemptId: Int = 0
+    private var currentGeneration: Long = 0L
+    private var currentEngineId: String = "system_default"
+    private var currentLocale: String = "vi-VN"
+    private var currentAudioRoute: String = LifeOsAudioFocusCoordinator.ROUTE_UNKNOWN
+    private var attemptTerminated: Boolean = true
+    private var isStopping: Boolean = false
+    private var activePartialTranscript: String = ""
+
+    private var startupTimeoutRunnable: Runnable? = null
+    private var busyRetryRunnable: Runnable? = null
+    private var finalizeTimeoutRunnable: Runnable? = null
 
     @Volatile
     var lastResolvedEngineLabel: String = "system_default"
@@ -84,19 +83,10 @@ class LifeOsSpeechRecognizerHelper(
         const val STATE_CANCELLED = "cancelled"
 
         private const val RECOGNITION_SERVICE_ACTION = "android.speech.RecognitionService"
-        private const val CAPS_PREFS_NAME = "lifeos_voice_engine_caps"
-        private const val KEY_INLINE_VERIFIED = "inline_verified_working"
-        private const val KEY_AUTO_PREFER_DIALOG = "auto_prefer_google_dialog"
-
-        private const val BINDER_COOLDOWN_MS = 85L
-        private const val DEFERRED_DESTROY_MS = 60L
-        private const val BUSY_RETRY_DELAY_MS = 200L
-        private const val SILENT_KEEPALIVE_DELAY_MS = 110L
-        private const val STARTUP_WATCHDOG_MS = 1450L
-        private const val DEAD_MIC_STREAM_WATCHDOG_MS = 2150L
-        private const val STOP_FINALIZE_WATCHDOG_MS = 1350L
-        private const val FAST_REJECT_THRESHOLD_MS = 1450L
-        private const val MIN_LIVE_RMS_SPREAD_DB = 0.45f
+        private const val STARTUP_TIMEOUT_MS = 2600L
+        private const val BUSY_RETRY_DELAY_MS = 220L
+        private const val FINALIZE_TIMEOUT_MS = 2500L
+        private const val SUPPORT_CHECK_TIMEOUT_MS = 3000L
 
         private val GOOGLE_DIALOG_PACKAGES = listOf(
             "com.google.android.googlequicksearchbox",
@@ -104,92 +94,27 @@ class LifeOsSpeechRecognizerHelper(
             "com.google.android.apps.searchlite"
         )
 
-        private val NON_VIETNAMESE_OEM_PREFIXES = listOf(
-            "com.xiaomi.",
-            "com.miui.",
-            "com.heytap.",
-            "com.oppo.",
-            "com.coloros.",
-            "com.vivo.",
-            "com.samsung.android.bixby",
-            "com.samsung.android.scs",
-            "com.google.android.as"
-        )
+        @Volatile
+        private var lastKnownVietnameseOnDeviceSupported: Boolean? = null
 
-        private const val ERR_TOO_MANY_REQUESTS = 10
-        private const val ERR_SERVER_DISCONNECTED = 11
-        private const val ERR_LANGUAGE_NOT_SUPPORTED = 12
-        private const val ERR_LANGUAGE_UNAVAILABLE = 13
-        private const val ERR_CANNOT_CHECK_SUPPORT = 14
-
-        fun isInlineVerifiedWorking(context: Context): Boolean {
-            return try {
-                context.applicationContext
-                    .getSharedPreferences(CAPS_PREFS_NAME, Context.MODE_PRIVATE)
-                    .getBoolean(KEY_INLINE_VERIFIED, false)
-            } catch (_: Exception) {
-                false
-            }
-        }
-
-        fun shouldAutoPreferGoogleDialog(context: Context): Boolean {
-            return try {
-                context.applicationContext
-                    .getSharedPreferences(CAPS_PREFS_NAME, Context.MODE_PRIVATE)
-                    .getBoolean(KEY_AUTO_PREFER_DIALOG, false)
-            } catch (_: Exception) {
-                false
-            }
-        }
-
-        fun markInlineVerifiedWorking(context: Context) {
-            try {
-                context.applicationContext
-                    .getSharedPreferences(CAPS_PREFS_NAME, Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean(KEY_INLINE_VERIFIED, true)
-                    .putBoolean(KEY_AUTO_PREFER_DIALOG, false)
-                    .apply()
-            } catch (_: Exception) {
-            }
-        }
-
-        fun setAutoPreferGoogleDialog(context: Context, preferDialog: Boolean) {
-            try {
-                context.applicationContext
-                    .getSharedPreferences(CAPS_PREFS_NAME, Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean(KEY_AUTO_PREFER_DIALOG, preferDialog)
-                    .apply()
-            } catch (_: Exception) {
-            }
-        }
-
-        /**
-         * Builds a clean standard `RecognizerIntent` matching `csdcorp/speech_to_text`:
-         * - Uses `applicationInfo.packageName` for `EXTRA_CALLING_PACKAGE`.
-         * - Does NOT send response-only `EXTRA_LANGUAGE_PREFERENCE` on inline `startListening`.
-         */
         fun buildVietnameseSpeechIntent(
             context: Context,
             forSystemDialog: Boolean = false,
-            preferOffline: Boolean = false
+            localeTag: String = "vi-VN"
         ): Intent {
             val callingPkg = context.applicationInfo?.packageName ?: context.packageName
+            val normalizedLocale = localeTag.ifBlank { "vi-VN" }
             return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
                 )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, normalizedLocale)
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, callingPkg)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, !forSystemDialog)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                if (preferOffline && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !forSystemDialog) {
-                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                }
                 if (forSystemDialog) {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, normalizedLocale)
                     putExtra(
                         RecognizerIntent.EXTRA_PROMPT,
                         "Mời bạn nói tiếng Việt (VD: Ăn phở 55 nghìn)"
@@ -198,18 +123,16 @@ class LifeOsSpeechRecognizerHelper(
             }
         }
 
-        /**
-         * Resolves Google's `ACTION_RECOGNIZE_SPEECH` Activity first (`googlequicksearchbox` / `tts` /
-         * `searchlite`), and always falls back to the system's generic `ACTION_RECOGNIZE_SPEECH` handler
-         * whenever present so the working Google dialog is never blocked by strict package filters.
-         */
-        fun resolveGoogleSpeechDialogIntent(context: Context): Intent? {
+        fun resolveGoogleSpeechDialogIntent(
+            context: Context,
+            localeTag: String = "vi-VN"
+        ): Intent? {
             val pm = context.packageManager
             for (pkg in GOOGLE_DIALOG_PACKAGES) {
                 val candidate = buildVietnameseSpeechIntent(
                     context = context,
                     forSystemDialog = true,
-                    preferOffline = false
+                    localeTag = localeTag
                 ).apply {
                     setPackage(pkg)
                 }
@@ -231,7 +154,7 @@ class LifeOsSpeechRecognizerHelper(
             val generic = buildVietnameseSpeechIntent(
                 context = context,
                 forSystemDialog = true,
-                preferOffline = false
+                localeTag = localeTag
             )
             val anyHit = try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -246,22 +169,239 @@ class LifeOsSpeechRecognizerHelper(
             return if (anyHit != null) generic else null
         }
 
+        fun isOnDeviceRecognitionAvailable(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+            return try {
+                SpeechRecognizer.isOnDeviceRecognitionAvailable(context.applicationContext)
+            } catch (_: Exception) {
+                false
+            }
+        }
+
         /**
-         * Discovers inline `SpeechRecognizer` candidates following `csdcorp/speech_to_text`:
-         * 1. `SystemBrokerDefault` (`SpeechRecognizer.createSpeechRecognizer(appContext)`) FIRST when
-         *    the OS default service is Google or standard AOSP (proper `BIND_RECOGNITION_SERVICE` +
-         *    `OPSTR_RECORD_AUDIO` broker handoff!).
-         * 2. Explicit `com.google.android.tts` (`Speech Services by Google`) next (or first if OEM
-         *    hijacked `voice_recognition_service` to Bixby/MiBrain/HeyTap/Vivo/SystemIntelligence).
-         * 3. Legacy `com.google.android.googlequicksearchbox` background service ONLY on Android 11
-         *    or older (or when `com.google.android.tts` is completely absent), avoiding Android 12–15
-         *    dead trampoline stubs.
+         * Queries real Android API 31+ / API 33+ on-device Vietnamese support.
+         * Never guesses or reports `true` on API < 31.
+         */
+        fun checkVietnameseOnDeviceSupport(
+            context: Context,
+            localeTag: String = "vi-VN",
+            callback: (Map<String, Any?>) -> Unit
+        ) {
+            val appCtx = context.applicationContext
+            val mainHandler = Handler(Looper.getMainLooper())
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                lastKnownVietnameseOnDeviceSupported = false
+                postMain(mainHandler) {
+                    callback(
+                        mapOf(
+                            "isOnDeviceAvailable" to false,
+                            "vietnameseInstalled" to false,
+                            "vietnameseSupported" to false,
+                            "pendingDownload" to false,
+                            "sdkInt" to Build.VERSION.SDK_INT
+                        )
+                    )
+                }
+                return
+            }
+
+            val onDeviceAvail = isOnDeviceRecognitionAvailable(appCtx)
+            if (!onDeviceAvail) {
+                lastKnownVietnameseOnDeviceSupported = false
+                postMain(mainHandler) {
+                    callback(
+                        mapOf(
+                            "isOnDeviceAvailable" to false,
+                            "vietnameseInstalled" to false,
+                            "vietnameseSupported" to false,
+                            "pendingDownload" to false,
+                            "sdkInt" to Build.VERSION.SDK_INT
+                        )
+                    )
+                }
+                return
+            }
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                // API 31–32 supports `createOnDeviceSpeechRecognizer`, but lacks `checkRecognitionSupport`.
+                postMain(mainHandler) {
+                    callback(
+                        mapOf(
+                            "isOnDeviceAvailable" to true,
+                            "vietnameseInstalled" to null,
+                            "vietnameseSupported" to null,
+                            "pendingDownload" to false,
+                            "sdkInt" to Build.VERSION.SDK_INT
+                        )
+                    )
+                }
+                return
+            }
+
+            postMain(mainHandler) {
+                var completed = false
+                var probe: SpeechRecognizer? = null
+                val timeoutRunnable = Runnable {
+                    if (completed) return@Runnable
+                    completed = true
+                    try {
+                        probe?.destroy()
+                    } catch (_: Exception) {
+                    }
+                    probe = null
+                    callback(
+                        mapOf(
+                            "isOnDeviceAvailable" to true,
+                            "vietnameseInstalled" to false,
+                            "vietnameseSupported" to false,
+                            "pendingDownload" to false,
+                            "errorCode" to "SUPPORT_CHECK_TIMEOUT",
+                            "sdkInt" to Build.VERSION.SDK_INT
+                        )
+                    )
+                }
+
+                try {
+                    probe = SpeechRecognizer.createOnDeviceSpeechRecognizer(appCtx)
+                    val intent = buildVietnameseSpeechIntent(
+                        context = appCtx,
+                        forSystemDialog = false,
+                        localeTag = localeTag
+                    )
+                    mainHandler.postDelayed(timeoutRunnable, SUPPORT_CHECK_TIMEOUT_MS)
+
+                    probe?.checkRecognitionSupport(
+                        intent,
+                        ContextCompat.getMainExecutor(appCtx),
+                        object : RecognitionSupportCallback {
+                            override fun onSupportResult(recognitionSupport: RecognitionSupport) {
+                                if (completed) return
+                                completed = true
+                                mainHandler.removeCallbacks(timeoutRunnable)
+                                try {
+                                    probe?.destroy()
+                                } catch (_: Exception) {
+                                }
+                                probe = null
+
+                                val installed = recognitionSupport.installedOnDeviceLanguages
+                                val supported = recognitionSupport.supportedOnDeviceLanguages
+                                val pending = recognitionSupport.pendingOnDeviceLanguages
+
+                                val vnInstalled = installed.any { isVietnameseTag(it) }
+                                val vnSupported = vnInstalled || supported.any { isVietnameseTag(it) }
+                                val vnPending = pending.any { isVietnameseTag(it) }
+                                lastKnownVietnameseOnDeviceSupported = vnSupported
+
+                                callback(
+                                    mapOf(
+                                        "isOnDeviceAvailable" to true,
+                                        "vietnameseInstalled" to vnInstalled,
+                                        "vietnameseSupported" to vnSupported,
+                                        "pendingDownload" to vnPending,
+                                        "installedLanguages" to installed,
+                                        "supportedLanguages" to supported,
+                                        "pendingLanguages" to pending,
+                                        "sdkInt" to Build.VERSION.SDK_INT
+                                    )
+                                )
+                            }
+
+                            override fun onError(error: Int) {
+                                if (completed) return
+                                completed = true
+                                mainHandler.removeCallbacks(timeoutRunnable)
+                                try {
+                                    probe?.destroy()
+                                } catch (_: Exception) {
+                                }
+                                probe = null
+
+                                val (code, _) = classifySpeechError(error)
+                                callback(
+                                    mapOf(
+                                        "isOnDeviceAvailable" to true,
+                                        "vietnameseInstalled" to false,
+                                        "vietnameseSupported" to false,
+                                        "pendingDownload" to false,
+                                        "errorCode" to code,
+                                        "sdkInt" to Build.VERSION.SDK_INT
+                                    )
+                                )
+                            }
+                        }
+                    )
+                } catch (_: Exception) {
+                    if (!completed) {
+                        completed = true
+                        mainHandler.removeCallbacks(timeoutRunnable)
+                        try {
+                            probe?.destroy()
+                        } catch (_: Exception) {
+                        }
+                        probe = null
+                        callback(
+                            mapOf(
+                                "isOnDeviceAvailable" to true,
+                                "vietnameseInstalled" to false,
+                                "vietnameseSupported" to false,
+                                "pendingDownload" to false,
+                                "errorCode" to "CANNOT_CHECK_SUPPORT",
+                                "sdkInt" to Build.VERSION.SDK_INT
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        private fun isVietnameseTag(tag: String): Boolean {
+            val norm = tag.trim().replace('_', '-').lowercase()
+            return norm == "vi" || norm.startsWith("vi-")
+        }
+
+        private fun postMain(handler: Handler, block: () -> Unit) {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                block()
+            } else {
+                handler.post(block)
+            }
+        }
+
+        /**
+         * Discovers speech recognizer candidates using public Android APIs FIRST (`SystemBrokerDefault`),
+         * with explicit Google services only as secondary candidates when not strictly offline.
          */
         fun discoverCandidates(
             context: Context,
-            engineMode: String = "google_service"
+            engineMode: String = "google_service",
+            strictOffline: Boolean = false
         ): List<EngineCandidate> {
-            val pm = context.packageManager
+            val appCtx = context.applicationContext
+            val offlineOnly = strictOffline ||
+                engineMode == "on_device" ||
+                engineMode == "offline_strict"
+
+            if (offlineOnly) {
+                return if (isOnDeviceRecognitionAvailable(appCtx)) {
+                    listOf(EngineCandidate.OnDevice)
+                } else {
+                    emptyList()
+                }
+            }
+
+            val ordered = mutableListOf<EngineCandidate>()
+            val isSysAvailable = try {
+                SpeechRecognizer.isRecognitionAvailable(appCtx)
+            } catch (_: Exception) {
+                false
+            }
+            if (isSysAvailable) {
+                ordered.add(EngineCandidate.SystemBrokerDefault)
+            }
+
+            val pm = appCtx.packageManager
             val queryIntent = Intent(RECOGNITION_SERVICE_ACTION)
             val resolved = try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -285,7 +425,6 @@ class LifeOsSpeechRecognizerHelper(
                 val cn = ComponentName(pkg, svc.name)
                 if (pkg == "com.google.android.tts") {
                     if (googleTtsComponents.none { it.componentName == cn }) {
-                        // Prefer main GoogleTTSRecognitionService ahead of secondary soda/offline services
                         if (svc.name.contains("GoogleTTS", ignoreCase = true)) {
                             googleTtsComponents.add(0, EngineCandidate.ExplicitGoogleComponent(cn))
                         } else {
@@ -299,587 +438,746 @@ class LifeOsSpeechRecognizerHelper(
                 }
             }
 
-            val isSysAvailable = try {
-                SpeechRecognizer.isRecognitionAvailable(context)
-            } catch (_: Exception) {
-                false
-            }
-            val defaultServiceFlat = try {
-                Settings.Secure.getString(context.contentResolver, "voice_recognition_service").orEmpty()
-            } catch (_: Exception) {
-                ""
-            }
-            val isDefaultNonVnOem = defaultServiceFlat.isNotEmpty() &&
-                NON_VIETNAMESE_OEM_PREFIXES.any { defaultServiceFlat.startsWith(it) }
-
-            val ordered = mutableListOf<EngineCandidate>()
-            if (isSysAvailable && !isDefaultNonVnOem) {
-                // Standard Android broker (`SpeechToTextPlugin.kt` primary path)
-                ordered.add(EngineCandidate.SystemBrokerDefault)
-            }
-
-            // Explicit Speech Services by Google (`com.google.android.tts`)
             ordered.addAll(googleTtsComponents)
-
-            // Only include legacy `googlequicksearchbox` service on pre-Android 12 or if `tts` is missing
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || googleTtsComponents.isEmpty()) {
                 ordered.addAll(legacyGsaComponents)
             }
-
-            if (isSysAvailable && isDefaultNonVnOem && ordered.isEmpty()) {
-                ordered.add(EngineCandidate.SystemBrokerDefault)
-            }
             return ordered.distinct()
+        }
+
+        /**
+         * Classifies ALL 13+ Android `SpeechRecognizer` error codes into stable error codes and
+         * user-facing Vietnamese diagnostics messages.
+         */
+        fun classifySpeechError(error: Int): Pair<String, String> {
+            return when (error) {
+                SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
+                    "NETWORK_TIMEOUT" to "Hết thời gian kết nối mạng khi nhận diện giọng nói. Hãy thử lại."
+                SpeechRecognizer.ERROR_NETWORK ->
+                    "NETWORK_ERROR" to "Mạng gián đoạn khi nhận diện giọng nói. Vui lòng kiểm tra Wi-Fi hoặc 4G."
+                SpeechRecognizer.ERROR_AUDIO ->
+                    "AUDIO_ERROR" to "Không thu được tín hiệu âm thanh từ Micro. Kiểm tra Micro hoặc ứng dụng khác đang dùng mic."
+                SpeechRecognizer.ERROR_SERVER ->
+                    "SERVER_ERROR" to "Máy chủ nhận diện giọng nói tạm thời gián đoạn. Vui lòng thử lại."
+                SpeechRecognizer.ERROR_CLIENT ->
+                    "CLIENT_ERROR" to "Lỗi kết nối bộ nhận diện giọng nói trên thiết bị. Vui lòng thử lại."
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+                    "SPEECH_TIMEOUT" to "Không nghe thấy giọng nói trong thời gian chờ. Bấm Mic để nói lại."
+                SpeechRecognizer.ERROR_NO_MATCH ->
+                    "NO_MATCH" to "Chưa nghe rõ câu nói. Bạn hãy nói rõ hơn hoặc gõ trực tiếp."
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
+                    "RECOGNIZER_BUSY" to "Bộ nhận diện giọng nói đang bận. Vui lòng thử lại sau giây lát."
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+                    "PERMISSION_DENIED" to "Vui lòng cấp quyền Micro để thu âm giọng nói."
+                SpeechRecognizer.ERROR_TOO_MANY_REQUESTS ->
+                    "TOO_MANY_REQUESTS" to "Gửi quá nhiều yêu cầu nhận diện liên tiếp. Vui lòng đợi vài giây."
+                SpeechRecognizer.ERROR_SERVER_DISCONNECTED ->
+                    "SERVER_DISCONNECTED" to "Kết nối tới dịch vụ nhận diện giọng nói đã ngắt. Vui lòng thử lại."
+                SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ->
+                    "LANGUAGE_NOT_SUPPORTED" to "Bộ nhận diện hiện tại chưa hỗ trợ tiếng Việt."
+                SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ->
+                    "LANGUAGE_UNAVAILABLE" to "Gói ngôn ngữ tiếng Việt chưa sẵn sàng trên thiết bị. Hãy kiểm tra gói ngoại tuyến."
+                SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT ->
+                    "CANNOT_CHECK_SUPPORT" to "Không thể kiểm tra hỗ trợ ngôn ngữ trên dịch vụ nhận diện."
+                SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS ->
+                    "DOWNLOAD_EVENTS_UNAVAILABLE" to "Không thể theo dõi tiến trình tải gói ngôn ngữ."
+                else ->
+                    "SPEECH_ERROR_$error" to "Tạm ngưng thu âm (mã $error). Bạn có thể bấm Mic nói lại."
+            }
         }
 
         fun collectDiagnostics(
             context: Context,
             activeEngineLabel: String? = null
         ): Map<String, Any?> {
-            val pm = context.packageManager
+            val appCtx = context.applicationContext
+            val pm = appCtx.packageManager
             val hasMicHardware = pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
             val hasRecordPerm = ContextCompat.checkSelfPermission(
-                context,
+                appCtx,
                 Manifest.permission.RECORD_AUDIO
             ) == PackageManager.PERMISSION_GRANTED
-            val candidates = discoverCandidates(context).map { it.label }
-            val hasGoogleDialog = resolveGoogleSpeechDialogIntent(context) != null
-            val isRecognitionAvailable = candidates.isNotEmpty() || hasGoogleDialog
-            val autoDialogRemembered = shouldAutoPreferGoogleDialog(context) && hasGoogleDialog
+            val candidates = discoverCandidates(appCtx).map { it.label }
+            val hasGoogleDialog = resolveGoogleSpeechDialogIntent(appCtx) != null
+            val onDeviceAvail = isOnDeviceRecognitionAvailable(appCtx)
+            val isSysRecognitionAvail = try {
+                SpeechRecognizer.isRecognitionAvailable(appCtx)
+            } catch (_: Exception) {
+                false
+            }
+            val isRecognitionAvailable = isSysRecognitionAvail ||
+                onDeviceAvail ||
+                candidates.isNotEmpty() ||
+                hasGoogleDialog
             val resolvedLabel = activeEngineLabel
-                ?: (if (autoDialogRemembered) "system_speech_dialog" else candidates.firstOrNull())
-                ?: (if (hasGoogleDialog) "system_speech_dialog" else "service:com.google.android.tts")
+                ?: candidates.firstOrNull()
+                ?: (if (onDeviceAvail) "on_device_speech_recognizer" else null)
+                ?: (if (hasGoogleDialog) "system_speech_dialog" else "unavailable")
 
-            return mapOf(
-                "hardwareMicAvailable" to hasMicHardware,
-                "hasRecordPermission" to hasRecordPerm,
-                "isRecognitionAvailable" to isRecognitionAvailable,
-                "isOnDeviceAvailable" to candidates.any { it.startsWith("service:com.google.") || it == "system_default" },
-                "hasSystemSpeechDialog" to hasGoogleDialog,
-                "availableEngines" to candidates,
-                "activeEngineLabel" to resolvedLabel,
-                "sdkInt" to Build.VERSION.SDK_INT,
-                "manufacturer" to (Build.MANUFACTURER ?: "unknown")
+            val vnOnDeviceSupported: Boolean? = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !onDeviceAvail) {
+                false
+            } else {
+                lastKnownVietnameseOnDeviceSupported
+            }
+
+            val currentAudioRoute = LifeOsAudioFocusCoordinator.detectCurrentAudioRoute(appCtx)
+            val micPrivacyBlocked = LifeOsAudioFocusCoordinator.isMicrophonePrivacyBlocked(appCtx)
+            val sessionMetrics = VoiceSessionCoordinatorNative.getDiagnosticsMetrics()
+            val capSnapshot = VoiceSessionCoordinatorNative.getCapabilitySnapshot(
+                context = appCtx,
+                locale = "vi-VN",
+                audioRoute = currentAudioRoute
             )
-        }
-    }
 
-    /**
-     * Called by `MainActivity.onActivityResult` / `LifeOsWidgetQuickOverlayActivity.onActivityResult`
-     * whenever Google's `ACTION_RECOGNIZE_SPEECH` dialog returns valid spoken Vietnamese text.
-     */
-    fun recordDialogSuccessAfterEscalation() {
-        if (lastDialogWasAutoEscalated) {
-            lastDialogWasAutoEscalated = false
-            setAutoPreferGoogleDialog(activity, true)
-            onEngineAutoSwitched?.invoke("system_dialog")
+            val out = LinkedHashMap<String, Any?>(28)
+            // Legacy fields for `VoiceDiagnosticsSnapshot.fromMap`
+            out["hardwareMicAvailable"] = hasMicHardware
+            out["hasRecordPermission"] = hasRecordPerm
+            out["isRecognitionAvailable"] = isRecognitionAvailable
+            out["isOnDeviceAvailable"] = onDeviceAvail
+            out["hasSystemSpeechDialog"] = hasGoogleDialog
+            out["availableEngines"] = candidates
+            out["activeEngineLabel"] = resolvedLabel
+            out["sdkInt"] = Build.VERSION.SDK_INT
+            out["manufacturer"] = Build.MANUFACTURER ?: "unknown"
+            // V2 enriched diagnostics fields
+            out["model"] = Build.MODEL ?: "unknown"
+            out["osBuild"] = Build.FINGERPRINT ?: "unknown"
+            out["hasMicPermission"] = hasRecordPerm
+            out["micPrivacyBlocked"] = micPrivacyBlocked
+            out["vietnameseOnDeviceSupported"] = vnOnDeviceSupported
+            out["currentAudioRoute"] = currentAudioRoute
+            out["capabilityCache"] = capSnapshot
+            for ((k, v) in sessionMetrics) {
+                out[k] = v
+            }
+            return out
         }
     }
 
     fun startListening(
+        sessionId: String = UUID.randomUUID().toString(),
+        attemptId: Int = 1,
         preferSystemDialog: Boolean = false,
         engineMode: String = "google_service",
-        forceInlineProbe: Boolean = false
+        strictOffline: Boolean = false,
+        locale: String = "vi-VN"
     ) {
         runOnMain {
-            val sessionId = nextVoiceSession()
+            if (activity.isFinishing || activity.isDestroyed) return@runOnMain
+
+            val resolvedSessionId = sessionId.ifBlank { UUID.randomUUID().toString() }
+            val resolvedAttemptId = if (attemptId > 0) attemptId else 1
+            val effectiveLocale = locale.ifBlank { "vi-VN" }
+            val effectiveStrictOffline = strictOffline ||
+                engineMode == "on_device" ||
+                engineMode == "offline_strict"
+            val useSystemDialog = !effectiveStrictOffline &&
+                (preferSystemDialog || engineMode == "system_dialog")
+
+            val initialEngineId = when {
+                useSystemDialog -> "system_speech_dialog"
+                effectiveStrictOffline -> "on_device_speech_recognizer"
+                else -> "system_default"
+            }
+
+            // Claim process-wide ownership FIRST; any previous owner's cancelHook runs synchronously.
+            currentGeneration += 1L
+            val gen = currentGeneration
+            VoiceSessionCoordinatorNative.claimSession(
+                ownerId = ownerId,
+                sessionId = resolvedSessionId,
+                attemptId = resolvedAttemptId,
+                engineId = initialEngineId,
+                runCancelOnMain = true,
+                cancelHook = { cancelFromCoordinator(resolvedSessionId, resolvedAttemptId, gen) }
+            )
+
             clearTimers()
-            LifeOsSoundboxSpeaker.stopSpeaking()
-            val hadPreviousRecognizer = teardownCurrentRecognizer(abortInFlight = true)
+            teardownCurrentRecognizerSync(abortInFlight = true)
 
-            if (forceInlineProbe) {
-                setAutoPreferGoogleDialog(activity, false)
-            }
+            currentSessionId = resolvedSessionId
+            currentAttemptId = resolvedAttemptId
+            currentEngineId = initialEngineId
+            currentLocale = effectiveLocale
+            currentAudioRoute = LifeOsAudioFocusCoordinator.detectCurrentAudioRoute(appContext)
+            attemptTerminated = false
+            isStopping = false
+            activePartialTranscript = ""
+            lastResolvedEngineLabel = initialEngineId
 
-            val autoDialogRemembered = !forceInlineProbe &&
-                shouldAutoPreferGoogleDialog(activity) &&
-                resolveGoogleSpeechDialogIntent(activity) != null
-
-            if (preferSystemDialog || engineMode == "system_dialog" || autoDialogRemembered) {
-                lastDialogWasAutoEscalated = false
-                launchDialogOrFallbackInline(sessionId, hadPreviousRecognizer)
+            if (useSystemDialog) {
+                launchExplicitSystemDialog(resolvedSessionId, resolvedAttemptId, gen)
                 return@runOnMain
             }
 
-            onStateChanged("initializing")
-
-            val candidates = discoverCandidates(activity, engineMode = engineMode)
-            if (candidates.isEmpty()) {
-                lastDialogWasAutoEscalated = true
-                launchDialogOrReportError(sessionId)
+            // Permission check for inline recognition
+            val hasAudioPerm = ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!hasAudioPerm) {
+                terminateWithError(
+                    sessionId = resolvedSessionId,
+                    attemptId = resolvedAttemptId,
+                    generation = gen,
+                    code = "PERMISSION_DENIED",
+                    message = "Chưa cấp quyền Micro để thu âm giọng nói.",
+                    recordToCache = false
+                )
                 return@runOnMain
             }
 
-            val preferOfflineInitial = engineMode == "on_device"
-            val delayMs = if (hadPreviousRecognizer) BINDER_COOLDOWN_MS else 0L
-            val runnable = Runnable {
-                if (sessionId != activeSessionId || activity.isFinishing || activity.isDestroyed) {
-                    return@Runnable
+            // Strict offline / API 31+ On-Device path (NEVER falls back to online!)
+            if (effectiveStrictOffline) {
+                if (!isOnDeviceRecognitionAvailable(appContext)) {
+                    terminateWithError(
+                        sessionId = resolvedSessionId,
+                        attemptId = resolvedAttemptId,
+                        generation = gen,
+                        code = "ON_DEVICE_UNAVAILABLE",
+                        message = "Thiết bị chưa hỗ trợ nhận diện giọng nói ngoại tuyến (yêu cầu Android 12+ và gói ngôn ngữ ngoại tuyến).",
+                        recordToCache = true
+                    )
+                    return@runOnMain
                 }
-                attemptCandidate(
-                    sessionId = sessionId,
-                    candidates = candidates,
+                emitState(resolvedSessionId, resolvedAttemptId, initialEngineId, STATE_INITIALIZING)
+                val focusOk = audioFocusCoordinator.requestFocus { permanent ->
+                    handleAudioFocusLost(resolvedSessionId, resolvedAttemptId, gen, permanent)
+                }
+                if (!focusOk) {
+                    terminateWithError(
+                        sessionId = resolvedSessionId,
+                        attemptId = resolvedAttemptId,
+                        generation = gen,
+                        code = "AUDIO_FOCUS_DENIED",
+                        message = "Không thể sử dụng Micro vì đang có cuộc gọi hoặc ứng dụng âm thanh khác.",
+                        recordToCache = false
+                    )
+                    return@runOnMain
+                }
+                startInlineAttempt(
+                    sessionId = resolvedSessionId,
+                    attemptId = resolvedAttemptId,
+                    generation = gen,
+                    candidates = listOf(EngineCandidate.OnDevice),
                     candidateIndex = 0,
                     retriedBusy = false,
-                    preferOffline = preferOfflineInitial,
-                    silentTimeoutRetries = 0
+                    strictOffline = true
                 )
+                return@runOnMain
             }
-            pendingStartRunnable = runnable
-            if (delayMs > 0L) {
-                mainHandler.postDelayed(runnable, delayMs)
-            } else {
-                runnable.run()
+
+            val candidates = discoverCandidates(
+                context = appContext,
+                engineMode = engineMode,
+                strictOffline = false
+            )
+            if (candidates.isEmpty()) {
+                terminateWithError(
+                    sessionId = resolvedSessionId,
+                    attemptId = resolvedAttemptId,
+                    generation = gen,
+                    code = "NO_SPEECH_ENGINE",
+                    message = "Thiết bị chưa bật dịch vụ Nhận diện giọng nói (Speech Services by Google).",
+                    recordToCache = false
+                )
+                return@runOnMain
+            }
+
+            val primaryCandidate = candidates.first()
+            currentEngineId = primaryCandidate.label
+            lastResolvedEngineLabel = primaryCandidate.label
+            VoiceSessionCoordinatorNative.updateSessionEngine(
+                resolvedSessionId,
+                resolvedAttemptId,
+                primaryCandidate.label
+            )
+            emitState(resolvedSessionId, resolvedAttemptId, primaryCandidate.label, STATE_INITIALIZING)
+
+            val focusOk = audioFocusCoordinator.requestFocus { permanent ->
+                handleAudioFocusLost(resolvedSessionId, resolvedAttemptId, gen, permanent)
+            }
+            if (!focusOk) {
+                terminateWithError(
+                    sessionId = resolvedSessionId,
+                    attemptId = resolvedAttemptId,
+                    generation = gen,
+                    code = "AUDIO_FOCUS_DENIED",
+                    message = "Không thể sử dụng Micro vì đang có cuộc gọi hoặc ứng dụng âm thanh khác.",
+                    recordToCache = false
+                )
+                return@runOnMain
+            }
+
+            startInlineAttempt(
+                sessionId = resolvedSessionId,
+                attemptId = resolvedAttemptId,
+                generation = gen,
+                candidates = candidates,
+                candidateIndex = 0,
+                retriedBusy = false,
+                strictOffline = false
+            )
+        }
+    }
+
+    fun stopListening(sessionId: String? = null) {
+        runOnMain {
+            val activeId = currentSessionId ?: return@runOnMain
+            if (sessionId != null && sessionId != activeId) return@runOnMain
+            if (attemptTerminated) return@runOnMain
+
+            val attemptId = currentAttemptId
+            val gen = currentGeneration
+            val engineId = currentEngineId
+            val sr = speechRecognizer ?: return@runOnMain
+
+            isStopping = true
+            clearStartupAndBusyTimers()
+            emitState(activeId, attemptId, engineId, STATE_PROCESSING)
+
+            finalizeTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+            val timeoutGuard = Runnable {
+                if (activeId != currentSessionId ||
+                    attemptId != currentAttemptId ||
+                    gen != currentGeneration ||
+                    attemptTerminated
+                ) {
+                    return@Runnable
+                }
+                val rescued = activePartialTranscript.trim()
+                if (rescued.isNotEmpty()) {
+                    terminateWithFinalTranscript(activeId, attemptId, gen, engineId, rescued)
+                } else {
+                    terminateWithError(
+                        sessionId = activeId,
+                        attemptId = attemptId,
+                        generation = gen,
+                        code = "FINALIZE_TIMEOUT",
+                        message = "Quá thời gian chờ hoàn tất nhận diện giọng nói. Bạn hãy bấm Mic nói lại.",
+                        recordToCache = true
+                    )
+                }
+            }
+            finalizeTimeoutRunnable = timeoutGuard
+            mainHandler.postDelayed(timeoutGuard, FINALIZE_TIMEOUT_MS)
+
+            try {
+                sr.stopListening()
+            } catch (_: Exception) {
+                finalizeTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+                finalizeTimeoutRunnable = null
+                val rescued = activePartialTranscript.trim()
+                if (rescued.isNotEmpty()) {
+                    terminateWithFinalTranscript(activeId, attemptId, gen, engineId, rescued)
+                } else {
+                    terminateWithError(
+                        sessionId = activeId,
+                        attemptId = attemptId,
+                        generation = gen,
+                        code = "CLIENT_ERROR",
+                        message = "Không thể dừng phiên nhận diện giọng nói đúng cách.",
+                        recordToCache = false
+                    )
+                }
             }
         }
     }
 
-    fun stopListening() {
+    fun cancelListening(sessionId: String? = null) {
         runOnMain {
-            clearStartupAndPendingTimers()
-            val sr = speechRecognizer
-            val flushHook = activeStopFlushHook
-            if (sr != null) {
-                onStateChanged("processing")
-                val stopGuard = Runnable {
-                    if (flushHook != null) {
-                        flushHook.invoke()
-                    } else {
-                        teardownCurrentRecognizer(abortInFlight = true)
-                        onStateChanged("idle")
-                    }
-                }
-                stopFinalizeWatchdog?.let { mainHandler.removeCallbacks(it) }
-                stopFinalizeWatchdog = stopGuard
-                mainHandler.postDelayed(stopGuard, STOP_FINALIZE_WATCHDOG_MS)
-                try {
-                    sr.stopListening()
-                } catch (_: Exception) {
-                    stopFinalizeWatchdog?.let { mainHandler.removeCallbacks(it) }
-                    stopFinalizeWatchdog = null
-                    if (flushHook != null) {
-                        flushHook.invoke()
-                    } else {
-                        teardownCurrentRecognizer(abortInFlight = false)
-                        onStateChanged("idle")
-                    }
-                }
-            } else {
-                onStateChanged("idle")
+            val activeId = currentSessionId
+            if (activeId == null) {
+                clearTimers()
+                teardownCurrentRecognizerSync(abortInFlight = true)
+                audioFocusCoordinator.abandonFocus()
+                onDialogStateChanged?.invoke(false)
+                return@runOnMain
             }
+            if (sessionId != null && sessionId != activeId) {
+                return@runOnMain
+            }
+            cancelInternal(activeId, currentAttemptId, currentGeneration)
         }
     }
 
-    fun cancelListening() {
+    /**
+     * Completes an explicit external `ACTION_RECOGNIZE_SPEECH` system dialog session
+     * invoked earlier by [startListening] with `system_dialog`.
+     */
+    fun completeExternalDialogSession(
+        sessionId: String,
+        attemptId: Int,
+        success: Boolean,
+        errorCode: String? = null
+    ) {
         runOnMain {
-            nextVoiceSession()
-            clearTimers()
-            teardownCurrentRecognizer(abortInFlight = true)
+            if (sessionId == currentSessionId && attemptId == currentAttemptId && !attemptTerminated) {
+                attemptTerminated = true
+                clearTimers()
+                currentSessionId = null
+            }
+            if (success) {
+                VoiceSessionCoordinatorNative.markFinal(sessionId, attemptId)
+            } else if (errorCode != null) {
+                VoiceSessionCoordinatorNative.setLastErrorCode(sessionId, attemptId, errorCode)
+            }
+            VoiceSessionCoordinatorNative.recordOutcome(
+                context = appContext,
+                engineId = "system_speech_dialog",
+                locale = currentLocale,
+                audioRoute = LifeOsAudioFocusCoordinator.detectCurrentAudioRoute(appContext),
+                success = success,
+                errorCode = errorCode
+            )
             onDialogStateChanged?.invoke(false)
-            onStateChanged(STATE_CANCELLED)
+            VoiceSessionCoordinatorNative.releaseSession(sessionId, attemptId)
         }
     }
 
     fun destroy() {
         runOnMain {
-            nextVoiceSession()
-            clearTimers()
-            teardownCurrentRecognizer(abortInFlight = true)
+            val activeId = currentSessionId
+            if (activeId != null && !attemptTerminated) {
+                cancelInternal(activeId, currentAttemptId, currentGeneration)
+            } else {
+                currentGeneration += 1L
+                attemptTerminated = true
+                clearTimers()
+                teardownCurrentRecognizerSync(abortInFlight = true)
+                audioFocusCoordinator.abandonFocus()
+                onDialogStateChanged?.invoke(false)
+            }
+        }
+    }
+
+    private fun cancelFromCoordinator(
+        expectedSessionId: String,
+        expectedAttemptId: Int,
+        expectedGeneration: Long
+    ) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            if (expectedSessionId == currentSessionId &&
+                expectedAttemptId == currentAttemptId &&
+                expectedGeneration == currentGeneration &&
+                !attemptTerminated
+            ) {
+                cancelInternal(expectedSessionId, expectedAttemptId, expectedGeneration)
+            }
+        } else {
+            mainHandler.post {
+                if (expectedSessionId == currentSessionId &&
+                    expectedAttemptId == currentAttemptId &&
+                    expectedGeneration == currentGeneration &&
+                    !attemptTerminated
+                ) {
+                    cancelInternal(expectedSessionId, expectedAttemptId, expectedGeneration)
+                }
+            }
+        }
+    }
+
+    private fun cancelInternal(
+        sessionId: String,
+        attemptId: Int,
+        generation: Long
+    ) {
+        if (sessionId != currentSessionId || attemptId != currentAttemptId || generation != currentGeneration) {
+            return
+        }
+        val wasTerminated = attemptTerminated
+        val engineId = currentEngineId
+        attemptTerminated = true
+        isStopping = false
+        activePartialTranscript = ""
+        currentGeneration += 1L
+        currentSessionId = null
+
+        clearTimers()
+        teardownCurrentRecognizerSync(abortInFlight = true)
+        audioFocusCoordinator.abandonFocus()
+        onDialogStateChanged?.invoke(false)
+        VoiceSessionCoordinatorNative.releaseSession(sessionId, attemptId)
+
+        if (!wasTerminated) {
+            emitState(sessionId, attemptId, engineId, STATE_CANCELLED)
         }
     }
 
-    private fun nextVoiceSession(): Int {
-        activeSessionId += 1
-        activeStopFlushHook = null
-        return activeSessionId
-    }
-
-    private fun clearStartupAndPendingTimers() {
-        startupWatchdog?.let { mainHandler.removeCallbacks(it) }
-        startupWatchdog = null
-        deadStreamWatchdog?.let { mainHandler.removeCallbacks(it) }
-        deadStreamWatchdog = null
-        pendingStartRunnable?.let { mainHandler.removeCallbacks(it) }
-        pendingStartRunnable = null
-    }
-
-    private fun clearTimers() {
-        clearStartupAndPendingTimers()
-        stopFinalizeWatchdog?.let { mainHandler.removeCallbacks(it) }
-        stopFinalizeWatchdog = null
-    }
-
-    private fun teardownCurrentRecognizer(abortInFlight: Boolean): Boolean {
-        activeStopFlushHook = null
-        val prev = speechRecognizer ?: return false
-        speechRecognizer = null
-        if (abortInFlight) {
-            try {
-                prev.cancel()
-            } catch (_: Exception) {
-            }
+    private fun launchExplicitSystemDialog(
+        sessionId: String,
+        attemptId: Int,
+        generation: Long
+    ) {
+        val dialogIntent = resolveGoogleSpeechDialogIntent(activity, currentLocale)
+        if (dialogIntent == null) {
+            terminateWithError(
+                sessionId = sessionId,
+                attemptId = attemptId,
+                generation = generation,
+                code = "NO_SPEECH_ENGINE",
+                message = "Thiết bị chưa cài đặt hoặc chưa bật Hộp thoại giọng nói Google.",
+                recordToCache = false
+            )
+            return
         }
-        mainHandler.postDelayed({
-            try {
-                prev.destroy()
-            } catch (_: Exception) {
-            }
-        }, DEFERRED_DESTROY_MS)
-        return true
+
+        val launched = try {
+            onLaunchSystemDialog(dialogIntent, sessionId, attemptId)
+        } catch (_: Exception) {
+            false
+        }
+
+        if (launched) {
+            onDialogStateChanged?.invoke(true)
+            emitState(sessionId, attemptId, "system_speech_dialog", STATE_LISTENING)
+        } else {
+            onDialogStateChanged?.invoke(false)
+            terminateWithError(
+                sessionId = sessionId,
+                attemptId = attemptId,
+                generation = generation,
+                code = "DIALOG_LAUNCH_FAILED",
+                message = "Không thể mở Hộp thoại thu âm hệ thống.",
+                recordToCache = false
+            )
+        }
     }
 
-    private fun attemptCandidate(
-        sessionId: Int,
+    private fun startInlineAttempt(
+        sessionId: String,
+        attemptId: Int,
+        generation: Long,
         candidates: List<EngineCandidate>,
         candidateIndex: Int,
         retriedBusy: Boolean,
-        preferOffline: Boolean,
-        silentTimeoutRetries: Int
+        strictOffline: Boolean
     ) {
-        if (sessionId != activeSessionId || activity.isFinishing || activity.isDestroyed) {
+        if (sessionId != currentSessionId ||
+            attemptId != currentAttemptId ||
+            generation != currentGeneration ||
+            attemptTerminated ||
+            activity.isFinishing ||
+            activity.isDestroyed
+        ) {
             return
         }
 
         if (candidateIndex >= candidates.size) {
-            lastDialogWasAutoEscalated = true
-            launchDialogOrReportError(sessionId)
+            terminateWithError(
+                sessionId = sessionId,
+                attemptId = attemptId,
+                generation = generation,
+                code = "NO_SPEECH_ENGINE",
+                message = "Không khởi tạo được bộ nhận diện giọng nói trên thiết bị.",
+                recordToCache = false
+            )
             return
         }
 
         val candidate = candidates[candidateIndex]
-        val attemptStartedAtMs = System.currentTimeMillis()
-        val appContext = activity.applicationContext
-        val inlinePreviouslyVerified = isInlineVerifiedWorking(appContext)
-        val hasGoogleDialogFallback = resolveGoogleSpeechDialogIntent(activity) != null
+        currentEngineId = candidate.label
+        lastResolvedEngineLabel = candidate.label
+        VoiceSessionCoordinatorNative.updateSessionEngine(sessionId, attemptId, candidate.label)
 
         try {
-            teardownCurrentRecognizer(abortInFlight = true)
-            val sr = when (candidate) {
-                is EngineCandidate.SystemBrokerDefault ->
-                    SpeechRecognizer.createSpeechRecognizer(appContext)
-                is EngineCandidate.ExplicitGoogleComponent ->
-                    SpeechRecognizer.createSpeechRecognizer(appContext, candidate.componentName)
-            }
+            teardownCurrentRecognizerSync(abortInFlight = true)
+            val sr = createRecognizerForCandidate(candidate)
             speechRecognizer = sr
-            lastResolvedEngineLabel = candidate.label
 
-            var lastPartialTranscript = ""
-            var receivedAnyCallback = false
+            var receivedReady = false
             var announcedListening = false
-            var sessionConcluded = false
-            var minRmsSeen = Float.MAX_VALUE
-            var maxRmsSeen = -Float.MAX_VALUE
-            var heardSpeechActivity = false
 
-            activeStopFlushHook = {
-                if (sessionId == activeSessionId && !sessionConcluded) {
-                    sessionConcluded = true
-                    clearTimers()
-                    val captured = lastPartialTranscript.trim()
-                    lastPartialTranscript = ""
-                    teardownCurrentRecognizer(abortInFlight = true)
-                    if (captured.isNotEmpty()) {
-                        markInlineVerifiedWorking(appContext)
-                        onFinalTranscript(captured)
-                        onStateChanged(STATE_REVIEW)
-                    } else {
-                        onStateChanged(STATE_IDLE)
-                    }
-                }
-            }
-
-            // Watchdog 1: Binder never even emits `onReadyForSpeech` within 1450ms -> cascade immediately!
-            val watchdog = Runnable {
-                if (sessionId != activeSessionId || receivedAnyCallback || sessionConcluded) {
+            clearStartupAndBusyTimers()
+            val startupGuard = Runnable {
+                if (sessionId != currentSessionId ||
+                    attemptId != currentAttemptId ||
+                    generation != currentGeneration ||
+                    attemptTerminated ||
+                    receivedReady
+                ) {
                     return@Runnable
                 }
-                sessionConcluded = true
-                clearStartupAndPendingTimers()
-                teardownCurrentRecognizer(abortInFlight = true)
-                attemptCandidate(
-                    sessionId = sessionId,
-                    candidates = candidates,
-                    candidateIndex = candidateIndex + 1,
-                    retriedBusy = false,
-                    preferOffline = false,
-                    silentTimeoutRetries = silentTimeoutRetries
-                )
-            }
-            startupWatchdog = watchdog
-            mainHandler.postDelayed(watchdog, STARTUP_WATCHDOG_MS)
-
-            // Watchdog 2: OEM Dead-Mic-Stream Guard (`onReadyForSpeech` fired, but hardware mic stream is
-            // muted/flat `rmsSpread < 0.45 dB` and zero partial words on an unproven inline binder).
-            // Escalates straight to next candidate / Google Speech Dialog instead of hanging silently!
-            if (!inlinePreviouslyVerified && hasGoogleDialogFallback) {
-                val streamGuard = Runnable {
-                    if (sessionId != activeSessionId || sessionConcluded) return@Runnable
-                    val rmsSpread = if (maxRmsSeen >= minRmsSeen) (maxRmsSeen - minRmsSeen) else 0f
-                    if (!heardSpeechActivity && lastPartialTranscript.isBlank() && rmsSpread < MIN_LIVE_RMS_SPREAD_DB) {
-                        sessionConcluded = true
-                        clearStartupAndPendingTimers()
-                        teardownCurrentRecognizer(abortInFlight = true)
-                        attemptCandidate(
-                            sessionId = sessionId,
-                            candidates = candidates,
-                            candidateIndex = candidateIndex + 1,
-                            retriedBusy = false,
-                            preferOffline = false,
-                            silentTimeoutRetries = silentTimeoutRetries
-                        )
-                    }
+                teardownCurrentRecognizerSync(abortInFlight = true)
+                if (!strictOffline && candidateIndex + 1 < candidates.size) {
+                    VoiceSessionCoordinatorNative.incrementFallback(sessionId, attemptId)
+                    onEngineAutoSwitched?.invoke(candidates[candidateIndex + 1].label)
+                    emitEnvelope(
+                        sessionId = sessionId,
+                        attemptId = attemptId,
+                        engineId = candidates[candidateIndex + 1].label,
+                        eventType = "engine_switched",
+                        extra = mapOf("mode" to candidates[candidateIndex + 1].label)
+                    )
+                    startInlineAttempt(
+                        sessionId = sessionId,
+                        attemptId = attemptId,
+                        generation = generation,
+                        candidates = candidates,
+                        candidateIndex = candidateIndex + 1,
+                        retriedBusy = false,
+                        strictOffline = false
+                    )
+                } else {
+                    terminateWithError(
+                        sessionId = sessionId,
+                        attemptId = attemptId,
+                        generation = generation,
+                        code = "ENGINE_STARTUP_TIMEOUT",
+                        message = "Bộ nhận diện giọng nói không phản hồi. Vui lòng thử lại.",
+                        recordToCache = true
+                    )
                 }
-                deadStreamWatchdog = streamGuard
-                mainHandler.postDelayed(streamGuard, DEAD_MIC_STREAM_WATCHDOG_MS)
             }
+            startupTimeoutRunnable = startupGuard
+            mainHandler.postDelayed(startupGuard, STARTUP_TIMEOUT_MS)
 
             sr.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    receivedAnyCallback = true
-                    clearStartupWatchdogOnly()
-                    if (!announcedListening) {
-                        announcedListening = true
-                        onStateChanged("listening")
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        receivedReady = true
+                        clearStartupTimeoutOnly()
+                        VoiceSessionCoordinatorNative.markReady(sessionId, attemptId)
+                        if (!announcedListening) {
+                            announcedListening = true
+                            emitState(sessionId, attemptId, candidate.label, STATE_LISTENING)
+                        }
                     }
                 }
 
                 override fun onBeginningOfSpeech() {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    receivedAnyCallback = true
-                    heardSpeechActivity = true
-                    clearStartupAndStreamWatchdogs()
-                    if (!announcedListening) {
-                        announcedListening = true
-                        onStateChanged("listening")
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        receivedReady = true
+                        clearStartupTimeoutOnly()
+                        if (!announcedListening) {
+                            announcedListening = true
+                            emitState(sessionId, attemptId, candidate.label, STATE_LISTENING)
+                        }
                     }
                 }
 
                 override fun onRmsChanged(rmsdB: Float) {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    minRmsSeen = min(minRmsSeen, rmsdB)
-                    maxRmsSeen = max(maxRmsSeen, rmsdB)
-                    if ((maxRmsSeen - minRmsSeen) >= MIN_LIVE_RMS_SPREAD_DB) {
-                        heardSpeechActivity = true
-                        clearDeadStreamWatchdogOnly()
-                    }
-                    if (receivedAnyCallback) {
-                        onRmsChanged(rmsdB.toDouble())
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        if (!receivedReady) return@runOnMain
+                        emitRms(sessionId, attemptId, candidate.label, rmsdB.toDouble())
                     }
                 }
 
                 override fun onBufferReceived(buffer: ByteArray?) {}
 
                 override fun onEndOfSpeech() {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    receivedAnyCallback = true
-                    clearStartupAndStreamWatchdogs()
-                    onStateChanged("processing")
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        receivedReady = true
+                        clearStartupTimeoutOnly()
+                        emitState(sessionId, attemptId, candidate.label, STATE_PROCESSING)
+                    }
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    receivedAnyCallback = true
-                    clearStartupAndStreamWatchdogs()
-                    if (!announcedListening) {
-                        announcedListening = true
-                        onStateChanged("listening")
-                    }
-                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    val text = matches?.firstOrNull().orEmpty().trim()
-                    if (text.isNotEmpty()) {
-                        heardSpeechActivity = true
-                        markInlineVerifiedWorking(appContext)
-                        lastPartialTranscript = text
-                        onPartialTranscript(text)
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        receivedReady = true
+                        clearStartupTimeoutOnly()
+                        if (!announcedListening) {
+                            announcedListening = true
+                            emitState(sessionId, attemptId, candidate.label, STATE_LISTENING)
+                        }
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull().orEmpty().trim()
+                        if (text.isNotEmpty()) {
+                            activePartialTranscript = text
+                            VoiceSessionCoordinatorNative.markFirstPartial(sessionId, attemptId)
+                            emitPartial(sessionId, attemptId, candidate.label, text)
+                        }
                     }
                 }
 
                 override fun onResults(results: Bundle?) {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    sessionConcluded = true
-                    receivedAnyCallback = true
-                    clearTimers()
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    val text = matches?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-                        ?: lastPartialTranscript.trim()
-                    lastPartialTranscript = ""
-                    teardownCurrentRecognizer(abortInFlight = false)
-                    if (text.isNotEmpty()) {
-                        markInlineVerifiedWorking(appContext)
-                        onFinalTranscript(text)
-                        onStateChanged(STATE_REVIEW)
-                    } else {
-                        val elapsedMs = System.currentTimeMillis() - attemptStartedAtMs
-                        val rmsSpread = if (maxRmsSeen >= minRmsSeen) (maxRmsSeen - minRmsSeen) else 0f
-                        if (elapsedMs < FAST_REJECT_THRESHOLD_MS || (!inlinePreviouslyVerified && rmsSpread < MIN_LIVE_RMS_SPREAD_DB)) {
-                            val nextRun = Runnable {
-                                attemptCandidate(
-                                    sessionId = sessionId,
-                                    candidates = candidates,
-                                    candidateIndex = if (preferOffline) candidateIndex else candidateIndex + 1,
-                                    retriedBusy = if (preferOffline) retriedBusy else false,
-                                    preferOffline = false,
-                                    silentTimeoutRetries = silentTimeoutRetries
-                                )
-                            }
-                            pendingStartRunnable = nextRun
-                            mainHandler.postDelayed(nextRun, BINDER_COOLDOWN_MS)
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: activePartialTranscript.trim()
+                        if (text.isNotEmpty()) {
+                            terminateWithFinalTranscript(
+                                sessionId = sessionId,
+                                attemptId = attemptId,
+                                generation = generation,
+                                engineId = candidate.label,
+                                transcript = text
+                            )
                         } else {
-                            onStateChanged(STATE_ERROR)
-                            onError(
-                                "NO_MATCH",
-                                "Chưa nghe rõ câu nói. Bạn hãy bấm Mic nói lại hoặc chọn Hộp thoại Google."
+                            terminateWithError(
+                                sessionId = sessionId,
+                                attemptId = attemptId,
+                                generation = generation,
+                                code = "NO_MATCH",
+                                message = "Chưa nghe rõ câu nói. Bạn hãy bấm Mic để nói lại hoặc gõ trực tiếp.",
+                                recordToCache = true
                             )
                         }
                     }
                 }
 
                 override fun onError(error: Int) {
-                    if (sessionId != activeSessionId || sessionConcluded) return
-                    sessionConcluded = true
-                    receivedAnyCallback = true
-                    clearTimers()
-                    val elapsedMs = System.currentTimeMillis() - attemptStartedAtMs
-                    val rmsSpread = if (maxRmsSeen >= minRmsSeen) (maxRmsSeen - minRmsSeen) else 0f
+                    runOnMain {
+                        if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+                        clearStartupTimeoutOnly()
 
-                    // 1. Rescue spoken partial text when recognizer closes on silence/client/no-match
-                    if (lastPartialTranscript.isNotBlank() &&
-                        (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
-                            error == SpeechRecognizer.ERROR_NO_MATCH ||
-                            error == SpeechRecognizer.ERROR_CLIENT ||
-                            error == SpeechRecognizer.ERROR_SERVER)
-                    ) {
-                        val captured = lastPartialTranscript.trim()
-                        lastPartialTranscript = ""
-                        teardownCurrentRecognizer(abortInFlight = false)
-                        markInlineVerifiedWorking(appContext)
-                        onFinalTranscript(captured)
-                        onStateChanged(STATE_REVIEW)
-                        return
-                    }
-
-                    val hasAudioPerm = ContextCompat.checkSelfPermission(
-                        activity,
-                        Manifest.permission.RECORD_AUDIO
-                    ) == PackageManager.PERMISSION_GRANTED
-
-                    // 2. If `preferOffline` failed, retry the same candidate ONLINE immediately
-                    //    (guarded against ERROR_INSUFFICIENT_PERMISSIONS so missing permission never triggers a futile online retry!)
-                    if (preferOffline && error != SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
-                        teardownCurrentRecognizer(abortInFlight = false)
-                        val onlineRun = Runnable {
-                            attemptCandidate(
-                                sessionId = sessionId,
-                                candidates = candidates,
-                                candidateIndex = candidateIndex,
-                                retriedBusy = retriedBusy,
-                                preferOffline = false,
-                                silentTimeoutRetries = silentTimeoutRetries
+                        // Rescue already-transcribed partial speech on silence/no-match (or user-initiated stop).
+                        val capturedPartial = activePartialTranscript.trim()
+                        val shouldRescuePartial = capturedPartial.isNotEmpty() && (
+                            error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
+                                error == SpeechRecognizer.ERROR_NO_MATCH ||
+                                (isStopping && (error == SpeechRecognizer.ERROR_CLIENT || error == SpeechRecognizer.ERROR_SERVER))
                             )
-                        }
-                        pendingStartRunnable = onlineRun
-                        mainHandler.postDelayed(onlineRun, BINDER_COOLDOWN_MS)
-                        return
-                    }
-
-                    // 3. Retry once if Binder is still releasing previous session
-                    if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && !retriedBusy) {
-                        teardownCurrentRecognizer(abortInFlight = false)
-                        val retryRun = Runnable {
-                            attemptCandidate(
+                        if (shouldRescuePartial) {
+                            terminateWithFinalTranscript(
                                 sessionId = sessionId,
-                                candidates = candidates,
-                                candidateIndex = candidateIndex,
-                                retriedBusy = true,
-                                preferOffline = false,
-                                silentTimeoutRetries = silentTimeoutRetries
+                                attemptId = attemptId,
+                                generation = generation,
+                                engineId = candidate.label,
+                                transcript = capturedPartial
                             )
+                            return@runOnMain
                         }
-                        pendingStartRunnable = retryRun
-                        mainHandler.postDelayed(retryRun, BUSY_RETRY_DELAY_MS)
-                        return
-                    }
 
-                    // 4. Re-arm silence ONLY if inline audio has ALREADY been verified live on this phone
-                    // (never loop on a dead/muted OEM binder!).
-                    if (inlinePreviouslyVerified &&
-                        lastPartialTranscript.isBlank() &&
-                        elapsedMs >= FAST_REJECT_THRESHOLD_MS &&
-                        error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT &&
-                        silentTimeoutRetries < 1 &&
-                        stopFinalizeWatchdog == null
-                    ) {
-                        teardownCurrentRecognizer(abortInFlight = false)
-                        val keepAliveRun = Runnable {
-                            attemptCandidate(
-                                sessionId = sessionId,
-                                candidates = candidates,
-                                candidateIndex = candidateIndex,
-                                retriedBusy = false,
-                                preferOffline = false,
-                                silentTimeoutRetries = silentTimeoutRetries + 1
-                            )
+                        // ONLY ERROR_RECOGNIZER_BUSY gets max 1 bounded retry (220ms); zero retries for all other errors.
+                        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && !retriedBusy) {
+                            VoiceSessionCoordinatorNative.incrementRetry(sessionId, attemptId)
+                            teardownCurrentRecognizerSync(abortInFlight = true)
+                            val retryRun = Runnable {
+                                if (!isAttemptCurrent(sessionId, attemptId, generation)) return@Runnable
+                                startInlineAttempt(
+                                    sessionId = sessionId,
+                                    attemptId = attemptId,
+                                    generation = generation,
+                                    candidates = candidates,
+                                    candidateIndex = candidateIndex,
+                                    retriedBusy = true,
+                                    strictOffline = strictOffline
+                                )
+                            }
+                            busyRetryRunnable = retryRun
+                            mainHandler.postDelayed(retryRun, BUSY_RETRY_DELAY_MS)
+                            return@runOnMain
                         }
-                        pendingStartRunnable = keepAliveRun
-                        mainHandler.postDelayed(keepAliveRun, SILENT_KEEPALIVE_DELAY_MS)
-                        return
-                    }
 
-                    // 5. Cascade across ALL engine/network/permission/dead-mic failures straight to
-                    // the next candidate and then into Google's `ACTION_RECOGNIZE_SPEECH` Dialog!
-                    val isDeadStreamFailure = !inlinePreviouslyVerified &&
-                        (rmsSpread < MIN_LIVE_RMS_SPREAD_DB || !heardSpeechActivity)
-                    val shouldCascadeEngine = when (error) {
-                        SpeechRecognizer.ERROR_CLIENT,
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
-                        SpeechRecognizer.ERROR_SERVER,
-                        SpeechRecognizer.ERROR_AUDIO,
-                        SpeechRecognizer.ERROR_NETWORK,
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
-                        ERR_TOO_MANY_REQUESTS,
-                        ERR_SERVER_DISCONNECTED,
-                        ERR_LANGUAGE_NOT_SUPPORTED,
-                        ERR_LANGUAGE_UNAVAILABLE,
-                        ERR_CANNOT_CHECK_SUPPORT -> true
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> hasAudioPerm
-                        SpeechRecognizer.ERROR_NO_MATCH,
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                            elapsedMs < FAST_REJECT_THRESHOLD_MS || isDeadStreamFailure
-                        else -> hasGoogleDialogFallback && !inlinePreviouslyVerified
+                        val (errCode, errMsg) = classifySpeechError(error)
+                        terminateWithError(
+                            sessionId = sessionId,
+                            attemptId = attemptId,
+                            generation = generation,
+                            code = errCode,
+                            message = errMsg,
+                            recordToCache = true
+                        )
                     }
-
-                    teardownCurrentRecognizer(abortInFlight = false)
-                    if (shouldCascadeEngine) {
-                        val cascadeRun = Runnable {
-                            attemptCandidate(
-                                sessionId = sessionId,
-                                candidates = candidates,
-                                candidateIndex = candidateIndex + 1,
-                                retriedBusy = false,
-                                preferOffline = false,
-                                silentTimeoutRetries = silentTimeoutRetries
-                            )
-                        }
-                        pendingStartRunnable = cascadeRun
-                        mainHandler.postDelayed(cascadeRun, BINDER_COOLDOWN_MS)
-                        return
-                    }
-
-                    onStateChanged(STATE_ERROR)
-                    val (errCode, friendlyMsg) = when (error) {
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                            "PERMISSION_DENIED" to "Vui lòng cấp quyền Micro để thu âm giọng nói."
-                        SpeechRecognizer.ERROR_NO_MATCH,
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                            "NO_MATCH" to "Chưa nghe rõ giọng nói. Bấm Mic để nói lại hoặc chọn Hộp thoại Google."
-                        SpeechRecognizer.ERROR_NETWORK,
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                            "NETWORK_ERROR" to "Mạng gián đoạn khi nhận diện Google Speech. Hãy kiểm tra kết nối mạng."
-                        else ->
-                            "SPEECH_ERROR_$error" to "Tạm ngưng thu âm. Bạn có thể bấm Mic nói lại hoặc chọn Hộp thoại Google."
-                    }
-                    onError(errCode, friendlyMsg)
                 }
 
                 override fun onEvent(eventType: Int, params: Bundle?) {}
@@ -888,121 +1186,261 @@ class LifeOsSpeechRecognizerHelper(
             val recIntent = buildVietnameseSpeechIntent(
                 context = appContext,
                 forSystemDialog = false,
-                preferOffline = preferOffline
+                localeTag = currentLocale
             )
             sr.startListening(recIntent)
         } catch (_: Exception) {
-            clearStartupAndPendingTimers()
-            teardownCurrentRecognizer(abortInFlight = true)
-            val fallbackRun = Runnable {
-                attemptCandidate(
+            clearTimers()
+            teardownCurrentRecognizerSync(abortInFlight = true)
+            if (!strictOffline && candidateIndex + 1 < candidates.size) {
+                VoiceSessionCoordinatorNative.incrementFallback(sessionId, attemptId)
+                startInlineAttempt(
                     sessionId = sessionId,
+                    attemptId = attemptId,
+                    generation = generation,
                     candidates = candidates,
                     candidateIndex = candidateIndex + 1,
                     retriedBusy = false,
-                    preferOffline = false,
-                    silentTimeoutRetries = silentTimeoutRetries
+                    strictOffline = false
                 )
-            }
-            pendingStartRunnable = fallbackRun
-            mainHandler.postDelayed(fallbackRun, BINDER_COOLDOWN_MS)
-        }
-    }
-
-    private fun clearStartupWatchdogOnly() {
-        startupWatchdog?.let { mainHandler.removeCallbacks(it) }
-        startupWatchdog = null
-    }
-
-    private fun clearDeadStreamWatchdogOnly() {
-        deadStreamWatchdog?.let { mainHandler.removeCallbacks(it) }
-        deadStreamWatchdog = null
-    }
-
-    private fun clearStartupAndStreamWatchdogs() {
-        clearStartupWatchdogOnly()
-        clearDeadStreamWatchdogOnly()
-    }
-
-    private fun launchDialogOrFallbackInline(sessionId: Int, hadPreviousRecognizer: Boolean) {
-        if (sessionId != activeSessionId) return
-        val dialogIntent = resolveGoogleSpeechDialogIntent(activity)
-        if (dialogIntent != null) {
-            val launched = try {
-                lastResolvedEngineLabel = "system_speech_dialog"
-                onLaunchSystemDialog(dialogIntent)
-            } catch (_: Exception) {
-                false
-            }
-            if (launched) {
-                onDialogStateChanged?.invoke(true)
-                onStateChanged(STATE_LISTENING)
-                return
-            }
-        }
-
-        // Fallback to inline Google Speech -> explicitly clear awaiting dialog flag so onStop() cancels inline mic
-        onDialogStateChanged?.invoke(false)
-
-        val hasAudioPerm = ContextCompat.checkSelfPermission(
-            activity,
-            Manifest.permission.RECORD_AUDIO
-        ) == PackageManager.PERMISSION_GRANTED
-        val googleCandidates = discoverCandidates(activity, engineMode = "google_service")
-        if (hasAudioPerm && googleCandidates.isNotEmpty()) {
-            onStateChanged(STATE_INITIALIZING)
-            val delayMs = if (hadPreviousRecognizer) BINDER_COOLDOWN_MS else 0L
-            val fallbackInline = Runnable {
-                attemptCandidate(
-                    sessionId = sessionId,
-                    candidates = googleCandidates,
-                    candidateIndex = 0,
-                    retriedBusy = false,
-                    preferOffline = false,
-                    silentTimeoutRetries = 0
-                )
-            }
-            pendingStartRunnable = fallbackInline
-            if (delayMs > 0L) {
-                mainHandler.postDelayed(fallbackInline, delayMs)
             } else {
-                fallbackInline.run()
+                terminateWithError(
+                    sessionId = sessionId,
+                    attemptId = attemptId,
+                    generation = generation,
+                    code = "CLIENT_ERROR",
+                    message = "Không thể khởi chạy bộ nhận diện giọng nói trên thiết bị.",
+                    recordToCache = true
+                )
             }
-            return
         }
-
-        onStateChanged(STATE_ERROR)
-        onError(
-            "NO_SPEECH_ENGINE",
-            "Thiết bị chưa bật Speech Services by Google (Nhận diện giọng nói của Google)."
-        )
     }
 
-    private fun launchDialogOrReportError(sessionId: Int) {
-        if (sessionId != activeSessionId) return
-        val dialogIntent = resolveGoogleSpeechDialogIntent(activity)
-        val launched = if (dialogIntent != null) {
-            try {
-                lastResolvedEngineLabel = "system_speech_dialog"
-                onLaunchSystemDialog(dialogIntent)
-            } catch (_: Exception) {
-                false
+    private fun createRecognizerForCandidate(candidate: EngineCandidate): SpeechRecognizer {
+        return when (candidate) {
+            is EngineCandidate.OnDevice -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext)
+                } else {
+                    throw IllegalStateException("On-device recognizer requires API 31+")
+                }
             }
-        } else {
-            false
+            is EngineCandidate.SystemBrokerDefault ->
+                SpeechRecognizer.createSpeechRecognizer(appContext)
+            is EngineCandidate.ExplicitGoogleComponent ->
+                SpeechRecognizer.createSpeechRecognizer(appContext, candidate.componentName)
         }
-        if (launched) {
-            onDialogStateChanged?.invoke(true)
-            onStateChanged(STATE_LISTENING)
-        } else {
-            lastDialogWasAutoEscalated = false
-            onDialogStateChanged?.invoke(false)
-            onStateChanged(STATE_ERROR)
-            onError(
-                "NO_SPEECH_ENGINE",
-                "Thiết bị chưa bật dịch vụ Nhận diện giọng nói của Google (Speech Services by Google)."
+    }
+
+    private fun isAttemptCurrent(sessionId: String, attemptId: Int, generation: Long): Boolean {
+        return sessionId == currentSessionId &&
+            attemptId == currentAttemptId &&
+            generation == currentGeneration &&
+            !attemptTerminated
+    }
+
+    private fun handleAudioFocusLost(
+        sessionId: String,
+        attemptId: Int,
+        generation: Long,
+        permanent: Boolean
+    ) {
+        runOnMain {
+            if (!isAttemptCurrent(sessionId, attemptId, generation)) return@runOnMain
+            val msg = if (permanent) {
+                "Thu âm tạm dừng vì ứng dụng khác chiếm quyền âm thanh."
+            } else {
+                "Thu âm tạm dừng do có cuộc gọi hoặc thông báo âm thanh ưu tiên."
+            }
+            terminateWithError(
+                sessionId = sessionId,
+                attemptId = attemptId,
+                generation = generation,
+                code = "AUDIO_FOCUS_LOST",
+                message = msg,
+                recordToCache = false
             )
         }
+    }
+
+    private fun terminateWithFinalTranscript(
+        sessionId: String,
+        attemptId: Int,
+        generation: Long,
+        engineId: String,
+        transcript: String
+    ) {
+        if (!isAttemptCurrent(sessionId, attemptId, generation)) return
+        attemptTerminated = true
+        isStopping = false
+        activePartialTranscript = ""
+        currentSessionId = null
+        clearTimers()
+        teardownCurrentRecognizerSync(abortInFlight = false)
+        audioFocusCoordinator.abandonFocus()
+
+        VoiceSessionCoordinatorNative.markFinal(sessionId, attemptId)
+        VoiceSessionCoordinatorNative.recordOutcome(
+            context = appContext,
+            engineId = engineId,
+            locale = currentLocale,
+            audioRoute = currentAudioRoute,
+            success = true
+        )
+
+        emitFinal(sessionId, attemptId, engineId, transcript)
+        emitState(sessionId, attemptId, engineId, STATE_REVIEW)
+        VoiceSessionCoordinatorNative.releaseSession(sessionId, attemptId)
+    }
+
+    private fun terminateWithError(
+        sessionId: String,
+        attemptId: Int,
+        generation: Long,
+        code: String,
+        message: String,
+        recordToCache: Boolean
+    ) {
+        if (sessionId != currentSessionId || attemptId != currentAttemptId || generation != currentGeneration || attemptTerminated) {
+            return
+        }
+        val engineId = currentEngineId
+        attemptTerminated = true
+        isStopping = false
+        activePartialTranscript = ""
+        currentSessionId = null
+        clearTimers()
+        teardownCurrentRecognizerSync(abortInFlight = true)
+        audioFocusCoordinator.abandonFocus()
+
+        VoiceSessionCoordinatorNative.setLastErrorCode(sessionId, attemptId, code)
+        if (recordToCache) {
+            VoiceSessionCoordinatorNative.recordOutcome(
+                context = appContext,
+                engineId = engineId,
+                locale = currentLocale,
+                audioRoute = currentAudioRoute,
+                success = false,
+                errorCode = code
+            )
+        }
+
+        emitState(sessionId, attemptId, engineId, STATE_ERROR)
+        emitError(sessionId, attemptId, engineId, code, message)
+        VoiceSessionCoordinatorNative.releaseSession(sessionId, attemptId)
+    }
+
+    private fun teardownCurrentRecognizerSync(abortInFlight: Boolean): Boolean {
+        val prev = speechRecognizer ?: return false
+        speechRecognizer = null
+        if (abortInFlight) {
+            try {
+                prev.cancel()
+            } catch (_: Exception) {
+            }
+        }
+        try {
+            prev.destroy()
+        } catch (_: Exception) {
+        }
+        return true
+    }
+
+    private fun clearStartupTimeoutOnly() {
+        startupTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        startupTimeoutRunnable = null
+    }
+
+    private fun clearStartupAndBusyTimers() {
+        clearStartupTimeoutOnly()
+        busyRetryRunnable?.let { mainHandler.removeCallbacks(it) }
+        busyRetryRunnable = null
+    }
+
+    private fun clearTimers() {
+        clearStartupAndBusyTimers()
+        finalizeTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        finalizeTimeoutRunnable = null
+    }
+
+    private fun emitState(sessionId: String, attemptId: Int, engineId: String, status: String) {
+        emitEnvelope(
+            sessionId = sessionId,
+            attemptId = attemptId,
+            engineId = engineId,
+            eventType = "state",
+            extra = mapOf("status" to status)
+        )
+        onStateChanged(status)
+    }
+
+    private fun emitRms(sessionId: String, attemptId: Int, engineId: String, rms: Double) {
+        emitEnvelope(
+            sessionId = sessionId,
+            attemptId = attemptId,
+            engineId = engineId,
+            eventType = "rms",
+            extra = mapOf("rms" to rms)
+        )
+        onRmsChanged(rms)
+    }
+
+    private fun emitPartial(sessionId: String, attemptId: Int, engineId: String, text: String) {
+        emitEnvelope(
+            sessionId = sessionId,
+            attemptId = attemptId,
+            engineId = engineId,
+            eventType = "partial",
+            extra = mapOf("text" to text)
+        )
+        onPartialTranscript(text)
+    }
+
+    private fun emitFinal(sessionId: String, attemptId: Int, engineId: String, text: String) {
+        emitEnvelope(
+            sessionId = sessionId,
+            attemptId = attemptId,
+            engineId = engineId,
+            eventType = "final",
+            extra = mapOf("text" to text)
+        )
+        onFinalTranscript(text)
+    }
+
+    private fun emitError(
+        sessionId: String,
+        attemptId: Int,
+        engineId: String,
+        code: String,
+        message: String
+    ) {
+        emitEnvelope(
+            sessionId = sessionId,
+            attemptId = attemptId,
+            engineId = engineId,
+            eventType = "error",
+            extra = mapOf("code" to code, "message" to message)
+        )
+        onError(code, message)
+    }
+
+    private fun emitEnvelope(
+        sessionId: String,
+        attemptId: Int,
+        engineId: String,
+        eventType: String,
+        extra: Map<String, Any?>
+    ) {
+        val sink = onEnvelopeEvent ?: return
+        val envelope = VoiceSessionCoordinatorNative.buildEventEnvelope(
+            sessionId = sessionId,
+            attemptId = attemptId,
+            ownerId = ownerId,
+            engineId = engineId,
+            eventType = eventType,
+            extra = extra
+        )
+        sink.invoke(envelope)
     }
 
     private fun runOnMain(block: () -> Unit) {

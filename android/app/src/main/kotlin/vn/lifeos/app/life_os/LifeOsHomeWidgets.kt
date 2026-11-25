@@ -751,11 +751,28 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     private var overlayMode: String = "text"
     private var isOverlayListening: Boolean = false
     private var isAwaitingSystemDialog: Boolean = false
+    private var isOverlayResumed: Boolean = false
     private var overlaySessionPrefix: String = ""
+
+    private var overlaySessionId: String? = null
+    private var overlayAttemptId: Int = 0
+    private var overlayGeneration: Long = 0L
+
+    private var overlayPermissionPending: Boolean = false
+    private var overlayPermissionSessionId: String? = null
+    private var overlayPermissionAttemptId: Int = 0
+    private var overlayPermissionGeneration: Long = -1L
+
+    private var overlayDialogPending: Boolean = false
+    private var overlayDialogSessionId: String? = null
+    private var overlayDialogAttemptId: Int = 0
+    private var overlayDialogGeneration: Long = -1L
+
+    private var pendingResumeAfterFocus: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        overridePendingTransition(0, 0)
+        suppressOverlayTransition(open = true)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setRecentsScreenshotEnabled(false)
@@ -929,7 +946,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnClickListener {
                 if (isOverlayListening) {
-                    speechHelper?.stopListening()
+                    speechHelper?.stopListening(overlaySessionId)
                 } else {
                     startVoiceListening()
                 }
@@ -969,22 +986,25 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         if (existing != null) return existing
         val created = LifeOsSpeechRecognizerHelper(
             activity = this,
+            ownerId = VoiceSessionCoordinatorNative.OWNER_WIDGET_OVERLAY,
             onStateChanged = { status ->
                 when (status) {
-                    "initializing" -> {
+                    LifeOsSpeechRecognizerHelper.STATE_INITIALIZING -> {
                         isOverlayListening = true
                         micBtnView.text = "Chốt câu nói"
                         statusLabel.text = "Đang kết nối kênh Micro tiếng Việt..."
                     }
-                    "listening" -> {
+                    LifeOsSpeechRecognizerHelper.STATE_LISTENING -> {
                         isOverlayListening = true
                         micBtnView.text = "Chốt câu nói"
                         statusLabel.text = "Mời bạn nói tiếng Việt (VD: Cà phê 35 nghìn)..."
                     }
-                    "processing" -> {
+                    LifeOsSpeechRecognizerHelper.STATE_PROCESSING -> {
                         statusLabel.text = "Đang xử lý câu nói..."
                     }
-                    "idle", "cancelled", "error" -> {
+                    LifeOsSpeechRecognizerHelper.STATE_IDLE,
+                    LifeOsSpeechRecognizerHelper.STATE_CANCELLED,
+                    LifeOsSpeechRecognizerHelper.STATE_ERROR -> {
                         isOverlayListening = false
                         micBtnView.text = "Nói mic tiếng Việt"
                     }
@@ -1006,7 +1026,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                     overlaySessionPrefix = combined
                     inputField.setText(combined)
                     inputField.setSelection(combined.length)
-                    statusLabel.text = "Đã nghe rõ — bấm Lưu lên Widget để hoàn tất"
+                    statusLabel.text = "Đã nghe rõ — bấm Lưu lên Widget để xác nhận"
                 }
             },
             onError = { _, msg ->
@@ -1016,13 +1036,20 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                     statusLabel.text = msg
                 }
             },
-            onLaunchSystemDialog = { dialogIntent ->
+            onLaunchSystemDialog = { dialogIntent, sessionId, attemptId ->
                 try {
+                    overlayDialogPending = true
+                    overlayDialogSessionId = sessionId
+                    overlayDialogAttemptId = attemptId
+                    overlayDialogGeneration = overlayGeneration
                     isAwaitingSystemDialog = true
                     @Suppress("DEPRECATION")
                     startActivityForResult(dialogIntent, REQ_SYSTEM_VOICE)
                     true
                 } catch (_: Exception) {
+                    overlayDialogPending = false
+                    overlayDialogSessionId = null
+                    overlayDialogGeneration = -1L
                     isAwaitingSystemDialog = false
                     statusLabel.text = "Hãy gõ nội dung cần ghi nhanh bên dưới"
                     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
@@ -1032,6 +1059,9 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             },
             onDialogStateChanged = { awaiting ->
                 isAwaitingSystemDialog = awaiting
+                if (!awaiting) {
+                    overlayDialogPending = false
+                }
             }
         )
         speechHelper = created
@@ -1042,23 +1072,72 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         overlaySessionPrefix = inputField.text?.toString().orEmpty().trim()
             .trimEnd(',', ';', '.')
             .trim()
+
+        overlayGeneration += 1L
+        val generation = overlayGeneration
+        val sessionId = UUID.randomUUID().toString()
+        val attemptId = 1
+        overlaySessionId = sessionId
+        overlayAttemptId = attemptId
+        pendingResumeAfterFocus = null
+
         val hasAudioPerm = ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!hasAudioPerm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            VoiceSessionCoordinatorNative.preemptIfOwnedByOther(
+                VoiceSessionCoordinatorNative.OWNER_WIDGET_OVERLAY
+            )
+            speechHelper?.cancelListening(null)
+            overlayPermissionPending = true
+            overlayPermissionSessionId = sessionId
+            overlayPermissionAttemptId = attemptId
+            overlayPermissionGeneration = generation
             isAwaitingSystemDialog = true
             statusLabel.text = "Vui lòng cho phép quyền Micro để thu âm..."
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_OVERLAY_RECORD_AUDIO)
             return
         }
 
+        overlayPermissionPending = false
+        overlayPermissionSessionId = null
+        overlayPermissionGeneration = -1L
         statusLabel.text = "Đang khởi động Google Speech tiếng Việt..."
         ensureOverlaySpeechHelper().startListening(
-            preferSystemDialog = !hasAudioPerm,
-            engineMode = "google_service"
+            sessionId = sessionId,
+            attemptId = attemptId,
+            preferSystemDialog = false,
+            engineMode = "google_service",
+            strictOffline = false,
+            locale = "vi-VN"
         )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isOverlayResumed = true
+        maybeRunPendingVoiceAfterFocus()
+    }
+
+    override fun onPause() {
+        isOverlayResumed = false
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            maybeRunPendingVoiceAfterFocus()
+        }
+    }
+
+    private fun maybeRunPendingVoiceAfterFocus() {
+        val task = pendingResumeAfterFocus ?: return
+        if (isFinishing || isDestroyed || !isOverlayResumed || !hasWindowFocus()) return
+        pendingResumeAfterFocus = null
+        task.run()
     }
 
     override fun onRequestPermissionsResult(
@@ -1068,17 +1147,64 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_OVERLAY_RECORD_AUDIO) {
+            val wasPending = overlayPermissionPending
+            val reqSessionId = overlayPermissionSessionId
+            val reqAttemptId = overlayPermissionAttemptId
+            val reqGen = overlayPermissionGeneration
+            overlayPermissionPending = false
+            overlayPermissionSessionId = null
+            overlayPermissionGeneration = -1L
             isAwaitingSystemDialog = false
-            val granted = grantResults.isNotEmpty() &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (!isFinishing && !isDestroyed) {
+
+            val stillValid = wasPending &&
+                reqSessionId != null &&
+                reqSessionId == overlaySessionId &&
+                reqGen == overlayGeneration &&
+                !isFinishing &&
+                !isDestroyed
+            if (!stillValid) {
+                return
+            }
+
+            val granted = (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) &&
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+
+            if (!granted) {
+                // Denied permission must NOT auto-launch system dialog!
+                isOverlayListening = false
+                micBtnView.text = "Nói mic tiếng Việt"
+                overlaySessionId = null
+                statusLabel.text = "Chưa có quyền Micro. Hãy gõ nội dung bên dưới hoặc bật quyền Micro trong Cài đặt."
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+                inputField.requestFocus()
+                return
+            }
+
+            val startTask = Runnable {
+                if (!isFinishing &&
+                    !isDestroyed &&
+                    overlaySessionId == reqSessionId &&
+                    overlayGeneration == reqGen
+                ) {
+                    statusLabel.text = "Đang khởi động Google Speech tiếng Việt..."
                     ensureOverlaySpeechHelper().startListening(
-                        preferSystemDialog = !granted,
-                        engineMode = "google_service"
+                        sessionId = reqSessionId,
+                        attemptId = reqAttemptId,
+                        preferSystemDialog = false,
+                        engineMode = "google_service",
+                        strictOffline = false,
+                        locale = "vi-VN"
                     )
                 }
-            }, 160L)
+            }
+            if (hasWindowFocus() && isOverlayResumed) {
+                startTask.run()
+            } else {
+                pendingResumeAfterFocus = startTask
+            }
         }
     }
 
@@ -1087,22 +1213,62 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_SYSTEM_VOICE) {
+            val wasPending = overlayDialogPending
+            val dialogSessionId = overlayDialogSessionId
+            val dialogAttemptId = overlayDialogAttemptId
+            val dialogGen = overlayDialogGeneration
+            overlayDialogPending = false
+            overlayDialogSessionId = null
+            overlayDialogGeneration = -1L
             isAwaitingSystemDialog = false
+
+            val stillValid = wasPending &&
+                dialogSessionId != null &&
+                dialogSessionId == overlaySessionId &&
+                dialogAttemptId == overlayAttemptId &&
+                dialogGen == overlayGeneration
+            if (!stillValid) {
+                if (dialogSessionId != null) {
+                    speechHelper?.completeExternalDialogSession(
+                        sessionId = dialogSessionId,
+                        attemptId = dialogAttemptId,
+                        success = false,
+                        errorCode = "STALE_RESULT"
+                    )
+                }
+                return
+            }
+
             if (resultCode == RESULT_OK) {
                 val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                     ?.firstOrNull()
                     .orEmpty()
                     .trim()
                 if (spoken.isNotBlank()) {
-                    speechHelper?.recordDialogSuccessAfterEscalation()
+                    speechHelper?.completeExternalDialogSession(
+                        sessionId = dialogSessionId,
+                        attemptId = dialogAttemptId,
+                        success = true
+                    )
+                    isOverlayListening = false
+                    micBtnView.text = "Nói mic tiếng Việt"
                     val combined = if (overlaySessionPrefix.isBlank()) spoken else "$overlaySessionPrefix, $spoken"
                     overlaySessionPrefix = combined
                     inputField.setText(combined)
                     inputField.setSelection(combined.length)
-                    commitAndFinish()
+                    statusLabel.text = "Đã nghe rõ — bấm Lưu lên Widget để xác nhận"
                     return
                 }
             }
+
+            speechHelper?.completeExternalDialogSession(
+                sessionId = dialogSessionId,
+                attemptId = dialogAttemptId,
+                success = false,
+                errorCode = "DIALOG_CANCELED"
+            )
+            isOverlayListening = false
+            micBtnView.text = "Nói mic tiếng Việt"
             statusLabel.text = "Bấm Nói mic tiếng Việt để thử lại hoặc gõ trực tiếp"
         }
     }
@@ -1125,20 +1291,60 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     }
 
     private fun closeQuietly() {
+        overlayGeneration += 1L
+        pendingResumeAfterFocus = null
+        overlayPermissionPending = false
+        overlayPermissionSessionId = null
+        overlayDialogPending = false
+        overlayDialogSessionId = null
+        isAwaitingSystemDialog = false
+        val currentId = overlaySessionId
+        overlaySessionId = null
+        speechHelper?.cancelListening(currentId)
+        if (currentId != null) {
+            VoiceSessionCoordinatorNative.releaseSession(currentId)
+        }
         finish()
-        overridePendingTransition(0, 0)
+        suppressOverlayTransition(open = false)
+    }
+
+    private fun suppressOverlayTransition(open: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val kind = if (open) OVERRIDE_TRANSITION_OPEN else OVERRIDE_TRANSITION_CLOSE
+            overrideActivityTransition(kind, 0, 0)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
     }
 
     override fun onStop() {
-        if (!isChangingConfigurations && !isAwaitingSystemDialog) {
-            speechHelper?.cancelListening()
+        if (!isChangingConfigurations && !isAwaitingSystemDialog && !overlayPermissionPending && !overlayDialogPending) {
+            overlayGeneration += 1L
+            pendingResumeAfterFocus = null
+            val currentId = overlaySessionId
+            overlaySessionId = null
+            speechHelper?.cancelListening(currentId)
+            if (currentId != null) {
+                VoiceSessionCoordinatorNative.releaseSession(currentId)
+            }
         }
         super.onStop()
     }
 
     override fun onDestroy() {
+        overlayGeneration += 1L
+        pendingResumeAfterFocus = null
+        overlayPermissionPending = false
+        overlayDialogPending = false
+        isAwaitingSystemDialog = false
+        val currentId = overlaySessionId
+        overlaySessionId = null
         speechHelper?.destroy()
         speechHelper = null
+        if (currentId != null) {
+            VoiceSessionCoordinatorNative.releaseSession(currentId)
+        }
         super.onDestroy()
     }
 

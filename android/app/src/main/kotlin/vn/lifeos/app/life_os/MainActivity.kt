@@ -25,6 +25,8 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import java.io.File
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : FlutterActivity() {
     private val methodChannelName = "vn.lifeos.app/bank_listener_methods"
@@ -52,12 +54,31 @@ class MainActivity : FlutterActivity() {
     private var pendingReceiptPickerResult: MethodChannel.Result? = null
     private var pendingCameraReceiptFile: File? = null
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
-    private var activeVoiceSessionToken: String? = null
+    private var speechHelperOwnerId: String = VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY
+    private var activeVoiceSessionId: String? = null
+    private var activeVoiceAttemptId: Int = 0
+    private var activeVoiceOwnerId: String = VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY
     private var activeVoiceEngineMode: String = "google_service"
+    private var activeVoiceStrictOffline: Boolean = false
+    private var activeVoiceLocale: String = "vi-VN"
     private var voiceStartGeneration: Long = 0L
-    private var pendingVoicePermissionGeneration: Long = -1L
-    private var pendingVoicePermissionToken: String? = null
+
+    private var pendingPermissionSessionId: String? = null
+    private var pendingPermissionAttemptId: Int = 0
+    private var pendingPermissionOwnerId: String = VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY
+    private var pendingPermissionEngineMode: String = "google_service"
+    private var pendingPermissionStrictOffline: Boolean = false
+    private var pendingPermissionLocale: String = "vi-VN"
+    private var pendingPermissionGeneration: Long = -1L
+
+    private var pendingDialogSessionId: String? = null
+    private var pendingDialogAttemptId: Int = 0
+    private var pendingDialogOwnerId: String = VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY
+    private var pendingDialogGeneration: Long = -1L
+
     private var isAwaitingVoicePermissionOrDialog: Boolean = false
+    private var isActivityResumed: Boolean = false
+    private var pendingResumeAfterFocus: Runnable? = null
     private var voiceEventSink: EventChannel.EventSink? = null
 
     companion object {
@@ -349,7 +370,7 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // 3. Native Vietnamese Speech Recognition (Multi-Engine Google Speech + System Dialog Fallback)
+        // 3. Native Vietnamese Speech Recognition (v2 Coordinator + API 31/33 On-Device + PCM Self-Test)
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, voiceEventChannelName)
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -363,41 +384,81 @@ class MainActivity : FlutterActivity() {
 
         val voiceCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, voiceMethodChannelName)
         voiceMethodChannel = voiceCh
-        ensureSpeechHelper()
+        ensureSpeechHelper(VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY)
         voiceCh.setMethodCallHandler { call, result ->
             when (call.method) {
                 "startListening" -> {
-                    val token = call.argument<String>("sessionToken")
+                    val rawSessionId = call.argument<String>("sessionId")
+                        ?: call.argument<String>("sessionToken")
+                    val sessionId = rawSessionId?.takeIf { it.isNotBlank() }
+                        ?: UUID.randomUUID().toString()
+                    val argAttemptId = call.argument<Number>("attemptId")?.toInt()
+                    val attemptId = if (argAttemptId != null && argAttemptId > 0) {
+                        argAttemptId
+                    } else if (sessionId == activeVoiceSessionId) {
+                        activeVoiceAttemptId + 1
+                    } else {
+                        1
+                    }
+                    val ownerId = call.argument<String>("ownerId")?.takeIf { it.isNotBlank() }
+                        ?: VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY
                     val preferSystemDialog = call.argument<Boolean>("preferSystemDialog") ?: false
                     val engineMode = call.argument<String>("engineMode") ?: "google_service"
-                    val forceInlineProbe = call.argument<Boolean>("forceInlineProbe") ?: false
+                    val strictOffline = call.argument<Boolean>("strictOffline")
+                        ?: (engineMode == "on_device" || engineMode == "offline_strict")
+                    val locale = call.argument<String>("locale")?.takeIf { it.isNotBlank() } ?: "vi-VN"
+
                     voiceStartGeneration += 1
+                    val generation = voiceStartGeneration
+                    pendingResumeAfterFocus = null
+                    activeVoiceSessionId = sessionId
+                    activeVoiceAttemptId = attemptId
+                    activeVoiceOwnerId = ownerId
                     activeVoiceEngineMode = engineMode
-                    if (!token.isNullOrBlank()) {
-                        activeVoiceSessionToken = token
-                    }
-                    if (preferSystemDialog || engineMode == "system_dialog") {
+                    activeVoiceStrictOffline = strictOffline
+                    activeVoiceLocale = locale
+
+                    if (!strictOffline && (preferSystemDialog || engineMode == "system_dialog")) {
+                        pendingPermissionGeneration = -1L
+                        pendingPermissionSessionId = null
                         isAwaitingVoicePermissionOrDialog = false
-                        ensureSpeechHelper().startListening(
+                        ensureSpeechHelper(ownerId).startListening(
+                            sessionId = sessionId,
+                            attemptId = attemptId,
                             preferSystemDialog = true,
                             engineMode = "system_dialog",
-                            forceInlineProbe = false
+                            strictOffline = false,
+                            locale = locale
                         )
                         result.success("LISTENING_STARTED")
                         return@setMethodCallHandler
                     }
+
                     val hasAudioPerm = ContextCompat.checkSelfPermission(
                         this,
                         Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                     if (!hasAudioPerm) {
+                        VoiceSessionCoordinatorNative.preemptIfOwnedByOther(ownerId)
+                        speechHelper?.cancelListening(null)
                         isAwaitingVoicePermissionOrDialog = true
-                        pendingVoicePermissionGeneration = voiceStartGeneration
-                        pendingVoicePermissionToken = activeVoiceSessionToken
-                        emitVoiceEvent(
-                            mapOf(
-                                "type" to "state",
-                                "status" to LifeOsSpeechRecognizerHelper.STATE_REQUESTING_PERMISSION
+                        pendingPermissionSessionId = sessionId
+                        pendingPermissionAttemptId = attemptId
+                        pendingPermissionOwnerId = ownerId
+                        pendingPermissionEngineMode = engineMode
+                        pendingPermissionStrictOffline = strictOffline
+                        pendingPermissionLocale = locale
+                        pendingPermissionGeneration = generation
+                        emitVoiceEnvelope(
+                            VoiceSessionCoordinatorNative.buildEventEnvelope(
+                                sessionId = sessionId,
+                                attemptId = attemptId,
+                                ownerId = ownerId,
+                                engineId = engineMode,
+                                eventType = "state",
+                                extra = mapOf(
+                                    "status" to LifeOsSpeechRecognizerHelper.STATE_REQUESTING_PERMISSION
+                                )
                             )
                         )
                         ActivityCompat.requestPermissions(
@@ -408,27 +469,58 @@ class MainActivity : FlutterActivity() {
                         result.success("PERMISSION_REQUESTED")
                         return@setMethodCallHandler
                     }
+
+                    pendingPermissionGeneration = -1L
+                    pendingPermissionSessionId = null
                     isAwaitingVoicePermissionOrDialog = false
-                    ensureSpeechHelper().startListening(
+                    ensureSpeechHelper(ownerId).startListening(
+                        sessionId = sessionId,
+                        attemptId = attemptId,
                         preferSystemDialog = false,
                         engineMode = engineMode,
-                        forceInlineProbe = forceInlineProbe
+                        strictOffline = strictOffline,
+                        locale = locale
                     )
                     result.success("LISTENING_STARTED")
                 }
                 "stopListening" -> {
-                    speechHelper?.stopListening()
+                    val requestedId = call.argument<String>("sessionId")
+                        ?: call.argument<String>("sessionToken")
+                    val currentId = activeVoiceSessionId
+                    if (requestedId != null) {
+                        if (requestedId == currentId) {
+                            pendingResumeAfterFocus = null
+                            speechHelper?.stopListening(requestedId)
+                        }
+                    } else if (currentId != null && VoiceSessionCoordinatorNative.isOwnedBy(activeVoiceOwnerId)) {
+                        pendingResumeAfterFocus = null
+                        speechHelper?.stopListening(currentId)
+                    }
                     result.success(true)
                 }
                 "cancelListening" -> {
-                    val token = call.argument<String>("sessionToken")
-                    if (token.isNullOrBlank() || activeVoiceSessionToken == null || token == activeVoiceSessionToken) {
+                    val requestedId = call.argument<String>("sessionId")
+                        ?: call.argument<String>("sessionToken")
+                    val matchesActive = requestedId == null ||
+                        requestedId == activeVoiceSessionId ||
+                        requestedId == pendingPermissionSessionId ||
+                        requestedId == pendingDialogSessionId
+                    if (matchesActive) {
                         voiceStartGeneration += 1
-                        pendingVoicePermissionGeneration = -1L
-                        pendingVoicePermissionToken = null
+                        pendingPermissionGeneration = -1L
+                        pendingPermissionSessionId = null
+                        pendingDialogGeneration = -1L
+                        pendingDialogSessionId = null
+                        pendingResumeAfterFocus = null
                         isAwaitingVoicePermissionOrDialog = false
-                        speechHelper?.cancelListening()
-                        activeVoiceSessionToken = null
+                        val targetId = requestedId ?: activeVoiceSessionId
+                        speechHelper?.cancelListening(targetId)
+                        if (targetId != null) {
+                            LifeOsPcmAudioRecorder.stopCapture(targetId)
+                        }
+                        if (requestedId == null || requestedId == activeVoiceSessionId) {
+                            activeVoiceSessionId = null
+                        }
                     }
                     result.success(true)
                 }
@@ -439,13 +531,72 @@ class MainActivity : FlutterActivity() {
                     ) == PackageManager.PERMISSION_GRANTED
                     result.success(granted)
                 }
-                "getDiagnostics" -> {
+                "getDiagnostics", "getVoiceDiagnosticsV2" -> {
                     result.success(
                         LifeOsSpeechRecognizerHelper.collectDiagnostics(
                             context = this,
                             activeEngineLabel = speechHelper?.lastResolvedEngineLabel
                         )
                     )
+                }
+                "checkRecognitionSupport" -> {
+                    val locale = call.argument<String>("locale")?.takeIf { it.isNotBlank() } ?: "vi-VN"
+                    val replied = AtomicBoolean(false)
+                    LifeOsSpeechRecognizerHelper.checkVietnameseOnDeviceSupport(this, locale) { info ->
+                        if (replied.compareAndSet(false, true)) {
+                            result.success(info)
+                        }
+                    }
+                }
+                "resetCapabilityCache" -> {
+                    VoiceSessionCoordinatorNative.resetCapabilityCache(applicationContext)
+                    result.success(true)
+                }
+                "runMicrophoneSelfTest" -> {
+                    val durationMs = call.argument<Number>("durationMs")?.toLong() ?: 1200L
+                    val replied = AtomicBoolean(false)
+                    LifeOsPcmAudioRecorder.runMicrophoneSelfTest(
+                        context = applicationContext,
+                        durationMs = durationMs
+                    ) { info ->
+                        if (replied.compareAndSet(false, true)) {
+                            result.success(info)
+                        }
+                    }
+                }
+                "startLocalPcmCapture" -> {
+                    val sessionId = (call.argument<String>("sessionId")
+                        ?: call.argument<String>("sessionToken"))
+                        ?.takeIf { it.isNotBlank() }
+                        ?: UUID.randomUUID().toString()
+                    val started = LifeOsPcmAudioRecorder.startCapture(
+                        context = applicationContext,
+                        sessionId = sessionId
+                    ) { dbfs ->
+                        emitVoiceEnvelope(
+                            VoiceSessionCoordinatorNative.buildEventEnvelope(
+                                sessionId = sessionId,
+                                attemptId = 1,
+                                ownerId = VoiceSessionCoordinatorNative.OWNER_PCM_LOCAL_CAPTURE,
+                                engineId = "pcm_local_capture",
+                                eventType = "rms",
+                                extra = mapOf("rms" to dbfs)
+                            )
+                        )
+                    }
+                    result.success(
+                        mapOf(
+                            "started" to started,
+                            "sessionId" to sessionId,
+                            "sampleRateHz" to LifeOsPcmAudioRecorder.SAMPLE_RATE_HZ,
+                            "audioRoute" to LifeOsAudioFocusCoordinator.detectCurrentAudioRoute(applicationContext)
+                        )
+                    )
+                }
+                "stopLocalPcmCapture" -> {
+                    val sessionId = call.argument<String>("sessionId")
+                        ?: call.argument<String>("sessionToken")
+                    result.success(LifeOsPcmAudioRecorder.stopCapture(sessionId))
                 }
                 "openMicrophoneSettings" -> {
                     try {
@@ -1215,57 +1366,50 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun emitVoiceEvent(payload: Map<String, Any?>) {
-        val enriched = if (activeVoiceSessionToken != null && !payload.containsKey("sessionToken")) {
-            payload.toMutableMap().apply { put("sessionToken", activeVoiceSessionToken) }
-        } else {
-            payload
-        }
+    private fun emitVoiceEnvelope(envelope: Map<String, Any?>) {
         runOnUiThread {
             try {
-                voiceMethodChannel?.invokeMethod("onVoiceEvent", enriched)
+                voiceMethodChannel?.invokeMethod("onVoiceEvent", envelope)
             } catch (_: Exception) {
             }
             try {
-                voiceEventSink?.success(enriched)
+                voiceEventSink?.success(envelope)
             } catch (_: Exception) {
             }
         }
     }
 
-    private fun ensureSpeechHelper(): LifeOsSpeechRecognizerHelper {
+    private fun ensureSpeechHelper(
+        ownerId: String = VoiceSessionCoordinatorNative.OWNER_MAIN_ACTIVITY
+    ): LifeOsSpeechRecognizerHelper {
         val existing = speechHelper
-        if (existing != null) return existing
+        if (existing != null && speechHelperOwnerId == ownerId) {
+            return existing
+        }
+        existing?.destroy()
+        speechHelperOwnerId = ownerId
         val created = LifeOsSpeechRecognizerHelper(
             activity = this,
-            onStateChanged = { status ->
-                emitVoiceEvent(mapOf("type" to "state", "status" to status))
+            ownerId = ownerId,
+            onEnvelopeEvent = { envelope ->
+                emitVoiceEnvelope(envelope)
             },
-            onRmsChanged = { rms ->
-                emitVoiceEvent(mapOf("type" to "rms", "rms" to rms))
-            },
-            onPartialTranscript = { text ->
-                emitVoiceEvent(mapOf("type" to "partial", "text" to text))
-            },
-            onFinalTranscript = { text ->
-                emitVoiceEvent(mapOf("type" to "final", "text" to text))
-            },
-            onError = { code, message ->
-                emitVoiceEvent(mapOf("type" to "error", "code" to code, "message" to message))
-            },
-            onLaunchSystemDialog = { dialogIntent ->
+            onLaunchSystemDialog = { dialogIntent, sessionId, attemptId ->
                 try {
                     isAwaitingVoicePermissionOrDialog = true
+                    pendingDialogSessionId = sessionId
+                    pendingDialogAttemptId = attemptId
+                    pendingDialogOwnerId = ownerId
+                    pendingDialogGeneration = voiceStartGeneration
                     @Suppress("DEPRECATION")
                     startActivityForResult(dialogIntent, REQ_SPEECH_INTENT)
                     true
                 } catch (_: Exception) {
                     isAwaitingVoicePermissionOrDialog = false
+                    pendingDialogSessionId = null
+                    pendingDialogGeneration = -1L
                     false
                 }
-            },
-            onEngineAutoSwitched = { mode ->
-                emitVoiceEvent(mapOf("type" to "engine_switched", "mode" to mode))
             },
             onDialogStateChanged = { awaiting ->
                 isAwaitingVoicePermissionOrDialog = awaiting
@@ -1273,6 +1417,31 @@ class MainActivity : FlutterActivity() {
         )
         speechHelper = created
         return created
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isActivityResumed = true
+        maybeRunPendingVoiceAfterFocus()
+    }
+
+    override fun onPause() {
+        isActivityResumed = false
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            maybeRunPendingVoiceAfterFocus()
+        }
+    }
+
+    private fun maybeRunPendingVoiceAfterFocus() {
+        val task = pendingResumeAfterFocus ?: return
+        if (isFinishing || isDestroyed || !isActivityResumed || !hasWindowFocus()) return
+        pendingResumeAfterFocus = null
+        task.run()
     }
 
     override fun onRequestPermissionsResult(
@@ -1283,62 +1452,93 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_RECORD_AUDIO) {
             isAwaitingVoicePermissionOrDialog = false
-            val requestGeneration = pendingVoicePermissionGeneration
-            val requestToken = pendingVoicePermissionToken
-            pendingVoicePermissionGeneration = -1L
-            pendingVoicePermissionToken = null
-            val stillCurrentSession = voiceStartGeneration == requestGeneration &&
-                (requestToken == null || activeVoiceSessionToken == requestToken)
+            val requestGeneration = pendingPermissionGeneration
+            val requestSessionId = pendingPermissionSessionId
+            val requestAttemptId = pendingPermissionAttemptId
+            val requestOwnerId = pendingPermissionOwnerId
+            val requestEngineMode = pendingPermissionEngineMode
+            val requestStrictOffline = pendingPermissionStrictOffline
+            val requestLocale = pendingPermissionLocale
+            pendingPermissionGeneration = -1L
+            pendingPermissionSessionId = null
+
+            val stillCurrentSession = requestSessionId != null &&
+                voiceStartGeneration == requestGeneration &&
+                activeVoiceSessionId == requestSessionId &&
+                !isFinishing &&
+                !isDestroyed
             if (!stillCurrentSession) {
                 return
             }
-            val granted = grantResults.isNotEmpty() &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED
+
+            val granted = (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) &&
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+
             if (granted) {
-                emitVoiceEvent(
-                    mapOf(
-                        "type" to "state",
-                        "status" to LifeOsSpeechRecognizerHelper.STATE_INITIALIZING,
-                        "sessionToken" to requestToken
+                emitVoiceEnvelope(
+                    VoiceSessionCoordinatorNative.buildEventEnvelope(
+                        sessionId = requestSessionId,
+                        attemptId = requestAttemptId,
+                        ownerId = requestOwnerId,
+                        engineId = requestEngineMode,
+                        eventType = "state",
+                        extra = mapOf("status" to LifeOsSpeechRecognizerHelper.STATE_INITIALIZING)
                     )
                 )
-                // Allow 160ms for Android PermissionController Activity to finish animating out
-                // and MainActivity to regain window focus (prevents ERROR_CLIENT on Xiaomi/Samsung),
-                // ONLY if the voice session was NOT cancelled in the interim!
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                val resumeTask = Runnable {
                     if (!isFinishing &&
                         !isDestroyed &&
                         voiceStartGeneration == requestGeneration &&
-                        (requestToken == null || activeVoiceSessionToken == requestToken)
+                        activeVoiceSessionId == requestSessionId
                     ) {
-                        ensureSpeechHelper().startListening(
+                        ensureSpeechHelper(requestOwnerId).startListening(
+                            sessionId = requestSessionId,
+                            attemptId = requestAttemptId,
                             preferSystemDialog = false,
-                            engineMode = activeVoiceEngineMode
+                            engineMode = requestEngineMode,
+                            strictOffline = requestStrictOffline,
+                            locale = requestLocale
                         )
                     }
-                }, 160L)
+                }
+                if (hasWindowFocus() && isActivityResumed) {
+                    resumeTask.run()
+                } else {
+                    pendingResumeAfterFocus = resumeTask
+                }
             } else {
                 val permanentlyDenied = !ActivityCompat.shouldShowRequestPermissionRationale(
                     this,
                     Manifest.permission.RECORD_AUDIO
                 )
-                emitVoiceEvent(
-                    mapOf(
-                        "type" to "state",
-                        "status" to LifeOsSpeechRecognizerHelper.STATE_ERROR,
-                        "sessionToken" to requestToken
+                val code = if (permanentlyDenied) "PERMISSION_PERMANENTLY_DENIED" else "PERMISSION_DENIED"
+                val message = if (permanentlyDenied) {
+                    "Quyền Micro đang bị tắt trong Cài đặt máy. Bấm Cấp quyền Micro để bật lại."
+                } else {
+                    "Chưa cấp quyền Micro để thu âm trực tiếp. Bấm Cấp quyền Micro để thử lại."
+                }
+                activeVoiceSessionId = null
+                emitVoiceEnvelope(
+                    VoiceSessionCoordinatorNative.buildEventEnvelope(
+                        sessionId = requestSessionId,
+                        attemptId = requestAttemptId,
+                        ownerId = requestOwnerId,
+                        engineId = requestEngineMode,
+                        eventType = "state",
+                        extra = mapOf("status" to LifeOsSpeechRecognizerHelper.STATE_ERROR)
                     )
                 )
-                emitVoiceEvent(
-                    mapOf(
-                        "type" to "error",
-                        "sessionToken" to requestToken,
-                        "code" to if (permanentlyDenied) "PERMISSION_PERMANENTLY_DENIED" else "PERMISSION_DENIED",
-                        "message" to if (permanentlyDenied) {
-                            "Quyền Micro đang bị tắt trong Cài đặt máy. Bấm Cấp quyền Micro hoặc dùng Thu âm hệ thống."
-                        } else {
-                            "Chưa cấp quyền Micro để thu âm trực tiếp. Bấm Cấp quyền Micro hoặc dùng Thu âm hệ thống."
-                        }
+                emitVoiceEnvelope(
+                    VoiceSessionCoordinatorNative.buildEventEnvelope(
+                        sessionId = requestSessionId,
+                        attemptId = requestAttemptId,
+                        ownerId = requestOwnerId,
+                        engineId = requestEngineMode,
+                        eventType = "error",
+                        extra = mapOf("code" to code, "message" to message)
                     )
                 )
             }
@@ -1376,33 +1576,81 @@ class MainActivity : FlutterActivity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_SPEECH_INTENT) {
+            val dialogSessionId = pendingDialogSessionId
+            val dialogAttemptId = pendingDialogAttemptId
+            val dialogOwnerId = pendingDialogOwnerId
+            val dialogGeneration = pendingDialogGeneration
+            pendingDialogSessionId = null
+            pendingDialogAttemptId = 0
+            pendingDialogGeneration = -1L
             isAwaitingVoicePermissionOrDialog = false
+
+            val stillValid = dialogSessionId != null &&
+                dialogSessionId == activeVoiceSessionId &&
+                dialogAttemptId == activeVoiceAttemptId &&
+                dialogGeneration == voiceStartGeneration
+            if (!stillValid) {
+                if (dialogSessionId != null) {
+                    speechHelper?.completeExternalDialogSession(
+                        sessionId = dialogSessionId,
+                        attemptId = dialogAttemptId,
+                        success = false,
+                        errorCode = "STALE_RESULT"
+                    )
+                }
+                return
+            }
+
             if (resultCode == Activity.RESULT_OK) {
                 val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 val text = matches?.firstOrNull().orEmpty().trim()
                 if (text.isNotEmpty()) {
-                    speechHelper?.recordDialogSuccessAfterEscalation()
-                    emitVoiceEvent(mapOf("type" to "final", "text" to text))
-                    emitVoiceEvent(
-                        mapOf(
-                            "type" to "state",
-                            "status" to LifeOsSpeechRecognizerHelper.STATE_REVIEW
+                    speechHelper?.completeExternalDialogSession(
+                        sessionId = dialogSessionId,
+                        attemptId = dialogAttemptId,
+                        success = true
+                    )
+                    activeVoiceSessionId = null
+                    emitVoiceEnvelope(
+                        VoiceSessionCoordinatorNative.buildEventEnvelope(
+                            sessionId = dialogSessionId,
+                            attemptId = dialogAttemptId,
+                            ownerId = dialogOwnerId,
+                            engineId = "system_speech_dialog",
+                            eventType = "final",
+                            extra = mapOf("text" to text)
+                        )
+                    )
+                    emitVoiceEnvelope(
+                        VoiceSessionCoordinatorNative.buildEventEnvelope(
+                            sessionId = dialogSessionId,
+                            attemptId = dialogAttemptId,
+                            ownerId = dialogOwnerId,
+                            engineId = "system_speech_dialog",
+                            eventType = "state",
+                            extra = mapOf("status" to LifeOsSpeechRecognizerHelper.STATE_REVIEW)
                         )
                     )
                     return
                 }
             }
-            emitVoiceEvent(
-                mapOf(
-                    "type" to "state",
-                    "status" to LifeOsSpeechRecognizerHelper.STATE_CANCELLED
-                )
+
+            speechHelper?.completeExternalDialogSession(
+                sessionId = dialogSessionId,
+                attemptId = dialogAttemptId,
+                success = false,
+                errorCode = "DIALOG_CANCELED"
             )
-            emitVoiceEvent(
-                mapOf(
-                    "type" to "error",
-                    "code" to "DIALOG_CANCELED",
-                    "message" to "Đã dừng hộp thoại thu âm. Chạm Mic để nói lại hoặc nhập bên dưới."
+            activeVoiceSessionId = null
+            // Emit ONE terminal outcome (`cancelled`), NEVER double-emitting both `cancelled` and `error`.
+            emitVoiceEnvelope(
+                VoiceSessionCoordinatorNative.buildEventEnvelope(
+                    sessionId = dialogSessionId,
+                    attemptId = dialogAttemptId,
+                    ownerId = dialogOwnerId,
+                    engineId = "system_speech_dialog",
+                    eventType = "state",
+                    extra = mapOf("status" to LifeOsSpeechRecognizerHelper.STATE_CANCELLED)
                 )
             )
         } else if (requestCode == LifeOsReceiptPickerHelper.REQ_PICK_GALLERY) {
@@ -1437,14 +1685,24 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onStop() {
-        // Release active inline SpeechRecognizer when app moves to background or lock screen
-        // (prevents MIUI/ColorOS/OneUI from locking the hardware mic for subsequent sessions),
+        // Release active inline SpeechRecognizer when app moves to background or lock screen,
         // and clear lockscreen flags once backgrounded.
         if (!isChangingConfigurations) {
             clearAlarmLockScreenFlags()
             if (!isAwaitingVoicePermissionOrDialog) {
                 voiceStartGeneration += 1
-                speechHelper?.cancelListening()
+                pendingResumeAfterFocus = null
+                pendingPermissionGeneration = -1L
+                pendingPermissionSessionId = null
+                pendingDialogGeneration = -1L
+                pendingDialogSessionId = null
+                val currentId = activeVoiceSessionId
+                activeVoiceSessionId = null
+                speechHelper?.cancelListening(currentId)
+                if (currentId != null) {
+                    LifeOsPcmAudioRecorder.stopCapture(currentId)
+                    VoiceSessionCoordinatorNative.releaseSession(currentId)
+                }
             }
         }
         super.onStop()
@@ -1452,11 +1710,23 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         voiceStartGeneration += 1
+        pendingResumeAfterFocus = null
+        isAwaitingVoicePermissionOrDialog = false
+        pendingPermissionGeneration = -1L
+        pendingPermissionSessionId = null
+        pendingDialogGeneration = -1L
+        pendingDialogSessionId = null
+        val currentId = activeVoiceSessionId
+        activeVoiceSessionId = null
         LifeOsAlarmScheduler.onBackgroundHealthActionPing = null
         LifeOsWidgetStore.onBackgroundWidgetCommandPing = null
         voiceMethodChannel = null
         speechHelper?.destroy()
         speechHelper = null
+        if (currentId != null) {
+            LifeOsPcmAudioRecorder.stopCapture(currentId)
+            VoiceSessionCoordinatorNative.releaseSession(currentId)
+        }
         super.onDestroy()
     }
 
