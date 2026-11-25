@@ -5,12 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:life_os/app/app.dart';
+import 'package:life_os/app/theme/app_theme.dart';
 import 'package:life_os/core/di/dependency_injection.dart';
 import 'package:life_os/core/motion/lifeos_motion.dart';
 import 'package:life_os/core/services/native_device_calendar_bridge.dart';
 import 'package:life_os/core/services/native_permissions_service.dart';
 import 'package:life_os/core/utils/user_behavior_prefs.dart';
 import 'package:life_os/core/widgets/lifeos_permissions_popup.dart';
+import 'package:life_os/core/widgets/trust_ux_widgets.dart';
 import 'package:life_os/features/financial_ai/data/inference/fasttext_classifier.dart';
 
 class _NoOpCalendarDriver implements DeviceCalendarDriver {
@@ -107,9 +109,9 @@ void main() {
     await sl.reset();
   });
 
-  group('Device Permissions Request Popup (Popup Xin Quyen Han)', () {
+  group('Device Permissions & Just-in-Time Rationale UX', () {
     testWidgets(
-      'Auto-presents on first launch when essential permissions are missing, grants batch + single cleanly at 360x800 @ 112% with zero overflow',
+      'Never auto-prompts permissions on cold launch; opens on demand from Settings Hub with 4-part rationale & grants cleanly at 360x800 @ 112%',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(360, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -154,13 +156,38 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // 1. Auto-popup appears with 0/6 granted and zero RenderFlex overflow
+        // 1. Cold launch NEVER triggers eager OS permission popup or requests
+        expect(
+          find.byKey(const Key('lifeos_permissions_popup_dialog')),
+          findsNothing,
+        );
+        expect(fakePerms.requestEssentialCalls, 0);
+        expect(fakePerms.requestedSingles, isEmpty);
+
+        // 2. Navigate via Logo Side Drawer -> Settings Hub -> Quyền hạn Thiết bị
+        await tester.tap(find.byKey(const Key('open_logo_side_drawer_button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('logo_drawer_settings_btn')));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(
+          find.byKey(const Key('settings_permissions_popup_row')),
+        );
+        await tester.tap(
+          find.byKey(const Key('settings_permissions_popup_row')),
+        );
+        await tester.pumpAndSettle();
+
         expect(
           find.byKey(const Key('lifeos_permissions_popup_dialog')),
           findsOneWidget,
         );
         expect(find.text('Cấp quyền thiết bị'), findsOneWidget);
         expect(find.text('Đã bật 0/6'), findsOneWidget);
+        expect(find.textContaining('Vì sao cần:'), findsWidgets);
+        expect(find.textContaining('Dữ liệu truy cập:'), findsWidgets);
+        expect(find.textContaining('Xử lý tại máy:'), findsWidgets);
+        expect(find.textContaining('Cách tắt trong Cài đặt:'), findsWidgets);
         expect(
           find.byKey(const Key('perm_item_notifications')),
           findsOneWidget,
@@ -169,7 +196,7 @@ void main() {
         expect(find.byKey(const Key('perm_item_calendar')), findsOneWidget);
         expect(tester.takeException(), isNull);
 
-        // 2. Expand progressive disclosure for advanced background permissions & grant Exact Alarm
+        // 3. Expand progressive disclosure for advanced permissions & grant Exact Alarm
         await tester.ensureVisible(
           find.byKey(const Key('perm_popup_advanced_toggle')),
         );
@@ -189,7 +216,7 @@ void main() {
         );
         expect(find.text('Đã bật 1/6'), findsOneWidget);
 
-        // 3. Tap primary CTA "Cấp nhanh quyền cơ bản" -> grants all 3 essential permissions (4/6 total)
+        // 4. Tap primary CTA "Cấp nhanh quyền cơ bản" -> grants all 3 essential permissions (4/6 total)
         await tester.ensureVisible(
           find.byKey(const Key('permissions_popup_grant_essential_btn')),
         );
@@ -202,7 +229,7 @@ void main() {
         expect(find.text('Đã bật 4/6'), findsOneWidget);
         expect(find.text('Hoàn tất thiết lập'), findsOneWidget);
 
-        // 4. Tap "Hoàn tất thiết lập" -> closes popup cleanly
+        // 5. Tap "Hoàn tất thiết lập" -> closes popup cleanly
         await tester.tap(
           find.byKey(const Key('permissions_popup_grant_essential_btn')),
         );
@@ -217,7 +244,7 @@ void main() {
     );
 
     testWidgets(
-      'Persists "Để sau" dismissal without nagging again, works under Reduce Motion, and re-opens on demand from Settings Hub',
+      'Respects Reduce Motion, closes on "Để sau" & close icon, and re-opens on demand from Settings Hub',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(360, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -270,29 +297,13 @@ void main() {
 
         expect(
           find.byKey(const Key('lifeos_permissions_popup_dialog')),
-          findsOneWidget,
-        );
-        await tester.ensureVisible(
-          find.byKey(const Key('permissions_popup_later_btn')),
-        );
-        await tester.tap(find.byKey(const Key('permissions_popup_later_btn')));
-        await tester.pumpAndSettle();
-
-        expect(
-          find.byKey(const Key('lifeos_permissions_popup_dialog')),
           findsNothing,
         );
-        expect(await UserBehaviorPrefs.hasDismissedPermissionsPopup(), isTrue);
 
-        // Open Settings Hub -> tap "Quyền hạn Thiết bị" row to re-open popup on demand
-        await tester.scrollUntilVisible(
-          find.text('Cài đặt'),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.drag(find.byType(ListView).first, const Offset(0, -200));
+        // Open Settings Hub -> tap "Quyền hạn Thiết bị" row to open popup on demand
+        await tester.tap(find.byKey(const Key('open_logo_side_drawer_button')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Cài đặt'));
+        await tester.tap(find.byKey(const Key('logo_drawer_settings_btn')));
         await tester.pumpAndSettle();
 
         await tester.ensureVisible(
@@ -309,7 +320,25 @@ void main() {
         );
         expect(find.text('Đã bật 2/6'), findsOneWidget);
 
-        // Also test standalone helper function close icon
+        await tester.ensureVisible(
+          find.byKey(const Key('permissions_popup_later_btn')),
+        );
+        await tester.tap(find.byKey(const Key('permissions_popup_later_btn')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('lifeos_permissions_popup_dialog')),
+          findsNothing,
+        );
+
+        // Re-open and test close icon
+        await tester.ensureVisible(
+          find.byKey(const Key('settings_permissions_popup_row')),
+        );
+        await tester.tap(
+          find.byKey(const Key('settings_permissions_popup_row')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const Key('permissions_popup_close_icon_btn')),
         );
@@ -332,7 +361,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             themeMode: ThemeMode.dark,
-            darkTheme: ThemeData.dark(useMaterial3: true),
+            darkTheme: AppTheme.dark(),
             home: Scaffold(
               body: Builder(
                 builder: (ctx) => Center(
@@ -352,6 +381,69 @@ void main() {
           find.byKey(const Key('lifeos_permissions_popup_dialog')),
           findsOneWidget,
         );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'showLifeOsJustInTimePermissionRationale displays 4 Section 13 answers & handles Consent / Decline without blocking',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(360, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        bool? lastResult;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(360, 800),
+                textScaler: TextScaler.linear(1.12),
+              ),
+              child: Scaffold(
+                body: Builder(
+                  builder: (ctx) => Center(
+                    child: FilledButton(
+                      onPressed: () async {
+                        lastResult = await showLifeOsJustInTimePermissionRationale(
+                          ctx,
+                          title: 'Quyền Lịch thiết bị',
+                          whyNeeded:
+                              'Đồng bộ lịch hẹn cá nhân và nhắc việc đúng giờ.',
+                          dataAccessed:
+                              'Chỉ đọc tiêu đề và giờ sự kiện bạn chọn.',
+                          whereProcessed:
+                              'Xử lý trực tiếp trên thiết bị của bạn.',
+                          howToRevoke:
+                              'Tắt bất cứ lúc nào trong Cài đặt > Quyền ứng dụng.',
+                        );
+                      },
+                      child: const Text('Hỏi quyền'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Hỏi quyền'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Vì sao cần quyền?'), findsOneWidget);
+        expect(find.text('Dữ liệu nào được truy cập?'), findsOneWidget);
+        expect(find.text('Dữ liệu được xử lý ở đâu?'), findsOneWidget);
+        expect(find.text('Làm thế nào để tắt quyền?'), findsOneWidget);
+
+        await tester.tap(find.text('Để sau'));
+        await tester.pumpAndSettle();
+        expect(lastResult, isFalse);
+
+        await tester.tap(find.text('Hỏi quyền'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Đồng ý cấp quyền'));
+        await tester.pumpAndSettle();
+        expect(lastResult, isTrue);
         expect(tester.takeException(), isNull);
       },
     );

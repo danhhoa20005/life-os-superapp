@@ -17,6 +17,7 @@ import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
+import '../../../../core/widgets/trust_ux_widgets.dart';
 import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../budgets/domain/entities/budget_entities.dart';
@@ -234,6 +235,13 @@ class _FinancePageState extends State<FinancePage> {
                           userId: user.id,
                           obscureBalances: _obscureBalances,
                           onTogglePrivacy: _toggleObscureBalances,
+                          onRecordTransaction: (wallets, categories) =>
+                              _showCreateTransactionDialog(
+                                context,
+                                userId: user.id,
+                                wallets: wallets,
+                                categories: categories,
+                              ),
                         ),
                         _BudgetsAndFundsTabView(
                           userId: user.id,
@@ -820,16 +828,47 @@ class _FinancePageState extends State<FinancePage> {
                     ),
                     if (parsedTotal > 0 || splitSum > 0) ...[
                       const SizedBox(height: 6),
-                      Text(
-                        'Tổng tách: ${VndAmount.format(splitSum)} / ${VndAmount.format(parsedTotal)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: (parsedTotal > 0 && splitSum == parsedTotal)
+                      Builder(
+                        builder: (_) {
+                          final isSplitMatched =
+                              parsedTotal > 0 && splitSum == parsedTotal;
+                          final splitColor = isSplitMatched
                               ? cDialog.success
-                              : cDialog.warning,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
+                              : cDialog.warning;
+                          final splitText =
+                              'Tổng tách: ${VndAmount.format(splitSum)} / ${VndAmount.format(parsedTotal)}'
+                              '${isSplitMatched ? ' (Khớp)' : ' (Chưa khớp)'}';
+                          return Semantics(
+                            liveRegion: true,
+                            label: splitText,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSplitMatched
+                                      ? Icons.check_circle_outline_rounded
+                                      : Icons.warning_amber_rounded,
+                                  size: 15,
+                                  color: splitColor,
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    splitText,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: splitColor,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ],
@@ -975,11 +1014,17 @@ class _TransactionsTabView extends StatefulWidget {
   final String userId;
   final bool obscureBalances;
   final VoidCallback onTogglePrivacy;
+  final void Function(
+    List<WalletEntity> wallets,
+    List<CategoryEntity> categories,
+  )
+  onRecordTransaction;
 
   const _TransactionsTabView({
     required this.userId,
     required this.obscureBalances,
     required this.onTogglePrivacy,
+    required this.onRecordTransaction,
   });
 
   @override
@@ -1443,6 +1488,13 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                     ],
                   ),
                 ),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: DataVisibilityBadge(isFamilyShared: false),
+                  ),
+                ),
                 if (state.wallets.isEmpty)
                   const LifeOsSoftCard(
                     child: Text('Đang khởi tạo danh mục ví mặc định...'),
@@ -1755,11 +1807,22 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                     ),
                   )
                 else if (visibleTxs.isEmpty)
-                  const EmptyStateView(
+                  EmptyStateView(
                     icon: Icons.receipt_long_outlined,
                     imageAsset: AppAssets.financeIllustration,
                     title: 'Chưa có giao dịch nào',
                     subtitle: 'Nhấn "Ghi giao dịch" để thêm khoản thu chi mới.',
+                    actionLabel: 'Ghi giao dịch',
+                    onAction: () {
+                      if (state.wallets.isNotEmpty) {
+                        widget.onRecordTransaction(
+                          state.wallets,
+                          state.categories,
+                        );
+                      } else {
+                        showLifeOsQuickCreateHub(context);
+                      }
+                    },
                   )
                 else
                   ...groupedByDay.entries.map((entry) {
@@ -1845,6 +1908,13 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                             isCredit: isCredit,
                             isTransfer: isInternal,
                             isReversed: tx.isReversed,
+                            isProvisional:
+                                tx.verification ==
+                                TransactionVerification.provisional,
+                            needsReview:
+                                tx.verification ==
+                                TransactionVerification.needsReview,
+                            isDisputed: tx.reconciliationStatus == 'disputed',
                             isVerified:
                                 tx.verification ==
                                     TransactionVerification.verified ||
@@ -3068,6 +3138,19 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                           softWrap: true,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
+                        const SizedBox(height: AppSpacing.sm),
+                        FilledButton.tonalIcon(
+                          onPressed: state.isSaving
+                              ? null
+                              : () => _showUpsertBudgetDialog(
+                                  context,
+                                  userId: userId,
+                                  monthKey: monthKey,
+                                  categories: categories,
+                                ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Đặt ngân sách đầu tiên'),
+                        ),
                       ],
                     ),
                   )
@@ -3175,12 +3258,16 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 if (state.funds.isEmpty)
-                  const EmptyStateView(
+                  EmptyStateView(
                     icon: Icons.savings_outlined,
                     imageAsset: AppAssets.financeIllustration,
                     title: 'Chưa có sổ quỹ nào',
                     subtitle:
                         'Tạo quỹ mục tiêu cá nhân hoặc quỹ chung gia đình (VD: Quỹ Sắm Tết).',
+                    actionLabel: 'Tạo sổ quỹ',
+                    onAction: state.isSaving
+                        ? null
+                        : () => _showCreateFundDialog(context),
                   )
                 else
                   ...state.funds.map(
@@ -3360,29 +3447,8 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                                                     ),
                                                   ],
                                                 )
-                                              : SemanticStatusBadge(
-                                                  kind:
-                                                      exp.status ==
-                                                          FundExpenseStatus
-                                                              .approved
-                                                      ? SemanticStatusKind
-                                                            .success
-                                                      : exp.status ==
-                                                            FundExpenseStatus
-                                                                .rejected
-                                                      ? SemanticStatusKind.error
-                                                      : SemanticStatusKind
-                                                            .provisional,
-                                                  label:
-                                                      exp.status ==
-                                                          FundExpenseStatus
-                                                              .approved
-                                                      ? 'ĐÃ DUYỆT'
-                                                      : exp.status ==
-                                                            FundExpenseStatus
-                                                                .rejected
-                                                      ? 'ĐÃ TỪ CHỐI'
-                                                      : 'CHỜ DUYỆT',
+                                              : _buildFundExpenseTrustBadge(
+                                                  exp.status,
                                                 ),
                                         ],
                                       ),
@@ -3400,6 +3466,41 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
         );
       },
     );
+  }
+
+  FinancialTrustStatusBadge _buildFundExpenseTrustBadge(
+    FundExpenseStatus status,
+  ) {
+    final (trustStatus, label) = switch (status) {
+      FundExpenseStatus.draft => (FinancialTrustStatus.needsReview, 'Bản nháp'),
+      FundExpenseStatus.pendingApproval => (
+        FinancialTrustStatus.pendingConfirmation,
+        'Chờ duyệt',
+      ),
+      FundExpenseStatus.approved => (FinancialTrustStatus.saved, 'Đã duyệt'),
+      FundExpenseStatus.executed => (
+        FinancialTrustStatus.saved,
+        'Đã giải ngân',
+      ),
+      FundExpenseStatus.reconciled => (
+        FinancialTrustStatus.reconciled,
+        'Đã đối soát',
+      ),
+      FundExpenseStatus.rejected => (
+        FinancialTrustStatus.syncFailed,
+        'Đã từ chối',
+      ),
+      FundExpenseStatus.cancelled => (FinancialTrustStatus.reversed, 'Đã hủy'),
+      FundExpenseStatus.disputed => (
+        FinancialTrustStatus.disputed,
+        'Đang tranh chấp',
+      ),
+      FundExpenseStatus.reversed => (
+        FinancialTrustStatus.reversed,
+        'Đã đảo bút toán',
+      ),
+    };
+    return FinancialTrustStatusBadge(status: trustStatus, customLabel: label);
   }
 
   Future<void> _showUpsertBudgetDialog(

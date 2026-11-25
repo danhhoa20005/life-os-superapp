@@ -1,5 +1,7 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import 'liquid_glass.dart';
@@ -81,14 +83,26 @@ class SemanticStatusBadge extends StatelessWidget {
   }
 }
 
-/// Sync state indicator distinguishing local offline cache (`hasPendingWrites`) from Cloud-confirmed data.
+/// Sync state indicator distinguishing local offline cache (`hasPendingWrites`),
+/// failed sync (`syncFailed`), and Cloud-confirmed data.
 class CloudSyncIndicator extends StatelessWidget {
   final bool hasPendingWrites;
+  final bool syncFailed;
 
-  const CloudSyncIndicator({super.key, required this.hasPendingWrites});
+  const CloudSyncIndicator({
+    super.key,
+    required this.hasPendingWrites,
+    this.syncFailed = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (syncFailed) {
+      return const SemanticStatusBadge(
+        kind: SemanticStatusKind.error,
+        label: 'Đồng bộ thất bại',
+      );
+    }
     return SemanticStatusBadge(
       kind: hasPendingWrites
           ? SemanticStatusKind.warning
@@ -182,65 +196,69 @@ class EmptyStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (imageAsset != null)
-              Container(
-                width: 128,
-                height: 128,
-                decoration: BoxDecoration(
-                  color: c.primarySubtle.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                  border: Border.all(color: c.separator),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  imageAsset!,
+    return Semantics(
+      container: true,
+      label: '$title. $subtitle',
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (imageAsset != null)
+                Container(
                   width: 128,
                   height: 128,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Icon(icon, size: 40, color: c.primary),
+                  decoration: BoxDecoration(
+                    color: c.primarySubtle.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                    border: Border.all(color: c.separator),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    imageAsset!,
+                    width: 128,
+                    height: 128,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(icon, size: 40, color: c.primary),
+                  ),
+                )
+              else
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: c.primarySubtle,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 30, color: c.primary),
                 ),
-              )
-            else
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: c.primarySubtle,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 30, color: c.primary),
-              ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
                 textAlign: TextAlign.center,
               ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              FilledButton.icon(
-                onPressed: onAction,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: Text(actionLabel!),
+              const SizedBox(height: AppSpacing.xs),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
               ),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                FilledButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(actionLabel!),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -260,26 +278,31 @@ class ErrorRetryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 42, color: c.error),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Thử lại'),
-            ),
-          ],
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      label: 'Thông báo lỗi: $message',
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 42, color: c.error),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Thử lại'),
+              ),
+            ],
+          ),
         ),
       ),
     );

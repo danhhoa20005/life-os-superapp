@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/theme_bloc.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
+import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietnamese_search_matcher.dart';
@@ -25,7 +28,41 @@ import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../../domain/services/smart_inbox_engine.dart';
 import '../bloc/notification_ingestion_bloc.dart';
 
-/// Screen 09: "Thông báo" (Unified Activity & Bank Notification Center).
+class _ActivityFeedMeta {
+  final String dedupKey;
+  final SmartInboxKind kind;
+  final SmartInboxTier tier;
+  final DateTime sortTime;
+  final String category; // 'credit' | 'debit' | 'other'
+  final String title;
+  final String subtitle;
+  final int? amountMinor;
+  final String? metaBadge;
+  final String timeLabel;
+  final IconData icon;
+  final LifeOsAccentTone tone;
+  final String targetRoute;
+  final VoidCallback onTap;
+
+  const _ActivityFeedMeta({
+    required this.dedupKey,
+    required this.kind,
+    required this.tier,
+    required this.sortTime,
+    required this.category,
+    required this.title,
+    required this.subtitle,
+    this.amountMinor,
+    required this.metaBadge,
+    required this.timeLabel,
+    required this.icon,
+    required this.tone,
+    required this.targetRoute,
+    required this.onTap,
+  });
+}
+
+/// Screen 09: "Thông báo" (Unified Activity & Notification Experience Engine 2.0).
 class ActivityNotificationsPage extends StatefulWidget {
   const ActivityNotificationsPage({super.key});
 
@@ -39,12 +76,117 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   final Set<String> _readDedupKeys = <String>{};
+  final Set<String> _dismissedDedupKeys = <String>{};
   final Map<String, DateTime> _snoozedUntilByKey = <String, DateTime>{};
+  NotificationExperiencePrefs _expPrefs = const NotificationExperiencePrefs();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadPersistedState();
+    });
+  }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  String _userScopeSuffix() {
+    final uid = context.read<AuthBloc>().state.user?.id.trim() ?? '';
+    return uid.isEmpty ? 'guest' : uid;
+  }
+
+  String get _prefsVaultKey => 'ux_notif_exp_prefs_v1__u_${_userScopeSuffix()}';
+
+  String get _inboxStateVaultKey =>
+      'ux_notif_inbox_state_v1__u_${_userScopeSuffix()}';
+
+  Future<void> _loadPersistedState() async {
+    final prefsRaw = await NativeSecureVaultBridge.instance.readSecret(
+      _prefsVaultKey,
+    );
+    final stateRaw = await NativeSecureVaultBridge.instance.readSecret(
+      _inboxStateVaultKey,
+    );
+    if (!mounted) return;
+
+    var loadedPrefs = const NotificationExperiencePrefs();
+    if (prefsRaw != null && prefsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(prefsRaw);
+        if (decoded is Map<String, dynamic>) {
+          loadedPrefs = NotificationExperiencePrefs.fromJson(decoded);
+        }
+      } catch (_) {}
+    }
+
+    final nextRead = <String>{};
+    final nextDismissed = <String>{};
+    final nextSnoozed = <String, DateTime>{};
+    if (stateRaw != null && stateRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(stateRaw);
+        if (decoded is Map<String, dynamic>) {
+          final r = decoded['readKeys'];
+          if (r is List) {
+            nextRead.addAll(r.map((e) => e.toString()));
+          }
+          final d = decoded['dismissedKeys'];
+          if (d is List) {
+            nextDismissed.addAll(d.map((e) => e.toString()));
+          }
+          final s = decoded['snoozedUntilByKey'];
+          if (s is Map) {
+            final now = DateTime.now();
+            s.forEach((k, v) {
+              final dt = DateTime.tryParse(v.toString());
+              if (dt != null && dt.isAfter(now)) {
+                nextSnoozed[k.toString()] = dt;
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    setState(() {
+      _expPrefs = loadedPrefs;
+      _readDedupKeys
+        ..clear()
+        ..addAll(nextRead);
+      _dismissedDedupKeys
+        ..clear()
+        ..addAll(nextDismissed);
+      _snoozedUntilByKey
+        ..clear()
+        ..addAll(nextSnoozed);
+    });
+  }
+
+  Future<void> _saveInboxState() async {
+    final payload = <String, dynamic>{
+      'readKeys': _readDedupKeys.toList(),
+      'dismissedKeys': _dismissedDedupKeys.toList(),
+      'snoozedUntilByKey': _snoozedUntilByKey.map(
+        (k, v) => MapEntry(k, v.toIso8601String()),
+      ),
+    };
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _inboxStateVaultKey,
+      value: jsonEncode(payload),
+    );
+  }
+
+  Future<void> _saveExpPrefs(NotificationExperiencePrefs next) async {
+    setState(() => _expPrefs = next);
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _prefsVaultKey,
+      value: jsonEncode(next.toJson()),
+    );
   }
 
   bool get _hasActiveFilters =>
@@ -56,6 +198,251 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
       _searchQuery = '';
       _searchCtrl.clear();
     });
+  }
+
+  LifeOsAccentTone _tierTone(SmartInboxTier tier) {
+    return switch (tier) {
+      SmartInboxTier.critical => LifeOsAccentTone.coral,
+      SmartInboxTier.timeSensitive => LifeOsAccentTone.amber,
+      SmartInboxTier.actionable => LifeOsAccentTone.blue,
+      SmartInboxTier.informational => LifeOsAccentTone.emerald,
+    };
+  }
+
+  IconData _tierIcon(SmartInboxTier tier) {
+    return switch (tier) {
+      SmartInboxTier.critical => Icons.priority_high_rounded,
+      SmartInboxTier.timeSensitive => Icons.schedule_rounded,
+      SmartInboxTier.actionable => Icons.touch_app_outlined,
+      SmartInboxTier.informational => Icons.info_outline_rounded,
+    };
+  }
+
+  Future<void> _openSnoozePicker(String dedupKey, String title) async {
+    final now = DateTime.now();
+    final tonight = DateTime(now.year, now.month, now.day, 20, 0);
+    final tonightEffective = tonight.isAfter(now)
+        ? tonight
+        : tonight.add(const Duration(days: 1));
+    final tomorrowMorning = DateTime(now.year, now.month, now.day + 1, 8, 0);
+
+    final picked = await showModalBottomSheet<(DateTime, String)>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Tạm hoãn nhắc nhở',
+                  style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(title, style: Theme.of(sheetCtx).textTheme.bodySmall),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.timer_outlined),
+                  title: const Text('15 phút nữa'),
+                  onTap: () => Navigator.of(
+                    sheetCtx,
+                  ).pop((now.add(const Duration(minutes: 15)), '15 phút')),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.schedule_rounded),
+                  title: const Text('1 giờ nữa'),
+                  onTap: () => Navigator.of(
+                    sheetCtx,
+                  ).pop((now.add(const Duration(hours: 1)), '1 giờ')),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.nights_stay_outlined),
+                  title: const Text('Tối nay (20:00)'),
+                  onTap: () =>
+                      Navigator.of(sheetCtx).pop((tonightEffective, 'tối nay')),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.wb_sunny_outlined),
+                  title: const Text('Ngày mai (08:00)'),
+                  onTap: () => Navigator.of(
+                    sheetCtx,
+                  ).pop((tomorrowMorning, 'ngày mai 08:00')),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() {
+      _snoozedUntilByKey[dedupKey] = picked.$1;
+    });
+    await _saveInboxState();
+    if (!mounted) return;
+    LifeOsTopToast.show(
+      context,
+      'Đã tạm hoãn tới ${picked.$2}.',
+      kind: LifeOsToastKind.info,
+    );
+  }
+
+  Future<void> _openNotificationExperienceSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final c = TammySemanticColors.of(ctx);
+            Future<void> updatePrefs(NotificationExperiencePrefs next) async {
+              setSheetState(() {});
+              await _saveExpPrefs(next);
+            }
+
+            return SafeArea(
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.72,
+                maxChildSize: 0.92,
+                minChildSize: 0.45,
+                builder: (_, scrollCtrl) {
+                  return ListView(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    children: [
+                      Text(
+                        'Trải nghiệm thông báo',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Kiểm soát giờ yên tĩnh, tóm tắt cuối ngày và loại thông báo bạn muốn nhận.',
+                        style: TextStyle(
+                          fontSize: 12.8,
+                          color: c.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        key: const Key('notif_quiet_hours_switch'),
+                        value: _expPrefs.quietHoursEnabled,
+                        activeThumbColor: c.primary,
+                        title: const Text('Giờ yên tĩnh (Quiet Hours)'),
+                        subtitle: Text(
+                          'Từ ${_expPrefs.quietStartHour}:00 đến ${_expPrefs.quietEndHour}:00 · Vẫn giữ cảnh báo khẩn cấp',
+                        ),
+                        onChanged: (v) => updatePrefs(
+                          _expPrefs.copyWith(quietHoursEnabled: v),
+                        ),
+                      ),
+                      if (_expPrefs.quietHoursEnabled)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ActionChip(
+                                label: Text(
+                                  'Bắt đầu: ${_expPrefs.quietStartHour}:00',
+                                ),
+                                onPressed: () {
+                                  final nextStart =
+                                      (_expPrefs.quietStartHour + 1) % 24;
+                                  updatePrefs(
+                                    _expPrefs.copyWith(
+                                      quietStartHour: nextStart,
+                                    ),
+                                  );
+                                },
+                              ),
+                              ActionChip(
+                                label: Text(
+                                  'Kết thúc: ${_expPrefs.quietEndHour}:00',
+                                ),
+                                onPressed: () {
+                                  final nextEnd =
+                                      (_expPrefs.quietEndHour + 1) % 24;
+                                  updatePrefs(
+                                    _expPrefs.copyWith(quietEndHour: nextEnd),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      SwitchListTile(
+                        key: const Key('notif_daily_digest_switch'),
+                        value: _expPrefs.dailyDigestEnabled,
+                        activeThumbColor: c.primary,
+                        title: const Text('Tóm tắt thông báo mỗi ngày'),
+                        subtitle: Text(
+                          'Gom nhóm tin chưa xử lý vào ${_expPrefs.digestHour}:00',
+                        ),
+                        onChanged: (v) => updatePrefs(
+                          _expPrefs.copyWith(dailyDigestEnabled: v),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      Text(
+                        'Nhóm thông báo đang bật',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      for (final kind in SmartInboxKind.values)
+                        SwitchListTile(
+                          dense: true,
+                          value: !_expPrefs.disabledKinds.contains(kind),
+                          activeThumbColor: c.primary,
+                          title: Text(kind.groupTitleVi),
+                          onChanged: (enabled) {
+                            final nextDisabled = Set<SmartInboxKind>.from(
+                              _expPrefs.disabledKinds,
+                            );
+                            if (enabled) {
+                              nextDisabled.remove(kind);
+                            } else {
+                              nextDisabled.add(kind);
+                            }
+                            updatePrefs(
+                              _expPrefs.copyWith(disabledKinds: nextDisabled),
+                            );
+                          },
+                        ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetCtx).pop();
+                          context.push('/notifications-privacy');
+                        },
+                        icon: const Icon(Icons.security_rounded, size: 18),
+                        label: const Text('Quyền đọc ngân hàng & Bảo mật'),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -70,82 +457,105 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
     final now = DateTime.now();
 
     final seenTxIds = <String>{};
-    final items =
-        <
-          ({
-            DateTime sortTime,
-            String category, // 'credit' | 'debit' | 'other'
-            String title,
-            String subtitle,
-            String? metaBadge,
-            String timeLabel,
-            IconData icon,
-            LifeOsAccentTone tone,
-            VoidCallback onTap,
-          })
-        >[];
+    final items = <_ActivityFeedMeta>[];
 
     // 1. Real-time Financial Notifications (excluding internal test items)
     for (final fn
         in notifState.financialNotifications
             .where((f) => !f.isTestNotification)
             .take(30)) {
-      if (fn.transactionId.isNotEmpty) {
+      final hasTx = fn.transactionId.isNotEmpty;
+      if (hasTx) {
         seenTxIds.add(fn.transactionId);
       }
       final sign = fn.direction == 'credit' ? '+' : '-';
       final amountText =
           '$sign${VndAmount.format(fn.amountMinor)} · ${fn.bankName} ${fn.accountMasked}';
-      items.add((
-        sortTime: fn.occurredAt,
-        category: fn.direction == 'credit' ? 'credit' : 'debit',
-        title: fn.title,
-        subtitle: '$amountText\n${fn.content}',
-        metaBadge: '${fn.statusLabel} · ${fn.sourceLabel}',
-        timeLabel: timeFmt.format(fn.occurredAt),
-        icon: fn.direction == 'credit'
-            ? Icons.south_west_rounded
-            : Icons.north_east_rounded,
-        tone: fn.direction == 'credit'
-            ? LifeOsAccentTone.emerald
-            : LifeOsAccentTone.coral,
-        onTap: () {
-          if (fn.transactionId.isNotEmpty) {
-            context.push(
-              '/auto-tx-review?txId=${Uri.encodeQueryComponent(fn.transactionId)}',
-            );
-          } else {
-            context.push('/notifications-privacy');
-          }
-        },
-      ));
+      final lowerStatus = fn.statusLabel.toLowerCase();
+      final tier =
+          (lowerStatus.contains('đảo') ||
+              lowerStatus.contains('tranh chấp') ||
+              lowerStatus.contains('lỗi'))
+          ? SmartInboxTier.critical
+          : (lowerStatus.contains('chờ') || lowerStatus.contains('kiểm tra'))
+          ? SmartInboxTier.actionable
+          : SmartInboxTier.informational;
+      items.add(
+        _ActivityFeedMeta(
+          dedupKey: hasTx ? 'tx::${fn.transactionId}' : 'bank_notif::${fn.id}',
+          kind: SmartInboxKind.bankProvisional,
+          tier: tier,
+          sortTime: fn.occurredAt,
+          category: fn.direction == 'credit' ? 'credit' : 'debit',
+          title: fn.title,
+          subtitle: '$amountText\n${fn.content}',
+          amountMinor: fn.amountMinor,
+          metaBadge: '${fn.statusLabel} · ${fn.sourceLabel}',
+          timeLabel: timeFmt.format(fn.occurredAt),
+          icon: fn.direction == 'credit'
+              ? Icons.south_west_rounded
+              : Icons.north_east_rounded,
+          tone: fn.direction == 'credit'
+              ? LifeOsAccentTone.emerald
+              : LifeOsAccentTone.coral,
+          targetRoute: hasTx
+              ? '/auto-tx-review?txId=${Uri.encodeQueryComponent(fn.transactionId)}'
+              : '/notifications-privacy',
+          onTap: () {
+            if (hasTx) {
+              context.push(
+                '/auto-tx-review?txId=${Uri.encodeQueryComponent(fn.transactionId)}',
+              );
+            } else {
+              context.push('/notifications-privacy');
+            }
+          },
+        ),
+      );
     }
 
     // 2. Remaining Transactions not yet represented in financialNotifications
     for (final tx in txState.allTransactions.take(20)) {
       if (seenTxIds.contains(tx.id)) continue;
       final isCredit = tx.direction == 'credit';
-      final srcLabel = switch (tx.sourceKind) {
-        _ when tx.sourceKind.name == 'bankWebhook' => 'Đồng bộ tự động',
-        _ when tx.sourceKind.name == 'bankApi' => 'Đối soát ngân hàng',
-        _ when tx.sourceKind.name == 'androidNotification' =>
-          'Thông báo điện thoại',
-        _ when tx.sourceKind.name == 'csv' => 'Sao kê ngân hàng',
+      final srcLabel = switch (tx.sourceKind.name) {
+        'bankWebhook' => 'Đồng bộ tự động',
+        'bankApi' => 'Đối soát ngân hàng',
+        'androidNotification' => 'Thông báo điện thoại',
+        'csv' => 'Sao kê ngân hàng',
         _ => 'Ghi thủ công',
       };
-      items.add((
-        sortTime: tx.occurredAt,
-        category: isCredit ? 'credit' : 'debit',
-        title: isCredit ? 'Tiền vào sổ quỹ' : 'Giao dịch chi tiêu',
-        subtitle:
-            '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.merchant}',
-        metaBadge:
-            '${tx.isConfirmedInLedger ? "Đã xác nhận" : "Chờ đối soát"} · $srcLabel',
-        timeLabel: timeFmt.format(tx.occurredAt),
-        icon: Icons.account_balance_wallet_outlined,
-        tone: isCredit ? LifeOsAccentTone.emerald : LifeOsAccentTone.coral,
-        onTap: () => context.push('/auto-tx-review', extra: tx),
-      ));
+      final verificationLabel = tx.isReversed
+          ? 'Đã đảo bút toán'
+          : tx.verification.name == 'needsReview'
+          ? 'Cần kiểm tra lại'
+          : tx.isConfirmedInLedger
+          ? 'Đã xác nhận'
+          : 'Chờ xác nhận';
+      final tier = tx.isReversed
+          ? SmartInboxTier.critical
+          : (!tx.isConfirmedInLedger || tx.verification.name == 'needsReview')
+          ? SmartInboxTier.actionable
+          : SmartInboxTier.informational;
+      items.add(
+        _ActivityFeedMeta(
+          dedupKey: 'tx::${tx.id}',
+          kind: SmartInboxKind.bankProvisional,
+          tier: tier,
+          sortTime: tx.occurredAt,
+          category: isCredit ? 'credit' : 'debit',
+          title: isCredit ? 'Tiền vào sổ quỹ' : 'Giao dịch chi tiêu',
+          subtitle:
+              '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.merchant}',
+          amountMinor: tx.amountMinor,
+          metaBadge: '$verificationLabel · $srcLabel',
+          timeLabel: timeFmt.format(tx.occurredAt),
+          icon: Icons.account_balance_wallet_outlined,
+          tone: isCredit ? LifeOsAccentTone.emerald : LifeOsAccentTone.coral,
+          targetRoute: '/auto-tx-review',
+          onTap: () => context.push('/auto-tx-review', extra: tx),
+        ),
+      );
     }
 
     // 3. Upcoming Calendar, Open Tasks & Vehicle Reminders
@@ -155,17 +565,23 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
               (e) => !e.endsAt.isBefore(now.subtract(const Duration(days: 1))),
             )
             .take(6)) {
-      items.add((
-        sortTime: ev.startsAt,
-        category: 'other',
-        title: 'Sự kiện lịch: ${ev.title}',
-        subtitle: ev.location ?? 'Lịch hẹn đã đồng bộ',
-        metaBadge: 'Lịch trình',
-        timeLabel: timeFmt.format(ev.startsAt),
-        icon: Icons.calendar_today_rounded,
-        tone: LifeOsAccentTone.blue,
-        onTap: () => context.push('/event-detail', extra: ev),
-      ));
+      items.add(
+        _ActivityFeedMeta(
+          dedupKey: 'cal_event::${ev.id}',
+          kind: SmartInboxKind.calendarUpcoming,
+          tier: SmartInboxTier.timeSensitive,
+          sortTime: ev.startsAt,
+          category: 'other',
+          title: 'Sự kiện lịch: ${ev.title}',
+          subtitle: ev.location ?? 'Lịch hẹn đã đồng bộ',
+          metaBadge: 'Lịch trình',
+          timeLabel: timeFmt.format(ev.startsAt),
+          icon: Icons.calendar_today_rounded,
+          tone: LifeOsAccentTone.blue,
+          targetRoute: '/event-detail',
+          onTap: () => context.push('/event-detail', extra: ev),
+        ),
+      );
     }
     for (final t
         in taskState.tasks
@@ -173,105 +589,120 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
               (t) => t.status.name != 'done' && t.status.name != 'declined',
             )
             .take(6)) {
-      items.add((
-        sortTime: t.dueAt ?? now,
-        category: 'other',
-        title: 'Công việc: ${t.title}',
-        subtitle: 'Giao cho ${t.assigneeName}',
-        metaBadge: 'Việc cần làm',
-        timeLabel: t.dueAt != null ? timeFmt.format(t.dueAt!) : 'Hôm nay',
-        icon: Icons.task_alt_rounded,
-        tone: LifeOsAccentTone.amber,
-        onTap: () => context.push('/tasks-board'),
-      ));
+      final isUrgent = t.dueAt != null && t.dueAt!.isBefore(now);
+      items.add(
+        _ActivityFeedMeta(
+          dedupKey: 'task::${t.id}',
+          kind: SmartInboxKind.taskOpen,
+          tier: isUrgent
+              ? SmartInboxTier.timeSensitive
+              : SmartInboxTier.actionable,
+          sortTime: t.dueAt ?? now,
+          category: 'other',
+          title: 'Công việc: ${t.title}',
+          subtitle: 'Giao cho ${t.assigneeName}',
+          metaBadge: isUrgent ? 'Quá hạn' : 'Việc cần làm',
+          timeLabel: t.dueAt != null ? timeFmt.format(t.dueAt!) : 'Hôm nay',
+          icon: Icons.task_alt_rounded,
+          tone: isUrgent ? LifeOsAccentTone.coral : LifeOsAccentTone.amber,
+          targetRoute: '/tasks-board',
+          onTap: () => context.push('/tasks-board'),
+        ),
+      );
     }
     for (final v in vehicleState.vehicles.take(2)) {
       final isOverdue = v.remainingKm < 0;
-      items.add((
-        sortTime: now.subtract(const Duration(hours: 2)),
-        category: 'other',
-        title: 'Bảo dưỡng xe ${v.name}',
-        subtitle: isOverdue
-            ? 'Đã quá hạn ${-v.remainingKm} km so với mốc bảo dưỡng định kỳ'
-            : 'Còn ${v.remainingKm} km đến mốc bảo dưỡng định kỳ',
-        metaBadge: isOverdue ? 'Quá hạn' : 'Phương tiện',
-        timeLabel: 'Định kỳ',
-        icon: Icons.directions_car_outlined,
-        tone: isOverdue ? LifeOsAccentTone.coral : LifeOsAccentTone.emerald,
-        onTap: () => context.push('/assets'),
-      ));
+      items.add(
+        _ActivityFeedMeta(
+          dedupKey: 'vehicle_maint::${v.id}',
+          kind: SmartInboxKind.vehicleMaintenance,
+          tier: isOverdue
+              ? SmartInboxTier.critical
+              : SmartInboxTier.timeSensitive,
+          sortTime: now.subtract(const Duration(hours: 2)),
+          category: 'other',
+          title: 'Bảo dưỡng xe ${v.name}',
+          subtitle: isOverdue
+              ? 'Đã quá hạn ${-v.remainingKm} km so với mốc bảo dưỡng định kỳ'
+              : 'Còn ${v.remainingKm} km đến mốc bảo dưỡng định kỳ',
+          metaBadge: isOverdue ? 'Quá hạn' : 'Phương tiện',
+          timeLabel: 'Định kỳ',
+          icon: Icons.directions_car_outlined,
+          tone: isOverdue ? LifeOsAccentTone.coral : LifeOsAccentTone.emerald,
+          targetRoute: '/assets',
+          onTap: () => context.push('/assets'),
+        ),
+      );
     }
 
     items.sort((a, b) => b.sortTime.compareTo(a.sortTime));
 
+    final metaByKey = <String, _ActivityFeedMeta>{};
+    for (final entry in items) {
+      metaByKey.putIfAbsent(entry.dedupKey, () => entry);
+    }
+
     final inboxSnapshot = SmartInboxEngine.build(
       rawCandidates: [
-        for (var idx = 0; idx < items.length; idx++)
+        for (final entry in items)
           SmartInboxItem(
-            dedupKey: '${items[idx].category}::${items[idx].title}::$idx',
-            kind: items[idx].category == 'other'
-                ? SmartInboxKind.taskOpen
-                : SmartInboxKind.bankProvisional,
-            priority: items[idx].metaBadge == 'Quá hạn'
-                ? SmartInboxPriority.critical
-                : SmartInboxPriority.normal,
-            titleVi: items[idx].title,
-            subtitleVi: items[idx].subtitle,
-            timestamp: items[idx].sortTime,
-            targetRoute: '/today',
+            dedupKey: entry.dedupKey,
+            kind: entry.kind,
+            tier: entry.tier,
+            titleVi: entry.title,
+            subtitleVi: entry.subtitle,
+            amountMinor: entry.amountMinor,
+            timestamp: entry.sortTime,
+            targetRoute: entry.targetRoute,
             primaryActionLabelVi: 'Mở',
           ),
       ],
       referenceNow: now,
       readKeys: _readDedupKeys,
+      dismissedKeys: _dismissedDedupKeys,
       snoozedUntilByKey: _snoozedUntilByKey,
+      prefs: _expPrefs,
     );
-    final snoozedSet = <String>{
-      for (final s in inboxSnapshot.snoozedItems) s.dedupKey,
-    };
 
     final q = _searchQuery.trim();
-    final indexedVisible =
-        <
-          ({
-            int idx,
-            ({
-              DateTime sortTime,
-              String category,
-              String title,
-              String subtitle,
-              String? metaBadge,
-              String timeLabel,
-              IconData icon,
-              LifeOsAccentTone tone,
-              VoidCallback onTap,
-            })
-            item,
-            String dedupKey,
-          })
-        >[];
-
-    for (var idx = 0; idx < items.length; idx++) {
-      final it = items[idx];
-      final dk = '${it.category}::${it.title}::$idx';
-      final isSnoozed = snoozedSet.contains(dk);
-      if (_selectedFilter == 'snoozed') {
-        if (!isSnoozed) continue;
-      } else {
-        if (isSnoozed) continue;
-        if (_selectedFilter != 'all' && it.category != _selectedFilter) {
-          continue;
-        }
+    bool matchesEntry(SmartInboxItem inboxItem, _ActivityFeedMeta meta) {
+      if (_selectedFilter != 'all' &&
+          _selectedFilter != 'snoozed' &&
+          meta.category != _selectedFilter) {
+        return false;
       }
       if (q.isNotEmpty &&
           !VietnameseSearchMatcher.matchesAny(q, [
-            it.title,
-            it.subtitle,
-            it.metaBadge,
+            meta.title,
+            meta.subtitle,
+            meta.metaBadge,
+            inboxItem.effectiveTier.labelVi,
           ])) {
-        continue;
+        return false;
       }
-      indexedVisible.add((idx: idx, item: it, dedupKey: dk));
+      return true;
+    }
+
+    final groupedSections = <SmartInboxKind, List<SmartInboxItem>>{};
+    if (_selectedFilter == 'snoozed') {
+      for (final item in inboxSnapshot.snoozedItems) {
+        final meta = metaByKey[item.dedupKey];
+        if (meta != null && matchesEntry(item, meta)) {
+          groupedSections
+              .putIfAbsent(item.kind, () => <SmartInboxItem>[])
+              .add(item);
+        }
+      }
+    } else {
+      for (final groupEntry in inboxSnapshot.groupedByKind.entries) {
+        final filtered = groupEntry.value.where((item) {
+          final meta = metaByKey[item.dedupKey];
+          return meta != null && matchesEntry(item, meta);
+        }).toList();
+        if (filtered.isNotEmpty) {
+          groupedSections[groupEntry.key] = filtered;
+        }
+      }
     }
 
     final filters = const <(String key, String label)>[
@@ -281,6 +712,163 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
       ('other', 'Lịch & Việc'),
       ('snoozed', 'Đã hoãn'),
     ];
+
+    Widget buildActivityCard(SmartInboxItem inboxItem, _ActivityFeedMeta meta) {
+      final dk = inboxItem.dedupKey;
+      final isRead = inboxItem.isRead;
+      final isSnoozed = _selectedFilter == 'snoozed';
+      final tier = inboxItem.effectiveTier;
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: LifeOsSoftCard(
+          onTap: () {
+            setState(() => _readDedupKeys.add(dk));
+            _saveInboxState();
+            meta.onTap();
+          },
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LifeOsIconSquircle(icon: meta.icon, tone: meta.tone, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (!isRead) ...[
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: c.primary,
+                            ),
+                          ),
+                        ],
+                        Expanded(
+                          child: Text(
+                            meta.title,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontWeight: isRead
+                                  ? FontWeight.w600
+                                  : FontWeight.w800,
+                              fontSize: 14.5,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          meta.timeLabel,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta.subtitle,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 12.8,
+                        height: 1.35,
+                        color: c.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        LifeOsStatusPill(
+                          label: tier.labelVi,
+                          icon: _tierIcon(tier),
+                          tone: _tierTone(tier),
+                        ),
+                        if (meta.metaBadge != null)
+                          LifeOsStatusPill(
+                            label: meta.metaBadge!,
+                            tone: meta.tone,
+                          ),
+                        TextButton.icon(
+                          key: Key('snooze_btn_$dk'),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(64, 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                          ),
+                          onPressed: () {
+                            if (isSnoozed) {
+                              setState(() {
+                                _snoozedUntilByKey.remove(dk);
+                              });
+                              _saveInboxState();
+                              LifeOsTopToast.show(
+                                context,
+                                'Đã khôi phục thông báo vào danh sách chính.',
+                                kind: LifeOsToastKind.info,
+                              );
+                            } else {
+                              _openSnoozePicker(dk, meta.title);
+                            }
+                          },
+                          icon: Icon(
+                            isSnoozed
+                                ? Icons.notifications_active_outlined
+                                : Icons.snooze_rounded,
+                            size: 16,
+                          ),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(isSnoozed ? 'Bỏ hoãn' : 'Hoãn'),
+                          ),
+                        ),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(56, 44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                          ),
+                          onPressed: () {
+                            setState(() => _dismissedDedupKeys.add(dk));
+                            _saveInboxState();
+                            LifeOsTopToast.show(
+                              context,
+                              'Đã ẩn thông báo này khỏi hộp thư đến.',
+                              kind: LifeOsToastKind.info,
+                            );
+                          },
+                          icon: const Icon(Icons.done_all_rounded, size: 16),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('Ẩn'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -294,7 +882,10 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                 trailingAction: TextButton.icon(
                   onPressed: () => context.push('/notifications-privacy'),
                   icon: const Icon(Icons.tune_rounded, size: 17),
-                  label: const Text('Cài đặt'),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Cài đặt'),
+                  ),
                 ),
               ),
               Expanded(
@@ -311,36 +902,128 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                         AppSpacing.xxl,
                       ),
                       children: [
-                        TextField(
-                          key: const Key('activity_search_field'),
-                          controller: _searchCtrl,
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: 'Tìm biến động, lịch hẹn, việc làm...',
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              size: 19,
-                            ),
-                            suffixIcon: _searchQuery.isEmpty
-                                ? null
-                                : IconButton(
-                                    key: const Key('activity_search_clear_btn'),
-                                    tooltip: 'Xóa tìm kiếm',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => setState(() {
-                                      _searchCtrl.clear();
-                                      _searchQuery = '';
-                                    }),
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                    ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: const Key('activity_search_field'),
+                                controller: _searchCtrl,
+                                onChanged: (v) =>
+                                    setState(() => _searchQuery = v),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  hintText:
+                                      'Tìm biến động, lịch hẹn, việc làm...',
+                                  prefixIcon: const Icon(
+                                    Icons.search_rounded,
+                                    size: 19,
                                   ),
-                          ),
+                                  suffixIcon: _searchQuery.isEmpty
+                                      ? null
+                                      : IconButton(
+                                          key: const Key(
+                                            'activity_search_clear_btn',
+                                          ),
+                                          tooltip: 'Xóa tìm kiếm',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () => setState(() {
+                                            _searchCtrl.clear();
+                                            _searchQuery = '';
+                                          }),
+                                          icon: const Icon(
+                                            Icons.close_rounded,
+                                            size: 18,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              key: const Key(
+                                'open_notification_prefs_sheet_btn',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(
+                                  48,
+                                  AppSpacing.buttonHeightM,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                              ),
+                              onPressed: _openNotificationExperienceSheet,
+                              icon: Icon(
+                                _expPrefs.quietHoursEnabled
+                                    ? Icons.nights_stay_rounded
+                                    : Icons.tune_rounded,
+                                size: 18,
+                              ),
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Bộ lọc'),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 10),
-                        // Filter Pills: Tất cả | Tiền vào | Tiền ra | Lịch & Việc
+                        if (inboxSnapshot.isQuietHoursActive ||
+                            inboxSnapshot.digestSummaryVi != null) ...[
+                          LifeOsMintHeroCard(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (inboxSnapshot.isQuietHoursActive)
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.nights_stay_outlined,
+                                        size: 18,
+                                        color: c.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Giờ yên tĩnh đang bật (${_expPrefs.quietStartHour}:00–${_expPrefs.quietEndHour}:00) · Giữ lại ${inboxSnapshot.quietDeferredItems.length} tin không khẩn cấp',
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: c.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                if (inboxSnapshot.digestSummaryVi != null) ...[
+                                  if (inboxSnapshot.isQuietHoursActive)
+                                    const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.summarize_outlined,
+                                        size: 18,
+                                        color: c.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          inboxSnapshot.digestSummaryVi!,
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            color: c.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        // Filter Pills: Tất cả | Tiền vào | Tiền ra | Lịch & Việc | Đã hoãn
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -382,7 +1065,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         color: active
-                                            ? Colors.white
+                                            ? c.onPrimary
                                             : c.textSecondary,
                                       ),
                                     ),
@@ -393,7 +1076,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        if (indexedVisible.isEmpty)
+                        if (groupedSections.isEmpty)
                           LifeOsMintHeroCard(
                             child: Column(
                               children: [
@@ -453,134 +1136,53 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                             ),
                           )
                         else
-                          ...indexedVisible.map((entry) {
-                            final item = entry.item;
-                            final dk = entry.dedupKey;
-                            final isRead = _readDedupKeys.contains(dk);
-                            final isSnoozed = snoozedSet.contains(dk);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: LifeOsSoftCard(
-                                onTap: () {
-                                  setState(() => _readDedupKeys.add(dk));
-                                  item.onTap();
-                                },
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    LifeOsIconSquircle(
-                                      icon: item.icon,
-                                      tone: item.tone,
-                                      size: 42,
+                          for (final section in groupedSections.entries) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8, top: 4),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      section.key.groupTitleVi,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
+                                      ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  item.title,
-                                                  softWrap: true,
-                                                  style: TextStyle(
-                                                    fontWeight: isRead
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w800,
-                                                    fontSize: 14.5,
-                                                    color: c.textPrimary,
-                                                  ),
-                                                ),
-                                              ),
-                                              Text(
-                                                item.timeLabel,
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  color: c.textSecondary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            item.subtitle,
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 12.8,
-                                              height: 1.35,
-                                              color: c.textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
-                                            crossAxisAlignment:
-                                                WrapCrossAlignment.center,
-                                            children: [
-                                              if (item.metaBadge != null)
-                                                LifeOsStatusPill(
-                                                  label: item.metaBadge!,
-                                                  tone: item.tone,
-                                                ),
-                                              InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                onTap: () {
-                                                  setState(() {
-                                                    if (isSnoozed) {
-                                                      _snoozedUntilByKey.remove(
-                                                        dk,
-                                                      );
-                                                    } else {
-                                                      _snoozedUntilByKey[dk] =
-                                                          DateTime.now().add(
-                                                            const Duration(
-                                                              hours: 1,
-                                                            ),
-                                                          );
-                                                    }
-                                                  });
-                                                  LifeOsTopToast.show(
-                                                    context,
-                                                    isSnoozed
-                                                        ? 'Đã khôi phục thông báo vào danh sách chính.'
-                                                        : 'Đã tạm hoãn thông báo 1 giờ.',
-                                                    kind: LifeOsToastKind.info,
-                                                  );
-                                                },
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 6,
-                                                        vertical: 2,
-                                                      ),
-                                                  child: Text(
-                                                    isSnoozed
-                                                        ? 'Bỏ hoãn'
-                                                        : 'Hoãn 1h',
-                                                    style: TextStyle(
-                                                      fontSize: 11.5,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: c.primary,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: c.primarySubtle,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${section.value.length}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.primary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
                                         ],
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }),
+                            ),
+                            for (final item in section.value)
+                              if (metaByKey[item.dedupKey] != null)
+                                buildActivityCard(
+                                  item,
+                                  metaByKey[item.dedupKey]!,
+                                ),
+                            const SizedBox(height: 4),
+                          ],
                       ],
                     ),
                   ),

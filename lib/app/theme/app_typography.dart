@@ -1,8 +1,25 @@
 import 'package:flutter/material.dart';
+
 import 'app_colors.dart';
 
 abstract final class AppTypography {
   static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
+
+  static TextStyle financialNumber(
+    TammySemanticColors c, {
+    double fontSize = 20,
+    FontWeight fontWeight = FontWeight.w800,
+    Color? color,
+  }) {
+    return TextStyle(
+      fontSize: fontSize,
+      height: 1.2,
+      fontWeight: fontWeight,
+      letterSpacing: -0.35,
+      fontFeatures: _tabular,
+      color: color ?? c.textPrimary,
+    );
+  }
 
   static TextTheme buildTextTheme(TammySemanticColors colors) {
     return TextTheme(

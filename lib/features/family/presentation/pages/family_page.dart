@@ -12,6 +12,7 @@ import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
+import '../../../../core/widgets/trust_ux_widgets.dart';
 import '../../../../core/widgets/vietqr_settlement_sheet.dart';
 import '../../../../core/widgets/voice_smart_capture_sheet.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -1037,9 +1038,33 @@ class _SplitBillsAndSettlementTabViewState
               child: ledger.memberBalances.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.all(AppSpacing.sm),
-                      child: Text(
-                        'Chưa có số liệu cân đối chi tiêu giữa các thành viên.',
-                        style: TextStyle(fontSize: 13, color: c.textSecondary),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chưa có số liệu cân đối chi tiêu giữa các thành viên.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            onPressed: state.isSubmitting
+                                ? null
+                                : () => showSharedBillSplitSheet(
+                                    context,
+                                    family: family,
+                                    currentUserId: currentUserId,
+                                    currentUserName: currentUserName,
+                                  ),
+                            icon: const Icon(
+                              Icons.call_split_rounded,
+                              size: 17,
+                            ),
+                            label: const Text('Chia khoản mới'),
+                          ),
+                        ],
                       ),
                     )
                   : Column(
@@ -1058,88 +1083,112 @@ class _SplitBillsAndSettlementTabViewState
                               final statusColor = isPositive
                                   ? c.success
                                   : (isNegative ? c.error : c.textSecondary);
+                              final statusIcon = isPositive
+                                  ? Icons.south_west_rounded
+                                  : (isNegative
+                                        ? Icons.north_east_rounded
+                                        : Icons.check_circle_outline_rounded);
                               final statusLabel = isPositive
                                   ? 'Nhận lại ${VndAmount.format(mb.netBalanceMinor)}'
                                   : isNegative
                                   ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
                                   : 'Đã cân bằng';
 
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 6,
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: c.primarySubtle,
-                                      child: Text(
-                                        mb.fullName.isNotEmpty
-                                            ? mb.fullName[0].toUpperCase()
-                                            : '?',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          color: c.primary,
+                              return Semantics(
+                                container: true,
+                                label:
+                                    '${mb.fullName}, $statusLabel, đã trả ${VndAmount.format(mb.totalPaidMinor)}, phần chia ${VndAmount.format(mb.totalOwedMinor)}',
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: c.primarySubtle,
+                                        child: Text(
+                                          mb.fullName.isNotEmpty
+                                              ? mb.fullName[0].toUpperCase()
+                                              : '?',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            color: c.primary,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 4,
-                                            alignment:
-                                                WrapAlignment.spaceBetween,
-                                            crossAxisAlignment:
-                                                WrapCrossAlignment.center,
-                                            children: [
-                                              Text(
-                                                mb.fullName,
-                                                softWrap: true,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w700,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              alignment:
+                                                  WrapAlignment.spaceBetween,
+                                              crossAxisAlignment:
+                                                  WrapCrossAlignment.center,
+                                              children: [
+                                                Text(
+                                                  mb.fullName,
+                                                  softWrap: true,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                ),
+                                                Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      statusIcon,
+                                                      size: 15,
+                                                      color: statusColor,
                                                     ),
-                                              ),
-                                              Text(
-                                                statusLabel,
-                                                style: TextStyle(
-                                                  fontSize: 12.5,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: statusColor,
-                                                  fontFeatures: const [
-                                                    FontFeature.tabularFigures(),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      statusLabel,
+                                                      style: TextStyle(
+                                                        fontSize: 12.5,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        color: statusColor,
+                                                        fontFeatures: const [
+                                                          FontFeature.tabularFigures(),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 3),
-                                          Text(
-                                            'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
-                                            softWrap: true,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontFeatures: const [
-                                                    FontFeature.tabularFigures(),
-                                                  ],
-                                                ),
-                                          ),
-                                        ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
+                                              softWrap: true,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               );
                             },
@@ -1343,7 +1392,7 @@ class _SplitBillsAndSettlementTabViewState
                                 );
                               },
                               icon: const Icon(Icons.copy_rounded, size: 15),
-                              label: const Text('Copy mã'),
+                              label: const Text('Sao chép mã'),
                             ),
                             FilledButton.tonalIcon(
                               onPressed: state.isSubmitting
@@ -1517,6 +1566,19 @@ class _SplitBillsAndSettlementTabViewState
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        const Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            FinancialTrustStatusBadge(
+                              status: FinancialTrustStatus.saved,
+                              customLabel: 'Đã ghi sổ chung',
+                              compact: true,
+                            ),
+                            DataVisibilityBadge(isFamilyShared: true),
+                          ],
+                        ),
                         const SizedBox(height: 10),
                         LifeOsDetailsDiscloseSection(
                           label: 'Chi tiết phần chia',
@@ -1643,21 +1705,32 @@ class _SplitBillsAndSettlementTabViewState
                             ),
                             const SizedBox(width: 8),
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 118),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  VndAmount.format(st.amountMinor),
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: c.success,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
+                              constraints: const BoxConstraints(maxWidth: 130),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      VndAmount.format(st.amountMinor),
+                                      style: TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.success,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 4),
+                                  const FinancialTrustStatusBadge(
+                                    status: FinancialTrustStatus.reconciled,
+                                    customLabel: 'Đã tất toán',
+                                    compact: true,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -2670,25 +2743,46 @@ class _MembersAndGovernanceTabViewState
             if (activeInvites.isEmpty)
               LifeOsSoftCard(
                 padding: const EdgeInsets.all(14),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const LifeOsIconSquircle(
-                      icon: Icons.group_add_outlined,
-                      tone: LifeOsAccentTone.amber,
-                      size: 38,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Chưa có lời mời đang chờ xác nhận.',
-                        softWrap: true,
-                        style: TextStyle(
-                          fontSize: 12.6,
-                          height: 1.32,
-                          color: c.textSecondary,
+                    Row(
+                      children: [
+                        const LifeOsIconSquircle(
+                          icon: Icons.group_add_outlined,
+                          tone: LifeOsAccentTone.amber,
+                          size: 38,
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Chưa có lời mời đang chờ xác nhận.',
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 12.6,
+                              height: 1.32,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    if (isManager) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => showFamilyInviteMemberSheet(
+                          context,
+                          family: family,
+                          currentUserId: currentUserId,
+                          currentUserName: currentUserName,
+                        ),
+                        icon: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          size: 17,
+                        ),
+                        label: const Text('Mời thành viên'),
+                      ),
+                    ],
                   ],
                 ),
               )

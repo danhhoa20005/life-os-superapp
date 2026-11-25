@@ -16,6 +16,7 @@ import '../../../../core/utils/csv_sanitizer.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
+import '../../../../core/widgets/trust_ux_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../notifications/domain/entities/notification_entities.dart';
 import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dart';
@@ -371,8 +372,17 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     final isTransfer =
         tx.kind == TransactionKind.transfer ||
         tx.kind == TransactionKind.creditCardPayment;
-    final rawSmsPreview =
-        'Ngân hàng: Đã ghi nhận ${isCredit ? "tiền vào" : "thanh toán"} ${VndAmount.format(tx.amountMinor)} · ${tx.merchant}.';
+    final trustStatus = _resolveTransactionTrustStatus(tx);
+    final (sourceText, sourceIcon) = _resolveTransactionSourceMeta(
+      tx.sourceKind,
+    );
+    final isAutoDetected =
+        tx.sourceKind == TransactionSourceKind.androidNotification ||
+        tx.sourceKind == TransactionSourceKind.bankWebhook ||
+        tx.sourceKind == TransactionSourceKind.bankApi;
+    final rawSmsPreview = isAutoDetected
+        ? 'Ngân hàng: Đã ghi nhận ${isCredit ? "tiền vào" : "thanh toán"} ${VndAmount.format(tx.amountMinor)} · ${tx.merchant}.'
+        : '$sourceText: ${isCredit ? "Khoản thu" : "Khoản chi"} ${VndAmount.format(tx.amountMinor)} · ${tx.merchant}.';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -393,13 +403,15 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
           ),
           const SizedBox(height: 8),
         ],
-        // 1. Pastel Mint Bank Notification Source Box
+        // 1. Pastel Mint Source Box
         LifeOsMintHeroCard(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const LifeOsIconSquircle(
-                icon: Icons.account_balance_rounded,
+              LifeOsIconSquircle(
+                icon: isAutoDetected
+                    ? Icons.account_balance_rounded
+                    : sourceIcon,
                 tone: LifeOsAccentTone.emerald,
                 solidFill: true,
                 size: 44,
@@ -417,7 +429,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          'Thông báo ngân hàng (đã nhận diện)',
+                          sourceText,
                           softWrap: true,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
@@ -453,17 +465,18 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
           ),
         ),
 
-        // 2. Green Arrow + Auto-Detected Pill
+        // 2. Connector Arrow + Real Verification Pill
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Column(
             children: [
               Icon(Icons.arrow_downward_rounded, color: c.primary, size: 22),
               const SizedBox(height: 6),
-              const LifeOsStatusPill(
-                icon: Icons.auto_awesome_rounded,
-                label: 'Đã tự động nhận diện giao dịch',
-                tone: LifeOsAccentTone.emerald,
+              FinancialTrustStatusBadge(
+                status: trustStatus,
+                customLabel: tx.verification == TransactionVerification.rejected
+                    ? 'Đã bỏ qua'
+                    : null,
               ),
             ],
           ),
@@ -484,14 +497,18 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.auto_awesome_rounded,
+                        isAutoDetected
+                            ? Icons.auto_awesome_rounded
+                            : sourceIcon,
                         size: 18,
                         color: c.primary,
                       ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          'Đã nhận diện giao dịch',
+                          isAutoDetected
+                              ? 'Thông tin giao dịch nhận diện'
+                              : 'Thông tin giao dịch',
                           softWrap: true,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
@@ -502,10 +519,12 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       ),
                     ],
                   ),
-                  const LifeOsStatusPill(
-                    icon: Icons.rule_folder_outlined,
-                    label: 'Khớp mẫu · Chờ duyệt',
-                    tone: LifeOsAccentTone.amber,
+                  FinancialTrustStatusBadge(
+                    status: trustStatus,
+                    customLabel:
+                        tx.verification == TransactionVerification.rejected
+                        ? 'Đã bỏ qua'
+                        : null,
                   ),
                 ],
               ),
@@ -615,7 +634,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Xác minh',
+                        'Nguồn & Xác minh',
                         style: TextStyle(
                           fontSize: 13.5,
                           color: c.textSecondary,
@@ -623,10 +642,25 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       ),
                     ],
                   ),
-                  const LifeOsStatusPill(
-                    icon: Icons.check_circle_outline_rounded,
-                    label: 'Từ thông báo ngân hàng',
-                    tone: LifeOsAccentTone.emerald,
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      LifeOsStatusPill(
+                        icon: sourceIcon,
+                        label: sourceText,
+                        tone: isAutoDetected
+                            ? LifeOsAccentTone.blue
+                            : LifeOsAccentTone.neutral,
+                      ),
+                      FinancialTrustStatusBadge(
+                        status: trustStatus,
+                        customLabel:
+                            tx.verification == TransactionVerification.rejected
+                            ? 'Đã bỏ qua'
+                            : null,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1140,6 +1174,51 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
         ),
       ],
     );
+  }
+
+  FinancialTrustStatus _resolveTransactionTrustStatus(TransactionEntity tx) {
+    if (tx.isReversed) return FinancialTrustStatus.reversed;
+    if (tx.reconciliationStatus == 'disputed') {
+      return FinancialTrustStatus.disputed;
+    }
+    if (tx.hasPendingWrites) return FinancialTrustStatus.syncing;
+    return switch (tx.verification) {
+      TransactionVerification.provisional =>
+        FinancialTrustStatus.pendingConfirmation,
+      TransactionVerification.needsReview => FinancialTrustStatus.needsReview,
+      TransactionVerification.verified ||
+      TransactionVerification.matchedPaymentOrder =>
+        FinancialTrustStatus.reconciled,
+      TransactionVerification.userConfirmed => FinancialTrustStatus.saved,
+      TransactionVerification.rejected => FinancialTrustStatus.syncFailed,
+    };
+  }
+
+  (String label, IconData icon) _resolveTransactionSourceMeta(
+    TransactionSourceKind kind,
+  ) {
+    return switch (kind) {
+      TransactionSourceKind.androidNotification => (
+        'Từ thông báo ngân hàng',
+        Icons.notifications_active_outlined,
+      ),
+      TransactionSourceKind.bankWebhook => (
+        'Đồng bộ tự động ngân hàng',
+        Icons.sync_rounded,
+      ),
+      TransactionSourceKind.bankApi => (
+        'Đối soát ngân hàng',
+        Icons.account_balance_outlined,
+      ),
+      TransactionSourceKind.csv => (
+        'Nhập từ sao kê CSV',
+        Icons.table_view_rounded,
+      ),
+      TransactionSourceKind.manual => (
+        'Ghi chép thủ công',
+        Icons.edit_note_rounded,
+      ),
+    };
   }
 }
 

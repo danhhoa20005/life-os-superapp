@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import '../motion/lifeos_motion.dart';
 import '../utils/vnd_amount.dart';
 import 'liquid_glass.dart';
 import 'status_widgets.dart';
+import 'trust_ux_widgets.dart';
 
 /// Sunken Apple Liquid Glass pill container framing a `TabBar` as an iOS 26 Segmented Control.
 class ProPillTabContainer extends StatelessWidget {
@@ -1134,25 +1136,35 @@ class _ProDonutChartState extends State<ProDonutChart> {
         );
 
         if (isWide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              donutRing,
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(child: legendList),
-            ],
+          return Semantics(
+            container: true,
+            label:
+                'Biểu đồ cơ cấu ${widget.centerTitle}, tổng ${VndAmount.format(widget.totalExpenseMinor)}, ${widget.slices.length} danh mục',
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                donutRing,
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(child: legendList),
+              ],
+            ),
           );
         }
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(child: donutRing),
-            if (topSlices.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              legendList,
+        return Semantics(
+          container: true,
+          label:
+              'Biểu đồ cơ cấu ${widget.centerTitle}, tổng ${VndAmount.format(widget.totalExpenseMinor)}, ${widget.slices.length} danh mục',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(child: donutRing),
+              if (topSlices.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                legendList,
+              ],
             ],
-          ],
+          ),
         );
       },
     );
@@ -1564,265 +1576,277 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
       return '$prefix${VndAmount.formatCompact(minor)}';
     }
 
-    return LiquidGlassSurface(
-      material: LiquidGlassMaterial.card,
-      borderRadius: 20,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      onTap: widget.onTapAnalytics,
-      enableBlur: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: c.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.candlestick_chart_rounded,
-                      size: 19,
-                      color: c.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Dòng tiền 7 ngày',
-                          softWrap: true,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          'Chạm cột để xem từng ngày',
-                          softWrap: true,
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: scoreColor.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                  border: Border.all(
-                    color: scoreColor.withValues(alpha: 0.3),
-                    width: 0.8,
-                  ),
-                ),
-                child: Row(
+    return Semantics(
+      container: true,
+      label:
+          'Biểu đồ dòng tiền 7 ngày, điểm sức khỏe tài chính $score điểm ($scoreLabel)',
+      child: LiquidGlassSurface(
+        material: LiquidGlassMaterial.card,
+        borderRadius: 20,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        onTap: widget.onTapAnalytics,
+        enableBlur: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.workspace_premium_rounded,
-                      size: 14,
-                      color: scoreColor,
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: c.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.candlestick_chart_rounded,
+                        size: 19,
+                        color: c.primary,
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$score điểm · $scoreLabel',
-                      style: TextStyle(
-                        color: scoreColor,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dòng tiền 7 ngày',
+                            softWrap: true,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            'Chạm cột để xem từng ngày',
+                            softWrap: true,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 6,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ChartLegendDot(color: c.success, label: 'Thu'),
-                  const SizedBox(width: 10),
-                  const _ChartLegendDot(color: expenseBarColor, label: 'Chi'),
-                ],
-              ),
-              if (sel != null)
-                InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => setState(() => _selectedDayIndex = null),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scoreColor.withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                    border: Border.all(
+                      color: scoreColor.withValues(alpha: 0.3),
+                      width: 0.8,
                     ),
-                    decoration: BoxDecoration(
-                      color: c.primary.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${weekdayLabels[sel]} (${dayDates[sel].day.toString().padLeft(2, '0')}/${dayDates[sel].month.toString().padLeft(2, '0')}): '
-                      'Thu ${fmtCompact(selInc, prefix: '+')} · Chi ${fmtCompact(selExp, prefix: '-')}',
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.workspace_premium_rounded,
+                        size: 14,
+                        color: scoreColor,
                       ),
-                    ),
-                  ),
-                )
-              else
-                Text(
-                  maxVal > 0 ? 'Đỉnh: ${fmtCompact(maxVal)}' : 'Chưa phát sinh',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: c.textSecondary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return GestureDetector(
-                key: const Key('pro_cashflow_chart_area'),
-                behavior: HitTestBehavior.opaque,
-                onTapUp: (d) => _selectBucketFromDx(
-                  d.localPosition.dx,
-                  constraints.maxWidth,
-                  toggle: true,
-                ),
-                onHorizontalDragUpdate: (d) => _selectBucketFromDx(
-                  d.localPosition.dx,
-                  constraints.maxWidth,
-                  toggle: false,
-                ),
-                child: SizedBox(
-                  height: 98,
-                  width: double.infinity,
-                  child: TweenAnimationBuilder<double>(
-                    key: barsDataKey,
-                    tween: Tween<double>(
-                      begin: (motion.isReducedMotion || !tickersEnabled)
-                          ? 1.0
-                          : 0.0,
-                      end: 1.0,
-                    ),
-                    duration: motion.resolveDuration(LifeOsMotionTokens.medium),
-                    curve: LifeOsMotionTokens.emphasizedCurve,
-                    builder: (context, barProgress, _) {
-                      return CustomPaint(
-                        painter: _CashflowBarsPainter(
-                          incomes: widget.dailyIncomesMinor,
-                          expenses: widget.dailyExpensesMinor,
-                          selectedDayIndex: _selectedDayIndex,
-                          barProgress: barProgress.clamp(0.0, 1.0),
-                          incomeColor: c.success,
-                          expenseColor: expenseBarColor,
-                          highlightColor: c.primary.withValues(alpha: 0.08),
-                          gridColor: c.separator.withValues(alpha: 0.55),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$score điểm · $scoreLabel',
+                        style: TextStyle(
+                          color: scoreColor,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: List.generate(7, (idx) {
-              final isToday = idx == 6;
-              final isSelected = _selectedDayIndex == idx;
-              return Expanded(
-                child: InkWell(
-                  key: Key('pro_cashflow_day_$idx'),
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () {
-                    LifeOsMotionScope.read(context).selectionHaptic();
-                    setState(() {
-                      _selectedDayIndex = isSelected ? null : idx;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(
-                      weekdayLabels[idx],
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: (isSelected || isToday)
-                            ? FontWeight.w800
-                            : FontWeight.w500,
-                        color: isSelected
-                            ? c.primary
-                            : (isToday ? c.textPrimary : c.textSecondary),
-                        fontFeatures: const [FontFeature.tabularFigures()],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ChartLegendDot(color: c.success, label: 'Thu'),
+                    const SizedBox(width: 10),
+                    const _ChartLegendDot(color: expenseBarColor, label: 'Chi'),
+                  ],
+                ),
+                if (sel != null)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _selectedDayIndex = null),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${weekdayLabels[sel]} (${dayDates[sel].day.toString().padLeft(2, '0')}/${dayDates[sel].month.toString().padLeft(2, '0')}): '
+                        'Thu ${fmtCompact(selInc, prefix: '+')} · Chi ${fmtCompact(selExp, prefix: '-')}',
+                        softWrap: true,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: c.textPrimary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    maxVal > 0
+                        ? 'Đỉnh: ${fmtCompact(maxVal)}'
+                        : 'Chưa phát sinh',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: c.textSecondary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return GestureDetector(
+                  key: const Key('pro_cashflow_chart_area'),
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (d) => _selectBucketFromDx(
+                    d.localPosition.dx,
+                    constraints.maxWidth,
+                    toggle: true,
+                  ),
+                  onHorizontalDragUpdate: (d) => _selectBucketFromDx(
+                    d.localPosition.dx,
+                    constraints.maxWidth,
+                    toggle: false,
+                  ),
+                  child: SizedBox(
+                    height: 98,
+                    width: double.infinity,
+                    child: TweenAnimationBuilder<double>(
+                      key: barsDataKey,
+                      tween: Tween<double>(
+                        begin: (motion.isReducedMotion || !tickersEnabled)
+                            ? 1.0
+                            : 0.0,
+                        end: 1.0,
+                      ),
+                      duration: motion.resolveDuration(
+                        LifeOsMotionTokens.medium,
+                      ),
+                      curve: LifeOsMotionTokens.emphasizedCurve,
+                      builder: (context, barProgress, _) {
+                        return CustomPaint(
+                          painter: _CashflowBarsPainter(
+                            incomes: widget.dailyIncomesMinor,
+                            expenses: widget.dailyExpensesMinor,
+                            selectedDayIndex: _selectedDayIndex,
+                            barProgress: barProgress.clamp(0.0, 1.0),
+                            incomeColor: c.success,
+                            expenseColor: expenseBarColor,
+                            highlightColor: c.primary.withValues(alpha: 0.08),
+                            gridColor: c.separator.withValues(alpha: 0.55),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: List.generate(7, (idx) {
+                final isToday = idx == 6;
+                final isSelected = _selectedDayIndex == idx;
+                return Expanded(
+                  child: InkWell(
+                    key: Key('pro_cashflow_day_$idx'),
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      LifeOsMotionScope.read(context).selectionHaptic();
+                      setState(() {
+                        _selectedDayIndex = isSelected ? null : idx;
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        weekdayLabels[idx],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: (isSelected || isToday)
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? c.primary
+                              : (isToday ? c.textPrimary : c.textSecondary),
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                   ),
+                );
+              }),
+            ),
+            const Divider(height: 22),
+            Row(
+              children: [
+                _CapitalColumn(
+                  label: 'Thanh khoản',
+                  value: widget.obscureAmounts
+                      ? '•••••• ₫'
+                      : VndAmount.format(widget.liquidAssetsMinor),
+                  valueColor: c.textPrimary,
                 ),
-              );
-            }),
-          ),
-          const Divider(height: 22),
-          Row(
-            children: [
-              _CapitalColumn(
-                label: 'Thanh khoản',
-                value: widget.obscureAmounts
-                    ? '•••••• ₫'
-                    : VndAmount.format(widget.liquidAssetsMinor),
-                valueColor: c.textPrimary,
-              ),
-              Container(
-                width: 1,
-                height: 28,
-                color: c.separator.withValues(alpha: 0.6),
-              ),
-              _CapitalColumn(
-                label: 'Tích lũy',
-                value: widget.obscureAmounts
-                    ? '•••••• ₫'
-                    : VndAmount.format(widget.savingsAssetsMinor),
-                valueColor: c.success,
-              ),
-              Container(
-                width: 1,
-                height: 28,
-                color: c.separator.withValues(alpha: 0.6),
-              ),
-              _CapitalColumn(
-                label: 'Hạn mức / ngày',
-                value: widget.obscureAmounts
-                    ? '•••••• ₫'
-                    : VndAmount.format(widget.dailySafeToSpendMinor),
-                valueColor: c.secondary,
-              ),
-            ],
-          ),
-        ],
+                Container(
+                  width: 1,
+                  height: 28,
+                  color: c.separator.withValues(alpha: 0.6),
+                ),
+                _CapitalColumn(
+                  label: 'Tích lũy',
+                  value: widget.obscureAmounts
+                      ? '•••••• ₫'
+                      : VndAmount.format(widget.savingsAssetsMinor),
+                  valueColor: c.success,
+                ),
+                Container(
+                  width: 1,
+                  height: 28,
+                  color: c.separator.withValues(alpha: 0.6),
+                ),
+                _CapitalColumn(
+                  label: 'Hạn mức / ngày',
+                  value: widget.obscureAmounts
+                      ? '•••••• ₫'
+                      : VndAmount.format(widget.dailySafeToSpendMinor),
+                  valueColor: c.secondary,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2094,6 +2118,9 @@ class ProFintechStatementTile extends StatelessWidget {
   final bool isTransfer;
   final bool isReversed;
   final bool isVerified;
+  final bool isProvisional;
+  final bool needsReview;
+  final bool isDisputed;
   final bool hasPendingWrites;
   final String? splitSummary;
   final bool obscureAmounts;
@@ -2111,15 +2138,30 @@ class ProFintechStatementTile extends StatelessWidget {
     required this.isTransfer,
     this.isReversed = false,
     this.isVerified = true,
+    this.isProvisional = false,
+    this.needsReview = false,
+    this.isDisputed = false,
     this.hasPendingWrites = false,
     this.splitSummary,
     this.obscureAmounts = false,
     this.onTap,
   });
 
+  FinancialTrustStatus _resolveTrustStatus() {
+    if (isReversed) return FinancialTrustStatus.reversed;
+    if (isDisputed) return FinancialTrustStatus.disputed;
+    if (hasPendingWrites) return FinancialTrustStatus.syncing;
+    if (needsReview) return FinancialTrustStatus.needsReview;
+    if (isProvisional) return FinancialTrustStatus.pendingConfirmation;
+    if (isVerified) return FinancialTrustStatus.reconciled;
+    return FinancialTrustStatus.saved;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
+    final trustStatus = _resolveTrustStatus();
+    final (_, trustFg, _, _) = trustStatus.resolveVisual(c);
 
     final amountColor = isReversed
         ? c.textSecondary
@@ -2146,128 +2188,151 @@ class ProFintechStatementTile extends StatelessWidget {
       156.0,
     );
 
-    return LiquidGlassSurface(
-      material: LiquidGlassMaterial.card,
-      borderRadius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      onTap: onTap,
-      enableBlur: false,
-      child: Row(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              ProCategoryStyle.buildCategoryBadge(
-                categoryName,
-                isCredit: isCredit,
-                isTransfer: isTransfer,
-                size: 44,
-              ),
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: c.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(1.5),
-                  child: Icon(
-                    hasPendingWrites
-                        ? Icons.cloud_upload_rounded
-                        : (isVerified
-                              ? Icons.verified_rounded
-                              : Icons.check_circle_rounded),
-                    size: 13,
-                    color: hasPendingWrites ? c.warning : c.success,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Semantics(
+      container: true,
+      label:
+          '$merchant, ${metaParts.join(", ")}, $formattedAmount, trạng thái ${trustStatus.labelVi}',
+      child: LiquidGlassSurface(
+        material: LiquidGlassMaterial.card,
+        borderRadius: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        onTap: onTap,
+        enableBlur: false,
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
               children: [
-                Text(
-                  merchant,
-                  softWrap: true,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.22,
-                    decoration: isReversed ? TextDecoration.lineThrough : null,
-                  ),
+                ProCategoryStyle.buildCategoryBadge(
+                  categoryName,
+                  isCredit: isCredit,
+                  isTransfer: isTransfer,
+                  size: 44,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  metaParts.join(' · '),
-                  softWrap: true,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.28),
-                ),
-                if (splitSummary != null && splitSummary!.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    splitSummary!,
-                    softWrap: true,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: c.primary,
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 17,
+                    height: 17,
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: trustFg.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
                     ),
+                    padding: const EdgeInsets.all(1.5),
+                    child: Icon(trustStatus.icon, size: 12.5, color: trustFg),
                   ),
-                ],
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxRightWidth),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    formattedAmount,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w800,
-                      color: amountColor,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    merchant,
+                    softWrap: true,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.22,
                       decoration: isReversed
                           ? TextDecoration.lineThrough
                           : null,
-                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    isReversed
-                        ? 'Đã hoàn tác'
-                        : (balanceAfterMinor != null && !obscureAmounts
-                              ? 'SD: ${VndAmount.format(balanceAfterMinor!)}'
-                              : (hasPendingWrites ? 'Chờ đồng bộ' : 'Đã lưu')),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: c.textSecondary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                  const SizedBox(height: 3),
+                  Text(
+                    metaParts.join(' · '),
+                    softWrap: true,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(fontSize: 12, height: 1.28),
                   ),
-                ),
-              ],
+                  if (splitSummary != null && splitSummary!.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      splitSummary!,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: c.primary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxRightWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      formattedAmount,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: amountColor,
+                        decoration: isReversed
+                            ? TextDecoration.lineThrough
+                            : null,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  if (balanceAfterMinor != null &&
+                      !obscureAmounts &&
+                      !isReversed) ...[
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        'SD: ${VndAmount.format(balanceAfterMinor!)}',
+                        style: TextStyle(
+                          fontSize: 10.8,
+                          fontWeight: FontWeight.w600,
+                          color: c.textSecondary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 3),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(trustStatus.icon, size: 11.5, color: trustFg),
+                        const SizedBox(width: 3),
+                        Text(
+                          trustStatus.labelVi,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: trustFg,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

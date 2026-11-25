@@ -44,7 +44,7 @@ class TammySemanticColors extends ThemeExtension<TammySemanticColors> {
   });
 
   static const TammySemanticColors light = TammySemanticColors(
-    primary: Color(0xFF0D8A3E),
+    primary: Color(0xFF0B7A2A),
     onPrimary: Color(0xFFFFFFFF),
     primarySubtle: Color(0xFFECFDF3),
     secondary: Color(0xFF2563EB),
@@ -56,17 +56,17 @@ class TammySemanticColors extends ThemeExtension<TammySemanticColors> {
     textSecondary: Color(0xFF5B6777),
     border: Color(0xFFE2E8F0),
     separator: Color(0xFFEDF2F7),
-    success: Color(0xFF0D8A3E),
+    success: Color(0xFF0B7A2A),
     successSubtle: Color(0xFFECFDF3),
-    warning: Color(0xFFD97706),
+    warning: Color(0xFFB45309),
     warningSubtle: Color(0xFFFEF3C7),
     error: Color(0xFFDC2626),
     errorSubtle: Color(0xFFFEE2E2),
   );
 
   static const TammySemanticColors dark = TammySemanticColors(
-    primary: Color(0xFF2ECC71),
-    onPrimary: Color(0xFFFFFFFF),
+    primary: Color(0xFF19C23E),
+    onPrimary: Color(0xFF021608),
     primarySubtle: Color(0xFF163524),
     secondary: Color(0xFF60A5FA),
     onSecondary: Color(0xFF13181F),
@@ -83,6 +83,48 @@ class TammySemanticColors extends ThemeExtension<TammySemanticColors> {
     warningSubtle: Color(0xFF3B2D12),
     error: Color(0xFFF87171),
     errorSubtle: Color(0xFF3D1D1E),
+  );
+
+  static const TammySemanticColors highContrastLight = TammySemanticColors(
+    primary: Color(0xFF065F1E),
+    onPrimary: Color(0xFFFFFFFF),
+    primarySubtle: Color(0xFFDDF7E6),
+    secondary: Color(0xFF1D4ED8),
+    onSecondary: Color(0xFFFFFFFF),
+    background: Color(0xFFFFFFFF),
+    surface: Color(0xFFFFFFFF),
+    surfaceRaised: Color(0xFFF1F5F9),
+    textPrimary: Color(0xFF020617),
+    textSecondary: Color(0xFF1E293B),
+    border: Color(0xFF334155),
+    separator: Color(0xFF64748B),
+    success: Color(0xFF065F1E),
+    successSubtle: Color(0xFFDDF7E6),
+    warning: Color(0xFF92400E),
+    warningSubtle: Color(0xFFFEF3C7),
+    error: Color(0xFF991B1B),
+    errorSubtle: Color(0xFFFEE2E2),
+  );
+
+  static const TammySemanticColors highContrastDark = TammySemanticColors(
+    primary: Color(0xFF34E85D),
+    onPrimary: Color(0xFF021A08),
+    primarySubtle: Color(0xFF0F3D22),
+    secondary: Color(0xFF93C5FD),
+    onSecondary: Color(0xFF081426),
+    background: Color(0xFF14181F),
+    surface: Color(0xFF1D232C),
+    surfaceRaised: Color(0xFF28313D),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFFF1F5F9),
+    border: Color(0xFFCBD5E1),
+    separator: Color(0xFF64748B),
+    success: Color(0xFF4ADE80),
+    successSubtle: Color(0xFF0F3D22),
+    warning: Color(0xFFFDE047),
+    warningSubtle: Color(0xFF423007),
+    error: Color(0xFFFCA5A5),
+    errorSubtle: Color(0xFF4C1414),
   );
 
   static TammySemanticColors of(BuildContext context) {

@@ -52,23 +52,23 @@ extension LifeOsAccentToneColors on LifeOsAccentTone {
       LifeOsAccentTone.emerald =>
         isDark
             ? (const Color(0xFF13331E), const Color(0xFF34D399))
-            : (const Color(0xFFEAFBF0), const Color(0xFF12B847)),
+            : (const Color(0xFFEAFBF0), const Color(0xFF0B7A2A)),
       LifeOsAccentTone.blue =>
         isDark
             ? (const Color(0xFF13294B), const Color(0xFF60A5FA))
-            : (const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
+            : (const Color(0xFFEFF6FF), const Color(0xFF1D4ED8)),
       LifeOsAccentTone.purple =>
         isDark
             ? (const Color(0xFF271B47), const Color(0xFFA78BFA))
-            : (const Color(0xFFF5F3FF), const Color(0xFF7C3AED)),
+            : (const Color(0xFFF5F3FF), const Color(0xFF6D28D9)),
       LifeOsAccentTone.amber =>
         isDark
             ? (const Color(0xFF38290A), const Color(0xFFFBBF24))
-            : (const Color(0xFFFEF7E0), const Color(0xFFD97706)),
+            : (const Color(0xFFFEF7E0), const Color(0xFFB45309)),
       LifeOsAccentTone.coral =>
         isDark
             ? (const Color(0xFF3A1616), const Color(0xFFF87171))
-            : (const Color(0xFFFEE2E2), const Color(0xFFDC2626)),
+            : (const Color(0xFFFEE2E2), const Color(0xFFB91C1C)),
       LifeOsAccentTone.neutral =>
         isDark
             ? (const Color(0xFF222B26), const Color(0xFFA0AEB6))
@@ -857,10 +857,10 @@ class LifeOsTopBrandHeader extends StatelessWidget {
           ),
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              compact ? 6 : 8,
-              4,
-              compact ? 6 : 8,
+              AppSpacing.sm,
+              compact ? 4 : 6,
+              2,
+              compact ? 4 : 6,
             ),
             child: Row(
               children: [
@@ -915,20 +915,20 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 _FbTopCircleIconBtn(
                   buttonKey: const Key('open_menu_directory_button'),
                   icon: Icons.grid_view_rounded,
                   tooltip: 'Menu',
                   onTap: () => context.push('/menu'),
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 2),
                 _FbTopCircleIconBtn(
                   icon: Icons.search_rounded,
                   tooltip: 'Tìm kiếm nhanh LifeOS',
                   onTap: () => showLifeOsOmniSearchSheet(context),
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 2),
                 _FbTopCircleIconBtn(
                   icon: Icons.notifications_none_rounded,
                   tooltip: 'Trung tâm Thông báo',
@@ -936,7 +936,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                   onTap: () => context.push('/activity-notifications'),
                 ),
                 if (themeBloc != null) ...[
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 2),
                   _FbTopCircleIconBtn(
                     buttonKey: const Key('open_appearance_studio_button'),
                     icon: isDark
@@ -947,7 +947,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
                   ),
                 ],
                 if (effectiveAvatarTrailing != null) ...[
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 2),
                   effectiveAvatarTrailing,
                 ],
               ],
@@ -1028,63 +1028,72 @@ class _HeaderEdgeAvatarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final photo = user.photoUrl;
-    return Tooltip(
-      message: 'Hồ sơ tài khoản',
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          key: const Key('open_account_profile_button'),
-          customBorder: const CircleBorder(),
-          onTap: () => context.push('/account-profile'),
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [c.primary, c.secondary],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.72),
-                width: 1.6,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: c.primary.withValues(alpha: 0.22),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: photo != null && photo.isNotEmpty
-                ? Image.network(
-                    photo,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Center(
-                      child: Text(
-                        user.initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                      ),
+    return Semantics(
+      button: true,
+      label: 'Hồ sơ tài khoản ${user.fullName}',
+      child: Tooltip(
+        message: 'Hồ sơ tài khoản',
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            key: const Key('open_account_profile_button'),
+            customBorder: const CircleBorder(),
+            onTap: () => context.push('/account-profile'),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
+              child: Center(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [c.primary, c.secondary],
                     ),
-                  )
-                : Center(
-                    child: Text(
-                      user.initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      width: 1.6,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: c.primary.withValues(alpha: 0.22),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: photo != null && photo.isNotEmpty
+                      ? Image.network(
+                          photo,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(
+                              user.initials,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            user.initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1115,62 +1124,75 @@ class _FbTopCircleIconBtn extends StatelessWidget {
         ? const Color(0xFF232C27)
         : const Color(0xFFF0F2F5);
 
-    return Tooltip(
-      message: tooltip,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF2B3630), const Color(0xFF1F2723)]
-                : [const Color(0xFFFFFFFF), fillColor],
-          ),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.14)
-                : const Color(0xFFDCE5DF),
-            width: 0.9,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.055),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
         child: Material(
           color: Colors.transparent,
           shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
           child: InkWell(
             key: buttonKey,
             customBorder: const CircleBorder(),
             onTap: onTap,
-            child: SizedBox(
-              width: 34,
-              height: 34,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(icon, size: 19, color: c.textPrimary),
-                  if (showUnreadDot)
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        width: 7.5,
-                        height: 7.5,
-                        decoration: BoxDecoration(
-                          color: c.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: fillColor, width: 1.3),
-                        ),
-                      ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
+              child: Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [const Color(0xFF2B3630), const Color(0xFF1F2723)]
+                          : [const Color(0xFFFFFFFF), fillColor],
                     ),
-                ],
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.14)
+                          : const Color(0xFFDCE5DF),
+                      width: 0.9,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.24 : 0.055,
+                        ),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: SizedBox(
+                    width: 34,
+                    height: 34,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(icon, size: 19, color: c.textPrimary),
+                        if (showUnreadDot)
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: Container(
+                              width: 7.5,
+                              height: 7.5,
+                              decoration: BoxDecoration(
+                                color: c.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: fillColor,
+                                  width: 1.3,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1342,32 +1364,37 @@ class LifeOsStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = tone.resolve(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13.5, color: fg),
-            const SizedBox(width: 4),
-          ],
-          Flexible(
-            child: Text(
-              label,
-              softWrap: true,
-              style: TextStyle(
-                fontSize: 12.2,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-                color: fg,
+    return Semantics(
+      container: true,
+      label: 'Trạng thái: $label',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          border: Border.all(color: fg.withValues(alpha: 0.22), width: 0.7),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13.5, color: fg),
+              const SizedBox(width: 4),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 12.2,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  color: fg,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1397,7 +1424,7 @@ class LifeOsPrimaryCtaButton extends StatelessWidget {
       child: FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: c.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: c.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(25),
           ),
@@ -1411,20 +1438,20 @@ class LifeOsPrimaryCtaButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 20, color: Colors.white),
+                Icon(icon, size: 20, color: c.onPrimary),
                 const SizedBox(width: 8),
               ],
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: c.onPrimary,
                 ),
               ),
               if (trailingIcon != null) ...[
                 const SizedBox(width: 8),
-                Icon(trailingIcon, size: 19, color: Colors.white),
+                Icon(trailingIcon, size: 19, color: c.onPrimary),
               ],
             ],
           ),
@@ -1966,10 +1993,13 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
         child: BlocBuilder<ThemeBloc, ThemeState>(
           builder: (ctx, state) {
             final c = TammySemanticColors.of(ctx);
+            final mq = MediaQuery.of(ctx);
+            final osScale = mq.textScaler.scale(1.0);
+            final effectiveScale = osScale > 1.0
+                ? math.max(osScale, state.textScale)
+                : state.textScale;
             return MediaQuery(
-              data: MediaQuery.of(
-                ctx,
-              ).copyWith(textScaler: TextScaler.linear(state.textScale)),
+              data: mq.copyWith(textScaler: TextScaler.linear(effectiveScale)),
               child: LiquidGlassSheetFrame(
                 showHandle: true,
                 child: SafeArea(
@@ -2135,12 +2165,36 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                               themeBloc.add(CompactDensityToggled(v)),
                         ),
 
-                        // 4. Accessibility Reduce Motion Toggle
+                        // 4. Accessibility High Contrast Toggle
+                        SwitchListTile.adaptive(
+                          key: const Key('appearance_high_contrast_switch'),
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Tương phản cao',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Tăng độ đậm chữ, viền thẻ và trạng thái để dễ đọc hơn',
+                            style: TextStyle(
+                              fontSize: 11.8,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          value: state.highContrast,
+                          onChanged: (v) =>
+                              themeBloc.add(HighContrastToggled(v)),
+                        ),
+
+                        // 5. Accessibility Reduce Motion Toggle
                         SwitchListTile.adaptive(
                           key: const Key('appearance_reduce_motion_switch'),
                           contentPadding: EdgeInsets.zero,
                           title: Text(
-                            'Giảm chuyển động (Reduce Motion)',
+                            'Giảm chuyển động',
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,

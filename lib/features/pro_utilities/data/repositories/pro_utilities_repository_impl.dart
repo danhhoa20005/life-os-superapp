@@ -208,8 +208,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'serialOrNote': serialOrNote.trim(),
       }, SetOptions(merge: true));
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu dữ liệu: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu dữ liệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -223,8 +228,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         userId,
       ).collection('subscriptions_warranties').doc(itemId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa mục: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa mục lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -249,8 +259,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'completedDateKeys': <String>[],
       });
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể tạo thói quen: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể tạo thói quen lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -272,9 +287,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'categoryTag': categoryTag,
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cập nhật thói quen: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật thói quen lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -287,8 +305,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     try {
       await _userRef(userId).collection('habits').doc(habitId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa thói quen: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa thói quen lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -310,9 +333,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'completedDateKeys': updated.toList(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cập nhật thói quen: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật thói quen lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -377,9 +403,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       }, SetOptions(merge: true));
 
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu chỉ số sức khỏe lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -416,8 +445,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'eventDate': (eventDate ?? DateTime.now()).toIso8601String(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu sổ hiếu hỷ: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu sổ hiếu hỷ lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -451,9 +485,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'eventDate': eventDate.toIso8601String(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cập nhật mục Hiếu Hỷ: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật mục Hiếu Hỷ lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -466,8 +503,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     try {
       await _userRef(userId).collection('gift_ledger').doc(entryId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa mục Hiếu Hỷ: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa mục Hiếu Hỷ lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -496,9 +538,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       }
       await batch.commit();
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể tạo checklist hành lý: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể tạo checklist hành lý lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -524,9 +569,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'checked': false,
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể thêm vật dụng hành lý: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể thêm vật dụng hành lý lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -539,9 +587,12 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     try {
       await _userRef(userId).collection('packing_items').doc(itemId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể xóa vật dụng hành lý: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa vật dụng hành lý lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -556,8 +607,13 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
         'checked': !item.checked,
       });
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể cập nhật hành lý: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật hành lý lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 }

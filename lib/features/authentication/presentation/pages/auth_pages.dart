@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,7 +10,9 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/services/native_device_calendar_bridge.dart';
+import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/trust_ux_widgets.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -668,13 +671,13 @@ class _LoginPageState extends State<LoginPage> {
                                             ? null
                                             : _submitEmailSignIn,
                                         child: state.isSubmitting
-                                            ? const SizedBox(
+                                            ? SizedBox(
                                                 width: 20,
                                                 height: 20,
                                                 child:
                                                     CircularProgressIndicator(
                                                       strokeWidth: 2.2,
-                                                      color: Colors.white,
+                                                      color: c.onPrimary,
                                                     ),
                                               )
                                             : const Text('Đăng nhập'),
@@ -947,6 +950,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                         Icons.lock_outline_rounded,
                                       ),
                                       suffixIcon: IconButton(
+                                        tooltip: _obscurePassword
+                                            ? 'Hiện mật khẩu'
+                                            : 'Ẩn mật khẩu',
                                         onPressed: () => setState(
                                           () => _obscurePassword =
                                               !_obscurePassword,
@@ -987,6 +993,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                         Icons.verified_user_outlined,
                                       ),
                                       suffixIcon: IconButton(
+                                        tooltip: _obscureConfirmPassword
+                                            ? 'Hiện mật khẩu'
+                                            : 'Ẩn mật khẩu',
                                         onPressed: () => setState(
                                           () => _obscureConfirmPassword =
                                               !_obscureConfirmPassword,
@@ -1058,13 +1067,13 @@ class _RegisterPageState extends State<RegisterPage> {
                                                 );
                                               },
                                         child: state.isSubmitting
-                                            ? const SizedBox(
+                                            ? SizedBox(
                                                 width: 20,
                                                 height: 20,
                                                 child:
                                                     CircularProgressIndicator(
                                                       strokeWidth: 2,
-                                                      color: Colors.white,
+                                                      color: c.onPrimary,
                                                     ),
                                               )
                                             : const Text('Đăng ký'),
@@ -1203,14 +1212,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                     const SizedBox(height: 18),
                     LifeOsPrimaryCtaButton(
-                      label: 'Gửi mã xác minh',
+                      label: 'Gửi liên kết qua Email',
                       onPressed: () {
                         final email = _emailCtrl.text.trim();
-                        if (email.isNotEmpty) {
-                          context.read<AuthBloc>().add(
-                            AuthPasswordResetRequested(email),
+                        if (email.isEmpty) {
+                          LifeOsTopToast.show(
+                            context,
+                            'Vui lòng nhập email đã đăng ký.',
+                            kind: LifeOsToastKind.warning,
                           );
+                          return;
                         }
+                        context.read<AuthBloc>().add(
+                          AuthPasswordResetRequested(email),
+                        );
                         context.push('/verify-otp', extra: email);
                       },
                     ),
@@ -1231,7 +1246,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 }
 
-/// Screen 05 of Auth Sheet: "Xác minh email" 6-Box OTP Verification (`/verify-otp`).
+/// Screen 05 of Auth Sheet: Honest Email Verification Link Guidance (`/verify-otp`).
 class VerifyOtpPage extends StatefulWidget {
   final String? email;
 
@@ -1242,7 +1257,6 @@ class VerifyOtpPage extends StatefulWidget {
 }
 
 class _VerifyOtpPageState extends State<VerifyOtpPage> {
-  final List<String> _digits = <String>['3', '8', '4', '7', '', ''];
   int _secondsLeft = 58;
   Timer? _timer;
 
@@ -1263,26 +1277,31 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
     super.dispose();
   }
 
-  void _appendDigit(String d) {
-    final idx = _digits.indexWhere((e) => e.isEmpty);
-    if (idx != -1) {
-      setState(() => _digits[idx] = d);
+  void _resendResetEmail() {
+    final email = (widget.email ?? '').trim();
+    if (email.isEmpty) {
+      LifeOsTopToast.show(
+        context,
+        'Vui lòng quay lại và nhập email hợp lệ.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
     }
-  }
-
-  void _backspace() {
-    for (var i = _digits.length - 1; i >= 0; i--) {
-      if (_digits[i].isNotEmpty) {
-        setState(() => _digits[i] = '');
-        break;
-      }
-    }
+    context.read<AuthBloc>().add(AuthPasswordResetRequested(email));
+    setState(() => _secondsLeft = 58);
+    LifeOsTopToast.show(
+      context,
+      'Đã gửi lại liên kết đặt lại mật khẩu đến $email.',
+      kind: LifeOsToastKind.success,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final activeIdx = _digits.indexWhere((e) => e.isEmpty);
+    final emailDisplay = (widget.email ?? '').trim().isEmpty
+        ? 'email đã đăng ký của bạn'
+        : widget.email!.trim();
     final mm = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
     final ss = (_secondsLeft % 60).toString().padLeft(2, '0');
 
@@ -1295,25 +1314,29 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const _AuthBrandTopBar(showBack: true),
                     const SizedBox(height: 18),
-                    Container(
-                      width: 68,
-                      height: 68,
-                      decoration: BoxDecoration(
-                        color: c.primarySubtle,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        Icons.verified_user_outlined,
-                        size: 34,
-                        color: c.primary,
+                    Center(
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: c.primarySubtle,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          Icons.mark_email_read_outlined,
+                          size: 34,
+                          color: c.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Xác minh email',
+                      'Kiểm tra email xác minh',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 25,
                         fontWeight: FontWeight.w800,
@@ -1322,117 +1345,78 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Nhập mã 6 chữ số đã được gửi đến\n${(widget.email ?? '').isEmpty ? 'ban@lifeos.vn' : widget.email}',
+                      'Liên kết đặt lại mật khẩu từ Firebase Authentication đã được gửi đến $emailDisplay.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13.5, color: c.textSecondary),
                     ),
-                    const SizedBox(height: 22),
-
-                    // 6 Individual Rounded OTP Digit Boxes
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(6, (i) {
-                        final val = _digits[i];
-                        final isCurrent =
-                            i == activeIdx || (activeIdx == -1 && i == 5);
-                        return Container(
-                          width: 48,
-                          height: 54,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: c.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isCurrent ? c.primary : c.border,
-                              width: isCurrent ? 2 : 1,
-                            ),
+                    const SizedBox(height: 18),
+                    LifeOsSoftCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.verified_user_outlined,
+                                size: 20,
+                                color: c.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Xác thực qua liên kết bảo mật',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          child: Text(
-                            val,
+                          const SizedBox(height: 8),
+                          Text(
+                            '1. Mở hộp thư đến hoặc thư mục Spam để tìm email từ LifeOS / Firebase.\n'
+                            '2. Nhấn vào liên kết để tạo mật khẩu mới trực tiếp trên trang xác thực an toàn.\n'
+                            '3. Quay lại LifeOS và đăng nhập bằng mật khẩu mới.',
                             style: TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w800,
-                              color: c.textPrimary,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
+                              fontSize: 13,
+                              height: 1.45,
+                              color: c.textSecondary,
                             ),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Bạn chưa nhận được mã?',
-                      style: TextStyle(fontSize: 12.5, color: c.textSecondary),
-                    ),
-                    TextButton(
-                      onPressed: _secondsLeft == 0
-                          ? () => setState(() => _secondsLeft = 58)
-                          : null,
-                      child: Text(
-                        _secondsLeft > 0
-                            ? 'Gửi lại sau $mm:$ss'
-                            : 'Gửi lại mã ngay',
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    LifeOsPrimaryCtaButton(
-                      label: 'Xác nhận',
-                      onPressed: () => context.push('/reset-password'),
-                    ),
                     const SizedBox(height: 16),
-
-                    // Tactile Numeric Keypad (3×4)
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 3,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 2.2,
+                    LifeOsPrimaryCtaButton(
+                      label: 'Quay lại đăng nhập',
+                      onPressed: () => context.go('/login'),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        for (final d in const [
-                          '1',
-                          '2',
-                          '3',
-                          '4',
-                          '5',
-                          '6',
-                          '7',
-                          '8',
-                          '9',
-                        ])
-                          OutlinedButton(
-                            onPressed: () => _appendDigit(d),
-                            child: Text(
-                              d,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                        TextButton(
+                          onPressed: _secondsLeft == 0
+                              ? _resendResetEmail
+                              : null,
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, AppSpacing.minHitTarget),
                           ),
+                          child: Text(
+                            _secondsLeft > 0
+                                ? 'Gửi lại sau $mm:$ss'
+                                : 'Gửi lại liên kết',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         TextButton(
                           onPressed: () => context.pop(),
-                          child: const Text(
-                            'Đổi email',
-                            style: TextStyle(fontSize: 12),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, AppSpacing.minHitTarget),
                           ),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => _appendDigit('0'),
-                          child: const Text(
-                            '0',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        OutlinedButton(
-                          onPressed: _backspace,
-                          child: const Icon(Icons.backspace_outlined, size: 20),
+                          child: const Text('Đổi email'),
                         ),
                       ],
                     ),
@@ -1447,7 +1431,7 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
   }
 }
 
-/// Screen 06 of Auth Sheet: "Đặt mật khẩu mới" with 4-Bar Strength & Checklist (`/reset-password`).
+/// Screen 06 of Auth Sheet: Honest Password Reset Guidance (`/reset-password`).
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
 
@@ -1456,34 +1440,17 @@ class ResetPasswordPage extends StatefulWidget {
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  final TextEditingController _pwdCtrl = TextEditingController();
-  final TextEditingController _confirmCtrl = TextEditingController();
-  bool _obscure1 = true;
-  bool _obscure2 = true;
+  final TextEditingController _emailCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _pwdCtrl.dispose();
-    _confirmCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final pwd = _pwdCtrl.text;
-    final hasLen = pwd.length >= 8;
-    final hasCase =
-        RegExp(r'[A-Z]').hasMatch(pwd) && RegExp(r'[a-z]').hasMatch(pwd);
-    final hasDigit = RegExp(r'[0-9]').hasMatch(pwd);
-    final hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(pwd);
-    final score = [
-      hasLen,
-      hasCase,
-      hasDigit,
-      hasSpecial,
-    ].where((b) => b).length;
-
     return Scaffold(
       body: LifeOsMintWaveCanvas(
         child: SafeArea(
@@ -1506,7 +1473,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
-                          Icons.lock_open_rounded,
+                          Icons.lock_reset_rounded,
                           size: 34,
                           color: c.primary,
                         ),
@@ -1514,108 +1481,78 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Đặt mật khẩu mới',
+                      'Đặt lại mật khẩu qua Email',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 25,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: c.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
-                      'Tạo mật khẩu an toàn cho tài khoản của bạn.',
+                      'Vì an toàn tài khoản, mật khẩu mới chỉ được cập nhật thông qua liên kết xác thực gửi tới email của bạn.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13.5, color: c.textSecondary),
-                    ),
-                    const SizedBox(height: 22),
-                    Text(
-                      'Mật khẩu mới',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _pwdCtrl,
-                      obscureText: _obscure1,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Ít nhất 8 ký tự, chữ hoa, chữ thường, số',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () =>
-                              setState(() => _obscure1 = !_obscure1),
-                          icon: Icon(
-                            _obscure1
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
-                        ),
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.4,
+                        color: c.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Xác nhận mật khẩu mới',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _confirmCtrl,
-                      obscureText: _obscure2,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Nhập lại mật khẩu mới',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () =>
-                              setState(() => _obscure2 = !_obscure2),
-                          icon: Icon(
-                            _obscure2
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                    const SizedBox(height: 20),
+                    LifeOsSoftCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Email tài khoản',
+                            style: Theme.of(context).textTheme.labelLarge,
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _PasswordStrengthBar(score: score),
-                    const SizedBox(height: 14),
-                    _PwdCheckItem(passed: hasLen, label: 'Tối thiểu 8 ký tự'),
-                    _PwdCheckItem(
-                      passed: hasCase,
-                      label: 'Có chữ hoa và chữ thường',
-                    ),
-                    _PwdCheckItem(
-                      passed: hasDigit,
-                      label: 'Có ít nhất một chữ số',
-                    ),
-                    _PwdCheckItem(
-                      passed: hasSpecial,
-                      label: 'Có ký tự đặc biệt',
-                    ),
-                    const SizedBox(height: 22),
-                    LifeOsPrimaryCtaButton(
-                      label: 'Lưu mật khẩu',
-                      onPressed: () {
-                        if (!hasLen || _pwdCtrl.text != _confirmCtrl.text) {
-                          LifeOsTopToast.show(
-                            context,
-                            !hasLen
-                                ? 'Mật khẩu mới cần tối thiểu 8 ký tự.'
-                                : 'Mật khẩu xác nhận chưa khớp.',
-                            kind: LifeOsToastKind.warning,
-                          );
-                          return;
-                        }
-                        LifeOsTopToast.fromSnackBar(
-                          context,
-                          const SnackBar(
-                            content: Text(
-                              '✓ Đã cập nhật mật khẩu mới an toàn.',
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _emailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              hintText: 'Nhập email để gửi lại liên kết',
+                              prefixIcon: Icon(Icons.mail_outline_rounded),
                             ),
                           ),
-                        );
-                        context.go('/login');
-                      },
+                          const SizedBox(height: 14),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(
+                                AppSpacing.buttonHeightM,
+                              ),
+                            ),
+                            onPressed: () {
+                              final email = _emailCtrl.text.trim();
+                              if (email.isEmpty) {
+                                LifeOsTopToast.show(
+                                  context,
+                                  'Vui lòng nhập email của bạn trước.',
+                                  kind: LifeOsToastKind.warning,
+                                );
+                                return;
+                              }
+                              context.read<AuthBloc>().add(
+                                AuthPasswordResetRequested(email),
+                              );
+                              LifeOsTopToast.show(
+                                context,
+                                'Đã gửi liên kết đặt lại mật khẩu đến $email.',
+                                kind: LifeOsToastKind.success,
+                              );
+                            },
+                            icon: const Icon(Icons.send_rounded, size: 18),
+                            label: const Text('Gửi liên kết qua Email'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    LifeOsPrimaryCtaButton(
+                      label: 'Quay lại đăng nhập',
+                      onPressed: () => context.go('/login'),
                     ),
                   ],
                 ),
@@ -1731,16 +1668,129 @@ class OnboardingPrivacyPage extends StatefulWidget {
 }
 
 class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
+  static const List<(String, String, IconData)> _interestOptions = [
+    ('expense', 'Quản lý chi tiêu', Icons.account_balance_wallet_outlined),
+    ('calendar', 'Quản lý lịch', Icons.event_note_outlined),
+    ('family', 'Quản lý gia đình', Icons.family_restroom_outlined),
+    ('home', 'Quản lý nhà cửa', Icons.home_outlined),
+    ('vehicle', 'Quản lý xe cộ', Icons.directions_car_outlined),
+    ('all', 'Tất cả', Icons.apps_rounded),
+  ];
+
   int _stepIndex = 0;
-  final TextEditingController _inviteCodeCtrl = TextEditingController(
-    text: 'GD-F7K9M2',
-  );
+  final TextEditingController _inviteCodeCtrl = TextEditingController();
+  final Set<String> _selectedInterests = <String>{'expense', 'calendar'};
   bool _calPersonal = true;
   bool _calWork = true;
   bool _calStudy = false;
   bool _calFamily = true;
   bool _twoWaySync = true;
   String _bankConnectMethod = 'sepay';
+  bool _autoCompletingSkip = false;
+
+  String _userScopeSuffix(BuildContext context) {
+    final uid = context.read<AuthBloc>().state.user?.id.trim() ?? '';
+    return uid.isEmpty ? 'guest' : uid;
+  }
+
+  String _skipVaultKey(BuildContext context) =>
+      'ux_onboarding_skipped_v1__u_${_userScopeSuffix(context)}';
+
+  String _interestsVaultKey(BuildContext context) =>
+      'ux_user_interests_v1__u_${_userScopeSuffix(context)}';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _restoreOnboardingPrefs();
+    });
+  }
+
+  Future<void> _restoreOnboardingPrefs() async {
+    final skipKey = _skipVaultKey(context);
+    final interestsKey = _interestsVaultKey(context);
+    final skipped = await NativeSecureVaultBridge.instance.readSecret(skipKey);
+    if (!mounted) return;
+    if (skipped == '1' && !_autoCompletingSkip) {
+      _autoCompletingSkip = true;
+      context.read<AuthBloc>().add(const AuthOnboardingCompleted());
+      return;
+    }
+
+    final savedInterestsRaw = await NativeSecureVaultBridge.instance.readSecret(
+      interestsKey,
+    );
+    if (!mounted || savedInterestsRaw == null || savedInterestsRaw.isEmpty) {
+      return;
+    }
+    try {
+      final decoded = jsonDecode(savedInterestsRaw);
+      if (decoded is List) {
+        final next = decoded.map((e) => e.toString()).toSet();
+        if (next.isNotEmpty) {
+          setState(() {
+            _selectedInterests
+              ..clear()
+              ..addAll(next);
+          });
+        }
+      }
+    } catch (_) {
+      // Bỏ qua dữ liệu nhu cầu cũ không hợp lệ.
+    }
+  }
+
+  Future<void> _toggleInterest(String id) async {
+    final domainIds = <String>{
+      'expense',
+      'calendar',
+      'family',
+      'home',
+      'vehicle',
+    };
+    setState(() {
+      if (id == 'all') {
+        if (_selectedInterests.contains('all')) {
+          _selectedInterests.remove('all');
+        } else {
+          _selectedInterests
+            ..addAll(domainIds)
+            ..add('all');
+        }
+      } else {
+        if (_selectedInterests.contains(id)) {
+          _selectedInterests.remove(id);
+          _selectedInterests.remove('all');
+        } else {
+          _selectedInterests.add(id);
+          if (domainIds.every(_selectedInterests.contains)) {
+            _selectedInterests.add('all');
+          }
+        }
+      }
+    });
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: _interestsVaultKey(context),
+      value: jsonEncode(_selectedInterests.toList()),
+    );
+  }
+
+  Future<void> _skipOnboarding() async {
+    final skipKey = _skipVaultKey(context);
+    final interestsKey = _interestsVaultKey(context);
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: skipKey,
+      value: '1',
+    );
+    await NativeSecureVaultBridge.instance.writeSecret(
+      key: interestsKey,
+      value: jsonEncode(_selectedInterests.toList()),
+    );
+    if (!mounted) return;
+    context.read<AuthBloc>().add(const AuthOnboardingCompleted());
+  }
 
   @override
   void dispose() {
@@ -1764,8 +1814,44 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _AuthBrandTopBar(showBack: false),
-                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Expanded(child: SizedBox()),
+                            const LifeOsBrandWordmark(
+                              iconSize: 28,
+                              fontSize: 18,
+                            ),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Semantics(
+                                  button: true,
+                                  label: 'Bỏ qua thiết lập ban đầu',
+                                  child: TextButton(
+                                    key: const Key('onboarding_skip_btn'),
+                                    style: TextButton.styleFrom(
+                                      minimumSize: const Size(
+                                        64,
+                                        AppSpacing.minHitTarget,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
+                                    ),
+                                    onPressed: state.isSubmitting
+                                        ? null
+                                        : _skipOnboarding,
+                                    child: const FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Bỏ qua'),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         Text(
                           'Xin chào ${state.user?.fullName ?? ''}!',
                           textAlign: TextAlign.center,
@@ -1777,21 +1863,60 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Thiết lập nhanh Gia đình, Google Calendar & Ngân hàng tự động',
+                          'Thiết lập nhanh nhu cầu, Gia đình, Lịch trình & Ngân hàng theo quyền chọn của bạn',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13.5,
                             color: c.textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
+                        LifeOsSoftCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Chọn nhu cầu quan tâm',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final opt in _interestOptions)
+                                    FilterChip(
+                                      key: Key('onboarding_interest_${opt.$1}'),
+                                      selected: _selectedInterests.contains(
+                                        opt.$1,
+                                      ),
+                                      avatar: Icon(opt.$3, size: 16),
+                                      label: Text(opt.$2),
+                                      selectedColor: c.primarySubtle,
+                                      checkmarkColor: c.primary,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.padded,
+                                      onSelected: (_) =>
+                                          _toggleInterest(opt.$1),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
                         // 3-Step Selector Pills
                         LifeOsSegmentedPills<int>(
                           selected: _stepIndex,
                           options: const [
                             (0, 'Gia đình', Icons.home_outlined),
-                            (1, 'Calendar', Icons.calendar_today_outlined),
+                            (1, 'Lịch trình', Icons.calendar_today_outlined),
                             (2, 'Ngân hàng', Icons.account_balance_outlined),
                           ],
                           onChanged: (v) => setState(() => _stepIndex = v),
@@ -1808,7 +1933,9 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                             'onboarding_open_permissions_popup_btn',
                           ),
                           style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(46),
+                            minimumSize: const Size.fromHeight(
+                              AppSpacing.buttonHeightM,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(22),
                             ),
@@ -1882,7 +2009,11 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const LifeOsAvatarStack(names: ['Minh', 'Hòa', 'An', 'Bin']),
+                Text(
+                  'Chỉ kết nối khi bạn nhập mã mời hợp lệ từ người thân.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                ),
               ],
             ),
           ),
@@ -1905,6 +2036,7 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
               color: c.primary,
             ),
             decoration: InputDecoration(
+              hintText: 'VD: FAM-8K2P9Q',
               fillColor: c.primarySubtle,
               suffixIcon: const Icon(Icons.link_rounded),
             ),
@@ -2007,6 +2139,19 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
           OutlinedButton.icon(
             key: const Key('onboarding_grant_device_calendar_btn'),
             onPressed: () async {
+              final consented = await showLifeOsJustInTimePermissionRationale(
+                context,
+                title: 'Kết nối Lịch trên máy',
+                whyNeeded:
+                    'Đồng bộ các sự kiện bạn chọn và hiển thị nhắc hẹn đúng giờ ngay trong Lịch & Việc.',
+                dataAccessed:
+                    'Chỉ đọc tiêu đề và thời gian của các lịch bạn đánh dấu ở trên; không đọc danh bạ hay lịch riêng bị bỏ chọn.',
+                whereProcessed:
+                    'Đọc trực tiếp trên thiết bị và chỉ đồng bộ khi bạn bật chế độ đồng bộ hai chiều.',
+                howToRevoke:
+                    'Mở Cài đặt > Quyền riêng tư & Quyền ứng dụng hoặc tắt quyền Lịch trong Cài đặt hệ thống.',
+              );
+              if (!consented || !context.mounted) return;
               final granted = await NativeDeviceCalendarBridge.instance
                   .requestPermission();
               if (!mounted) return;

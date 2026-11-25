@@ -7,6 +7,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/services/fcm_banking_messaging_service.dart';
+import '../../../../core/services/native_permissions_service.dart';
 import '../../domain/entities/notification_entities.dart';
 import '../../domain/repositories/notifications_repository.dart';
 
@@ -336,6 +337,16 @@ final class NotificationsSessionClearedOnLogout
   const NotificationsSessionClearedOnLogout();
 }
 
+final class PushNotificationPermissionRequested
+    extends NotificationIngestionEvent {
+  final String userId;
+
+  const PushNotificationPermissionRequested(this.userId);
+
+  @override
+  List<Object?> get props => [userId];
+}
+
 final class _BankConnectionsUpdated extends NotificationIngestionEvent {
   final List<BankConnectionEntity> connections;
   const _BankConnectionsUpdated(this.connections);
@@ -566,6 +577,10 @@ class NotificationIngestionBloc
       _onSessionClearedOnLogout,
       transformer: sequential(),
     );
+    on<PushNotificationPermissionRequested>(
+      _onPushPermissionRequested,
+      transformer: droppable(),
+    );
     on<PaymentOrderCreated>(_onPaymentOrderCreated, transformer: sequential());
     on<PaymentOrderStatusMarked>(
       _onPaymentOrderStatusMarked,
@@ -625,9 +640,15 @@ class NotificationIngestionBloc
     await _repository.migrateLegacySePayConsentIfPresent(event.userId);
 
     final permGranted = await _repository.isNativeNotificationAccessGranted();
-    final pushGranted =
-        await (_fcmService?.bindAuthenticatedUser(event.userId) ??
-            Future.value(false));
+    // Section 13: Never prompt OS push permission eagerly at shell startup.
+    // Check passive status only; bind & request FCM permission only when user opts in.
+    var pushGranted = false;
+    if (NativePermissionsService.instance.isSupportedPlatform) {
+      try {
+        final permSnap = await NativePermissionsService.instance.checkAll();
+        pushGranted = permSnap.notifications;
+      } catch (_) {}
+    }
     emit(
       state.copyWith(
         isNativePermissionGranted: permGranted,
@@ -769,7 +790,26 @@ class NotificationIngestionBloc
       voiceSoundboxEnabled: event.voiceSoundboxEnabled,
       syncObservedBalance: event.syncObservedBalance,
     );
-    res.fold((f) => emit(state.copyWith(failure: f)), (_) {});
+    var pushGranted = state.isPushPermissionGranted;
+    if (event.enabled && _fcmService != null) {
+      pushGranted = await _fcmService.bindAuthenticatedUser(event.userId);
+    }
+    res.fold(
+      (f) => emit(
+        state.copyWith(isPushPermissionGranted: pushGranted, failure: f),
+      ),
+      (_) => emit(state.copyWith(isPushPermissionGranted: pushGranted)),
+    );
+  }
+
+  Future<void> _onPushPermissionRequested(
+    PushNotificationPermissionRequested event,
+    Emitter<NotificationIngestionState> emit,
+  ) async {
+    final pushGranted =
+        await (_fcmService?.bindAuthenticatedUser(event.userId) ??
+            Future.value(false));
+    emit(state.copyWith(isPushPermissionGranted: pushGranted));
   }
 
   Future<void> _onSignalReceived(

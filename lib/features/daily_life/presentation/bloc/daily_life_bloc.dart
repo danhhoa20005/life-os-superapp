@@ -644,9 +644,12 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
         clearFailure: true,
         clearSuccess: true,
       ),
-      onError: (err, _) => state.copyWith(
+      onError: (_, __) => state.copyWith(
         isLoading: false,
-        failure: UnexpectedFailure(message: err.toString()),
+        failure: const UnexpectedFailure(
+          message:
+              'Không thể tải dữ liệu sinh hoạt lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       ),
     );
   }

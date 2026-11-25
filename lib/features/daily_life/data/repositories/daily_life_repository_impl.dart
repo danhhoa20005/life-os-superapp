@@ -477,8 +477,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       );
       await _reminderScheduler.syncMedicationAlarm(entity);
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu thuốc/vitamin: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu thuốc hoặc vitamin lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -503,9 +508,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       );
       await _reminderScheduler.syncMedicationAlarm(updated);
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cập nhật giờ nhắc thuốc: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật giờ nhắc thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -529,10 +537,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           'dosage': trimmedDose,
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
+    } catch (_) {
+      return const Err(
         UnexpectedFailure(
-          message: 'Không thể cập nhật tồn kho & hạn dùng thuốc: $e',
+          message:
+              'Không thể cập nhật tồn kho và hạn dùng thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
         ),
       );
     }
@@ -545,9 +554,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     try {
       await _reminderScheduler.snoozeMedication15Min(item);
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể dời chuông nhắc thuốc: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể dời chuông nhắc thuốc lúc này. Vui lòng thử lại sau.',
+        ),
       );
     }
   }
@@ -574,9 +586,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       );
       await _reminderScheduler.syncMedicationAlarm(updated, todayKey: dayKey);
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cập nhật lịch uống thuốc: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật lịch uống thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -590,8 +605,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       await _userRef(userId).collection('medications').doc(medId).delete();
       await _reminderScheduler.cancelMedicationAlarm(medId);
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa mục tủ thuốc: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa mục tủ thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -702,9 +722,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       }
 
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu lượng nước uống: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu lượng nước uống lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -801,9 +824,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         ),
       );
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu lịch nhắc uống nước: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu lịch nhắc uống nước lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -850,9 +876,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         minutes: safeMins,
       );
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể dời chuông nhắc uống nước: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể dời chuông nhắc uống nước lúc này. Vui lòng thử lại sau.',
+        ),
       );
     }
   }
@@ -959,10 +988,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         }
       }
       return Success(processed);
-    } catch (e) {
-      return Err(
+    } catch (_) {
+      return const Err(
         UnexpectedFailure(
-          message: 'Không thể đồng bộ thao tác thông báo nền: $e',
+          message:
+              'Không thể đồng bộ thao tác thông báo nền lúc này. Vui lòng thử lại sau.',
         ),
       );
     }
@@ -979,9 +1009,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         delaySeconds: delaySeconds,
       );
       return Success(ok);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể gửi thông báo thử nghiệm: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể gửi thông báo thử nghiệm lúc này. Vui lòng kiểm tra quyền thông báo và thử lại.',
+        ),
       );
     }
   }
@@ -1048,9 +1081,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       }
 
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu chỉ số sức khỏe: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu chỉ số sức khỏe lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1063,9 +1099,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     try {
       await _userRef(userId).collection('health_logs').doc(logId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể xóa bản ghi sinh hiệu: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa bản ghi sinh hiệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1088,9 +1127,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'preferredHospital': card.preferredHospital.trim(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu thẻ y tế khẩn cấp: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu thẻ y tế khẩn cấp lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1119,9 +1161,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'expiryDate': expiryDate?.toIso8601String(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể thêm món vào giỏ chợ: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể thêm món vào giỏ chợ lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1162,8 +1207,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       }
       await batch.commit();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể áp dụng thực đơn: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể áp dụng thực đơn lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -1177,8 +1227,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'isBought': !item.isBought,
       });
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể cập nhật giỏ chợ: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật giỏ chợ lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -1205,9 +1260,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'expiryDate': resolvedExpiry.toIso8601String(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cất thực phẩm vào tủ lạnh: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cất thực phẩm vào tủ lạnh lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1226,9 +1284,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       }
       await batch.commit();
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể dọn giỏ chợ đã mua: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể dọn giỏ chợ đã mua lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1241,8 +1302,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     try {
       await _userRef(userId).collection('grocery_items').doc(itemId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa thực phẩm: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa thực phẩm lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -1276,9 +1342,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'recordedAt': DateTime.now().toIso8601String(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu chỉ số điện nước: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu chỉ số điện nước lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1293,9 +1362,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         userId,
       ).collection('utility_readings').doc(readingId).update({'isPaid': true});
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể cập nhật hóa đơn điện nước: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật hóa đơn điện nước lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1325,9 +1397,12 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'nextApplianceMaintenanceNote': nextApplianceMaintenanceNote.trim(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(
-        UnexpectedFailure(message: 'Không thể lưu thông tin nhà cửa: $e'),
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu thông tin nhà cửa lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -1355,8 +1430,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'updatedAt': DateTime.now().toIso8601String(),
       });
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu ghi chú: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu ghi chú lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -1370,8 +1450,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'isPinned': !note.isPinned,
       });
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể ghim ghi chú: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể ghim ghi chú lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -1383,8 +1468,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     try {
       await _userRef(userId).collection('life_notes').doc(noteId).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa ghi chú: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa ghi chú lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 }

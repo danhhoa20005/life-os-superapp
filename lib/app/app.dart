@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -78,11 +80,23 @@ class _LifeOsAppState extends State<LifeOsApp> {
                 highContrast: themeState.highContrast,
                 compactDensity: themeState.compactDensity,
               ),
+              highContrastTheme: AppTheme.light(
+                highContrast: true,
+                compactDensity: themeState.compactDensity,
+              ),
+              highContrastDarkTheme: AppTheme.dark(
+                highContrast: true,
+                compactDensity: themeState.compactDensity,
+              ),
               builder: (context, child) {
                 final mq = MediaQuery.of(context);
+                final osScale = mq.textScaler.scale(1.0);
+                final effectiveScale = osScale > 1.0
+                    ? math.max(osScale, themeState.textScale)
+                    : themeState.textScale;
                 return MediaQuery(
                   data: mq.copyWith(
-                    textScaler: TextScaler.linear(themeState.textScale),
+                    textScaler: TextScaler.linear(effectiveScale),
                   ),
                   child: LifeOsMotionHost(
                     userMode: themeState.motionMode,

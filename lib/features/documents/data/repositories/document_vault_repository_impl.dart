@@ -214,8 +214,13 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
 
       await _docRef(userId: params.userId, document: entity).set(payload);
       return Success(entity);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể lưu tài liệu: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể lưu tài liệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -279,13 +284,16 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
       });
 
       return Success(updated);
-    } catch (e) {
+    } catch (_) {
       await _fileStorage.deleteUserAttachment(
         userId: storageOwner,
         storageKey: stored.storageKey,
       );
-      return Err(
-        UnexpectedFailure(message: 'Không thể đính kèm tệp vào tài liệu: $e'),
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể đính kèm tệp vào tài liệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
       );
     }
   }
@@ -359,8 +367,13 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
 
       await _docRef(userId: params.userId, document: doc).update(updates);
       return Success(updated);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể cập nhật tài liệu: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể cập nhật tài liệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 
@@ -445,8 +458,13 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
 
       await _docRef(userId: userId, document: document).delete();
       return const Success(null);
-    } catch (e) {
-      return Err(UnexpectedFailure(message: 'Không thể xóa tài liệu: $e'));
+    } catch (_) {
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa tài liệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     }
   }
 }
