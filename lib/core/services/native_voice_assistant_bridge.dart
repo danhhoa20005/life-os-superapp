@@ -3,6 +3,128 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// Formal 9-state Finite State Machine for voice capture lifecycle (`AUD-015`).
+enum VoiceCaptureState {
+  idle('idle'),
+  requestingPermission('requesting_permission'),
+  initializing('initializing'),
+  listening('listening'),
+  processing('processing'),
+  review('review'),
+  completed('completed'),
+  error('error'),
+  cancelled('cancelled');
+
+  final String wireValue;
+  const VoiceCaptureState(this.wireValue);
+
+  bool get isRecordingSessionActive =>
+      this == VoiceCaptureState.initializing ||
+      this == VoiceCaptureState.listening ||
+      this == VoiceCaptureState.processing;
+
+  static VoiceCaptureState fromWireStatus(String? raw) {
+    final normalized = (raw ?? '').trim().toLowerCase();
+    return switch (normalized) {
+      'requesting_permission' => VoiceCaptureState.requestingPermission,
+      'initializing' => VoiceCaptureState.initializing,
+      'listening' => VoiceCaptureState.listening,
+      'processing' => VoiceCaptureState.processing,
+      'review' => VoiceCaptureState.review,
+      'completed' => VoiceCaptureState.completed,
+      'error' => VoiceCaptureState.error,
+      'cancelled' || 'canceled' => VoiceCaptureState.cancelled,
+      _ => VoiceCaptureState.idle,
+    };
+  }
+
+  static const Map<VoiceCaptureState, Set<VoiceCaptureState>>
+  _allowedTransitions = <VoiceCaptureState, Set<VoiceCaptureState>>{
+    VoiceCaptureState.idle: <VoiceCaptureState>{
+      VoiceCaptureState.idle,
+      VoiceCaptureState.requestingPermission,
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.listening,
+      VoiceCaptureState.review,
+      VoiceCaptureState.error,
+      VoiceCaptureState.cancelled,
+    },
+    VoiceCaptureState.requestingPermission: <VoiceCaptureState>{
+      VoiceCaptureState.requestingPermission,
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.listening,
+      VoiceCaptureState.review,
+      VoiceCaptureState.error,
+      VoiceCaptureState.cancelled,
+      VoiceCaptureState.idle,
+    },
+    VoiceCaptureState.initializing: <VoiceCaptureState>{
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.requestingPermission,
+      VoiceCaptureState.listening,
+      VoiceCaptureState.processing,
+      VoiceCaptureState.review,
+      VoiceCaptureState.error,
+      VoiceCaptureState.cancelled,
+      VoiceCaptureState.idle,
+    },
+    VoiceCaptureState.listening: <VoiceCaptureState>{
+      VoiceCaptureState.listening,
+      VoiceCaptureState.requestingPermission,
+      VoiceCaptureState.processing,
+      VoiceCaptureState.review,
+      VoiceCaptureState.error,
+      VoiceCaptureState.cancelled,
+      VoiceCaptureState.idle,
+    },
+    VoiceCaptureState.processing: <VoiceCaptureState>{
+      VoiceCaptureState.processing,
+      VoiceCaptureState.review,
+      VoiceCaptureState.completed,
+      VoiceCaptureState.error,
+      VoiceCaptureState.cancelled,
+      VoiceCaptureState.idle,
+    },
+    VoiceCaptureState.review: <VoiceCaptureState>{
+      VoiceCaptureState.review,
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.listening,
+      VoiceCaptureState.completed,
+      VoiceCaptureState.error,
+      VoiceCaptureState.cancelled,
+      VoiceCaptureState.idle,
+    },
+    VoiceCaptureState.completed: <VoiceCaptureState>{
+      VoiceCaptureState.completed,
+      VoiceCaptureState.idle,
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.review,
+    },
+    VoiceCaptureState.error: <VoiceCaptureState>{
+      VoiceCaptureState.error,
+      VoiceCaptureState.idle,
+      VoiceCaptureState.requestingPermission,
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.listening,
+      VoiceCaptureState.review,
+      VoiceCaptureState.cancelled,
+    },
+    VoiceCaptureState.cancelled: <VoiceCaptureState>{
+      VoiceCaptureState.cancelled,
+      VoiceCaptureState.idle,
+      VoiceCaptureState.requestingPermission,
+      VoiceCaptureState.initializing,
+      VoiceCaptureState.listening,
+      VoiceCaptureState.review,
+      VoiceCaptureState.error,
+    },
+  };
+
+  bool canTransitionTo(VoiceCaptureState next) {
+    return _allowedTransitions[this]?.contains(next) ?? false;
+  }
+}
+
 enum VoiceEngineMode {
   googleService('google_service', 'Google Speech (Trực tiếp)'),
   systemDialog('system_dialog', 'Hộp thoại Google'),
@@ -103,30 +225,38 @@ class VoiceDiagnosticsSnapshot {
 }
 
 sealed class VoiceAssistantSignal {
-  const VoiceAssistantSignal();
+  final String? sessionToken;
+  const VoiceAssistantSignal({this.sessionToken});
 }
 
 final class VoiceStateSignal extends VoiceAssistantSignal {
-  /// 'requesting_permission' | 'initializing' | 'listening' | 'processing' | 'idle'
+  /// 'idle' | 'requesting_permission' | 'initializing' | 'listening' | 'processing' | 'review' | 'completed' | 'error' | 'cancelled'
   final String status;
-  const VoiceStateSignal(this.status);
+  const VoiceStateSignal(this.status, {super.sessionToken});
+
+  VoiceCaptureState get captureState =>
+      VoiceCaptureState.fromWireStatus(status);
 }
 
 final class VoiceRmsSignal extends VoiceAssistantSignal {
   final double rmsDb;
-  const VoiceRmsSignal(this.rmsDb);
+  const VoiceRmsSignal(this.rmsDb, {super.sessionToken});
 }
 
 final class VoiceTranscriptSignal extends VoiceAssistantSignal {
   final String text;
   final bool isFinal;
-  const VoiceTranscriptSignal({required this.text, required this.isFinal});
+  const VoiceTranscriptSignal({
+    required this.text,
+    required this.isFinal,
+    super.sessionToken,
+  });
 }
 
 final class VoiceErrorSignal extends VoiceAssistantSignal {
   final String message;
   final String? code;
-  const VoiceErrorSignal(this.message, {this.code});
+  const VoiceErrorSignal(this.message, {this.code, super.sessionToken});
 
   bool get isPermissionError =>
       code == 'PERMISSION_DENIED' || code == 'PERMISSION_PERMANENTLY_DENIED';
@@ -136,7 +266,7 @@ final class VoiceErrorSignal extends VoiceAssistantSignal {
 
 final class VoiceEngineSwitchedSignal extends VoiceAssistantSignal {
   final String modeWireValue;
-  const VoiceEngineSwitchedSignal(this.modeWireValue);
+  const VoiceEngineSwitchedSignal(this.modeWireValue, {super.sessionToken});
 }
 
 abstract interface class VoiceAssistantDriver {
@@ -212,30 +342,41 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
   @visibleForTesting
   static VoiceAssistantSignal? parseRawVoiceEvent(Map<String, dynamic> map) {
     final type = (map['type'] ?? '').toString();
+    final sessionToken = map['sessionToken']?.toString();
     switch (type) {
       case 'state':
-        return VoiceStateSignal((map['status'] ?? 'idle').toString());
+        return VoiceStateSignal(
+          (map['status'] ?? 'idle').toString(),
+          sessionToken: sessionToken,
+        );
       case 'rms':
-        return VoiceRmsSignal((map['rms'] as num?)?.toDouble() ?? 0.0);
+        return VoiceRmsSignal(
+          (map['rms'] as num?)?.toDouble() ?? 0.0,
+          sessionToken: sessionToken,
+        );
       case 'partial':
         return VoiceTranscriptSignal(
           text: (map['text'] ?? '').toString(),
           isFinal: false,
+          sessionToken: sessionToken,
         );
       case 'final':
         return VoiceTranscriptSignal(
           text: (map['text'] ?? '').toString(),
           isFinal: true,
+          sessionToken: sessionToken,
         );
       case 'error':
         return VoiceErrorSignal(
           (map['message'] ?? 'Không nghe rõ giọng nói. Bạn có thể bấm Nói lại.')
               .toString(),
           code: map['code']?.toString(),
+          sessionToken: sessionToken,
         );
       case 'engine_switched':
         return VoiceEngineSwitchedSignal(
           (map['mode'] ?? 'system_dialog').toString(),
+          sessionToken: sessionToken,
         );
       default:
         return null;
@@ -353,6 +494,20 @@ class NativeVoiceAssistantBridge {
 
   bool get isSupportedPlatform => _driver.isSupportedPlatform;
 
+  static bool isSignalForSession(
+    VoiceAssistantSignal signal,
+    String? expectedSessionToken,
+  ) {
+    if (expectedSessionToken == null || expectedSessionToken.isEmpty) {
+      return true;
+    }
+    final sigToken = signal.sessionToken;
+    if (sigToken == null || sigToken.isEmpty) {
+      return true;
+    }
+    return sigToken == expectedSessionToken;
+  }
+
   /// Joins an existing spoken/typed prefix with a newly recognized utterance segment
   /// without wiping earlier clauses when the user taps Mic again to append.
   static String combinePrefixAndSegment(String prefix, String segment) {
@@ -437,5 +592,11 @@ class NativeVoiceAssistantBridge {
     );
   }
 
-  Stream<VoiceAssistantSignal> watchSignals() => _driver.watchSignals();
+  Stream<VoiceAssistantSignal> watchSignals({String? sessionToken}) {
+    final stream = _driver.watchSignals();
+    if (sessionToken == null || sessionToken.isEmpty) {
+      return stream;
+    }
+    return stream.where((sig) => isSignalForSession(sig, sessionToken));
+  }
 }

@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
+import java.util.Calendar
 import java.util.TimeZone
 
 /**
@@ -178,13 +179,43 @@ object LifeOsDeviceCalendar {
                 val title = if (rawTitle.isNotEmpty()) rawTitle else "(Không có tiêu đề)"
                 val description = if (descIdx >= 0) cursor.getString(descIdx) else null
                 val location = if (locIdx >= 0) cursor.getString(locIdx) else null
-                val beginMs = if (beginIdx >= 0) cursor.getLong(beginIdx) else continue
+                val rawBeginMs = if (beginIdx >= 0) cursor.getLong(beginIdx) else continue
                 val rawEndMs = if (endIdx >= 0 && !cursor.isNull(endIdx)) cursor.getLong(endIdx) else 0L
                 val isAllDay = if (allDayIdx >= 0) cursor.getInt(allDayIdx) == 1 else false
-                val endMs = if (rawEndMs > beginMs) {
-                    rawEndMs
+                val (beginMs, endMs) = if (isAllDay) {
+                    val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                        timeInMillis = rawBeginMs
+                    }
+                    val localStartCal = Calendar.getInstance(TimeZone.getDefault()).apply {
+                        clear()
+                        set(
+                            utcCal.get(Calendar.YEAR),
+                            utcCal.get(Calendar.MONTH),
+                            utcCal.get(Calendar.DAY_OF_MONTH),
+                            0,
+                            0,
+                            0
+                        )
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    val normalizedBeginMs = localStartCal.timeInMillis
+                    val spanDays = if (rawEndMs > rawBeginMs) {
+                        ((rawEndMs - rawBeginMs + 43_200_000L) / 86_400_000L).coerceAtLeast(1L)
+                    } else {
+                        1L
+                    }
+                    val localEndCal = Calendar.getInstance(TimeZone.getDefault()).apply {
+                        timeInMillis = normalizedBeginMs
+                        add(Calendar.DAY_OF_YEAR, spanDays.toInt())
+                    }
+                    normalizedBeginMs to localEndCal.timeInMillis
                 } else {
-                    beginMs + if (isAllDay) 86_400_000L else 3_600_000L
+                    val resolvedEnd = if (rawEndMs > rawBeginMs) {
+                        rawEndMs
+                    } else {
+                        rawBeginMs + 3_600_000L
+                    }
+                    rawBeginMs to resolvedEnd
                 }
                 val rrule = if (rruleIdx >= 0) cursor.getString(rruleIdx) else null
                 val syncId = if (syncIdIdx >= 0) cursor.getString(syncIdIdx) else null
@@ -291,26 +322,75 @@ object LifeOsDeviceCalendar {
     ): Long? {
         if (!hasPermission(context)) return null
         val targetCalId = resolveWritableCalendarId(context, preferredDeviceCalendarId) ?: return null
-        val tz = if (!timeZone.isNullOrBlank()) timeZone else TimeZone.getDefault().id
+        val sourceTzId = if (!timeZone.isNullOrBlank()) timeZone else TimeZone.getDefault().id
+        val effectiveStartMs: Long
+        val effectiveEndMs: Long
+        val effectiveTz: String
+        if (isAllDay) {
+            val sourceTz = TimeZone.getTimeZone(sourceTzId)
+            val localStartCal = Calendar.getInstance(sourceTz).apply { timeInMillis = startsAtMs }
+            val utcStartCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                clear()
+                set(
+                    localStartCal.get(Calendar.YEAR),
+                    localStartCal.get(Calendar.MONTH),
+                    localStartCal.get(Calendar.DAY_OF_MONTH),
+                    0,
+                    0,
+                    0
+                )
+                set(Calendar.MILLISECOND, 0)
+            }
+            effectiveStartMs = utcStartCal.timeInMillis
+
+            val localEndCal = Calendar.getInstance(sourceTz).apply { timeInMillis = endsAtMs }
+            val utcEndCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                clear()
+                set(
+                    localEndCal.get(Calendar.YEAR),
+                    localEndCal.get(Calendar.MONTH),
+                    localEndCal.get(Calendar.DAY_OF_MONTH),
+                    0,
+                    0,
+                    0
+                )
+                set(Calendar.MILLISECOND, 0)
+            }
+            effectiveEndMs = if (utcEndCal.timeInMillis > effectiveStartMs) {
+                utcEndCal.timeInMillis
+            } else {
+                effectiveStartMs + 86_400_000L
+            }
+            effectiveTz = "UTC"
+        } else {
+            effectiveStartMs = startsAtMs
+            effectiveEndMs = endsAtMs.coerceAtLeast(startsAtMs + 60_000L)
+            effectiveTz = sourceTzId
+        }
 
         val values = ContentValues().apply {
             put(CalendarContract.Events.CALENDAR_ID, targetCalId)
             put(CalendarContract.Events.TITLE, title)
             put(CalendarContract.Events.DESCRIPTION, description ?: "")
             put(CalendarContract.Events.EVENT_LOCATION, location ?: "")
-            put(CalendarContract.Events.DTSTART, startsAtMs)
+            put(CalendarContract.Events.DTSTART, effectiveStartMs)
             if (!rrule.isNullOrBlank()) {
-                val durationSec = ((endsAtMs - startsAtMs).coerceAtLeast(60_000L)) / 1000L
-                put(CalendarContract.Events.DURATION, "PT${durationSec}S")
+                if (isAllDay) {
+                    val durationDays = ((effectiveEndMs - effectiveStartMs) / 86_400_000L).coerceAtLeast(1L)
+                    put(CalendarContract.Events.DURATION, "P${durationDays}D")
+                } else {
+                    val durationSec = ((effectiveEndMs - effectiveStartMs).coerceAtLeast(60_000L)) / 1000L
+                    put(CalendarContract.Events.DURATION, "PT${durationSec}S")
+                }
                 putNull(CalendarContract.Events.DTEND)
                 put(CalendarContract.Events.RRULE, rrule.removePrefix("RRULE:"))
             } else {
-                put(CalendarContract.Events.DTEND, endsAtMs.coerceAtLeast(startsAtMs + 60_000L))
+                put(CalendarContract.Events.DTEND, effectiveEndMs)
                 putNull(CalendarContract.Events.DURATION)
                 putNull(CalendarContract.Events.RRULE)
             }
             put(CalendarContract.Events.ALL_DAY, if (isAllDay) 1 else 0)
-            put(CalendarContract.Events.EVENT_TIMEZONE, tz)
+            put(CalendarContract.Events.EVENT_TIMEZONE, effectiveTz)
             put(CalendarContract.Events.HAS_ALARM, if (reminderMinutesBefore >= 0) 1 else 0)
         }
 

@@ -7,26 +7,35 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Base64
 import io.flutter.plugin.common.EventChannel
 import org.json.JSONArray
 
 /**
  * F10 / BG-01: Durable SQLite Append-Only Queue with Explicit ACK Lifecycle
- * (`received` -> `processing` -> `acknowledged`).
- * - Never drops notifications if Flutter crashes between `drainQueuedNotifications` and Firestore commit.
- * - Automatically re-offers stale `processing` items (> 30s without ACK) on next drain/restart.
- * - Retains up to 1,000 unacknowledged events (7-day TTL) and migrates any legacy SharedPreferences queue.
+ * (`received` -> `processing` -> `acknowledged`), AES-256-GCM Encrypted Payload Storage,
+ * TTL Cleanup & Dead-Letter Cap (`MAX_ATTEMPTS = 5`).
  */
 class LifeOsBankSignalQueueDb private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, DB_NAME, null, DB_VERSION) {
+
+    private val appContext: Context = context.applicationContext
 
     companion object {
         private const val DB_NAME = "lifeos_bank_signal_queue.db"
         private const val DB_VERSION = 1
         private const val TABLE_QUEUE = "bank_signal_queue"
         private const val MAX_QUEUE_ROWS = 1000
+        private const val MAX_ATTEMPTS = 5
         private const val STALE_PROCESSING_TIMEOUT_MS = 30_000L
         private const val RETENTION_TTL_MS = 7L * 24L * 3600_000L
+        private const val QUEUE_AAD = "bank_queue"
+        private val LOSV_MAGIC = byteArrayOf(
+            'L'.code.toByte(),
+            'O'.code.toByte(),
+            'S'.code.toByte(),
+            'V'.code.toByte()
+        )
 
         @Volatile
         private var instance: LifeOsBankSignalQueueDb? = null
@@ -66,6 +75,40 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
         onCreate(db)
     }
 
+    private fun encryptField(plaintext: String): String {
+        val cipherBytes = LifeOsSecureVault.encryptBytes(
+            appContext,
+            plaintext.toByteArray(Charsets.UTF_8),
+            QUEUE_AAD
+        )
+        return Base64.encodeToString(cipherBytes, Base64.NO_WRAP)
+    }
+
+    private fun decryptField(stored: String): String {
+        if (stored.isEmpty()) return ""
+        val decoded = try {
+            Base64.decode(stored, Base64.NO_WRAP)
+        } catch (_: Exception) {
+            // Safe fallback for legacy unencoded plaintext rows
+            return stored
+        }
+        val hasLosvMagic = decoded.size >= LOSV_MAGIC.size &&
+            decoded[0] == LOSV_MAGIC[0] &&
+            decoded[1] == LOSV_MAGIC[1] &&
+            decoded[2] == LOSV_MAGIC[2] &&
+            decoded[3] == LOSV_MAGIC[3]
+        if (!hasLosvMagic) {
+            // Safe fallback for legacy plaintext rows stored prior to v3.27 encryption
+            return stored
+        }
+        return try {
+            val plainBytes = LifeOsSecureVault.decryptBytes(appContext, decoded, QUEUE_AAD)
+            String(plainBytes, Charsets.UTF_8)
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
     private fun migrateLegacyPrefsIfNeeded(context: Context) {
         try {
             val prefs = context.getSharedPreferences(
@@ -77,11 +120,15 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
             val arr = JSONArray(raw)
             for (i in 0 until arr.length()) {
                 val obj = arr.optJSONObject(i) ?: continue
+                val title = BankNotificationListenerService.redactCardNumbers(obj.optString("title"))
+                val body = BankNotificationListenerService.redactCardNumbers(obj.optString("body"))
+                if (BankNotificationListenerService.containsOtpOrSecrets("$title $body")) continue
+                if (BankNotificationListenerService.isMarketingPromo("$title $body")) continue
                 enqueueReceived(
                     notificationKey = obj.optString("notificationKey").ifBlank { "legacy_$i" },
                     packageName = obj.optString("packageName"),
-                    title = obj.optString("title"),
-                    body = obj.optString("body"),
+                    title = title,
+                    body = body,
                     postedAtEpochMs = obj.optLong("postedAtEpochMs", System.currentTimeMillis())
                 )
             }
@@ -101,12 +148,14 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
         if (notificationKey.isBlank() || packageName.isBlank()) return
         val now = System.currentTimeMillis()
         try {
+            val encryptedTitle = encryptField(title)
+            val encryptedBody = encryptField(body)
             val db = writableDatabase
             val cv = ContentValues().apply {
                 put("notification_key", notificationKey)
                 put("package_name", packageName)
-                put("title", title)
-                put("body", body)
+                put("title", encryptedTitle)
+                put("body", encryptedBody)
                 put("posted_at_ms", postedAtEpochMs)
                 put("state", "received")
                 put("attempt_count", 0)
@@ -115,11 +164,11 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
             }
             db.insertWithOnConflict(TABLE_QUEUE, null, cv, SQLiteDatabase.CONFLICT_IGNORE)
 
-            // Purge expired (> 7 days) oracknowledged rows and enforce bounded 1,000-row cap
+            // Purge expired (> 7 days), dead-letter, or acknowledged rows and enforce bounded 1,000-row cap
             db.delete(
                 TABLE_QUEUE,
-                "state = 'acknowledged' OR created_at_ms < ?",
-                arrayOf((now - RETENTION_TTL_MS).toString())
+                "state = 'acknowledged' OR created_at_ms < ? OR attempt_count >= ?",
+                arrayOf((now - RETENTION_TTL_MS).toString(), MAX_ATTEMPTS.toString())
             )
             db.execSQL(
                 """
@@ -140,15 +189,23 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
         val out = mutableListOf<Map<String, Any>>()
         val now = System.currentTimeMillis()
         val staleCutoff = now - STALE_PROCESSING_TIMEOUT_MS
+        val expiryCutoff = now - RETENTION_TTL_MS
         try {
             val db = writableDatabase
             db.beginTransaction()
             try {
+                // Purge expired (> 7d) and dead-letter (>= MAX_ATTEMPTS) rows on every drain
+                db.delete(
+                    TABLE_QUEUE,
+                    "state = 'acknowledged' OR created_at_ms < ? OR attempt_count >= ?",
+                    arrayOf(expiryCutoff.toString(), MAX_ATTEMPTS.toString())
+                )
+
                 db.query(
                     TABLE_QUEUE,
                     arrayOf("notification_key", "package_name", "title", "body", "posted_at_ms", "attempt_count"),
-                    "state = 'received' OR (state = 'processing' AND last_attempt_ms < ?)",
-                    arrayOf(staleCutoff.toString()),
+                    "(state = 'received' OR (state = 'processing' AND last_attempt_ms < ?)) AND attempt_count < ?",
+                    arrayOf(staleCutoff.toString(), MAX_ATTEMPTS.toString()),
                     null,
                     null,
                     "posted_at_ms ASC",
@@ -157,10 +214,18 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
                     while (cursor.moveToNext()) {
                         val key = cursor.getString(0)
                         val pkg = cursor.getString(1)
-                        val title = cursor.getString(2)
-                        val body = cursor.getString(3)
+                        val title = decryptField(cursor.getString(2))
+                        val body = decryptField(cursor.getString(3))
                         val postedAt = cursor.getLong(4)
                         val attempts = cursor.getInt(5)
+
+                        // Re-check OTP/secret after decryption in case rules tightened since enqueue
+                        if ((title.isBlank() && body.isBlank()) ||
+                            BankNotificationListenerService.containsOtpOrSecrets("$title $body")
+                        ) {
+                            db.delete(TABLE_QUEUE, "notification_key = ?", arrayOf(key))
+                            continue
+                        }
 
                         val upd = ContentValues().apply {
                             put("state", "processing")
@@ -210,15 +275,24 @@ class LifeOsBankSignalQueueDb private constructor(context: Context) :
         }
         return removed
     }
+
+    @Synchronized
+    fun clearAll(): Int {
+        return try {
+            writableDatabase.delete(TABLE_QUEUE, null, null)
+        } catch (_: Exception) {
+            0
+        }
+    }
 }
 
 /**
  * Privacy-first Android NotificationListenerService for Life OS.
  * - Disabled by default (`enabled = false`).
  * - Only inspects notifications from explicitly allowlisted Vietnamese bank packages.
- * - Drops any notification containing OTP, PIN, CVV, or verification codes on-device BEFORE persisting.
- * - Writes every valid signal to `LifeOsBankSignalQueueDb` BEFORE forwarding to Flutter so an app
- *   crash or background kill never loses a single bank movement (F10 / BG-01).
+ * - Drops any notification containing OTP, PIN, CVV, CVC, 3DS, passcode, or verification codes
+ *   and non-balance promotional spam on-device BEFORE persisting.
+ * - Redacts 13–19 digit card PANs before enqueueing encrypted rows into `LifeOsBankSignalQueueDb`.
  */
 class BankNotificationListenerService : NotificationListenerService() {
 
@@ -232,13 +306,65 @@ class BankNotificationListenerService : NotificationListenerService() {
         @Volatile
         var eventSink: EventChannel.EventSink? = null
 
-        private val OTP_REGEX = Regex(
-            "\\b(otp|smart\\s*otp|m[aã]\\s*x[aá]c\\s*th[uự]c|m[aã]\\s*b[aả]o\\s*m[aậ]t|verification\\s*code|cvv|m[aã]\\s*pin|pin\\s*code|m[aậ]t\\s*kh[aẩ]u)\\b",
+        private val OTP_PATTERNS = listOf(
+            Regex(
+                "\\b(otp|smart\\s*otp|digital\\s*otp|s-otp|m-otp|e-?otp|soft\\s*otp|3ds|cvv|cvc|passcode)\\b",
+                RegexOption.IGNORE_CASE
+            ),
+            Regex(
+                "\\bm[aã]\\s*(x[aá]c\\s*th[uự]c|x[aá]c\\s*nh[aậ]n|b[aả]o\\s*m[aậ]t|k[ií]ch\\s*ho[aạ]t|giao\\s*d[iị]ch|pin)\\b",
+                RegexOption.IGNORE_CASE
+            ),
+            Regex(
+                "\\b(verification|security|auth|authentication|activation|one[- ]?time)\\s*(code|pin|password|passcode)\\b",
+                RegexOption.IGNORE_CASE
+            ),
+            Regex(
+                "\\b(pin\\s*code|m[aậ]t\\s*kh[aẩ]u|kh[oô]ng\\s*chia\\s*s[eẻ]\\s*m[aã])\\b",
+                RegexOption.IGNORE_CASE
+            )
+        )
+
+        private val CARD_PAN_REGEX = Regex("\\b(?:\\d[ -]*?){12,18}\\d\\b")
+
+        private val PROMO_MARKETING_REGEX = Regex(
+            "(?<![\\p{L}\\p{N}])(khuy[eế]n\\s*m[aã]i|[uư]u\\s*[dđ][aã]i|vay\\s*nhanh|m[oở]\\s*th[eẻ]|gi[oơớờởỡợ]i\\s*thi[eệ]u\\s*b[aạ]n\\s*b[eè]|t[aặ]ng\\s+voucher|voucher|ho[aà]n\\s*ti[eề]n\\s*[dđ][eế]n|t[oố]i\\s*[dđ]a|c[oơ]\\s*h[oộ]i\\s*nh[aậ]n|tr[uú]ng\\s*th[uư][oở]ng|quay\\s*th[uư][oở]ng|gi[aả]m\\s*gi[aá]|flash\\s*sale)(?![\\p{L}\\p{N}])",
+            RegexOption.IGNORE_CASE
+        )
+
+        private val BALANCE_CUE_REGEX = Regex(
+            "(?:SD|S[oố]\\s*d[uư])\\s*[:=]?\\s*\\d",
             RegexOption.IGNORE_CASE
         )
 
         fun containsOtpOrSecrets(text: String): Boolean {
-            return OTP_REGEX.containsMatchIn(text)
+            if (text.isBlank()) return false
+            return OTP_PATTERNS.any { it.containsMatchIn(text) }
+        }
+
+        fun redactCardNumbers(text: String): String {
+            if (text.isEmpty()) return ""
+            return CARD_PAN_REGEX.replace(text, "[REDACTED_CARD]")
+        }
+
+        fun isMarketingPromo(text: String): Boolean {
+            if (text.isBlank()) return false
+            return PROMO_MARKETING_REGEX.containsMatchIn(text) &&
+                !BALANCE_CUE_REGEX.containsMatchIn(text)
+        }
+
+        fun clearListenerPreferences(context: Context) {
+            try {
+                context.applicationContext
+                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_ENABLED, false)
+                    .putBoolean(KEY_SOUNDBOX_ENABLED, false)
+                    .putStringSet(KEY_PACKAGES, emptySet())
+                    .remove(KEY_QUEUED_JSON)
+                    .apply()
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -253,18 +379,26 @@ class BankNotificationListenerService : NotificationListenerService() {
         if (!allowed.contains(pkg)) return
 
         val extras = sbn.notification?.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim().orEmpty()
         val shortText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim().orEmpty()
         val baseBody = if (bigText.length >= shortText.length && bigText.isNotEmpty()) bigText else shortText
-        val text = if (subText.isNotEmpty() && !baseBody.contains(subText)) "$baseBody $subText".trim() else baseBody
-        if (title.isEmpty() && text.isEmpty()) return
+        val rawText = if (subText.isNotEmpty() && !baseBody.contains(subText)) "$baseBody $subText".trim() else baseBody
+        if (rawTitle.isEmpty() && rawText.isEmpty()) return
 
+        val combinedRaw = "$rawTitle $rawText"
         // Strict on-device OTP/secret block — never leaves the listener or enters local SQLite queue
-        if (containsOtpOrSecrets("$title $text")) {
+        if (containsOtpOrSecrets(combinedRaw)) {
             return
         }
+        // Drop obvious promotional / marketing notifications before storage
+        if (isMarketingPromo(combinedRaw)) {
+            return
+        }
+
+        val title = redactCardNumbers(rawTitle)
+        val text = redactCardNumbers(rawText)
 
         // Optional Native Vietnamese "Loa Báo Tiền Về" (works even when app is closed!)
         if (prefs.getBoolean(KEY_SOUNDBOX_ENABLED, false)) {
@@ -276,7 +410,7 @@ class BankNotificationListenerService : NotificationListenerService() {
 
         val notifKey = "${sbn.key ?: pkg}_${sbn.postTime}_${(title + text).hashCode()}"
 
-        // F10 / BG-01: Persist in durable SQLite queue FIRST (survives process kill / mid-drain crash)
+        // F10 / BG-01: Persist AES-256-GCM encrypted payload in durable SQLite queue FIRST
         LifeOsBankSignalQueueDb.getInstance(applicationContext).enqueueReceived(
             notificationKey = notifKey,
             packageName = pkg,

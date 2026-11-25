@@ -38,6 +38,24 @@ android {
         versionName = flutter.versionName
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("boolean", "ENABLE_GITHUB_OTA", "true")
+            buildConfigField("String", "DISTRIBUTION_FLAVOR", "\"github\"")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "ENABLE_GITHUB_OTA", "false")
+            buildConfigField("String", "DISTRIBUTION_FLAVOR", "\"play\"")
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")

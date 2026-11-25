@@ -6,11 +6,14 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
+import '../../../family/domain/repositories/family_repository.dart';
+import '../../../notifications/domain/repositories/notifications_repository.dart';
 import '../../domain/entities/user_entity.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -407,6 +410,7 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
   bool _hideBalances = false;
   bool _revealSensitiveProfile = false;
   bool _securitySectionExpanded = false;
+  bool _isDeletingAccount = false;
 
   static const List<(String id, String label)> _supportedTimezones = [
     ('Asia/Ho_Chi_Minh', 'Việt Nam (GMT+7)'),
@@ -496,6 +500,96 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
           );
         },
       ),
+    );
+  }
+
+  Future<void> _handleDeleteAccountTap(
+    BuildContext context,
+    UserEntity user,
+  ) async {
+    if (_isDeletingAccount) return;
+
+    if (sl.isRegistered<FamilyRepository>()) {
+      try {
+        final famRes = await sl<FamilyRepository>()
+            .watchMyFamilies(user.id)
+            .first
+            .timeout(const Duration(seconds: 3));
+        final ownedMulti = famRes.fold(
+          (_) => null,
+          (families) => families
+              .where(
+                (f) =>
+                    f.members.length > 1 &&
+                    (f.isOwnerUser(user.id) || f.createdBy == user.id),
+              )
+              .firstOrNull,
+        );
+        if (ownedMulti != null && context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (dlgCtx) => AlertDialog(
+              key: const Key('delete_account_owner_blocked_dialog'),
+              title: const Text('Cần chuyển quyền Nhóm gia đình'),
+              content: Text(
+                'Bạn đang là chủ sở hữu của "${ownedMulti.name}" (${ownedMulti.members.length} thành viên). Vui lòng chuyển quyền chủ sở hữu hoặc xóa các thành viên khác trước khi xóa vĩnh viễn tài khoản.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dlgCtx).pop(),
+                  child: const Text('Đóng'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dlgCtx).pop();
+                    context.push('/family');
+                  },
+                  child: const Text('Mở Tổ ấm & Nhóm'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      } catch (_) {}
+    }
+
+    if (!context.mounted) return;
+    final confirmed = await showDestructiveConfirmDialog(
+      context: context,
+      title: 'Xóa tài khoản & Dữ liệu cá nhân?',
+      message:
+          'Toàn bộ ví, giao dịch, lịch hẹn, tài liệu và dữ liệu trên thiết bị sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+      confirmLabel: 'Xóa vĩnh viễn',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    if (!sl.isRegistered<NotificationsRepository>()) {
+      context.push('/notifications-privacy');
+      return;
+    }
+
+    setState(() => _isDeletingAccount = true);
+    final res = await sl<NotificationsRepository>()
+        .deleteAccountAndPersonalData(user.id);
+    if (!context.mounted) return;
+
+    res.fold(
+      (failure) {
+        setState(() => _isDeletingAccount = false);
+        LifeOsTopToast.show(
+          context,
+          failure.message,
+          kind: LifeOsToastKind.error,
+        );
+      },
+      (_) {
+        LifeOsTopToast.show(
+          context,
+          'Đã xóa tài khoản và toàn bộ dữ liệu cá nhân.',
+        );
+        context.read<AuthBloc>().add(const AuthSignOutRequested());
+      },
     );
   }
 
@@ -1494,18 +1588,98 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                   OutlinedButton.icon(
                                     key: const Key('profile_sign_out_button'),
                                     style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size.fromHeight(48),
                                       foregroundColor: c.error,
                                       side: BorderSide(
                                         color: c.error.withValues(alpha: 0.45),
                                       ),
                                     ),
-                                    onPressed: () =>
-                                        context.read<AuthBloc>().add(
-                                          const AuthSignOutRequested(),
-                                        ),
+                                    onPressed: _isDeletingAccount
+                                        ? null
+                                        : () => context.read<AuthBloc>().add(
+                                            const AuthSignOutRequested(),
+                                          ),
                                     icon: const Icon(Icons.logout_rounded),
                                     label: const Text(
                                       'Đăng xuất khỏi thiết bị này',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            LifeOsSoftCard(
+                              key: const Key('profile_delete_account_section'),
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const LifeOsIconSquircle(
+                                        icon: Icons.delete_forever_outlined,
+                                        tone: LifeOsAccentTone.coral,
+                                        size: 38,
+                                        iconSize: 18,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Xóa tài khoản & Dữ liệu cá nhân',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 13.8,
+                                                fontWeight: FontWeight.w800,
+                                                color: c.textPrimary,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Xóa vĩnh viễn toàn bộ ví, giao dịch, lịch hẹn và dữ liệu riêng trên máy',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 11.8,
+                                                color: c.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  OutlinedButton.icon(
+                                    key: const Key(
+                                      'profile_delete_account_button',
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size.fromHeight(48),
+                                      foregroundColor: c.error,
+                                      side: BorderSide(
+                                        color: c.error.withValues(alpha: 0.55),
+                                      ),
+                                    ),
+                                    onPressed:
+                                        (_isDeletingAccount ||
+                                            state.isSubmitting)
+                                        ? null
+                                        : () => _handleDeleteAccountTap(
+                                            context,
+                                            user,
+                                          ),
+                                    icon: Icon(
+                                      _isDeletingAccount
+                                          ? Icons.hourglass_top_rounded
+                                          : Icons.delete_forever_rounded,
+                                    ),
+                                    label: Text(
+                                      _isDeletingAccount
+                                          ? 'Đang xóa dữ liệu...'
+                                          : 'Xóa tài khoản & Dữ liệu cá nhân',
+                                      softWrap: true,
                                     ),
                                   ),
                                 ],

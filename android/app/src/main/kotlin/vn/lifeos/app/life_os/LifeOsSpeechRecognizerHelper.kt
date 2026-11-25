@@ -49,7 +49,8 @@ class LifeOsSpeechRecognizerHelper(
     private val onFinalTranscript: (String) -> Unit,
     private val onError: (code: String, message: String) -> Unit,
     private val onLaunchSystemDialog: (Intent) -> Boolean,
-    private val onEngineAutoSwitched: ((String) -> Unit)? = null
+    private val onEngineAutoSwitched: ((String) -> Unit)? = null,
+    private val onDialogStateChanged: ((Boolean) -> Unit)? = null
 ) {
     sealed class EngineCandidate(val label: String) {
         data object SystemBrokerDefault : EngineCandidate("system_default")
@@ -72,6 +73,16 @@ class LifeOsSpeechRecognizerHelper(
         private set
 
     companion object {
+        const val STATE_IDLE = "idle"
+        const val STATE_REQUESTING_PERMISSION = "requesting_permission"
+        const val STATE_INITIALIZING = "initializing"
+        const val STATE_LISTENING = "listening"
+        const val STATE_PROCESSING = "processing"
+        const val STATE_REVIEW = "review"
+        const val STATE_COMPLETED = "completed"
+        const val STATE_ERROR = "error"
+        const val STATE_CANCELLED = "cancelled"
+
         private const val RECOGNITION_SERVICE_ACTION = "android.speech.RecognitionService"
         private const val CAPS_PREFS_NAME = "lifeos_voice_engine_caps"
         private const val KEY_INLINE_VERIFIED = "inline_verified_working"
@@ -464,7 +475,8 @@ class LifeOsSpeechRecognizerHelper(
             nextVoiceSession()
             clearTimers()
             teardownCurrentRecognizer(abortInFlight = true)
-            onStateChanged("idle")
+            onDialogStateChanged?.invoke(false)
+            onStateChanged(STATE_CANCELLED)
         }
     }
 
@@ -569,8 +581,9 @@ class LifeOsSpeechRecognizerHelper(
                     if (captured.isNotEmpty()) {
                         markInlineVerifiedWorking(appContext)
                         onFinalTranscript(captured)
+                        onStateChanged(STATE_REVIEW)
                     } else {
-                        onStateChanged("idle")
+                        onStateChanged(STATE_IDLE)
                     }
                 }
             }
@@ -695,6 +708,7 @@ class LifeOsSpeechRecognizerHelper(
                     if (text.isNotEmpty()) {
                         markInlineVerifiedWorking(appContext)
                         onFinalTranscript(text)
+                        onStateChanged(STATE_REVIEW)
                     } else {
                         val elapsedMs = System.currentTimeMillis() - attemptStartedAtMs
                         val rmsSpread = if (maxRmsSeen >= minRmsSeen) (maxRmsSeen - minRmsSeen) else 0f
@@ -712,7 +726,7 @@ class LifeOsSpeechRecognizerHelper(
                             pendingStartRunnable = nextRun
                             mainHandler.postDelayed(nextRun, BINDER_COOLDOWN_MS)
                         } else {
-                            onStateChanged("idle")
+                            onStateChanged(STATE_ERROR)
                             onError(
                                 "NO_MATCH",
                                 "Chưa nghe rõ câu nói. Bạn hãy bấm Mic nói lại hoặc chọn Hộp thoại Google."
@@ -741,11 +755,18 @@ class LifeOsSpeechRecognizerHelper(
                         teardownCurrentRecognizer(abortInFlight = false)
                         markInlineVerifiedWorking(appContext)
                         onFinalTranscript(captured)
+                        onStateChanged(STATE_REVIEW)
                         return
                     }
 
+                    val hasAudioPerm = ContextCompat.checkSelfPermission(
+                        activity,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+
                     // 2. If `preferOffline` failed, retry the same candidate ONLINE immediately
-                    if (preferOffline) {
+                    //    (guarded against ERROR_INSUFFICIENT_PERMISSIONS so missing permission never triggers a futile online retry!)
+                    if (preferOffline && error != SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                         teardownCurrentRecognizer(abortInFlight = false)
                         val onlineRun = Runnable {
                             attemptCandidate(
@@ -805,11 +826,6 @@ class LifeOsSpeechRecognizerHelper(
                         return
                     }
 
-                    val hasAudioPerm = ContextCompat.checkSelfPermission(
-                        activity,
-                        Manifest.permission.RECORD_AUDIO
-                    ) == PackageManager.PERMISSION_GRANTED
-
                     // 5. Cascade across ALL engine/network/permission/dead-mic failures straight to
                     // the next candidate and then into Google's `ACTION_RECOGNIZE_SPEECH` Dialog!
                     val isDeadStreamFailure = !inlinePreviouslyVerified &&
@@ -850,7 +866,7 @@ class LifeOsSpeechRecognizerHelper(
                         return
                     }
 
-                    onStateChanged("idle")
+                    onStateChanged(STATE_ERROR)
                     val (errCode, friendlyMsg) = when (error) {
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
                             "PERMISSION_DENIED" to "Vui lòng cấp quyền Micro để thu âm giọng nói."
@@ -919,19 +935,22 @@ class LifeOsSpeechRecognizerHelper(
                 false
             }
             if (launched) {
-                onStateChanged("listening")
+                onDialogStateChanged?.invoke(true)
+                onStateChanged(STATE_LISTENING)
                 return
             }
         }
 
-        // Fallback to inline Google Speech if device lacks an ACTION_RECOGNIZE_SPEECH Activity
+        // Fallback to inline Google Speech -> explicitly clear awaiting dialog flag so onStop() cancels inline mic
+        onDialogStateChanged?.invoke(false)
+
         val hasAudioPerm = ContextCompat.checkSelfPermission(
             activity,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
         val googleCandidates = discoverCandidates(activity, engineMode = "google_service")
         if (hasAudioPerm && googleCandidates.isNotEmpty()) {
-            onStateChanged("initializing")
+            onStateChanged(STATE_INITIALIZING)
             val delayMs = if (hadPreviousRecognizer) BINDER_COOLDOWN_MS else 0L
             val fallbackInline = Runnable {
                 attemptCandidate(
@@ -952,7 +971,7 @@ class LifeOsSpeechRecognizerHelper(
             return
         }
 
-        onStateChanged("idle")
+        onStateChanged(STATE_ERROR)
         onError(
             "NO_SPEECH_ENGINE",
             "Thiết bị chưa bật Speech Services by Google (Nhận diện giọng nói của Google)."
@@ -973,10 +992,12 @@ class LifeOsSpeechRecognizerHelper(
             false
         }
         if (launched) {
-            onStateChanged("listening")
+            onDialogStateChanged?.invoke(true)
+            onStateChanged(STATE_LISTENING)
         } else {
             lastDialogWasAutoEscalated = false
-            onStateChanged("idle")
+            onDialogStateChanged?.invoke(false)
+            onStateChanged(STATE_ERROR)
             onError(
                 "NO_SPEECH_ENGINE",
                 "Thiết bị chưa bật dịch vụ Nhận diện giọng nói của Google (Speech Services by Google)."

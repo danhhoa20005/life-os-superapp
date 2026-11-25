@@ -523,6 +523,18 @@ object LifeOsAlarmScheduler {
     }
 
     fun scheduleNextDayMedicationIfConfigured(context: Context, rawMedId: String) {
+        scheduleNextMedicationAlarm(
+            context = context,
+            rawMedId = rawMedId,
+            includeTodayIfFuture = false
+        )
+    }
+
+    fun scheduleNextMedicationAlarm(
+        context: Context,
+        rawMedId: String,
+        includeTodayIfFuture: Boolean = true
+    ) {
         val appCtx = context.applicationContext
         val raw = appCtx.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
             .getString(rawMedId, null) ?: return
@@ -530,21 +542,25 @@ object LifeOsAlarmScheduler {
             val obj = JSONObject(raw)
             val name = obj.optString("name", "Thuốc")
             val dosage = obj.optString("dosage", "1 liều")
-            val hour = obj.optInt("hour", 8)
-            val minute = obj.optInt("minute", 0)
-            val tomorrow = Calendar.getInstance().apply {
-                add(Calendar.DAY_OF_YEAR, 1)
+            val hour = obj.optInt("hour", 8).coerceIn(0, 23)
+            val minute = obj.optInt("minute", 0).coerceIn(0, 59)
+            val now = System.currentTimeMillis()
+            val nextTrigger = Calendar.getInstance().apply {
+                timeInMillis = now
                 set(Calendar.HOUR_OF_DAY, hour)
                 set(Calendar.MINUTE, minute)
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
+                if (!includeTodayIfFuture || timeInMillis <= now + 5_000L) {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
             }.timeInMillis
             scheduleAlarm(
                 context = appCtx,
                 eventId = "med_rem_$rawMedId",
                 title = "Nhắc uống thuốc: $name",
                 subtitle = dosage,
-                triggerAtEpochMs = tomorrow,
+                triggerAtEpochMs = nextTrigger,
                 minutesBefore = 0,
                 fullScreen = false
             )
@@ -928,13 +944,29 @@ object LifeOsAlarmScheduler {
         for (eventId in prefs.all.keys.toList()) {
             cancelAlarm(appCtx, eventId)
         }
+        prefs.edit().clear().apply()
+        appCtx.getSharedPreferences(PREFS_HYDRATION_DAEMON, Context.MODE_PRIVATE)
+            .edit().clear().apply()
+        appCtx.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
+            .edit().clear().apply()
+        appCtx.getSharedPreferences(PREFS_BG_ACTIONS, Context.MODE_PRIVATE)
+            .edit().clear().apply()
+        try {
+            val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancelAll()
+        } catch (_: Exception) {
+        }
     }
 
     fun rescheduleAllPersistedAlarms(context: Context) {
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
-        for ((key, rawVal) in prefs.all) {
+        for ((key, rawVal) in prefs.all.entries.toList()) {
+            if (key == DAEMON_WATER_NEXT_ID || key.startsWith("med_rem_")) {
+                // Recomputed cleanly below in the current timezone/wall-clock from daemon configs
+                continue
+            }
             val str = rawVal as? String ?: continue
             try {
                 val obj = JSONObject(str)
@@ -956,8 +988,20 @@ object LifeOsAlarmScheduler {
             } catch (_: Exception) {
             }
         }
-        // Also ensure autonomous daily hydration daemon survives reboot / timezone change!
+        // Recompute BOTH hydration & medication daemon wall-clock triggers after reboot/timezone/time change
+        cancelAlarm(appCtx, DAEMON_WATER_NEXT_ID)
         ensureNextDaemonWaterAlarmScheduled(appCtx)
+
+        val medPrefs = appCtx.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
+        for (medId in medPrefs.all.keys.toList()) {
+            if (medId.isNotBlank()) {
+                scheduleNextMedicationAlarm(
+                    context = appCtx,
+                    rawMedId = medId,
+                    includeTodayIfFuture = true
+                )
+            }
+        }
     }
 
     fun buildBroadcastPendingIntent(

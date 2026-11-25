@@ -38,9 +38,11 @@ class MainActivity : FlutterActivity() {
     private val deviceCalendarChannelName = "vn.lifeos.app/device_calendar"
     private val permissionsChannelName = "vn.lifeos.app/permissions"
     private val receiptPickerChannelName = "vn.lifeos.app/receipt_picker"
+    private val privacyScreenChannelName = "vn.lifeos.app/privacy_screen"
 
     private var pendingWidgetAction: String? = null
     private var pendingAlarmPayload: Map<String, String>? = null
+    private var isAlarmLockScreenActive: Boolean = false
     private var homeWidgetsMethodChannel: MethodChannel? = null
     private var alarmMethodChannel: MethodChannel? = null
     private var voiceMethodChannel: MethodChannel? = null
@@ -52,6 +54,9 @@ class MainActivity : FlutterActivity() {
     private var speechHelper: LifeOsSpeechRecognizerHelper? = null
     private var activeVoiceSessionToken: String? = null
     private var activeVoiceEngineMode: String = "google_service"
+    private var voiceStartGeneration: Long = 0L
+    private var pendingVoicePermissionGeneration: Long = -1L
+    private var pendingVoicePermissionToken: String? = null
     private var isAwaitingVoicePermissionOrDialog: Boolean = false
     private var voiceEventSink: EventChannel.EventSink? = null
 
@@ -100,8 +105,11 @@ class MainActivity : FlutterActivity() {
             val payload = pendingAlarmPayload
             if (payload != null && alarmMethodChannel != null) {
                 pendingAlarmPayload = null
+                intent.action = null
                 alarmMethodChannel?.invokeMethod("onAlarmRinging", payload)
             }
+        } else {
+            clearAlarmLockScreenFlags()
         }
     }
 
@@ -117,6 +125,7 @@ class MainActivity : FlutterActivity() {
     private fun captureAlarmIntent(intent: Intent?): Boolean {
         val action = intent?.action ?: return false
         if (action == LifeOsAlarmScheduler.ACTION_OPEN_RINGING_UI) {
+            isAlarmLockScreenActive = true
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(true)
                 setTurnScreenOn(true)
@@ -136,6 +145,21 @@ class MainActivity : FlutterActivity() {
             return true
         }
         return false
+    }
+
+    private fun clearAlarmLockScreenFlags() {
+        isAlarmLockScreenActive = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(false)
+            setTurnScreenOn(false)
+        } else {
+            @Suppress("DEPRECATION")
+            window.clearFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -188,6 +212,13 @@ class MainActivity : FlutterActivity() {
                             .getInstance(applicationContext)
                             .acknowledgeKeys(keys)
                         result.success(acked)
+                    }
+                    "clearBankSignalQueue" -> {
+                        val cleared = LifeOsBankSignalQueueDb
+                            .getInstance(applicationContext)
+                            .clearAll()
+                        BankNotificationListenerService.clearListenerPreferences(applicationContext)
+                        result.success(cleared)
                     }
                     "isPostNotificationsGranted" -> {
                         val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -253,6 +284,7 @@ class MainActivity : FlutterActivity() {
                         Context.MODE_PRIVATE
                     )
                     val editor = prefs.edit()
+                        .putBoolean(LifeOsWidgetStore.KEY_IS_SIGNED_OUT, false)
                         .putString("net_worth_formatted", call.argument<String>("netWorth") ?: "0 ₫")
                         .putString("monthly_income_formatted", call.argument<String>("monthlyIncome") ?: "+0 ₫")
                         .putString("monthly_expense_formatted", call.argument<String>("monthlyExpense") ?: "-0 ₫")
@@ -339,12 +371,13 @@ class MainActivity : FlutterActivity() {
                     val preferSystemDialog = call.argument<Boolean>("preferSystemDialog") ?: false
                     val engineMode = call.argument<String>("engineMode") ?: "google_service"
                     val forceInlineProbe = call.argument<Boolean>("forceInlineProbe") ?: false
+                    voiceStartGeneration += 1
                     activeVoiceEngineMode = engineMode
                     if (!token.isNullOrBlank()) {
                         activeVoiceSessionToken = token
                     }
                     if (preferSystemDialog || engineMode == "system_dialog") {
-                        isAwaitingVoicePermissionOrDialog = true
+                        isAwaitingVoicePermissionOrDialog = false
                         ensureSpeechHelper().startListening(
                             preferSystemDialog = true,
                             engineMode = "system_dialog",
@@ -359,7 +392,14 @@ class MainActivity : FlutterActivity() {
                     ) == PackageManager.PERMISSION_GRANTED
                     if (!hasAudioPerm) {
                         isAwaitingVoicePermissionOrDialog = true
-                        emitVoiceEvent(mapOf("type" to "state", "status" to "requesting_permission"))
+                        pendingVoicePermissionGeneration = voiceStartGeneration
+                        pendingVoicePermissionToken = activeVoiceSessionToken
+                        emitVoiceEvent(
+                            mapOf(
+                                "type" to "state",
+                                "status" to LifeOsSpeechRecognizerHelper.STATE_REQUESTING_PERMISSION
+                            )
+                        )
                         ActivityCompat.requestPermissions(
                             this,
                             arrayOf(Manifest.permission.RECORD_AUDIO),
@@ -383,8 +423,12 @@ class MainActivity : FlutterActivity() {
                 "cancelListening" -> {
                     val token = call.argument<String>("sessionToken")
                     if (token.isNullOrBlank() || activeVoiceSessionToken == null || token == activeVoiceSessionToken) {
+                        voiceStartGeneration += 1
+                        pendingVoicePermissionGeneration = -1L
+                        pendingVoicePermissionToken = null
                         isAwaitingVoicePermissionOrDialog = false
                         speechHelper?.cancelListening()
+                        activeVoiceSessionToken = null
                     }
                     result.success(true)
                 }
@@ -454,7 +498,21 @@ class MainActivity : FlutterActivity() {
                             result.error("VERSION_ERROR", e.message, null)
                         }
                     }
+                    "getDistributionFlavor" -> {
+                        result.success(BuildConfig.DISTRIBUTION_FLAVOR)
+                    }
+                    "isGitHubOtaEnabled" -> {
+                        result.success(BuildConfig.ENABLE_GITHUB_OTA)
+                    }
                     "getUpdateCacheDir" -> {
+                        if (!BuildConfig.ENABLE_GITHUB_OTA) {
+                            result.error(
+                                "OTA_DISABLED_PLAY_FLAVOR",
+                                "Phiên bản Google Play không hỗ trợ tải tệp APK trong ứng dụng.",
+                                null
+                            )
+                            return@setMethodCallHandler
+                        }
                         val dir = File(cacheDir, "ota_updates")
                         if (!dir.exists()) {
                             dir.mkdirs()
@@ -462,6 +520,10 @@ class MainActivity : FlutterActivity() {
                         result.success(dir.absolutePath)
                     }
                     "canRequestPackageInstalls" -> {
+                        if (!BuildConfig.ENABLE_GITHUB_OTA) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
                         val allowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             packageManager.canRequestPackageInstalls()
                         } else {
@@ -470,6 +532,14 @@ class MainActivity : FlutterActivity() {
                         result.success(allowed)
                     }
                     "installApk" -> {
+                        if (!BuildConfig.ENABLE_GITHUB_OTA) {
+                            result.error(
+                                "OTA_DISABLED_PLAY_FLAVOR",
+                                "Phiên bản Google Play không hỗ trợ tự cài đặt tệp APK.",
+                                null
+                            )
+                            return@setMethodCallHandler
+                        }
                         val filePath = call.argument<String>("filePath")
                         if (filePath.isNullOrBlank()) {
                             result.error("INVALID_PATH", "Đường dẫn tệp APK trống.", null)
@@ -802,6 +872,7 @@ class MainActivity : FlutterActivity() {
                 "stopRingingAlarm" -> {
                     val eventId = call.argument<String>("eventId")
                     LifeOsAlarmRinger.stopRinging(applicationContext, eventId)
+                    clearAlarmLockScreenFlags()
                     result.success(true)
                 }
                 "startTestRinging" -> {
@@ -814,6 +885,10 @@ class MainActivity : FlutterActivity() {
                 "consumeInitialAlarmPayload" -> {
                     val p = pendingAlarmPayload
                     pendingAlarmPayload = null
+                    intent?.action = null
+                    if (p == null) {
+                        clearAlarmLockScreenFlags()
+                    }
                     result.success(p)
                 }
                 else -> result.notImplemented()
@@ -1084,6 +1159,32 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // 10. FLAG_SECURE Recent-Apps Privacy Screen Shield (`vn.lifeos.app/privacy_screen`)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, privacyScreenChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setPrivacyScreenEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        runOnUiThread {
+                            if (enabled) {
+                                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                            } else {
+                                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                setRecentsScreenshotEnabled(!enabled)
+                            }
+                        }
+                        result.success(true)
+                    }
+                    "isPrivacyScreenEnabled" -> {
+                        val hasFlag = (window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE) != 0
+                        result.success(hasFlag)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     private fun collectPermissionsSnapshot(): Map<String, Boolean> {
@@ -1115,13 +1216,18 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun emitVoiceEvent(payload: Map<String, Any?>) {
+        val enriched = if (activeVoiceSessionToken != null && !payload.containsKey("sessionToken")) {
+            payload.toMutableMap().apply { put("sessionToken", activeVoiceSessionToken) }
+        } else {
+            payload
+        }
         runOnUiThread {
             try {
-                voiceMethodChannel?.invokeMethod("onVoiceEvent", payload)
+                voiceMethodChannel?.invokeMethod("onVoiceEvent", enriched)
             } catch (_: Exception) {
             }
             try {
-                voiceEventSink?.success(payload)
+                voiceEventSink?.success(enriched)
             } catch (_: Exception) {
             }
         }
@@ -1160,6 +1266,9 @@ class MainActivity : FlutterActivity() {
             },
             onEngineAutoSwitched = { mode ->
                 emitVoiceEvent(mapOf("type" to "engine_switched", "mode" to mode))
+            },
+            onDialogStateChanged = { awaiting ->
+                isAwaitingVoicePermissionOrDialog = awaiting
             }
         )
         speechHelper = created
@@ -1174,14 +1283,34 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_RECORD_AUDIO) {
             isAwaitingVoicePermissionOrDialog = false
+            val requestGeneration = pendingVoicePermissionGeneration
+            val requestToken = pendingVoicePermissionToken
+            pendingVoicePermissionGeneration = -1L
+            pendingVoicePermissionToken = null
+            val stillCurrentSession = voiceStartGeneration == requestGeneration &&
+                (requestToken == null || activeVoiceSessionToken == requestToken)
+            if (!stillCurrentSession) {
+                return
+            }
             val granted = grantResults.isNotEmpty() &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED
             if (granted) {
-                emitVoiceEvent(mapOf("type" to "state", "status" to "initializing"))
+                emitVoiceEvent(
+                    mapOf(
+                        "type" to "state",
+                        "status" to LifeOsSpeechRecognizerHelper.STATE_INITIALIZING,
+                        "sessionToken" to requestToken
+                    )
+                )
                 // Allow 160ms for Android PermissionController Activity to finish animating out
-                // and MainActivity to regain window focus (prevents ERROR_CLIENT on Xiaomi/Samsung).
+                // and MainActivity to regain window focus (prevents ERROR_CLIENT on Xiaomi/Samsung),
+                // ONLY if the voice session was NOT cancelled in the interim!
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    if (!isFinishing && !isDestroyed) {
+                    if (!isFinishing &&
+                        !isDestroyed &&
+                        voiceStartGeneration == requestGeneration &&
+                        (requestToken == null || activeVoiceSessionToken == requestToken)
+                    ) {
                         ensureSpeechHelper().startListening(
                             preferSystemDialog = false,
                             engineMode = activeVoiceEngineMode
@@ -1193,10 +1322,17 @@ class MainActivity : FlutterActivity() {
                     this,
                     Manifest.permission.RECORD_AUDIO
                 )
-                emitVoiceEvent(mapOf("type" to "state", "status" to "idle"))
+                emitVoiceEvent(
+                    mapOf(
+                        "type" to "state",
+                        "status" to LifeOsSpeechRecognizerHelper.STATE_ERROR,
+                        "sessionToken" to requestToken
+                    )
+                )
                 emitVoiceEvent(
                     mapOf(
                         "type" to "error",
+                        "sessionToken" to requestToken,
                         "code" to if (permanentlyDenied) "PERMISSION_PERMANENTLY_DENIED" else "PERMISSION_DENIED",
                         "message" to if (permanentlyDenied) {
                             "Quyền Micro đang bị tắt trong Cài đặt máy. Bấm Cấp quyền Micro hoặc dùng Thu âm hệ thống."
@@ -1247,10 +1383,21 @@ class MainActivity : FlutterActivity() {
                 if (text.isNotEmpty()) {
                     speechHelper?.recordDialogSuccessAfterEscalation()
                     emitVoiceEvent(mapOf("type" to "final", "text" to text))
+                    emitVoiceEvent(
+                        mapOf(
+                            "type" to "state",
+                            "status" to LifeOsSpeechRecognizerHelper.STATE_REVIEW
+                        )
+                    )
                     return
                 }
             }
-            emitVoiceEvent(mapOf("type" to "state", "status" to "idle"))
+            emitVoiceEvent(
+                mapOf(
+                    "type" to "state",
+                    "status" to LifeOsSpeechRecognizerHelper.STATE_CANCELLED
+                )
+            )
             emitVoiceEvent(
                 mapOf(
                     "type" to "error",
@@ -1291,14 +1438,20 @@ class MainActivity : FlutterActivity() {
 
     override fun onStop() {
         // Release active inline SpeechRecognizer when app moves to background or lock screen
-        // (prevents MIUI/ColorOS/OneUI from locking the hardware mic for subsequent sessions).
-        if (!isChangingConfigurations && !isAwaitingVoicePermissionOrDialog) {
-            speechHelper?.cancelListening()
+        // (prevents MIUI/ColorOS/OneUI from locking the hardware mic for subsequent sessions),
+        // and clear lockscreen flags once backgrounded.
+        if (!isChangingConfigurations) {
+            clearAlarmLockScreenFlags()
+            if (!isAwaitingVoicePermissionOrDialog) {
+                voiceStartGeneration += 1
+                speechHelper?.cancelListening()
+            }
         }
         super.onStop()
     }
 
     override fun onDestroy() {
+        voiceStartGeneration += 1
         LifeOsAlarmScheduler.onBackgroundHealthActionPing = null
         LifeOsWidgetStore.onBackgroundWidgetCommandPing = null
         voiceMethodChannel = null

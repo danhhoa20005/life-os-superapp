@@ -4,12 +4,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart' as cf;
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
+import '../../../../core/services/native_home_widget_bridge.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../financial_ai/data/normalization/financial_text_normalizer.dart';
@@ -440,6 +443,9 @@ class NotificationsRemoteDataSource {
   }) async {
     // Step 1: Hard OTP / secret filter BEFORE touching any database or log!
     if (OtpRedactor.containsOtpOrSecret('$title $body')) {
+      if (notificationId != null && notificationId.isNotEmpty) {
+        await _bridge.acknowledgeQueuedNotification(notificationId);
+      }
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.blockedOtpOrSecret,
         message: 'Đã chặn thông báo chứa mã OTP / bảo mật.',
@@ -459,6 +465,9 @@ class NotificationsRemoteDataSource {
             .toSet();
 
     if (!enabled || !allowedPackages.contains(packageName)) {
+      if (notificationId != null && notificationId.isNotEmpty) {
+        await _bridge.acknowledgeQueuedNotification(notificationId);
+      }
       return const IngestionOutcome(
         kind: IngestionOutcomeKind.blockedConsentDisabled,
         message: 'Chưa bật nhận diện cho ứng dụng ngân hàng này.',
@@ -1544,6 +1553,48 @@ class NotificationsRemoteDataSource {
   }
 
   Future<void> deleteAccountAndPersonalData(String userId) async {
+    // 1. Pre-check BEFORE any destructive wipe: block silent Firestore failure
+    //    if user is still owner of a multi-member family/group space.
+    final famSnap = await _firestore
+        .collection('families')
+        .where('memberIds', arrayContains: userId)
+        .get();
+    for (final famDoc in famSnap.docs) {
+      final d = famDoc.data();
+      final members = (d['memberIds'] as List<dynamic>? ?? const <dynamic>[])
+          .map((e) => e.toString())
+          .toList();
+      final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {});
+      final isOwner = roles[userId] == 'owner' || d['createdBy'] == userId;
+      if (isOwner && members.length > 1) {
+        final familyName = (d['name'] as String?)?.trim().isNotEmpty == true
+            ? (d['name'] as String).trim()
+            : 'nhóm gia đình';
+        throw AppException(
+          code: 'FAMILY_OWNER_TRANSFER_REQUIRED',
+          message:
+              'Bạn đang là chủ sở hữu của "$familyName" (${members.length} thành viên). Vui lòng chuyển quyền chủ sở hữu hoặc xóa thành viên khác trước khi xóa tài khoản.',
+        );
+      }
+    }
+
+    // 2. Pre-check recent authentication BEFORE wiping personal Firestore/device data
+    final current = _firebaseAuth.currentUser;
+    if (current != null && current.uid == userId) {
+      final lastSignIn = current.metadata.lastSignInTime;
+      if (lastSignIn != null &&
+          lastSignIn.millisecondsSinceEpoch > 0 &&
+          DateTime.now().difference(lastSignIn) > const Duration(minutes: 5)) {
+        throw const AppException(
+          code: 'REQUIRES_RECENT_LOGIN',
+          message:
+              'Vì lý do bảo mật, bạn cần đăng nhập lại gần đây trước khi xóa vĩnh viễn tài khoản.',
+        );
+      }
+    }
+
+    // 3. Purge ALL local native queues, secrets, alarms, widgets, behavior prefs & receipt/CSV caches
+    await _bridge.clearAllQueuedNotifications();
     await _bridge.syncConsentConfig(
       enabled: false,
       allowedPackages: const [],
@@ -1551,6 +1602,12 @@ class NotificationsRemoteDataSource {
     );
     await NativeSecureVaultBridge.instance.clearAllSecrets();
     await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
+    if (sl.isRegistered<NativeHomeWidgetBridge>()) {
+      await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
+    } else {
+      await NativeHomeWidgetBridge().clearWidgetsOnSignOut();
+    }
+    UserBehaviorPrefs.clearSessionOnSignOut();
 
     final userDocRef = _firestore.collection('users').doc(userId);
     await userDocRef.set({
@@ -1559,10 +1616,6 @@ class NotificationsRemoteDataSource {
       'deletionStartedAt': Timestamp.fromDate(DateTime.now()),
     }, SetOptions(merge: true));
 
-    final famSnap = await _firestore
-        .collection('families')
-        .where('memberIds', arrayContains: userId)
-        .get();
     for (final famDoc in famSnap.docs) {
       try {
         final availSnap = await famDoc.reference
@@ -1587,6 +1640,7 @@ class NotificationsRemoteDataSource {
         'memberIds': members,
         'memberRoles': roles,
         'memberNames': names,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
     }
 
@@ -1601,9 +1655,11 @@ class NotificationsRemoteDataSource {
     }
     final vehiclesSnap = await userDocRef.collection('vehicles').get();
     for (final vDoc in vehiclesSnap.docs) {
-      final mSnap = await vDoc.reference.collection('maintenances').get();
-      for (final mDoc in mSnap.docs) {
-        await mDoc.reference.delete();
+      for (final nested in const ['maintenances', 'fuel_logs']) {
+        final nSnap = await vDoc.reference.collection(nested).get();
+        for (final nDoc in nSnap.docs) {
+          await nDoc.reference.delete();
+        }
       }
     }
 
@@ -1618,6 +1674,10 @@ class NotificationsRemoteDataSource {
       'payment_orders',
       'ledger_audits',
       'net_worth_snapshots',
+      'monthly_summaries',
+      'automation_rules',
+      'automation_audits',
+      'source_claims',
       'categories',
       'transactions',
       'budgets',
@@ -1656,12 +1716,21 @@ class NotificationsRemoteDataSource {
     }
     await userDocRef.delete();
 
-    final current = _firebaseAuth.currentUser;
     if (current != null && current.uid == userId) {
       try {
         await current.delete();
-      } catch (_) {
-        await _firebaseAuth.signOut();
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'requires-recent-login') {
+          throw const AppException(
+            code: 'REQUIRES_RECENT_LOGIN',
+            message:
+                'Vì lý do bảo mật, bạn cần đăng nhập lại gần đây để hoàn tất xóa tài khoản.',
+          );
+        }
+        throw AppException(
+          code: 'AUTH_DELETE_FAILED',
+          message: e.message ?? 'Không thể xóa tài khoản xác thực.',
+        );
       }
     } else {
       await _firebaseAuth.signOut();

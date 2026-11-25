@@ -2,6 +2,8 @@ import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 
 import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/services/android_notification_bridge.dart';
+import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_home_widget_bridge.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
@@ -417,6 +419,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (sl.isRegistered<NativeHomeWidgetBridge>()) {
       await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
     }
+    if (sl.isRegistered<AndroidNotificationBridge>()) {
+      final notifBridge = sl<AndroidNotificationBridge>();
+      await notifBridge.syncConsentConfig(
+        enabled: false,
+        allowedPackages: const <String>[],
+        voiceSoundboxEnabled: false,
+      );
+      await notifBridge.clearAllQueuedNotifications();
+    }
+    await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
     emit(
       state.copyWith(
         status: AuthStatus.unauthenticated,

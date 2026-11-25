@@ -44,7 +44,14 @@ import kotlin.math.roundToLong
 object LifeOsWidgetStore {
     const val PREFS_NAME = "lifeos_home_widgets_prefs"
     const val KEY_QUEUED_COMMANDS_JSON = "queued_widget_commands_json"
+    const val KEY_IS_SIGNED_OUT = "is_signed_out"
     private const val KEY_LAST_UNDOABLE_JSON = "last_undoable_widget_cmd_json"
+
+    fun isSignedOut(context: Context): Boolean {
+        return context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_IS_SIGNED_OUT, false)
+    }
 
     // Legacy / Explicit Open-App Actions (bound ONLY to small corner brand icons)
     const val ACTION_VOICE_CAPTURE = "vn.lifeos.app.WIDGET_ACTION_VOICE_CAPTURE"
@@ -205,6 +212,7 @@ object LifeOsWidgetStore {
         if (amountMinor <= 0L) return
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_IS_SIGNED_OUT, false)) return
 
         val prevNetWorth = prefs.getLong("net_worth_minor", 0L)
         val prevIncome = prefs.getLong("monthly_income_minor", 0L)
@@ -275,6 +283,7 @@ object LifeOsWidgetStore {
         if (amountMinor <= 0L) return
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_IS_SIGNED_OUT, false)) return
         val members = (memberCountOverride ?: prefs.getInt("group_member_count", 3)).coerceIn(2, 20)
         val perPerson = amountMinor / members
 
@@ -318,6 +327,7 @@ object LifeOsWidgetStore {
     fun undoLastHomeScreenCommand(context: Context): Boolean {
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_IS_SIGNED_OUT, false)) return false
         val rawUndo = prefs.getString(KEY_LAST_UNDOABLE_JSON, null)
         if (rawUndo.isNullOrBlank()) {
             prefs.edit()
@@ -415,6 +425,7 @@ object LifeOsWidgetStore {
     fun recordQuickWaterFromHomeScreen(context: Context, addedMl: Int) {
         if (addedMl <= 0) return
         val appCtx = context.applicationContext
+        if (isSignedOut(appCtx)) return
         val hPrefs = appCtx.getSharedPreferences(
             LifeOsAlarmScheduler.PREFS_HYDRATION_DAEMON,
             Context.MODE_PRIVATE
@@ -454,6 +465,7 @@ object LifeOsWidgetStore {
         val cleaned = rawText.trim()
         if (cleaned.isEmpty()) return ""
         val appCtx = context.applicationContext
+        if (isSignedOut(appCtx)) return ""
         val lower = cleaned.lowercase(Locale.ROOT)
 
         // Check water expression first (e.g. "Uống 300ml nước")
@@ -601,6 +613,7 @@ object LifeOsWidgetStore {
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
+            .putBoolean(KEY_IS_SIGNED_OUT, true)
             .putString(KEY_QUEUED_COMMANDS_JSON, "[]")
             .remove(KEY_LAST_UNDOABLE_JSON)
             .putLong("net_worth_minor", 0L)
@@ -659,6 +672,10 @@ class LifeOsWidgetActionReceiver : BroadcastReceiver() {
         val action = intent?.action ?: return
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(LifeOsWidgetStore.PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(LifeOsWidgetStore.KEY_IS_SIGNED_OUT, false)) {
+            LifeOsWidgetStore.refreshAllWidgets(appCtx)
+            return
+        }
 
         when (action) {
             LifeOsWidgetStore.ACTION_BG_QUICK_EXPENSE -> {
@@ -733,11 +750,25 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     private lateinit var micBtnView: TextView
     private var overlayMode: String = "text"
     private var isOverlayListening: Boolean = false
+    private var isAwaitingSystemDialog: Boolean = false
     private var overlaySessionPrefix: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(false)
+        }
+        if (LifeOsWidgetStore.isSignedOut(applicationContext)) {
+            Toast.makeText(
+                applicationContext,
+                "Vui lòng mở LifeOS và đăng nhập trước khi sử dụng Widget",
+                Toast.LENGTH_SHORT
+            ).show()
+            closeQuietly()
+            return
+        }
         overlayMode = intent?.getStringExtra("overlay_mode") ?: "text"
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -953,7 +984,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                     "processing" -> {
                         statusLabel.text = "Đang xử lý câu nói..."
                     }
-                    "idle" -> {
+                    "idle", "cancelled", "error" -> {
                         isOverlayListening = false
                         micBtnView.text = "Nói mic tiếng Việt"
                     }
@@ -987,15 +1018,20 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             },
             onLaunchSystemDialog = { dialogIntent ->
                 try {
+                    isAwaitingSystemDialog = true
                     @Suppress("DEPRECATION")
                     startActivityForResult(dialogIntent, REQ_SYSTEM_VOICE)
                     true
                 } catch (_: Exception) {
+                    isAwaitingSystemDialog = false
                     statusLabel.text = "Hãy gõ nội dung cần ghi nhanh bên dưới"
                     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
                     inputField.requestFocus()
                     false
                 }
+            },
+            onDialogStateChanged = { awaiting ->
+                isAwaitingSystemDialog = awaiting
             }
         )
         speechHelper = created
@@ -1012,6 +1048,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!hasAudioPerm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            isAwaitingSystemDialog = true
             statusLabel.text = "Vui lòng cho phép quyền Micro để thu âm..."
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_OVERLAY_RECORD_AUDIO)
             return
@@ -1031,6 +1068,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_OVERLAY_RECORD_AUDIO) {
+            isAwaitingSystemDialog = false
             val granted = grantResults.isNotEmpty() &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -1049,6 +1087,7 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_SYSTEM_VOICE) {
+            isAwaitingSystemDialog = false
             if (resultCode == RESULT_OK) {
                 val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                     ?.firstOrNull()
@@ -1088,6 +1127,13 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     private fun closeQuietly() {
         finish()
         overridePendingTransition(0, 0)
+    }
+
+    override fun onStop() {
+        if (!isChangingConfigurations && !isAwaitingSystemDialog) {
+            speechHelper?.cancelListening()
+        }
+        super.onStop()
     }
 
     override fun onDestroy() {

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../error/app_exception.dart';
+
 class InstalledAppMeta {
   final String versionName;
   final int buildNumber;
@@ -25,8 +27,14 @@ class NativeAppUpdaterBridge {
   );
 
   final InstalledAppMeta? fixedInstalledMeta;
+  final String? fixedDistributionFlavor;
+  final bool? fixedGitHubOtaEnabled;
 
-  const NativeAppUpdaterBridge({this.fixedInstalledMeta});
+  const NativeAppUpdaterBridge({
+    this.fixedInstalledMeta,
+    this.fixedDistributionFlavor,
+    this.fixedGitHubOtaEnabled,
+  });
 
   static const String compileTimeVersion = String.fromEnvironment(
     'APP_VERSION_NAME',
@@ -36,6 +44,51 @@ class NativeAppUpdaterBridge {
     'APP_BUILD_NUMBER',
     defaultValue: 31,
   );
+  static const String compileTimeDistributionFlavor = String.fromEnvironment(
+    'DISTRIBUTION_FLAVOR',
+    defaultValue: 'github',
+  );
+  static const bool compileTimeGitHubOtaEnabled = bool.fromEnvironment(
+    'ENABLE_GITHUB_OTA',
+    defaultValue: true,
+  );
+
+  Future<String> getDistributionFlavor() async {
+    if (fixedDistributionFlavor != null) {
+      return fixedDistributionFlavor!;
+    }
+    if (kIsWeb || !Platform.isAndroid) {
+      return compileTimeDistributionFlavor;
+    }
+    try {
+      final flavor = await _channel.invokeMethod<String>(
+        'getDistributionFlavor',
+      );
+      if (flavor == 'github' || flavor == 'play') {
+        return flavor!;
+      }
+    } catch (_) {}
+    return compileTimeDistributionFlavor;
+  }
+
+  Future<bool> isGitHubOtaEnabled() async {
+    if (fixedGitHubOtaEnabled != null) {
+      return fixedGitHubOtaEnabled!;
+    }
+    if (fixedDistributionFlavor != null) {
+      return fixedDistributionFlavor == 'github';
+    }
+    if (kIsWeb || !Platform.isAndroid) {
+      return compileTimeGitHubOtaEnabled;
+    }
+    try {
+      final enabled = await _channel.invokeMethod<bool>('isGitHubOtaEnabled');
+      if (enabled != null) {
+        return enabled;
+      }
+    } catch (_) {}
+    return compileTimeGitHubOtaEnabled;
+  }
 
   Future<InstalledAppMeta> getInstalledAppVersion() async {
     if (fixedInstalledMeta != null) {
@@ -78,6 +131,13 @@ class NativeAppUpdaterBridge {
   }
 
   Future<String> getUpdateCacheDir() async {
+    if (!await isGitHubOtaEnabled()) {
+      throw const AppException(
+        code: 'OTA_DISABLED_PLAY_FLAVOR',
+        message:
+            'Phiên bản Google Play không hỗ trợ tự tải và cài đặt tệp APK trong ứng dụng.',
+      );
+    }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
         final path = await _channel.invokeMethod<String>('getUpdateCacheDir');
@@ -92,6 +152,13 @@ class NativeAppUpdaterBridge {
   }
 
   Future<String> installApk(String filePath) async {
+    if (!await isGitHubOtaEnabled()) {
+      throw const AppException(
+        code: 'OTA_DISABLED_PLAY_FLAVOR',
+        message:
+            'Phiên bản Google Play không hỗ trợ tự tải và cài đặt tệp APK trong ứng dụng.',
+      );
+    }
     if (kIsWeb || !Platform.isAndroid) {
       return 'UNSUPPORTED_PLATFORM';
     }

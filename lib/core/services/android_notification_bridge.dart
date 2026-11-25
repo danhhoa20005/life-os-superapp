@@ -17,6 +17,9 @@ class AndroidNotificationBridge {
   /// Test-only durable queue simulation supporting crash-before-ACK & 100+ burst verification (`BG-01`).
   final Map<String, Map<String, dynamic>> _simulatedDurableQueue =
       <String, Map<String, dynamic>>{};
+  int _debugClearQueueCallCount = 0;
+  bool? _debugLastSyncedConsentEnabled;
+  List<String>? _debugLastSyncedAllowedPackages;
 
   bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
 
@@ -51,6 +54,18 @@ class AndroidNotificationBridge {
 
   @visibleForTesting
   int get debugPendingUnacknowledgedCount => _simulatedDurableQueue.length;
+
+  @visibleForTesting
+  int get debugClearQueueCallCount => _debugClearQueueCallCount;
+
+  @visibleForTesting
+  bool? get debugLastSyncedConsentEnabled => _debugLastSyncedConsentEnabled;
+
+  @visibleForTesting
+  List<String>? get debugLastSyncedAllowedPackages =>
+      _debugLastSyncedAllowedPackages == null
+          ? null
+          : List.unmodifiable(_debugLastSyncedAllowedPackages!);
 
   Future<bool> isNotificationAccessGranted() async {
     if (!isSupportedPlatform || !_hasServicesBinding) return false;
@@ -109,6 +124,8 @@ class AndroidNotificationBridge {
     required List<String> allowedPackages,
     bool? voiceSoundboxEnabled,
   }) async {
+    _debugLastSyncedConsentEnabled = enabled;
+    _debugLastSyncedAllowedPackages = List<String>.from(allowedPackages);
     if (!isSupportedPlatform || !_hasServicesBinding) return;
     try {
       await _methodChannel.invokeMethod<void>('updateConfig', {
@@ -168,6 +185,16 @@ class AndroidNotificationBridge {
           'keys': <String>[notificationKey],
         },
       );
+    } catch (_) {}
+  }
+
+  /// Clears ALL queued bank notifications and resets listener consent preferences on sign-out or account deletion.
+  Future<void> clearAllQueuedNotifications() async {
+    _debugClearQueueCallCount += 1;
+    _simulatedDurableQueue.clear();
+    if (!isSupportedPlatform || !_hasServicesBinding) return;
+    try {
+      await _methodChannel.invokeMethod<dynamic>('clearBankSignalQueue');
     } catch (_) {}
   }
 
