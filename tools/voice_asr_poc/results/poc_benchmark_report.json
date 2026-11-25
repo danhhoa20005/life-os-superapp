@@ -1,0 +1,322 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAtUtc": "2026-11-25T12:49:20Z",
+  "hostEnvironment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "architecture": "AMD64",
+    "activePythonVersion": "3.14.7",
+    "activePythonExecutable": "C:\\Python314\\python.exe",
+    "wheelAvailabilityVerifiedPyPI": {
+      "sherpa-onnx": {
+        "version": "2.0.3",
+        "wheel": "sherpa_onnx-2.0.3-cp314-cp314-win_amd64.whl (2.43 MB) + sherpa_onnx_core-2.0.3-py3-none-win_amd64.whl (16.42 MB)",
+        "prebuiltWheelForPy314Win64": true
+      },
+      "vosk": {
+        "version": "0.3.41 (0.3.45 available)",
+        "wheel": "vosk-0.3.41-py3-none-win_amd64.whl (11.63 MB)",
+        "prebuiltWheelForPy314Win64": true
+      },
+      "onnxruntime": {
+        "version": "1.32.0",
+        "wheel": "onnxruntime-1.32.0-cp314-cp314-win_amd64.whl",
+        "prebuiltWheelForPy314Win64": true
+      },
+      "faster-whisper": {
+        "version": "1.2.1",
+        "wheel": "faster_whisper-1.2.1-py3-none-any.whl + ctranslate2-4.9.1-cp314-cp314-win_amd64.whl",
+        "prebuiltWheelForPy314Win64": true
+      }
+    },
+    "engineProbeMatrix": {
+      "sherpa_onnx": {
+        "active_python": {
+          "pythonExecutable": "C:\\Python314\\python.exe",
+          "installed": false,
+          "version": null
+        }
+      },
+      "vosk": {
+        "active_python": {
+          "pythonExecutable": "C:\\Python314\\python.exe",
+          "installed": false,
+          "version": null
+        }
+      },
+      "onnxruntime": {
+        "active_python": {
+          "pythonExecutable": "C:\\Python314\\python.exe",
+          "installed": false,
+          "version": null
+        }
+      },
+      "faster_whisper": {
+        "active_python": {
+          "pythonExecutable": "C:\\Python314\\python.exe",
+          "installed": false,
+          "version": null
+        }
+      },
+      "pywhispercpp": {
+        "active_python": {
+          "pythonExecutable": "C:\\Python314\\python.exe",
+          "installed": false,
+          "version": null
+        }
+      }
+    }
+  },
+  "corpusSummary": {
+    "corpusName": "LifeOS Vietnamese Financial & Omni Voice Corpus v1.0",
+    "utteranceCount": 36,
+    "midPauseCount": 3,
+    "section15ExampleCount": 7
+  },
+  "measuredHost": {
+    "status": "MEASURED_HOST",
+    "pcm16RingBufferAndVadBenchmark": {
+      "status": "MEASURED_HOST",
+      "sampleRateHz": 16000,
+      "channels": 1,
+      "sampleWidthBytes": 2,
+      "frameSizeMs": 20,
+      "ringBufferCapacitySeconds": 30,
+      "ringBufferCapacityBytes": 960000,
+      "utterancesBenchmarked": 36,
+      "totalFramesProcessed": 6386,
+      "frameProcessLatencyUs": {
+        "mean": 138.81,
+        "p50": 139.5,
+        "p95": 195.0
+      },
+      "speechOnsetDetectionAbsLagMs": {
+        "detectedCount": 36,
+        "p50": 20.0,
+        "p95": 60.0
+      },
+      "endpointHangoverMs": 850.0,
+      "endpointDetectionLagMs": {
+        "detectedCount": 36,
+        "p50": 811.0,
+        "p95": 821.0
+      },
+      "prematureMidPauseCuts": 0,
+      "tracemallocPeakMemoryKb": 938.36,
+      "samples": [
+        {
+          "id": "vi_01",
+          "durationMs": 2881.31,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 1681,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 2500,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 819,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_02",
+          "durationMs": 3192.81,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 1992,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 2800,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 808,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_03",
+          "durationMs": 4504.12,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 3304,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 4120,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 816,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_04",
+          "durationMs": 3352.44,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 2152,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 2960,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 808,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_05",
+          "durationMs": 3801.25,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 2601,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 3420,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 819,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_06",
+          "durationMs": 5087.69,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 3887,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 4700,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 813,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_07",
+          "durationMs": 5164.75,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 3964,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 4780,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 816,
+          "prematureMidPauseCut": false
+        },
+        {
+          "id": "vi_08",
+          "durationMs": 3098.38,
+          "trueSpeechStartMs": 320,
+          "trueSpeechEndMs": 1898,
+          "detectedStartMs": 340.0,
+          "detectedEndpointMs": 2720,
+          "onsetLagMs": 20.0,
+          "endpointLagMs": 822,
+          "prematureMidPauseCut": false
+        }
+      ]
+    },
+    "simulatedAsrVariantWerCer": {
+      "status": "MEASURED_HOST",
+      "variantPairsEvaluated": 108,
+      "meanWer": 0.4497,
+      "meanCer": 0.1911,
+      "meanWerAsciiFolded": 0.1931,
+      "meanCerAsciiFolded": 0.1204
+    },
+    "realOfflineAsrEngines": {
+      "sherpa_onnx_zipformer_vi": {
+        "status": "NOT_INSTALLED_IN_ENV",
+        "detail": "Wheel sherpa-onnx==2.0.3 (cp314-win_amd64) IS available on PyPI for Python 3.14, but not installed in active interpreter or .cache/venv."
+      },
+      "vosk_vn": {
+        "status": "NOT_INSTALLED_IN_ENV",
+        "detail": "Wheel vosk (win_amd64) IS available on PyPI, but not installed in active interpreter or .cache/venv."
+      },
+      "faster_whisper": {
+        "status": "NOT_INSTALLED_IN_ENV",
+        "detail": "Prebuilt wheels available (ctranslate2 4.9.1 cp314-win_amd64), not installed in PoC host env."
+      },
+      "pywhispercpp": {
+        "status": "NOT_INSTALLED_IN_ENV",
+        "detail": "whisper.cpp Python bindings not installed in PoC host env."
+      },
+      "onnxruntime": {
+        "status": "NOT_INSTALLED_IN_ENV",
+        "detail": "Prebuilt wheel onnxruntime 1.32.0 (cp314-win_amd64) available; sherpa-onnx bundles ONNX Runtime C++ core directly."
+      }
+    }
+  },
+  "upstreamPublishedReference": {
+    "sherpa_onnx_zipformer_vi_30M_int8": {
+      "engine": "sherpa-onnx",
+      "modelName": "sherpa-onnx-zipformer-vi-30M-int8-2026-02-09",
+      "architecture": "Zipformer-30M RNN-T (INT8 quantized ONNX)",
+      "downloadArchive": "sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2",
+      "archiveSizeMb": 25.22,
+      "license": "Apache-2.0 (sherpa-onnx runtime) / Open pretrained Vi 30M Zipformer checkpoint",
+      "streamingSupported": true,
+      "notes": "Compact 30M INT8 Zipformer transducer ideal for Android ARM64 on-device budget.",
+      "status": "UPSTREAM_REFERENCE"
+    },
+    "sherpa_onnx_zipformer_vi_int8_2025": {
+      "engine": "sherpa-onnx",
+      "modelName": "sherpa-onnx-zipformer-vi-int8-2025-04-20",
+      "architecture": "Zipformer RNN-T (INT8 quantized ONNX)",
+      "downloadArchive": "sherpa-onnx-zipformer-vi-int8-2025-04-20.tar.bz2",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-vi-int8-2025-04-20.tar.bz2",
+      "archiveSizeMb": 57.39,
+      "license": "Apache-2.0 (sherpa-onnx runtime)",
+      "streamingSupported": true,
+      "notes": "Larger Zipformer Vi INT8 model with higher capacity than 30M variant.",
+      "status": "UPSTREAM_REFERENCE"
+    },
+    "sherpa_onnx_moonshine_base_vi": {
+      "engine": "sherpa-onnx",
+      "modelName": "sherpa-onnx-moonshine-base-vi-quantized-2026-02-27",
+      "architecture": "Moonshine-Base Vi Encoder-Decoder (Quantized ONNX)",
+      "downloadArchive": "sherpa-onnx-moonshine-base-vi-quantized-2026-02-27.tar.bz2",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-base-vi-quantized-2026-02-27.tar.bz2",
+      "archiveSizeMb": 101.78,
+      "license": "MIT (Moonshine) / Apache-2.0 (sherpa-onnx)",
+      "streamingSupported": false,
+      "notes": "Non-streaming utterance-level encoder-decoder; higher footprint (~102 MB).",
+      "status": "UPSTREAM_REFERENCE"
+    },
+    "vosk_small_vn_0_4": {
+      "engine": "vosk",
+      "modelName": "vosk-model-small-vn-0.4",
+      "architecture": "Kaldi TDNN-F + HCLG Graph (Streaming)",
+      "downloadArchive": "vosk-model-small-vn-0.4.zip",
+      "downloadUrl": "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip",
+      "archiveSizeMb": 32.1,
+      "upstreamPublishedWerPct": 15.7,
+      "upstreamBenchmarkDataset": "Vivos test (alphacephei.com/vosk/models)",
+      "license": "Apache-2.0",
+      "streamingSupported": true,
+      "notes": "Lightweight Kaldi streaming model (32 MiB zip); Apache-2.0 commercial-friendly.",
+      "status": "UPSTREAM_REFERENCE"
+    },
+    "vosk_vn_0_4": {
+      "engine": "vosk",
+      "modelName": "vosk-model-vn-0.4",
+      "architecture": "Kaldi TDNN-F Large Graph",
+      "downloadArchive": "vosk-model-vn-0.4.zip",
+      "downloadUrl": "https://alphacephei.com/vosk/models/vosk-model-vn-0.4.zip",
+      "archiveSizeMb": 78.0,
+      "upstreamPublishedWerPct": 15.7,
+      "upstreamBenchmarkDataset": "Vivos test (alphacephei.com/vosk/models)",
+      "license": "Apache-2.0",
+      "streamingSupported": true,
+      "notes": "Server/desktop Kaldi model (78 MiB zip).",
+      "status": "UPSTREAM_REFERENCE"
+    },
+    "whisper_tiny_int8": {
+      "engine": "whisper.cpp / faster-whisper",
+      "modelName": "whisper-tiny-q5_1 / faster-whisper-tiny-int8",
+      "architecture": "Transformer Seq2Seq Multilingual (39M params)",
+      "archiveSizeMb": 32.0,
+      "license": "MIT",
+      "streamingSupported": false,
+      "notes": "Multilingual 39M model; requires chunked VAD windowing for pseudo-streaming and generally exhibits weaker Vietnamese diacritics than Vi-specific Zipformer.",
+      "status": "UPSTREAM_REFERENCE"
+    },
+    "piper_vits_vi_tts": {
+      "engine": "sherpa-onnx TTS (synthetic benchmark audio generator)",
+      "modelName": "vits-piper-vi_VN-vais1000-medium-int8",
+      "downloadArchive": "vits-piper-vi_VN-vais1000-medium-int8.tar.bz2",
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-vi_VN-vais1000-medium-int8.tar.bz2",
+      "archiveSizeMb": 20.58,
+      "license": "MIT / CC-BY (vais1000)",
+      "status": "UPSTREAM_REFERENCE"
+    }
+  },
+  "androidDeviceRequiredMetrics": {
+    "status": "NOT_MEASURED_DEVICE_REQUIRED",
+    "note": "NOT_RUN — Android Device Required",
+    "pendingMeasurements": [
+      "Android AudioRecord 16kHz Mono PCM16 buffer underrun & jitter on physical device",
+      "Android SpeechRecognizer OEM partial-transcript cadence (vi-VN offline pack vs network)",
+      "ARM64 NEON big.LITTLE RTF & thermal throttling for sherpa-onnx Zipformer-30M INT8",
+      "Android APK/AAB binary size delta (libsherpa-onnx-jni.so arm64-v8a + armeabi-v7a) & runtime RSS"
+    ]
+  }
+}

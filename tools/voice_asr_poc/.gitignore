@@ -1,0 +1,11 @@
+# Never commit audio clips, downloaded ASR models, or local virtualenvs
+.cache/
+*.wav
+*.pcm
+*.onnx
+*.bin
+*.tflite
+*.tar.bz2
+*.zip
+__pycache__/
+*.pyc

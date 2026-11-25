@@ -1,0 +1,590 @@
+{
+  "corpusName": "LifeOS Vietnamese Financial & Omni Voice Corpus v1.0",
+  "language": "vi-VN",
+  "sampleRateHz": 16000,
+  "channels": 1,
+  "sampleWidthBytes": 2,
+  "utteranceCount": 36,
+  "utterances": [
+    {
+      "id": "vi_01",
+      "category": "section15_baseline_expense",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Ăn sáng ba mươi lăm nghìn.",
+      "asrSimulatedVariants": [
+        "an sang ba muoi lam nghin",
+        "ăn sáng 35 nghìn",
+        "ăn sáng ba mươi năm nghìn"
+      ],
+      "expectedAmountsMinor": [35000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_02",
+      "category": "section15_baseline_income",
+      "accentOrCondition": "southern_slow_speech",
+      "referenceTranscript": "Nhận lương mười tám triệu rưỡi.",
+      "asrSimulatedVariants": [
+        "nhan luong muoi tam trieu ruoi",
+        "nhận lương 18 triệu rưỡi",
+        "nhận lương mười tám triệu lưỡi"
+      ],
+      "expectedAmountsMinor": [18500000],
+      "expectedIntentKind": "income",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_03",
+      "category": "section15_multi_task_finance",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Đổ xăng bảy mươi nghìn rồi thay nhớt một trăm hai mươi nghìn.",
+      "asrSimulatedVariants": [
+        "do xang bay muoi nghin roi thay nhot mot tram hai muoi nghin",
+        "đổ xăng 70 nghìn rồi thay nhớt 120 nghìn",
+        "đổ xăng bẩy mươi nghìn rồi thay nhớt một trăm hai mươi nghìn"
+      ],
+      "expectedAmountsMinor": [70000, 120000],
+      "expectedIntentKind": "multi_tx",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_04",
+      "category": "section15_group_split",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Ăn lẩu sáu trăm nghìn chia bốn người.",
+      "asrSimulatedVariants": [
+        "an lau sau tram nghin chia bon nguoi",
+        "ăn lẩu 600 nghìn chia 4 người",
+        "ăn lẩu sáu trăm nghìn chưa bốn người"
+      ],
+      "expectedAmountsMinor": [600000],
+      "expectedIntentKind": "group_split",
+      "expectedParticipantCount": 4,
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_05",
+      "category": "section15_reminder_calendar",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Nhắc tôi đóng tiền điện vào thứ Hai tuần sau.",
+      "asrSimulatedVariants": [
+        "nhac toi dong tien dien vao thu hai tuan sau",
+        "nhắc tôi đóng tiền điện vào thứ 2 tuần sau",
+        "nhắc tôi đóng tiền điện vào thứ hai tuồn sau"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "reminder_calendar",
+      "expectedDateTimeCue": "thứ Hai tuần sau",
+      "hasMidSentencePause": false,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_06",
+      "category": "section15_wallet_transfer",
+      "accentOrCondition": "slow_speech",
+      "referenceTranscript": "Chuyển một triệu hai từ ví tiền mặt sang tài khoản ngân hàng.",
+      "asrSimulatedVariants": [
+        "chuyen mot trieu hai tu vi tien mat sang tai khoan ngan hang",
+        "chuyển 1 triệu 2 từ ví tiền mặt sang tài khoản ngân hàng",
+        "chuyển một triệu hai từ ví tiền mặt sang tài khoảng ngân hàng"
+      ],
+      "expectedAmountsMinor": [1200000],
+      "expectedIntentKind": "transfer",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_07",
+      "category": "section15_mid_sentence_pause",
+      "accentOrCondition": "mid_pause_slow",
+      "referenceTranscript": "Ăn sáng năm mươi nghìn... và đổ xăng bảy mươi nghìn.",
+      "asrSimulatedVariants": [
+        "an sang nam muoi nghin va do xang bay muoi nghin",
+        "ăn sáng 50 nghìn và đổ xăng 70 nghìn",
+        "ăn sáng lăm mươi nghìn và đổ xăng bẩy mươi nghìn"
+      ],
+      "expectedAmountsMinor": [50000, 70000],
+      "expectedIntentKind": "multi_tx",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": true,
+      "isSection15Example": true
+    },
+    {
+      "id": "vi_08",
+      "category": "regional_north",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Ăn phở bò năm mươi lăm nghìn",
+      "asrSimulatedVariants": [
+        "an pho bo nam muoi lam nghin",
+        "ăn phở bò 55 nghìn",
+        "ăn phở bò năm mươi năm nghìn"
+      ],
+      "expectedAmountsMinor": [55000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_09",
+      "category": "regional_north",
+      "accentOrCondition": "northern_noisy_market",
+      "referenceTranscript": "Mua rau hai mươi lăm nghìn",
+      "asrSimulatedVariants": [
+        "mua rau hai muoi lam nghin",
+        "mua rau 25 nghìn",
+        "mua rau hai mươi năm nghìn"
+      ],
+      "expectedAmountsMinor": [25000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_10",
+      "category": "multi_task_pause",
+      "accentOrCondition": "northern_fast_speech",
+      "referenceTranscript": "Uống trà đá năm nghìn... rồi gửi xe mười nghìn",
+      "asrSimulatedVariants": [
+        "uong tra da nam nghin roi gui xe muoi nghin",
+        "uống trà đá 5 nghìn rồi gửi xe 10 nghìn",
+        "uống trà đá lăm nghìn rồi gửi xe mười nghìn"
+      ],
+      "expectedAmountsMinor": [5000, 10000],
+      "expectedIntentKind": "multi_tx",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": true,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_11",
+      "category": "regional_central",
+      "accentOrCondition": "central_clear",
+      "referenceTranscript": "Uống cà phê ba mươi lăm ngàn",
+      "asrSimulatedVariants": [
+        "uong ca phe ba muoi lam ngan",
+        "uống cà phê 35 ngàn",
+        "uống cà phê ba mươi năm ngàn"
+      ],
+      "expectedAmountsMinor": [35000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_12",
+      "category": "regional_central",
+      "accentOrCondition": "central_noisy_street",
+      "referenceTranscript": "Đổ xăng bảy mươi ngàn",
+      "asrSimulatedVariants": [
+        "do xang bay muoi ngan",
+        "đổ xăng 70 ngàn",
+        "đổ xăng bẩy mươi ngàn"
+      ],
+      "expectedAmountsMinor": [70000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_13",
+      "category": "regional_central",
+      "accentOrCondition": "central_quiet_speech",
+      "referenceTranscript": "Ăn bún bò Huế bốn mươi lăm ngàn",
+      "asrSimulatedVariants": [
+        "an bun bo hue bon muoi lam ngan",
+        "ăn bún bò Huế 45 ngàn",
+        "ăn bún bò huế bốn mươi năm ngàn"
+      ],
+      "expectedAmountsMinor": [45000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_14",
+      "category": "regional_south",
+      "accentOrCondition": "southern_clear",
+      "referenceTranscript": "Ăn cơm tấm sáu chục ngàn",
+      "asrSimulatedVariants": [
+        "an com tam sau chuc ngan",
+        "ăn cơm tấm 6 chục ngàn",
+        "ăn cơm tấm xáu chục ngàn"
+      ],
+      "expectedAmountsMinor": [60000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_15",
+      "category": "regional_south",
+      "accentOrCondition": "southern_fast_speech",
+      "referenceTranscript": "Cà phê sữa đá ba lăm cành",
+      "asrSimulatedVariants": [
+        "ca phe sua da ba lam canh",
+        "cà phê sữa đá 35 cành",
+        "cà phê sữa đá ba năm cành"
+      ],
+      "expectedAmountsMinor": [35000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_16",
+      "category": "regional_south_slang_person",
+      "accentOrCondition": "southern_noisy_cafe",
+      "referenceTranscript": "Đi nhậu với Tuấn hết năm xị",
+      "asrSimulatedVariants": [
+        "di nhau voi tuan het nam xi",
+        "đi nhậu với Tuấn hết 5 xị",
+        "đi nhậu với tuấn hết năm xỉ"
+      ],
+      "expectedAmountsMinor": [500000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_17",
+      "category": "spoken_currency_wallet_person",
+      "accentOrCondition": "slow_speech",
+      "referenceTranscript": "Mua quà sinh nhật cho Lan hai trăm năm mươi nghìn qua ZaloPay",
+      "asrSimulatedVariants": [
+        "mua qua sinh nhat cho lan hai tram nam muoi nghin qua zalopay",
+        "mua quà sinh nhật cho Lan 250 nghìn qua ZaloPay",
+        "mua quà sinh nhật cho lan hai trăm lăm mươi nghìn qua zalo pay"
+      ],
+      "expectedAmountsMinor": [250000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_18",
+      "category": "group_split_spoken",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Ăn nướng bốn trăm năm mươi nghìn chia đều ba người",
+      "asrSimulatedVariants": [
+        "an nuong bon tram nam muoi nghin chia deu ba nguoi",
+        "ăn nướng 450 nghìn chia đều 3 người",
+        "ăn nướng bốn trăm lăm mươi nghìn chưa đều ba người"
+      ],
+      "expectedAmountsMinor": [450000],
+      "expectedIntentKind": "group_split",
+      "expectedParticipantCount": 3,
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_19",
+      "category": "group_split_named_members",
+      "accentOrCondition": "slow_speech",
+      "referenceTranscript": "Tiền điện nước một triệu hai chia cho Hòa, Minh và Lan",
+      "asrSimulatedVariants": [
+        "tien dien nuoc mot trieu hai chia cho hoa minh va lan",
+        "tiền điện nước 1 triệu 2 chia cho Hòa Minh và Lan",
+        "tiền điện nước một triệu hai chưa cho hòa minh và lan"
+      ],
+      "expectedAmountsMinor": [1200000],
+      "expectedIntentKind": "group_split",
+      "expectedParticipantCount": 3,
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_20",
+      "category": "group_split_payer_remainder",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Hòa trả trước tiền lẩu 600 nghìn, Minh 200 nghìn còn lại Ngọc Anh chịu",
+      "asrSimulatedVariants": [
+        "hoa tra truoc tien lau 600 nghin minh 200 nghin con lai ngoc anh chiu",
+        "Hòa trả trước tiền lẩu 600k Minh 200k còn lại Ngọc Anh chịu",
+        "hòa trả trước tiền lẩu sáu trăm nghìn minh hai trăm nghìn còn lại ngọc anh chịu"
+      ],
+      "expectedAmountsMinor": [600000],
+      "expectedIntentKind": "group_split",
+      "expectedParticipantCount": 3,
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_21",
+      "category": "code_switching_en_vi",
+      "accentOrCondition": "fast_speech",
+      "referenceTranscript": "Grab food 85 nghìn",
+      "asrSimulatedVariants": [
+        "grab food 85 nghin",
+        "Grab food tám mươi lăm nghìn",
+        "grap fut 85 nghìn"
+      ],
+      "expectedAmountsMinor": [85000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_22",
+      "category": "code_switching_en_vi",
+      "accentOrCondition": "noisy_office",
+      "referenceTranscript": "Thanh toán Shopee 320 nghìn",
+      "asrSimulatedVariants": [
+        "thanh toan shopee 320 nghin",
+        "thanh toán Shopee ba trăm hai mươi nghìn",
+        "thanh toán sóp pi 320 nghìn"
+      ],
+      "expectedAmountsMinor": [320000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_23",
+      "category": "code_switching_en_vi",
+      "accentOrCondition": "quiet_speech",
+      "referenceTranscript": "Đóng tiền Netflix 260 nghìn",
+      "asrSimulatedVariants": [
+        "dong tien netflix 260 nghin",
+        "đóng tiền Netflix hai trăm sáu mươi nghìn",
+        "đóng tiền nét flix 260 nghìn"
+      ],
+      "expectedAmountsMinor": [260000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_24",
+      "category": "code_switching_ewallet",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Gia hạn iCloud 59 nghìn qua MoMo",
+      "asrSimulatedVariants": [
+        "gia han icloud 59 nghin qua momo",
+        "gia hạn iCloud năm mươi chín nghìn qua MoMo",
+        "gia hạn ai clao 59 nghìn qua mô mô"
+      ],
+      "expectedAmountsMinor": [59000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_25",
+      "category": "bank_transfer_named",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Chuyển 2 triệu từ Vietcombank sang MB Bank cho Tuấn",
+      "asrSimulatedVariants": [
+        "chuyen 2 trieu tu vietcombank sang mb bank cho tuan",
+        "chuyển hai triệu từ Vietcombank sang MB Bank cho Tuấn",
+        "chuyển 2 triệu từ việt com bank sang mờ bê bank cho tuấn"
+      ],
+      "expectedAmountsMinor": [2000000],
+      "expectedIntentKind": "transfer",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_26",
+      "category": "bank_income",
+      "accentOrCondition": "southern_clear",
+      "referenceTranscript": "Nhận thưởng dự án 5 triệu qua Techcombank",
+      "asrSimulatedVariants": [
+        "nhan thuong du an 5 trieu qua techcombank",
+        "nhận thưởng dự án năm triệu qua Techcombank",
+        "nhận thưởng dự án 5 triệu qua tách com bank"
+      ],
+      "expectedAmountsMinor": [5000000],
+      "expectedIntentKind": "income",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_27",
+      "category": "bank_credit_card",
+      "accentOrCondition": "slow_speech",
+      "referenceTranscript": "Thanh toán thẻ tín dụng VPBank một triệu rưỡi",
+      "asrSimulatedVariants": [
+        "thanh toan the tin dung vpbank mot trieu ruoi",
+        "thanh toán thẻ tín dụng VPBank 1 triệu rưỡi",
+        "thanh toán thẻ tín dụng vi pi bank một triệu lưỡi"
+      ],
+      "expectedAmountsMinor": [1500000],
+      "expectedIntentKind": "expense",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_28",
+      "category": "bank_ewallet_transfer",
+      "accentOrCondition": "fast_speech",
+      "referenceTranscript": "Nạp 300 nghìn từ BIDV sang ZaloPay",
+      "asrSimulatedVariants": [
+        "nap 300 nghin tu bidv sang zalopay",
+        "nạp ba trăm nghìn từ BIDV sang ZaloPay",
+        "nạp 300 nghìn từ bi ai đi vi sang zalo pay"
+      ],
+      "expectedAmountsMinor": [300000],
+      "expectedIntentKind": "transfer",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_29",
+      "category": "ewallet_refund_pause",
+      "accentOrCondition": "mid_pause_slow",
+      "referenceTranscript": "Nhận hoàn tiền Shopee 150 nghìn... về ví MoMo",
+      "asrSimulatedVariants": [
+        "nhan hoan tien shopee 150 nghin ve vi momo",
+        "nhận hoàn tiền Shopee một trăm năm mươi nghìn về ví MoMo",
+        "nhận hoàn tiền sóp pi 150 nghìn về ví mô mô"
+      ],
+      "expectedAmountsMinor": [150000],
+      "expectedIntentKind": "income",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": true,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_30",
+      "category": "date_time_calendar",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Họp khách hàng lúc 9 giờ sáng ngày mai",
+      "asrSimulatedVariants": [
+        "hop khach hang luc 9 gio sang ngay mai",
+        "họp khách hàng lúc chín giờ sáng ngày mai",
+        "họp khách hàng lúc 9h sáng ngày mai"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "reminder_calendar",
+      "expectedDateTimeCue": "lúc 9 giờ sáng ngày mai",
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_31",
+      "category": "date_time_calendar",
+      "accentOrCondition": "slow_speech",
+      "referenceTranscript": "Đi khám răng cuối tuần này",
+      "asrSimulatedVariants": [
+        "di kham rang cuoi tuan nay",
+        "đi khám răng cuối tuần nầy",
+        "đi khám răng cuối tuồn này"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "reminder_calendar",
+      "expectedDateTimeCue": "cuối tuần này",
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_32",
+      "category": "date_time_medication_reminder",
+      "accentOrCondition": "quiet_speech",
+      "referenceTranscript": "Nhắc uống thuốc 15 phút nữa",
+      "asrSimulatedVariants": [
+        "nhac uong thuoc 15 phut nua",
+        "nhắc uống thuốc mười lăm phút nữa",
+        "nhắc uống thuốc 15 phút nửa"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "reminder_calendar",
+      "expectedDateTimeCue": "15 phút nữa",
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_33",
+      "category": "date_time_task_priority",
+      "accentOrCondition": "fast_speech",
+      "referenceTranscript": "Cần làm báo cáo tài chính cho Minh trước 17 giờ hôm nay !gấp",
+      "asrSimulatedVariants": [
+        "can lam bao cao tai chinh cho minh truoc 17 gio hom nay gap",
+        "cần làm báo cáo tài chính cho Minh trước 5 giờ chiều hôm nay gấp",
+        "cần làm báo cáo tài chính cho minh trước 17h hôm nay"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "task",
+      "expectedDateTimeCue": "17 giờ hôm nay",
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_34",
+      "category": "multi_domain_finance_calendar",
+      "accentOrCondition": "northern_clear",
+      "referenceTranscript": "Ăn phở 55 nghìn và nhắc tôi họp lúc 14 giờ ngày mai",
+      "asrSimulatedVariants": [
+        "an pho 55 nghin va nhac toi hop luc 14 gio ngay mai",
+        "ăn phở năm mươi lăm nghìn và nhắc tôi họp lúc 2 giờ chiều ngày mai",
+        "ăn phở 55 nghìn và nhắc tôi họp lúc 14h ngày mai"
+      ],
+      "expectedAmountsMinor": [55000],
+      "expectedIntentKind": "multi_domain",
+      "expectedDateTimeCue": "lúc 14 giờ ngày mai",
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_35",
+      "category": "health_hydration",
+      "accentOrCondition": "quiet_speech",
+      "referenceTranscript": "Uống 300 ml nước lọc",
+      "asrSimulatedVariants": [
+        "uong 300 ml nuoc loc",
+        "uống ba trăm mi li lít nước lọc",
+        "uống 300ml nước lọc"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "water",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    },
+    {
+      "id": "vi_36",
+      "category": "daily_life_grocery",
+      "accentOrCondition": "noisy_market",
+      "referenceTranscript": "Mua sữa tươi và trứng gà",
+      "asrSimulatedVariants": [
+        "mua sua tuoi va trung ga",
+        "mua sữa tươi và trứng gờ",
+        "đi chợ mua sữa tươi và trứng gà"
+      ],
+      "expectedAmountsMinor": [],
+      "expectedIntentKind": "grocery",
+      "expectedDateTimeCue": null,
+      "hasMidSentencePause": false,
+      "isSection15Example": false
+    }
+  ]
+}
