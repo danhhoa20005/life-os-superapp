@@ -597,6 +597,34 @@ object LifeOsWidgetStore {
         refreshAllWidgets(context)
     }
 
+    fun clearSensitiveDataOnSignOut(context: Context) {
+        val appCtx = context.applicationContext
+        val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_QUEUED_COMMANDS_JSON, "[]")
+            .remove(KEY_LAST_UNDOABLE_JSON)
+            .putLong("net_worth_minor", 0L)
+            .putLong("monthly_income_minor", 0L)
+            .putLong("monthly_expense_minor", 0L)
+            .putLong("today_expense_minor", 0L)
+            .putLong("safe_daily_minor", 0L)
+            .putString("net_worth_formatted", "Đã đăng xuất")
+            .putString("monthly_income_formatted", "•••••••• ₫")
+            .putString("monthly_expense_formatted", "•••••••• ₫")
+            .putString("today_expense_formatted", "•••••••• ₫")
+            .putString("safe_daily_formatted", "•••••••• ₫")
+            .putString("wealth_badge", "Đăng nhập để xem")
+            .putString("group_title", "Tổ ấm & Hội nhóm")
+            .putString("group_status", "Đăng nhập tài khoản để xem nhóm chia tiền")
+            .putString("runway_label", "Đã khóa dữ liệu khi đăng xuất")
+            .putString("voice_last_feedback", "Mở ứng dụng & đăng nhập để ghi thu chi")
+            .putInt("daily_used_pct", 0)
+            .putInt("pending_auto_signals", 0)
+            .putBoolean("hide_balances", true)
+            .apply()
+        refreshAllWidgets(appCtx)
+    }
+
     fun refreshAllWidgets(context: Context) {
         val mgr = AppWidgetManager.getInstance(context)
 

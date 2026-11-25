@@ -721,16 +721,16 @@ class _SettingsHubPageState extends State<SettingsHubPage>
       ),
       _SettingsItemSpec(
         itemKey: const Key('settings_motion_studio_row'),
-        sectionTitle: 'Giao diện & Quyền riêng tư',
-        sectionTone: LifeOsAccentTone.amber,
+        sectionTitle: 'Nhà phát triển & Chẩn đoán',
+        sectionTone: LifeOsAccentTone.neutral,
         icon: Icons.auto_awesome_motion_rounded,
         tone: LifeOsAccentTone.emerald,
         title: 'Motion Studio & Hiệu ứng',
-        subtitle: 'Xem thử 66 mẫu vật lý lò xo, Shader & Lottie',
+        subtitle: 'Phòng thử nghiệm 66 mẫu vật lý lò xo, Shader & Lottie',
         keywords:
-            'motion studio gallery hieu ung chuyen dong lo xo shader lottie',
-        statusPillLabel: '66 mẫu',
-        statusPillTone: LifeOsAccentTone.emerald,
+            'motion studio gallery hieu ung chuyen dong lo xo shader lottie dev',
+        statusPillLabel: 'Dev · 66 mẫu',
+        statusPillTone: LifeOsAccentTone.neutral,
         onTap: () => context.push('/motion-gallery'),
       ),
       _SettingsItemSpec(

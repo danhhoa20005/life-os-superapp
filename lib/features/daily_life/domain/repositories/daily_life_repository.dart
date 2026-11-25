@@ -12,6 +12,7 @@ abstract interface class DailyLifeRepository {
     required MedicationScheduleSlot slot,
     required int remainingPills,
     required DateTime expiryDate,
+    bool inventoryConfirmed = true,
     String memberName = 'Cả gia đình',
     bool? reminderEnabled,
     int? reminderHour,

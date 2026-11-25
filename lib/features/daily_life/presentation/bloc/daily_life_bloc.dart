@@ -29,6 +29,7 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
   final MedicationScheduleSlot slot;
   final int remainingPills;
   final DateTime expiryDate;
+  final bool inventoryConfirmed;
   final String memberName;
   final bool? reminderEnabled;
   final int? reminderHour;
@@ -41,6 +42,7 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
     required this.slot,
     required this.remainingPills,
     required this.expiryDate,
+    this.inventoryConfirmed = true,
     this.memberName = 'Cả gia đình',
     this.reminderEnabled,
     this.reminderHour,
@@ -55,6 +57,7 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
     slot,
     remainingPills,
     expiryDate,
+    inventoryConfirmed,
     memberName,
     reminderEnabled,
     reminderHour,
@@ -596,6 +599,7 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       slot: e.slot,
       remainingPills: e.remainingPills,
       expiryDate: e.expiryDate,
+      inventoryConfirmed: e.inventoryConfirmed,
       memberName: e.memberName,
       reminderEnabled: e.reminderEnabled,
       reminderHour: e.reminderHour,

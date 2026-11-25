@@ -243,6 +243,36 @@ class TransactionActionBloc
     );
   }
 
+  /// Submits [event] and awaits the repository-confirmed [TransactionActionState]
+  /// matching [TransactionCreateSubmitted.operationId].
+  Future<TransactionActionState> submitAndAwaitCreate(
+    TransactionCreateSubmitted event, {
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    if (isClosed) {
+      return TransactionActionState(
+        status: ActionStatus.failure,
+        lastOperationId: event.operationId,
+      );
+    }
+    final waiter = stream
+        .firstWhere(
+          (s) =>
+              s.lastOperationId == event.operationId &&
+              (s.status == ActionStatus.success ||
+                  s.status == ActionStatus.failure),
+        )
+        .timeout(
+          timeout,
+          onTimeout: () => TransactionActionState(
+            status: ActionStatus.failure,
+            lastOperationId: event.operationId,
+          ),
+        );
+    add(event);
+    return waiter;
+  }
+
   Future<void> _onTransactionCreate(
     TransactionCreateSubmitted event,
     Emitter<TransactionActionState> emit,
@@ -251,7 +281,12 @@ class TransactionActionBloc
       return;
     }
     _inFlightOperationIds.add(event.operationId);
-    emit(const TransactionActionState(status: ActionStatus.submitting));
+    emit(
+      TransactionActionState(
+        status: ActionStatus.submitting,
+        lastOperationId: event.operationId,
+      ),
+    );
     try {
       final res = await _createTransaction(
         CreateTransactionParams(
@@ -273,12 +308,14 @@ class TransactionActionBloc
         (failure) => emit(
           TransactionActionState(
             status: ActionStatus.failure,
+            lastOperationId: event.operationId,
             failure: failure,
           ),
         ),
         (tx) => emit(
           TransactionActionState(
             status: ActionStatus.success,
+            lastOperationId: event.operationId,
             successMessage: 'Đã ghi nhận giao dịch thành công.',
             lastCreatedTransaction: tx,
           ),

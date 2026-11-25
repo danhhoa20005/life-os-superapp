@@ -12,6 +12,7 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
+import '../../../../core/utils/csv_sanitizer.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
@@ -1948,7 +1949,11 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                   ? tx.amountMinor
                                   : -tx.amountMinor;
                               buf.writeln(
-                                '"${tx.occurredAt.toIso8601String()}","${tx.categoryName}","${tx.merchant}","${tx.kind.name}",$signed',
+                                '${CsvSanitizer.escapeQuotedCell(tx.occurredAt.toIso8601String())},'
+                                '${CsvSanitizer.escapeQuotedCell(tx.categoryName)},'
+                                '${CsvSanitizer.escapeQuotedCell(tx.merchant)},'
+                                '${CsvSanitizer.escapeQuotedCell(tx.kind.name)},'
+                                '$signed',
                               );
                             }
                             final fileName = 'BaoCao_LifeOS_$exportTag.csv';

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/navigation/feature_registry.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -16,14 +17,16 @@ import '../../domain/entities/daily_life_entities.dart';
 import '../bloc/daily_life_bloc.dart';
 
 class SmartNotesSalaryPage extends StatefulWidget {
-  const SmartNotesSalaryPage({super.key});
+  final String? initialTab;
+
+  const SmartNotesSalaryPage({super.key, this.initialTab});
 
   @override
   State<SmartNotesSalaryPage> createState() => _SmartNotesSalaryPageState();
 }
 
 class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
-  String _tab = 'notes';
+  late String _tab;
   final TextEditingController _noteSearchCtrl = TextEditingController();
   String _noteSearch = '';
   bool _pinnedOnly = false;
@@ -42,6 +45,21 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     50000000,
     80000000,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = FeatureRegistry.normalizeSmartNotesSalaryTab(widget.initialTab);
+  }
+
+  @override
+  void didUpdateWidget(covariant SmartNotesSalaryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab &&
+        widget.initialTab != null) {
+      _tab = FeatureRegistry.normalizeSmartNotesSalaryTab(widget.initialTab);
+    }
+  }
 
   @override
   void dispose() {
@@ -423,19 +441,22 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Chiều quy đổi Lương',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14.5,
-                        color: c.textPrimary,
-                      ),
+                  Text(
+                    'Chiều quy đổi Lương',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: c.textPrimary,
                     ),
                   ),
                   SegmentedButton<bool>(
+                    showSelectedIcon: false,
                     segments: const [
                       ButtonSegment(value: true, label: Text('Gross → Net')),
                       ButtonSegment(value: false, label: Text('Net → Gross')),

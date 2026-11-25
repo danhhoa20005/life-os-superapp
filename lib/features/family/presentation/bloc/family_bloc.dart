@@ -425,17 +425,22 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
                 currentSelected ??
                 preferred ??
                 (list.isNotEmpty ? list.first.id : null);
-            if (chosenId != null && chosenId != state.selectedFamilyId) {
+            final isChangingFamily =
+                chosenId != null && chosenId != state.selectedFamilyId;
+            if (isChangingFamily) {
               add(FamilyShoppingWatchRequested(chosenId));
             }
+            final shouldClearOldLists = list.isEmpty || isChangingFamily;
             return state.copyWith(
-              isLoading: false,
+              isLoading: isChangingFamily,
               families: list,
               selectedFamilyId: chosenId,
               clearSelectedFamily: list.isEmpty,
-              shoppingItems: list.isEmpty ? const [] : state.shoppingItems,
-              sharedBills: list.isEmpty ? const [] : state.sharedBills,
-              settlements: list.isEmpty ? const [] : state.settlements,
+              shoppingItems: shouldClearOldLists
+                  ? const []
+                  : state.shoppingItems,
+              sharedBills: shouldClearOldLists ? const [] : state.sharedBills,
+              settlements: shouldClearOldLists ? const [] : state.settlements,
               clearFailure: true,
               clearMessage: true,
             );
@@ -449,7 +454,18 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     FamilyShoppingWatchRequested event,
     Emitter<FamilyState> emit,
   ) async {
-    emit(state.copyWith(selectedFamilyId: event.familyId));
+    final isSwitchingFamily = state.selectedFamilyId != event.familyId;
+    emit(
+      state.copyWith(
+        selectedFamilyId: event.familyId,
+        isLoading: isSwitchingFamily ? true : state.isLoading,
+        shoppingItems: isSwitchingFamily ? const [] : state.shoppingItems,
+        sharedBills: isSwitchingFamily ? const [] : state.sharedBills,
+        settlements: isSwitchingFamily ? const [] : state.settlements,
+        clearFailure: true,
+        clearMessage: isSwitchingFamily ? true : false,
+      ),
+    );
     final combined =
         StreamCombiner.combine3<
           Result<List<ShoppingItemEntity>>,
@@ -462,15 +478,22 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
           _repository.watchSettlements(event.familyId),
           (shopRes, billsRes, settleRes) {
             if (shopRes is Err<List<ShoppingItemEntity>>) {
-              return state.copyWith(failure: shopRes.failure);
+              return state.copyWith(isLoading: false, failure: shopRes.failure);
             }
             if (billsRes is Err<List<SharedBillSplitEntity>>) {
-              return state.copyWith(failure: billsRes.failure);
+              return state.copyWith(
+                isLoading: false,
+                failure: billsRes.failure,
+              );
             }
             if (settleRes is Err<List<DebtSettlementEntity>>) {
-              return state.copyWith(failure: settleRes.failure);
+              return state.copyWith(
+                isLoading: false,
+                failure: settleRes.failure,
+              );
             }
             return state.copyWith(
+              isLoading: false,
               shoppingItems:
                   (shopRes as Success<List<ShoppingItemEntity>>).value,
               sharedBills:

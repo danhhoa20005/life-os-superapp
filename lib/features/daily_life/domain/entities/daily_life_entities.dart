@@ -37,6 +37,7 @@ class MedicationCabinetItemEntity extends Equatable {
   final MedicationScheduleSlot slot;
   final int remainingPills;
   final DateTime expiryDate;
+  final bool inventoryConfirmed;
   final String? lastTakenDayKey;
   final String memberName;
   final bool reminderEnabled;
@@ -51,6 +52,7 @@ class MedicationCabinetItemEntity extends Equatable {
     required this.slot,
     required this.remainingPills,
     required this.expiryDate,
+    this.inventoryConfirmed = true,
     this.lastTakenDayKey,
     this.memberName = 'Cả gia đình',
     bool? reminderEnabled,
@@ -104,7 +106,8 @@ class MedicationCabinetItemEntity extends Equatable {
     return exp.difference(today).inDays;
   }
 
-  bool isExpiringSoon(DateTime now) => daysUntilExpiry(now) <= 30;
+  bool isExpiringSoon(DateTime now) =>
+      inventoryConfirmed && daysUntilExpiry(now) <= 30;
 
   MedicationCabinetItemEntity copyWith({
     bool? reminderEnabled,
@@ -113,6 +116,7 @@ class MedicationCabinetItemEntity extends Equatable {
     String? lastTakenDayKey,
     bool clearLastTaken = false,
     int? remainingPills,
+    bool? inventoryConfirmed,
   }) {
     return MedicationCabinetItemEntity(
       id: id,
@@ -122,6 +126,7 @@ class MedicationCabinetItemEntity extends Equatable {
       slot: slot,
       remainingPills: remainingPills ?? this.remainingPills,
       expiryDate: expiryDate,
+      inventoryConfirmed: inventoryConfirmed ?? this.inventoryConfirmed,
       lastTakenDayKey: clearLastTaken
           ? null
           : (lastTakenDayKey ?? this.lastTakenDayKey),
@@ -141,6 +146,7 @@ class MedicationCabinetItemEntity extends Equatable {
     slot,
     remainingPills,
     expiryDate,
+    inventoryConfirmed,
     lastTakenDayKey,
     memberName,
     reminderEnabled,

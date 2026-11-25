@@ -23,6 +23,7 @@ import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dar
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
+import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../bloc/dashboard_bloc.dart';
 
 /// Google Material You (Material 3) Interactive Home-Screen AppWidget Studio & Auto-Sync Hub.
@@ -132,32 +133,45 @@ class _HomeWidgetsStudioPageState extends State<HomeWidgetsStudioPage> {
     );
   }
 
-  void _recordQuickWidgetExpense(
+  Future<void> _recordQuickWidgetExpense(
     UserEntity user, {
     required String label,
     required String categoryId,
     required String categoryName,
     required int amountMinor,
     TransactionKind kind = TransactionKind.expense,
-  }) {
+  }) async {
     final opId = _uuid.v4();
     final walletId = _resolveWalletId(context);
-    context.read<TransactionActionBloc>().add(
-      TransactionCreateSubmitted(
-        operationId: opId,
-        userId: user.id,
-        walletId: walletId,
-        categoryId: categoryId,
-        categoryName: categoryName,
-        kind: kind,
-        amountMinor: amountMinor,
-        merchant: label,
-        note: 'Ghi nhanh ngay trên Widget',
-        occurredAt: DateTime.now(),
-      ),
-    );
+    final outcome = await context
+        .read<TransactionActionBloc>()
+        .submitAndAwaitCreate(
+          TransactionCreateSubmitted(
+            operationId: opId,
+            userId: user.id,
+            walletId: walletId,
+            categoryId: categoryId,
+            categoryName: categoryName,
+            kind: kind,
+            amountMinor: amountMinor,
+            merchant: label,
+            note: 'Ghi nhanh ngay trên Widget',
+            occurredAt: DateTime.now(),
+          ),
+        );
+    if (!mounted) return;
+    final createdTx = outcome.lastCreatedTransaction;
+    if (outcome.status != ActionStatus.success || createdTx == null) {
+      LifeOsTopToast.show(
+        context,
+        outcome.failure?.message ??
+            'Không thể lưu giao dịch từ Widget — vui lòng thử lại.',
+        kind: LifeOsToastKind.error,
+      );
+      return;
+    }
     setState(() {
-      _lastUndoTxId = opId;
+      _lastUndoTxId = createdTx.id;
       _lastUndoLabel = label;
       _voiceStatusHint = 'Đã ghi: $label (${VndAmount.format(amountMinor)})';
     });

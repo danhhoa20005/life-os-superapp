@@ -1,7 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 
+import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/services/native_home_widget_bridge.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../domain/usecases/auth_usecases.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -106,12 +109,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _watchCurrentUser(),
       onData: (user) {
         if (user == null) {
+          UserBehaviorPrefs.clearSessionOnSignOut();
           return state.copyWith(
             status: AuthStatus.unauthenticated,
             clearUser: true,
             isSubmitting: false,
           );
         }
+        UserBehaviorPrefs.bindActiveUser(user.id);
         return state.copyWith(
           status: AuthStatus.authenticated,
           user: user,
@@ -134,14 +139,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
-      (user) => emit(
-        state.copyWith(
-          status: AuthStatus.authenticated,
-          user: user,
-          isSubmitting: false,
-          clearFailure: true,
-        ),
-      ),
+      (user) {
+        UserBehaviorPrefs.bindActiveUser(user.id);
+        emit(
+          state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            isSubmitting: false,
+            clearFailure: true,
+          ),
+        );
+      },
     );
   }
 
@@ -164,14 +172,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
-      (user) => emit(
-        state.copyWith(
-          status: AuthStatus.authenticated,
-          user: user,
-          isSubmitting: false,
-          clearFailure: true,
-        ),
-      ),
+      (user) {
+        UserBehaviorPrefs.bindActiveUser(user.id);
+        emit(
+          state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            isSubmitting: false,
+            clearFailure: true,
+          ),
+        );
+      },
     );
   }
 
@@ -185,14 +196,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await _signInWithGoogle(const NoParams());
     result.fold(
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
-      (user) => emit(
-        state.copyWith(
-          status: AuthStatus.authenticated,
-          user: user,
-          isSubmitting: false,
-          clearFailure: true,
-        ),
-      ),
+      (user) {
+        UserBehaviorPrefs.bindActiveUser(user.id);
+        emit(
+          state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            isSubmitting: false,
+            clearFailure: true,
+          ),
+        );
+      },
     );
   }
 
@@ -399,6 +413,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     await _signOut(const NoParams());
+    UserBehaviorPrefs.clearSessionOnSignOut();
+    if (sl.isRegistered<NativeHomeWidgetBridge>()) {
+      await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
+    }
     emit(
       state.copyWith(
         status: AuthStatus.unauthenticated,

@@ -163,12 +163,14 @@ enum ActionStatus { idle, submitting, success, failure }
 
 final class TransactionActionState extends Equatable {
   final ActionStatus status;
+  final String? lastOperationId;
   final String? successMessage;
   final Failure? failure;
   final TransactionEntity? lastCreatedTransaction;
 
   const TransactionActionState({
     this.status = ActionStatus.idle,
+    this.lastOperationId,
     this.successMessage,
     this.failure,
     this.lastCreatedTransaction,
@@ -177,6 +179,7 @@ final class TransactionActionState extends Equatable {
   @override
   List<Object?> get props => [
     status,
+    lastOperationId,
     successMessage,
     failure,
     lastCreatedTransaction,

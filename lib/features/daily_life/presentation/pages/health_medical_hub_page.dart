@@ -478,20 +478,27 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                   : LifeOsAccentTone.neutral,
                             ),
                           ),
-                        LifeOsStatusPill(
-                          icon: Icons.inventory_2_outlined,
-                          label: 'Còn ${med.remainingPills} viên',
-                          tone: med.remainingPills <= 5
-                              ? LifeOsAccentTone.amber
-                              : LifeOsAccentTone.neutral,
-                        ),
-                        LifeOsStatusPill(
-                          icon: Icons.event_busy_outlined,
-                          label: 'HSD: ${dateFmt.format(med.expiryDate)}',
-                          tone: expiring
-                              ? LifeOsAccentTone.coral
-                              : LifeOsAccentTone.emerald,
-                        ),
+                        if (med.inventoryConfirmed) ...[
+                          LifeOsStatusPill(
+                            icon: Icons.inventory_2_outlined,
+                            label: 'Còn ${med.remainingPills} viên',
+                            tone: med.remainingPills <= 5
+                                ? LifeOsAccentTone.amber
+                                : LifeOsAccentTone.neutral,
+                          ),
+                          LifeOsStatusPill(
+                            icon: Icons.event_busy_outlined,
+                            label: 'HSD: ${dateFmt.format(med.expiryDate)}',
+                            tone: expiring
+                                ? LifeOsAccentTone.coral
+                                : LifeOsAccentTone.emerald,
+                          ),
+                        ] else
+                          const LifeOsStatusPill(
+                            icon: Icons.info_outline_rounded,
+                            label: 'Chưa khai báo tồn kho / HSD',
+                            tone: LifeOsAccentTone.neutral,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 10),

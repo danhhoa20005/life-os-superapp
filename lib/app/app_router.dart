@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_assets.dart';
 import '../core/di/dependency_injection.dart';
+import '../core/navigation/feature_registry.dart';
 import '../core/services/fcm_banking_messaging_service.dart';
 import '../core/services/native_alarm_scheduler_bridge.dart';
 import '../core/services/native_home_widget_bridge.dart';
@@ -62,6 +63,7 @@ import '../features/tasks/presentation/pages/tasks_board_page.dart';
 import '../features/transactions/domain/entities/transaction_entities.dart';
 import '../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../features/transactions/presentation/bloc/transaction_event.dart';
+import '../features/transactions/presentation/bloc/transaction_state.dart';
 import '../features/transactions/presentation/pages/auto_tx_and_report_pages.dart';
 import '../features/transactions/presentation/pages/finance_page.dart';
 import '../features/vehicles/presentation/bloc/vehicle_bloc.dart';
@@ -213,11 +215,9 @@ GoRouter createAppRouter(
                 path: '/planning',
                 builder: (_, state) => PlanningPage(
                   initialViewMode: state.uri.queryParameters['view'],
-                  initialTabIndex: switch (state.uri.queryParameters['tab']) {
-                    'tasks' => 1,
-                    'tools' => 2,
-                    _ => 0,
-                  },
+                  initialTabIndex: FeatureRegistry.normalizePlanningTabIndex(
+                    state.uri.queryParameters['tab'],
+                  ),
                 ),
               ),
             ],
@@ -463,7 +463,9 @@ GoRouter createAppRouter(
           return _ScopedAuthenticatedProviders(
             userId: user.id,
             familyId: user.activeFamilyId,
-            child: const WealthToolsPage(),
+            child: WealthToolsPage(
+              initialTab: state.uri.queryParameters['tab'],
+            ),
           );
         }),
       ),
@@ -525,7 +527,9 @@ GoRouter createAppRouter(
           return _ScopedAuthenticatedProviders(
             userId: user.id,
             familyId: user.activeFamilyId,
-            child: const SmartNotesSalaryPage(),
+            child: SmartNotesSalaryPage(
+              initialTab: state.uri.queryParameters['tab'],
+            ),
           );
         }),
       ),
@@ -1253,8 +1257,32 @@ class _HomeWidgetSyncAndIntentHostState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _checkCalendarMonthRollover();
       _drainBackgroundHealthActions();
       _drainHomeScreenWidgetCommands();
+    }
+  }
+
+  void _checkCalendarMonthRollover() {
+    if (!mounted) return;
+    final user = context.read<AuthBloc>().state.user;
+    if (user == null || user.id.isEmpty) return;
+    final currentMonthKey = TransactionListBloc.currentMonthKey();
+    final txListBloc = context.read<TransactionListBloc>();
+    if (txListBloc.state.monthKey != currentMonthKey) {
+      txListBloc.add(
+        TransactionsSubscriptionRequested(
+          userId: user.id,
+          monthKey: currentMonthKey,
+        ),
+      );
+      context.read<BudgetBloc>().add(
+        BudgetsSubscriptionRequested(
+          userId: user.id,
+          monthKey: currentMonthKey,
+          familyId: user.activeFamilyId,
+        ),
+      );
     }
   }
 
@@ -1315,7 +1343,6 @@ class _HomeWidgetSyncAndIntentHostState
           final opId = cmd.id.isNotEmpty
               ? cmd.id
               : 'widget_tx_${DateTime.now().microsecondsSinceEpoch}';
-          _syncedWidgetCmdToTxId[cmd.id] = opId;
           final txKind = cmd.kind == 'income'
               ? TransactionKind.income
               : TransactionKind.expense;
@@ -1333,7 +1360,7 @@ class _HomeWidgetSyncAndIntentHostState
               ? cmd.label.trim()
               : (parsed?.merchant ?? 'Ghi từ Widget');
 
-          txActionBloc.add(
+          final outcome = await txActionBloc.submitAndAwaitCreate(
             TransactionCreateSubmitted(
               operationId: opId,
               userId: user.id,
@@ -1349,13 +1376,17 @@ class _HomeWidgetSyncAndIntentHostState
                   : DateTime.now(),
             ),
           );
-          await UserBehaviorPrefs.recordHabitExecution(
-            label: '$title ${(amount / 1000).round()}k',
-            commandText: '$title ${(amount / 1000).round()}k',
-            categoryName: catName,
-            amountMinor: amount,
-          );
-          appliedCount++;
+          final createdTx = outcome.lastCreatedTransaction;
+          if (outcome.status == ActionStatus.success && createdTx != null) {
+            _syncedWidgetCmdToTxId[cmd.id] = createdTx.id;
+            await UserBehaviorPrefs.recordHabitExecution(
+              label: '$title ${(amount / 1000).round()}k',
+              commandText: '$title ${(amount / 1000).round()}k',
+              categoryName: catName,
+              amountMinor: amount,
+            );
+            appliedCount++;
+          }
           continue;
         }
 

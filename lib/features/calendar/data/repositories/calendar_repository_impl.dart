@@ -27,6 +27,33 @@ class CalendarRemoteDataSource {
 
   bool get isGoogleAuthorized => _googleApi?.hasAuthorizedToken ?? false;
 
+  static String googleEventCompositeKey(
+    String? googleCalendarId,
+    String googleEventId,
+  ) {
+    final calKey =
+        (googleCalendarId == null || googleCalendarId.trim().isEmpty)
+        ? 'primary'
+        : googleCalendarId.trim();
+    return '$calKey::${googleEventId.trim()}';
+  }
+
+  static String googleEventDocId(
+    String? googleCalendarId,
+    String googleEventId,
+  ) {
+    final calKey =
+        (googleCalendarId == null || googleCalendarId.trim().isEmpty)
+        ? 'primary'
+        : googleCalendarId.trim();
+    final cleanEv = googleEventId.trim();
+    if (calKey == 'primary') {
+      return 'gcal_$cleanEv';
+    }
+    final safeCal = calKey.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    return 'gcal_${safeCal}_$cleanEv';
+  }
+
   ManagedCalendarEntity _mapCalendarDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
     String ownerId,
@@ -725,11 +752,25 @@ class CalendarRemoteDataSource {
             googleEventId: gEvId,
           );
         } catch (_) {
-          // Offline safety: mark tombstone so next sync deletes remotely on Google Calendar!
-          await docRef.set({
+          // Offline safety: mark tombstone so next sync deletes remotely on Google Calendar,
+          // and immediately clear the family busy-slot so ghost availability never lingers!
+          final offlineBatch = _firestore.batch();
+          offlineBatch.set(docRef, {
             'syncStatus': CalendarSyncStatus.pendingDelete.name,
+            if (familyId != null && familyId.isNotEmpty)
+              'pendingDeleteFamilyId': familyId,
             'updatedAt': Timestamp.fromDate(DateTime.now()),
           }, SetOptions(merge: true));
+          if (familyId != null && familyId.isNotEmpty) {
+            offlineBatch.delete(
+              _firestore
+                  .collection('families')
+                  .doc(familyId)
+                  .collection('availability')
+                  .doc(eventId),
+            );
+          }
+          await offlineBatch.commit();
           return;
         }
       }
@@ -1104,10 +1145,18 @@ class CalendarRemoteDataSource {
           }
           await calBatch.commit();
 
+          final userSnap = await _firestore
+              .collection('users')
+              .doc(userId)
+              .get();
+          final activeUserFamilyId =
+              (userSnap.data()?['activeFamilyId'] as String?)?.trim();
+
           final localDocsSnap = await eventsCol.get();
-          final localByGoogleEventId = <String, CalendarEventEntity>{};
+          final localByGoogleCompositeKey = <String, CalendarEventEntity>{};
 
           for (final doc in localDocsSnap.docs) {
+            final rawData = doc.data();
             final ev = _mapEvent(doc, CalendarEventVisibility.privateEvent);
             if (ev.syncStatus == CalendarSyncStatus.pendingDelete) {
               if (ev.isLinkedWithGoogle) {
@@ -1118,7 +1167,22 @@ class CalendarRemoteDataSource {
                 );
                 pushedDeleted++;
               }
-              await doc.reference.delete();
+              final cleanupFamId =
+                  (rawData['pendingDeleteFamilyId'] as String?)?.trim() ??
+                  ev.familyId ??
+                  activeUserFamilyId;
+              final delBatch = _firestore.batch();
+              delBatch.delete(doc.reference);
+              if (cleanupFamId != null && cleanupFamId.isNotEmpty) {
+                delBatch.delete(
+                  _firestore
+                      .collection('families')
+                      .doc(cleanupFamId)
+                      .collection('availability')
+                      .doc(ev.id),
+                );
+              }
+              await delBatch.commit();
               continue;
             }
 
@@ -1150,10 +1214,18 @@ class CalendarRemoteDataSource {
                 _eventToFirestore(syncedEv),
                 SetOptions(merge: true),
               );
-              localByGoogleEventId[remoteRes.googleEventId] = syncedEv;
+              localByGoogleCompositeKey[googleEventCompositeKey(
+                    targetGCalId,
+                    remoteRes.googleEventId,
+                  )] =
+                  syncedEv;
               pushedUpserted++;
             } else if (ev.isLinkedWithGoogle) {
-              localByGoogleEventId[ev.googleEventId!] = ev;
+              localByGoogleCompositeKey[googleEventCompositeKey(
+                    ev.googleCalendarId,
+                    ev.googleEventId!,
+                  )] =
+                  ev;
             }
           }
 
@@ -1174,10 +1246,25 @@ class CalendarRemoteDataSource {
 
             final pullBatch = _firestore.batch();
             for (final remoteEv in deltaPage.items) {
-              final matchedLocal = localByGoogleEventId[remoteEv.googleEventId];
+              final matchedLocal =
+                  localByGoogleCompositeKey[googleEventCompositeKey(
+                    gCalId,
+                    remoteEv.googleEventId,
+                  )];
               if (remoteEv.isCancelled) {
                 if (matchedLocal != null) {
                   pullBatch.delete(eventsCol.doc(matchedLocal.id));
+                  final cleanupFamId =
+                      matchedLocal.familyId ?? activeUserFamilyId;
+                  if (cleanupFamId != null && cleanupFamId.isNotEmpty) {
+                    pullBatch.delete(
+                      _firestore
+                          .collection('families')
+                          .doc(cleanupFamId)
+                          .collection('availability')
+                          .doc(matchedLocal.id),
+                    );
+                  }
                   pulledDeleted++;
                 }
                 continue;
@@ -1190,7 +1277,8 @@ class CalendarRemoteDataSource {
               }
 
               final docId =
-                  matchedLocal?.id ?? 'gcal_${remoteEv.googleEventId}';
+                  matchedLocal?.id ??
+                  googleEventDocId(gCalId, remoteEv.googleEventId);
               final upsertedEntity = CalendarEventEntity(
                 id: docId,
                 calendarId: gCal.id,

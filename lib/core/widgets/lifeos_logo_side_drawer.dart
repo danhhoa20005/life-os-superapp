@@ -288,7 +288,7 @@ class _LifeOsLogoSideDrawerSheetState
       keywords: 'so tay ghi chu ghim ma so checklist',
       icon: Icons.sticky_note_2_outlined,
       tone: LifeOsAccentTone.purple,
-      route: '/smart-notes-hub',
+      route: '/smart-notes-hub?tab=notes',
     ),
 
     // 3. TÀI CHÍNH CHUYÊN SÂU, NGÂN HÀNG & THUẾ LƯƠNG
@@ -334,7 +334,7 @@ class _LifeOsLogoSideDrawerSheetState
       keywords: 'luong gross net thue tncn bhxh giam tru',
       icon: Icons.request_quote_outlined,
       tone: LifeOsAccentTone.purple,
-      route: '/smart-notes-hub',
+      route: '/smart-notes-hub?tab=salary',
     ),
     _LogoDrawerFeatureItem(
       id: 'family_funds',

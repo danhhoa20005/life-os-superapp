@@ -211,4 +211,28 @@ class NativeHomeWidgetBridge {
       await _channel.invokeMethod<void>('updateWidgets', payload);
     } catch (_) {}
   }
+
+  /// Wipes all cached financial figures and pending background commands from
+  /// Android Home Screen Widgets immediately upon user sign-out.
+  Future<void> clearWidgetsOnSignOut() async {
+    _simulatedQueue.clear();
+    _lastSyncedPayload = <String, dynamic>{
+      'signedOut': true,
+      'netWorth': 'Đã đăng xuất',
+      'monthlyIncome': '•••••••• ₫',
+      'monthlyExpense': '•••••••• ₫',
+      'todayExpense': '•••••••• ₫',
+      'safeDaily': '•••••••• ₫',
+      'netWorthMinor': 0,
+      'monthlyIncomeMinor': 0,
+      'monthlyExpenseMinor': 0,
+      'todayExpenseMinor': 0,
+      'safeDailyMinor': 0,
+      'hideBalances': true,
+    };
+    if (!isSupportedPlatform || !_hasServicesBinding) return;
+    try {
+      await _channel.invokeMethod<void>('clearWidgets');
+    } catch (_) {}
+  }
 }

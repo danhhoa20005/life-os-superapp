@@ -21,6 +21,7 @@ import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
+import '../../features/transactions/presentation/bloc/transaction_state.dart';
 import '../constants/app_assets.dart';
 import '../di/dependency_injection.dart';
 import '../services/native_voice_assistant_bridge.dart';
@@ -118,6 +119,10 @@ class _VoiceSmartCaptureSheetBodyState
   bool _isInitializingMic = false;
   bool _isRequestingPermission = false;
   bool _awaitingConfirmation = false;
+  bool _isSubmittingConfirm = false;
+  String _batchSignature = '';
+  final Map<int, String> _batchOperationIds = <int, String>{};
+  final Set<int> _completedBatchIndices = <int>{};
   String _sessionPrefixText = '';
   VoiceEngineMode _selectedEngineMode = VoiceEngineMode.googleService;
   VoiceDiagnosticsSnapshot? _diagnostics;
@@ -483,6 +488,9 @@ class _VoiceSmartCaptureSheetBodyState
     required String targetWalletId,
     required FamilyEntity? activeFamily,
   }) async {
+    if (_isSubmittingConfirm) return;
+    setState(() => _isSubmittingConfirm = true);
+
     const uuid = Uuid();
     final navigator = Navigator.of(context);
     final txActionBloc = context.read<TransactionActionBloc>();
@@ -492,155 +500,297 @@ class _VoiceSmartCaptureSheetBodyState
     final dailyBloc = _tryReadBloc<DailyLifeBloc>(context);
     final finResult = eval.financialAnalysis;
 
-    // Path A: Rich Financial / Group Split / Multi-Category Receipt
-    if (finResult != null) {
-      await UserBehaviorPrefs.rememberWallet(targetWalletId);
-      switch (finResult.intentKind) {
-        case VoiceSentenceIntentKind.groupBillSplit:
-          final split = finResult.groupSplit!;
-          var targetFamilyId = activeFamily?.id;
-          if (targetFamilyId == null) {
-            familyBloc.add(
-              FamilyCreateSubmitted(
-                userId: widget.user.id,
-                userName: widget.user.fullName,
-                familyName: 'Nhóm Chia Tiền Nhanh',
-                spaceType: CollaborationSpaceType.group,
-              ),
-            );
-            final nextFamState = await familyBloc.stream
+    final currentSig = '${_textCtrl.text.trim()}::$targetWalletId';
+    if (_batchSignature != currentSig) {
+      _batchSignature = currentSig;
+      _batchOperationIds.clear();
+      _completedBatchIndices.clear();
+    }
+
+    try {
+      // Path A: Rich Financial / Group Split / Multi-Category Receipt
+      if (finResult != null) {
+        switch (finResult.intentKind) {
+          case VoiceSentenceIntentKind.groupBillSplit:
+            final split = finResult.groupSplit!;
+            var targetFamilyId = activeFamily?.id;
+            if (targetFamilyId == null) {
+              final createWaiter = familyBloc.stream
+                  .firstWhere(
+                    (s) =>
+                        !s.isSubmitting &&
+                        (s.activeFamily != null || s.failure != null),
+                  )
+                  .timeout(
+                    const Duration(seconds: 6),
+                    onTimeout: () => familyBloc.state,
+                  );
+              familyBloc.add(
+                FamilyCreateSubmitted(
+                  userId: widget.user.id,
+                  userName: widget.user.fullName,
+                  familyName: 'Nhóm Chia Tiền Nhanh',
+                  spaceType: CollaborationSpaceType.group,
+                ),
+              );
+              final nextFamState = await createWaiter;
+              targetFamilyId = nextFamState.activeFamily?.id;
+            }
+            if (targetFamilyId == null) {
+              if (context.mounted) {
+                LifeOsTopToast.show(
+                  context,
+                  'Chưa thể khởi tạo nhóm chia tiền — vui lòng thử lại.',
+                  kind: LifeOsToastKind.warning,
+                );
+              }
+              return;
+            }
+            final splitWaiter = familyBloc.stream
                 .firstWhere(
-                  (s) => s.activeFamily != null || s.failure != null,
+                  (s) =>
+                      !s.isSubmitting &&
+                      (s.message != null || s.failure != null),
                 )
                 .timeout(
-                  const Duration(seconds: 4),
+                  const Duration(seconds: 8),
                   onTimeout: () => familyBloc.state,
                 );
-            targetFamilyId = nextFamState.activeFamily?.id;
-          }
-          if (targetFamilyId == null) {
+            familyBloc.add(
+              SharedBillSplitCreated(
+                CreateSharedBillSplitParams(
+                  familyId: targetFamilyId,
+                  title: split.title,
+                  topic: split.topic,
+                  paidByUserId: widget.user.id,
+                  paidByName: widget.user.fullName,
+                  totalAmountMinor: split.totalAmountMinor,
+                  splitMethod: split.splitMethod,
+                  participantIds: split.shares
+                      .map((s) => s.participantId)
+                      .toList(),
+                  participantNames: {
+                    for (final s in split.shares)
+                      s.participantId: s.displayName,
+                  },
+                  rawInputValuesByUserId: split.rawInputValuesByUserId,
+                  choreOrTaskNote: 'Xác nhận từ Giọng nói AI',
+                ),
+              ),
+            );
+            final splitState = await splitWaiter;
+            if (splitState.failure != null || splitState.message == null) {
+              if (context.mounted) {
+                LifeOsTopToast.show(
+                  context,
+                  splitState.failure?.message ??
+                      'Không thể lưu khoản chia hóa đơn — vui lòng thử lại.',
+                  kind: LifeOsToastKind.error,
+                );
+              }
+              return;
+            }
+            await UserBehaviorPrefs.rememberWallet(targetWalletId);
+            _batchOperationIds.clear();
+            _completedBatchIndices.clear();
+            if (mounted) {
+              navigator.pop();
+            }
             if (widget.parentContext.mounted) {
               LifeOsTopToast.show(
                 widget.parentContext,
-                'Chưa thể khởi tạo nhóm chia tiền — vui lòng thử lại.',
-                kind: LifeOsToastKind.warning,
+                '✓ Đã chia hóa đơn "${split.title}" (${VndAmount.format(split.totalAmountMinor)}) cho ${split.shares.length} người!',
               );
             }
             return;
-          }
-          familyBloc.add(
-            SharedBillSplitCreated(
-              CreateSharedBillSplitParams(
-                familyId: targetFamilyId,
-                title: split.title,
-                topic: split.topic,
-                paidByUserId: widget.user.id,
-                paidByName: widget.user.fullName,
-                totalAmountMinor: split.totalAmountMinor,
-                splitMethod: split.splitMethod,
-                participantIds: split.shares
-                    .map((s) => s.participantId)
-                    .toList(),
-                participantNames: {
-                  for (final s in split.shares) s.participantId: s.displayName,
-                },
-                rawInputValuesByUserId: split.rawInputValuesByUserId,
-                choreOrTaskNote: 'Xác nhận từ Giọng nói AI',
-              ),
-            ),
-          );
-          if (mounted) {
-            navigator.pop();
-          }
-          if (widget.parentContext.mounted) {
-            LifeOsTopToast.show(
-              widget.parentContext,
-              '✓ Đã chia hóa đơn "${split.title}" (${VndAmount.format(split.totalAmountMinor)}) cho ${split.shares.length} người!',
-            );
-          }
-          return;
 
-        case VoiceSentenceIntentKind.multiCategoryReceipt:
-          final rec = finResult.multiCategoryReceipt!;
-          txActionBloc.add(
-            TransactionCreateSubmitted(
-              operationId: uuid.v4(),
-              userId: widget.user.id,
-              walletId: targetWalletId,
-              categoryName: rec.splitLines.first.categoryName,
-              kind: TransactionKind.expense,
-              amountMinor: rec.totalAmountMinor,
-              merchant: rec.merchant,
-              note: 'Tách khoản bằng Giọng nói AI',
-              occurredAt: DateTime.now(),
-              splitLines: rec.splitLines,
-            ),
-          );
-          if (mounted) {
-            navigator.pop();
-          }
-          if (widget.parentContext.mounted) {
-            LifeOsTopToast.show(
-              widget.parentContext,
-              '✓ Đã lưu hóa đơn tách khoản (${VndAmount.format(rec.totalAmountMinor)})',
-            );
-          }
-          return;
-
-        case VoiceSentenceIntentKind.batchTransactions:
-        case VoiceSentenceIntentKind.singleTransaction:
-          for (final entry in finResult.personalEntries) {
-            txActionBloc.add(
+          case VoiceSentenceIntentKind.multiCategoryReceipt:
+            final rec = finResult.multiCategoryReceipt!;
+            final opId = _batchOperationIds.putIfAbsent(0, () => uuid.v4());
+            final outcome = await txActionBloc.submitAndAwaitCreate(
               TransactionCreateSubmitted(
-                operationId: uuid.v4(),
+                operationId: opId,
                 userId: widget.user.id,
                 walletId: targetWalletId,
-                categoryId: entry.categoryId,
-                categoryName: entry.categoryName,
-                kind: entry.kind,
-                amountMinor: entry.amountMinor,
-                merchant: entry.merchant,
-                note: 'Xác nhận bằng Giọng nói AI',
+                categoryName: rec.splitLines.first.categoryName,
+                kind: TransactionKind.expense,
+                amountMinor: rec.totalAmountMinor,
+                merchant: rec.merchant,
+                note: 'Tách khoản bằng Giọng nói AI',
                 occurredAt: DateTime.now(),
+                splitLines: rec.splitLines,
               ),
             );
-          }
-          if (mounted) {
-            navigator.pop();
-          }
-          if (widget.parentContext.mounted) {
-            final count = finResult.personalEntries.length;
-            final first = finResult.personalEntries.first;
-            LifeOsTopToast.show(
-              widget.parentContext,
-              count == 1
-                  ? '✓ Đã lưu: ${first.merchant} (${VndAmount.format(first.amountMinor)})'
-                  : '✓ Đã xác nhận & lưu $count khoản thu chi!',
-            );
-          }
-          return;
-      }
-    }
+            if (outcome.status != ActionStatus.success ||
+                outcome.lastCreatedTransaction == null) {
+              if (context.mounted) {
+                LifeOsTopToast.show(
+                  context,
+                  outcome.failure?.message ??
+                      'Không thể lưu hóa đơn tách khoản — vui lòng thử lại.',
+                  kind: LifeOsToastKind.error,
+                );
+              }
+              return;
+            }
+            await UserBehaviorPrefs.rememberWallet(targetWalletId);
+            _batchOperationIds.clear();
+            _completedBatchIndices.clear();
+            if (mounted) {
+              navigator.pop();
+            }
+            if (widget.parentContext.mounted) {
+              LifeOsTopToast.show(
+                widget.parentContext,
+                '✓ Đã lưu hóa đơn tách khoản (${VndAmount.format(rec.totalAmountMinor)})',
+              );
+            }
+            return;
 
-    // Path B: Cross-Domain LifeOS Spoken Intents (Calendar, Task, Water, Medication, Grocery)
-    if (eval.omniDrafts.isNotEmpty) {
-      if (mounted) {
-        navigator.pop();
+          case VoiceSentenceIntentKind.batchTransactions:
+          case VoiceSentenceIntentKind.singleTransaction:
+            final entries = finResult.personalEntries;
+            final failedItems = <({String merchant, String? reason})>[];
+            TransactionEntity? singleCreatedTx;
+
+            for (var i = 0; i < entries.length; i++) {
+              if (_completedBatchIndices.contains(i)) {
+                continue;
+              }
+              final entry = entries[i];
+              final opId = _batchOperationIds.putIfAbsent(i, () => uuid.v4());
+              final outcome = await txActionBloc.submitAndAwaitCreate(
+                TransactionCreateSubmitted(
+                  operationId: opId,
+                  userId: widget.user.id,
+                  walletId: targetWalletId,
+                  categoryId: entry.categoryId,
+                  categoryName: entry.categoryName,
+                  kind: entry.kind,
+                  amountMinor: entry.amountMinor,
+                  merchant: entry.merchant,
+                  note: 'Xác nhận bằng Giọng nói AI',
+                  occurredAt: DateTime.now(),
+                ),
+              );
+              if (outcome.status == ActionStatus.success &&
+                  outcome.lastCreatedTransaction != null) {
+                _completedBatchIndices.add(i);
+                singleCreatedTx = outcome.lastCreatedTransaction;
+              } else {
+                failedItems.add((
+                  merchant: entry.merchant,
+                  reason: outcome.failure?.message,
+                ));
+              }
+            }
+
+            if (failedItems.isNotEmpty) {
+              final savedCount = _completedBatchIndices.length;
+              final firstFail = failedItems.first;
+              if (mounted) {
+                setState(() {
+                  _voiceStatusHint = entries.length == 1
+                      ? (firstFail.reason ??
+                            'Chưa thể lưu giao dịch — bấm Xác nhận & Lưu để thử lại.')
+                      : 'Đã lưu $savedCount/${entries.length} khoản. Khoản "${firstFail.merchant}" gặp lỗi — bấm Xác nhận & Lưu để thử lại phần lỗi mà không tạo trùng.';
+                });
+              }
+              if (context.mounted) {
+                LifeOsTopToast.show(
+                  context,
+                  entries.length == 1
+                      ? (firstFail.reason ??
+                            'Không thể lưu giao dịch "${firstFail.merchant}" — vui lòng thử lại.')
+                      : 'Đã lưu $savedCount/${entries.length} khoản — "${firstFail.merchant}" gặp lỗi. Bấm thử lại sẽ không bị trùng khoản đã lưu.',
+                  kind: LifeOsToastKind.error,
+                );
+              }
+              return;
+            }
+
+            await UserBehaviorPrefs.rememberWallet(targetWalletId);
+            _batchOperationIds.clear();
+            _completedBatchIndices.clear();
+            if (mounted) {
+              navigator.pop();
+            }
+            if (widget.parentContext.mounted) {
+              final count = entries.length;
+              final first = entries.first;
+              if (count == 1 && singleCreatedTx != null) {
+                final createdId = singleCreatedTx.id;
+                LifeOsTopToast.show(
+                  widget.parentContext,
+                  '✓ Đã lưu: ${first.merchant} (${VndAmount.format(first.amountMinor)})',
+                  actionLabel: 'Hoàn tác',
+                  onAction: () {
+                    txActionBloc.add(
+                      TransactionReverseRequested(
+                        userId: widget.user.id,
+                        transactionId: createdId,
+                        reason: 'Hoàn tác giao dịch giọng nói',
+                      ),
+                    );
+                  },
+                );
+              } else {
+                LifeOsTopToast.show(
+                  widget.parentContext,
+                  '✓ Đã xác nhận & lưu $count khoản thu chi!',
+                );
+              }
+            }
+            return;
+        }
       }
-      for (var i = 0; i < eval.omniDrafts.length; i++) {
-        if (!widget.parentContext.mounted) break;
-        await OmniActionExecutor.executeDraft(
-          toastContext: widget.parentContext,
-          draft: eval.omniDrafts[i],
-          user: widget.user,
-          walletId: targetWalletId,
-          txActionBloc: txActionBloc,
-          calBloc: calBloc,
-          taskBloc: taskBloc,
-          familyBloc: familyBloc,
-          dailyBloc: dailyBloc,
-          showSuccessToast: i == eval.omniDrafts.length - 1,
-        );
+
+      // Path B: Cross-Domain LifeOS Spoken Intents (Calendar, Task, Water, Medication, Grocery)
+      if (eval.omniDrafts.isNotEmpty) {
+        var failedCount = 0;
+        for (var i = 0; i < eval.omniDrafts.length; i++) {
+          if (_completedBatchIndices.contains(i)) continue;
+          if (!context.mounted) break;
+          final ok = await OmniActionExecutor.executeDraft(
+            toastContext: context,
+            draft: eval.omniDrafts[i],
+            user: widget.user,
+            walletId: targetWalletId,
+            txActionBloc: txActionBloc,
+            calBloc: calBloc,
+            taskBloc: taskBloc,
+            familyBloc: familyBloc,
+            dailyBloc: dailyBloc,
+            showSuccessToast: false,
+          );
+          if (ok) {
+            _completedBatchIndices.add(i);
+          } else {
+            failedCount++;
+          }
+        }
+        if (failedCount > 0) {
+          return;
+        }
+        final draftsCount = eval.omniDrafts.length;
+        final lastDraft = eval.omniDrafts.last;
+        _batchOperationIds.clear();
+        _completedBatchIndices.clear();
+        if (mounted) {
+          navigator.pop();
+        }
+        if (widget.parentContext.mounted) {
+          LifeOsTopToast.show(
+            widget.parentContext,
+            draftsCount == 1
+                ? '✓ Đã lưu: ${lastDraft.summaryLineVi}'
+                : '✓ Đã thực hiện & lưu $draftsCount thao tác thông minh!',
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingConfirm = false);
       }
     }
   }
@@ -1442,25 +1592,32 @@ class _VoiceSmartCaptureSheetBodyState
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                         ),
-                        onPressed: _isListening
-                            ? null
-                            : () => _confirmAndCommit(
-                                context: context,
-                                eval: eval,
-                                targetWalletId: resolvedWalletId,
-                                activeFamily: activeFamily,
-                              ),
-                        icon: const Icon(Icons.check_circle_rounded, size: 19),
-                        label: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            analysis?.intentKind ==
+                      onPressed: (_isListening || _isSubmittingConfirm)
+                          ? null
+                          : () => _confirmAndCommit(
+                              context: context,
+                              eval: eval,
+                              targetWalletId: resolvedWalletId,
+                              activeFamily: activeFamily,
+                            ),
+                      icon: Icon(
+                        _isSubmittingConfirm
+                            ? Icons.hourglass_top_rounded
+                            : Icons.check_circle_rounded,
+                        size: 19,
+                      ),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _isSubmittingConfirm
+                              ? 'Đang lưu...'
+                              : analysis?.intentKind ==
                                     VoiceSentenceIntentKind.groupBillSplit
-                                ? 'Xác nhận chia (${analysis!.groupSplit!.shares.length} người)'
-                                : 'Xác nhận & Lưu',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
+                              ? 'Xác nhận chia (${analysis!.groupSplit!.shares.length} người)'
+                              : 'Xác nhận & Lưu',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
+                      ),
                       ),
                     ),
                   ],

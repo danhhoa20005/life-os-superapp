@@ -504,10 +504,26 @@ class _TodayPageState extends State<TodayPage> {
                               ? <String>[user.fullName]
                               : const <String>[]);
 
-                    // Unified Cross-Feature Inbox (100% Real Data)
+                    // Unified Cross-Feature Inbox (100% Real Data — Strictly Scoped Today vs Upcoming)
+                    final startOfToday = DateTime(now.year, now.month, now.day);
+                    final endOfToday = DateTime(
+                      now.year,
+                      now.month,
+                      now.day,
+                      23,
+                      59,
+                      59,
+                      999,
+                    );
                     final upcomingEvents =
                         calEvents.where((e) => !e.endsAt.isBefore(now)).toList()
                           ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+                    final todayEvents = upcomingEvents
+                        .where((e) => !e.startsAt.isAfter(endOfToday))
+                        .toList();
+                    final futureEvents = upcomingEvents
+                        .where((e) => e.startsAt.isAfter(endOfToday))
+                        .toList();
 
                     final provisionalTxs = allTransactions
                         .where(
@@ -520,6 +536,13 @@ class _TodayPageState extends State<TodayPage> {
 
                     final openTasks = allTasks
                         .where((t) => t.status != TaskWorkflowStatus.done)
+                        .toList();
+                    final overdueTasks = openTasks
+                        .where(
+                          (t) =>
+                              t.dueAt != null &&
+                              t.dueAt!.isBefore(startOfToday),
+                        )
                         .toList();
 
                     final dueVehicles = vehicles
@@ -597,34 +620,58 @@ class _TodayPageState extends State<TodayPage> {
                                   );
                                 },
                         ),
-                      if (upcomingEvents.isNotEmpty)
+                      if (todayEvents.isNotEmpty)
                         _InboxActionItem(
                           icon: Icons.event_available_rounded,
                           tone: LifeOsAccentTone.emerald,
-                          title: upcomingEvents.first.title,
+                          title: todayEvents.first.title,
                           subtitle:
-                              '${timeFmt.format(upcomingEvents.first.startsAt)} – ${timeFmt.format(upcomingEvents.first.endsAt)}${upcomingEvents.first.location != null && upcomingEvents.first.location!.isNotEmpty ? " · ${upcomingEvents.first.location}" : ""}',
-                          badge: 'Lịch hẹn',
+                              '${timeFmt.format(todayEvents.first.startsAt)} – ${timeFmt.format(todayEvents.first.endsAt)}${todayEvents.first.location != null && todayEvents.first.location!.isNotEmpty ? " · ${todayEvents.first.location}" : ""}',
+                          badge: 'Hôm nay',
                           onTap: () => context.push(
                             '/event-detail',
-                            extra: upcomingEvents.first,
+                            extra: todayEvents.first,
+                          ),
+                        )
+                      else if (futureEvents.isNotEmpty)
+                        _InboxActionItem(
+                          icon: Icons.calendar_month_rounded,
+                          tone: LifeOsAccentTone.blue,
+                          title: futureEvents.first.title,
+                          subtitle:
+                              '${DateFormat('dd/MM').format(futureEvents.first.startsAt)} · ${timeFmt.format(futureEvents.first.startsAt)} – ${timeFmt.format(futureEvents.first.endsAt)}${futureEvents.first.location != null && futureEvents.first.location!.isNotEmpty ? " · ${futureEvents.first.location}" : ""}',
+                          badge:
+                              'Sắp tới ${DateFormat('dd/MM').format(futureEvents.first.startsAt)}',
+                          onTap: () => context.push(
+                            '/event-detail',
+                            extra: futureEvents.first,
                           ),
                         ),
                       if (openTasks.isNotEmpty)
                         _InboxActionItem(
                           icon: Icons.task_alt_rounded,
-                          tone: LifeOsAccentTone.blue,
-                          title: openTasks.first.title,
-                          subtitle: openTasks.length > 1
-                              ? 'Còn ${openTasks.length} việc cần làm'
-                              : 'Chạm để mở việc cần làm',
-                          badge: 'Việc làm',
+                          tone: overdueTasks.isNotEmpty
+                              ? LifeOsAccentTone.coral
+                              : LifeOsAccentTone.blue,
+                          title: overdueTasks.isNotEmpty
+                              ? overdueTasks.first.title
+                              : openTasks.first.title,
+                          subtitle: overdueTasks.isNotEmpty
+                              ? 'Quá hạn ${overdueTasks.length} việc · Tổng còn ${openTasks.length} việc'
+                              : (openTasks.length > 1
+                                    ? 'Còn ${openTasks.length} việc cần làm'
+                                    : 'Chạm để mở việc cần làm'),
+                          badge: overdueTasks.isNotEmpty
+                              ? 'Quá hạn'
+                              : 'Việc làm',
                           onTap: () => context.push('/tasks-board'),
                           quickActionLabel: user != null ? '✓ Xong' : null,
                           onQuickAction: user == null
                               ? null
                               : () {
-                                  final t = openTasks.first;
+                                  final t = overdueTasks.isNotEmpty
+                                      ? overdueTasks.first
+                                      : openTasks.first;
                                   if (t.status == TaskWorkflowStatus.proposed) {
                                     context.read<TaskBloc>().add(
                                       TaskResponseSubmitted(

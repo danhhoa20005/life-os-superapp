@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/navigation/feature_registry.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -16,14 +17,31 @@ import '../../domain/entities/pro_utilities_entities.dart';
 
 /// Replaces Paid Receipt OCR Scanners, Bank Loan Pro & YNAB/Monarch FIRE Wealth Planners.
 class WealthToolsPage extends StatefulWidget {
-  const WealthToolsPage({super.key});
+  final String? initialTab;
+
+  const WealthToolsPage({super.key, this.initialTab});
 
   @override
   State<WealthToolsPage> createState() => _WealthToolsPageState();
 }
 
 class _WealthToolsPageState extends State<WealthToolsPage> {
-  String _activeTool = 'receipt'; // 'receipt' | 'loan' | 'fire'
+  late String _activeTool; // 'receipt' | 'loan' | 'fire'
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTool = FeatureRegistry.normalizeWealthToolTab(widget.initialTab);
+  }
+
+  @override
+  void didUpdateWidget(covariant WealthToolsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab &&
+        widget.initialTab != null) {
+      _activeTool = FeatureRegistry.normalizeWealthToolTab(widget.initialTab);
+    }
+  }
 
   // 1. Receipt Scanner State
   final TextEditingController _receiptCtrl = TextEditingController(

@@ -306,6 +306,10 @@ class MainActivity : FlutterActivity() {
                     pendingWidgetAction = null
                     result.success(act)
                 }
+                "clearWidgets" -> {
+                    LifeOsWidgetStore.clearSensitiveDataOnSignOut(applicationContext)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

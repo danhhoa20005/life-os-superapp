@@ -96,20 +96,58 @@ abstract final class UserBehaviorPrefs {
   static const String _keyPreferredVoiceEngineMode =
       'ux_preferred_voice_engine_mode_v2';
 
+  static String? _activeUserId;
   static String? _cachedLastWalletId;
   static bool? _cachedHideBalances;
   static String? _cachedAppPin;
   static bool? _cachedPermissionsPopupDismissed;
   static String? _cachedVoiceEngineMode;
   static List<HabitShortcut> _cachedHabits = const <HabitShortcut>[];
+  static final Set<String> _trackedScopedKeys = <String>{};
+
+  static String? get activeUserId => _activeUserId;
+
+  static String _scopedKey(String baseKey) {
+    final uid = _activeUserId;
+    final key = (uid == null || uid.isEmpty) ? baseKey : '${baseKey}__u_$uid';
+    _trackedScopedKeys.add(key);
+    return key;
+  }
+
+  /// Binds local user-preference storage to [userId] so wallets, privacy masks,
+  /// PIN codes, and RFM habit chips never leak across accounts on a shared device.
+  static void bindActiveUser(String? userId) {
+    final cleaned = (userId ?? '').trim();
+    final nextId = cleaned.isEmpty ? null : cleaned;
+    if (_activeUserId == nextId) return;
+    _activeUserId = nextId;
+    _cachedLastWalletId = null;
+    _cachedHideBalances = null;
+    _cachedAppPin = null;
+    _cachedHabits = const <HabitShortcut>[];
+  }
+
+  /// Clears in-memory session caches immediately when the active user signs out.
+  static void clearSessionOnSignOut() {
+    _activeUserId = null;
+    _cachedLastWalletId = null;
+    _cachedHideBalances = null;
+    _cachedAppPin = null;
+    _cachedHabits = const <HabitShortcut>[];
+  }
 
   static Future<void> resetForTest() async {
+    _activeUserId = null;
     _cachedLastWalletId = null;
     _cachedHideBalances = null;
     _cachedAppPin = null;
     _cachedPermissionsPopupDismissed = null;
     _cachedVoiceEngineMode = null;
     _cachedHabits = const <HabitShortcut>[];
+    for (final k in _trackedScopedKeys.toList()) {
+      await NativeSecureVaultBridge.instance.deleteSecret(k);
+    }
+    _trackedScopedKeys.clear();
     await NativeSecureVaultBridge.instance.deleteSecret(_keyLastWallet);
     await NativeSecureVaultBridge.instance.deleteSecret(_keyPinnedShortcuts);
     await NativeSecureVaultBridge.instance.deleteSecret(_keyHideBalances);
@@ -171,21 +209,22 @@ abstract final class UserBehaviorPrefs {
 
   static Future<void> saveAppPinCode(String? pin) async {
     final cleaned = (pin ?? '').trim();
+    final key = _scopedKey(_keySecurityPin);
     if (cleaned.isEmpty) {
       _cachedAppPin = null;
-      await NativeSecureVaultBridge.instance.deleteSecret(_keySecurityPin);
+      await NativeSecureVaultBridge.instance.deleteSecret(key);
       return;
     }
     _cachedAppPin = cleaned;
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keySecurityPin,
+      key: key,
       value: cleaned,
     );
   }
 
   static Future<String?> loadAppPinCode() async {
     final raw = await NativeSecureVaultBridge.instance.readSecret(
-      _keySecurityPin,
+      _scopedKey(_keySecurityPin),
     );
     if (raw != null && raw.trim().isNotEmpty) {
       _cachedAppPin = raw.trim();
@@ -215,7 +254,7 @@ abstract final class UserBehaviorPrefs {
     if (walletId.trim().isEmpty) return;
     _cachedLastWalletId = walletId.trim();
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keyLastWallet,
+      key: _scopedKey(_keyLastWallet),
       value: _cachedLastWalletId!,
     );
   }
@@ -223,9 +262,13 @@ abstract final class UserBehaviorPrefs {
   static String? get cachedLastWalletId => _cachedLastWalletId;
 
   static Future<String?> loadLastWalletId() async {
-    final v = await NativeSecureVaultBridge.instance.readSecret(_keyLastWallet);
+    final v = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedKey(_keyLastWallet),
+    );
     if (v != null && v.isNotEmpty) {
       _cachedLastWalletId = v;
+    } else {
+      _cachedLastWalletId = null;
     }
     return _cachedLastWalletId;
   }
@@ -245,14 +288,14 @@ abstract final class UserBehaviorPrefs {
   static Future<void> savePinnedShortcuts(Set<String> ids) async {
     if (ids.isEmpty) return;
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keyPinnedShortcuts,
+      key: _scopedKey(_keyPinnedShortcuts),
       value: ids.join(','),
     );
   }
 
   static Future<List<String>?> loadPinnedShortcuts() async {
     final raw = await NativeSecureVaultBridge.instance.readSecret(
-      _keyPinnedShortcuts,
+      _scopedKey(_keyPinnedShortcuts),
     );
     if (raw == null || raw.trim().isEmpty) return null;
     final items = raw
@@ -266,17 +309,19 @@ abstract final class UserBehaviorPrefs {
   static Future<void> saveHideBalances(bool hide) async {
     _cachedHideBalances = hide;
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keyHideBalances,
+      key: _scopedKey(_keyHideBalances),
       value: hide ? '1' : '0',
     );
   }
 
   static Future<bool> loadHideBalances() async {
     final raw = await NativeSecureVaultBridge.instance.readSecret(
-      _keyHideBalances,
+      _scopedKey(_keyHideBalances),
     );
     if (raw != null) {
       _cachedHideBalances = raw == '1';
+    } else {
+      _cachedHideBalances = false;
     }
     return _cachedHideBalances ?? false;
   }
@@ -284,9 +329,10 @@ abstract final class UserBehaviorPrefs {
   /// Loads persisted RFM habit shortcuts from hardware-backed local storage.
   static Future<List<HabitShortcut>> loadHabitShortcuts() async {
     final raw = await NativeSecureVaultBridge.instance.readSecret(
-      _keyHabitActions,
+      _scopedKey(_keyHabitActions),
     );
     if (raw == null || raw.trim().isEmpty) {
+      _cachedHabits = const <HabitShortcut>[];
       return _cachedHabits;
     }
     try {
@@ -356,7 +402,7 @@ abstract final class UserBehaviorPrefs {
     _cachedHabits = List<HabitShortcut>.unmodifiable(mutable);
 
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _keyHabitActions,
+      key: _scopedKey(_keyHabitActions),
       value: jsonEncode(_cachedHabits.map((h) => h.toJson()).toList()),
     );
   }

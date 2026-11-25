@@ -15,6 +15,7 @@ import '../../features/tasks/domain/repositories/task_repository.dart';
 import '../../features/tasks/presentation/bloc/task_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 import '../../features/transactions/presentation/bloc/transaction_event.dart';
+import '../../features/transactions/presentation/bloc/transaction_state.dart';
 import '../di/dependency_injection.dart';
 import '../widgets/lifeos_top_toast.dart';
 import 'smart_omni_intent_parser.dart';
@@ -25,6 +26,7 @@ import 'vnd_amount.dart';
 /// (inspired by Revolut, Todoist & MoMo ergonomics).
 abstract final class OmniActionExecutor {
   static const Uuid _uuid = Uuid();
+  static const Duration _kConfirmTimeout = Duration(seconds: 8);
 
   static Future<bool> executeDraft({
     required BuildContext toastContext,
@@ -41,17 +43,10 @@ abstract final class OmniActionExecutor {
     switch (draft.kind) {
       case OmniActionKind.transaction:
         if (txActionBloc == null || draft.amountMinor <= 0) return false;
-        final opId = _uuid.v4();
-        await UserBehaviorPrefs.rememberWallet(walletId);
-        await UserBehaviorPrefs.recordHabitExecution(
-          label:
-              '${draft.title} ${(draft.amountMinor / 1000).round()}k',
-          commandText:
-              '${draft.title} ${(draft.amountMinor / 1000).round()}k',
-          categoryName: draft.categoryName,
-          amountMinor: draft.amountMinor,
-        );
-        txActionBloc.add(
+        final opId = draft.id.trim().isNotEmpty
+            ? 'omni_tx_${draft.id.trim()}'
+            : _uuid.v4();
+        final outcome = await txActionBloc.submitAndAwaitCreate(
           TransactionCreateSubmitted(
             operationId: opId,
             userId: user.id,
@@ -64,8 +59,29 @@ abstract final class OmniActionExecutor {
             note: 'Ghi thông minh (${draft.originLabel})',
             occurredAt: DateTime.now(),
           ),
+          timeout: _kConfirmTimeout,
+        );
+        final createdTx = outcome.lastCreatedTransaction;
+        if (outcome.status != ActionStatus.success || createdTx == null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              outcome.failure?.message ??
+                  'Không thể lưu khoản "${draft.title}" — vui lòng thử lại.',
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
+        await UserBehaviorPrefs.rememberWallet(walletId);
+        await UserBehaviorPrefs.recordHabitExecution(
+          label: '${draft.title} ${(draft.amountMinor / 1000).round()}k',
+          commandText: '${draft.title} ${(draft.amountMinor / 1000).round()}k',
+          categoryName: draft.categoryName,
+          amountMinor: draft.amountMinor,
         );
         if (showSuccessToast && toastContext.mounted) {
+          final confirmedTxId = createdTx.id;
           LifeOsTopToast.show(
             toastContext,
             'Đã lưu: ${draft.title} (${VndAmount.format(draft.amountMinor)})',
@@ -74,7 +90,7 @@ abstract final class OmniActionExecutor {
               txActionBloc.add(
                 TransactionReverseRequested(
                   userId: user.id,
-                  transactionId: opId,
+                  transactionId: confirmedTxId,
                   reason: 'Hoàn tác thao tác ghi nhanh',
                 ),
               );
@@ -105,7 +121,16 @@ abstract final class OmniActionExecutor {
           targetFamily = createRes.fold((_) => null, (fam) => fam);
         }
         final famId = targetFamily?.id ?? user.activeFamilyId;
-        if (famId == null || famId.isEmpty) return false;
+        if (famId == null || famId.isEmpty) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              'Không thể khởi tạo nhóm chia tiền — vui lòng thử lại.',
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
 
         final participantIds = <String>[user.id];
         final participantNames = <String, String>{user.id: user.fullName};
@@ -139,9 +164,37 @@ abstract final class OmniActionExecutor {
           choreOrTaskNote: 'Chia tự động (${draft.originLabel})',
         );
         if (!familyBloc.isClosed) {
+          final waiter = familyBloc.stream
+              .firstWhere(
+                (s) => !s.isSubmitting && (s.message != null || s.failure != null),
+              )
+              .timeout(_kConfirmTimeout, onTimeout: () => familyBloc.state);
           familyBloc.add(SharedBillSplitCreated(splitParams));
+          final famState = await waiter;
+          if (famState.failure != null || famState.message == null) {
+            if (toastContext.mounted) {
+              LifeOsTopToast.show(
+                toastContext,
+                famState.failure?.message ??
+                    'Không thể lưu khoản chia tiền "${draft.title}".',
+                kind: LifeOsToastKind.error,
+              );
+            }
+            return false;
+          }
         } else {
-          await sl<CreateSharedBillSplitUseCase>()(splitParams);
+          final directRes = await sl<CreateSharedBillSplitUseCase>()(splitParams);
+          final failed = directRes.fold((f) => f, (_) => null);
+          if (failed != null) {
+            if (toastContext.mounted) {
+              LifeOsTopToast.show(
+                toastContext,
+                failed.message,
+                kind: LifeOsToastKind.error,
+              );
+            }
+            return false;
+          }
         }
         await UserBehaviorPrefs.recordHabitExecution(
           label: 'Chia ${draft.participantCount} người',
@@ -158,12 +211,15 @@ abstract final class OmniActionExecutor {
         return true;
 
       case OmniActionKind.calendarEvent:
-        if (calBloc == null) return false;
+        if (calBloc == null || calBloc.isClosed) return false;
         final now = DateTime.now();
         final startsAt =
             draft.scheduledAt ??
             DateTime(now.year, now.month, now.day + 1, 9, 0);
         final endsAt = startsAt.add(Duration(minutes: draft.durationMinutes));
+        final waiter = calBloc.stream
+            .firstWhere((s) => s.message != null || s.failure != null)
+            .timeout(_kConfirmTimeout, onTimeout: () => calBloc.state);
         calBloc.add(
           CalendarEventCreated(
             CreateCalendarEventParams(
@@ -178,6 +234,18 @@ abstract final class OmniActionExecutor {
             ),
           ),
         );
+        final calState = await waiter;
+        if (calState.failure != null || calState.message == null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              calState.failure?.message ??
+                  'Không thể lưu lịch hẹn "${draft.title}".',
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
         await UserBehaviorPrefs.recordHabitExecution(
           label: draft.title,
           commandText: 'Lịch ${draft.title}',
@@ -191,10 +259,13 @@ abstract final class OmniActionExecutor {
         return true;
 
       case OmniActionKind.task:
-        if (taskBloc == null) return false;
+        if (taskBloc == null || taskBloc.isClosed) return false;
         final now = DateTime.now();
         final dueAt =
             draft.scheduledAt ?? DateTime(now.year, now.month, now.day, 20, 0);
+        final waiter = taskBloc.stream
+            .firstWhere((s) => s.message != null || s.failure != null)
+            .timeout(_kConfirmTimeout, onTimeout: () => taskBloc.state);
         taskBloc.add(
           TaskCreateSubmitted(
             CreateTaskParams(
@@ -210,6 +281,18 @@ abstract final class OmniActionExecutor {
             ),
           ),
         );
+        final taskState = await waiter;
+        if (taskState.failure != null || taskState.message == null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              taskState.failure?.message ??
+                  'Không thể lưu công việc "${draft.title}".',
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
         await UserBehaviorPrefs.recordHabitExecution(
           label: draft.title,
           commandText: 'Nhắc ${draft.title}',
@@ -223,7 +306,10 @@ abstract final class OmniActionExecutor {
         return true;
 
       case OmniActionKind.grocery:
-        if (dailyBloc == null) return false;
+        if (dailyBloc == null || dailyBloc.isClosed) return false;
+        final waiter = dailyBloc.stream
+            .firstWhere((s) => s.successBanner != null || s.failure != null)
+            .timeout(_kConfirmTimeout, onTimeout: () => dailyBloc.state);
         dailyBloc.add(
           GroceryItemAdded(
             userId: user.id,
@@ -233,6 +319,17 @@ abstract final class OmniActionExecutor {
             estimatedMinor: draft.amountMinor,
           ),
         );
+        final groceryState = await waiter;
+        if (groceryState.failure != null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              groceryState.failure!.message,
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
         await UserBehaviorPrefs.recordHabitExecution(
           label: 'Mua ${draft.title}',
           commandText: 'Đi chợ mua ${draft.title}',
@@ -246,9 +343,23 @@ abstract final class OmniActionExecutor {
         return true;
 
       case OmniActionKind.waterLog:
-        if (dailyBloc == null) return false;
+        if (dailyBloc == null || dailyBloc.isClosed) return false;
         final ml = draft.waterMl > 0 ? draft.waterMl : 250;
+        final waiter = dailyBloc.stream
+            .firstWhere((s) => s.successBanner != null || s.failure != null)
+            .timeout(_kConfirmTimeout, onTimeout: () => dailyBloc.state);
         dailyBloc.add(WaterIntakeLogged(userId: user.id, deltaMl: ml));
+        final waterState = await waiter;
+        if (waterState.failure != null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              waterState.failure!.message,
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
         await UserBehaviorPrefs.recordHabitExecution(
           label: 'Uống ${ml}ml nước',
           commandText: 'Uống ${ml}ml nước',
@@ -262,21 +373,36 @@ abstract final class OmniActionExecutor {
         return true;
 
       case OmniActionKind.medication:
-        if (dailyBloc == null) return false;
+        if (dailyBloc == null || dailyBloc.isClosed) return false;
         final sched = draft.scheduledAt;
+        final waiter = dailyBloc.stream
+            .firstWhere((s) => s.successBanner != null || s.failure != null)
+            .timeout(_kConfirmTimeout, onTimeout: () => dailyBloc.state);
         dailyBloc.add(
           MedicationCabinetAdded(
             userId: user.id,
             name: draft.title,
             dosage: draft.dosage,
             slot: draft.medicationSlot,
-            remainingPills: 30,
-            expiryDate: DateTime.now().add(const Duration(days: 270)),
+            remainingPills: 0,
+            expiryDate: DateTime.fromMillisecondsSinceEpoch(0),
+            inventoryConfirmed: false,
             reminderEnabled: true,
             reminderHour: sched?.hour ?? draft.medicationSlot.defaultHour,
             reminderMinute: sched?.minute ?? draft.medicationSlot.defaultMinute,
           ),
         );
+        final medState = await waiter;
+        if (medState.failure != null) {
+          if (toastContext.mounted) {
+            LifeOsTopToast.show(
+              toastContext,
+              medState.failure!.message,
+              kind: LifeOsToastKind.error,
+            );
+          }
+          return false;
+        }
         await UserBehaviorPrefs.recordHabitExecution(
           label: 'Thuốc ${draft.title}',
           commandText: 'Nhắc uống thuốc ${draft.title}',

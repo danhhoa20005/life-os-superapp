@@ -117,7 +117,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       keywords: 'quét hóa đơn lãi vay tự do tài chính 6 chiếc lọ bill ai fire',
       icon: Icons.calculate_outlined,
       tone: LifeOsAccentTone.blue,
-      route: '/wealth-tools',
+      route: '/wealth-tools?tab=receipt',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
@@ -126,7 +126,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       keywords: 'thuế tncn bhxh bảo hiểm lương thực nhận',
       icon: Icons.request_quote_outlined,
       tone: LifeOsAccentTone.purple,
-      route: '/smart-notes-hub',
+      route: '/smart-notes-hub?tab=salary',
     ),
     SuperAppServiceEntry(
       domainKey: 'finance',
@@ -200,7 +200,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       keywords: 'sổ tay ghi chú ghim mã số checklist',
       icon: Icons.sticky_note_2_outlined,
       tone: LifeOsAccentTone.purple,
-      route: '/smart-notes-hub',
+      route: '/smart-notes-hub?tab=notes',
     ),
 
     // 3. NHÀ CỬA, ĐIỆN NƯỚC EVN, XE CỘ & GIẤY TỜ
@@ -303,6 +303,9 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     final hasActiveFilters = _domainFilter != 'all' || q.isNotEmpty;
     final filtered = _catalog.where((e) {
       if (_domainFilter != 'all' && e.domainKey != _domainFilter) return false;
+      // Hide developer / diagnostic showcase (`Motion Studio`) from everyday browsing
+      // unless explicitly searched by keyword!
+      if (q.isEmpty && e.route == '/motion-gallery') return false;
       if (q.isEmpty) return true;
       return VietnameseSearchMatcher.matchesAny(q, [
         e.shortLabel,

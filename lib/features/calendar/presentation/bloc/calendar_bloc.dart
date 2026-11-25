@@ -695,10 +695,30 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     }
   }
 
+  static DateTime? _lastAutoSyncAt;
+  static String? _lastAutoSyncUserId;
+
+  static void resetAutoSyncCooldownForTest() {
+    _lastAutoSyncAt = null;
+    _lastAutoSyncUserId = null;
+  }
+
   Future<void> _onGoogleSyncRequested(
     GoogleCalendarSyncRequested event,
     Emitter<CalendarState> emit,
   ) async {
+    final now = DateTime.now();
+    if (!event.interactive &&
+        event.manualAccessTokenOverride == null &&
+        _lastAutoSyncUserId == event.userId &&
+        _lastAutoSyncAt != null &&
+        now.difference(_lastAutoSyncAt!) < const Duration(seconds: 60)) {
+      return;
+    }
+    if (!event.interactive && event.manualAccessTokenOverride == null) {
+      _lastAutoSyncUserId = event.userId;
+      _lastAutoSyncAt = now;
+    }
     emit(
       state.copyWith(
         isSyncingGoogle: true,

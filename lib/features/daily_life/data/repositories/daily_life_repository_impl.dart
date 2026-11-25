@@ -148,6 +148,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
                 expiryDate:
                     DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
                     DateTime.now().add(const Duration(days: 180)),
+                inventoryConfirmed: d['inventoryConfirmed'] is bool
+                    ? d['inventoryConfirmed'] as bool
+                    : true,
                 lastTakenDayKey: d['lastTakenDayKey'] as String?,
                 memberName: (d['memberName'] ?? 'Cả gia đình') as String,
                 reminderEnabled: d['reminderEnabled'] is bool
@@ -429,6 +432,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     required MedicationScheduleSlot slot,
     required int remainingPills,
     required DateTime expiryDate,
+    bool inventoryConfirmed = true,
     String memberName = 'Cả gia đình',
     bool? reminderEnabled,
     int? reminderHour,
@@ -448,6 +452,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'slot': slot.name,
         'remainingPills': remainingPills,
         'expiryDate': expiryDate.toIso8601String(),
+        'inventoryConfirmed': inventoryConfirmed,
         'lastTakenDayKey': null,
         'memberName': memberName.trim(),
         'reminderEnabled': resolvedEnabled,
@@ -463,6 +468,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         slot: slot,
         remainingPills: remainingPills,
         expiryDate: expiryDate,
+        inventoryConfirmed: inventoryConfirmed,
         memberName: memberName.trim(),
         reminderEnabled: resolvedEnabled,
         reminderHour: resolvedHour,
