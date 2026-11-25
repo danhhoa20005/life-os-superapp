@@ -531,9 +531,8 @@ class NotificationsRemoteDataSource {
         ...matchingAccs.map((a) => a.walletId),
         ...bankWalletsForCode
             .where(
-              (w) => ((w.data()['maskedAccount'] as String?) ?? '').endsWith(
-                tail,
-              ),
+              (w) =>
+                  ((w.data()['maskedAccount'] as String?) ?? '').endsWith(tail),
             )
             .map((w) => w.id),
       };
@@ -620,7 +619,8 @@ class NotificationsRemoteDataSource {
       if (data['verification'] == 'rejected') return false;
       if (data['sourceEventKey'] == signal.sourceEventKey) return true;
       if (matchedOrder != null) {
-        return data['crossSourceFingerprint'] == signal.crossSourceFingerprint &&
+        return data['crossSourceFingerprint'] ==
+                signal.crossSourceFingerprint &&
             (data['sourceKind'] == 'bankWebhook' ||
                 data['sourceKind'] == 'bankApi');
       }
@@ -891,14 +891,14 @@ class NotificationsRemoteDataSource {
           'bankCode': signal.bankCode,
           if (signal.accountTail != null)
             'accountMasked': '•••• ${signal.accountTail}',
-          if (signal.referenceCode != null &&
-              signal.referenceCode!.isNotEmpty)
+          if (signal.referenceCode != null && signal.referenceCode!.isNotEmpty)
             'referenceCode': signal.referenceCode,
           'merchant': matchedOrder != null
               ? '${matchedOrder.description} (${matchedOrder.paymentCode})'
               : '${signal.bankCode}: ${signal.merchant}',
           if (matchedOrder != null)
-            'note': 'Khớp mã đơn QR ${matchedOrder.paymentCode} từ thông báo thiết bị',
+            'note':
+                'Khớp mã đơn QR ${matchedOrder.paymentCode} từ thông báo thiết bị',
           if (isAmbiguousWalletRouting)
             'note':
                 'Có nhiều tài khoản ${signal.bankCode} nhưng thông báo thiếu số đuôi TK — vui lòng chọn đúng ví.',
@@ -1491,8 +1491,7 @@ class NotificationsRemoteDataSource {
         });
 
         if (wSnap.exists) {
-          final walletName =
-              (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
+          final walletName = (wSnap.data()?['name'] as String?) ?? 'Ngân hàng';
           final auditId = 'aud_$txId';
           tx.update(walletRef, {
             'balanceMinor': currentBal + delta,

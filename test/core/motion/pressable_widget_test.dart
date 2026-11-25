@@ -30,7 +30,9 @@ void main() {
           ),
         );
 
-        final initialRect = tester.getRect(find.byKey(const Key('pressable_target')));
+        final initialRect = tester.getRect(
+          find.byKey(const Key('pressable_target')),
+        );
         expect(initialRect.width, 160);
         expect(initialRect.height, 50);
 
@@ -41,7 +43,9 @@ void main() {
         await tester.pump(const Duration(milliseconds: 40));
 
         // Outer interactive hit box MUST remain 160x50!
-        final pressedRect = tester.getRect(find.byKey(const Key('pressable_target')));
+        final pressedRect = tester.getRect(
+          find.byKey(const Key('pressable_target')),
+        );
         expect(pressedRect.size, initialRect.size);
 
         // Cancel gesture (drag away / cancel) -> recovers cleanly without firing tap

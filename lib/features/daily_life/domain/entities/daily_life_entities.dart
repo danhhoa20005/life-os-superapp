@@ -63,8 +63,7 @@ class MedicationCabinetItemEntity extends Equatable {
        reminderHour = reminderHour ?? -1,
        reminderMinute = reminderMinute ?? -1;
 
-  int get effectiveReminderHour =>
-      (reminderHour >= 0 && reminderHour <= 23)
+  int get effectiveReminderHour => (reminderHour >= 0 && reminderHour <= 23)
       ? reminderHour
       : slot.defaultHour;
 
@@ -306,8 +305,7 @@ class HydrationReminderStatusEntity extends Equatable {
     }
 
     final slots = <DateTime>[];
-    final activeSnooze =
-        (snoozedUntil != null && snoozedUntil!.isAfter(now))
+    final activeSnooze = (snoozedUntil != null && snoozedUntil!.isAfter(now))
         ? snoozedUntil
         : null;
     if (activeSnooze != null) {

@@ -129,7 +129,10 @@ class GoogleAuthButton extends StatelessWidget {
                 SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.2, color: c.primary),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: c.primary,
+                  ),
                 )
               else
                 const GoogleBrandMark(size: 20),
@@ -199,7 +202,8 @@ class _AuthBrandTopBar extends StatelessWidget {
           LifeOsHeaderCircleButton(
             icon: Icons.chevron_left_rounded,
             tooltip: 'Quay lại',
-            onTap: onBack ??
+            onTap:
+                onBack ??
                 () {
                   if (context.canPop()) {
                     context.pop();
@@ -281,7 +285,8 @@ class WelcomePage extends StatelessWidget {
                             height: 196,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Theme.of(context).brightness ==
+                              color:
+                                  Theme.of(context).brightness ==
                                       Brightness.dark
                                   ? c.primarySubtle
                                   : const Color(0xFFEAFBF0),
@@ -455,12 +460,7 @@ class _WelcomeOrbitBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: LifeOsIconSquircle(
-        icon: icon,
-        tone: tone,
-        size: 36,
-        iconSize: 18,
-      ),
+      child: LifeOsIconSquircle(icon: icon, tone: tone, size: 36, iconSize: 18),
     );
   }
 }
@@ -492,11 +492,11 @@ class _LoginPageState extends State<LoginPage> {
 
   void _submitEmailSignIn() {
     context.read<AuthBloc>().add(
-          AuthSignInSubmitted(
-            email: _emailController.text,
-            password: _passwordController.text,
-          ),
-        );
+      AuthSignInSubmitted(
+        email: _emailController.text,
+        password: _passwordController.text,
+      ),
+    );
   }
 
   @override
@@ -505,7 +505,8 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       body: BlocListener<AuthBloc, AuthState>(
         listenWhen: (prev, curr) =>
-            prev.failure != curr.failure || prev.infoMessage != curr.infoMessage,
+            prev.failure != curr.failure ||
+            prev.infoMessage != curr.infoMessage,
         listener: (context, state) {
           if (state.failure == null && _hadActiveFailure) {
             _hadActiveFailure = false;
@@ -518,11 +519,13 @@ class _LoginPageState extends State<LoginPage> {
             if (_errorEffectTracker.consumeOnce(effectKey)) {
               setState(() => _errorShakeTrigger++);
             }
-            LifeOsTopToast.fromSnackBar(context, 
+            LifeOsTopToast.fromSnackBar(
+              context,
               SnackBar(content: Text('⚠ ${state.failure!.message}')),
             );
           } else if (state.infoMessage != null) {
-            LifeOsTopToast.fromSnackBar(context, 
+            LifeOsTopToast.fromSnackBar(
+              context,
               SnackBar(content: Text('✓ ${state.infoMessage!}')),
             );
           }
@@ -559,7 +562,10 @@ class _LoginPageState extends State<LoginPage> {
                             Text(
                               'Chào mừng bạn trở lại LifeOS!',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 14, color: c.textSecondary),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: c.textSecondary,
+                              ),
                             ),
                             const SizedBox(height: 24),
                             LifeOsSoftCard(
@@ -569,7 +575,9 @@ class _LoginPageState extends State<LoginPage> {
                                 children: [
                                   Text(
                                     'Email đăng nhập',
-                                    style: Theme.of(context).textTheme.labelLarge,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
                                   ),
                                   const SizedBox(height: 6),
                                   TextField(
@@ -580,33 +588,44 @@ class _LoginPageState extends State<LoginPage> {
                                     textInputAction: TextInputAction.next,
                                     decoration: const InputDecoration(
                                       hintText: 'Nhập địa chỉ email',
-                                      prefixIcon: Icon(Icons.mail_outline_rounded),
+                                      prefixIcon: Icon(
+                                        Icons.mail_outline_rounded,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 14),
                                   Text(
                                     'Mật khẩu',
-                                    style: Theme.of(context).textTheme.labelLarge,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
                                   ),
                                   const SizedBox(height: 6),
                                   TextField(
                                     key: const Key('login_password_field'),
                                     controller: _passwordController,
                                     obscureText: _obscurePassword,
-                                    autofillHints: const [AutofillHints.password],
+                                    autofillHints: const [
+                                      AutofillHints.password,
+                                    ],
                                     textInputAction: TextInputAction.done,
                                     onSubmitted: (_) {
-                                      if (!state.isSubmitting) _submitEmailSignIn();
+                                      if (!state.isSubmitting) {
+                                        _submitEmailSignIn();
+                                      }
                                     },
                                     decoration: InputDecoration(
                                       hintText: '••••••••',
-                                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline_rounded,
+                                      ),
                                       suffixIcon: IconButton(
                                         tooltip: _obscurePassword
                                             ? 'Hiện mật khẩu'
                                             : 'Ẩn mật khẩu',
                                         onPressed: () => setState(
-                                          () => _obscurePassword = !_obscurePassword,
+                                          () => _obscurePassword =
+                                              !_obscurePassword,
                                         ),
                                         icon: Icon(
                                           _obscurePassword
@@ -623,9 +642,10 @@ class _LoginPageState extends State<LoginPage> {
                                       onPressed: state.isSubmitting
                                           ? null
                                           : () => context.push(
-                                                '/forgot-password',
-                                                extra: _emailController.text.trim(),
-                                              ),
+                                              '/forgot-password',
+                                              extra: _emailController.text
+                                                  .trim(),
+                                            ),
                                       child: const Text('Quên mật khẩu?'),
                                     ),
                                   ),
@@ -639,25 +659,31 @@ class _LoginPageState extends State<LoginPage> {
                                         key: const Key('login_submit_button'),
                                         style: FilledButton.styleFrom(
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(25),
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
                                           ),
                                         ),
-                                        onPressed:
-                                            state.isSubmitting ? null : _submitEmailSignIn,
+                                        onPressed: state.isSubmitting
+                                            ? null
+                                            : _submitEmailSignIn,
                                         child: state.isSubmitting
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2.2,
-                                                  color: Colors.white,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2.2,
+                                                      color: Colors.white,
+                                                    ),
                                               )
                                             : const Text('Đăng nhập'),
                                       ),
                                     ),
                                   ),
-                                  const _AuthSectionDivider(text: 'Hoặc tiếp tục với'),
+                                  const _AuthSectionDivider(
+                                    text: 'Hoặc tiếp tục với',
+                                  ),
                                   GoogleAuthButton(
                                     key: const Key('google_sign_in_button'),
                                     label: 'Tiếp tục với Google',
@@ -679,7 +705,10 @@ class _LoginPageState extends State<LoginPage> {
                               children: [
                                 Text(
                                   'Chưa có tài khoản?',
-                                  style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    color: c.textSecondary,
+                                  ),
                                 ),
                                 TextButton(
                                   key: const Key('go_to_register_button'),
@@ -716,7 +745,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final LifeOsOneShotEffectTracker _errorEffectTracker =
       LifeOsOneShotEffectTracker();
   bool _obscurePassword = true;
@@ -740,7 +770,8 @@ class _RegisterPageState extends State<RegisterPage> {
     if (password.isEmpty) return 0;
     var score = 0;
     if (password.length >= 8) score++;
-    if (RegExp(r'[A-Z]').hasMatch(password) && RegExp(r'[a-z]').hasMatch(password)) {
+    if (RegExp(r'[A-Z]').hasMatch(password) &&
+        RegExp(r'[a-z]').hasMatch(password)) {
       score++;
     }
     if (RegExp(r'[0-9]').hasMatch(password)) score++;
@@ -770,7 +801,8 @@ class _RegisterPageState extends State<RegisterPage> {
             if (_errorEffectTracker.consumeOnce(effectKey)) {
               setState(() => _errorShakeTrigger++);
             }
-            LifeOsTopToast.fromSnackBar(context, 
+            LifeOsTopToast.fromSnackBar(
+              context,
               SnackBar(content: Text('⚠ ${state.failure!.message}')),
             );
           }
@@ -807,7 +839,10 @@ class _RegisterPageState extends State<RegisterPage> {
                             Text(
                               'Bắt đầu quản lý cuộc sống thông minh của bạn.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: c.textSecondary,
+                              ),
                             ),
                             const SizedBox(height: 18),
                             LifeOsSoftCard(
@@ -823,8 +858,15 @@ class _RegisterPageState extends State<RegisterPage> {
                                         .read<AuthBloc>()
                                         .add(const AuthGoogleSignInRequested()),
                                   ),
-                                  const _AuthSectionDivider(text: 'Hoặc đăng ký bằng Email'),
-                                  Text('Họ và tên', style: Theme.of(context).textTheme.labelLarge),
+                                  const _AuthSectionDivider(
+                                    text: 'Hoặc đăng ký bằng Email',
+                                  ),
+                                  Text(
+                                    'Họ và tên',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
+                                  ),
                                   const SizedBox(height: 6),
                                   TextField(
                                     key: const Key('register_name_field'),
@@ -833,11 +875,18 @@ class _RegisterPageState extends State<RegisterPage> {
                                     textInputAction: TextInputAction.next,
                                     decoration: const InputDecoration(
                                       hintText: 'Nhập họ và tên của bạn',
-                                      prefixIcon: Icon(Icons.person_outline_rounded),
+                                      prefixIcon: Icon(
+                                        Icons.person_outline_rounded,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-                                  Text('Email', style: Theme.of(context).textTheme.labelLarge),
+                                  Text(
+                                    'Email',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
+                                  ),
                                   const SizedBox(height: 6),
                                   TextField(
                                     key: const Key('register_email_field'),
@@ -847,42 +896,60 @@ class _RegisterPageState extends State<RegisterPage> {
                                     textInputAction: TextInputAction.next,
                                     decoration: const InputDecoration(
                                       hintText: 'Nhập địa chỉ email',
-                                      prefixIcon: Icon(Icons.mail_outline_rounded),
+                                      prefixIcon: Icon(
+                                        Icons.mail_outline_rounded,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
                                     'Số điện thoại (tùy chọn)',
-                                    style: Theme.of(context).textTheme.labelLarge,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
                                   ),
                                   const SizedBox(height: 6),
                                   TextField(
                                     key: const Key('register_phone_field'),
                                     controller: _phoneController,
                                     keyboardType: TextInputType.phone,
-                                    autofillHints: const [AutofillHints.telephoneNumber],
+                                    autofillHints: const [
+                                      AutofillHints.telephoneNumber,
+                                    ],
                                     textInputAction: TextInputAction.next,
                                     decoration: const InputDecoration(
                                       hintText: '0901 234 567',
-                                      prefixIcon: Icon(Icons.phone_iphone_rounded),
+                                      prefixIcon: Icon(
+                                        Icons.phone_iphone_rounded,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-                                  Text('Mật khẩu', style: Theme.of(context).textTheme.labelLarge),
+                                  Text(
+                                    'Mật khẩu',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
+                                  ),
                                   const SizedBox(height: 6),
                                   TextField(
                                     key: const Key('register_password_field'),
                                     controller: _passwordController,
                                     obscureText: _obscurePassword,
-                                    autofillHints: const [AutofillHints.newPassword],
+                                    autofillHints: const [
+                                      AutofillHints.newPassword,
+                                    ],
                                     textInputAction: TextInputAction.next,
                                     onChanged: (_) => setState(() {}),
                                     decoration: InputDecoration(
                                       hintText: '••••••••',
-                                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline_rounded,
+                                      ),
                                       suffixIcon: IconButton(
                                         onPressed: () => setState(
-                                          () => _obscurePassword = !_obscurePassword,
+                                          () => _obscurePassword =
+                                              !_obscurePassword,
                                         ),
                                         icon: Icon(
                                           _obscurePassword
@@ -899,21 +966,30 @@ class _RegisterPageState extends State<RegisterPage> {
                                   const SizedBox(height: 12),
                                   Text(
                                     'Xác nhận mật khẩu',
-                                    style: Theme.of(context).textTheme.labelLarge,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
                                   ),
                                   const SizedBox(height: 6),
                                   TextField(
-                                    key: const Key('register_confirm_password_field'),
+                                    key: const Key(
+                                      'register_confirm_password_field',
+                                    ),
                                     controller: _confirmPasswordController,
                                     obscureText: _obscureConfirmPassword,
-                                    autofillHints: const [AutofillHints.newPassword],
+                                    autofillHints: const [
+                                      AutofillHints.newPassword,
+                                    ],
                                     textInputAction: TextInputAction.done,
                                     decoration: InputDecoration(
                                       hintText: '••••••••',
-                                      prefixIcon: const Icon(Icons.verified_user_outlined),
+                                      prefixIcon: const Icon(
+                                        Icons.verified_user_outlined,
+                                      ),
                                       suffixIcon: IconButton(
                                         onPressed: () => setState(
-                                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                                          () => _obscureConfirmPassword =
+                                              !_obscureConfirmPassword,
                                         ),
                                         icon: Icon(
                                           _obscureConfirmPassword
@@ -928,14 +1004,18 @@ class _RegisterPageState extends State<RegisterPage> {
                                     key: const Key('register_terms_checkbox'),
                                     value: _acceptedTerms,
                                     dense: true,
-                                    controlAffinity: ListTileControlAffinity.leading,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
                                     contentPadding: EdgeInsets.zero,
                                     activeColor: c.primary,
-                                    onChanged: (v) =>
-                                        setState(() => _acceptedTerms = v ?? false),
+                                    onChanged: (v) => setState(
+                                      () => _acceptedTerms = v ?? false,
+                                    ),
                                     title: Text(
                                       'Tôi đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.',
-                                      style: Theme.of(context).textTheme.bodySmall,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
                                     ),
                                   ),
                                   const SizedBox(height: 10),
@@ -945,35 +1025,47 @@ class _RegisterPageState extends State<RegisterPage> {
                                     child: SizedBox(
                                       height: 50,
                                       child: FilledButton(
-                                        key: const Key('register_submit_button'),
+                                        key: const Key(
+                                          'register_submit_button',
+                                        ),
                                         style: FilledButton.styleFrom(
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(25),
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
                                           ),
                                         ),
                                         onPressed: state.isSubmitting
                                             ? null
                                             : () {
                                                 context.read<AuthBloc>().add(
-                                                      AuthSignUpSubmitted(
-                                                        email: _emailController.text,
-                                                        password: _passwordController.text,
-                                                        confirmPassword:
-                                                            _confirmPasswordController.text,
-                                                        fullName: _nameController.text,
-                                                        phoneNumber: _phoneController.text,
-                                                        acceptedTerms: _acceptedTerms,
-                                                      ),
-                                                    );
+                                                  AuthSignUpSubmitted(
+                                                    email:
+                                                        _emailController.text,
+                                                    password:
+                                                        _passwordController
+                                                            .text,
+                                                    confirmPassword:
+                                                        _confirmPasswordController
+                                                            .text,
+                                                    fullName:
+                                                        _nameController.text,
+                                                    phoneNumber:
+                                                        _phoneController.text,
+                                                    acceptedTerms:
+                                                        _acceptedTerms,
+                                                  ),
+                                                );
                                               },
                                         child: state.isSubmitting
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Colors.white,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
                                               )
                                             : const Text('Đăng ký'),
                                       ),
@@ -992,7 +1084,10 @@ class _RegisterPageState extends State<RegisterPage> {
                               children: [
                                 Text(
                                   'Đã có tài khoản?',
-                                  style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    color: c.textSecondary,
+                                  ),
                                 ),
                                 TextButton(
                                   key: const Key('go_to_login_button'),
@@ -1092,7 +1187,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    Text('Địa chỉ email', style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      'Địa chỉ email',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       key: const Key('reset_password_email_field'),
@@ -1109,7 +1207,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       onPressed: () {
                         final email = _emailCtrl.text.trim();
                         if (email.isNotEmpty) {
-                          context.read<AuthBloc>().add(AuthPasswordResetRequested(email));
+                          context.read<AuthBloc>().add(
+                            AuthPasswordResetRequested(email),
+                          );
                         }
                         context.push('/verify-otp', extra: email);
                       },
@@ -1205,7 +1305,11 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                         color: c.primarySubtle,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Icon(Icons.verified_user_outlined, size: 34, color: c.primary),
+                      child: Icon(
+                        Icons.verified_user_outlined,
+                        size: 34,
+                        color: c.primary,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -1229,7 +1333,8 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (i) {
                         final val = _digits[i];
-                        final isCurrent = i == activeIdx || (activeIdx == -1 && i == 5);
+                        final isCurrent =
+                            i == activeIdx || (activeIdx == -1 && i == 5);
                         return Container(
                           width: 48,
                           height: 54,
@@ -1248,7 +1353,9 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                               fontSize: 21,
                               fontWeight: FontWeight.w800,
                               color: c.textPrimary,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         );
@@ -1264,7 +1371,9 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                           ? () => setState(() => _secondsLeft = 58)
                           : null,
                       child: Text(
-                        _secondsLeft > 0 ? 'Gửi lại sau $mm:$ss' : 'Gửi lại mã ngay',
+                        _secondsLeft > 0
+                            ? 'Gửi lại sau $mm:$ss'
+                            : 'Gửi lại mã ngay',
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1283,7 +1392,17 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                       crossAxisSpacing: 8,
                       childAspectRatio: 2.2,
                       children: [
-                        for (final d in const ['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+                        for (final d in const [
+                          '1',
+                          '2',
+                          '3',
+                          '4',
+                          '5',
+                          '6',
+                          '7',
+                          '8',
+                          '9',
+                        ])
                           OutlinedButton(
                             onPressed: () => _appendDigit(d),
                             child: Text(
@@ -1296,13 +1415,19 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
                           ),
                         TextButton(
                           onPressed: () => context.pop(),
-                          child: const Text('Đổi email', style: TextStyle(fontSize: 12)),
+                          child: const Text(
+                            'Đổi email',
+                            style: TextStyle(fontSize: 12),
+                          ),
                         ),
                         OutlinedButton(
                           onPressed: () => _appendDigit('0'),
                           child: const Text(
                             '0',
-                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                            style: TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                         OutlinedButton(
@@ -1348,10 +1473,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     final c = TammySemanticColors.of(context);
     final pwd = _pwdCtrl.text;
     final hasLen = pwd.length >= 8;
-    final hasCase = RegExp(r'[A-Z]').hasMatch(pwd) && RegExp(r'[a-z]').hasMatch(pwd);
+    final hasCase =
+        RegExp(r'[A-Z]').hasMatch(pwd) && RegExp(r'[a-z]').hasMatch(pwd);
     final hasDigit = RegExp(r'[0-9]').hasMatch(pwd);
     final hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(pwd);
-    final score = [hasLen, hasCase, hasDigit, hasSpecial].where((b) => b).length;
+    final score = [
+      hasLen,
+      hasCase,
+      hasDigit,
+      hasSpecial,
+    ].where((b) => b).length;
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -1374,7 +1505,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           color: c.primarySubtle,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Icon(Icons.lock_open_rounded, size: 34, color: c.primary),
+                        child: Icon(
+                          Icons.lock_open_rounded,
+                          size: 34,
+                          color: c.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1394,7 +1529,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                       style: TextStyle(fontSize: 13.5, color: c.textSecondary),
                     ),
                     const SizedBox(height: 22),
-                    Text('Mật khẩu mới', style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      'Mật khẩu mới',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _pwdCtrl,
@@ -1404,7 +1542,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         hintText: 'Ít nhất 8 ký tự, chữ hoa, chữ thường, số',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscure1 = !_obscure1),
+                          onPressed: () =>
+                              setState(() => _obscure1 = !_obscure1),
                           icon: Icon(
                             _obscure1
                                 ? Icons.visibility_outlined
@@ -1414,7 +1553,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Text('Xác nhận mật khẩu mới', style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      'Xác nhận mật khẩu mới',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _confirmCtrl,
@@ -1424,7 +1566,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         hintText: 'Nhập lại mật khẩu mới',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscure2 = !_obscure2),
+                          onPressed: () =>
+                              setState(() => _obscure2 = !_obscure2),
                           icon: Icon(
                             _obscure2
                                 ? Icons.visibility_outlined
@@ -1437,9 +1580,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     _PasswordStrengthBar(score: score),
                     const SizedBox(height: 14),
                     _PwdCheckItem(passed: hasLen, label: 'Tối thiểu 8 ký tự'),
-                    _PwdCheckItem(passed: hasCase, label: 'Có chữ hoa và chữ thường'),
-                    _PwdCheckItem(passed: hasDigit, label: 'Có ít nhất một chữ số'),
-                    _PwdCheckItem(passed: hasSpecial, label: 'Có ký tự đặc biệt'),
+                    _PwdCheckItem(
+                      passed: hasCase,
+                      label: 'Có chữ hoa và chữ thường',
+                    ),
+                    _PwdCheckItem(
+                      passed: hasDigit,
+                      label: 'Có ít nhất một chữ số',
+                    ),
+                    _PwdCheckItem(
+                      passed: hasSpecial,
+                      label: 'Có ký tự đặc biệt',
+                    ),
                     const SizedBox(height: 22),
                     LifeOsPrimaryCtaButton(
                       label: 'Lưu mật khẩu',
@@ -1457,7 +1609,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         LifeOsTopToast.fromSnackBar(
                           context,
                           const SnackBar(
-                            content: Text('✓ Đã cập nhật mật khẩu mới an toàn.'),
+                            content: Text(
+                              '✓ Đã cập nhật mật khẩu mới an toàn.',
+                            ),
                           ),
                         );
                         context.go('/login');
@@ -1488,7 +1642,9 @@ class _PwdCheckItem extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            passed ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            passed
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
             size: 18,
             color: passed ? c.primary : c.border,
           ),
@@ -1576,8 +1732,9 @@ class OnboardingPrivacyPage extends StatefulWidget {
 
 class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
   int _stepIndex = 0;
-  final TextEditingController _inviteCodeCtrl =
-      TextEditingController(text: 'GD-F7K9M2');
+  final TextEditingController _inviteCodeCtrl = TextEditingController(
+    text: 'GD-F7K9M2',
+  );
   bool _calPersonal = true;
   bool _calWork = true;
   bool _calStudy = false;
@@ -1622,7 +1779,10 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                         Text(
                           'Thiết lập nhanh Gia đình, Google Calendar & Ngân hàng tự động',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: c.textSecondary,
+                          ),
                         ),
                         const SizedBox(height: 16),
 
@@ -1680,9 +1840,9 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                             ),
                             onPressed: state.isSubmitting
                                 ? null
-                                : () => context
-                                    .read<AuthBloc>()
-                                    .add(const AuthOnboardingCompleted()),
+                                : () => context.read<AuthBloc>().add(
+                                    const AuthOnboardingCompleted(),
+                                  ),
                             icon: const Icon(Icons.arrow_forward_rounded),
                             label: const Text('Bắt đầu sử dụng Life OS'),
                           ),
@@ -1847,7 +2007,8 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
           OutlinedButton.icon(
             key: const Key('onboarding_grant_device_calendar_btn'),
             onPressed: () async {
-              final granted = await NativeDeviceCalendarBridge.instance.requestPermission();
+              final granted = await NativeDeviceCalendarBridge.instance
+                  .requestPermission();
               if (!mounted) return;
               LifeOsTopToast.show(
                 context,
@@ -1904,7 +2065,8 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
             selected: _bankConnectMethod == 'sepay',
             icon: Icons.qr_code_2_rounded,
             title: 'Cổng QR Thu tiền & Tự gạch nợ',
-            subtitle: 'Tạo mã VietQR ngay trong ứng dụng và tự xác nhận khi tiền vào.',
+            subtitle:
+                'Tạo mã VietQR ngay trong ứng dụng và tự xác nhận khi tiền vào.',
             onTap: () => setState(() => _bankConnectMethod = 'sepay'),
           ),
           const SizedBox(height: 8),
@@ -1912,7 +2074,8 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
             selected: _bankConnectMethod == 'android_notif',
             icon: Icons.notifications_active_outlined,
             title: 'Thông báo Android',
-            subtitle: 'Nhận diện chi tiêu từ thông báo ngân hàng với sự cho phép của bạn.',
+            subtitle:
+                'Nhận diện chi tiêu từ thông báo ngân hàng với sự cho phép của bạn.',
             onTap: () => setState(() => _bankConnectMethod = 'android_notif'),
           ),
           const SizedBox(height: 10),
@@ -1970,7 +2133,11 @@ class _BankMethodOptionTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            LifeOsIconSquircle(icon: icon, tone: LifeOsAccentTone.emerald, size: 38),
+            LifeOsIconSquircle(
+              icon: icon,
+              tone: LifeOsAccentTone.emerald,
+              size: 38,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

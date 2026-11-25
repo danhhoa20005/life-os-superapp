@@ -194,9 +194,7 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
     }
     try {
       final isUpdate = itemId != null && itemId.trim().isNotEmpty;
-      final id = isUpdate
-          ? itemId.trim()
-          : 'sub_${_uuid.v4().substring(0, 8)}';
+      final id = isUpdate ? itemId.trim() : 'sub_${_uuid.v4().substring(0, 8)}';
       await _userRef(
         userId,
       ).collection('subscriptions_warranties').doc(id).set({

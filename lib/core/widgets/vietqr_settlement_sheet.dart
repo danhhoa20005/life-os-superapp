@@ -25,8 +25,10 @@ Future<void> showVietQrSettlementSheet({
 }) async {
   LinkedBankAccountStateSnapshot? prefilled;
   try {
-    final def =
-        context.read<NotificationIngestionBloc>().state.defaultBankAccount;
+    final def = context
+        .read<NotificationIngestionBloc>()
+        .state
+        .defaultBankAccount;
     if (def != null) {
       final foldedTo = VietnameseSearchMatcher.fold(toName);
       final foldedHolder = VietnameseSearchMatcher.fold(def.accountHolderName);

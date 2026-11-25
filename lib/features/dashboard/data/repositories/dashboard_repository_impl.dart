@@ -87,7 +87,9 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
         // Propagate errors honestly — NEVER fall back to empty list / 0 VND!
         if (lastWallets is Err<List<WalletEntity>>) {
-          controller.add(Err((lastWallets! as Err<List<WalletEntity>>).failure));
+          controller.add(
+            Err((lastWallets! as Err<List<WalletEntity>>).failure),
+          );
           return;
         }
         if (lastTxs is Err<List<TransactionEntity>>) {
@@ -116,7 +118,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
         final wallets = (lastWallets! as Success<List<WalletEntity>>).value;
         final txs = (lastTxs! as Success<List<TransactionEntity>>).value;
         final tasks = (lastTasks! as Success<List<TaskEntity>>).value;
-        final events = (lastEvents! as Success<List<CalendarEventEntity>>).value;
+        final events =
+            (lastEvents! as Success<List<CalendarEventEntity>>).value;
         final vehicles = (lastVehicles! as Success<List<VehicleEntity>>).value;
 
         final agg = FinancialAggregationEngine.forMonthKey(

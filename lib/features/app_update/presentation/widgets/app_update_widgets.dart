@@ -260,9 +260,7 @@ class AppUpdateSettingsCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.2,
                             color: c.textSecondary,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures(),
-                            ],
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],

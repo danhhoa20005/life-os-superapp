@@ -91,7 +91,8 @@ final class FinancialCategoryCorrected extends FinancialAiEvent {
 
 final class FinancialDraftConfirmed extends FinancialAiEvent {
   final String userId;
-  final String? draftId; // If null, confirms all ready drafts in current analysis
+  final String?
+  draftId; // If null, confirms all ready drafts in current analysis
 
   const FinancialDraftConfirmed({required this.userId, this.draftId});
 
@@ -297,9 +298,7 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
        _confirmDraft = confirmDraft,
        _saveCorrection = saveCorrection,
        _getPendingDrafts = getPendingDrafts,
-       super(
-         FinancialAiState(modelMetadata: repository.currentModelMetadata),
-       ) {
+       super(FinancialAiState(modelMetadata: repository.currentModelMetadata)) {
     on<FinancialAiInitialized>(_onInitialized, transformer: restartable());
     on<FinancialTextSubmitted>(_onTextSubmitted, transformer: restartable());
     on<FinancialCandidateUpdated>(
@@ -402,10 +401,7 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
 
     res.fold(
       (failure) => emit(
-        state.copyWith(
-          status: FinancialAiStatus.failure,
-          failure: failure,
-        ),
+        state.copyWith(status: FinancialAiStatus.failure, failure: failure),
       ),
       (analysis) => emit(
         state.copyWith(
@@ -427,8 +423,7 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
   ) {
     final updated = state.activeCandidates
         .map(
-          (c) =>
-              c.draftId == event.updatedCandidate.draftId
+          (c) => c.draftId == event.updatedCandidate.draftId
               ? event.updatedCandidate
               : c,
         )
@@ -521,13 +516,10 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
       final res = await _confirmDraft(
         ConfirmTransactionDraftParams(userId: event.userId, candidate: draft),
       );
-      res.fold(
-        (f) => firstError ??= f,
-        (_) {
-          savedCount++;
-          remaining.removeWhere((x) => x.draftId == draft.draftId);
-        },
-      );
+      res.fold((f) => firstError ??= f, (_) {
+        savedCount++;
+        remaining.removeWhere((x) => x.draftId == draft.draftId);
+      });
     }
 
     if (firstError != null) {
@@ -549,8 +541,7 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
             : FinancialAiStatus.reviewRequired,
         activeCandidates: remaining,
         clearAnalysis: remaining.isEmpty,
-        feedbackMessage:
-            'Đã xác nhận và ghi sổ an toàn $savedCount giao dịch.',
+        feedbackMessage: 'Đã xác nhận và ghi sổ an toàn $savedCount giao dịch.',
       ),
     );
   }
@@ -611,9 +602,9 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
     }
     final canonicalKey =
         FinancialTextNormalizer.canonicalizeMerchant(cleanDisplay) ??
-        FinancialTextNormalizer.stripVnAccents(
-          cleanDisplay,
-        ).replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_|_$'), '');
+        FinancialTextNormalizer.stripVnAccents(cleanDisplay)
+            .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+            .replaceAll(RegExp(r'^_|_$'), '');
     if (canonicalKey.isEmpty) {
       emit(
         state.copyWith(
@@ -643,25 +634,22 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
       ),
     );
 
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (rule) {
-        final nextRules = <PersonalizationRule>[
-          rule,
-          ...state.personalizationRules.where((r) => r.id != rule.id),
-        ];
-        final msg = rule.ruleKind == 'nickname'
-            ? 'Đã học biệt danh "${rule.merchantDisplay}" → ${rule.participantDisplayName ?? rule.participantUserId}.'
-            : 'Đã dạy Agent Local: "$cleanDisplay" → ${event.selectedCategoryName}.';
-        emit(
-          state.copyWith(
-            personalizationRules: nextRules,
-            clearFailure: true,
-            feedbackMessage: msg,
-          ),
-        );
-      },
-    );
+    res.fold((f) => emit(state.copyWith(failure: f)), (rule) {
+      final nextRules = <PersonalizationRule>[
+        rule,
+        ...state.personalizationRules.where((r) => r.id != rule.id),
+      ];
+      final msg = rule.ruleKind == 'nickname'
+          ? 'Đã học biệt danh "${rule.merchantDisplay}" → ${rule.participantDisplayName ?? rule.participantUserId}.'
+          : 'Đã dạy Agent Local: "$cleanDisplay" → ${event.selectedCategoryName}.';
+      emit(
+        state.copyWith(
+          personalizationRules: nextRules,
+          clearFailure: true,
+          feedbackMessage: msg,
+        ),
+      );
+    });
   }
 
   Future<void> _onRuleDeleted(
@@ -674,7 +662,8 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
     );
     res.fold(
       (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(feedbackMessage: 'Đã xóa quy tắc cá nhân hóa.')),
+      (_) =>
+          emit(state.copyWith(feedbackMessage: 'Đã xóa quy tắc cá nhân hóa.')),
     );
   }
 
@@ -688,7 +677,8 @@ class FinancialAiBloc extends Bloc<FinancialAiEvent, FinancialAiState> {
       (_) => emit(
         state.copyWith(
           personalizationRules: const [],
-          feedbackMessage: 'Đã xóa toàn bộ dữ liệu cá nhân hóa AI trên thiết bị.',
+          feedbackMessage:
+              'Đã xóa toàn bộ dữ liệu cá nhân hóa AI trên thiết bị.',
         ),
       ),
     );

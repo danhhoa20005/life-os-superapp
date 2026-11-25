@@ -139,8 +139,7 @@ abstract final class SmartAutomationEngine {
           actorUserId: activeUserId,
           actionKind: AutomationActionKind.emitSpendingAlert,
           status: AutomationAuditStatus.blockedLoopGuard,
-          summaryVi:
-              'Chặn vòng lặp tự động hóa cho sự kiện "${event.title}".',
+          summaryVi: 'Chặn vòng lặp tự động hóa cho sự kiện "${event.title}".',
           timestamp: event.occurredAt,
         ),
       );
@@ -221,10 +220,7 @@ abstract final class SmartAutomationEngine {
       );
     }
 
-    return AutomationEvaluationBatch(
-      suggestions: suggestions,
-      audits: audits,
-    );
+    return AutomationEvaluationBatch(suggestions: suggestions, audits: audits);
   }
 
   static bool _matchesConditions(

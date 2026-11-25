@@ -31,8 +31,7 @@ class CalendarRemoteDataSource {
     String? googleCalendarId,
     String googleEventId,
   ) {
-    final calKey =
-        (googleCalendarId == null || googleCalendarId.trim().isEmpty)
+    final calKey = (googleCalendarId == null || googleCalendarId.trim().isEmpty)
         ? 'primary'
         : googleCalendarId.trim();
     return '$calKey::${googleEventId.trim()}';
@@ -42,8 +41,7 @@ class CalendarRemoteDataSource {
     String? googleCalendarId,
     String googleEventId,
   ) {
-    final calKey =
-        (googleCalendarId == null || googleCalendarId.trim().isEmpty)
+    final calKey = (googleCalendarId == null || googleCalendarId.trim().isEmpty)
         ? 'primary'
         : googleCalendarId.trim();
     final cleanEv = googleEventId.trim();
@@ -894,7 +892,8 @@ class CalendarRemoteDataSource {
             isPrimary: dc.isPrimary || calDocId == 'primary',
             isSelected: prev?.isSelected ?? true,
             isReadOnly: prev?.isReadOnly ?? dc.isReadOnly,
-            source: prev != null &&
+            source:
+                prev != null &&
                     prev.source == CalendarProviderSource.googleCalendar
                 ? CalendarProviderSource.googleCalendar
                 : CalendarProviderSource.deviceCalendar,

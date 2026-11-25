@@ -405,9 +405,7 @@ class _TodayPageState extends State<TodayPage> {
     );
     final allTasks = context.select((TaskBloc b) => b.state.tasks);
     final budgets = context.select((BudgetBloc b) => b.state.budgets);
-    final activeFamily = context.select(
-      (FamilyBloc b) => b.state.activeFamily,
-    );
+    final activeFamily = context.select((FamilyBloc b) => b.state.activeFamily);
     final allTransactions = context.select(
       (TransactionListBloc b) => b.state.allTransactions,
     );
@@ -1356,7 +1354,9 @@ class _TodayPageState extends State<TodayPage> {
                                                       ),
                                                   border: Border.all(
                                                     color: Colors.white
-                                                        .withValues(alpha: 0.26),
+                                                        .withValues(
+                                                          alpha: 0.26,
+                                                        ),
                                                     width: 0.8,
                                                   ),
                                                 ),
@@ -1372,8 +1372,7 @@ class _TodayPageState extends State<TodayPage> {
                                                           FontWeight.w700,
                                                       color: Color(0xFFB2F2BB),
                                                       fontFeatures: [
-                                                        FontFeature
-                                                            .tabularFigures(),
+                                                        FontFeature.tabularFigures(),
                                                       ],
                                                     ),
                                                   ),
@@ -1610,7 +1609,8 @@ class _TodayPageState extends State<TodayPage> {
                                             children: [
                                               Expanded(
                                                 child: ProGlassStatPill(
-                                                  icon: Icons.south_west_rounded,
+                                                  icon:
+                                                      Icons.south_west_rounded,
                                                   label: 'Thu tháng',
                                                   value: _fmtMoney(
                                                     d.monthlyIncomeMinor,
@@ -1621,7 +1621,8 @@ class _TodayPageState extends State<TodayPage> {
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: ProGlassStatPill(
-                                                  icon: Icons.north_east_rounded,
+                                                  icon:
+                                                      Icons.north_east_rounded,
                                                   iconColor: const Color(
                                                     0xFFFECACA,
                                                   ),
@@ -1666,8 +1667,7 @@ class _TodayPageState extends State<TodayPage> {
                                                     fontWeight: FontWeight.w700,
                                                     color: Colors.white,
                                                     fontFeatures: [
-                                                      FontFeature
-                                                          .tabularFigures(),
+                                                      FontFeature.tabularFigures(),
                                                     ],
                                                   ),
                                                 ),
@@ -1680,8 +1680,7 @@ class _TodayPageState extends State<TodayPage> {
                                                           FontWeight.w700,
                                                       color: Color(0xFFB2F2BB),
                                                       fontFeatures: [
-                                                        FontFeature
-                                                            .tabularFigures(),
+                                                        FontFeature.tabularFigures(),
                                                       ],
                                                     ),
                                                   ),
@@ -1740,8 +1739,8 @@ class _TodayPageState extends State<TodayPage> {
                                   Row(
                                     children: [
                                       const LifeOsIconSquircle(
-                                        icon: Icons
-                                            .notifications_active_outlined,
+                                        icon:
+                                            Icons.notifications_active_outlined,
                                         tone: LifeOsAccentTone.amber,
                                         size: 28,
                                         iconSize: 15,
@@ -1843,9 +1842,10 @@ class _TodayPageState extends State<TodayPage> {
                                                                         .w700,
                                                                 color: c
                                                                     .textPrimary,
-                                                                fontFeatures: const [
-                                                                  FontFeature.tabularFigures(),
-                                                                ],
+                                                                fontFeatures:
+                                                                    const [
+                                                                      FontFeature.tabularFigures(),
+                                                                    ],
                                                               ),
                                                             ),
                                                             const SizedBox(
@@ -1859,9 +1859,10 @@ class _TodayPageState extends State<TodayPage> {
                                                                 height: 1.28,
                                                                 color: c
                                                                     .textSecondary,
-                                                                fontFeatures: const [
-                                                                  FontFeature.tabularFigures(),
-                                                                ],
+                                                                fontFeatures:
+                                                                    const [
+                                                                      FontFeature.tabularFigures(),
+                                                                    ],
                                                               ),
                                                             ),
                                                           ],
@@ -1885,25 +1886,23 @@ class _TodayPageState extends State<TodayPage> {
                                                                   vertical: 4,
                                                                 ),
                                                           ),
-                                                          onPressed: item
-                                                                  .isQuickActionBusy
+                                                          onPressed:
+                                                              item.isQuickActionBusy
                                                               ? null
                                                               : item.onQuickAction,
                                                           child: Text(
                                                             item.isQuickActionBusy
                                                                 ? 'Đang duyệt'
                                                                 : item.quickActionLabel!,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize:
-                                                                      11.8,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
-                                                                  fontFeatures: [
-                                                                    FontFeature.tabularFigures(),
-                                                                  ],
-                                                                ),
+                                                            style: const TextStyle(
+                                                              fontSize: 11.8,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                              fontFeatures: [
+                                                                FontFeature.tabularFigures(),
+                                                              ],
+                                                            ),
                                                           ),
                                                         )
                                                       else
@@ -1926,7 +1925,8 @@ class _TodayPageState extends State<TodayPage> {
                                             'today_toggle_all_inbox_btn',
                                           ),
                                           style: TextButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                           ),
                                           onPressed: () => setState(
                                             () =>

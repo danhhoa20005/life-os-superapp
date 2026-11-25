@@ -99,185 +99,194 @@ void main() {
   });
 
   group('1. VoiceUtteranceEvaluator Smart Completeness Engine', () {
-    test('Distinguishes mid-sentence pauses from semantically complete commands', () {
-      // Mid-sentence without amount -> patient window, NOT readyComplete
-      final incomplete1 = VoiceUtteranceEvaluator.evaluate(
-        'Ăn phở bò',
-        currentUserId: 'u1',
-        currentUserName: 'Hòa',
-      );
-      expect(incomplete1.stage, VoiceReadinessStage.speakingIncomplete);
-      expect(incomplete1.isReadyComplete, isFalse);
-      expect(
-        incomplete1.silenceAutoStopDelay.inMilliseconds,
-        greaterThanOrEqualTo(2000),
-      );
+    test(
+      'Distinguishes mid-sentence pauses from semantically complete commands',
+      () {
+        // Mid-sentence without amount -> patient window, NOT readyComplete
+        final incomplete1 = VoiceUtteranceEvaluator.evaluate(
+          'Ăn phở bò',
+          currentUserId: 'u1',
+          currentUserName: 'Hòa',
+        );
+        expect(incomplete1.stage, VoiceReadinessStage.speakingIncomplete);
+        expect(incomplete1.isReadyComplete, isFalse);
+        expect(
+          incomplete1.silenceAutoStopDelay.inMilliseconds,
+          greaterThanOrEqualTo(2000),
+        );
 
-      // Dangling trailing connector ("và") -> speaker is adding another item
-      final dangling = VoiceUtteranceEvaluator.evaluate(
-        'Ăn phở 55 nghìn và',
-        currentUserId: 'u1',
-        currentUserName: 'Hòa',
-      );
-      expect(dangling.hasDanglingConnector, isTrue);
-      expect(dangling.isReadyComplete, isFalse);
+        // Dangling trailing connector ("và") -> speaker is adding another item
+        final dangling = VoiceUtteranceEvaluator.evaluate(
+          'Ăn phở 55 nghìn và',
+          currentUserId: 'u1',
+          currentUserName: 'Hòa',
+        );
+        expect(dangling.hasDanglingConnector, isTrue);
+        expect(dangling.isReadyComplete, isFalse);
 
-      // Bare small digits ("55") -> waits slightly longer in case speaker says "nghìn"
-      final bareNumber = VoiceUtteranceEvaluator.evaluate(
-        'Ăn phở 55',
-        currentUserId: 'u1',
-        currentUserName: 'Hòa',
-      );
-      expect(bareNumber.isReadyComplete, isFalse);
+        // Bare small digits ("55") -> waits slightly longer in case speaker says "nghìn"
+        final bareNumber = VoiceUtteranceEvaluator.evaluate(
+          'Ăn phở 55',
+          currentUserId: 'u1',
+          currentUserName: 'Hòa',
+        );
+        expect(bareNumber.isReadyComplete, isFalse);
 
-      // Complete valid financial utterance -> readyComplete with fast 850ms endpoint!
-      final readyExpense = VoiceUtteranceEvaluator.evaluate(
-        'Ăn phở 55 nghìn',
-        currentUserId: 'u1',
-        currentUserName: 'Hòa',
-      );
-      expect(readyExpense.isReadyComplete, isTrue);
-      expect(readyExpense.silenceAutoStopDelay.inMilliseconds, 850);
+        // Complete valid financial utterance -> readyComplete with fast 850ms endpoint!
+        final readyExpense = VoiceUtteranceEvaluator.evaluate(
+          'Ăn phở 55 nghìn',
+          currentUserId: 'u1',
+          currentUserName: 'Hòa',
+        );
+        expect(readyExpense.isReadyComplete, isTrue);
+        expect(readyExpense.silenceAutoStopDelay.inMilliseconds, 850);
 
-      // Complete valid hydration & calendar utterances -> readyComplete!
-      final readyWater = VoiceUtteranceEvaluator.evaluate(
-        'Uống 300ml nước lọc',
-        currentUserId: 'u1',
-        currentUserName: 'Hòa',
-      );
-      expect(readyWater.isReadyComplete, isTrue);
+        // Complete valid hydration & calendar utterances -> readyComplete!
+        final readyWater = VoiceUtteranceEvaluator.evaluate(
+          'Uống 300ml nước lọc',
+          currentUserId: 'u1',
+          currentUserName: 'Hòa',
+        );
+        expect(readyWater.isReadyComplete, isTrue);
 
-      final readySplit = VoiceUtteranceEvaluator.evaluate(
-        'Ăn lẩu bò 450 nghìn chia đều 3 người',
-        currentUserId: 'u1',
-        currentUserName: 'Hòa',
-      );
-      expect(readySplit.isReadyComplete, isTrue);
-    });
+        final readySplit = VoiceUtteranceEvaluator.evaluate(
+          'Ăn lẩu bò 450 nghìn chia đều 3 người',
+          currentUserId: 'u1',
+          currentUserName: 'Hòa',
+        );
+        expect(readySplit.isReadyComplete, isTrue);
+      },
+    );
   });
 
   group('2. 1-Tap Auto-Record, Smart Auto-Endpoint & Confirmation Flow', () {
-    testWidgets('Tapping Mic on Home immediately starts recording, waits through incomplete words, auto-stops when complete, and saves ONLY upon user confirmation', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(360, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'Tapping Mic on Home immediately starts recording, waits through incomplete words, auto-stops when complete, and saves ONLY upon user confirmation',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(360, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final voiceDriver = _ControllableVoiceDriver();
-      NativeVoiceAssistantBridge.setDriverOverride(voiceDriver);
-      addTearDown(voiceDriver.dispose);
+        final voiceDriver = _ControllableVoiceDriver();
+        NativeVoiceAssistantBridge.setDriverOverride(voiceDriver);
+        addTearDown(voiceDriver.dispose);
 
-      final firestore = FakeFirebaseFirestore();
-      const uid = 'u_voice_test';
-      await firestore.collection('users').doc(uid).set({
-        'email': 'voice@lifeos.vn',
-        'fullName': 'Minh Khoa',
-        'onboardingCompleted': true,
-      });
-      await firestore
-          .collection('users')
-          .doc(uid)
-          .collection('wallets')
-          .doc('wallet_main')
-          .set({
-            'id': 'wallet_main',
-            'ownerId': uid,
-            'name': 'Ví Tiền mặt',
-            'type': 'cash',
-            'balanceMinor': 2000000,
-            'currencyCode': 'VND',
-          });
+        final firestore = FakeFirebaseFirestore();
+        const uid = 'u_voice_test';
+        await firestore.collection('users').doc(uid).set({
+          'email': 'voice@lifeos.vn',
+          'fullName': 'Minh Khoa',
+          'onboardingCompleted': true,
+        });
+        await firestore
+            .collection('users')
+            .doc(uid)
+            .collection('wallets')
+            .doc('wallet_main')
+            .set({
+              'id': 'wallet_main',
+              'ownerId': uid,
+              'name': 'Ví Tiền mặt',
+              'type': 'cash',
+              'balanceMinor': 2000000,
+              'currencyCode': 'VND',
+            });
 
-      final auth = MockFirebaseAuth(
-        signedIn: true,
-        mockUser: MockUser(
-          uid: uid,
-          email: 'voice@lifeos.vn',
-          displayName: 'Minh Khoa',
-        ),
-      );
+        final auth = MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(
+            uid: uid,
+            email: 'voice@lifeos.vn',
+            displayName: 'Minh Khoa',
+          ),
+        );
 
-      await configureDependencies(
-        authOverride: auth,
-        firestoreOverride: firestore,
-        httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
-        googleCalendarTokenOverride: ({required interactive}) async => null,
-        financialClassifierOverride: FastTextClassifier(useWorkerIsolate: false),
-      );
+        await configureDependencies(
+          authOverride: auth,
+          firestoreOverride: firestore,
+          httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
+          googleCalendarTokenOverride: ({required interactive}) async => null,
+          financialClassifierOverride: FastTextClassifier(
+            useWorkerIsolate: false,
+          ),
+        );
 
-      await tester.pumpWidget(const LifeOsApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(const LifeOsApp());
+        await tester.pumpAndSettle();
 
-      final rootCtx = tester.element(find.byType(Scaffold).first);
-      rootCtx.read<ThemeBloc>().add(const TextScaleChanged(1.12));
-      await tester.pumpAndSettle();
+        final rootCtx = tester.element(find.byType(Scaffold).first);
+        rootCtx.read<ThemeBloc>().add(const TextScaleChanged(1.12));
+        await tester.pumpAndSettle();
 
-      // 1. Tap 'Nói ghi nhanh' (Mic button on TodayPage) -> starts recording IMMEDIATELY in 1 tap!
-      await tester.tap(find.byKey(const Key('home_quick_expense_btn')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(voiceDriver.startCount, 1);
-      expect(find.text('Đang tự động thu âm...'), findsOneWidget);
+        // 1. Tap 'Nói ghi nhanh' (Mic button on TodayPage) -> starts recording IMMEDIATELY in 1 tap!
+        await tester.tap(find.byKey(const Key('home_quick_expense_btn')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(voiceDriver.startCount, 1);
+        expect(find.text('Đang tự động thu âm...'), findsOneWidget);
 
-      // 2. Partial incomplete speech ("Ăn phở") -> does NOT cut off after 900ms!
-      voiceDriver.controller.add(
-        const VoiceTranscriptSignal(text: 'Ăn phở', isFinal: false),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.pump(const Duration(milliseconds: 950));
-      expect(voiceDriver.stopCount, 0);
+        // 2. Partial incomplete speech ("Ăn phở") -> does NOT cut off after 900ms!
+        voiceDriver.controller.add(
+          const VoiceTranscriptSignal(text: 'Ăn phở', isFinal: false),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 950));
+        expect(voiceDriver.stopCount, 0);
 
-      // 3. Speaker finishes with complete amount ("Ăn phở 55 nghìn") -> auto-stops after ~850ms!
-      voiceDriver.controller.add(
-        const VoiceTranscriptSignal(text: 'Ăn phở 55 nghìn', isFinal: false),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(
-        find.textContaining('Đã nhận diện chuẩn'),
-        findsOneWidget,
-      );
-      await tester.pump(const Duration(milliseconds: 900));
-      await tester.pumpAndSettle();
+        // 3. Speaker finishes with complete amount ("Ăn phở 55 nghìn") -> auto-stops after ~850ms!
+        voiceDriver.controller.add(
+          const VoiceTranscriptSignal(text: 'Ăn phở 55 nghìn', isFinal: false),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(find.textContaining('Đã nhận diện chuẩn'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 900));
+        await tester.pumpAndSettle();
 
-      expect(voiceDriver.stopCount, greaterThanOrEqualTo(1));
-      expect(find.text('Kiểm tra & Xác nhận lại'), findsOneWidget);
-      expect(
-        find.byKey(const Key('voice_confirmation_preview_card')),
-        findsOneWidget,
-      );
-      expect(find.text('Xác nhận & Lưu'), findsOneWidget);
-      expect(find.text('Nói lại'), findsOneWidget);
+        expect(voiceDriver.stopCount, greaterThanOrEqualTo(1));
+        expect(find.text('Kiểm tra & Xác nhận lại'), findsOneWidget);
+        expect(
+          find.byKey(const Key('voice_confirmation_preview_card')),
+          findsOneWidget,
+        );
+        expect(find.text('Xác nhận & Lưu'), findsOneWidget);
+        expect(find.text('Nói lại'), findsOneWidget);
 
-      // Verify NOTHING was saved yet before user confirms!
-      final txListBloc = rootCtx.read<TransactionListBloc>();
-      expect(txListBloc.state.allTransactions, isEmpty);
+        // Verify NOTHING was saved yet before user confirms!
+        final txListBloc = rootCtx.read<TransactionListBloc>();
+        expect(txListBloc.state.allTransactions, isEmpty);
 
-      // 4. User taps 'Nói lại' -> clears and restarts recording immediately!
-      await tester.ensureVisible(find.byKey(const Key('voice_retry_bottom_button')));
-      await tester.tap(find.byKey(const Key('voice_retry_bottom_button')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(voiceDriver.startCount, 2);
+        // 4. User taps 'Nói lại' -> clears and restarts recording immediately!
+        await tester.ensureVisible(
+          find.byKey(const Key('voice_retry_bottom_button')),
+        );
+        await tester.tap(find.byKey(const Key('voice_retry_bottom_button')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(voiceDriver.startCount, 2);
 
-      // 5. Speaker says "Đổ xăng 70 nghìn" -> auto-stops -> user taps 'Xác nhận & Lưu' -> saved!
-      voiceDriver.controller.add(
-        const VoiceTranscriptSignal(text: 'Đổ xăng 70 nghìn', isFinal: false),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.pump(const Duration(milliseconds: 900));
-      await tester.pumpAndSettle();
+        // 5. Speaker says "Đổ xăng 70 nghìn" -> auto-stops -> user taps 'Xác nhận & Lưu' -> saved!
+        voiceDriver.controller.add(
+          const VoiceTranscriptSignal(text: 'Đổ xăng 70 nghìn', isFinal: false),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 900));
+        await tester.pumpAndSettle();
 
-      await tester.ensureVisible(
-        find.byKey(const Key('confirm_voice_analysis_button')),
-      );
-      await tester.tap(find.byKey(const Key('confirm_voice_analysis_button')));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 200));
+        await tester.ensureVisible(
+          find.byKey(const Key('confirm_voice_analysis_button')),
+        );
+        await tester.tap(
+          find.byKey(const Key('confirm_voice_analysis_button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 200));
 
-      expect(
-        txListBloc.state.allTransactions.any((tx) => tx.amountMinor == 70000),
-        isTrue,
-      );
-      expect(tester.takeException(), isNull);
-    });
+        expect(
+          txListBloc.state.allTransactions.any((tx) => tx.amountMinor == 70000),
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     test(
       'Session token isolation prevents a closing sheet dispose() from cancelling a newly started voice session',

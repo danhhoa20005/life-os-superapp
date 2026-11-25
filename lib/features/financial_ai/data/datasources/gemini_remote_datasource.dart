@@ -80,7 +80,8 @@ class GeminiRemoteDataSource {
     final hasKey = storedKey != null && storedKey.trim().isNotEmpty;
 
     final next = current.copyWith(
-      enabled: enabled ?? (newApiKey != null && hasKey ? true : current.enabled),
+      enabled:
+          enabled ?? (newApiKey != null && hasKey ? true : current.enabled),
       hasApiKey: hasKey,
       maskedApiKey: hasKey ? GeminiConnectionConfig.maskKey(storedKey) : '',
       modelId: modelId ?? current.modelId,
@@ -114,7 +115,8 @@ class GeminiRemoteDataSource {
     DateTime? now,
   }) async {
     final storedKey = await _vault.readSecret(_keyApiKey);
-    final apiKey = (candidateApiKey != null && candidateApiKey.trim().isNotEmpty)
+    final apiKey =
+        (candidateApiKey != null && candidateApiKey.trim().isNotEmpty)
         ? candidateApiKey.trim()
         : (storedKey ?? '').trim();
 
@@ -144,7 +146,8 @@ class GeminiRemoteDataSource {
           'role': 'user',
           'parts': <Map<String, dynamic>>[
             <String, dynamic>{
-              'text': 'Trả về JSON {"status":"ok","message":"Kết nối thành công"}',
+              'text':
+                  'Trả về JSON {"status":"ok","message":"Kết nối thành công"}',
             },
           ],
         },
@@ -192,11 +195,14 @@ class GeminiRemoteDataSource {
     return 'Đã kết nối Gemini AI ($targetModel) thành công!';
   }
 
-  Future<({
-    String sanitizedPrompt,
-    String assistantInsightVi,
-    List<OmniActionDraft> drafts,
-  })> generateMultiDomainPlan({
+  Future<
+    ({
+      String sanitizedPrompt,
+      String assistantInsightVi,
+      List<OmniActionDraft> drafts,
+    })
+  >
+  generateMultiDomainPlan({
     required String rawInput,
     required GeminiConnectionConfig config,
     required DateTime referenceNow,
@@ -281,7 +287,8 @@ class GeminiRemoteDataSource {
     } catch (_) {
       throw const AppException(
         code: 'GEMINI_OFFLINE',
-        message: 'Thiết bị đang ngoại tuyến; đã xử lý tức thì bằng AI Trên máy.',
+        message:
+            'Thiết bị đang ngoại tuyến; đã xử lý tức thì bằng AI Trên máy.',
       );
     }
 
@@ -333,7 +340,8 @@ class GeminiRemoteDataSource {
     }
     throw const AppException(
       code: 'GEMINI_EMPTY_CANDIDATE',
-      message: 'Phản hồi từ Gemini trống; đã chuyển sang bộ phân tích Trên máy.',
+      message:
+          'Phản hồi từ Gemini trống; đã chuyển sang bộ phân tích Trên máy.',
     );
   }
 
@@ -372,8 +380,7 @@ class GeminiRemoteDataSource {
             ((item['categoryName'] as String?) ?? '').trim().isNotEmpty
             ? (item['categoryName'] as String).trim()
             : (isIncome ? 'Lương & Thu nhập' : 'Chi tiêu khác');
-        final merchant =
-            ((item['merchant'] as String?) ?? '').trim().isNotEmpty
+        final merchant = ((item['merchant'] as String?) ?? '').trim().isNotEmpty
             ? (item['merchant'] as String).trim()
             : catName;
         out.add(
@@ -427,7 +434,9 @@ class GeminiRemoteDataSource {
         if (title.length < 2) continue;
         final startsIso = item['startsAtIso'] as String?;
         final startsAt =
-            (startsIso != null ? DateTime.tryParse(startsIso)?.toLocal() : null) ??
+            (startsIso != null
+                ? DateTime.tryParse(startsIso)?.toLocal()
+                : null) ??
             DateTime(
               referenceNow.year,
               referenceNow.month,
@@ -594,8 +603,9 @@ class GeminiRemoteDataSource {
 
   String _mapHttpStatusMessage(int statusCode) {
     return switch (statusCode) {
-      400 || 401 || 403 =>
-        'Khóa Gemini API chưa hợp lệ hoặc chưa được kích hoạt.',
+      400 ||
+      401 ||
+      403 => 'Khóa Gemini API chưa hợp lệ hoặc chưa được kích hoạt.',
       429 =>
         'Tạm chạm hạn mức gọi miễn phí của Gemini; hệ thống đã tự chuyển sang AI Trên máy.',
       >= 500 =>

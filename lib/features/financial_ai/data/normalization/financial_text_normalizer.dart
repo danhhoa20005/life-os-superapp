@@ -151,19 +151,73 @@ class FinancialTextNormalizer {
   };
 
   static const Map<String, String> _diacriticFoldMap = <String, String>{
-    'à': 'a', 'á': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
-    'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
-    'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
+    'à': 'a',
+    'á': 'a',
+    'ả': 'a',
+    'ã': 'a',
+    'ạ': 'a',
+    'ă': 'a',
+    'ằ': 'a',
+    'ắ': 'a',
+    'ẳ': 'a',
+    'ẵ': 'a',
+    'ặ': 'a',
+    'â': 'a',
+    'ầ': 'a',
+    'ấ': 'a',
+    'ẩ': 'a',
+    'ẫ': 'a',
+    'ậ': 'a',
     'đ': 'd',
-    'è': 'e', 'é': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
-    'ê': 'e', 'ề': 'e', 'ế': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
-    'ì': 'i', 'í': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
-    'ò': 'o', 'ó': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
-    'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o',
-    'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
-    'ù': 'u', 'ú': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
-    'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
-    'ỳ': 'y', 'ý': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+    'è': 'e',
+    'é': 'e',
+    'ẻ': 'e',
+    'ẽ': 'e',
+    'ẹ': 'e',
+    'ê': 'e',
+    'ề': 'e',
+    'ế': 'e',
+    'ể': 'e',
+    'ễ': 'e',
+    'ệ': 'e',
+    'ì': 'i',
+    'í': 'i',
+    'ỉ': 'i',
+    'ĩ': 'i',
+    'ị': 'i',
+    'ò': 'o',
+    'ó': 'o',
+    'ỏ': 'o',
+    'õ': 'o',
+    'ọ': 'o',
+    'ô': 'o',
+    'ồ': 'o',
+    'ố': 'o',
+    'ổ': 'o',
+    'ỗ': 'o',
+    'ộ': 'o',
+    'ơ': 'o',
+    'ờ': 'o',
+    'ớ': 'o',
+    'ở': 'o',
+    'ỡ': 'o',
+    'ợ': 'o',
+    'ù': 'u',
+    'ú': 'u',
+    'ủ': 'u',
+    'ũ': 'u',
+    'ụ': 'u',
+    'ư': 'u',
+    'ừ': 'u',
+    'ứ': 'u',
+    'ử': 'u',
+    'ữ': 'u',
+    'ự': 'u',
+    'ỳ': 'y',
+    'ý': 'y',
+    'ỷ': 'y',
+    'ỹ': 'y',
+    'ỵ': 'y',
   };
 
   /// Strips all Vietnamese diacritics to lowercase ASCII (identical to `strip_vn_accents` in Python).
@@ -202,9 +256,26 @@ class FinancialTextNormalizer {
   }
 
   static const Set<String> kCarrierStopwords = <String>{
-    'vcb', 'tcb', 'mbbank', 'bidv', 'acb', 'tpb', 'vpb',
-    'tpbank', 'vpbank', 'techcombank', 'vietcombank', 'vietinbank', 'sacombank',
-    'digibank', 'smartbanking', 'zalopay', 'momo', 'qr', 'nd', 'gd',
+    'vcb',
+    'tcb',
+    'mbbank',
+    'bidv',
+    'acb',
+    'tpb',
+    'vpb',
+    'tpbank',
+    'vpbank',
+    'techcombank',
+    'vietcombank',
+    'vietinbank',
+    'sacombank',
+    'digibank',
+    'smartbanking',
+    'zalopay',
+    'momo',
+    'qr',
+    'nd',
+    'gd',
   };
 
   static final RegExp _classifierPreAmountMarkerRegex = RegExp(
@@ -531,7 +602,8 @@ class FinancialTextNormalizer {
         .where((e) => e.isNotEmpty)
         .toList();
     if (tokens.isEmpty) return null;
-    if (tokens.length == 1 && _nonStandaloneDigitTokens.contains(tokens.first)) {
+    if (tokens.length == 1 &&
+        _nonStandaloneDigitTokens.contains(tokens.first)) {
       return null;
     }
 
@@ -573,9 +645,14 @@ class FinancialTextNormalizer {
           _vnDigitWords.containsKey(tokens[i]) &&
           (_vnDigitWords[tokens[i]] ?? 0) >= 2 &&
           (_vnDigitWords[tokens[i]] ?? 0) <= 9 &&
-          const {'mốt', 'tư', 'tu', 'lăm', 'lam', 'nhăm'}.contains(
-            tokens[i + 1],
-          )) {
+          const {
+            'mốt',
+            'tư',
+            'tu',
+            'lăm',
+            'lam',
+            'nhăm',
+          }.contains(tokens[i + 1])) {
         tens = _vnDigitWords[tokens[i]]! * 10;
         ones = _vnDigitWords[tokens[i + 1]]!;
         i += 2;
@@ -773,8 +850,9 @@ class FinancialTextNormalizer {
 
       final beforeLower = text.substring(0, m.start).toLowerCase().trimRight();
       if (!hasExplicitUnit &&
-          RegExp(r'(?:^|\b)(?:odo|km|số\s+km|công\s+tơ\s+mét)\s*[:=]?$')
-              .hasMatch(beforeLower)) {
+          RegExp(
+            r'(?:^|\b)(?:odo|km|số\s+km|công\s+tơ\s+mét)\s*[:=]?$',
+          ).hasMatch(beforeLower)) {
         continue;
       }
 
@@ -831,7 +909,10 @@ class FinancialTextNormalizer {
     // 5. Direct colloquial Vietnamese money extraction (for callers invoking `extractAmounts`
     // directly without calling `normalizeText` first: "nửa triệu/củ", "sáu trăm rưỡi", "trăm rưỡi",
     // "1 củ rưỡi", "xị", "cành/nhành", "chục", and "lít" when NOT preceding liquid/fuel words)
-    void addDirectColloquial(RegExp pattern, int? Function(RegExpMatch m) eval) {
+    void addDirectColloquial(
+      RegExp pattern,
+      int? Function(RegExpMatch m) eval,
+    ) {
       for (final m in pattern.allMatches(text)) {
         if (!isRangeFree(m.start, m.end)) continue;
         final minor = eval(m);
@@ -1058,9 +1139,7 @@ class FinancialTextNormalizer {
       'chu nhat': DateTime.sunday,
     };
     for (final entry in weekdayMap.entries) {
-      final m = RegExp(
-        '\\b${entry.key}\\s+tuan\\s+truoc\\b',
-      ).firstMatch(ascii);
+      final m = RegExp('\\b${entry.key}\\s+tuan\\s+truoc\\b').firstMatch(ascii);
       if (m != null) {
         final currentMonday = DateTime(
           ref.year,

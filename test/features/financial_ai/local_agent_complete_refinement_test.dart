@@ -269,9 +269,7 @@ void main() {
         await configureDependencies(
           authOverride: auth,
           firestoreOverride: firestore,
-          httpClientOverride: MockClient(
-            (_) async => http.Response('{}', 200),
-          ),
+          httpClientOverride: MockClient((_) async => http.Response('{}', 200)),
           googleCalendarTokenOverride: ({required interactive}) async => null,
           financialClassifierOverride: FastTextClassifier(
             useWorkerIsolate: false,
@@ -312,7 +310,9 @@ void main() {
         await centerTarget(
           find.byKey(const Key('toggle_local_ai_model_details')),
         );
-        await tester.tap(find.byKey(const Key('toggle_local_ai_model_details')));
+        await tester.tap(
+          find.byKey(const Key('toggle_local_ai_model_details')),
+        );
         await tester.pumpAndSettle();
         expect(find.textContaining('vn_financial_fasttext_v1'), findsOneWidget);
 
@@ -325,7 +325,10 @@ void main() {
         await centerTarget(find.byKey(const Key('local_ai_sandbox_run_btn')));
         await tester.tap(find.byKey(const Key('local_ai_sandbox_run_btn')));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('local_ai_sandbox_result')), findsOneWidget);
+        expect(
+          find.byKey(const Key('local_ai_sandbox_result')),
+          findsOneWidget,
+        );
 
         // 3. Scroll to Confidence Slider & adjust sensitivity
         await centerTarget(find.byKey(const Key('local_ai_confidence_slider')));
@@ -356,10 +359,7 @@ void main() {
         GoRouter.of(settingsCtx).push('/smart-notes-hub');
         await tester.pumpAndSettle();
 
-        expect(
-          find.text('Hôm nay tâm trạng của bạn thế nào?'),
-          findsNothing,
-        );
+        expect(find.text('Hôm nay tâm trạng của bạn thế nào?'), findsNothing);
         expect(find.text('Sổ tay & Cảm xúc'), findsNothing);
         expect(tester.takeException(), isNull);
       },

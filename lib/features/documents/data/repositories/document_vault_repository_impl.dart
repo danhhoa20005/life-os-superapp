@@ -264,7 +264,10 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         encryptedSizeBytes: stored.encryptedSizeBytes,
       );
 
-      await _docRef(userId: userId, document: document).update(<String, dynamic>{
+      await _docRef(
+        userId: userId,
+        document: document,
+      ).update(<String, dynamic>{
         'storageLifecycle': updated.storageLifecycle.name,
         'storageScope': updated.storageScope.name,
         'localAttachmentPath': updated.localAttachmentPath,

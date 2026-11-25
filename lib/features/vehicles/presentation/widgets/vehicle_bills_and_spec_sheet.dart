@@ -159,8 +159,7 @@ class UnifiedRecurringBillsTab extends StatelessWidget {
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(dCtx).pop(),
+                                      onPressed: () => Navigator.of(dCtx).pop(),
                                       child: const Text('Hủy'),
                                     ),
                                     FilledButton(

@@ -109,8 +109,8 @@ class OmniActionDraft extends Equatable {
         transactionKind == TransactionKind.income
             ? OmniIntentSubtype.income
             : transactionKind == TransactionKind.transfer
-                ? OmniIntentSubtype.internalTransfer
-                : OmniIntentSubtype.expense,
+            ? OmniIntentSubtype.internalTransfer
+            : OmniIntentSubtype.expense,
       OmniActionKind.groupSplit => OmniIntentSubtype.groupBillSplit,
       OmniActionKind.calendarEvent => OmniIntentSubtype.calendarEvent,
       OmniActionKind.task => OmniIntentSubtype.task,
@@ -580,7 +580,9 @@ abstract final class SmartOmniIntentParser {
   }) {
     final lower = clause.toLowerCase();
     final folded = VietnameseSearchMatcher.fold(lower);
-    final entities = VietnameseTemporalAndEntityResolver.extractEntities(clause);
+    final entities = VietnameseTemporalAndEntityResolver.extractEntities(
+      clause,
+    );
 
     // 0A. Water Hydration Log ("uống 250ml nước", "uống 2 cốc nước", "nhắc uống nước")
     final waterDraft = _tryParseWaterClause(clause, lower, index: index);
@@ -603,7 +605,10 @@ abstract final class SmartOmniIntentParser {
     if (folded.startsWith('ghi chu') || folded.startsWith('note')) {
       final noteBody = clause
           .replaceFirst(
-            RegExp(r'^(?:ghi\s+chú|ghi\s+chu|note)\s*:?\s*', caseSensitive: false),
+            RegExp(
+              r'^(?:ghi\s+chú|ghi\s+chu|note)\s*:?\s*',
+              caseSensitive: false,
+            ),
             '',
           )
           .trim();
@@ -624,7 +629,10 @@ abstract final class SmartOmniIntentParser {
     if (folded.startsWith('bao thuc') || folded.startsWith('dat chuong')) {
       final (alarmAt, cleanedTitle) = _extractDateTimeAndTitle(
         clause.replaceFirst(
-          RegExp(r'^(?:báo\s+thức|bao\s+thuc|đặt\s+chuông|dat\s+chuong)\s*:?\s*', caseSensitive: false),
+          RegExp(
+            r'^(?:báo\s+thức|bao\s+thuc|đặt\s+chuông|dat\s+chuong)\s*:?\s*',
+            caseSensitive: false,
+          ),
           '',
         ),
         refNow: refNow,
@@ -772,13 +780,13 @@ abstract final class SmartOmniIntentParser {
       final resolvedTxKind = txSubtype == OmniIntentSubtype.internalTransfer
           ? TransactionKind.transfer
           : txSubtype == OmniIntentSubtype.refund
-              ? TransactionKind.income
-              : moneyCandidate.kind;
+          ? TransactionKind.income
+          : moneyCandidate.kind;
       final resolvedCatId = txSubtype == OmniIntentSubtype.internalTransfer
           ? 'cat_transfer'
           : txSubtype == OmniIntentSubtype.fuelRefill
-              ? 'cat_transport'
-              : moneyCandidate.categoryId;
+          ? 'cat_transport'
+          : moneyCandidate.categoryId;
       final resolvedCatName = switch (txSubtype) {
         OmniIntentSubtype.internalTransfer => 'Chuyển khoản nội bộ',
         OmniIntentSubtype.refund => 'Hoàn tiền',

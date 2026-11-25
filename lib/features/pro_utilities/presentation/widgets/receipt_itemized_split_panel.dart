@@ -43,7 +43,10 @@ class _ReceiptItemizedSplitPanelState extends State<ReceiptItemizedSplitPanel> {
     }
   }
 
-  Future<void> _pickReceiptImage(BuildContext context, {required bool camera}) async {
+  Future<void> _pickReceiptImage(
+    BuildContext context, {
+    required bool camera,
+  }) async {
     final bridge = sl.isRegistered<NativeReceiptPickerBridge>()
         ? sl<NativeReceiptPickerBridge>()
         : const NativeReceiptPickerBridge();
@@ -306,7 +309,8 @@ class _ReceiptItemizedSplitPanelState extends State<ReceiptItemizedSplitPanel> {
                   FilledButton.tonalIcon(
                     key: const Key('receipt_commit_itemized_split_btn'),
                     onPressed:
-                        (analysis.requiresManualTotalReview || activeFamily == null)
+                        (analysis.requiresManualTotalReview ||
+                            activeFamily == null)
                         ? null
                         : () {
                             final exactMap = <String, int>{
@@ -325,7 +329,8 @@ class _ReceiptItemizedSplitPanelState extends State<ReceiptItemizedSplitPanel> {
                                   title:
                                       'Hóa đơn ${analysis.merchantName} (chia theo món)',
                                   topic: SharedExpenseTopic.shopping,
-                                  totalAmountMinor: analysis.effectiveTotalMinor,
+                                  totalAmountMinor:
+                                      analysis.effectiveTotalMinor,
                                   paidByUserId: widget.currentUserId,
                                   paidByName: widget.currentUserName,
                                   splitMethod: SplitMethod.exact,

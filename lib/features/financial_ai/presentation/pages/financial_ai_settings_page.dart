@@ -459,13 +459,12 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                 ...rules.map((rule) {
                                   final isNickname =
                                       rule.ruleKind == 'nickname';
-                                  final dirLabel = switch (
-                                    rule.directionCondition
-                                  ) {
-                                    'credit' => ' · Chiều: Thu nhập',
-                                    'debit' => ' · Chiều: Chi tiêu',
-                                    _ => '',
-                                  };
+                                  final dirLabel =
+                                      switch (rule.directionCondition) {
+                                        'credit' => ' · Chiều: Thu nhập',
+                                        'debit' => ' · Chiều: Chi tiêu',
+                                        _ => '',
+                                      };
                                   final walletLabel =
                                       (rule.preferredWalletName ?? '')
                                           .isNotEmpty
@@ -587,7 +586,9 @@ class _FinancialAiSettingsView extends StatelessWidget {
     final txCategories = txState?.categories ?? const <CategoryEntity>[];
     final txWallets = txState?.wallets ?? const <WalletEntity>[];
     final familyMembers =
-        _tryReadOptionalBloc<FamilyBloc>(context)?.state.activeFamily?.members ??
+        _tryReadOptionalBloc<FamilyBloc>(
+          context,
+        )?.state.activeFamily?.members ??
         const <FamilyMemberInfo>[];
 
     await showModalBottomSheet<void>(
@@ -931,7 +932,10 @@ class _LocalAiEngineStudioCardState extends State<_LocalAiEngineStudioCard> {
                   style: TextStyle(fontSize: 13.5, color: c.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'VD: Phở 45k, cf 25k',
-                    hintStyle: TextStyle(fontSize: 12.8, color: c.textSecondary),
+                    hintStyle: TextStyle(
+                      fontSize: 12.8,
+                      color: c.textSecondary,
+                    ),
                     hintMaxLines: 2,
                     isDense: true,
                     filled: true,
@@ -1409,19 +1413,18 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final options = _availableCategories;
-    final activeCategoryId = options.any((item) => item.id == _selectedCategoryId)
+    final activeCategoryId =
+        options.any((item) => item.id == _selectedCategoryId)
         ? _selectedCategoryId
         : options.first.id;
     final activeWalletId =
         (_selectedWalletId != null &&
-                widget.userWallets.any((w) => w.id == _selectedWalletId))
-            ? _selectedWalletId!
-            : '';
+            widget.userWallets.any((w) => w.id == _selectedWalletId))
+        ? _selectedWalletId!
+        : '';
 
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: LiquidGlassSheetFrame(
         showHandle: true,
         child: SingleChildScrollView(
@@ -1453,16 +1456,8 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
                 selected: _ruleKind,
                 onChanged: (nextKind) => setState(() => _ruleKind = nextKind),
                 options: const [
-                  (
-                    'category',
-                    'Cửa hàng & Ví',
-                    Icons.storefront_outlined,
-                  ),
-                  (
-                    'nickname',
-                    'Biệt danh',
-                    Icons.badge_outlined,
-                  ),
+                  ('category', 'Cửa hàng & Ví', Icons.storefront_outlined),
+                  ('nickname', 'Biệt danh', Icons.badge_outlined),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1490,10 +1485,10 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
                     isExpanded: true,
                     initialValue:
                         widget.familyMembers.any(
-                              (m) => m.userId == _selectedMemberUserId,
-                            )
-                            ? _selectedMemberUserId
-                            : widget.familyMembers.first.userId,
+                          (m) => m.userId == _selectedMemberUserId,
+                        )
+                        ? _selectedMemberUserId
+                        : widget.familyMembers.first.userId,
                     decoration: const InputDecoration(
                       labelText: 'Thành viên tương ứng',
                       isDense: true,
@@ -1600,8 +1595,9 @@ class _AddManualAiRuleSheetState extends State<_AddManualAiRuleSheet> {
                     ],
                     onChanged: (val) {
                       setState(() {
-                        _selectedWalletId =
-                            (val == null || val.isEmpty) ? null : val;
+                        _selectedWalletId = (val == null || val.isEmpty)
+                            ? null
+                            : val;
                       });
                     },
                   ),
@@ -1754,9 +1750,8 @@ class _GeminiConnectionStudioCardState
                         ),
                       ),
                       value: cfg.enabled,
-                      onChanged: (v) => bloc.add(
-                        GeminiConnectionSettingsSaved(enabled: v),
-                      ),
+                      onChanged: (v) =>
+                          bloc.add(GeminiConnectionSettingsSaved(enabled: v)),
                     ),
                   ],
                   const SizedBox(height: 10),
@@ -1813,9 +1808,7 @@ class _GeminiConnectionStudioCardState
                   SwitchListTile(
                     key: const Key('toggle_gemini_mask_pii'),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Ẩn số điện thoại, email & số tài khoản',
-                    ),
+                    title: const Text('Ẩn số điện thoại, email & số tài khoản'),
                     subtitle: const Text(
                       'Tự động che thông tin định danh cá nhân trước khi phân tích',
                     ),

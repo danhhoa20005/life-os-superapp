@@ -132,7 +132,9 @@ void main() {
       () {
         final rng = math.Random(20261125);
         for (var i = 0; i < 1000; i++) {
-          final m = 2 + rng.nextInt(13); // covers both M <= 12 (DP) and M > 12 (greedy)
+          final m =
+              2 +
+              rng.nextInt(13); // covers both M <= 12 (DP) and M > 12 (greedy)
           final net = <String, int>{for (var k = 0; k < m; k++) 'u_$k': 0};
           // Plant random transfers in a zero-sum graph so total sum == 0 guaranteed.
           final edgeCount = m + rng.nextInt(m * 2);
@@ -149,7 +151,10 @@ void main() {
             net,
           );
           final nonZeroCount = net.values.where((v) => v != 0).length;
-          expect(transfers.length, lessThanOrEqualTo(math.max(0, nonZeroCount - 1)));
+          expect(
+            transfers.length,
+            lessThanOrEqualTo(math.max(0, nonZeroCount - 1)),
+          );
 
           // Reconstruct resulting settled deltas and verify every single member matches exact balance!
           final reconstructed = <String, int>{for (final k in net.keys) k: 0};
@@ -178,14 +183,7 @@ void main() {
         // Clique 2: D=+150, E=+150, F=-300 -> 2 transfers (sum 0)
         // Total M=6, Optimal = 4 transfers (DP finds both disjoint zero-sum cliques!)
         final dpOptimal = SmartMoneySplitAiEngine.optimizeSettlementTransfers(
-          const {
-            'A': 300,
-            'B': -100,
-            'C': -200,
-            'D': 150,
-            'E': 150,
-            'F': -300,
-          },
+          const {'A': 300, 'B': -100, 'C': -200, 'D': 150, 'E': 150, 'F': -300},
         );
         expect(dpOptimal.length, 4);
       },
@@ -213,16 +211,8 @@ void main() {
         'name': 'Gia đình v3.27',
         'createdBy': ownerId,
         'memberIds': [ownerId, mgrBId, memberId],
-        'memberRoles': {
-          ownerId: 'owner',
-          mgrBId: 'admin',
-          memberId: 'member',
-        },
-        'memberNames': {
-          ownerId: 'An',
-          mgrBId: 'Bình',
-          memberId: 'Chi',
-        },
+        'memberRoles': {ownerId: 'owner', mgrBId: 'admin', memberId: 'member'},
+        'memberNames': {ownerId: 'An', mgrBId: 'Bình', memberId: 'Chi'},
       });
       await fakeFs
           .collection('users')

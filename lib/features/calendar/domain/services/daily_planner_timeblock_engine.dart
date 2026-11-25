@@ -134,9 +134,7 @@ abstract final class DailyPlannerTimeblockEngine {
     final dayEnd = dayStart.add(const Duration(days: 1));
 
     final visible = rawBlocks
-        .where(
-          (b) => b.startsAt.isBefore(dayEnd) && b.endsAt.isAfter(dayStart),
-        )
+        .where((b) => b.startsAt.isBefore(dayEnd) && b.endsAt.isAfter(dayStart))
         .map((b) => b.redactedForViewer(viewerUserId))
         .toList();
 
@@ -198,8 +196,7 @@ abstract final class DailyPlannerTimeblockEngine {
         cursor = b.endsAt;
       }
     }
-    if (workEnd.isAfter(cursor) &&
-        workEnd.difference(cursor).inMinutes >= 30) {
+    if (workEnd.isAfter(cursor) && workEnd.difference(cursor).inMinutes >= 30) {
       freeWindows.add((startsAt: cursor, endsAt: workEnd));
     }
 
@@ -242,7 +239,8 @@ abstract final class DailyPlannerTimeblockEngine {
     required int intervalDays,
     required int maxOccurrences,
     Set<String> excludedDayKeys = const <String>{},
-    Map<String, TimeBlockSlot> overridesByDayKey = const <String, TimeBlockSlot>{},
+    Map<String, TimeBlockSlot> overridesByDayKey =
+        const <String, TimeBlockSlot>{},
   }) {
     final duration = master.endsAt.difference(master.startsAt);
     final results = <TimeBlockSlot>[];

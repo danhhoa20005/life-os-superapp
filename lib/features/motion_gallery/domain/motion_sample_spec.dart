@@ -21,7 +21,8 @@ extension MotionSampleCategoryMeta on MotionSampleCategory {
     MotionSampleCategory.listsStaggerChoreography => 'Danh sách & Cuộn',
     MotionSampleCategory.sheetsDialogsDisclosures => 'Sheet & Chi tiết',
     MotionSampleCategory.chartsCountersTruth => 'Biểu đồ & Số liệu',
-    MotionSampleCategory.shadersLottieSpritesMascot => 'Shader · Lottie · Mascot',
+    MotionSampleCategory.shadersLottieSpritesMascot =>
+      'Shader · Lottie · Mascot',
   };
 }
 

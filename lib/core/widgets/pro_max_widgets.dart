@@ -938,8 +938,10 @@ class _ProDonutChartState extends State<ProDonutChart> {
           child: GestureDetector(
             key: const Key('pro_donut_ring_gesture'),
             behavior: HitTestBehavior.opaque,
-            onTapUp: (details) =>
-                _handleRingTap(details.localPosition, const Size(ringDim, ringDim)),
+            onTapUp: (details) => _handleRingTap(
+              details.localPosition,
+              const Size(ringDim, ringDim),
+            ),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -1531,12 +1533,14 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
       7,
       (idx) => now.subtract(Duration(days: 6 - idx)),
     );
-    final weekdayLabels = dayDates.map((d) {
-      return switch (d.weekday) {
-        DateTime.sunday => 'CN',
-        final w => 'T${w + 1}',
-      };
-    }).toList(growable: false);
+    final weekdayLabels = dayDates
+        .map((d) {
+          return switch (d.weekday) {
+            DateTime.sunday => 'CN',
+            final w => 'T${w + 1}',
+          };
+        })
+        .toList(growable: false);
 
     var maxVal = 0;
     for (final v in widget.dailyIncomesMinor) {
@@ -1599,9 +1603,8 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                         Text(
                           'Dòng tiền 7 ngày',
                           softWrap: true,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         Text(
                           'Chạm cột để xem từng ngày',
@@ -1614,10 +1617,7 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: scoreColor.withValues(alpha: 0.13),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
@@ -1692,9 +1692,7 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                 )
               else
                 Text(
-                  maxVal > 0
-                      ? 'Đỉnh: ${fmtCompact(maxVal)}'
-                      : 'Chưa phát sinh',
+                  maxVal > 0 ? 'Đỉnh: ${fmtCompact(maxVal)}' : 'Chưa phát sinh',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1886,10 +1884,7 @@ class _CapitalColumn extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
+              child: Text(label, style: Theme.of(context).textTheme.labelSmall),
             ),
             const SizedBox(height: 2),
             FittedBox(
@@ -2021,9 +2016,7 @@ class _CashflowBarsPainter extends CustomPainter {
 
       final incPaint = Paint();
       if (inc > 0 && maxVal > 0) {
-        final topC = dimmed
-            ? incomeColor.withValues(alpha: 0.42)
-            : incomeColor;
+        final topC = dimmed ? incomeColor.withValues(alpha: 0.42) : incomeColor;
         final botC = dimmed
             ? incomeColor.withValues(alpha: 0.24)
             : incomeColor.withValues(alpha: 0.72);
@@ -2148,8 +2141,10 @@ class ProFintechStatementTile extends StatelessWidget {
     ];
 
     final viewportWidth = MediaQuery.sizeOf(context).width;
-    final maxRightWidth =
-        (math.min(viewportWidth, 640.0) * 0.34).clamp(92.0, 156.0);
+    final maxRightWidth = (math.min(viewportWidth, 640.0) * 0.34).clamp(
+      92.0,
+      156.0,
+    );
 
     return LiquidGlassSurface(
       material: LiquidGlassMaterial.card,

@@ -55,169 +55,172 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
     for (final f in famBloc?.state.families ?? const <FamilyEntity>[]) f.id,
   };
 
-  const appScreens = <({
-    String id,
-    String title,
-    String subtitle,
-    IconData icon,
-    String route,
-    LifeOsAccentTone tone,
-    List<String> keywords,
-  })>[
-    (
-      id: 'scr_today',
-      title: 'Trang chủ LifeOS',
-      subtitle: 'Tổng quan hôm nay',
-      icon: Icons.home_rounded,
-      route: '/today',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['hom nay', 'trang chu'],
-    ),
-    (
-      id: 'scr_finance',
-      title: 'Chi tiêu & Ngân sách',
-      subtitle: 'Ví, thu chi & ngân sách tháng',
-      icon: Icons.payments_outlined,
-      route: '/finance',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['so thu chi', 'du bao dong tien', 'ngan sach'],
-    ),
-    (
-      id: 'scr_auto_tx',
-      title: 'Chi tiết giao dịch (Tự động)',
-      subtitle: 'Xác nhận giao dịch ngân hàng mới',
-      icon: Icons.auto_awesome_rounded,
-      route: '/auto-tx-review',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['duyet giao dich', 'ngan hang'],
-    ),
-    (
-      id: 'scr_report',
-      title: 'Báo cáo chi tiêu & Gia đình',
-      subtitle: 'Thống kê thu chi, Life Insights & xuất báo cáo',
-      icon: Icons.bar_chart_rounded,
-      route: '/finance-report',
-      tone: LifeOsAccentTone.blue,
-      keywords: ['bao cao', 'thong ke', 'insights'],
-    ),
-    (
-      id: 'scr_planning',
-      title: 'Lịch trình & Google Calendar',
-      subtitle: 'Lịch hẹn, khung giờ trống & đồng bộ Google Calendar',
-      icon: Icons.calendar_month_rounded,
-      route: '/planning',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['lich hen', 'time block', 'ke hoach ngay'],
-    ),
-    (
-      id: 'scr_tasks',
-      title: 'Việc cần làm',
-      subtitle: 'Việc cá nhân & phân công gia đình',
-      icon: Icons.task_alt_rounded,
-      route: '/tasks-board',
-      tone: LifeOsAccentTone.blue,
-      keywords: ['cong viec', 'nhiem vu'],
-    ),
-    (
-      id: 'scr_funds',
-      title: 'Quỹ gia đình & Mục tiêu chung',
-      subtitle: 'Tiết kiệm chung & lịch sử đóng góp',
-      icon: Icons.savings_outlined,
-      route: '/family-funds',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['quy chung', 'tiet kiem'],
-    ),
-    (
-      id: 'scr_docs',
-      title: 'Tài liệu gia đình',
-      subtitle: 'Hợp đồng, giấy tờ xe & bảo hiểm mã hóa',
-      icon: Icons.folder_copy_outlined,
-      route: '/family-documents',
-      tone: LifeOsAccentTone.amber,
-      keywords: ['cccd', 'ho chieu', 'bhyt', 'giay to'],
-    ),
-    (
-      id: 'scr_vehicles',
-      title: 'Xe cộ & Bảo dưỡng',
-      subtitle: 'Nhật ký đổ xăng, chi phí/km, thay dầu & đăng kiểm',
-      icon: Icons.directions_car_outlined,
-      route: '/assets',
-      tone: LifeOsAccentTone.blue,
-      keywords: ['xe may', 'o to', 'xang', 'odo'],
-    ),
-    (
-      id: 'scr_subs',
-      title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
-      subtitle: 'Theo dõi phí gia hạn, dùng thử & hạn bảo hành',
-      icon: Icons.radar_rounded,
-      route: '/subscriptions-warranty',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['thue bao', 'netflix', 'bao hanh'],
-    ),
-    (
-      id: 'scr_wealth',
-      title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
-      subtitle: 'Tách hóa đơn theo món, tính lãi vay & tiết kiệm',
-      icon: Icons.calculate_outlined,
-      route: '/wealth-tools',
-      tone: LifeOsAccentTone.blue,
-      keywords: ['quet hoa don', 'tach bill', 'lai vay'],
-    ),
-    (
-      id: 'scr_automation',
-      title: 'Tự động hóa Thông minh',
-      subtitle: 'Quy tắc gợi ý lương, xăng xe, hóa đơn & nhật ký hoàn tác',
-      icon: Icons.bolt_rounded,
-      route: '/automation-studio',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['automation', 'quy tac tu dong'],
-    ),
-    (
-      id: 'scr_health',
-      title: 'Sức khỏe & Tủ thuốc',
-      subtitle: 'Nhắc uống thuốc, nước uống & thẻ y tế khẩn cấp',
-      icon: Icons.favorite_outline_rounded,
-      route: '/health-hub',
-      tone: LifeOsAccentTone.coral,
-      keywords: ['thuoc', 'bhyt', 'nuoc uong'],
-    ),
-    (
-      id: 'scr_kitchen',
-      title: 'Bếp & Đi chợ Thông minh',
-      subtitle: 'Thực đơn, giỏ đi chợ & tủ lạnh',
-      icon: Icons.shopping_basket_outlined,
-      route: '/kitchen-groceries',
-      tone: LifeOsAccentTone.emerald,
-      keywords: ['di cho', 'bep', 'thuc don'],
-    ),
-    (
-      id: 'scr_evn',
-      title: 'Điện nước EVN & Nhà cửa',
-      subtitle: 'Tính điện 5 bậc, nước & tiền thuê nhà',
-      icon: Icons.electric_bolt_rounded,
-      route: '/home-living',
-      tone: LifeOsAccentTone.amber,
-      keywords: ['evn', 'tien dien', 'tien nuoc'],
-    ),
-    (
-      id: 'scr_notes',
-      title: 'Ghi chú & Lương Gross–Net',
-      subtitle: 'Sổ tay nhanh & tính lương thực nhận',
-      icon: Icons.sticky_note_2_outlined,
-      route: '/smart-notes-hub',
-      tone: LifeOsAccentTone.purple,
-      keywords: ['ghi chu', 'luong', 'thue tncn'],
-    ),
-    (
-      id: 'scr_settings',
-      title: 'Cài đặt & Sao lưu',
-      subtitle: 'Tài khoản, giao diện, sao lưu & kết nối ngân hàng',
-      icon: Icons.settings_outlined,
-      route: '/settings-hub',
-      tone: LifeOsAccentTone.neutral,
-      keywords: ['cai dat', 'sao luu', 'khoi phuc'],
-    ),
-  ];
+  const appScreens =
+      <
+        ({
+          String id,
+          String title,
+          String subtitle,
+          IconData icon,
+          String route,
+          LifeOsAccentTone tone,
+          List<String> keywords,
+        })
+      >[
+        (
+          id: 'scr_today',
+          title: 'Trang chủ LifeOS',
+          subtitle: 'Tổng quan hôm nay',
+          icon: Icons.home_rounded,
+          route: '/today',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['hom nay', 'trang chu'],
+        ),
+        (
+          id: 'scr_finance',
+          title: 'Chi tiêu & Ngân sách',
+          subtitle: 'Ví, thu chi & ngân sách tháng',
+          icon: Icons.payments_outlined,
+          route: '/finance',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['so thu chi', 'du bao dong tien', 'ngan sach'],
+        ),
+        (
+          id: 'scr_auto_tx',
+          title: 'Chi tiết giao dịch (Tự động)',
+          subtitle: 'Xác nhận giao dịch ngân hàng mới',
+          icon: Icons.auto_awesome_rounded,
+          route: '/auto-tx-review',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['duyet giao dich', 'ngan hang'],
+        ),
+        (
+          id: 'scr_report',
+          title: 'Báo cáo chi tiêu & Gia đình',
+          subtitle: 'Thống kê thu chi, Life Insights & xuất báo cáo',
+          icon: Icons.bar_chart_rounded,
+          route: '/finance-report',
+          tone: LifeOsAccentTone.blue,
+          keywords: ['bao cao', 'thong ke', 'insights'],
+        ),
+        (
+          id: 'scr_planning',
+          title: 'Lịch trình & Google Calendar',
+          subtitle: 'Lịch hẹn, khung giờ trống & đồng bộ Google Calendar',
+          icon: Icons.calendar_month_rounded,
+          route: '/planning',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['lich hen', 'time block', 'ke hoach ngay'],
+        ),
+        (
+          id: 'scr_tasks',
+          title: 'Việc cần làm',
+          subtitle: 'Việc cá nhân & phân công gia đình',
+          icon: Icons.task_alt_rounded,
+          route: '/tasks-board',
+          tone: LifeOsAccentTone.blue,
+          keywords: ['cong viec', 'nhiem vu'],
+        ),
+        (
+          id: 'scr_funds',
+          title: 'Quỹ gia đình & Mục tiêu chung',
+          subtitle: 'Tiết kiệm chung & lịch sử đóng góp',
+          icon: Icons.savings_outlined,
+          route: '/family-funds',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['quy chung', 'tiet kiem'],
+        ),
+        (
+          id: 'scr_docs',
+          title: 'Tài liệu gia đình',
+          subtitle: 'Hợp đồng, giấy tờ xe & bảo hiểm mã hóa',
+          icon: Icons.folder_copy_outlined,
+          route: '/family-documents',
+          tone: LifeOsAccentTone.amber,
+          keywords: ['cccd', 'ho chieu', 'bhyt', 'giay to'],
+        ),
+        (
+          id: 'scr_vehicles',
+          title: 'Xe cộ & Bảo dưỡng',
+          subtitle: 'Nhật ký đổ xăng, chi phí/km, thay dầu & đăng kiểm',
+          icon: Icons.directions_car_outlined,
+          route: '/assets',
+          tone: LifeOsAccentTone.blue,
+          keywords: ['xe may', 'o to', 'xang', 'odo'],
+        ),
+        (
+          id: 'scr_subs',
+          title: 'Radar Gói Đăng ký & Phiếu Bảo hành',
+          subtitle: 'Theo dõi phí gia hạn, dùng thử & hạn bảo hành',
+          icon: Icons.radar_rounded,
+          route: '/subscriptions-warranty',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['thue bao', 'netflix', 'bao hanh'],
+        ),
+        (
+          id: 'scr_wealth',
+          title: 'Quét Bill AI, Lãi Vay & Tự do FIRE',
+          subtitle: 'Tách hóa đơn theo món, tính lãi vay & tiết kiệm',
+          icon: Icons.calculate_outlined,
+          route: '/wealth-tools',
+          tone: LifeOsAccentTone.blue,
+          keywords: ['quet hoa don', 'tach bill', 'lai vay'],
+        ),
+        (
+          id: 'scr_automation',
+          title: 'Tự động hóa Thông minh',
+          subtitle: 'Quy tắc gợi ý lương, xăng xe, hóa đơn & nhật ký hoàn tác',
+          icon: Icons.bolt_rounded,
+          route: '/automation-studio',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['automation', 'quy tac tu dong'],
+        ),
+        (
+          id: 'scr_health',
+          title: 'Sức khỏe & Tủ thuốc',
+          subtitle: 'Nhắc uống thuốc, nước uống & thẻ y tế khẩn cấp',
+          icon: Icons.favorite_outline_rounded,
+          route: '/health-hub',
+          tone: LifeOsAccentTone.coral,
+          keywords: ['thuoc', 'bhyt', 'nuoc uong'],
+        ),
+        (
+          id: 'scr_kitchen',
+          title: 'Bếp & Đi chợ Thông minh',
+          subtitle: 'Thực đơn, giỏ đi chợ & tủ lạnh',
+          icon: Icons.shopping_basket_outlined,
+          route: '/kitchen-groceries',
+          tone: LifeOsAccentTone.emerald,
+          keywords: ['di cho', 'bep', 'thuc don'],
+        ),
+        (
+          id: 'scr_evn',
+          title: 'Điện nước EVN & Nhà cửa',
+          subtitle: 'Tính điện 5 bậc, nước & tiền thuê nhà',
+          icon: Icons.electric_bolt_rounded,
+          route: '/home-living',
+          tone: LifeOsAccentTone.amber,
+          keywords: ['evn', 'tien dien', 'tien nuoc'],
+        ),
+        (
+          id: 'scr_notes',
+          title: 'Ghi chú & Lương Gross–Net',
+          subtitle: 'Sổ tay nhanh & tính lương thực nhận',
+          icon: Icons.sticky_note_2_outlined,
+          route: '/smart-notes-hub',
+          tone: LifeOsAccentTone.purple,
+          keywords: ['ghi chu', 'luong', 'thue tncn'],
+        ),
+        (
+          id: 'scr_settings',
+          title: 'Cài đặt & Sao lưu',
+          subtitle: 'Tài khoản, giao diện, sao lưu & kết nối ngân hàng',
+          icon: Icons.settings_outlined,
+          route: '/settings-hub',
+          tone: LifeOsAccentTone.neutral,
+          keywords: ['cai dat', 'sao luu', 'khoi phuc'],
+        ),
+      ];
 
   final dateFmt = DateFormat('dd/MM HH:mm');
   final corpus = <SearchableEntityRecord>[
@@ -234,8 +237,7 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
   ];
 
   // 1. Transactions, Wallets & Categories
-  final txs =
-      txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
+  final txs = txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
   for (final tx in txs.where(
     (t) => t.verification != TransactionVerification.rejected,
   )) {
@@ -385,7 +387,8 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
       ),
     );
   }
-  for (final bill in vehicleBloc?.state.bills ?? const <RecurringBillEntity>[]) {
+  for (final bill
+      in vehicleBloc?.state.bills ?? const <RecurringBillEntity>[]) {
     corpus.add(
       SearchableEntityRecord(
         id: 'bill_${bill.id}',
@@ -574,10 +577,10 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: GlobalSearchAndCommandEngine
-                            .builtInQuickCommands(activeUserId)
-                            .take(4)
-                            .map((cmd) {
+                        children:
+                            GlobalSearchAndCommandEngine.builtInQuickCommands(
+                              activeUserId,
+                            ).take(4).map((cmd) {
                               return Padding(
                                 padding: const EdgeInsets.only(right: 6),
                                 child: ActionChip(
@@ -602,8 +605,7 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
                                   },
                                 ),
                               );
-                            })
-                            .toList(),
+                            }).toList(),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -674,8 +676,10 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
                                   const SizedBox(height: 8),
                               itemBuilder: (_, idx) {
                                 final item = hits[idx].record;
-                                final badge = item.trailingBadge ??
-                                    (item.domain == SearchDomainKind.quickCommand
+                                final badge =
+                                    item.trailingBadge ??
+                                    (item.domain ==
+                                            SearchDomainKind.quickCommand
                                         ? 'Lệnh nhanh'
                                         : null);
                                 return LifeOsSoftCard(
@@ -777,7 +781,8 @@ class _PaletteControllerHost extends StatefulWidget {
     BuildContext context,
     TextEditingController controller,
     StateSetter setModalState,
-  ) builder;
+  )
+  builder;
 
   const _PaletteControllerHost({required this.builder});
 
@@ -795,5 +800,6 @@ class _PaletteControllerHostState extends State<_PaletteControllerHost> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.builder(context, _ctrl, setState);
+  Widget build(BuildContext context) =>
+      widget.builder(context, _ctrl, setState);
 }

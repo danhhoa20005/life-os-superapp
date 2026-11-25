@@ -124,40 +124,22 @@ abstract final class LiquidGlassTokens {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: isDark
-            ? [
-                const Color(0xFF171D24),
-                const Color(0xFF1B222A),
-              ]
-            : [
-                const Color(0xFFEAEEF3),
-                const Color(0xFFEEF2F6),
-              ],
+            ? [const Color(0xFF171D24), const Color(0xFF1B222A)]
+            : [const Color(0xFFEAEEF3), const Color(0xFFEEF2F6)],
       ),
       LiquidGlassMaterial.card => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? [
-                const Color(0xFF252E3A),
-                const Color(0xFF1D242E),
-              ]
-            : [
-                const Color(0xFFFFFFFF),
-                const Color(0xFFF7FBF9),
-              ],
+            ? [const Color(0xFF252E3A), const Color(0xFF1D242E)]
+            : [const Color(0xFFFFFFFF), const Color(0xFFF7FBF9)],
       ),
       LiquidGlassMaterial.mintHero => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? [
-                const Color(0xFF1D3829),
-                const Color(0xFF172720),
-              ]
-            : [
-                const Color(0xFFECFBF2),
-                const Color(0xFFFFFFFF),
-              ],
+            ? [const Color(0xFF1D3829), const Color(0xFF172720)]
+            : [const Color(0xFFECFBF2), const Color(0xFFFFFFFF)],
       ),
     };
   }
@@ -350,7 +332,9 @@ class LiquidGlassRimPainter extends CustomPainter {
         ..isAntiAlias = true
         ..color = isDark
             ? Colors.black.withValues(alpha: 0.22 * k.clamp(0.0, 1.0))
-            : const Color(0xFFD2DFD8).withValues(alpha: 0.55 * k.clamp(0.0, 1.0));
+            : const Color(
+                0xFFD2DFD8,
+              ).withValues(alpha: 0.55 * k.clamp(0.0, 1.0));
       final pad = (borderRadius * 0.65).clamp(6.0, size.width * 0.3);
       canvas.drawLine(
         Offset(pad, size.height - 0.6),
@@ -661,10 +645,7 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
     final initial = widget.selectedIndex.clamp(0, 3).toDouble();
     _fromVisualTab = initial;
     _toVisualTab = initial;
-    _controller = AnimationController.unbounded(
-      vsync: this,
-      value: initial,
-    );
+    _controller = AnimationController.unbounded(vsync: this, value: initial);
   }
 
   @override
@@ -844,13 +825,12 @@ class _LiquidGlassSlidingDockState extends State<LiquidGlassSlidingDock>
                   _dragLeftPx,
                   _lastTabSlotWidth,
                 );
-                final normalizedVelocity =
-                    LifeOsMotionTokens.normalizeVelocity(
-                      velocityPxPerSec:
-                          details.primaryVelocity ??
-                          details.velocity.pixelsPerSecond.dx,
-                      extentPx: _lastTabSlotWidth,
-                    );
+                final normalizedVelocity = LifeOsMotionTokens.normalizeVelocity(
+                  velocityPxPerSec:
+                      details.primaryVelocity ??
+                      details.velocity.pixelsPerSecond.dx,
+                  extentPx: _lastTabSlotWidth,
+                );
                 _controller.value = settledFrom;
                 setState(() {
                   _isDragging = false;

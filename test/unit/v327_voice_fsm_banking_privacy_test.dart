@@ -97,9 +97,7 @@ class _FsmVoiceDriver implements AdvancedVoiceAssistantDriver {
   }) async {
     startCount++;
     lastSessionToken = sessionToken;
-    controller.add(
-      VoiceStateSignal('listening', sessionToken: sessionToken),
-    );
+    controller.add(VoiceStateSignal('listening', sessionToken: sessionToken));
     return 'LISTENING_STARTED';
   }
 
@@ -112,9 +110,7 @@ class _FsmVoiceDriver implements AdvancedVoiceAssistantDriver {
   Future<void> cancelListeningSession({String? sessionToken}) async {
     cancelCount++;
     lastCancelledToken = sessionToken;
-    controller.add(
-      VoiceStateSignal('cancelled', sessionToken: sessionToken),
-    );
+    controller.add(VoiceStateSignal('cancelled', sessionToken: sessionToken));
   }
 
   @override
@@ -210,22 +206,72 @@ void main() {
         for (final st in VoiceCaptureState.values) {
           expect(VoiceCaptureState.fromWireStatus(st.wireValue), st);
         }
-        expect(VoiceCaptureState.fromWireStatus('canceled'), VoiceCaptureState.cancelled);
+        expect(
+          VoiceCaptureState.fromWireStatus('canceled'),
+          VoiceCaptureState.cancelled,
+        );
 
         // Valid FSM transitions
-        expect(VoiceCaptureState.idle.canTransitionTo(VoiceCaptureState.requestingPermission), isTrue);
-        expect(VoiceCaptureState.requestingPermission.canTransitionTo(VoiceCaptureState.initializing), isTrue);
-        expect(VoiceCaptureState.initializing.canTransitionTo(VoiceCaptureState.listening), isTrue);
-        expect(VoiceCaptureState.listening.canTransitionTo(VoiceCaptureState.processing), isTrue);
-        expect(VoiceCaptureState.processing.canTransitionTo(VoiceCaptureState.review), isTrue);
-        expect(VoiceCaptureState.review.canTransitionTo(VoiceCaptureState.completed), isTrue);
-        expect(VoiceCaptureState.listening.canTransitionTo(VoiceCaptureState.cancelled), isTrue);
-        expect(VoiceCaptureState.initializing.canTransitionTo(VoiceCaptureState.error), isTrue);
-        expect(VoiceCaptureState.error.canTransitionTo(VoiceCaptureState.idle), isTrue);
+        expect(
+          VoiceCaptureState.idle.canTransitionTo(
+            VoiceCaptureState.requestingPermission,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.requestingPermission.canTransitionTo(
+            VoiceCaptureState.initializing,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.initializing.canTransitionTo(
+            VoiceCaptureState.listening,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.listening.canTransitionTo(
+            VoiceCaptureState.processing,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.processing.canTransitionTo(
+            VoiceCaptureState.review,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.review.canTransitionTo(VoiceCaptureState.completed),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.listening.canTransitionTo(
+            VoiceCaptureState.cancelled,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.initializing.canTransitionTo(
+            VoiceCaptureState.error,
+          ),
+          isTrue,
+        );
+        expect(
+          VoiceCaptureState.error.canTransitionTo(VoiceCaptureState.idle),
+          isTrue,
+        );
 
         // Disallowed impossible jumps
-        expect(VoiceCaptureState.idle.canTransitionTo(VoiceCaptureState.completed), isFalse);
-        expect(VoiceCaptureState.idle.canTransitionTo(VoiceCaptureState.processing), isFalse);
+        expect(
+          VoiceCaptureState.idle.canTransitionTo(VoiceCaptureState.completed),
+          isFalse,
+        );
+        expect(
+          VoiceCaptureState.idle.canTransitionTo(VoiceCaptureState.processing),
+          isFalse,
+        );
       },
     );
 
@@ -236,20 +282,22 @@ void main() {
         NativeVoiceAssistantBridge.setDriverOverride(driver);
         addTearDown(driver.dispose);
 
-        final parsedState = MethodChannelVoiceAssistantDriver.parseRawVoiceEvent({
-          'type': 'state',
-          'status': 'cancelled',
-          'sessionToken': 'tok_1',
-        });
+        final parsedState =
+            MethodChannelVoiceAssistantDriver.parseRawVoiceEvent({
+              'type': 'state',
+              'status': 'cancelled',
+              'sessionToken': 'tok_1',
+            });
         expect(parsedState, isA<VoiceStateSignal>());
         expect((parsedState as VoiceStateSignal).sessionToken, 'tok_1');
         expect(parsedState.captureState, VoiceCaptureState.cancelled);
 
-        final parsedPartial = MethodChannelVoiceAssistantDriver.parseRawVoiceEvent({
-          'type': 'partial',
-          'text': 'Ăn trưa',
-          'sessionToken': 'tok_1',
-        });
+        final parsedPartial =
+            MethodChannelVoiceAssistantDriver.parseRawVoiceEvent({
+              'type': 'partial',
+              'text': 'Ăn trưa',
+              'sessionToken': 'tok_1',
+            });
         expect((parsedPartial as VoiceTranscriptSignal).sessionToken, 'tok_1');
 
         final parsedErr = MethodChannelVoiceAssistantDriver.parseRawVoiceEvent({
@@ -330,7 +378,9 @@ void main() {
           firestoreOverride: firestore,
           httpClientOverride: MockClient((_) async => http.Response('{}', 404)),
           googleCalendarTokenOverride: ({required interactive}) async => null,
-          financialClassifierOverride: FastTextClassifier(useWorkerIsolate: false),
+          financialClassifierOverride: FastTextClassifier(
+            useWorkerIsolate: false,
+          ),
         );
 
         await tester.pumpWidget(const LifeOsApp());
@@ -366,7 +416,9 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 50));
 
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
         tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
         tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
         await tester.pumpAndSettle();
@@ -381,8 +433,12 @@ void main() {
 
         // Rapid double tap within 250ms on voice_mic_toggle_button -> second tap is debounced!
         tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
         await tester.pump(const Duration(milliseconds: 300));
         final beforeTapStartCount = voiceDriver.startCount;
         await tester.tap(find.byKey(const Key('voice_mic_toggle_button')));
@@ -426,7 +482,8 @@ void main() {
           notificationKey: 'k_otp_1',
           packageName: 'com.VCB',
           title: 'Vietcombank',
-          body: 'Ma Digital OTP xac thuc giao dich la 884422. Khong chia se ma.',
+          body:
+              'Ma Digital OTP xac thuc giao dich la 884422. Khong chia se ma.',
           postedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
         );
         expect(bridge.debugPendingUnacknowledgedCount, 1);
@@ -436,7 +493,8 @@ void main() {
           defaultWalletId: 'w_vcb',
           packageName: 'com.VCB',
           title: 'Vietcombank',
-          body: 'Ma Digital OTP xac thuc giao dich la 884422. Khong chia se ma.',
+          body:
+              'Ma Digital OTP xac thuc giao dich la 884422. Khong chia se ma.',
           notificationId: 'k_otp_1',
         );
         expect(otpOutcome.kind, IngestionOutcomeKind.blockedOtpOrSecret);
@@ -460,7 +518,10 @@ void main() {
           body: '+150.000 VND TK 1234',
           notificationId: 'k_disabled_2',
         );
-        expect(disabledOutcome.kind, IngestionOutcomeKind.blockedConsentDisabled);
+        expect(
+          disabledOutcome.kind,
+          IngestionOutcomeKind.blockedConsentDisabled,
+        );
         expect(bridge.debugPendingUnacknowledgedCount, 0);
       },
     );
@@ -620,119 +681,137 @@ void main() {
       },
     );
 
-    test('NativePrivacyScreenBridge toggles FLAG_SECURE cleanly and falls back safely', () async {
-      // Safe no-op fallback when no Android driver override
-      expect(
-        await NativePrivacyScreenBridge.instance.setPrivacyScreenEnabled(true),
-        isFalse,
-      );
+    test(
+      'NativePrivacyScreenBridge toggles FLAG_SECURE cleanly and falls back safely',
+      () async {
+        // Safe no-op fallback when no Android driver override
+        expect(
+          await NativePrivacyScreenBridge.instance.setPrivacyScreenEnabled(
+            true,
+          ),
+          isFalse,
+        );
 
-      final spyPrivacy = _SpyPrivacyDriver();
-      NativePrivacyScreenBridge.setDriverOverride(spyPrivacy);
-      expect(NativePrivacyScreenBridge.instance.isSupportedPlatform, isTrue);
+        final spyPrivacy = _SpyPrivacyDriver();
+        NativePrivacyScreenBridge.setDriverOverride(spyPrivacy);
+        expect(NativePrivacyScreenBridge.instance.isSupportedPlatform, isTrue);
 
-      expect(
-        await NativePrivacyScreenBridge.instance.setPrivacyScreenEnabled(true),
-        isTrue,
-      );
-      expect(NativePrivacyScreenBridge.instance.isPrivacyScreenEnabled, isTrue);
+        expect(
+          await NativePrivacyScreenBridge.instance.setPrivacyScreenEnabled(
+            true,
+          ),
+          isTrue,
+        );
+        expect(
+          NativePrivacyScreenBridge.instance.isPrivacyScreenEnabled,
+          isTrue,
+        );
 
-      expect(
-        await NativePrivacyScreenBridge.instance.setPrivacyScreenEnabled(false),
-        isTrue,
-      );
-      expect(NativePrivacyScreenBridge.instance.isPrivacyScreenEnabled, isFalse);
-      expect(spyPrivacy.toggledStates, [true, false]);
-    });
+        expect(
+          await NativePrivacyScreenBridge.instance.setPrivacyScreenEnabled(
+            false,
+          ),
+          isTrue,
+        );
+        expect(
+          NativePrivacyScreenBridge.instance.isPrivacyScreenEnabled,
+          isFalse,
+        );
+        expect(spyPrivacy.toggledStates, [true, false]);
+      },
+    );
 
-    test('Android flavors, manifests, backup XMLs & Kotlin hardening contracts exist', () {
-      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
-      expect(gradle, contains('buildConfig = true'));
-      expect(gradle, contains('flavorDimensions += "distribution"'));
-      expect(gradle, contains('create("github")'));
-      expect(gradle, contains('create("play")'));
-      expect(gradle, contains('ENABLE_GITHUB_OTA'));
-      expect(gradle, contains('DISTRIBUTION_FLAVOR'));
+    test(
+      'Android flavors, manifests, backup XMLs & Kotlin hardening contracts exist',
+      () {
+        final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+        expect(gradle, contains('buildConfig = true'));
+        expect(gradle, contains('flavorDimensions += "distribution"'));
+        expect(gradle, contains('create("github")'));
+        expect(gradle, contains('create("play")'));
+        expect(gradle, contains('ENABLE_GITHUB_OTA'));
+        expect(gradle, contains('DISTRIBUTION_FLAVOR'));
 
-      final mainManifest = File(
-        'android/app/src/main/AndroidManifest.xml',
-      ).readAsStringSync();
-      expect(mainManifest.contains('REQUEST_INSTALL_PACKAGES'), isFalse);
-      expect(mainManifest.contains('USE_EXACT_ALARM'), isFalse);
-      expect(mainManifest, contains('SCHEDULE_EXACT_ALARM'));
+        final mainManifest = File(
+          'android/app/src/main/AndroidManifest.xml',
+        ).readAsStringSync();
+        expect(mainManifest.contains('REQUEST_INSTALL_PACKAGES'), isFalse);
+        expect(mainManifest.contains('USE_EXACT_ALARM'), isFalse);
+        expect(mainManifest, contains('SCHEDULE_EXACT_ALARM'));
 
-      final githubManifest = File(
-        'android/app/src/github/AndroidManifest.xml',
-      ).readAsStringSync();
-      expect(githubManifest, contains('REQUEST_INSTALL_PACKAGES'));
+        final githubManifest = File(
+          'android/app/src/github/AndroidManifest.xml',
+        ).readAsStringSync();
+        expect(githubManifest, contains('REQUEST_INSTALL_PACKAGES'));
 
-      final playManifest = File(
-        'android/app/src/play/AndroidManifest.xml',
-      ).readAsStringSync();
-      expect(playManifest, contains('REQUEST_INSTALL_PACKAGES'));
-      expect(playManifest, contains('USE_EXACT_ALARM'));
-      expect(playManifest, contains('tools:node="remove"'));
+        final playManifest = File(
+          'android/app/src/play/AndroidManifest.xml',
+        ).readAsStringSync();
+        expect(playManifest, contains('REQUEST_INSTALL_PACKAGES'));
+        expect(playManifest, contains('USE_EXACT_ALARM'));
+        expect(playManifest, contains('tools:node="remove"'));
 
-      final backupXml = File(
-        'android/app/src/main/res/xml/backup_rules.xml',
-      ).readAsStringSync();
-      expect(backupXml, contains('lifeos_bank_signal_queue.db'));
-      expect(backupXml, contains('lifeos_bank_listener_prefs.xml'));
+        final backupXml = File(
+          'android/app/src/main/res/xml/backup_rules.xml',
+        ).readAsStringSync();
+        expect(backupXml, contains('lifeos_bank_signal_queue.db'));
+        expect(backupXml, contains('lifeos_bank_listener_prefs.xml'));
 
-      final extractXml = File(
-        'android/app/src/main/res/xml/data_extraction_rules.xml',
-      ).readAsStringSync();
-      expect(extractXml, contains('lifeos_bank_signal_queue.db'));
-      expect(extractXml, contains('lifeos_bank_listener_prefs.xml'));
+        final extractXml = File(
+          'android/app/src/main/res/xml/data_extraction_rules.xml',
+        ).readAsStringSync();
+        expect(extractXml, contains('lifeos_bank_signal_queue.db'));
+        expect(extractXml, contains('lifeos_bank_listener_prefs.xml'));
 
-      final bankListenerKt = File(
-        'android/app/src/main/kotlin/vn/lifeos/app/life_os/BankNotificationListenerService.kt',
-      ).readAsStringSync();
-      expect(bankListenerKt, contains('LifeOsSecureVault.encryptBytes'));
-      expect(bankListenerKt, contains('"bank_queue"'));
-      expect(bankListenerKt, contains('MAX_ATTEMPTS = 5'));
-      expect(bankListenerKt, contains('fun clearAll()'));
-      expect(bankListenerKt, contains('fun clearListenerPreferences'));
-      expect(bankListenerKt, contains(r'digital\\s*otp'));
-      expect(bankListenerKt, contains('passcode'));
+        final bankListenerKt = File(
+          'android/app/src/main/kotlin/vn/lifeos/app/life_os/BankNotificationListenerService.kt',
+        ).readAsStringSync();
+        expect(bankListenerKt, contains('LifeOsSecureVault.encryptBytes'));
+        expect(bankListenerKt, contains('"bank_queue"'));
+        expect(bankListenerKt, contains('MAX_ATTEMPTS = 5'));
+        expect(bankListenerKt, contains('fun clearAll()'));
+        expect(bankListenerKt, contains('fun clearListenerPreferences'));
+        expect(bankListenerKt, contains(r'digital\\s*otp'));
+        expect(bankListenerKt, contains('passcode'));
 
-      final widgetsKt = File(
-        'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsHomeWidgets.kt',
-      ).readAsStringSync();
-      expect(widgetsKt, contains('KEY_IS_SIGNED_OUT'));
-      expect(widgetsKt, contains('FLAG_SECURE'));
-      expect(widgetsKt, contains('override fun onStop()'));
+        final widgetsKt = File(
+          'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsHomeWidgets.kt',
+        ).readAsStringSync();
+        expect(widgetsKt, contains('KEY_IS_SIGNED_OUT'));
+        expect(widgetsKt, contains('FLAG_SECURE'));
+        expect(widgetsKt, contains('override fun onStop()'));
 
-      final mainKt = File(
-        'android/app/src/main/kotlin/vn/lifeos/app/life_os/MainActivity.kt',
-      ).readAsStringSync();
-      expect(mainKt, contains('vn.lifeos.app/privacy_screen'));
-      expect(mainKt, contains('setRecentsScreenshotEnabled(!enabled)'));
-      expect(mainKt, contains('setShowWhenLocked(false)'));
-      expect(mainKt, contains('setTurnScreenOn(false)'));
-      expect(mainKt, contains('clearBankSignalQueue'));
+        final mainKt = File(
+          'android/app/src/main/kotlin/vn/lifeos/app/life_os/MainActivity.kt',
+        ).readAsStringSync();
+        expect(mainKt, contains('vn.lifeos.app/privacy_screen'));
+        expect(mainKt, contains('setRecentsScreenshotEnabled(!enabled)'));
+        expect(mainKt, contains('setShowWhenLocked(false)'));
+        expect(mainKt, contains('setTurnScreenOn(false)'));
+        expect(mainKt, contains('clearBankSignalQueue'));
 
-      final vaultKt = File(
-        'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsSecureVault.kt',
-      ).readAsStringSync();
-      expect(vaultKt, contains('@Synchronized'));
-      expect(vaultKt, contains('KeyPermanentlyInvalidatedException'));
-      expect(vaultKt, contains('updateAAD'));
+        final vaultKt = File(
+          'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsSecureVault.kt',
+        ).readAsStringSync();
+        expect(vaultKt, contains('@Synchronized'));
+        expect(vaultKt, contains('KeyPermanentlyInvalidatedException'));
+        expect(vaultKt, contains('updateAAD'));
 
-      final alarmKt = File(
-        'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsAlarmScheduler.kt',
-      ).readAsStringSync();
-      expect(alarmKt, contains('scheduleNextMedicationAlarm'));
-      expect(alarmKt, contains('PREFS_HYDRATION_DAEMON'));
-      expect(alarmKt, contains('PREFS_MED_DAEMON'));
-      expect(alarmKt, contains('PREFS_BG_ACTIONS'));
+        final alarmKt = File(
+          'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsAlarmScheduler.kt',
+        ).readAsStringSync();
+        expect(alarmKt, contains('scheduleNextMedicationAlarm'));
+        expect(alarmKt, contains('PREFS_HYDRATION_DAEMON'));
+        expect(alarmKt, contains('PREFS_MED_DAEMON'));
+        expect(alarmKt, contains('PREFS_BG_ACTIONS'));
 
-      final calKt = File(
-        'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsDeviceCalendar.kt',
-      ).readAsStringSync();
-      expect(calKt, contains('TimeZone.getTimeZone("UTC")'));
-      expect(calKt, contains('"UTC"'));
-    });
+        final calKt = File(
+          'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsDeviceCalendar.kt',
+        ).readAsStringSync();
+        expect(calKt, contains('TimeZone.getTimeZone("UTC")'));
+        expect(calKt, contains('"UTC"'));
+      },
+    );
   });
 
   group('4. Account Deletion Pre-Checks, Complete Subcollection Purge & UI', () {
@@ -821,9 +900,9 @@ void main() {
 
         // Also verify FirebaseAuthException('requires-recent-login') from current.delete() is NOT swallowed!
         when(() => mockMeta.lastSignInTime).thenReturn(DateTime.now());
-        when(() => mockUser.delete()).thenThrow(
-          FirebaseAuthException(code: 'requires-recent-login'),
-        );
+        when(
+          () => mockUser.delete(),
+        ).thenThrow(FirebaseAuthException(code: 'requires-recent-login'));
         await expectLater(
           remoteBlockedAuth.deleteAccountAndPersonalData(uid),
           throwsA(
@@ -838,7 +917,9 @@ void main() {
         // 2. Verify complete purge when eligible (plain member or solo family + recent login)
         final uRef = db.collection('users').doc(uid);
         await uRef.set({'id': uid, 'email': 'del@lifeos.vn'});
-        await uRef.collection('monthly_summaries').doc('2026-11').set({'ok': true});
+        await uRef.collection('monthly_summaries').doc('2026-11').set({
+          'ok': true,
+        });
         await uRef.collection('automation_rules').doc('r1').set({'ok': true});
         await uRef.collection('automation_audits').doc('a1').set({'ok': true});
         await uRef.collection('source_claims').doc('sc1').set({'ok': true});
@@ -885,9 +966,15 @@ void main() {
           await NativeSecureVaultBridge.instance.readSecret('sepay_tok_$uid'),
           isNull,
         );
-        expect((await uRef.collection('monthly_summaries').get()).docs, isEmpty);
+        expect(
+          (await uRef.collection('monthly_summaries').get()).docs,
+          isEmpty,
+        );
         expect((await uRef.collection('automation_rules').get()).docs, isEmpty);
-        expect((await uRef.collection('automation_audits').get()).docs, isEmpty);
+        expect(
+          (await uRef.collection('automation_audits').get()).docs,
+          isEmpty,
+        );
         expect((await uRef.collection('source_claims').get()).docs, isEmpty);
         expect(
           (await uRef
@@ -977,7 +1064,11 @@ void main() {
           ),
         );
         final delBtn = find.byKey(const Key('profile_delete_account_button'));
-        await tester.scrollUntilVisible(delBtn, 200, scrollable: listScrollable);
+        await tester.scrollUntilVisible(
+          delBtn,
+          200,
+          scrollable: listScrollable,
+        );
         await tester.ensureVisible(delBtn);
         await tester.pumpAndSettle();
 

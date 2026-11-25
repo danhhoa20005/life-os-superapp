@@ -7,8 +7,7 @@ import 'package:flutter/services.dart';
 import '../../domain/entities/financial_ai_entities.dart';
 import '../../domain/services/financial_classifier.dart';
 import 'fasttext_binary_model.dart';
-import 'fasttext_ffi_stub.dart'
-    if (dart.library.ffi) 'fasttext_ffi_io.dart';
+import 'fasttext_ffi_stub.dart' if (dart.library.ffi) 'fasttext_ffi_io.dart';
 import 'rule_based_classifier.dart';
 import 'taxonomy_catalog.dart';
 
@@ -102,9 +101,7 @@ void _fastTextWorkerEntryPoint(_WorkerInitPayload init) {
       final topLabels = <String>[
         for (final idx in topIndices) model.labels[idx],
       ];
-      final topProbs = <double>[
-        for (final idx in topIndices) probs[idx],
-      ];
+      final topProbs = <double>[for (final idx in topIndices) probs[idx]];
       sw.stop();
 
       init.mainPort.send({
@@ -152,8 +149,7 @@ class FastTextClassifier implements FinancialClassifier {
   FinancialModelMetadata _metadata = const FinancialModelMetadata(
     modelId: 'vn_financial_fasttext_v1',
     modelVersion: '2.0.0',
-    architecture:
-        'FastText QAT Subword + Word Bigram (INT8 LFTQ v1)',
+    architecture: 'FastText QAT Subword + Word Bigram (INT8 LFTQ v1)',
     sizeBytes: 0,
     sha256: '',
     numClasses: 30,
@@ -363,7 +359,8 @@ class FastTextClassifier implements FinancialClassifier {
         latencyMicros: sw.elapsedMicroseconds,
         modelVersion: _metadata.modelVersion,
         origin: ClassifierInferenceOrigin.fastTextIsolateInt8,
-        isOutOfDomain: isOod || bestInDomainProb < _metadata.lowConfidenceThreshold,
+        isOutOfDomain:
+            isOod || bestInDomainProb < _metadata.lowConfidenceThreshold,
         oodProbability: oodProb,
       );
     }

@@ -652,7 +652,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                             final proceed = await showDialog<bool>(
                               context: context,
                               builder: (dCtx) => AlertDialog(
-                                title: const Text('Tổng tiền hóa đơn chưa khớp'),
+                                title: const Text(
+                                  'Tổng tiền hóa đơn chưa khớp',
+                                ),
                                 content: Text(
                                   'Tổng các món bóc tách chênh lệch ${VndAmount.format(structured.discrepancyMinor.abs())} so với dòng Tổng cộng (${VndAmount.format(parsed.totalMinor)}). Bạn vẫn muốn lưu theo Tổng cộng này?',
                                 ),
@@ -1040,10 +1042,7 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                   (s.message!.contains('sự kiện') ||
                       s.message!.contains('lịch'))),
         )
-        .timeout(
-          const Duration(seconds: 8),
-          onTimeout: () => calBloc.state,
-        );
+        .timeout(const Duration(seconds: 8), onTimeout: () => calBloc.state);
     calBloc.add(
       CalendarEventCreated(
         CreateCalendarEventParams(
@@ -1411,9 +1410,13 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
       if (item.limitMinor <= 0) continue;
       final waiter = budgetBloc.stream
           .firstWhere(
-            (s) => !s.isSaving && (s.failure != null || s.actionMessage != null),
+            (s) =>
+                !s.isSaving && (s.failure != null || s.actionMessage != null),
           )
-          .timeout(const Duration(seconds: 6), onTimeout: () => budgetBloc.state);
+          .timeout(
+            const Duration(seconds: 6),
+            onTimeout: () => budgetBloc.state,
+          );
       budgetBloc.add(
         BudgetUpsertSubmitted(
           UpsertBudgetParams(
@@ -1604,12 +1607,7 @@ class _SplitReceiptToFamilySheetState
           return LiquidGlassSheetFrame(
             showHandle: true,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                6,
-                18,
-                20 + viewInsets.bottom,
-              ),
+              padding: EdgeInsets.fromLTRB(18, 6, 18, 20 + viewInsets.bottom),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1739,8 +1737,7 @@ class _SplitReceiptToFamilySheetState
                                           totalAmountMinor:
                                               widget.parsed.totalMinor,
                                           splitMethod: SplitMethod.equal,
-                                          participantIds:
-                                              _selectedIds.toList(),
+                                          participantIds: _selectedIds.toList(),
                                           participantNames: {
                                             for (final m
                                                 in widget.activeFamily.members)
@@ -1859,9 +1856,7 @@ class _ScheduleLoanReminderDialogState
                 }
               },
               icon: const Icon(Icons.calendar_today_rounded, size: 17),
-              label: Text(
-                'Ngày trả kỳ đầu: ${dateFmt.format(_firstDueDate)}',
-              ),
+              label: Text('Ngày trả kỳ đầu: ${dateFmt.format(_firstDueDate)}'),
             ),
             const SizedBox(height: 8),
             Text(

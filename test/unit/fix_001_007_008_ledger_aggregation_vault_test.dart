@@ -449,9 +449,11 @@ void main() {
 
         for (var i = 0; i < 500; i++) {
           final docId = 'tx_${i.toString().padLeft(4, '0')}';
-          final occurredAt = DateTime(now.year, now.month, 1).add(
-            Duration(minutes: i * 10),
-          );
+          final occurredAt = DateTime(
+            now.year,
+            now.month,
+            1,
+          ).add(Duration(minutes: i * 10));
           String kind = 'expense';
           String ver = 'userConfirmed';
           String cat = 'Ăn uống';
@@ -526,7 +528,10 @@ void main() {
         final limitedList = await txRepo
             .watchTransactions(userId: uid, monthKey: monthKey)
             .first;
-        expect((limitedList as Success<List<TransactionEntity>>).value.length, 100);
+        expect(
+          (limitedList as Success<List<TransactionEntity>>).value.length,
+          100,
+        );
 
         final unboundedList = await txRepo
             .watchAllTransactionsForAggregation(userId: uid, monthKey: monthKey)
@@ -620,9 +625,9 @@ void main() {
         final walletsCtrl =
             StreamController<Result<List<WalletEntity>>>.broadcast();
 
-        when(() => mockTxRepo.watchWallets('u_roll')).thenAnswer(
-          (_) => walletsCtrl.stream,
-        );
+        when(
+          () => mockTxRepo.watchWallets('u_roll'),
+        ).thenAnswer((_) => walletsCtrl.stream);
         when(
           () => mockTxRepo.watchAllTransactionsForAggregation(
             userId: 'u_roll',
@@ -926,20 +931,22 @@ void main() {
           final amt = 10000 + rng.nextInt(50000);
           final beforeBank =
               (await db
-                      .collection('users')
-                      .doc(uid)
-                      .collection('wallets')
-                      .doc('w_bank')
-                      .get())
-                  .data()!['balanceMinor'] as int;
+                          .collection('users')
+                          .doc(uid)
+                          .collection('wallets')
+                          .doc('w_bank')
+                          .get())
+                      .data()!['balanceMinor']
+                  as int;
           final beforeCash =
               (await db
-                      .collection('users')
-                      .doc(uid)
-                      .collection('wallets')
-                      .doc('w_cash')
-                      .get())
-                  .data()!['balanceMinor'] as int;
+                          .collection('users')
+                          .doc(uid)
+                          .collection('wallets')
+                          .doc('w_cash')
+                          .get())
+                      .data()!['balanceMinor']
+                  as int;
           final sumBefore = beforeBank + beforeCash;
 
           final opId = 'op_trf_$step';
@@ -978,12 +985,13 @@ void main() {
         // Property 3: create + reverse restores exact balance, sets REVERSED, writes aud_rev_*, and 2nd reverse is idempotent!
         final balBeforeCreate =
             (await db
-                    .collection('users')
-                    .doc(uid)
-                    .collection('wallets')
-                    .doc('w_cash')
-                    .get())
-                .data()!['balanceMinor'] as int;
+                        .collection('users')
+                        .doc(uid)
+                        .collection('wallets')
+                        .doc('w_cash')
+                        .get())
+                    .data()!['balanceMinor']
+                as int;
 
         await ds.createTransaction(
           operationId: 'op_to_rev',
@@ -1123,7 +1131,10 @@ void main() {
             .collection('wallets')
             .doc('w_cash')
             .get();
-        expect(cashAfterReject.data()!['balanceMinor'], balBeforeCreate + 50000);
+        expect(
+          cashAfterReject.data()!['balanceMinor'],
+          balBeforeCreate + 50000,
+        );
         expect(
           cashAfterReject.data()!['lastAuditId'],
           'aud_reject_tx_review_applied',
@@ -1177,7 +1188,10 @@ void main() {
 
         // Disk bytes MUST start with "LOSV" magic and NOT contain plaintext
         expect(diskBytes.sublist(0, 4), [0x4C, 0x4F, 0x53, 0x56]); // "LOSV"
-        expect(utf8.decode(diskBytes, allowMalformed: true), isNot(contains('CCCD_MAT_TRUOC')));
+        expect(
+          utf8.decode(diskBytes, allowMalformed: true),
+          isNot(contains('CCCD_MAT_TRUOC')),
+        );
         expect(diskBytes, isNot(equals(plaintext)));
 
         // Valid read succeeds and returns exact plaintext
@@ -1216,7 +1230,8 @@ void main() {
             referenceCode: '079200099988',
           ),
         );
-        final createdDoc = (createdDocRes as Success<DocumentVaultEntity>).value;
+        final createdDoc =
+            (createdDocRes as Success<DocumentVaultEntity>).value;
 
         final attachedRes = await docRepo.attachEncryptedLocalFile(
           userId: 'u_vault_1',
@@ -1253,40 +1268,37 @@ void main() {
       },
     );
 
-    test(
-      'Native Android XML & Kotlin security hardening rules are intact',
-      () {
-        final filePathsXml = File(
-          'android/app/src/main/res/xml/file_paths.xml',
-        ).readAsStringSync();
-        expect(filePathsXml.contains('<files-path'), isFalse);
-        expect(filePathsXml, contains('ota_updates'));
+    test('Native Android XML & Kotlin security hardening rules are intact', () {
+      final filePathsXml = File(
+        'android/app/src/main/res/xml/file_paths.xml',
+      ).readAsStringSync();
+      expect(filePathsXml.contains('<files-path'), isFalse);
+      expect(filePathsXml, contains('ota_updates'));
 
-        final backupRulesXml = File(
-          'android/app/src/main/res/xml/backup_rules.xml',
-        ).readAsStringSync();
-        expect(backupRulesXml, contains('secure_doc_vault'));
-        expect(backupRulesXml, contains('lifeos_hardware_vault_prefs_v1'));
+      final backupRulesXml = File(
+        'android/app/src/main/res/xml/backup_rules.xml',
+      ).readAsStringSync();
+      expect(backupRulesXml, contains('secure_doc_vault'));
+      expect(backupRulesXml, contains('lifeos_hardware_vault_prefs_v1'));
 
-        final extractionRulesXml = File(
-          'android/app/src/main/res/xml/data_extraction_rules.xml',
-        ).readAsStringSync();
-        expect(extractionRulesXml, contains('secure_doc_vault'));
-        expect(extractionRulesXml, contains('lifeos_hardware_vault_prefs_v1'));
+      final extractionRulesXml = File(
+        'android/app/src/main/res/xml/data_extraction_rules.xml',
+      ).readAsStringSync();
+      expect(extractionRulesXml, contains('secure_doc_vault'));
+      expect(extractionRulesXml, contains('lifeos_hardware_vault_prefs_v1'));
 
-        final kotlinVault = File(
-          'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsSecureVault.kt',
-        ).readAsStringSync();
-        expect(kotlinVault, contains('fun encryptBytes('));
-        expect(kotlinVault, contains('fun decryptBytes('));
-        expect(kotlinVault, contains('AES/GCM/NoPadding'));
-        expect(kotlinVault, contains('noBackupFilesDir'));
+      final kotlinVault = File(
+        'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsSecureVault.kt',
+      ).readAsStringSync();
+      expect(kotlinVault, contains('fun encryptBytes('));
+      expect(kotlinVault, contains('fun decryptBytes('));
+      expect(kotlinVault, contains('AES/GCM/NoPadding'));
+      expect(kotlinVault, contains('noBackupFilesDir'));
 
-        final storageDart = File(
-          'lib/core/services/file_storage_service.dart',
-        ).readAsStringSync();
-        expect(storageDart.contains('systemTemp'), isFalse);
-      },
-    );
+      final storageDart = File(
+        'lib/core/services/file_storage_service.dart',
+      ).readAsStringSync();
+      expect(storageDart.contains('systemTemp'), isFalse);
+    });
   });
 }

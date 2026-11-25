@@ -302,11 +302,7 @@ class NativeSecureVaultBridge {
         ciphertext,
       );
     }
-    packet.setRange(
-      headerAndIv.length + ciphertext.length,
-      packet.length,
-      tag,
-    );
+    packet.setRange(headerAndIv.length + ciphertext.length, packet.length, tag);
     return packet;
   }
 

@@ -444,7 +444,8 @@ class TransactionRemoteDataSource {
       final sourceSnap = await tx.get(sourceRef);
       final sourceBal =
           (sourceSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
-      final sourceName = (sourceSnap.data()?['name'] as String?) ?? orig.walletName;
+      final sourceName =
+          (sourceSnap.data()?['name'] as String?) ?? orig.walletName;
 
       DocumentReference<Map<String, dynamic>>? targetRef;
       int? targetBal;

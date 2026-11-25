@@ -608,7 +608,10 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       _onGroceryBoughtToggled,
       transformer: sequential(),
     );
-    on<GroceryMovedToFridge>(_onGroceryMovedToFridge, transformer: sequential());
+    on<GroceryMovedToFridge>(
+      _onGroceryMovedToFridge,
+      transformer: sequential(),
+    );
     on<BoughtGroceriesCleared>(
       _onBoughtGroceriesCleared,
       transformer: sequential(),

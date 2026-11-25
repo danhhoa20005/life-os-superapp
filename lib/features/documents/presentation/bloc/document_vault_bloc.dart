@@ -252,11 +252,8 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
     final res = await _repository.updateDocument(event.params);
     res.fold(
       (f) => emit(state.copyWith(failure: f, clearMessage: true)),
-      (doc) => emit(
-        state.copyWith(
-          message: 'Đã cập nhật hồ sơ "${doc.title}".',
-        ),
-      ),
+      (doc) =>
+          emit(state.copyWith(message: 'Đã cập nhật hồ sơ "${doc.title}".')),
     );
   }
 

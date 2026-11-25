@@ -87,10 +87,7 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(
-            color: c.border,
-            width: 1.0,
-          ),
+          side: BorderSide(color: c.border, width: 1.0),
         ),
       ),
       switchTheme: SwitchThemeData(
@@ -147,10 +144,7 @@ abstract final class AppTheme {
         ).withValues(alpha: isDark ? 0.40 : 0.10),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: c.border,
-            width: 1.0,
-          ),
+          side: BorderSide(color: c.border, width: 1.0),
         ),
         titleTextStyle: TextStyle(
           fontSize: 18.5,
@@ -169,19 +163,14 @@ abstract final class AppTheme {
         showDragHandle: true,
         shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          side: BorderSide(
-            color: c.border,
-            width: 1.0,
-          ),
+          side: BorderSide(color: c.border, width: 1.0),
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: c.surface,
         selectedColor: c.primarySubtle,
         side: BorderSide(color: c.border),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         labelStyle: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,

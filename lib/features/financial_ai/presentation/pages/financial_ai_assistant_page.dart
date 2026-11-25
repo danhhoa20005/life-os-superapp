@@ -210,7 +210,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
             _submitAnalysis();
           }
         case VoiceEngineSwitchedSignal(:final modeWireValue):
-          unawaited(UserBehaviorPrefs.savePreferredVoiceEngineMode(modeWireValue));
+          unawaited(
+            UserBehaviorPrefs.savePreferredVoiceEngineMode(modeWireValue),
+          );
       }
     });
 
@@ -302,7 +304,8 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
       _voiceHint =
           'Đang kết nối Google Speech tiếng Việt — nói xong hệ thống tự dừng để bạn xác nhận.';
     });
-    final savedModeWire = await UserBehaviorPrefs.loadPreferredVoiceEngineMode();
+    final savedModeWire =
+        await UserBehaviorPrefs.loadPreferredVoiceEngineMode();
     final savedMode = VoiceEngineMode.fromWireValue(savedModeWire);
     final useDialog =
         preferSystemDialog || savedMode == VoiceEngineMode.systemDialog;
@@ -370,9 +373,9 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
       safeDailyAllowanceMinor: safeDaily,
       upcomingEventsCount: dash?.upcomingEventsCount ?? 0,
       openTasksCount: dash?.openTasksCount ?? 0,
-      topHabitLabels: UserBehaviorPrefs.topRankedHabits(limit: 3)
-          .map((h) => h.label)
-          .toList(),
+      topHabitLabels: UserBehaviorPrefs.topRankedHabits(
+        limit: 3,
+      ).map((h) => h.label).toList(),
     );
     context.read<GeminiCopilotBloc>().add(
       GeminiOmniAnalyzeRequested(
@@ -496,8 +499,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                                   fontWeight: FontWeight.w700,
                                                   color: c.textPrimary,
                                                   fontFeatures: const [
-                                                    FontFeature
-                                                        .tabularFigures(),
+                                                    FontFeature.tabularFigures(),
                                                   ],
                                                 ),
                                               ),
@@ -541,280 +543,295 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                       ],
                                     ),
                                   ),
-                              const SizedBox(height: 12),
+                                  const SizedBox(height: 12),
 
-                              // 2. AI Transaction Input Card (Phase 16.1)
-                              LifeOsMintHeroCard(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      'Nhập nhanh giao dịch, lịch hẹn hoặc việc làm',
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                      TextField(
-                                        key: const Key('financial_ai_text_input'),
-                                        controller: _inputCtrl,
-                                        minLines: 2,
-                                        maxLines: 4,
-                                        style: const TextStyle(
-                                          fontFeatures: [
-                                            FontFeature.tabularFigures(),
-                                          ],
+                                  // 2. AI Transaction Input Card (Phase 16.1)
+                                  LifeOsMintHeroCard(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          'Nhập nhanh giao dịch, lịch hẹn hoặc việc làm',
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.textPrimary,
+                                          ),
                                         ),
-                                        onChanged: (val) {
-                                          setState(() {
-                                            if (_activeSource !=
-                                                FinancialInputSource.manualText) {
-                                              _activeSource =
-                                                  FinancialInputSource.manualText;
-                                            }
-                                            if (!_isListening) {
-                                              _sessionPrefixText = val.trim();
-                                            }
-                                          });
-                                        },
-                                      decoration: InputDecoration(
-                                        hintText: 'VD: Phở 45k, cf 25k',
-                                        hintMaxLines: 2,
-                                        filled: true,
-                                        fillColor: c.surface,
-                                        suffixIcon: IconButton(
+                                        const SizedBox(height: 8),
+                                        TextField(
                                           key: const Key(
-                                            'financial_ai_mic_btn',
+                                            'financial_ai_text_input',
                                           ),
-                                          tooltip: _isListening
-                                              ? 'Chốt câu ngay'
-                                              : 'Tự động thu âm giọng nói',
-                                          onPressed: () => _toggleMic(),
-                                          icon: Icon(
-                                            _isListening
-                                                ? Icons.check_circle_rounded
-                                                : Icons.mic_rounded,
-                                            color: _isListening
-                                                ? const Color(0xFF059669)
-                                                : c.primary,
+                                          controller: _inputCtrl,
+                                          minLines: 2,
+                                          maxLines: 4,
+                                          style: const TextStyle(
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (_voiceHint != null) ...[
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              _voiceHint!,
-                                              softWrap: true,
-                                              style: TextStyle(
-                                                fontSize: 11.8,
-                                                fontWeight: _isListening
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w500,
+                                          onChanged: (val) {
+                                            setState(() {
+                                              if (_activeSource !=
+                                                  FinancialInputSource
+                                                      .manualText) {
+                                                _activeSource =
+                                                    FinancialInputSource
+                                                        .manualText;
+                                              }
+                                              if (!_isListening) {
+                                                _sessionPrefixText = val.trim();
+                                              }
+                                            });
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: 'VD: Phở 45k, cf 25k',
+                                            hintMaxLines: 2,
+                                            filled: true,
+                                            fillColor: c.surface,
+                                            suffixIcon: IconButton(
+                                              key: const Key(
+                                                'financial_ai_mic_btn',
+                                              ),
+                                              tooltip: _isListening
+                                                  ? 'Chốt câu ngay'
+                                                  : 'Tự động thu âm giọng nói',
+                                              onPressed: () => _toggleMic(),
+                                              icon: Icon(
+                                                _isListening
+                                                    ? Icons.check_circle_rounded
+                                                    : Icons.mic_rounded,
                                                 color: _isListening
-                                                    ? c.primary
-                                                    : c.textSecondary,
+                                                    ? const Color(0xFF059669)
+                                                    : c.primary,
                                               ),
                                             ),
+                                          ),
+                                        ),
+                                        if (_voiceHint != null) ...[
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  _voiceHint!,
+                                                  softWrap: true,
+                                                  style: TextStyle(
+                                                    fontSize: 11.8,
+                                                    fontWeight: _isListening
+                                                        ? FontWeight.w700
+                                                        : FontWeight.w500,
+                                                    color: _isListening
+                                                        ? c.primary
+                                                        : c.textSecondary,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (!_isListening &&
+                                                  _activeSource ==
+                                                      FinancialInputSource
+                                                          .voiceTranscript &&
+                                                  _inputCtrl.text
+                                                      .trim()
+                                                      .isNotEmpty)
+                                                TextButton.icon(
+                                                  key: const Key(
+                                                    'financial_ai_voice_retry_btn',
+                                                  ),
+                                                  style: TextButton.styleFrom(
+                                                    visualDensity:
+                                                        VisualDensity.compact,
+                                                  ),
+                                                  onPressed: () => _toggleMic(
+                                                    clearExisting: true,
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.mic_rounded,
+                                                    size: 16,
+                                                  ),
+                                                  label: const Text('Nói lại'),
+                                                ),
+                                            ],
                                           ),
                                           if (!_isListening &&
-                                              _activeSource ==
-                                                  FinancialInputSource
-                                                      .voiceTranscript &&
+                                              _lastVoiceErrorCode != null &&
                                               _inputCtrl.text
                                                   .trim()
-                                                  .isNotEmpty)
-                                            TextButton.icon(
-                                              key: const Key(
-                                                'financial_ai_voice_retry_btn',
-                                              ),
-                                              style: TextButton.styleFrom(
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                              ),
-                                              onPressed: () => _toggleMic(
-                                                clearExisting: true,
-                                              ),
-                                              icon: const Icon(
-                                                Icons.mic_rounded,
-                                                size: 16,
-                                              ),
-                                              label: const Text('Nói lại'),
-                                            ),
-                                        ],
-                                      ),
-                                      if (!_isListening &&
-                                          _lastVoiceErrorCode != null &&
-                                          _inputCtrl.text.trim().isEmpty) ...[
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            if (_lastVoiceErrorCode ==
-                                                    'PERMISSION_DENIED' ||
-                                                _lastVoiceErrorCode ==
-                                                    'PERMISSION_PERMANENTLY_DENIED')
-                                              FilledButton.tonalIcon(
-                                                key: const Key(
-                                                  'fin_ai_grant_mic_btn',
+                                                  .isEmpty) ...[
+                                            const SizedBox(height: 6),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: [
+                                                if (_lastVoiceErrorCode ==
+                                                        'PERMISSION_DENIED' ||
+                                                    _lastVoiceErrorCode ==
+                                                        'PERMISSION_PERMANENTLY_DENIED')
+                                                  FilledButton.tonalIcon(
+                                                    key: const Key(
+                                                      'fin_ai_grant_mic_btn',
+                                                    ),
+                                                    style:
+                                                        FilledButton.styleFrom(
+                                                          visualDensity:
+                                                              VisualDensity
+                                                                  .compact,
+                                                        ),
+                                                    onPressed: () async {
+                                                      if (_lastVoiceErrorCode ==
+                                                          'PERMISSION_PERMANENTLY_DENIED') {
+                                                        await sl<
+                                                              NativeVoiceAssistantBridge
+                                                            >()
+                                                            .openMicrophoneSettings();
+                                                      } else {
+                                                        await _toggleMic();
+                                                      }
+                                                    },
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .mic_external_on_rounded,
+                                                      size: 15,
+                                                    ),
+                                                    label: Text(
+                                                      _lastVoiceErrorCode ==
+                                                              'PERMISSION_PERMANENTLY_DENIED'
+                                                          ? 'Mở Cài đặt Micro'
+                                                          : 'Cấp quyền Micro',
+                                                      style: const TextStyle(
+                                                        fontSize: 11.5,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                OutlinedButton.icon(
+                                                  key: const Key(
+                                                    'fin_ai_system_voice_btn',
+                                                  ),
+                                                  style:
+                                                      OutlinedButton.styleFrom(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                      ),
+                                                  onPressed: () => _toggleMic(
+                                                    preferSystemDialog: true,
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .record_voice_over_outlined,
+                                                    size: 15,
+                                                  ),
+                                                  label: const Text(
+                                                    'Thu âm hệ thống',
+                                                    style: TextStyle(
+                                                      fontSize: 11.5,
+                                                    ),
+                                                  ),
                                                 ),
-                                                style: FilledButton.styleFrom(
+                                              ],
+                                            ),
+                                          ],
+                                        ],
+                                        if (_inputCtrl.text.trim().isEmpty &&
+                                            aiState.activeCandidates.isEmpty &&
+                                            aiState.currentAnalysis == null &&
+                                            geminiState.lastResult == null) ...[
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            'Mẫu câu lệnh gợi ý 1-chạm',
+                                            style: TextStyle(
+                                              fontSize: 11.8,
+                                              fontWeight: FontWeight.w700,
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: [
+                                              for (final sample in const [
+                                                (
+                                                  key: 'expense',
+                                                  label: 'Cà phê 35k',
+                                                  icon:
+                                                      Icons.local_cafe_outlined,
+                                                  command: 'Cà phê 35k',
+                                                ),
+                                                (
+                                                  key: 'split',
+                                                  label: 'Chia bill 240k',
+                                                  icon: Icons.groups_outlined,
+                                                  command:
+                                                      'Ăn trưa 240k chia 4 người',
+                                                ),
+                                                (
+                                                  key: 'schedule',
+                                                  label: 'Họp 9h sáng mai',
+                                                  icon: Icons
+                                                      .event_available_rounded,
+                                                  command:
+                                                      'Họp dự án 9h sáng mai',
+                                                ),
+                                                (
+                                                  key: 'water',
+                                                  label: 'Uống 250ml nước',
+                                                  icon:
+                                                      Icons.water_drop_outlined,
+                                                  command: 'Uống 250ml nước',
+                                                ),
+                                              ])
+                                                ActionChip(
+                                                  key: Key(
+                                                    'ai_sample_chip_${sample.key}',
+                                                  ),
                                                   visualDensity:
                                                       VisualDensity.compact,
-                                                ),
-                                                onPressed: () async {
-                                                  if (_lastVoiceErrorCode ==
-                                                      'PERMISSION_PERMANENTLY_DENIED') {
-                                                    await sl<
-                                                          NativeVoiceAssistantBridge
-                                                        >()
-                                                        .openMicrophoneSettings();
-                                                  } else {
-                                                    await _toggleMic();
-                                                  }
-                                                },
-                                                icon: const Icon(
-                                                  Icons.mic_external_on_rounded,
-                                                  size: 15,
-                                                ),
-                                                label: Text(
-                                                  _lastVoiceErrorCode ==
-                                                          'PERMISSION_PERMANENTLY_DENIED'
-                                                      ? 'Mở Cài đặt Micro'
-                                                      : 'Cấp quyền Micro',
-                                                  style: const TextStyle(
-                                                    fontSize: 11.5,
+                                                  avatar: Icon(
+                                                    sample.icon,
+                                                    size: 15,
+                                                    color: c.primary,
                                                   ),
+                                                  label: Text(
+                                                    sample.label,
+                                                    style: const TextStyle(
+                                                      fontSize: 11.8,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontFeatures: [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  onPressed: isAnalyzing
+                                                      ? null
+                                                      : () {
+                                                          setState(() {
+                                                            _activeSource =
+                                                                FinancialInputSource
+                                                                    .manualText;
+                                                            _inputCtrl.text =
+                                                                sample.command;
+                                                            _inputCtrl
+                                                                    .selection =
+                                                                TextSelection.collapsed(
+                                                                  offset: sample
+                                                                      .command
+                                                                      .length,
+                                                                );
+                                                            _sessionPrefixText =
+                                                                sample.command;
+                                                          });
+                                                          _submitAnalysis();
+                                                        },
                                                 ),
-                                              ),
-                                            OutlinedButton.icon(
-                                              key: const Key(
-                                                'fin_ai_system_voice_btn',
-                                              ),
-                                              style: OutlinedButton.styleFrom(
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                              ),
-                                              onPressed: () => _toggleMic(
-                                                preferSystemDialog: true,
-                                              ),
-                                              icon: const Icon(
-                                                Icons
-                                                    .record_voice_over_outlined,
-                                                size: 15,
-                                              ),
-                                              label: const Text(
-                                                'Thu âm hệ thống',
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                      if (_inputCtrl.text.trim().isEmpty &&
-                                          aiState.activeCandidates.isEmpty &&
-                                          aiState.currentAnalysis == null &&
-                                          geminiState.lastResult == null) ...[
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          'Mẫu câu lệnh gợi ý 1-chạm',
-                                          style: TextStyle(
-                                            fontSize: 11.8,
-                                            fontWeight: FontWeight.w700,
-                                            color: c.textSecondary,
+                                            ],
                                           ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            for (final sample in const [
-                                              (
-                                                key: 'expense',
-                                                label: 'Cà phê 35k',
-                                                icon: Icons.local_cafe_outlined,
-                                                command: 'Cà phê 35k',
-                                              ),
-                                              (
-                                                key: 'split',
-                                                label: 'Chia bill 240k',
-                                                icon: Icons.groups_outlined,
-                                                command:
-                                                    'Ăn trưa 240k chia 4 người',
-                                              ),
-                                              (
-                                                key: 'schedule',
-                                                label: 'Họp 9h sáng mai',
-                                                icon: Icons
-                                                    .event_available_rounded,
-                                                command: 'Họp dự án 9h sáng mai',
-                                              ),
-                                              (
-                                                key: 'water',
-                                                label: 'Uống 250ml nước',
-                                                icon: Icons.water_drop_outlined,
-                                                command: 'Uống 250ml nước',
-                                              ),
-                                            ])
-                                              ActionChip(
-                                                key: Key(
-                                                  'ai_sample_chip_${sample.key}',
-                                                ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                avatar: Icon(
-                                                  sample.icon,
-                                                  size: 15,
-                                                  color: c.primary,
-                                                ),
-                                                label: Text(
-                                                  sample.label,
-                                                  style: const TextStyle(
-                                                    fontSize: 11.8,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontFeatures: [
-                                                      FontFeature
-                                                          .tabularFigures(),
-                                                    ],
-                                                  ),
-                                                ),
-                                                onPressed: isAnalyzing
-                                                    ? null
-                                                    : () {
-                                                        setState(() {
-                                                          _activeSource =
-                                                              FinancialInputSource
-                                                                  .manualText;
-                                                          _inputCtrl.text =
-                                                              sample.command;
-                                                          _inputCtrl.selection =
-                                                              TextSelection.collapsed(
-                                                                offset: sample
-                                                                    .command
-                                                                    .length,
-                                                              );
-                                                          _sessionPrefixText =
-                                                              sample.command;
-                                                        });
-                                                        _submitAnalysis();
-                                                      },
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                      const SizedBox(height: 12),
+                                        ],
+                                        const SizedBox(height: 12),
                                         Row(
                                           children: [
                                             if (aiState
@@ -849,173 +866,178 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody> {
                                               ),
                                               const SizedBox(width: 8),
                                             ],
-                                          Expanded(
-                                            child: FilledButton.icon(
-                                              key: const Key(
-                                                'financial_ai_analyze_btn',
-                                              ),
-                                              onPressed: isAnalyzing
-                                                  ? null
-                                                  : _submitAnalysis,
-                                              icon: isAnalyzing
-                                                  ? const SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                          ),
-                                                    )
-                                                  : const Icon(
-                                                      Icons.auto_awesome_rounded,
-                                                      size: 18,
-                                                    ),
-                                              label: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Text(
-                                                  isAnalyzing
-                                                      ? 'Đang phân tích...'
-                                                      : (geminiReady
-                                                            ? 'Phân tích AI + Gemini'
-                                                            : 'Phân tích Offline AI'),
+                                            Expanded(
+                                              child: FilledButton.icon(
+                                                key: const Key(
+                                                  'financial_ai_analyze_btn',
                                                 ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-
-                                // 2.5. Hybrid Gemini / Behavioral Insight + Multi-Domain Actions
-                                _GeminiHybridInsightAndOmniActionsSection(
-                                  geminiState: geminiState,
-                                  hasFinancialAiCandidates:
-                                      aiState.activeCandidates.isNotEmpty,
-                                  defaultWalletId: txState.wallets.isNotEmpty
-                                      ? txState.wallets.first.id
-                                      : 'wallet_cash_default',
-                                ),
-
-                              // 3. Non-Transaction Safety Notice (e.g. balance / negation / cancel)
-                              if (aiState.currentAnalysis != null &&
-                                  !aiState
-                                      .currentAnalysis!
-                                      .hasActionableCandidates &&
-                                  aiState
-                                          .currentAnalysis!
-                                          .nonTransactionReason !=
-                                      null)
-                                LifeOsSoftCard(
-                                  key: const Key(
-                                    'financial_ai_non_tx_notice_card',
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(
-                                        Icons.shield_rounded,
-                                        color: c.primary,
-                                        size: 22,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Đã bảo vệ sổ cái an toàn (0 giao dịch tạo mới)',
-                                              softWrap: true,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                                color: c.textPrimary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              aiState
-                                                  .currentAnalysis!
-                                                  .nonTransactionReason!,
-                                              softWrap: true,
-                                              style: TextStyle(
-                                                fontSize: 12.6,
-                                                color: c.textSecondary,
+                                                onPressed: isAnalyzing
+                                                    ? null
+                                                    : _submitAnalysis,
+                                                icon: isAnalyzing
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                            ),
+                                                      )
+                                                    : const Icon(
+                                                        Icons
+                                                            .auto_awesome_rounded,
+                                                        size: 18,
+                                                      ),
+                                                label: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Text(
+                                                    isAnalyzing
+                                                        ? 'Đang phân tích...'
+                                                        : (geminiReady
+                                                              ? 'Phân tích AI + Gemini'
+                                                              : 'Phân tích Offline AI'),
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                              // 4. Multi-Draft AI Classification Preview (Phase 16.2)
-                              if (aiState.activeCandidates.isNotEmpty) ...[
-                                LifeOsSectionHeader(
-                                  title:
-                                      'Bản nháp giao dịch đề xuất (${aiState.activeCandidates.length})',
-                                  subtitle:
-                                      'Kiểm tra hoặc chỉnh sửa số tiền, danh mục, ví & ngày trước khi xác nhận',
-                                ),
-                                const SizedBox(height: 6),
-                                ...aiState.activeCandidates.map(
-                                  (draft) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _AiTransactionDraftPreviewCard(
-                                      draft: draft,
-                                      wallets: txState.wallets,
-                                      categories: txState.categories,
-                                      isConfirming: aiState.isConfirming,
-                                      onEdit: () => _showEditDraftSheet(
-                                        context,
-                                        userId: user.id,
-                                        draft: draft,
-                                        wallets: txState.wallets,
-                                        categories: txState.categories,
-                                      ),
-                                      onConfirm: () => context
-                                          .read<FinancialAiBloc>()
-                                          .add(
-                                            FinancialDraftConfirmed(
-                                              userId: user.id,
-                                              draftId: draft.draftId,
-                                            ),
-                                          ),
-                                      onReject: () => context
-                                          .read<FinancialAiBloc>()
-                                          .add(
-                                            FinancialDraftRejected(
-                                              userId: user.id,
-                                              draftId: draft.draftId,
-                                            ),
-                                          ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                if (aiState.activeCandidates.length > 1)
-                                  LifeOsPrimaryCtaButton(
-                                    key: const Key('confirm_all_ai_drafts_btn'),
-                                    icon: Icons.done_all_rounded,
-                                    label:
-                                        'Xác nhận ghi sổ tất cả ($readyCount/${aiState.activeCandidates.length} khoản hợp lệ)',
-                                    onPressed:
-                                        (readyCount > 0 &&
-                                            !aiState.isConfirming)
-                                        ? () => context
+                                  const SizedBox(height: 14),
+
+                                  // 2.5. Hybrid Gemini / Behavioral Insight + Multi-Domain Actions
+                                  _GeminiHybridInsightAndOmniActionsSection(
+                                    geminiState: geminiState,
+                                    hasFinancialAiCandidates:
+                                        aiState.activeCandidates.isNotEmpty,
+                                    defaultWalletId: txState.wallets.isNotEmpty
+                                        ? txState.wallets.first.id
+                                        : 'wallet_cash_default',
+                                  ),
+
+                                  // 3. Non-Transaction Safety Notice (e.g. balance / negation / cancel)
+                                  if (aiState.currentAnalysis != null &&
+                                      !aiState
+                                          .currentAnalysis!
+                                          .hasActionableCandidates &&
+                                      aiState
+                                              .currentAnalysis!
+                                              .nonTransactionReason !=
+                                          null)
+                                    LifeOsSoftCard(
+                                      key: const Key(
+                                        'financial_ai_non_tx_notice_card',
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.shield_rounded,
+                                            color: c.primary,
+                                            size: 22,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Đã bảo vệ sổ cái an toàn (0 giao dịch tạo mới)',
+                                                  softWrap: true,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: c.textPrimary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  aiState
+                                                      .currentAnalysis!
+                                                      .nonTransactionReason!,
+                                                  softWrap: true,
+                                                  style: TextStyle(
+                                                    fontSize: 12.6,
+                                                    color: c.textSecondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                  // 4. Multi-Draft AI Classification Preview (Phase 16.2)
+                                  if (aiState.activeCandidates.isNotEmpty) ...[
+                                    LifeOsSectionHeader(
+                                      title:
+                                          'Bản nháp giao dịch đề xuất (${aiState.activeCandidates.length})',
+                                      subtitle:
+                                          'Kiểm tra hoặc chỉnh sửa số tiền, danh mục, ví & ngày trước khi xác nhận',
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ...aiState.activeCandidates.map(
+                                      (draft) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 12,
+                                        ),
+                                        child: _AiTransactionDraftPreviewCard(
+                                          draft: draft,
+                                          wallets: txState.wallets,
+                                          categories: txState.categories,
+                                          isConfirming: aiState.isConfirming,
+                                          onEdit: () => _showEditDraftSheet(
+                                            context,
+                                            userId: user.id,
+                                            draft: draft,
+                                            wallets: txState.wallets,
+                                            categories: txState.categories,
+                                          ),
+                                          onConfirm: () => context
                                               .read<FinancialAiBloc>()
                                               .add(
                                                 FinancialDraftConfirmed(
                                                   userId: user.id,
+                                                  draftId: draft.draftId,
                                                 ),
-                                              )
-                                        : null,
-                                  ),
-                              ],
+                                              ),
+                                          onReject: () => context
+                                              .read<FinancialAiBloc>()
+                                              .add(
+                                                FinancialDraftRejected(
+                                                  userId: user.id,
+                                                  draftId: draft.draftId,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (aiState.activeCandidates.length > 1)
+                                      LifeOsPrimaryCtaButton(
+                                        key: const Key(
+                                          'confirm_all_ai_drafts_btn',
+                                        ),
+                                        icon: Icons.done_all_rounded,
+                                        label:
+                                            'Xác nhận ghi sổ tất cả ($readyCount/${aiState.activeCandidates.length} khoản hợp lệ)',
+                                        onPressed:
+                                            (readyCount > 0 &&
+                                                !aiState.isConfirming)
+                                            ? () => context
+                                                  .read<FinancialAiBloc>()
+                                                  .add(
+                                                    FinancialDraftConfirmed(
+                                                      userId: user.id,
+                                                    ),
+                                                  )
+                                            : null,
+                                      ),
+                                  ],
                                 ],
                               ),
                             ),

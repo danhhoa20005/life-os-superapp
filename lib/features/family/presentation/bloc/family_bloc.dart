@@ -250,10 +250,7 @@ final class ShoppingItemDeleted extends FamilyEvent {
   final String familyId;
   final String itemId;
 
-  const ShoppingItemDeleted({
-    required this.familyId,
-    required this.itemId,
-  });
+  const ShoppingItemDeleted({required this.familyId, required this.itemId});
 
   @override
   List<Object?> get props => [familyId, itemId];
@@ -500,7 +497,10 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
     );
     on<SharedBillSplitCreated>(_onCreateSharedBill, transformer: sequential());
     on<DebtSettlementRecorded>(_onRecordSettlement, transformer: sequential());
-    on<DebtSettlementRequested>(_onRequestSettlement, transformer: sequential());
+    on<DebtSettlementRequested>(
+      _onRequestSettlement,
+      transformer: sequential(),
+    );
     on<SettlementRequestDecided>(
       _onDecideSettlementRequest,
       transformer: sequential(),

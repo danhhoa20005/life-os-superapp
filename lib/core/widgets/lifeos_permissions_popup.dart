@@ -282,9 +282,11 @@ class _LifeOsPermissionsDialogState extends State<_LifeOsPermissionsDialog>
                       icon: Icons.notifications_active_outlined,
                       tone: LifeOsAccentTone.emerald,
                       title: 'Thông báo nhắc nhở',
-                      subtitle: 'Nhắc lịch hẹn, uống nước & uống thuốc đúng giờ',
+                      subtitle:
+                          'Nhắc lịch hẹn, uống nước & uống thuốc đúng giờ',
                       granted: snap.notifications,
-                      busy: _activeRequestKind ==
+                      busy:
+                          _activeRequestKind ==
                           LifeOsPermissionKind.notifications,
                       onRequest: () => _handleGrantSingle(
                         LifeOsPermissionKind.notifications,
@@ -335,7 +337,8 @@ class _LifeOsPermissionsDialogState extends State<_LifeOsPermissionsDialog>
                             title: 'Báo thức chuẩn giờ',
                             subtitle: 'Đổ chuông lịch hẹn chính xác từng phút',
                             granted: snap.exactAlarm,
-                            busy: _activeRequestKind ==
+                            busy:
+                                _activeRequestKind ==
                                 LifeOsPermissionKind.exactAlarm,
                             actionLabel: 'Mở cài đặt',
                             onRequest: () => _handleGrantSingle(
@@ -354,7 +357,8 @@ class _LifeOsPermissionsDialogState extends State<_LifeOsPermissionsDialog>
                             subtitle:
                                 'Giữ chuông nhắc hoạt động khi khóa màn hình',
                             granted: snap.batteryUnrestricted,
-                            busy: _activeRequestKind ==
+                            busy:
+                                _activeRequestKind ==
                                 LifeOsPermissionKind.batteryUnrestricted,
                             actionLabel: 'Cho phép',
                             onRequest: () => _handleGrantSingle(
@@ -375,7 +379,8 @@ class _LifeOsPermissionsDialogState extends State<_LifeOsPermissionsDialog>
                             subtitle:
                                 'Tự động ghi sổ thu chi · Không đọc mã OTP',
                             granted: snap.bankNotificationListener,
-                            busy: _activeRequestKind ==
+                            busy:
+                                _activeRequestKind ==
                                 LifeOsPermissionKind.bankNotificationListener,
                             actionLabel: 'Mở cài đặt',
                             onRequest: () => _handleGrantSingle(

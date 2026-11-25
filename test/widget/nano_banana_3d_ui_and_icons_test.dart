@@ -66,65 +66,73 @@ void main() {
   });
 
   group('1. Nano Banana Pro 3D Asset Integrity & Glyph Mapping', () {
-    test('Every registered 3D icon, bank card skin & 3D hero asset exists on disk and is non-empty', () {
-      final allPaths = <String>[
-        ...AppAssets.allBananaIcons,
-        ...AppAssets.allBankCardSkins,
-        AppAssets.hero3dWealthVault,
-        AppAssets.hero3dWelcomeEcosystem,
-        AppAssets.icMotionPhysics3d,
-      ];
-      expect(AppAssets.allBananaIcons.length, greaterThanOrEqualTo(32));
+    test(
+      'Every registered 3D icon, bank card skin & 3D hero asset exists on disk and is non-empty',
+      () {
+        final allPaths = <String>[
+          ...AppAssets.allBananaIcons,
+          ...AppAssets.allBankCardSkins,
+          AppAssets.hero3dWealthVault,
+          AppAssets.hero3dWelcomeEcosystem,
+          AppAssets.icMotionPhysics3d,
+        ];
+        expect(AppAssets.allBananaIcons.length, greaterThanOrEqualTo(32));
 
-      for (final assetPath in allPaths) {
-        final file = File(assetPath);
+        for (final assetPath in allPaths) {
+          final file = File(assetPath);
+          expect(
+            file.existsSync(),
+            isTrue,
+            reason: 'Missing 3D asset on disk: $assetPath',
+          );
+          expect(
+            file.lengthSync(),
+            greaterThan(1024),
+            reason: 'Corrupt/empty 3D asset: $assetPath',
+          );
+        }
+      },
+    );
+
+    test(
+      'resolveBananaIconForGlyph maps all core, AI, alarm, appearance & navigation glyphs to 3D icons',
+      () {
         expect(
-          file.existsSync(),
-          isTrue,
-          reason: 'Missing 3D asset on disk: $assetPath',
+          AppAssets.resolveBananaIconForGlyph(Icons.home_rounded),
+          AppAssets.icNavToday,
         );
         expect(
-          file.lengthSync(),
-          greaterThan(1024),
-          reason: 'Corrupt/empty 3D asset: $assetPath',
+          AppAssets.resolveBananaIconForGlyph(
+            Icons.account_balance_wallet_rounded,
+          ),
+          AppAssets.icNavFinance,
         );
-      }
-    });
-
-    test('resolveBananaIconForGlyph maps all core, AI, alarm, appearance & navigation glyphs to 3D icons', () {
-      expect(
-        AppAssets.resolveBananaIconForGlyph(Icons.home_rounded),
-        AppAssets.icNavToday,
-      );
-      expect(
-        AppAssets.resolveBananaIconForGlyph(
-          Icons.account_balance_wallet_rounded,
-        ),
-        AppAssets.icNavFinance,
-      );
-      expect(
-        AppAssets.resolveBananaIconForGlyph(Icons.menu_rounded),
-        AppAssets.icSysAllServices,
-      );
-      expect(
-        AppAssets.resolveBananaIconForGlyph(Icons.auto_awesome_rounded),
-        AppAssets.ic3dAiSpark,
-      );
-      expect(
-        AppAssets.resolveBananaIconForGlyph(
-          Icons.notifications_active_outlined,
-        ),
-        AppAssets.ic3dAlarmBell,
-      );
-      expect(
-        AppAssets.resolveBananaIconForGlyph(Icons.palette_outlined),
-        AppAssets.ic3dAppearanceStudio,
-      );
-      expect(
-        AppAssets.resolveBananaIconForGlyph(Icons.auto_awesome_motion_rounded),
-        AppAssets.icMotionPhysics3d,
-      );
-    });
+        expect(
+          AppAssets.resolveBananaIconForGlyph(Icons.menu_rounded),
+          AppAssets.icSysAllServices,
+        );
+        expect(
+          AppAssets.resolveBananaIconForGlyph(Icons.auto_awesome_rounded),
+          AppAssets.ic3dAiSpark,
+        );
+        expect(
+          AppAssets.resolveBananaIconForGlyph(
+            Icons.notifications_active_outlined,
+          ),
+          AppAssets.ic3dAlarmBell,
+        );
+        expect(
+          AppAssets.resolveBananaIconForGlyph(Icons.palette_outlined),
+          AppAssets.ic3dAppearanceStudio,
+        );
+        expect(
+          AppAssets.resolveBananaIconForGlyph(
+            Icons.auto_awesome_motion_rounded,
+          ),
+          AppAssets.icMotionPhysics3d,
+        );
+      },
+    );
   });
 
   group('2. 3D UI Surface & 3D Icon Rendering Across Shell, Home, Finance & Menu', () {
@@ -205,10 +213,7 @@ void main() {
 
         // TodayPage + 5-Tab Bottom Bar must display abundant 3D BananaGlassIcons & ProHeroGradientCard
         expect(find.byType(ProHeroGradientCard), findsWidgets);
-        expect(
-          find.byType(BananaGlassIcon),
-          findsAtLeastNWidgets(10),
-        );
+        expect(find.byType(BananaGlassIcon), findsAtLeastNWidgets(10));
         expect(tester.takeException(), isNull);
 
         // Navigate to Finance tab -> wallet skin + scroll to 2D category badge (`BananaGlassIcon`)

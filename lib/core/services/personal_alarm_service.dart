@@ -80,9 +80,7 @@ class PersonalAlarmItem extends Equatable {
       return DateTime(now.year, now.month, now.day + 1, safeHour, safeMin);
     }
 
-    final validDays = repeatWeekdays
-        .where((d) => d >= 1 && d <= 7)
-        .toSet();
+    final validDays = repeatWeekdays.where((d) => d >= 1 && d <= 7).toSet();
     for (var offset = 0; offset <= 7; offset++) {
       final candidate = DateTime(
         now.year,
@@ -210,14 +208,17 @@ class PersonalAlarmStore {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const <PersonalAlarmItem>[];
-      final list = decoded
-          .whereType<Map<dynamic, dynamic>>()
-          .map((m) => PersonalAlarmItem.fromJson(Map<String, dynamic>.from(m)))
-          .toList()
-        ..sort((a, b) {
-          final cmpH = a.hour.compareTo(b.hour);
-          return cmpH != 0 ? cmpH : a.minute.compareTo(b.minute);
-        });
+      final list =
+          decoded
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (m) => PersonalAlarmItem.fromJson(Map<String, dynamic>.from(m)),
+              )
+              .toList()
+            ..sort((a, b) {
+              final cmpH = a.hour.compareTo(b.hour);
+              return cmpH != 0 ? cmpH : a.minute.compareTo(b.minute);
+            });
       return list;
     } catch (_) {
       return const <PersonalAlarmItem>[];
@@ -306,10 +307,7 @@ class PersonalAlarmStore {
   /// Called when an alarm is dismissed on the ringing screen:
   /// - One-time alarms automatically turn off (`enabled = false`).
   /// - Recurring weekday alarms automatically schedule their next matching day!
-  Future<void> handleAlarmDismissed(
-    String id, {
-    DateTime? nowOverride,
-  }) async {
+  Future<void> handleAlarmDismissed(String id, {DateTime? nowOverride}) async {
     if (!id.startsWith('palarm_')) return;
     final refNow = nowOverride ?? DateTime.now();
     final current = await loadAlarms();

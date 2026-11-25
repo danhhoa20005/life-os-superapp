@@ -107,14 +107,15 @@ class OutboxRecord extends Equatable {
       ownerId: (map['ownerId'] ?? '').toString(),
       entityType: (map['entityType'] ?? '').toString(),
       entityId: (map['entityId'] ?? '').toString(),
-      mutationKind: OutboxMutationKind.fromWire(map['mutationKind']?.toString()),
+      mutationKind: OutboxMutationKind.fromWire(
+        map['mutationKind']?.toString(),
+      ),
       payload: map['payload'] is Map
           ? Map<String, dynamic>.from(map['payload'] as Map)
           : const <String, dynamic>{},
       stage: OfflineSyncStage.fromWire(map['stage']?.toString()),
       attemptCount: (map['attemptCount'] as num?)?.toInt() ?? 0,
-      baseUpdatedAtEpochMs:
-          (map['baseUpdatedAtEpochMs'] as num?)?.toInt() ?? 0,
+      baseUpdatedAtEpochMs: (map['baseUpdatedAtEpochMs'] as num?)?.toInt() ?? 0,
       nextRetryAtEpochMs: (map['nextRetryAtEpochMs'] as num?)?.toInt() ?? 0,
       lastError: map['lastError']?.toString(),
     );
@@ -168,7 +169,12 @@ class OfflineSyncTelemetry extends Equatable {
   ];
 }
 
-enum OutboxRemoteOutcome { synced, conflict, transientFailure, permanentFailure }
+enum OutboxRemoteOutcome {
+  synced,
+  conflict,
+  transientFailure,
+  permanentFailure,
+}
 
 /// Persistent, Idempotent Offline Outbox & Sync Recovery Coordinator (Section 36).
 ///

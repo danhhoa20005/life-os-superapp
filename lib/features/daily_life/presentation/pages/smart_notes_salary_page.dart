@@ -365,11 +365,8 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                 padding: const EdgeInsets.all(14),
                 onTap: userId.isEmpty
                     ? null
-                    : () => _showNoteEditorSheet(
-                        context,
-                        userId,
-                        existing: note,
-                      ),
+                    : () =>
+                          _showNoteEditorSheet(context, userId, existing: note),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -614,9 +611,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
-          style: const TextStyle(
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
+          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
           decoration: const InputDecoration(
             labelText: 'Số tiền (VNĐ)',
             hintText: 'VD: 18500000',
@@ -1132,9 +1127,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                     initialValue: category,
                     decoration: const InputDecoration(labelText: 'Phân loại'),
                     items: categories
-                        .map(
-                          (t) => DropdownMenuItem(value: t, child: Text(t)),
-                        )
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                         .toList(),
                     onChanged: (v) {
                       if (v != null) setModal(() => category = v);

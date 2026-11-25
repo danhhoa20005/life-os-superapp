@@ -639,7 +639,9 @@ class FamilyRemoteDataSource {
       inviteeName: d['inviteeName'] as String?,
       intendedRecipientHash: recipientHash,
       invitedByUserId:
-          (d['invitedByUserId'] as String?) ?? (d['createdBy'] as String?) ?? '',
+          (d['invitedByUserId'] as String?) ??
+          (d['createdBy'] as String?) ??
+          '',
       invitedByName: (d['invitedByName'] as String?) ?? 'Trưởng nhóm',
       createdAt: _readDateTime(d['createdAt'], now),
       expiresAt: expiresAt,
@@ -854,8 +856,7 @@ class FamilyRemoteDataSource {
       if (!candidateHashes.contains(recipientHash)) {
         throw const AppException(
           code: 'PERMISSION_DENIED',
-          message:
-              'Mã mời đích danh này chỉ dành cho đúng Email/SĐT được mời.',
+          message: 'Mã mời đích danh này chỉ dành cho đúng Email/SĐT được mời.',
         );
       }
     }
@@ -1201,10 +1202,10 @@ class FamilyRemoteDataSource {
     }
     final now = DateTime.now();
     // F04 / SEC-04: Deterministic idempotency key per (family, payer, payee, amount, paymentCode, partial suffix, or operationId)
-    final safeCode = paymentCode
-        .trim()
-        .toUpperCase()
-        .replaceAll(RegExp(r'[^A-Z0-9_-]'), '');
+    final safeCode = paymentCode.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9_-]'),
+      '',
+    );
     final opId = operationId?.trim();
     final id = settlementRequestId != null && settlementRequestId.isNotEmpty
         ? 'stl_req_$settlementRequestId'
@@ -1443,7 +1444,8 @@ class FamilyRemoteDataSource {
       }
       final famSnap = await tx.get(famRef);
       final famRoles =
-          (famSnap.data()?['memberRoles'] as Map?) ?? const <dynamic, dynamic>{};
+          (famSnap.data()?['memberRoles'] as Map?) ??
+          const <dynamic, dynamic>{};
       final actorRole = famRoles[actorUserId]?.toString();
       final isManager = actorRole == 'owner' || actorRole == 'admin';
       if (actorUserId != orig.toUserId && !isManager) {

@@ -177,7 +177,8 @@ abstract final class CashflowForecastEngine {
     required int emergencySavingsMinor,
     required int baselineMonthlyIncomeMinor,
     required int observedDailyVariableSpendMinor,
-    List<ScheduledCashflowItem> scheduledItems = const <ScheduledCashflowItem>[],
+    List<ScheduledCashflowItem> scheduledItems =
+        const <ScheduledCashflowItem>[],
     List<DebtObligationItem> debts = const <DebtObligationItem>[],
     double incomeChangeDeltaPct = 0.0,
     double abnormalContingencyPct = 8.0,
@@ -232,7 +233,8 @@ abstract final class CashflowForecastEngine {
       monthlyScheduledOutflow + monthlyVariableOutflow,
     );
     final totalEmergencyPool =
-        math.max(0, currentLiquidBalanceMinor) + math.max(0, emergencySavingsMinor);
+        math.max(0, currentLiquidBalanceMinor) +
+        math.max(0, emergencySavingsMinor);
     final runwayMonths = totalEmergencyPool / monthlyCoreBurn;
     final recommendedEmergencyMinor = monthlyCoreBurn * 6;
 
@@ -254,8 +256,7 @@ abstract final class CashflowForecastEngine {
     for (var mOffset = 0; mOffset < 12; mOffset++) {
       final mStart = DateTime(startDay.year, startDay.month + mOffset, 1);
       final mEnd = DateTime(startDay.year, startDay.month + mOffset + 1, 1);
-      final key =
-          '${mStart.year}-${mStart.month.toString().padLeft(2, '0')}';
+      final key = '${mStart.year}-${mStart.month.toString().padLeft(2, '0')}';
       var sum = 0;
       for (final item in scheduledItems) {
         if (item.isInflow) continue;
@@ -287,7 +288,9 @@ abstract final class CashflowForecastEngine {
       });
 
     final netMonthlySurplus =
-        adjustedMonthlyIncome - monthlyScheduledOutflow - monthlyVariableOutflow;
+        adjustedMonthlyIncome -
+        monthlyScheduledOutflow -
+        monthlyVariableOutflow;
 
     return SmartFinancialPlanReport(
       forecast7d: f7,
@@ -392,7 +395,9 @@ abstract final class CashflowForecastEngine {
     }
 
     final abnormalBuffer =
-        ((totalVariableOut + totalScheduledOut) * abnormalContingencyPct / 100.0)
+        ((totalVariableOut + totalScheduledOut) *
+                abnormalContingencyPct /
+                100.0)
             .round();
     final endingWithBuffer = running - abnormalBuffer;
     if (endingWithBuffer < lowest) {

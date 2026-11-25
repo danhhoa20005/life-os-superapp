@@ -377,10 +377,7 @@ class TaskRepositoryImpl implements TaskRepository {
     required TaskEntity task,
   }) async {
     try {
-      await _remoteDataSource.deleteTask(
-        actorUserId: actorUserId,
-        task: task,
-      );
+      await _remoteDataSource.deleteTask(actorUserId: actorUserId, task: task);
       return const Success(null);
     } catch (e) {
       return Err(ErrorMapper.map(e));

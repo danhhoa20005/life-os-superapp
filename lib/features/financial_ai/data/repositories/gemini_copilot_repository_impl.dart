@@ -90,15 +90,14 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
       );
       return Success(msg);
     } on AppException catch (e) {
-      if (e.code == 'GEMINI_KEY_MISSING' || e.code.startsWith('GEMINI_HTTP_4')) {
+      if (e.code == 'GEMINI_KEY_MISSING' ||
+          e.code.startsWith('GEMINI_HTTP_4')) {
         return Err(ValidationFailure(message: e.message, code: e.code));
       }
       return Err(NetworkFailure(message: e.message, code: e.code));
     } catch (_) {
       return const Err(
-        NetworkFailure(
-          message: 'Không thể kiểm tra kết nối Gemini lúc này.',
-        ),
+        NetworkFailure(message: 'Không thể kiểm tra kết nối Gemini lúc này.'),
       );
     }
   }
@@ -113,7 +112,9 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
     final trimmed = rawInput.trim();
     if (trimmed.isEmpty) {
       return const Err(
-        ValidationFailure(message: 'Hãy nhập câu lệnh hoặc câu hỏi cần phân tích.'),
+        ValidationFailure(
+          message: 'Hãy nhập câu lệnh hoặc câu hỏi cần phân tích.',
+        ),
       );
     }
 
@@ -286,7 +287,8 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
 
       // 2. Neural FastText INT8 classifier enrichment when category is generic 'other'
       if (canClassify &&
-          (d.categoryId == 'cat_other_exp' || d.categoryId == 'cat_other_inc')) {
+          (d.categoryId == 'cat_other_exp' ||
+              d.categoryId == 'cat_other_inc')) {
         try {
           if (!classifierInitialized) {
             await classifier.initialize();

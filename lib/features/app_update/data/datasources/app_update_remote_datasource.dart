@@ -181,7 +181,8 @@ class AppUpdateRemoteDataSource {
               apkUrl = asset['browser_download_url'] as String?;
               apkSize = (asset['size'] as num?)?.toInt();
               apkSha256 = normalizeSha256(asset['digest'] as String?);
-            } else if (name.endsWith('.apk.sha256') || name.endsWith('.sha256')) {
+            } else if (name.endsWith('.apk.sha256') ||
+                name.endsWith('.sha256')) {
               sidecarSha256Url = asset['browser_download_url'] as String?;
             }
           }

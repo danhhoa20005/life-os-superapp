@@ -63,9 +63,7 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
     DateTime? referenceTime,
   }) async {
     try {
-      return Success(
-        _extractor.extractAll(text, referenceTime: referenceTime),
-      );
+      return Success(_extractor.extractAll(text, referenceTime: referenceTime));
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }
@@ -253,10 +251,7 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
     if (candidates.isEmpty) return null;
 
     if (hint == 'CASH') {
-      return candidates
-          .where((w) => w.type == WalletType.cash)
-          .firstOrNull
-          ?.id;
+      return candidates.where((w) => w.type == WalletType.cash).firstOrNull?.id;
     }
     if (hint == 'SAVINGS') {
       return candidates
@@ -393,10 +388,7 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
       }
 
       // Stage 2: Extract & segment 1..N financial clauses
-      final extractedList = _extractor.extractAll(
-        text,
-        referenceTime: refTime,
-      );
+      final extractedList = _extractor.extractAll(text, referenceTime: refTime);
       if (extractedList.isEmpty) {
         sw.stop();
         return Success(
@@ -542,7 +534,10 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
         }
 
         // Stage 6: Resolve Source & Destination Wallets safely (NEVER guess from merchant!)
-        String? srcWalletId = _resolveWalletHint(ext.sourceAccountHint, wallets);
+        String? srcWalletId = _resolveWalletHint(
+          ext.sourceAccountHint,
+          wallets,
+        );
         if (srcWalletId == null && ext.sourceAccountHint == null) {
           final ruleWalletId = matchedRule?.preferredWalletId;
           if (ruleWalletId != null &&
@@ -625,7 +620,8 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
           isDuplicateCandidate: isDup,
           allFlags: flags,
           mediumConfidenceThresholdOverride: prefs.minAutoSuggestConfidence,
-          oodProbability: (matchedRule != null || ext.candidateSemanticKey != null)
+          oodProbability:
+              (matchedRule != null || ext.candidateSemanticKey != null)
               ? 0.0
               : rawClassRes.oodProbability,
         );
@@ -785,7 +781,8 @@ class FinancialAiRepositoryImpl implements FinancialAiRepository {
       kind: ledgerKind,
       amountMinor: candidate.amountMinor,
       merchant: candidate.description,
-      note: '${notePrefix}Phân loại Offline AI (${candidate.topPrediction.semanticKey})',
+      note:
+          '${notePrefix}Phân loại Offline AI (${candidate.topPrediction.semanticKey})',
       occurredAt: candidate.occurredAt,
     );
 

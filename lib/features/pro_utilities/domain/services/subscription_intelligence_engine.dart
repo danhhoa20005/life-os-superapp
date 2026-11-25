@@ -66,7 +66,8 @@ class RecurringServiceInput extends Equatable {
 class SubscriptionInsightAlert extends Equatable {
   final String serviceId;
   final String serviceName;
-  final String kind; // 'renewal_soon' | 'trial_ending' | 'price_increase' | 'low_usage'
+  final String
+  kind; // 'renewal_soon' | 'trial_ending' | 'price_increase' | 'low_usage'
   final String messageVi;
 
   const SubscriptionInsightAlert({
@@ -120,14 +121,18 @@ abstract final class SubscriptionIntelligenceEngine {
     required List<RecurringServiceInput> services,
     required DateTime referenceNow,
     List<({String txId, String merchant, int amountMinor, DateTime occurredAt})>
-        recentBankTransactions = const [],
+        recentBankTransactions =
+        const [],
   }) {
     var monthlyTotal = 0;
     final alerts = <SubscriptionInsightAlert>[];
     final matchedTx = <String, String>{};
 
     for (final svc in services) {
-      monthlyTotal += normalizeToMonthlyMinor(svc.currentAmountMinor, svc.cycle);
+      monthlyTotal += normalizeToMonthlyMinor(
+        svc.currentAmountMinor,
+        svc.cycle,
+      );
 
       // 1. Trial ending alert
       if (svc.trialEndsAt != null) {
@@ -153,8 +158,7 @@ abstract final class SubscriptionIntelligenceEngine {
             serviceId: svc.id,
             serviceName: svc.name,
             kind: 'renewal_soon',
-            messageVi:
-                'Dịch vụ "${svc.name}" sẽ gia hạn sau $dueDays ngày.',
+            messageVi: 'Dịch vụ "${svc.name}" sẽ gia hạn sau $dueDays ngày.',
           ),
         );
       }
@@ -200,8 +204,9 @@ abstract final class SubscriptionIntelligenceEngine {
 
       // 5. Low-usage hint ONLY when concrete usage timestamp exists and > 60 days idle
       if (svc.lastUsedOrMatchedTxAt != null) {
-        final idleDays =
-            referenceNow.difference(svc.lastUsedOrMatchedTxAt!).inDays;
+        final idleDays = referenceNow
+            .difference(svc.lastUsedOrMatchedTxAt!)
+            .inDays;
         if (idleDays >= 60) {
           alerts.add(
             SubscriptionInsightAlert(

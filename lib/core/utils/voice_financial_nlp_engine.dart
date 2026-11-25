@@ -387,9 +387,9 @@ abstract final class VoiceFinancialNlpEngine {
           multiCategoryReceipt: receipt,
           summaryHeadline:
               receipt.validationStatus ==
-                      SplitValidationStatus.requiresConfirmation
-                  ? 'Cảnh báo lệch tổng (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}'
-                  : 'Tách 1 hóa đơn (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}',
+                  SplitValidationStatus.requiresConfirmation
+              ? 'Cảnh báo lệch tổng (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}'
+              : 'Tách 1 hóa đơn (${receipt.splitLines.length} hạng mục) · Tổng ${_fmtShort(receipt.totalAmountMinor)}',
         );
       }
     }
@@ -411,10 +411,9 @@ abstract final class VoiceFinancialNlpEngine {
             normalizedText: normalized,
             intentKind: VoiceSentenceIntentKind.groupBillSplit,
             groupSplit: split,
-            summaryHeadline:
-                split.isValid
-                    ? 'Chia tiền nhóm (${split.shares.length} người · ${split.splitMethod.displayLabel.split('(').first.trim()})'
-                    : 'Cần kiểm tra chia tiền (${split.validationMessageVi ?? 'Chưa hợp lệ'})',
+            summaryHeadline: split.isValid
+                ? 'Chia tiền nhóm (${split.shares.length} người · ${split.splitMethod.displayLabel.split('(').first.trim()})'
+                : 'Cần kiểm tra chia tiền (${split.validationMessageVi ?? 'Chưa hợp lệ'})',
           );
         }
       } else {

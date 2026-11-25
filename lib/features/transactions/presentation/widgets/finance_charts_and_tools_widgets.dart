@@ -174,7 +174,9 @@ class _DailySpendingChartCardState extends State<DailySpendingChartCard> {
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: c.textSecondary,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ),
@@ -261,7 +263,9 @@ class _DailySpendingChartCardState extends State<DailySpendingChartCard> {
                                           borderRadius: BorderRadius.circular(
                                             10,
                                           ),
-                                          border: Border.all(color: c.separator),
+                                          border: Border.all(
+                                            color: c.separator,
+                                          ),
                                         ),
                                         child: Text(
                                           'Chưa có chi tiêu trong kỳ',
@@ -458,18 +462,15 @@ class _DailySpendingChartPainter extends CustomPainter {
       for (var i = 0; i < count; i++) {
         if (buckets[i] <= 0) continue;
         final isFocus =
-            selectedIdx == i || (selectedIdx == null && buckets[i] == maxBucket);
+            selectedIdx == i ||
+            (selectedIdx == null && buckets[i] == maxBucket);
         if (isFocus) {
           canvas.drawCircle(
             barTopPoints[i],
             3.6,
             Paint()..color = Colors.white,
           );
-          canvas.drawCircle(
-            barTopPoints[i],
-            2.6,
-            Paint()..color = barColor,
-          );
+          canvas.drawCircle(barTopPoints[i], 2.6, Paint()..color = barColor);
         }
       }
     }
@@ -648,7 +649,8 @@ class FinanceToolsHubTabView extends StatelessWidget {
             ),
             const LifeOsSectionHeader(
               title: 'Thu nhập, Lãi vay & Tự động hóa',
-              subtitle: 'Tính lương Gross–Net, trả góp, hóa đơn & quy tắc thông minh',
+              subtitle:
+                  'Tính lương Gross–Net, trả góp, hóa đơn & quy tắc thông minh',
               tone: LifeOsAccentTone.purple,
             ),
             IntrinsicHeight(
@@ -714,7 +716,8 @@ class FinanceToolsHubTabView extends StatelessWidget {
               icon: Icons.auto_awesome_rounded,
               tone: LifeOsAccentTone.emerald,
               title: 'Tự động hóa Thông minh',
-              subtitle: 'Quy tắc gợi ý phân bổ lương, xăng xe, hóa đơn & hoàn tác',
+              subtitle:
+                  'Quy tắc gợi ý phân bổ lương, xăng xe, hóa đơn & hoàn tác',
               onTap: () => context.push('/automation-studio'),
             ),
           ],

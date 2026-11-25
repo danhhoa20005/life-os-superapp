@@ -339,7 +339,11 @@ abstract final class SmartReceiptParserEngine {
     final digitsOnly = numPart.replaceAll(RegExp(r'[.,]'), '');
     final base = int.tryParse(digitsOnly) ?? 0;
     if (base <= 0) return 0;
-    if (u == 'k' || u == 'nghìn' || u == 'nghin' || u == 'ngàn' || u == 'ngan') {
+    if (u == 'k' ||
+        u == 'nghìn' ||
+        u == 'nghin' ||
+        u == 'ngàn' ||
+        u == 'ngan') {
       return base < 100000 ? base * 1000 : base;
     }
     // Without an explicit 'k'/'nghìn' unit, require >= 1,000 VND so street/district numbers ("Quận 7") are never misparsed as prices!

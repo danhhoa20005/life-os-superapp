@@ -2,11 +2,7 @@ import '../../features/family/domain/entities/family_entities.dart';
 import 'smart_omni_intent_parser.dart';
 import 'voice_financial_nlp_engine.dart';
 
-enum VoiceReadinessStage {
-  idle,
-  speakingIncomplete,
-  readyComplete,
-}
+enum VoiceReadinessStage { idle, speakingIncomplete, readyComplete }
 
 class VoiceUtteranceEvaluation {
   final VoiceReadinessStage stage;
@@ -68,9 +64,7 @@ abstract final class VoiceUtteranceEvaluator {
 
   /// Bare number at the very end waiting for unit (`"55"`, `"450"`, `"1"`, `"2"`)
   /// where the speaker might still be about to say `"nghìn"` / `"triệu"` / `"ml"` / `"giờ"`.
-  static final RegExp _bareSmallDigitsTailRegex = RegExp(
-    r'(?:^|\s)\d{1,3}$',
-  );
+  static final RegExp _bareSmallDigitsTailRegex = RegExp(r'(?:^|\s)\d{1,3}$');
 
   static VoiceUtteranceEvaluation evaluate(
     String rawTranscript, {
@@ -117,7 +111,8 @@ abstract final class VoiceUtteranceEvaluator {
         finAnalysis?.groupSplit?.validationMessageVi ??
         finAnalysis?.multiCategoryReceipt?.validationMessageVi;
     final hasInvalidSplit =
-        (finAnalysis?.groupSplit != null && !finAnalysis!.groupSplit!.isValid) ||
+        (finAnalysis?.groupSplit != null &&
+            !finAnalysis!.groupSplit!.isValid) ||
         (finAnalysis?.multiCategoryReceipt != null &&
             !finAnalysis!.multiCategoryReceipt!.isValid);
 
@@ -144,7 +139,8 @@ abstract final class VoiceUtteranceEvaluator {
         queryDrafts: omniEnvelope.queryDrafts,
         hasDanglingConnector: false,
         silenceAutoStopDelay: const Duration(milliseconds: 850),
-        liveStatusVi: '✓ Đã nhận diện chuẩn — ngưng nói để chuyển sang xác nhận',
+        liveStatusVi:
+            '✓ Đã nhận diện chuẩn — ngưng nói để chuyển sang xác nhận',
         confirmationBadgeVi: '✓ Đã nhận diện chuẩn — Mời bạn xác nhận',
       );
     }
@@ -161,7 +157,8 @@ abstract final class VoiceUtteranceEvaluator {
         hasDanglingConnector: false,
         silenceAutoStopDelay: const Duration(milliseconds: 1450),
         liveStatusVi: 'Đang chờ đơn vị (nghìn / triệu / giờ)...',
-        confirmationBadgeVi: '✓ Đã nhận diện — Kiểm tra lại số lượng trước khi lưu',
+        confirmationBadgeVi:
+            '✓ Đã nhận diện — Kiểm tra lại số lượng trước khi lưu',
       );
     }
 

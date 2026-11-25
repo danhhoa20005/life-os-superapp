@@ -501,10 +501,7 @@ void main() {
           expect(bloc.state.tasks.single.priority, TaskPriorityLevel.high);
 
           bloc.add(
-            TaskDeleted(
-              actorUserId: 'u_task',
-              task: bloc.state.tasks.single,
-            ),
+            TaskDeleted(actorUserId: 'u_task', task: bloc.state.tasks.single),
           );
           await Future<void>.delayed(const Duration(milliseconds: 60));
           expect(bloc.state.tasks, isEmpty);

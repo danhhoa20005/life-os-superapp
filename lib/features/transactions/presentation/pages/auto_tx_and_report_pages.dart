@@ -616,7 +616,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                       const SizedBox(width: 8),
                       Text(
                         'Xác minh',
-                        style: TextStyle(fontSize: 13.5, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: c.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -659,26 +662,30 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                 key: ValueKey('auto_tx_cat_${tx.id}_$_selectedCategory'),
                 isExpanded: true,
                 initialValue: _selectedCategory,
-                items: <String>{
-                  ..._categories,
-                  ...context
-                      .watch<TransactionListBloc>()
-                      .state
-                      .categories
-                      .map((e) => e.name.trim())
-                      .where((s) => s.isNotEmpty),
-                  if (_selectedCategory.trim().isNotEmpty) _selectedCategory.trim(),
-                }
-                    .map(
-                      (cat) => DropdownMenuItem(
-                        value: cat,
-                        child: Text(
-                          cat,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    )
-                    .toList(),
+                items:
+                    <String>{
+                          ..._categories,
+                          ...context
+                              .watch<TransactionListBloc>()
+                              .state
+                              .categories
+                              .map((e) => e.name.trim())
+                              .where((s) => s.isNotEmpty),
+                          if (_selectedCategory.trim().isNotEmpty)
+                            _selectedCategory.trim(),
+                        }
+                        .map(
+                          (cat) => DropdownMenuItem(
+                            value: cat,
+                            child: Text(
+                              cat,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
                 onChanged: (v) {
                   if (v != null) {
                     setState(() {
@@ -793,7 +800,8 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                   DropdownButtonFormField<String>(
                     key: const Key('auto_tx_vehicle_selector'),
                     isExpanded: true,
-                    initialValue: vehicles.any((v) => v.id == _selectedVehicleId)
+                    initialValue:
+                        vehicles.any((v) => v.id == _selectedVehicleId)
                         ? _selectedVehicleId
                         : vehicles.first.id,
                     decoration: const InputDecoration(
@@ -1297,8 +1305,7 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
       );
       endExclusive = startInclusive.add(const Duration(days: 7));
       final sunday = startInclusive.add(const Duration(days: 6));
-      periodHeaderLabel =
-          'Kỳ tuần: ${_ddMm(startInclusive)}–${_ddMm(sunday)}';
+      periodHeaderLabel = 'Kỳ tuần: ${_ddMm(startInclusive)}–${_ddMm(sunday)}';
       exportTag =
           'Tuan_${startInclusive.year}${startInclusive.month.toString().padLeft(2, '0')}${startInclusive.day.toString().padLeft(2, '0')}';
     } else if (_period == 'year') {
@@ -1451,7 +1458,10 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
           t.occurredAt.month,
           t.occurredAt.day,
         );
-        bIdx = txDay.difference(startInclusive).inDays.clamp(0, bucketCount - 1);
+        bIdx = txDay
+            .difference(startInclusive)
+            .inDays
+            .clamp(0, bucketCount - 1);
       } else if (_period == 'year') {
         bIdx = (t.occurredAt.month - 1).clamp(0, bucketCount - 1);
       } else {
@@ -1485,16 +1495,16 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
       if (v > maxBucketVal) maxBucketVal = v;
     }
 
-    final sel = (_selectedBucketIdx != null && _selectedBucketIdx! < bucketCount)
+    final sel =
+        (_selectedBucketIdx != null && _selectedBucketIdx! < bucketCount)
         ? _selectedBucketIdx
         : null;
     final selInc = sel != null ? incomeBuckets[sel] : 0;
     final selExp = sel != null ? expenseBuckets[sel] : 0;
 
-    final sortedCatEntries = expenseByCat.entries
-        .where((e) => e.value > 0)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sortedCatEntries =
+        expenseByCat.entries.where((e) => e.value > 0).toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
     final donutSlices = sortedCatEntries
         .map(
           (e) => ProDonutSlice(
@@ -1697,337 +1707,372 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                               const SizedBox(height: 12),
                               // Multi-Period Dual Income vs Expense Bar Chart Card
                               LifeOsSoftCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    periodHeaderLabel,
-                                    style: TextStyle(
-                                      fontSize: 15.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.textPrimary,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
-                                      ],
-                                    ),
-                                  ),
-                                  LifeOsStatusPill(
-                                    label: '${periodTxs.length} giao dịch',
-                                    tone: LifeOsAccentTone.emerald,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 6,
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _ReportLegendBadge(
-                                        color: c.success,
-                                        label: 'Thu',
-                                      ),
-                                      const SizedBox(width: 10),
-                                      const _ReportLegendBadge(
-                                        color: expenseBarColor,
-                                        label: 'Chi',
-                                      ),
-                                    ],
-                                  ),
-                                  if (sel != null)
-                                    InkWell(
-                                      borderRadius: BorderRadius.circular(10),
-                                      onTap: () => setState(
-                                        () => _selectedBucketIdx = null,
-                                      ),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: c.primary.withValues(
-                                            alpha: 0.10,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '${fullBucketTitles[sel]}: '
-                                          'Thu +${VndAmount.formatCompact(selInc)} · '
-                                          'Chi -${VndAmount.formatCompact(selExp)}',
-                                          softWrap: true,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      alignment: WrapAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        Text(
+                                          periodHeaderLabel,
                                           style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.w800,
                                             color: c.textPrimary,
                                             fontFeatures: const [
                                               FontFeature.tabularFigures(),
                                             ],
                                           ),
                                         ),
-                                      ),
-                                    )
-                                  else
-                                    Text(
-                                      maxBucketVal > 0
-                                          ? 'Đỉnh: ${VndAmount.formatCompact(maxBucketVal)}'
-                                          : 'Chưa phát sinh',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: c.textSecondary,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 158,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    SizedBox(
-                                      width: 44,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 22,
+                                        LifeOsStatusPill(
+                                          label:
+                                              '${periodTxs.length} giao dịch',
+                                          tone: LifeOsAccentTone.emerald,
                                         ),
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 12,
+                                      runSpacing: 6,
+                                      alignment: WrapAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              alignment: Alignment.centerLeft,
+                                            _ReportLegendBadge(
+                                              color: c.success,
+                                              label: 'Thu',
+                                            ),
+                                            const SizedBox(width: 10),
+                                            const _ReportLegendBadge(
+                                              color: expenseBarColor,
+                                              label: 'Chi',
+                                            ),
+                                          ],
+                                        ),
+                                        if (sel != null)
+                                          InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            onTap: () => setState(
+                                              () => _selectedBucketIdx = null,
+                                            ),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: c.primary.withValues(
+                                                  alpha: 0.10,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
                                               child: Text(
-                                                maxBucketVal > 0
-                                                    ? VndAmount.formatCompact(
-                                                        maxBucketVal,
-                                                      )
-                                                    : '0 ₫',
+                                                '${fullBucketTitles[sel]}: '
+                                                'Thu +${VndAmount.formatCompact(selInc)} · '
+                                                'Chi -${VndAmount.formatCompact(selExp)}',
+                                                softWrap: true,
                                                 style: TextStyle(
-                                                  fontSize: 10,
+                                                  fontSize: 11,
                                                   fontWeight: FontWeight.w700,
-                                                  color: c.textSecondary,
+                                                  color: c.textPrimary,
                                                   fontFeatures: const [
-                                                    FontFeature
-                                                        .tabularFigures(),
+                                                    FontFeature.tabularFigures(),
                                                   ],
                                                 ),
                                               ),
                                             ),
-                                            if (maxBucketVal > 0)
-                                              FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                alignment: Alignment.centerLeft,
-                                                child: Text(
-                                                  VndAmount.formatCompact(
-                                                    maxBucketVal ~/ 2,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 9.5,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: c.textSecondary
-                                                        .withValues(alpha: 0.8),
-                                                    fontFeatures: const [
-                                                      FontFeature
-                                                          .tabularFigures(),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            Text(
-                                              '0 ₫',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                                color: c.textSecondary,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Column(
-                                        children: [
-                                          Expanded(
-                                            child: LayoutBuilder(
-                                              builder: (context, constraints) {
-                                                return GestureDetector(
-                                                  key: const Key(
-                                                    'report_dual_bar_canvas',
-                                                  ),
-                                                  behavior:
-                                                      HitTestBehavior.opaque,
-                                                  onTapUp: (d) =>
-                                                      _selectBucketFromDx(
-                                                        d.localPosition.dx,
-                                                        constraints.maxWidth,
-                                                        bucketCount,
-                                                        toggle: true,
-                                                      ),
-                                                  onHorizontalDragUpdate: (d) =>
-                                                      _selectBucketFromDx(
-                                                        d.localPosition.dx,
-                                                        constraints.maxWidth,
-                                                        bucketCount,
-                                                        toggle: false,
-                                                      ),
-                                                  child: Stack(
-                                                    alignment: Alignment.center,
-                                                    children: [
-                                                      SizedBox.expand(
-                                                        child: CustomPaint(
-                                                          painter: _ReportDualBarChartPainter(
-                                                            incomes:
-                                                                incomeBuckets,
-                                                            expenses:
-                                                                expenseBuckets,
-                                                            selectedIdx: sel,
-                                                            incomeColor:
-                                                                c.success,
-                                                            expenseColor:
-                                                                expenseBarColor,
-                                                            highlightBg: c
-                                                                .primary
-                                                                .withValues(
-                                                                  alpha: 0.08,
-                                                                ),
-                                                            gridColor: c
-                                                                .separator
-                                                                .withValues(
-                                                                  alpha: 0.65,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      if (maxBucketVal == 0)
-                                                        IgnorePointer(
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal:
-                                                                      10,
-                                                                  vertical: 4,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color: c.surface
-                                                                  .withValues(
-                                                                    alpha: 0.90,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    10,
-                                                                  ),
-                                                              border: Border.all(
-                                                                color:
-                                                                    c.separator,
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              'Chưa có giao dịch thu chi trong kỳ',
-                                                              softWrap: true,
-                                                              style: TextStyle(
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color: c
-                                                                    .textSecondary,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
+                                          )
+                                        else
+                                          Text(
+                                            maxBucketVal > 0
+                                                ? 'Đỉnh: ${VndAmount.formatCompact(maxBucketVal)}'
+                                                : 'Chưa phát sinh',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: c.textSecondary,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                             ),
                                           ),
-                                          const SizedBox(height: 6),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      height: 158,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
                                           SizedBox(
-                                            height: 16,
-                                            child: Row(
-                                              children: List.generate(
-                                                bucketCount,
-                                                (i) {
-                                                  final isSelected = sel == i;
-                                                  return Expanded(
-                                                    child: InkWell(
-                                                      key: Key(
-                                                        'report_bucket_label_$i',
+                                            width: 44,
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 22,
+                                              ),
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    alignment:
+                                                        Alignment.centerLeft,
+                                                    child: Text(
+                                                      maxBucketVal > 0
+                                                          ? VndAmount.formatCompact(
+                                                              maxBucketVal,
+                                                            )
+                                                          : '0 ₫',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: c.textSecondary,
+                                                        fontFeatures: const [
+                                                          FontFeature.tabularFigures(),
+                                                        ],
                                                       ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
-                                                      onTap: () {
-                                                        HapticFeedback
-                                                            .selectionClick();
-                                                        setState(() {
-                                                          _selectedBucketIdx =
-                                                              isSelected
-                                                                  ? null
-                                                                  : i;
-                                                        });
-                                                      },
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 1,
-                                                            ),
-                                                        child: Center(
-                                                          child: FittedBox(
-                                                            fit: BoxFit
-                                                                .scaleDown,
-                                                            child: Text(
-                                                              axisLabels[i],
-                                                              style: TextStyle(
-                                                                fontSize: 10.5,
-                                                                fontWeight:
-                                                                    isSelected
-                                                                        ? FontWeight
-                                                                            .w800
-                                                                        : FontWeight
-                                                                            .w700,
-                                                                color: isSelected
-                                                                    ? c.primary
-                                                                    : c.textSecondary,
-                                                                fontFeatures: const [
-                                                                  FontFeature
-                                                                      .tabularFigures(),
-                                                                ],
+                                                    ),
+                                                  ),
+                                                  if (maxBucketVal > 0)
+                                                    FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      alignment:
+                                                          Alignment.centerLeft,
+                                                      child: Text(
+                                                        VndAmount.formatCompact(
+                                                          maxBucketVal ~/ 2,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 9.5,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: c.textSecondary
+                                                              .withValues(
+                                                                alpha: 0.8,
                                                               ),
-                                                            ),
-                                                          ),
+                                                          fontFeatures: const [
+                                                            FontFeature.tabularFigures(),
+                                                          ],
                                                         ),
                                                       ),
                                                     ),
-                                                  );
-                                                },
+                                                  Text(
+                                                    '0 ₫',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: c.textSecondary,
+                                                      fontFeatures: const [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                Expanded(
+                                                  child: LayoutBuilder(
+                                                    builder: (context, constraints) {
+                                                      return GestureDetector(
+                                                        key: const Key(
+                                                          'report_dual_bar_canvas',
+                                                        ),
+                                                        behavior:
+                                                            HitTestBehavior
+                                                                .opaque,
+                                                        onTapUp: (d) =>
+                                                            _selectBucketFromDx(
+                                                              d
+                                                                  .localPosition
+                                                                  .dx,
+                                                              constraints
+                                                                  .maxWidth,
+                                                              bucketCount,
+                                                              toggle: true,
+                                                            ),
+                                                        onHorizontalDragUpdate:
+                                                            (
+                                                              d,
+                                                            ) => _selectBucketFromDx(
+                                                              d
+                                                                  .localPosition
+                                                                  .dx,
+                                                              constraints
+                                                                  .maxWidth,
+                                                              bucketCount,
+                                                              toggle: false,
+                                                            ),
+                                                        child: Stack(
+                                                          alignment:
+                                                              Alignment.center,
+                                                          children: [
+                                                            SizedBox.expand(
+                                                              child: CustomPaint(
+                                                                painter: _ReportDualBarChartPainter(
+                                                                  incomes:
+                                                                      incomeBuckets,
+                                                                  expenses:
+                                                                      expenseBuckets,
+                                                                  selectedIdx:
+                                                                      sel,
+                                                                  incomeColor:
+                                                                      c.success,
+                                                                  expenseColor:
+                                                                      expenseBarColor,
+                                                                  highlightBg: c
+                                                                      .primary
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.08,
+                                                                      ),
+                                                                  gridColor: c
+                                                                      .separator
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.65,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            if (maxBucketVal ==
+                                                                0)
+                                                              IgnorePointer(
+                                                                child: Container(
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            10,
+                                                                        vertical:
+                                                                            4,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: c
+                                                                        .surface
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.90,
+                                                                        ),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          10,
+                                                                        ),
+                                                                    border: Border.all(
+                                                                      color: c
+                                                                          .separator,
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    'Chưa có giao dịch thu chi trong kỳ',
+                                                                    softWrap:
+                                                                        true,
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                      color: c
+                                                                          .textSecondary,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                SizedBox(
+                                                  height: 16,
+                                                  child: Row(
+                                                    children: List.generate(bucketCount, (
+                                                      i,
+                                                    ) {
+                                                      final isSelected =
+                                                          sel == i;
+                                                      return Expanded(
+                                                        child: InkWell(
+                                                          key: Key(
+                                                            'report_bucket_label_$i',
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                4,
+                                                              ),
+                                                          onTap: () {
+                                                            HapticFeedback.selectionClick();
+                                                            setState(() {
+                                                              _selectedBucketIdx =
+                                                                  isSelected
+                                                                  ? null
+                                                                  : i;
+                                                            });
+                                                          },
+                                                          child: Padding(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 1,
+                                                                ),
+                                                            child: Center(
+                                                              child: FittedBox(
+                                                                fit: BoxFit
+                                                                    .scaleDown,
+                                                                child: Text(
+                                                                  axisLabels[i],
+                                                                  style: TextStyle(
+                                                                    fontSize:
+                                                                        10.5,
+                                                                    fontWeight:
+                                                                        isSelected
+                                                                        ? FontWeight
+                                                                              .w800
+                                                                        : FontWeight
+                                                                              .w700,
+                                                                    color:
+                                                                        isSelected
+                                                                        ? c.primary
+                                                                        : c.textSecondary,
+                                                                    fontFeatures:
+                                                                        const [
+                                                                          FontFeature.tabularFigures(),
+                                                                        ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
@@ -2036,187 +2081,188 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                              const SizedBox(height: 12),
 
-                        // Category Composition Donut Card for active period
-                        LifeOsSoftCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Cơ cấu danh mục chi tiêu',
-                                style: TextStyle(
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: c.textPrimary,
+                              // Category Composition Donut Card for active period
+                              LifeOsSoftCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Cơ cấu danh mục chi tiêu',
+                                      style: TextStyle(
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (donutSlices.isEmpty)
+                                      Text(
+                                        'Chưa có khoản chi tiêu theo danh mục trong kỳ này.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: c.textSecondary,
+                                        ),
+                                      )
+                                    else
+                                      RepaintBoundary(
+                                        child: ProDonutChart(
+                                          totalExpenseMinor: totalExpense,
+                                          slices: donutSlices,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              if (donutSlices.isEmpty)
+
+                              // Tổng thu | Tổng chi | Chênh lệch Card
+                              LifeOsSoftCard(
+                                child: Column(
+                                  children: [
+                                    _ReportSummaryRow(
+                                      label: 'Tổng thu',
+                                      value: VndAmount.format(totalIncome),
+                                      valueColor: c.success,
+                                    ),
+                                    const Divider(height: 22),
+                                    _ReportSummaryRow(
+                                      label: 'Tổng chi',
+                                      value: VndAmount.format(totalExpense),
+                                      valueColor: c.error,
+                                    ),
+                                    const Divider(height: 22),
+                                    _ReportSummaryRow(
+                                      label: 'Chênh lệch ròng',
+                                      value: VndAmount.format(
+                                        netDiff,
+                                        showPlus: true,
+                                      ),
+                                      valueColor: netDiff >= 0
+                                          ? c.primary
+                                          : c.error,
+                                    ),
+                                    if (totalIncome > 0) ...[
+                                      const Divider(height: 22),
+                                      _ReportSummaryRow(
+                                        label: 'Tỷ lệ tích lũy',
+                                        value:
+                                            '${savingsRatePct.toStringAsFixed(1)}%',
+                                        valueColor: savingsRatePct >= 0
+                                            ? c.primary
+                                            : c.error,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Insight Banner
+                              LifeOsMintHeroCard(
+                                child: Row(
+                                  children: [
+                                    LifeOsIconSquircle(
+                                      icon:
+                                          totalIncome == 0 && totalExpense == 0
+                                          ? Icons.insights_rounded
+                                          : (netDiff >= 0
+                                                ? Icons.check_circle_rounded
+                                                : Icons.warning_amber_rounded),
+                                      tone: netDiff >= 0
+                                          ? LifeOsAccentTone.emerald
+                                          : LifeOsAccentTone.amber,
+                                      size: 38,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        totalIncome == 0 && totalExpense == 0
+                                            ? 'Chưa có phát sinh thu chi trong kỳ đang chọn. Ghi giao dịch mới để xem phân tích tự động.'
+                                            : (netDiff >= 0
+                                                  ? 'Dòng tiền thặng dư tích cực trong kỳ này! Hãy trích một phần sang Quỹ gia đình.'
+                                                  : 'Chi tiêu đang vượt thu nhập trong kỳ. Kiểm tra các danh mục lớn để cân đối.'),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              LifeOsPrimaryCtaButton(
+                                icon: Icons.file_download_outlined,
+                                label: 'Xuất báo cáo (CSV)',
+                                onPressed: periodTxs.isEmpty
+                                    ? null
+                                    : () async {
+                                        final buf = StringBuffer()
+                                          ..writeln(
+                                            'ThoiGian,HangMuc,DonVi,Loai,SoTienVND',
+                                          );
+                                        for (final tx in periodTxs) {
+                                          final signed =
+                                              tx.direction == 'credit'
+                                              ? tx.amountMinor
+                                              : -tx.amountMinor;
+                                          buf.writeln(
+                                            '${CsvSanitizer.escapeQuotedCell(tx.occurredAt.toIso8601String())},'
+                                            '${CsvSanitizer.escapeQuotedCell(tx.categoryName)},'
+                                            '${CsvSanitizer.escapeQuotedCell(tx.merchant)},'
+                                            '${CsvSanitizer.escapeQuotedCell(tx.kind.name)},'
+                                            '$signed',
+                                          );
+                                        }
+                                        final fileName =
+                                            'BaoCao_LifeOS_$exportTag.csv';
+                                        await sl<NativeAppUpdaterBridge>()
+                                            .shareTextFile(
+                                              fileName: fileName,
+                                              content: buf.toString(),
+                                              mimeType: 'text/csv',
+                                              title:
+                                                  'Báo cáo Tài chính LifeOS ($periodHeaderLabel)',
+                                            );
+                                        if (context.mounted) {
+                                          LifeOsTopToast.show(
+                                            context,
+                                            'Đã xuất báo cáo $fileName.',
+                                            kind: LifeOsToastKind.success,
+                                          );
+                                        }
+                                      },
+                              ),
+                              if (periodTxs.isEmpty) ...[
+                                const SizedBox(height: 6),
                                 Text(
-                                  'Chưa có khoản chi tiêu theo danh mục trong kỳ này.',
+                                  'Chưa có giao dịch trong kỳ này để xuất CSV.',
+                                  textAlign: TextAlign.center,
+                                  softWrap: true,
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: c.textSecondary,
                                   ),
-                                )
-                              else
-                                RepaintBoundary(
-                                  child: ProDonutChart(
-                                    totalExpenseMinor: totalExpense,
-                                    slices: donutSlices,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Tổng thu | Tổng chi | Chênh lệch Card
-                        LifeOsSoftCard(
-                          child: Column(
-                            children: [
-                              _ReportSummaryRow(
-                                label: 'Tổng thu',
-                                value: VndAmount.format(totalIncome),
-                                valueColor: c.success,
-                              ),
-                              const Divider(height: 22),
-                              _ReportSummaryRow(
-                                label: 'Tổng chi',
-                                value: VndAmount.format(totalExpense),
-                                valueColor: c.error,
-                              ),
-                              const Divider(height: 22),
-                              _ReportSummaryRow(
-                                label: 'Chênh lệch ròng',
-                                value: VndAmount.format(
-                                  netDiff,
-                                  showPlus: true,
-                                ),
-                                valueColor: netDiff >= 0 ? c.primary : c.error,
-                              ),
-                              if (totalIncome > 0) ...[
-                                const Divider(height: 22),
-                                _ReportSummaryRow(
-                                  label: 'Tỷ lệ tích lũy',
-                                  value:
-                                      '${savingsRatePct.toStringAsFixed(1)}%',
-                                  valueColor: savingsRatePct >= 0
-                                      ? c.primary
-                                      : c.error,
                                 ),
                               ],
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-
-                        // Insight Banner
-                        LifeOsMintHeroCard(
-                          child: Row(
-                            children: [
-                              LifeOsIconSquircle(
-                                icon: totalIncome == 0 && totalExpense == 0
-                                    ? Icons.insights_rounded
-                                    : (netDiff >= 0
-                                          ? Icons.check_circle_rounded
-                                          : Icons.warning_amber_rounded),
-                                tone: netDiff >= 0
-                                    ? LifeOsAccentTone.emerald
-                                    : LifeOsAccentTone.amber,
-                                size: 38,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  totalIncome == 0 && totalExpense == 0
-                                      ? 'Chưa có phát sinh thu chi trong kỳ đang chọn. Ghi giao dịch mới để xem phân tích tự động.'
-                                      : (netDiff >= 0
-                                            ? 'Dòng tiền thặng dư tích cực trong kỳ này! Hãy trích một phần sang Quỹ gia đình.'
-                                            : 'Chi tiêu đang vượt thu nhập trong kỳ. Kiểm tra các danh mục lớn để cân đối.'),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: c.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        LifeOsPrimaryCtaButton(
-                          icon: Icons.file_download_outlined,
-                          label: 'Xuất báo cáo (CSV)',
-                          onPressed: periodTxs.isEmpty
-                              ? null
-                              : () async {
-                                  final buf = StringBuffer()
-                                    ..writeln(
-                                      'ThoiGian,HangMuc,DonVi,Loai,SoTienVND',
-                                    );
-                                  for (final tx in periodTxs) {
-                                    final signed = tx.direction == 'credit'
-                                        ? tx.amountMinor
-                                        : -tx.amountMinor;
-                                    buf.writeln(
-                                      '${CsvSanitizer.escapeQuotedCell(tx.occurredAt.toIso8601String())},'
-                                      '${CsvSanitizer.escapeQuotedCell(tx.categoryName)},'
-                                      '${CsvSanitizer.escapeQuotedCell(tx.merchant)},'
-                                      '${CsvSanitizer.escapeQuotedCell(tx.kind.name)},'
-                                      '$signed',
-                                    );
-                                  }
-                                  final fileName =
-                                      'BaoCao_LifeOS_$exportTag.csv';
-                                  await sl<NativeAppUpdaterBridge>()
-                                      .shareTextFile(
-                                        fileName: fileName,
-                                        content: buf.toString(),
-                                        mimeType: 'text/csv',
-                                        title:
-                                            'Báo cáo Tài chính LifeOS ($periodHeaderLabel)',
-                                      );
-                                  if (context.mounted) {
-                                    LifeOsTopToast.show(
-                                      context,
-                                      'Đã xuất báo cáo $fileName.',
-                                      kind: LifeOsToastKind.success,
-                                    );
-                                  }
-                                },
-                        ),
-                        if (periodTxs.isEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Chưa có giao dịch trong kỳ này để xuất CSV.',
-                            textAlign: TextAlign.center,
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
-      ],
-    ),
-  ),
-),
-);
-}
+      ),
+    );
+  }
 }
 
 class _ReportLegendBadge extends StatelessWidget {

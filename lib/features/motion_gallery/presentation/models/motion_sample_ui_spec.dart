@@ -20,11 +20,8 @@ extension MotionSampleCategoryUiMeta on MotionSampleCategory {
   };
 }
 
-typedef MotionSampleWidgetBuilder = Widget Function(
-  BuildContext context,
-  double speedFactor,
-  int replaySeed,
-);
+typedef MotionSampleWidgetBuilder =
+    Widget Function(BuildContext context, double speedFactor, int replaySeed);
 
 /// Presentation-layer specification pairing pure-Dart [MotionSampleMetadata] with
 /// its interactive [previewBuilder] widget factory.

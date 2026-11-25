@@ -34,7 +34,8 @@ abstract final class ConfidencePolicyEngine {
     final srcConf = sourceReliability(source);
 
     final isTransferType =
-        extracted.transactionType == FinancialTransactionType.internalTransfer ||
+        extracted.transactionType ==
+            FinancialTransactionType.internalTransfer ||
         extracted.transactionType ==
             FinancialTransactionType.investmentTransfer;
     final isPersonalized =
@@ -66,7 +67,8 @@ abstract final class ConfidencePolicyEngine {
 
     // Transfers don't rely on expense/income semantic category probability
     final effectiveCatConf =
-        extracted.transactionType == FinancialTransactionType.internalTransfer ||
+        extracted.transactionType ==
+                FinancialTransactionType.internalTransfer ||
             extracted.transactionType ==
                 FinancialTransactionType.investmentTransfer
         ? 0.92

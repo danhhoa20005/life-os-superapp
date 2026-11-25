@@ -62,7 +62,10 @@ void main() {
 
         expect(bloc.state.rules.first.enabled, isFalse);
         expect(find.textContaining('Đang bật 8/9 quy tắc'), findsOneWidget);
-        expect(find.byKey(const Key('lifeos_top_toast_banner')), findsOneWidget);
+        expect(
+          find.byKey(const Key('lifeos_top_toast_banner')),
+          findsOneWidget,
+        );
         await tester.pump(const Duration(seconds: 4));
         await tester.pumpAndSettle();
       },
@@ -153,16 +156,27 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('cashflow_forecast_plan_card')), findsOneWidget);
-        expect(find.byKey(const Key('life_insights_cross_domain_card')), findsOneWidget);
+        expect(
+          find.byKey(const Key('cashflow_forecast_plan_card')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('life_insights_cross_domain_card')),
+          findsOneWidget,
+        );
 
         // Switch horizon to 90 ngày and open assumptions disclosure
         await tester.tap(find.text('90 ngày'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('cashflow_forecast_assumptions_toggle')));
+        await tester.tap(
+          find.byKey(const Key('cashflow_forecast_assumptions_toggle')),
+        );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('forecast_income_delta_slider')), findsOneWidget);
+        expect(
+          find.byKey(const Key('forecast_income_delta_slider')),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -239,30 +253,39 @@ void main() {
         await tester.tap(find.byKey(const Key('backup_export_json_btn')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(
-          find.textContaining('••••••••••••••••••••'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('••••••••••••••••••••'), findsOneWidget);
 
         // Switch to Restore tab -> use recent archive -> verify SHA-256 badge
         await tester.tap(find.text('Khôi phục dữ liệu'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('backup_use_recent_archive_chip')));
+        await tester.tap(
+          find.byKey(const Key('backup_use_recent_archive_chip')),
+        );
         await tester.pumpAndSettle();
 
-        final sheetList = find.byKey(const Key('backup_restore_sheet_list_view'));
+        final sheetList = find.byKey(
+          const Key('backup_restore_sheet_list_view'),
+        );
         await tester.drag(sheetList, const Offset(0, -280));
         await tester.pumpAndSettle();
 
         expect(find.text('Khớp toàn vẹn SHA-256'), findsOneWidget);
-        expect(find.byKey(const Key('backup_apply_restore_btn')), findsOneWidget);
+        expect(
+          find.byKey(const Key('backup_apply_restore_btn')),
+          findsOneWidget,
+        );
 
-        await tester.ensureVisible(find.byKey(const Key('backup_apply_restore_btn')));
+        await tester.ensureVisible(
+          find.byKey(const Key('backup_apply_restore_btn')),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('backup_apply_restore_btn')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.byKey(const Key('lifeos_top_toast_banner')), findsOneWidget);
+        expect(
+          find.byKey(const Key('lifeos_top_toast_banner')),
+          findsOneWidget,
+        );
         await tester.pump(const Duration(seconds: 4));
         await tester.pumpAndSettle();
       },
@@ -342,7 +365,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('vehicle_fuel_and_tco_card')), findsOneWidget);
+        expect(
+          find.byKey(const Key('vehicle_fuel_and_tco_card')),
+          findsOneWidget,
+        );
         expect(find.textContaining('Honda Việt Nam'), findsOneWidget);
         expect(find.text('1 trùng giờ'), findsOneWidget);
       },

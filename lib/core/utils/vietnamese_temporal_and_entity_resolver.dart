@@ -79,9 +79,9 @@ abstract final class ClauseSafetyScreener {
     }
 
     final lower = trimmed.toLowerCase();
-    final ascii = FinancialTextNormalizer.stripVnAccents(trimmed)
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final ascii = FinancialTextNormalizer.stripVnAccents(
+      trimmed,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
 
     // 1. Cancellation / explicit do-not-record negation
     if (RegExp(
@@ -104,9 +104,7 @@ abstract final class ClauseSafetyScreener {
         RegExp(
           r'(?:^|\b)(?:dung|khong|ko)\s+(?:ghi|luu|tinh|tao|them|nhap)\s+(?:khoan|giao\s+dich|cai\s+nay|muc\s+nay)\b',
         ).hasMatch(ascii) ||
-        RegExp(
-          r'\bbo\s+qua\s+(?:khoan|giao\s+dich)\b',
-        ).hasMatch(ascii) ||
+        RegExp(r'\bbo\s+qua\s+(?:khoan|giao\s+dich)\b').hasMatch(ascii) ||
         RegExp(
           r'\b(?:khong|chua)\s+(?:mua|tieu|chi|an|uong|do\s+xang|di|phat\s+sinh|chuyen|tra)\b',
         ).hasMatch(ascii)) {
@@ -139,8 +137,9 @@ abstract final class ClauseSafetyScreener {
         (RegExp(
               r'(?:^|\b)(?:toi|minh|em|anh|bo|me|nha\s+minh)?\s*(?:du\s+dinh|dinh\s+(?:mua|chi|tra|di|sam|doi|thue|tieu|dat|chuyen|gui|vay)|sap\s+(?:mua|chi|di|doi|thue)|tinh\s+(?:mua|chi|di|doi|sam|thue)|can\s+nhac\s+(?:mua|chi|doi)|muon\s+(?:mua|doi|sam)|neu\s+(?:mua|chi|di)|gia\s+su|uoc\s+gi|len\s+ke\s+hoach\s+(?:mua|chi|di))\b',
             ).hasMatch(ascii) ||
-            RegExp(r'\bco\s+nen\s+(?:mua|chi|tra|vay|doi|di|tieu|dat)\b')
-                .hasMatch(ascii))) {
+            RegExp(
+              r'\bco\s+nen\s+(?:mua|chi|tra|vay|doi|di|tieu|dat)\b',
+            ).hasMatch(ascii))) {
       return const ClauseSafetyResult.blocked(
         status: ClauseSafetyStatus.blockedHypothetical,
         reasonVi:
@@ -344,7 +343,9 @@ abstract final class VietnameseTemporalAndEntityResolver {
       ).hasMatch(lower)) {
         vehicleHint = kw
             .split(' ')
-            .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+            .map(
+              (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
+            )
             .join(' ');
         break;
       }
@@ -437,7 +438,8 @@ abstract final class VietnameseTemporalAndEntityResolver {
       r'(?:(?:sau|trong)\s+(\d{1,3})\s*(phut|tieng|gio)(?:\s*(ruoi))?|(\d{1,3})\s*(phut|tieng|gio)(?:\s*(ruoi))?\s+nua)\b',
     ).firstMatch(ascii);
     if (relOffsetMatch != null) {
-      final n = int.tryParse(
+      final n =
+          int.tryParse(
             relOffsetMatch.group(1) ?? relOffsetMatch.group(4) ?? '',
           ) ??
           0;
@@ -449,7 +451,11 @@ abstract final class VietnameseTemporalAndEntityResolver {
             ? (n * 60 + (half ? 30 : 0))
             : n;
         final target = referenceNow.add(Duration(minutes: mins));
-        working = _stripRange(working, relOffsetMatch.start, relOffsetMatch.end);
+        working = _stripRange(
+          working,
+          relOffsetMatch.start,
+          relOffsetMatch.end,
+        );
         return VietnameseTemporalResolution(
           dateTime: target,
           hasExplicitDate: true,
@@ -460,7 +466,11 @@ abstract final class VietnameseTemporalAndEntityResolver {
       }
     }
 
-    var targetDate = DateTime(referenceNow.year, referenceNow.month, referenceNow.day);
+    var targetDate = DateTime(
+      referenceNow.year,
+      referenceNow.month,
+      referenceNow.day,
+    );
     var hasExplicitDate = false;
     var hasExplicitTime = false;
     var hour = defaultHour;
@@ -525,12 +535,14 @@ abstract final class VietnameseTemporalAndEntityResolver {
       if (RegExp(r'\bhom\s+kia\b').hasMatch(asciiWork)) {
         targetDate = targetDate.subtract(const Duration(days: 2));
         hasExplicitDate = true;
-      } else if (RegExp(r'\b(?:hom|sang|trua|chieu|toi|dem)\s+qua\b')
-          .hasMatch(asciiWork)) {
+      } else if (RegExp(
+        r'\b(?:hom|sang|trua|chieu|toi|dem)\s+qua\b',
+      ).hasMatch(asciiWork)) {
         targetDate = targetDate.subtract(const Duration(days: 1));
         hasExplicitDate = true;
-      } else if (RegExp(r'\b(?:ngay\s+kia|ngay\s+mot|sang\s+mot|trua\s+mot|chieu\s+mot|toi\s+mot)\b')
-          .hasMatch(asciiWork)) {
+      } else if (RegExp(
+        r'\b(?:ngay\s+kia|ngay\s+mot|sang\s+mot|trua\s+mot|chieu\s+mot|toi\s+mot)\b',
+      ).hasMatch(asciiWork)) {
         targetDate = targetDate.add(const Duration(days: 2));
         hasExplicitDate = true;
       } else if (RegExp(
@@ -538,8 +550,9 @@ abstract final class VietnameseTemporalAndEntityResolver {
       ).hasMatch(asciiWork)) {
         targetDate = targetDate.add(const Duration(days: 1));
         hasExplicitDate = true;
-      } else if (RegExp(r'\b(?:hom|sang|trua|chieu|toi)\s+nay\b')
-          .hasMatch(asciiWork)) {
+      } else if (RegExp(
+        r'\b(?:hom|sang|trua|chieu|toi)\s+nay\b',
+      ).hasMatch(asciiWork)) {
         hasExplicitDate = true;
       } else if (RegExp(r'\bcuoi\s+tuan\s+(?:sau|toi)\b').hasMatch(asciiWork)) {
         final currentMonday = targetDate.subtract(

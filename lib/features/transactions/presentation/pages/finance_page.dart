@@ -173,11 +173,12 @@ class _FinancePageState extends State<FinancePage> {
                             onTap: listState.filteredTransactions.isEmpty
                                 ? null
                                 : () => _exportMonthlyStatementCsv(
-                                      context,
-                                      monthKey: listState.monthKey,
-                                      transactions: listState.filteredTransactions,
-                                      wallets: listState.wallets,
-                                    ),
+                                    context,
+                                    monthKey: listState.monthKey,
+                                    transactions:
+                                        listState.filteredTransactions,
+                                    wallets: listState.wallets,
+                                  ),
                           );
                         },
                       ),
@@ -193,23 +194,24 @@ class _FinancePageState extends State<FinancePage> {
                         onTap: () => _showCreateWalletDialog(context, user.id),
                       ),
                     ],
-                    trailingAction: BlocBuilder<TransactionListBloc, TransactionListState>(
-                      builder: (context, listState) {
-                        return FilledButton.icon(
-                          key: const Key('open_add_tx_button'),
-                          onPressed: listState.wallets.isEmpty
-                              ? null
-                              : () => _showCreateTransactionDialog(
-                                    context,
-                                    userId: user.id,
-                                    wallets: listState.wallets,
-                                    categories: listState.categories,
-                                  ),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Ghi giao dịch'),
-                        );
-                      },
-                    ),
+                    trailingAction:
+                        BlocBuilder<TransactionListBloc, TransactionListState>(
+                          builder: (context, listState) {
+                            return FilledButton.icon(
+                              key: const Key('open_add_tx_button'),
+                              onPressed: listState.wallets.isEmpty
+                                  ? null
+                                  : () => _showCreateTransactionDialog(
+                                      context,
+                                      userId: user.id,
+                                      wallets: listState.wallets,
+                                      categories: listState.categories,
+                                    ),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Ghi giao dịch'),
+                            );
+                          },
+                        ),
                   ),
                   const ProPillTabContainer(
                     tabBar: TabBar(
@@ -221,10 +223,7 @@ class _FinancePageState extends State<FinancePage> {
                           key: Key('finance_analytics_tab'),
                           text: 'Phân tích',
                         ),
-                        Tab(
-                          key: Key('finance_tools_tab'),
-                          text: 'Công cụ',
-                        ),
+                        Tab(key: Key('finance_tools_tab'), text: 'Công cụ'),
                       ],
                     ),
                   ),
@@ -281,9 +280,13 @@ class _FinancePageState extends State<FinancePage> {
           '${tx.occurredAt.year}-${tx.occurredAt.month.toString().padLeft(2, '0')}-${tx.occurredAt.day.toString().padLeft(2, '0')} '
           '${tx.occurredAt.hour.toString().padLeft(2, '0')}:${tx.occurredAt.minute.toString().padLeft(2, '0')}';
       final wName = tx.walletName ?? walletNames[tx.walletId] ?? tx.walletId;
-      final signedAmt = tx.direction == 'credit' ? tx.amountMinor : -tx.amountMinor;
+      final signedAmt = tx.direction == 'credit'
+          ? tx.amountMinor
+          : -tx.amountMinor;
       final balAfter = tx.balanceAfterMinor?.toString() ?? '';
-      final status = tx.isReversed ? 'REVERSED' : tx.verification.name.toUpperCase();
+      final status = tx.isReversed
+          ? 'REVERSED'
+          : tx.verification.name.toUpperCase();
       buf.writeln(
         '${esc(dt)},${esc(tx.id)},${esc(wName)},${esc(tx.kind.name)},${esc(tx.categoryName)},'
         '${esc(tx.merchant)},$signedAmt,$balAfter,${esc(status)}',
@@ -309,7 +312,10 @@ class _FinancePageState extends State<FinancePage> {
     }
   }
 
-  Future<void> _showCreateWalletDialog(BuildContext context, String userId) async {
+  Future<void> _showCreateWalletDialog(
+    BuildContext context,
+    String userId,
+  ) async {
     final nameCtrl = TextEditingController();
     final bankCodeCtrl = TextEditingController();
     final maskedCtrl = TextEditingController();
@@ -331,7 +337,9 @@ class _FinancePageState extends State<FinancePage> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(hintText: 'VD: Vietcombank Lương'),
+                  decoration: const InputDecoration(
+                    hintText: 'VD: Vietcombank Lương',
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text('Loại tài khoản'),
@@ -340,7 +348,10 @@ class _FinancePageState extends State<FinancePage> {
                   isExpanded: true,
                   initialValue: selectedType,
                   items: const [
-                    DropdownMenuItem(value: WalletType.cash, child: Text('Tiền mặt')),
+                    DropdownMenuItem(
+                      value: WalletType.cash,
+                      child: Text('Tiền mặt'),
+                    ),
                     DropdownMenuItem(
                       value: WalletType.bank,
                       child: Text('Tài khoản Ngân hàng'),
@@ -349,13 +360,17 @@ class _FinancePageState extends State<FinancePage> {
                       value: WalletType.savings,
                       child: Text('Sổ Tiết kiệm & Tích lũy'),
                     ),
-                    DropdownMenuItem(value: WalletType.creditCard, child: Text('Thẻ tín dụng')),
+                    DropdownMenuItem(
+                      value: WalletType.creditCard,
+                      child: Text('Thẻ tín dụng'),
+                    ),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedType = val);
                   },
                 ),
-                if (selectedType == WalletType.bank || selectedType == WalletType.creditCard) ...[
+                if (selectedType == WalletType.bank ||
+                    selectedType == WalletType.creditCard) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
@@ -391,13 +406,19 @@ class _FinancePageState extends State<FinancePage> {
                   style: const TextStyle(
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
-                  decoration: const InputDecoration(hintText: '5000000', suffixText: 'VND'),
+                  decoration: const InputDecoration(
+                    hintText: '5000000',
+                    suffixText: 'VND',
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             BlocBuilder<TransactionActionBloc, TransactionActionState>(
               bloc: actionBloc,
               builder: (_, actionState) {
@@ -406,7 +427,8 @@ class _FinancePageState extends State<FinancePage> {
                   onPressed: busy
                       ? null
                       : () {
-                          final opening = VndAmount.tryParseInput(openingCtrl.text) ?? 0;
+                          final opening =
+                              VndAmount.tryParseInput(openingCtrl.text) ?? 0;
                           actionBloc.add(
                             WalletCreateSubmitted(
                               userId: userId,
@@ -448,7 +470,12 @@ class _FinancePageState extends State<FinancePage> {
       wallets.map((w) => w.id),
     );
     String? targetWalletId = wallets.length > 1
-        ? wallets.firstWhere((w) => w.id != sourceWalletId, orElse: () => wallets.first).id
+        ? wallets
+              .firstWhere(
+                (w) => w.id != sourceWalletId,
+                orElse: () => wallets.first,
+              )
+              .id
         : null;
 
     final catNames = categories.isEmpty
@@ -479,9 +506,13 @@ class _FinancePageState extends State<FinancePage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final isTransfer =
-              kind == TransactionKind.transfer || kind == TransactionKind.creditCardPayment;
+              kind == TransactionKind.transfer ||
+              kind == TransactionKind.creditCardPayment;
           final sameWalletForTransfer =
-              isTransfer && (wallets.length < 2 || targetWalletId == null || targetWalletId == sourceWalletId);
+              isTransfer &&
+              (wallets.length < 2 ||
+                  targetWalletId == null ||
+                  targetWalletId == sourceWalletId);
           final parsedTotal = VndAmount.tryParseInput(amountCtrl.text) ?? 0;
           final parsedS1 = VndAmount.tryParseInput(splitAmt1Ctrl.text) ?? 0;
           final parsedS2 = VndAmount.tryParseInput(splitAmt2Ctrl.text) ?? 0;
@@ -500,19 +531,29 @@ class _FinancePageState extends State<FinancePage> {
                     isExpanded: true,
                     initialValue: kind,
                     items: const [
-                      DropdownMenuItem(value: TransactionKind.expense, child: Text('Chi tiêu')),
-                      DropdownMenuItem(value: TransactionKind.income, child: Text('Thu nhập')),
+                      DropdownMenuItem(
+                        value: TransactionKind.expense,
+                        child: Text('Chi tiêu'),
+                      ),
+                      DropdownMenuItem(
+                        value: TransactionKind.income,
+                        child: Text('Thu nhập'),
+                      ),
                       DropdownMenuItem(
                         value: TransactionKind.transfer,
-                        child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                          'Chuyển ví nội bộ / Rút tiền mặt',
-                        )),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text('Chuyển ví nội bộ / Rút tiền mặt'),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: TransactionKind.creditCardPayment,
-                        child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                          'Trả dư nợ thẻ tín dụng',
-                        )),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text('Trả dư nợ thẻ tín dụng'),
+                        ),
                       ),
                     ],
                     onChanged: (v) {
@@ -525,9 +566,13 @@ class _FinancePageState extends State<FinancePage> {
                           if ((kind == TransactionKind.transfer ||
                                   kind == TransactionKind.creditCardPayment) &&
                               wallets.length > 1 &&
-                              (targetWalletId == null || targetWalletId == sourceWalletId)) {
+                              (targetWalletId == null ||
+                                  targetWalletId == sourceWalletId)) {
                             targetWalletId = wallets
-                                .firstWhere((w) => w.id != sourceWalletId, orElse: () => wallets.first)
+                                .firstWhere(
+                                  (w) => w.id != sourceWalletId,
+                                  orElse: () => wallets.first,
+                                )
                                 .id;
                           }
                         });
@@ -541,20 +586,31 @@ class _FinancePageState extends State<FinancePage> {
                     isExpanded: true,
                     initialValue: sourceWalletId,
                     items: wallets
-                        .map((w) => DropdownMenuItem(
-                              value: w.id,
-                              child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
+                        .map(
+                          (w) => DropdownMenuItem(
+                            value: w.id,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
                                 '${w.name} (${VndAmount.format(w.balanceMinor)})',
-                              )),
-                            ))
+                              ),
+                            ),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) {
                       if (v != null) {
                         setDialogState(() {
                           sourceWalletId = v;
-                          if (isTransfer && wallets.length > 1 && targetWalletId == sourceWalletId) {
+                          if (isTransfer &&
+                              wallets.length > 1 &&
+                              targetWalletId == sourceWalletId) {
                             targetWalletId = wallets
-                                .firstWhere((w) => w.id != sourceWalletId, orElse: () => wallets.first)
+                                .firstWhere(
+                                  (w) => w.id != sourceWalletId,
+                                  orElse: () => wallets.first,
+                                )
                                 .id;
                           }
                         });
@@ -569,12 +625,19 @@ class _FinancePageState extends State<FinancePage> {
                       isExpanded: true,
                       initialValue: targetWalletId,
                       items: wallets
-                          .map((w) => DropdownMenuItem(
-                                value: w.id,
-                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(w.name)),
-                              ))
+                          .map(
+                            (w) => DropdownMenuItem(
+                              value: w.id,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(w.name),
+                              ),
+                            ),
+                          )
                           .toList(),
-                      onChanged: (v) => setDialogState(() => targetWalletId = v),
+                      onChanged: (v) =>
+                          setDialogState(() => targetWalletId = v),
                     ),
                     if (sameWalletForTransfer) ...[
                       const SizedBox(height: 6),
@@ -597,9 +660,12 @@ class _FinancePageState extends State<FinancePage> {
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                         title: const Text('Tách hóa đơn vào nhiều danh mục'),
-                        subtitle: const Text('VD: Đi siêu thị gồm Ăn uống + Việc nhà'),
+                        subtitle: const Text(
+                          'VD: Đi siêu thị gồm Ăn uống + Việc nhà',
+                        ),
                         value: enableSplitCategories,
-                        onChanged: (val) => setDialogState(() => enableSplitCategories = val),
+                        onChanged: (val) =>
+                            setDialogState(() => enableSplitCategories = val),
                       ),
                     ],
                     if (!enableSplitCategories) ...[
@@ -610,13 +676,21 @@ class _FinancePageState extends State<FinancePage> {
                         isExpanded: true,
                         initialValue: selectedCategory,
                         items: catNames
-                            .map((name) => DropdownMenuItem(
-                                  value: name,
-                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(name)),
-                                ))
+                            .map(
+                              (name) => DropdownMenuItem(
+                                value: name,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(name),
+                                ),
+                              ),
+                            )
                             .toList(),
                         onChanged: (v) {
-                          if (v != null) setDialogState(() => selectedCategory = v);
+                          if (v != null) {
+                            setDialogState(() => selectedCategory = v);
+                          }
                         },
                       ),
                     ],
@@ -638,8 +712,9 @@ class _FinancePageState extends State<FinancePage> {
                   ),
                   Builder(
                     builder: (_) {
-                      final zeroPads =
-                          UserBehaviorPrefs.vndZeroPadSuggestions(amountCtrl.text);
+                      final zeroPads = UserBehaviorPrefs.vndZeroPadSuggestions(
+                        amountCtrl.text,
+                      );
                       if (zeroPads.isEmpty) return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 6),
@@ -653,14 +728,17 @@ class _FinancePageState extends State<FinancePage> {
                                 label: Text(
                                   sug.$2,
                                   style: const TextStyle(
-                                    fontFeatures: [FontFeature.tabularFigures()],
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
                                   ),
                                 ),
                                 onPressed: () => setDialogState(() {
                                   amountCtrl.text = '${sug.$1}';
-                                  amountCtrl.selection = TextSelection.collapsed(
-                                    offset: amountCtrl.text.length,
-                                  );
+                                  amountCtrl.selection =
+                                      TextSelection.collapsed(
+                                        offset: amountCtrl.text.length,
+                                      );
                                 }),
                               ),
                           ],
@@ -668,7 +746,8 @@ class _FinancePageState extends State<FinancePage> {
                       );
                     },
                   ),
-                  if (enableSplitCategories && kind == TransactionKind.expense) ...[
+                  if (enableSplitCategories &&
+                      kind == TransactionKind.expense) ...[
                     const SizedBox(height: AppSpacing.sm),
                     const Text('Khoản tách 1'),
                     const SizedBox(height: 4),
@@ -676,10 +755,16 @@ class _FinancePageState extends State<FinancePage> {
                       isExpanded: true,
                       initialValue: splitCat1,
                       items: catNames
-                          .map((n) => DropdownMenuItem(
-                                value: n,
-                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(n)),
-                              ))
+                          .map(
+                            (n) => DropdownMenuItem(
+                              value: n,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(n),
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (v) {
                         if (v != null) setDialogState(() => splitCat1 = v);
@@ -694,7 +779,9 @@ class _FinancePageState extends State<FinancePage> {
                         fontFeatures: [FontFeature.tabularFigures()],
                       ),
                       onChanged: (_) => setDialogState(() {}),
-                      decoration: const InputDecoration(hintText: 'Số tiền khoản 1 (VD: 320000)'),
+                      decoration: const InputDecoration(
+                        hintText: 'Số tiền khoản 1 (VD: 320000)',
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     const Text('Khoản tách 2'),
@@ -703,10 +790,16 @@ class _FinancePageState extends State<FinancePage> {
                       isExpanded: true,
                       initialValue: splitCat2,
                       items: catNames
-                          .map((n) => DropdownMenuItem(
-                                value: n,
-                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(n)),
-                              ))
+                          .map(
+                            (n) => DropdownMenuItem(
+                              value: n,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(n),
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (v) {
                         if (v != null) setDialogState(() => splitCat2 = v);
@@ -721,7 +814,9 @@ class _FinancePageState extends State<FinancePage> {
                         fontFeatures: [FontFeature.tabularFigures()],
                       ),
                       onChanged: (_) => setDialogState(() {}),
-                      decoration: const InputDecoration(hintText: 'Số tiền khoản 2 (VD: 180000)'),
+                      decoration: const InputDecoration(
+                        hintText: 'Số tiền khoản 2 (VD: 180000)',
+                      ),
                     ),
                     if (parsedTotal > 0 || splitSum > 0) ...[
                       const SizedBox(height: 6),
@@ -744,8 +839,9 @@ class _FinancePageState extends State<FinancePage> {
                   TextField(
                     key: const Key('tx_merchant_input'),
                     controller: merchantCtrl,
-                    decoration:
-                        const InputDecoration(hintText: 'VD: Quán phở / Đi siêu thị / Dọn nhà'),
+                    decoration: const InputDecoration(
+                      hintText: 'VD: Quán phở / Đi siêu thị / Dọn nhà',
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   const Text('Ghi chú (tùy chọn)'),
@@ -756,20 +852,24 @@ class _FinancePageState extends State<FinancePage> {
             ),
             actions: [
               TextButton(
-                onPressed: isSubmittingDialog ? null : () => Navigator.of(ctx).pop(),
+                onPressed: isSubmittingDialog
+                    ? null
+                    : () => Navigator.of(ctx).pop(),
                 child: const Text('Hủy'),
               ),
               BlocBuilder<TransactionActionBloc, TransactionActionState>(
                 bloc: actionBloc,
                 builder: (_, actionState) {
                   final busy =
-                      isSubmittingDialog || actionState.status == ActionStatus.submitting;
+                      isSubmittingDialog ||
+                      actionState.status == ActionStatus.submitting;
                   return FilledButton(
                     key: const Key('submit_tx_dialog_button'),
                     onPressed: busy
                         ? null
                         : () async {
-                            final amt = VndAmount.tryParseInput(amountCtrl.text) ?? 0;
+                            final amt =
+                                VndAmount.tryParseInput(amountCtrl.text) ?? 0;
                             if (amt <= 0) {
                               LifeOsTopToast.show(
                                 ctx,
@@ -792,9 +892,14 @@ class _FinancePageState extends State<FinancePage> {
                               return;
                             }
                             final splits = <TransactionSplitLine>[];
-                            if (enableSplitCategories && kind == TransactionKind.expense) {
-                              final s1 = VndAmount.tryParseInput(splitAmt1Ctrl.text) ?? 0;
-                              final s2 = VndAmount.tryParseInput(splitAmt2Ctrl.text) ?? 0;
+                            if (enableSplitCategories &&
+                                kind == TransactionKind.expense) {
+                              final s1 =
+                                  VndAmount.tryParseInput(splitAmt1Ctrl.text) ??
+                                  0;
+                              final s2 =
+                                  VndAmount.tryParseInput(splitAmt2Ctrl.text) ??
+                                  0;
                               if (s1 <= 0 || s2 <= 0) {
                                 LifeOsTopToast.show(
                                   ctx,
@@ -826,23 +931,28 @@ class _FinancePageState extends State<FinancePage> {
                             }
                             setDialogState(() => isSubmittingDialog = true);
                             UserBehaviorPrefs.rememberWallet(sourceWalletId);
-                            final outcome = await actionBloc.submitAndAwaitCreate(
-                              TransactionCreateSubmitted(
-                                operationId: opId,
-                                userId: userId,
-                                walletId: sourceWalletId,
-                                targetWalletId: isTransfer ? targetWalletId : null,
-                                categoryName: isTransfer
-                                    ? 'Chuyển khoản nội bộ'
-                                    : (splits.isNotEmpty ? splitCat1 : selectedCategory),
-                                kind: kind,
-                                amountMinor: amt,
-                                merchant: merchantCtrl.text,
-                                note: noteCtrl.text,
-                                occurredAt: DateTime.now(),
-                                splitLines: splits,
-                              ),
-                            );
+                            final outcome = await actionBloc
+                                .submitAndAwaitCreate(
+                                  TransactionCreateSubmitted(
+                                    operationId: opId,
+                                    userId: userId,
+                                    walletId: sourceWalletId,
+                                    targetWalletId: isTransfer
+                                        ? targetWalletId
+                                        : null,
+                                    categoryName: isTransfer
+                                        ? 'Chuyển khoản nội bộ'
+                                        : (splits.isNotEmpty
+                                              ? splitCat1
+                                              : selectedCategory),
+                                    kind: kind,
+                                    amountMinor: amt,
+                                    merchant: merchantCtrl.text,
+                                    note: noteCtrl.text,
+                                    occurredAt: DateTime.now(),
+                                    splitLines: splits,
+                                  ),
+                                );
                             if (!ctx.mounted) return;
                             setDialogState(() => isSubmittingDialog = false);
                             if (outcome.status == ActionStatus.success) {
@@ -878,8 +988,9 @@ class _TransactionsTabView extends StatefulWidget {
 
 class _TransactionsTabViewState extends State<_TransactionsTabView> {
   late final TextEditingController _searchCtrl;
-  final LifeOsStableListRegistry _txEntranceRegistry =
-      LifeOsStableListRegistry(animateInitialItems: false);
+  final LifeOsStableListRegistry _txEntranceRegistry = LifeOsStableListRegistry(
+    animateInitialItems: false,
+  );
 
   @override
   void initState() {
@@ -921,9 +1032,11 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
     final c = TammySemanticColors.of(context);
     final isCredit = tx.direction == 'credit';
     final isInternal =
-        tx.kind == TransactionKind.transfer || tx.kind == TransactionKind.creditCardPayment;
-    final amountColor =
-        isInternal ? c.secondary : (isCredit ? c.success : c.textPrimary);
+        tx.kind == TransactionKind.transfer ||
+        tx.kind == TransactionKind.creditCardPayment;
+    final amountColor = isInternal
+        ? c.secondary
+        : (isCredit ? c.success : c.textPrimary);
 
     var revealReferenceCode = false;
     await showModalBottomSheet<void>(
@@ -959,7 +1072,10 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                         flex: 4,
                         child: Text(
                           'Mã tham chiếu',
-                          style: TextStyle(fontSize: 12, color: c.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1034,8 +1150,8 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                     tx.merchant,
                     textAlign: TextAlign.center,
                     style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -1055,167 +1171,168 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                const SizedBox(height: 8),
-                Builder(
-                  builder: (_) {
-                    final (
-                      String statusKey,
-                      String statusLabel,
-                      IconData statusIcon,
-                      LifeOsAccentTone statusTone,
-                    ) = tx.isReversed
-                        ? (
-                            'reversed',
-                            'Đã hoàn tác',
-                            Icons.undo_rounded,
-                            LifeOsAccentTone.amber,
-                          )
-                        : tx.hasPendingWrites
-                        ? (
-                            'pending_sync',
-                            'Đang đồng bộ',
-                            Icons.cloud_upload_outlined,
-                            LifeOsAccentTone.amber,
-                          )
-                        : switch (tx.verification) {
-                            TransactionVerification.verified => (
-                              'verified',
-                              'Ngân hàng xác thực',
-                              Icons.verified_rounded,
-                              LifeOsAccentTone.emerald,
-                            ),
-                            TransactionVerification.matchedPaymentOrder => (
-                              'matched_qr',
-                              'Khớp đơn QR thiết bị',
-                              Icons.qr_code_2_rounded,
-                              LifeOsAccentTone.blue,
-                            ),
-                            TransactionVerification.userConfirmed => (
-                              'confirmed',
-                              'Đã ghi sổ cái',
-                              Icons.check_circle_outline_rounded,
-                              LifeOsAccentTone.emerald,
-                            ),
-                            TransactionVerification.provisional => (
-                              'provisional',
-                              'Chờ xác nhận',
-                              Icons.hourglass_top_rounded,
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (_) {
+                      final (
+                        String statusKey,
+                        String statusLabel,
+                        IconData statusIcon,
+                        LifeOsAccentTone statusTone,
+                      ) = tx.isReversed
+                          ? (
+                              'reversed',
+                              'Đã hoàn tác',
+                              Icons.undo_rounded,
                               LifeOsAccentTone.amber,
-                            ),
-                            TransactionVerification.needsReview => (
-                              'needs_review',
-                              'Cần chọn đúng ví',
-                              Icons.fact_check_outlined,
-                              LifeOsAccentTone.coral,
-                            ),
-                            TransactionVerification.rejected => (
-                              'rejected',
-                              'Đã bỏ qua',
-                              Icons.block_rounded,
-                              LifeOsAccentTone.neutral,
-                            ),
-                          };
-                    return LifeOsAnimatedStatusBadge(
-                      statusKey: statusKey,
-                      label: statusLabel,
-                      icon: statusIcon,
-                      tone: statusTone,
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: c.surfaceRaised,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: c.separator.withValues(alpha: 0.7),
-                      width: 0.8,
+                            )
+                          : tx.hasPendingWrites
+                          ? (
+                              'pending_sync',
+                              'Đang đồng bộ',
+                              Icons.cloud_upload_outlined,
+                              LifeOsAccentTone.amber,
+                            )
+                          : switch (tx.verification) {
+                              TransactionVerification.verified => (
+                                'verified',
+                                'Ngân hàng xác thực',
+                                Icons.verified_rounded,
+                                LifeOsAccentTone.emerald,
+                              ),
+                              TransactionVerification.matchedPaymentOrder => (
+                                'matched_qr',
+                                'Khớp đơn QR thiết bị',
+                                Icons.qr_code_2_rounded,
+                                LifeOsAccentTone.blue,
+                              ),
+                              TransactionVerification.userConfirmed => (
+                                'confirmed',
+                                'Đã ghi sổ cái',
+                                Icons.check_circle_outline_rounded,
+                                LifeOsAccentTone.emerald,
+                              ),
+                              TransactionVerification.provisional => (
+                                'provisional',
+                                'Chờ xác nhận',
+                                Icons.hourglass_top_rounded,
+                                LifeOsAccentTone.amber,
+                              ),
+                              TransactionVerification.needsReview => (
+                                'needs_review',
+                                'Cần chọn đúng ví',
+                                Icons.fact_check_outlined,
+                                LifeOsAccentTone.coral,
+                              ),
+                              TransactionVerification.rejected => (
+                                'rejected',
+                                'Đã bỏ qua',
+                                Icons.block_rounded,
+                                LifeOsAccentTone.neutral,
+                              ),
+                            };
+                      return LifeOsAnimatedStatusBadge(
+                        statusKey: statusKey,
+                        label: statusLabel,
+                        icon: statusIcon,
+                        tone: statusTone,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: c.surfaceRaised,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: c.separator.withValues(alpha: 0.7),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        _ReceiptRow(label: 'Danh mục', value: tx.categoryName),
+                        const Divider(height: 16),
+                        _ReceiptRow(label: 'Ví', value: resolvedWalletName),
+                        const Divider(height: 16),
+                        _ReceiptRow(
+                          label: 'Thời gian',
+                          value:
+                              '${tx.occurredAt.day.toString().padLeft(2, '0')}/${tx.occurredAt.month.toString().padLeft(2, '0')}/${tx.occurredAt.year} · ${_formatTimeLabel(tx.occurredAt)}',
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      _ReceiptRow(label: 'Danh mục', value: tx.categoryName),
-                      const Divider(height: 16),
-                      _ReceiptRow(label: 'Ví', value: resolvedWalletName),
-                      const Divider(height: 16),
-                      _ReceiptRow(
-                        label: 'Thời gian',
-                        value:
-                            '${tx.occurredAt.day.toString().padLeft(2, '0')}/${tx.occurredAt.month.toString().padLeft(2, '0')}/${tx.occurredAt.year} · ${_formatTimeLabel(tx.occurredAt)}',
-                      ),
-                    ],
-                  ),
-                ),
-                if (extraRows.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  LifeOsDetailsDiscloseSection(
-                    label: 'Chi tiết giao dịch',
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: c.surfaceRaised,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: c.separator.withValues(alpha: 0.7),
-                          width: 0.8,
+                  if (extraRows.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    LifeOsDetailsDiscloseSection(
+                      label: 'Chi tiết giao dịch',
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: c.surfaceRaised,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: c.separator.withValues(alpha: 0.7),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < extraRows.length; i++) ...[
+                              if (i > 0) const Divider(height: 16),
+                              extraRows[i],
+                            ],
+                          ],
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < extraRows.length; i++) ...[
-                            if (i > 0) const Divider(height: 16),
-                            extraRows[i],
-                          ],
-                        ],
-                      ),
                     ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                          child: const Text('Đóng'),
+                        ),
+                      ),
+                      if (tx.isConfirmedInLedger &&
+                          !tx.isReversed &&
+                          tx.kind != TransactionKind.reversal) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton.tonalIcon(
+                            icon: const Icon(Icons.undo_rounded, size: 18),
+                            label: const Text('Hoàn tác'),
+                            onPressed: () async {
+                              Navigator.of(sheetCtx).pop();
+                              final ok = await showDestructiveConfirmDialog(
+                                context: context,
+                                title: 'Hoàn tác giao dịch này?',
+                                message:
+                                    'Số tiền sẽ được cộng trả lại vào ví của bạn.',
+                                confirmLabel: 'Hoàn tác',
+                              );
+                              if (ok && context.mounted) {
+                                context.read<TransactionActionBloc>().add(
+                                  TransactionReverseRequested(
+                                    userId: widget.userId,
+                                    transactionId: tx.id,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(sheetCtx).pop(),
-                        child: const Text('Đóng'),
-                      ),
-                    ),
-                    if (tx.isConfirmedInLedger &&
-                        !tx.isReversed &&
-                        tx.kind != TransactionKind.reversal) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          icon: const Icon(Icons.undo_rounded, size: 18),
-                          label: const Text('Hoàn tác'),
-                          onPressed: () async {
-                            Navigator.of(sheetCtx).pop();
-                            final ok = await showDestructiveConfirmDialog(
-                              context: context,
-                              title: 'Hoàn tác giao dịch này?',
-                              message: 'Số tiền sẽ được cộng trả lại vào ví của bạn.',
-                              confirmLabel: 'Hoàn tác',
-                            );
-                            if (ok && context.mounted) {
-                              context.read<TransactionActionBloc>().add(
-                                    TransactionReverseRequested(
-                                      userId: widget.userId,
-                                      transactionId: tx.id,
-                                    ),
-                                  );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-        );
+          );
         },
       ),
     );
@@ -1252,12 +1369,17 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
           final dayKey =
               '${tx.occurredAt.year}-${tx.occurredAt.month.toString().padLeft(2, '0')}-${tx.occurredAt.day.toString().padLeft(2, '0')}';
           groupedByDay.putIfAbsent(dayKey, () => <TransactionEntity>[]).add(tx);
-          dayHeaders.putIfAbsent(dayKey, () => _formatDateHeader(tx.occurredAt, now));
+          dayHeaders.putIfAbsent(
+            dayKey,
+            () => _formatDateHeader(tx.occurredAt, now),
+          );
         }
 
         return Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
             child: ListView(
               key: const Key('transactions_list_view'),
               padding: const EdgeInsets.fromLTRB(
@@ -1277,7 +1399,12 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                 // 2. Clearly Separated Section: Ví & Tài khoản
                 LifeOsSectionHeader(
                   title: 'Ví của bạn (${state.wallets.length})',
-                  padding: const EdgeInsets.only(top: 10, bottom: 4, left: 2, right: 2),
+                  padding: const EdgeInsets.only(
+                    top: 10,
+                    bottom: 4,
+                    left: 2,
+                    right: 2,
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1447,7 +1574,12 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
 
                 LifeOsSectionHeader(
                   title: 'Sổ thu chi & Sao kê',
-                  padding: const EdgeInsets.only(top: 10, bottom: 6, left: 2, right: 2),
+                  padding: const EdgeInsets.only(
+                    top: 10,
+                    bottom: 6,
+                    left: 2,
+                    right: 2,
+                  ),
                   trailing: state.hasActiveFilters
                       ? TextButton.icon(
                           key: const Key('tx_header_clear_filters_btn'),
@@ -1483,15 +1615,15 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                 TextField(
                   key: const Key('tx_search_field'),
                   controller: _searchCtrl,
-                  onChanged: (q) => context
-                      .read<TransactionListBloc>()
-                      .add(TransactionsSearchChanged(q)),
+                  onChanged: (q) => context.read<TransactionListBloc>().add(
+                    TransactionsSearchChanged(q),
+                  ),
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: 'Tìm giao dịch, danh mục',
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    suffixIcon: state.searchQuery.isEmpty &&
-                            _searchCtrl.text.isEmpty
+                    suffixIcon:
+                        state.searchQuery.isEmpty && _searchCtrl.text.isEmpty
                         ? null
                         : IconButton(
                             key: const Key('tx_search_clear_btn'),
@@ -1528,25 +1660,34 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                       _StatementKindChip(
                         label: '↓ Thu nhập',
                         selected: state.kindFilter == TransactionKind.income,
-                        onSelected: () => context
-                            .read<TransactionListBloc>()
-                            .add(const TransactionsKindFilterChanged(TransactionKind.income)),
+                        onSelected: () =>
+                            context.read<TransactionListBloc>().add(
+                              const TransactionsKindFilterChanged(
+                                TransactionKind.income,
+                              ),
+                            ),
                       ),
                       const SizedBox(width: 8),
                       _StatementKindChip(
                         label: '↑ Chi tiêu',
                         selected: state.kindFilter == TransactionKind.expense,
-                        onSelected: () => context
-                            .read<TransactionListBloc>()
-                            .add(const TransactionsKindFilterChanged(TransactionKind.expense)),
+                        onSelected: () =>
+                            context.read<TransactionListBloc>().add(
+                              const TransactionsKindFilterChanged(
+                                TransactionKind.expense,
+                              ),
+                            ),
                       ),
                       const SizedBox(width: 8),
                       _StatementKindChip(
                         label: '⇄ Chuyển ví',
                         selected: state.kindFilter == TransactionKind.transfer,
-                        onSelected: () => context
-                            .read<TransactionListBloc>()
-                            .add(const TransactionsKindFilterChanged(TransactionKind.transfer)),
+                        onSelected: () =>
+                            context.read<TransactionListBloc>().add(
+                              const TransactionsKindFilterChanged(
+                                TransactionKind.transfer,
+                              ),
+                            ),
                       ),
                       if (state.categoryFilter != null) ...[
                         const SizedBox(width: 8),
@@ -1554,12 +1695,14 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                           visualDensity: VisualDensity.compact,
                           selected: true,
                           label: Text('Danh mục: ${state.categoryFilter}'),
-                          onDeleted: () => context
-                              .read<TransactionListBloc>()
-                              .add(const TransactionsCategoryFilterChanged(null)),
-                          onPressed: () => context
-                              .read<TransactionListBloc>()
-                              .add(const TransactionsCategoryFilterChanged(null)),
+                          onDeleted: () =>
+                              context.read<TransactionListBloc>().add(
+                                const TransactionsCategoryFilterChanged(null),
+                              ),
+                          onPressed: () =>
+                              context.read<TransactionListBloc>().add(
+                                const TransactionsCategoryFilterChanged(null),
+                              ),
                         ),
                       ],
                     ],
@@ -1630,7 +1773,9 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                           tx.kind == TransactionKind.reversal) {
                         continue;
                       }
-                      dayNetMinor += tx.direction == 'credit' ? tx.amountMinor : -tx.amountMinor;
+                      dayNetMinor += tx.direction == 'credit'
+                          ? tx.amountMinor
+                          : -tx.amountMinor;
                     }
 
                     return Column(
@@ -1677,14 +1822,17 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                         ),
                         ...dayTxs.map((tx) {
                           final isCredit = tx.direction == 'credit';
-                          final isInternal = tx.kind == TransactionKind.transfer ||
+                          final isInternal =
+                              tx.kind == TransactionKind.transfer ||
                               tx.kind == TransactionKind.creditCardPayment;
-                          final wName = tx.walletName ?? walletMap[tx.walletId]?.name;
+                          final wName =
+                              tx.walletName ?? walletMap[tx.walletId]?.name;
                           final splitSummary = tx.splitLines.isNotEmpty
                               ? 'Tách khoản: ${tx.splitLines.map((l) => '${l.categoryName} (${widget.obscureBalances ? '•••••• ₫' : VndAmount.format(l.amountMinor)})').join(' · ')}'
                               : null;
 
-                          final canUndo = tx.isConfirmedInLedger &&
+                          final canUndo =
+                              tx.isConfirmedInLedger &&
                               !tx.isReversed &&
                               tx.kind != TransactionKind.reversal;
                           final statementTile = ProFintechStatementTile(
@@ -1697,9 +1845,14 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                             isCredit: isCredit,
                             isTransfer: isInternal,
                             isReversed: tx.isReversed,
-                            isVerified: tx.verification == TransactionVerification.verified ||
-                                tx.verification == TransactionVerification.matchedPaymentOrder ||
-                                tx.verification == TransactionVerification.userConfirmed,
+                            isVerified:
+                                tx.verification ==
+                                    TransactionVerification.verified ||
+                                tx.verification ==
+                                    TransactionVerification
+                                        .matchedPaymentOrder ||
+                                tx.verification ==
+                                    TransactionVerification.userConfirmed,
                             hasPendingWrites: tx.hasPendingWrites,
                             splitSummary: splitSummary,
                             obscureAmounts: widget.obscureBalances,
@@ -1725,18 +1878,28 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                                     direction: DismissDirection.endToStart,
                                     background: Container(
                                       alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: c.warning.withValues(alpha: 0.16),
+                                        color: c.warning.withValues(
+                                          alpha: 0.16,
+                                        ),
                                         borderRadius: BorderRadius.circular(18),
                                         border: Border.all(
-                                          color: c.warning.withValues(alpha: 0.45),
+                                          color: c.warning.withValues(
+                                            alpha: 0.45,
+                                          ),
                                         ),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.undo_rounded, color: c.warning, size: 19),
+                                          Icon(
+                                            Icons.undo_rounded,
+                                            color: c.warning,
+                                            size: 19,
+                                          ),
                                           const SizedBox(width: 6),
                                           Text(
                                             'Hoàn tác',
@@ -1752,11 +1915,14 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                                       final ok = await showDestructiveConfirmDialog(
                                         context: context,
                                         title: 'Hoàn tác giao dịch này?',
-                                        message: 'Số tiền sẽ được cộng trả lại vào ví của bạn.',
+                                        message:
+                                            'Số tiền sẽ được cộng trả lại vào ví của bạn.',
                                         confirmLabel: 'Hoàn tác',
                                       );
                                       if (ok && context.mounted) {
-                                        context.read<TransactionActionBloc>().add(
+                                        context
+                                            .read<TransactionActionBloc>()
+                                            .add(
                                               TransactionReverseRequested(
                                                 userId: widget.userId,
                                                 transactionId: tx.id,
@@ -1814,10 +1980,7 @@ class _ReceiptRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _ReceiptRow({
-    required this.label,
-    required this.value,
-  });
+  const _ReceiptRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1918,7 +2081,8 @@ class _PersonalAnalyticsAndAllocationTabViewState
       builder: (context, state) {
         final s = state.summary;
         final shares = s.sortedCategoryShares;
-        final inputIncome = VndAmount.tryParseInput(_incomeCtrl.text) ??
+        final inputIncome =
+            VndAmount.tryParseInput(_incomeCtrl.text) ??
             (s.monthlyIncomeMinor > 0 ? s.monthlyIncomeMinor : 20000000);
         final plan = IncomeAllocationEngine.allocate(
           totalIncomeMinor: inputIncome,
@@ -1939,8 +2103,12 @@ class _PersonalAnalyticsAndAllocationTabViewState
             anchorDate = DateTime(latest.year, latest.month, latest.day);
           } else {
             final parts = state.monthKey.split('-');
-            final y = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? now.year) : now.year;
-            final m = parts.length > 1 ? (int.tryParse(parts[1]) ?? now.month) : now.month;
+            final y = parts.isNotEmpty
+                ? (int.tryParse(parts[0]) ?? now.year)
+                : now.year;
+            final m = parts.length > 1
+                ? (int.tryParse(parts[1]) ?? now.month)
+                : now.month;
             anchorDate = DateTime(y, m + 1, 0);
           }
         }
@@ -1979,23 +2147,33 @@ class _PersonalAnalyticsAndAllocationTabViewState
           0,
           (sum, b) => sum + b.limitMinor,
         );
-        final daysInMonth = DateTime(anchorDate.year, anchorDate.month + 1, 0).day;
+        final daysInMonth = DateTime(
+          anchorDate.year,
+          anchorDate.month + 1,
+          0,
+        ).day;
         final remainingDays = math.max(1, daysInMonth - now.day + 1);
         final safeDaily = totalBudgetLimit > 0
-            ? math.max(0, totalBudgetLimit - s.monthlyExpenseMinor) ~/ remainingDays
-            : math.max(0, s.monthlyIncomeMinor - s.monthlyExpenseMinor) ~/ remainingDays;
+            ? math.max(0, totalBudgetLimit - s.monthlyExpenseMinor) ~/
+                  remainingDays
+            : math.max(0, s.monthlyIncomeMinor - s.monthlyExpenseMinor) ~/
+                  remainingDays;
 
         var healthScore = 70;
         if (s.netCashFlowMinor > 0) healthScore += 14;
         if (s.savingsRatePct >= 20) healthScore += 12;
-        if (s.monthlyIncomeMinor > 0 && s.monthlyExpenseMinor > s.monthlyIncomeMinor) {
+        if (s.monthlyIncomeMinor > 0 &&
+            s.monthlyExpenseMinor > s.monthlyIncomeMinor) {
           healthScore -= 18;
         }
         healthScore = healthScore.clamp(42, 98);
 
         final maxCashflowCompare = math.max(
           1,
-          math.max(s.monthlyIncomeMinor, math.max(s.monthlyExpenseMinor, s.netCashFlowMinor.abs())),
+          math.max(
+            s.monthlyIncomeMinor,
+            math.max(s.monthlyExpenseMinor, s.netCashFlowMinor.abs()),
+          ),
         );
 
         const allocationPalette = <Color>[
@@ -2009,7 +2187,9 @@ class _PersonalAnalyticsAndAllocationTabViewState
 
         return Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
             child: ListView(
               key: const Key('analytics_list_view'),
               padding: const EdgeInsets.fromLTRB(
@@ -2022,14 +2202,15 @@ class _PersonalAnalyticsAndAllocationTabViewState
                 const BrandVisualBanner(
                   assetPath: AppAssets.financeIllustration,
                   height: 120,
-                  semanticLabel: 'Minh họa phân tích tài chính và chia khoản sinh hoạt',
+                  semanticLabel:
+                      'Minh họa phân tích tài chính và chia khoản sinh hoạt',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   'Chỉ số Sức khỏe Tài chính Cá nhân (${state.monthKey})',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 LayoutBuilder(
@@ -2045,10 +2226,7 @@ class _PersonalAnalyticsAndAllocationTabViewState
                         _MetricMiniCard(
                           width: cardW,
                           label: 'Dòng tiền ròng (Thu - Chi)',
-                          value: _fmtMoney(
-                            s.netCashFlowMinor,
-                            showPlus: true,
-                          ),
+                          value: _fmtMoney(s.netCashFlowMinor, showPlus: true),
                           subtitle: s.monthlyIncomeMinor > 0
                               ? 'Tỷ lệ tiết kiệm: ${s.savingsRatePct.toStringAsFixed(1)}%'
                               : 'Chưa ghi nhận thu nhập kỳ này',
@@ -2182,68 +2360,81 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                       label: sh.categoryName,
                                       amountMinor: sh.amountMinor,
                                       pct: sh.sharePct,
-                                      color: ProCategoryStyle.resolve(sh.categoryName).color,
+                                      color: ProCategoryStyle.resolve(
+                                        sh.categoryName,
+                                      ).color,
                                     ),
                                   )
                                   .toList(),
                             ),
                           ),
                         const Divider(height: 28),
-                        ...shares.map(
-                          (item) {
-                            final style = ProCategoryStyle.resolve(item.categoryName);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    alignment: WrapAlignment.spaceBetween,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(style.icon, size: 16, color: style.color),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            '${item.categoryName} (${item.sharePct.toStringAsFixed(1)}%)',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .labelLarge
-                                                ?.copyWith(
-                                                  fontFeatures: const [
-                                                    FontFeature.tabularFigures(),
-                                                  ],
-                                                ),
-                                          ),
+                        ...shares.map((item) {
+                          final style = ProCategoryStyle.resolve(
+                            item.categoryName,
+                          );
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          style.icon,
+                                          size: 16,
+                                          color: style.color,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '${item.categoryName} (${item.sharePct.toStringAsFixed(1)}%)',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge
+                                              ?.copyWith(
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _fmtMoney(item.amountMinor),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontFeatures: [
+                                          FontFeature.tabularFigures(),
                                         ],
                                       ),
-                                      Text(
-                                        _fmtMoney(item.amountMinor),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontFeatures: [FontFeature.tabularFigures()],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 5),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: LinearProgressIndicator(
-                                      minHeight: 7,
-                                      value: (item.sharePct / 100.0).clamp(0.0, 1.0),
-                                      color: style.color,
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                    minHeight: 7,
+                                    value: (item.sharePct / 100.0).clamp(
+                                      0.0,
+                                      1.0,
+                                    ),
+                                    color: style.color,
                                   ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                       ],
                     ],
                   ),
@@ -2291,7 +2482,8 @@ class _PersonalAnalyticsAndAllocationTabViewState
                         style: const TextStyle(
                           fontFeatures: [FontFeature.tabularFigures()],
                         ),
-                        onChanged: (_) => setState(() => _userEditedIncome = true),
+                        onChanged: (_) =>
+                            setState(() => _userEditedIncome = true),
                         decoration: const InputDecoration(
                           hintText: '20000000',
                           suffixText: 'VND',
@@ -2321,14 +2513,17 @@ class _PersonalAnalyticsAndAllocationTabViewState
                             ),
                           ],
                         ),
-                      ] else if (_userEditedIncome && s.monthlyIncomeMinor > 0) ...[
+                      ] else if (_userEditedIncome &&
+                          s.monthlyIncomeMinor > 0) ...[
                         const SizedBox(height: 4),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
                             style: TextButton.styleFrom(
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
                             ),
                             onPressed: () {
                               final targetStr = '${s.monthlyIncomeMinor}';
@@ -2367,9 +2562,13 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                       flex: plan.buckets[i].weightPct,
                                       child: Container(
                                         margin: EdgeInsets.only(
-                                          right: i < plan.buckets.length - 1 ? 2 : 0,
+                                          right: i < plan.buckets.length - 1
+                                              ? 2
+                                              : 0,
                                         ),
-                                        color: allocationPalette[i % allocationPalette.length],
+                                        color:
+                                            allocationPalette[i %
+                                                allocationPalette.length],
                                       ),
                                     ),
                               ],
@@ -2392,7 +2591,9 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                     width: 32,
                                     height: 32,
                                     decoration: BoxDecoration(
-                                      color: bucketColor.withValues(alpha: 0.14),
+                                      color: bucketColor.withValues(
+                                        alpha: 0.14,
+                                      ),
                                       borderRadius: BorderRadius.circular(9),
                                     ),
                                     child: Icon(
@@ -2406,7 +2607,8 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           '${b.categoryName} (${b.weightPct}%)',
@@ -2438,7 +2640,9 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                   ),
                                   const SizedBox(width: 8),
                                   ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 120),
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 120,
+                                    ),
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
                                       alignment: Alignment.centerRight,
@@ -2446,7 +2650,9 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                         _fmtMoney(b.amountMinor),
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w700,
-                                          fontFeatures: [FontFeature.tabularFigures()],
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures(),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -2465,23 +2671,34 @@ class _PersonalAnalyticsAndAllocationTabViewState
                         children: [
                           Text(
                             'Tổng đã phân bổ: ${_fmtMoney(plan.allocatedTotalMinor)}',
-                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  fontFeatures: const [FontFeature.tabularFigures()],
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                           ),
                           FilledButton.icon(
                             key: const Key('apply_allocation_to_budget_btn'),
-                            onPressed: (plan.buckets.isEmpty ||
+                            onPressed:
+                                (plan.buckets.isEmpty ||
                                     budgetState.isSaving ||
                                     _isApplyingAllocation)
                                 ? null
                                 : () async {
                                     final bucketsToApply = plan.buckets
-                                        .where((b) => !b.isSavingsFund && b.amountMinor > 0)
+                                        .where(
+                                          (b) =>
+                                              !b.isSavingsFund &&
+                                              b.amountMinor > 0,
+                                        )
                                         .toList(growable: false);
                                     if (bucketsToApply.isEmpty) return;
-                                    final budgetBloc = context.read<BudgetBloc>();
-                                    setState(() => _isApplyingAllocation = true);
+                                    final budgetBloc = context
+                                        .read<BudgetBloc>();
+                                    setState(
+                                      () => _isApplyingAllocation = true,
+                                    );
                                     try {
                                       final resultsFuture = budgetBloc.stream
                                           .where(
@@ -2494,7 +2711,8 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                           .toList()
                                           .timeout(
                                             const Duration(seconds: 12),
-                                            onTimeout: () => const <BudgetState>[],
+                                            onTimeout: () =>
+                                                const <BudgetState>[],
                                           );
                                       for (final b in bucketsToApply) {
                                         budgetBloc.add(
@@ -2514,7 +2732,8 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                       final firstErr = completed
                                           .where((st) => st.failure != null)
                                           .firstOrNull;
-                                      if (completed.length < bucketsToApply.length) {
+                                      if (completed.length <
+                                          bucketsToApply.length) {
                                         LifeOsTopToast.show(
                                           context,
                                           'Thao tác lưu ngân sách mất nhiều thời gian — vui lòng kiểm tra lại.',
@@ -2535,17 +2754,25 @@ class _PersonalAnalyticsAndAllocationTabViewState
                                       }
                                     } finally {
                                       if (mounted) {
-                                        setState(() => _isApplyingAllocation = false);
+                                        setState(
+                                          () => _isApplyingAllocation = false,
+                                        );
                                       }
                                     }
                                   },
-                            icon: (_isApplyingAllocation || budgetState.isSaving)
+                            icon:
+                                (_isApplyingAllocation || budgetState.isSaving)
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
-                                : const Icon(Icons.auto_fix_high_rounded, size: 18),
+                                : const Icon(
+                                    Icons.auto_fix_high_rounded,
+                                    size: 18,
+                                  ),
                             label: Text(
                               (_isApplyingAllocation || budgetState.isSaving)
                                   ? 'Đang áp dụng...'
@@ -2585,7 +2812,10 @@ class _PersonalAnalyticsAndAllocationTabViewState
                         amountText: _fmtMoney(s.monthlyIncomeMinor),
                         ratio: s.monthlyIncomeMinor <= 0
                             ? 0.0
-                            : (s.monthlyIncomeMinor / maxCashflowCompare).clamp(0.0, 1.0),
+                            : (s.monthlyIncomeMinor / maxCashflowCompare).clamp(
+                                0.0,
+                                1.0,
+                              ),
                         color: c.success,
                       ),
                       const SizedBox(height: 10),
@@ -2594,16 +2824,23 @@ class _PersonalAnalyticsAndAllocationTabViewState
                         amountText: _fmtMoney(s.monthlyExpenseMinor),
                         ratio: s.monthlyExpenseMinor <= 0
                             ? 0.0
-                            : (s.monthlyExpenseMinor / maxCashflowCompare).clamp(0.0, 1.0),
+                            : (s.monthlyExpenseMinor / maxCashflowCompare)
+                                  .clamp(0.0, 1.0),
                         color: const Color(0xFFF59F00),
                       ),
                       const SizedBox(height: 10),
                       _ProportionalCashflowRow(
-                        label: s.netCashFlowMinor >= 0 ? 'Thặng dư ròng' : 'Thâm hụt kỳ này',
-                        amountText: _fmtMoney(s.netCashFlowMinor, showPlus: true),
+                        label: s.netCashFlowMinor >= 0
+                            ? 'Thặng dư ròng'
+                            : 'Thâm hụt kỳ này',
+                        amountText: _fmtMoney(
+                          s.netCashFlowMinor,
+                          showPlus: true,
+                        ),
                         ratio: s.netCashFlowMinor == 0
                             ? 0.0
-                            : (s.netCashFlowMinor.abs() / maxCashflowCompare).clamp(0.0, 1.0),
+                            : (s.netCashFlowMinor.abs() / maxCashflowCompare)
+                                  .clamp(0.0, 1.0),
                         color: s.netCashFlowMinor >= 0 ? c.primary : c.error,
                       ),
                     ],
@@ -2646,9 +2883,9 @@ class _ProportionalCashflowRow extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: c.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: c.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             Text(
               amountText,
@@ -2707,18 +2944,18 @@ class _MetricMiniCard extends StatelessWidget {
               child: Text(
                 value,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ],
         ),
@@ -2760,7 +2997,9 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
       builder: (context, state) {
         return Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
             child: ListView(
               key: const Key('budgets_list_view'),
               padding: const EdgeInsets.fromLTRB(
@@ -2786,18 +3025,18 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                     Text(
                       'Ngân sách tháng $monthKey',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                     OutlinedButton.icon(
                       onPressed: state.isSaving
                           ? null
                           : () => _showUpsertBudgetDialog(
-                                context,
-                                userId: userId,
-                                monthKey: monthKey,
-                                categories: categories,
-                              ),
+                              context,
+                              userId: userId,
+                              monthKey: monthKey,
+                              categories: categories,
+                            ),
                       icon: const Icon(Icons.tune_rounded, size: 18),
                       label: const Text('Đặt ngân sách'),
                     ),
@@ -2819,9 +3058,8 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                           'Chưa đặt hạn mức ngân sách cho tháng này.',
                           textAlign: TextAlign.center,
                           softWrap: true,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -2838,8 +3076,8 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                     final statusKind = b.isExceeded
                         ? SemanticStatusKind.error
                         : b.isWarning
-                            ? SemanticStatusKind.warning
-                            : SemanticStatusKind.success;
+                        ? SemanticStatusKind.warning
+                        : SemanticStatusKind.success;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                       child: LifeOsSoftCard(
@@ -2847,14 +3085,14 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                         onTap: state.isSaving
                             ? null
                             : () => _showUpsertBudgetDialog(
-                                  context,
-                                  userId: userId,
-                                  monthKey: monthKey,
-                                  categories: categories,
-                                  initialCategoryId: b.categoryId,
-                                  initialCategoryName: b.categoryName,
-                                  initialLimitMinor: b.limitMinor,
-                                ),
+                                context,
+                                userId: userId,
+                                monthKey: monthKey,
+                                categories: categories,
+                                initialCategoryId: b.categoryId,
+                                initialCategoryName: b.categoryName,
+                                initialLimitMinor: b.limitMinor,
+                              ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2866,7 +3104,9 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                               children: [
                                 Text(
                                   b.categoryName,
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
                                 ),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -2894,14 +3134,18 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                                   ? c.error
                                   : (b.isWarning ? c.warning : c.primary),
                               height: 7.5,
-                              semanticsLabel: 'Tiến độ ngân sách ${b.categoryName}',
+                              semanticsLabel:
+                                  'Tiến độ ngân sách ${b.categoryName}',
                               semanticsValue: '${b.percentUsed}%',
                             ),
                             const SizedBox(height: 6),
                             Text(
                               'Đã chi: ${_fmtMoney(b.spentMinor)} / Hạn mức: ${_fmtMoney(b.limitMinor)}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontFeatures: const [FontFeature.tabularFigures()],
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
                                   ),
                             ),
                           ],
@@ -2935,7 +3179,8 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                     icon: Icons.savings_outlined,
                     imageAsset: AppAssets.financeIllustration,
                     title: 'Chưa có sổ quỹ nào',
-                    subtitle: 'Tạo quỹ mục tiêu cá nhân hoặc quỹ chung gia đình (VD: Quỹ Sắm Tết).',
+                    subtitle:
+                        'Tạo quỹ mục tiêu cá nhân hoặc quỹ chung gia đình (VD: Quỹ Sắm Tết).',
                   )
                 else
                   ...state.funds.map(
@@ -2951,21 +3196,27 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     f.name,
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
                                   ),
                                 ),
                                 SemanticStatusBadge(
                                   kind: SemanticStatusKind.info,
-                                  label:
-                                      f.scope == FundScope.family ? 'Quỹ Chung' : 'Quỹ Riêng',
+                                  label: f.scope == FundScope.family
+                                      ? 'Quỹ Chung'
+                                      : 'Quỹ Riêng',
                                 ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
                               'Số dư sổ quỹ: ${_fmtMoney(f.balanceMinor)} / Mục tiêu: ${_fmtMoney(f.targetAmountMinor)}',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontFeatures: const [FontFeature.tabularFigures()],
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
                                   ),
                             ),
                             const SizedBox(height: 8),
@@ -2976,117 +3227,167 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                                   onPressed: state.isSaving
                                       ? null
                                       : () => _showFundAmountDialog(
-                                            context,
-                                            fund: f,
-                                            isContribution: true,
-                                          ),
-                                  icon: const Icon(Icons.add_circle_outline, size: 16),
+                                          context,
+                                          fund: f,
+                                          isContribution: true,
+                                        ),
+                                  icon: const Icon(
+                                    Icons.add_circle_outline,
+                                    size: 16,
+                                  ),
                                   label: const Text('Góp quỹ'),
                                 ),
                                 OutlinedButton.icon(
                                   onPressed: state.isSaving
                                       ? null
                                       : () => _showFundAmountDialog(
-                                            context,
-                                            fund: f,
-                                            isContribution: false,
-                                          ),
-                                  icon: const Icon(Icons.outbox_rounded, size: 16),
+                                          context,
+                                          fund: f,
+                                          isContribution: false,
+                                        ),
+                                  icon: const Icon(
+                                    Icons.outbox_rounded,
+                                    size: 16,
+                                  ),
                                   label: const Text('Đề xuất chi'),
                                 ),
                               ],
                             ),
                             if (f.expenseRequests.isNotEmpty) ...[
                               const Divider(height: 20),
-                              ...f.expenseRequests.take(3).map(
-                                (exp) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 5),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${exp.title} · ${_fmtMoney(exp.amountMinor)}',
-                                              softWrap: true,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w700,
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
-                                                  ),
-                                            ),
-                                            Text(
-                                              'Đề xuất bởi: ${exp.requesterName}',
-                                              softWrap: true,
-                                              style: Theme.of(context).textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
+                              ...f.expenseRequests
+                                  .take(3)
+                                  .map(
+                                    (exp) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 5,
                                       ),
-                                      const SizedBox(width: 8),
-                                      exp.status == FundExpenseStatus.pending &&
-                                              f.scope == FundScope.family &&
-                                              f.familyId != null
-                                          ? Row(
-                                              mainAxisSize: MainAxisSize.min,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                TextButton(
-                                                  onPressed: state.isSaving
-                                                      ? null
-                                                      : () => context.read<BudgetBloc>().add(
-                                                            FundExpenseDecisionSubmitted(
-                                                              DecideFundExpenseParams(
-                                                                familyId: f.familyId!,
-                                                                fundId: f.id,
-                                                                expenseId: exp.id,
-                                                                approve: false,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                  child: Text(
-                                                    'Từ chối',
-                                                    style: TextStyle(color: c.error),
-                                                  ),
+                                                Text(
+                                                  '${exp.title} · ${_fmtMoney(exp.amountMinor)}',
+                                                  softWrap: true,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        fontFeatures: const [
+                                                          FontFeature.tabularFigures(),
+                                                        ],
+                                                      ),
                                                 ),
-                                                TextButton(
-                                                  onPressed: state.isSaving
-                                                      ? null
-                                                      : () => context.read<BudgetBloc>().add(
-                                                            FundExpenseDecisionSubmitted(
-                                                              DecideFundExpenseParams(
-                                                                familyId: f.familyId!,
-                                                                fundId: f.id,
-                                                                expenseId: exp.id,
-                                                                approve: true,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                  child: const Text('Duyệt chi'),
+                                                Text(
+                                                  'Đề xuất bởi: ${exp.requesterName}',
+                                                  softWrap: true,
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.bodySmall,
                                                 ),
                                               ],
-                                            )
-                                          : SemanticStatusBadge(
-                                              kind: exp.status == FundExpenseStatus.approved
-                                                  ? SemanticStatusKind.success
-                                                  : exp.status == FundExpenseStatus.rejected
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          exp.status ==
+                                                      FundExpenseStatus
+                                                          .pending &&
+                                                  f.scope == FundScope.family &&
+                                                  f.familyId != null
+                                              ? Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    TextButton(
+                                                      onPressed: state.isSaving
+                                                          ? null
+                                                          : () => context
+                                                                .read<
+                                                                  BudgetBloc
+                                                                >()
+                                                                .add(
+                                                                  FundExpenseDecisionSubmitted(
+                                                                    DecideFundExpenseParams(
+                                                                      familyId:
+                                                                          f.familyId!,
+                                                                      fundId:
+                                                                          f.id,
+                                                                      expenseId:
+                                                                          exp.id,
+                                                                      approve:
+                                                                          false,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                      child: Text(
+                                                        'Từ chối',
+                                                        style: TextStyle(
+                                                          color: c.error,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: state.isSaving
+                                                          ? null
+                                                          : () => context
+                                                                .read<
+                                                                  BudgetBloc
+                                                                >()
+                                                                .add(
+                                                                  FundExpenseDecisionSubmitted(
+                                                                    DecideFundExpenseParams(
+                                                                      familyId:
+                                                                          f.familyId!,
+                                                                      fundId:
+                                                                          f.id,
+                                                                      expenseId:
+                                                                          exp.id,
+                                                                      approve:
+                                                                          true,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                      child: const Text(
+                                                        'Duyệt chi',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                )
+                                              : SemanticStatusBadge(
+                                                  kind:
+                                                      exp.status ==
+                                                          FundExpenseStatus
+                                                              .approved
+                                                      ? SemanticStatusKind
+                                                            .success
+                                                      : exp.status ==
+                                                            FundExpenseStatus
+                                                                .rejected
                                                       ? SemanticStatusKind.error
-                                                      : SemanticStatusKind.provisional,
-                                              label: exp.status == FundExpenseStatus.approved
-                                                  ? 'ĐÃ DUYỆT'
-                                                  : exp.status == FundExpenseStatus.rejected
+                                                      : SemanticStatusKind
+                                                            .provisional,
+                                                  label:
+                                                      exp.status ==
+                                                          FundExpenseStatus
+                                                              .approved
+                                                      ? 'ĐÃ DUYỆT'
+                                                      : exp.status ==
+                                                            FundExpenseStatus
+                                                                .rejected
                                                       ? 'ĐÃ TỪ CHỐI'
                                                       : 'CHỜ DUYỆT',
-                                            ),
-                                    ],
+                                                ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
                             ],
                           ],
                         ),
@@ -3153,7 +3454,8 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
     if (initialCategoryName != null &&
         initialCategoryName.trim().isNotEmpty &&
         !debitCats.any(
-          (c) => c.name.toLowerCase() == initialCategoryName.trim().toLowerCase(),
+          (c) =>
+              c.name.toLowerCase() == initialCategoryName.trim().toLowerCase(),
         )) {
       debitCats.insert(
         0,
@@ -3170,9 +3472,12 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
     }
     final bloc = context.read<BudgetBloc>();
     final existingBudgets = bloc.state.budgets;
-    var selectedCat = (initialCategoryName != null && initialCategoryName.trim().isNotEmpty)
+    var selectedCat =
+        (initialCategoryName != null && initialCategoryName.trim().isNotEmpty)
         ? debitCats.firstWhere(
-            (c) => c.name.toLowerCase() == initialCategoryName.trim().toLowerCase(),
+            (c) =>
+                c.name.toLowerCase() ==
+                initialCategoryName.trim().toLowerCase(),
             orElse: () => debitCats.first,
           )
         : debitCats.first;
@@ -3227,14 +3532,18 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             BlocBuilder<BudgetBloc, BudgetState>(
               bloc: bloc,
               builder: (_, bState) => FilledButton(
                 onPressed: bState.isSaving
                     ? null
                     : () {
-                        final limit = VndAmount.tryParseInput(limitCtrl.text) ?? 0;
+                        final limit =
+                            VndAmount.tryParseInput(limitCtrl.text) ?? 0;
                         if (limit <= 0) {
                           LifeOsTopToast.show(
                             ctx,
@@ -3268,7 +3577,9 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
   Future<void> _showCreateFundDialog(BuildContext context) async {
     final nameCtrl = TextEditingController();
     final targetCtrl = TextEditingController(text: '10000000');
-    var scope = familyId != null && familyId!.isNotEmpty ? FundScope.family : FundScope.personal;
+    var scope = familyId != null && familyId!.isNotEmpty
+        ? FundScope.family
+        : FundScope.personal;
     final bloc = context.read<BudgetBloc>();
 
     await showDialog<void>(
@@ -3284,7 +3595,9 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
               const SizedBox(height: 6),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(hintText: 'VD: Quỹ Sắm Tết 2027'),
+                decoration: const InputDecoration(
+                  hintText: 'VD: Quỹ Sắm Tết 2027',
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               const Text('Phạm vi quỹ'),
@@ -3293,10 +3606,15 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
                 isExpanded: true,
                 initialValue: scope,
                 items: [
-                  const DropdownMenuItem(value: FundScope.personal, child: Text('Quỹ Cá nhân riêng')),
+                  const DropdownMenuItem(
+                    value: FundScope.personal,
+                    child: Text('Quỹ Cá nhân riêng'),
+                  ),
                   if (familyId != null && familyId!.isNotEmpty)
                     const DropdownMenuItem(
-                        value: FundScope.family, child: Text('Quỹ Chung Gia đình / Nhóm')),
+                      value: FundScope.family,
+                      child: Text('Quỹ Chung Gia đình / Nhóm'),
+                    ),
                 ],
                 onChanged: (v) {
                   if (v != null) setDialogState(() => scope = v);
@@ -3315,14 +3633,18 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy'),
+            ),
             BlocBuilder<BudgetBloc, BudgetState>(
               bloc: bloc,
               builder: (_, bState) => FilledButton(
                 onPressed: bState.isSaving
                     ? null
                     : () {
-                        final target = VndAmount.tryParseInput(targetCtrl.text) ?? 0;
+                        final target =
+                            VndAmount.tryParseInput(targetCtrl.text) ?? 0;
                         bloc.add(
                           FundCreateSubmitted(
                             CreateFundParams(
@@ -3382,7 +3704,10 @@ class _BudgetsAndFundsTabView extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
           BlocBuilder<BudgetBloc, BudgetState>(
             bloc: bloc,
             builder: (_, bState) => FilledButton(
@@ -3469,18 +3794,18 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
       return;
     }
     context.read<TransactionActionBloc>().add(
-          TransactionCreateSubmitted(
-            operationId: const Uuid().v4(),
-            userId: widget.userId,
-            walletId: widget.defaultWalletId,
-            categoryId: parsed.categoryId,
-            categoryName: parsed.categoryName,
-            kind: parsed.kind,
-            amountMinor: parsed.amountMinor,
-            merchant: parsed.merchant,
-            occurredAt: DateTime.now(),
-          ),
-        );
+      TransactionCreateSubmitted(
+        operationId: const Uuid().v4(),
+        userId: widget.userId,
+        walletId: widget.defaultWalletId,
+        categoryId: parsed.categoryId,
+        categoryName: parsed.categoryName,
+        kind: parsed.kind,
+        amountMinor: parsed.amountMinor,
+        merchant: parsed.merchant,
+        occurredAt: DateTime.now(),
+      ),
+    );
     setState(() {
       _ctrl.clear();
       _preview = null;
@@ -3515,8 +3840,8 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
                       'Ghi nhanh thu chi',
                       softWrap: true,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ],
@@ -3553,9 +3878,8 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
             key: const Key('smart_quick_entry_field'),
             controller: _ctrl,
             textInputAction: TextInputAction.send,
-            onChanged: (v) => setState(
-              () => _preview = SmartQuickEntryParser.tryParse(v),
-            ),
+            onChanged: (v) =>
+                setState(() => _preview = SmartQuickEntryParser.tryParse(v)),
             onSubmitted: (_) => _submitQuickEntry(),
             decoration: const InputDecoration(
               hintText: 'Nhập nhanh thu chi...',
@@ -3577,14 +3901,16 @@ class _SmartQuickEntryCardState extends State<_SmartQuickEntryCard> {
                   kind: p.kind == TransactionKind.income
                       ? SemanticStatusKind.success
                       : SemanticStatusKind.info,
-                  label: p.kind == TransactionKind.income ? 'Thu nhập' : 'Chi tiêu',
+                  label: p.kind == TransactionKind.income
+                      ? 'Thu nhập'
+                      : 'Chi tiêu',
                 ),
                 Text(
                   '${p.merchant} · ${p.categoryName} · ${VndAmount.format(p.amountMinor)}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
@@ -3623,7 +3949,9 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
       (sum, b) => sum + b.limitMinor,
     );
     final hasBudget = totalBudgetLimit > 0;
-    final remainingSignedMinor = hasBudget ? (totalBudgetLimit - spentMinor) : 0;
+    final remainingSignedMinor = hasBudget
+        ? (totalBudgetLimit - spentMinor)
+        : 0;
     final pctUsed = hasBudget
         ? ((spentMinor * 100) / totalBudgetLimit).clamp(0, 999).round()
         : 0;
@@ -3661,10 +3989,13 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
     String stepMonthKey(String mk, int deltaMonths) {
       final parts = mk.split('-');
       final y = int.tryParse(parts.firstOrNull ?? '') ?? DateTime.now().year;
-      final m = int.tryParse(parts.length > 1 ? parts[1] : '') ?? DateTime.now().month;
+      final m =
+          int.tryParse(parts.length > 1 ? parts[1] : '') ??
+          DateTime.now().month;
       final next = DateTime(y, m + deltaMonths, 1);
       return '${next.year.toString().padLeft(4, '0')}-${next.month.toString().padLeft(2, '0')}';
     }
+
     final currentMk = TransactionListBloc.currentMonthKey();
     final authUserId = context.read<AuthBloc>().state.user?.id;
 
@@ -3674,10 +4005,9 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
     }
 
     // Rank actual top spending categories dynamically, filling up to 4 cards with defaults if needed.
-    final sortedActualCats = catTotals.entries
-        .where((e) => e.value > 0)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sortedActualCats =
+        catTotals.entries.where((e) => e.value > 0).toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
     const fallbackCategoryNames = <String>[
       'Ăn uống',
@@ -3723,12 +4053,13 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                           InkWell(
                             key: const Key('finance_prev_month_btn'),
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () => context.read<TransactionListBloc>().add(
-                              TransactionsSubscriptionRequested(
-                                userId: authUserId,
-                                monthKey: stepMonthKey(state.monthKey, -1),
-                              ),
-                            ),
+                            onTap: () =>
+                                context.read<TransactionListBloc>().add(
+                                  TransactionsSubscriptionRequested(
+                                    userId: authUserId,
+                                    monthKey: stepMonthKey(state.monthKey, -1),
+                                  ),
+                                ),
                             child: Padding(
                               padding: const EdgeInsets.all(3),
                               child: Icon(
@@ -3738,18 +4069,24 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                               ),
                             ),
                           ),
-                        Icon(Icons.calendar_today_rounded, size: 15, color: c.primary),
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 15,
+                          color: c.primary,
+                        ),
                         const SizedBox(width: 5),
                         Flexible(
                           child: InkWell(
                             borderRadius: BorderRadius.circular(8),
-                            onTap: (authUserId != null && state.monthKey != currentMk)
+                            onTap:
+                                (authUserId != null &&
+                                    state.monthKey != currentMk)
                                 ? () => context.read<TransactionListBloc>().add(
-                                      TransactionsSubscriptionRequested(
-                                        userId: authUserId,
-                                        monthKey: currentMk,
-                                      ),
-                                    )
+                                    TransactionsSubscriptionRequested(
+                                      userId: authUserId,
+                                      monthKey: currentMk,
+                                    ),
+                                  )
                                 : null,
                             child: Text(
                               'Kỳ ${state.monthKey}',
@@ -3758,7 +4095,9 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
                                 color: c.textPrimary,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                           ),
@@ -3767,12 +4106,13 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                           InkWell(
                             key: const Key('finance_next_month_btn'),
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () => context.read<TransactionListBloc>().add(
-                              TransactionsSubscriptionRequested(
-                                userId: authUserId,
-                                monthKey: stepMonthKey(state.monthKey, 1),
-                              ),
-                            ),
+                            onTap: () =>
+                                context.read<TransactionListBloc>().add(
+                                  TransactionsSubscriptionRequested(
+                                    userId: authUserId,
+                                    monthKey: stepMonthKey(state.monthKey, 1),
+                                  ),
+                                ),
                             child: Padding(
                               padding: const EdgeInsets.all(3),
                               child: Icon(
@@ -3791,7 +4131,10 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                           onTap: () => context.push('/auto-tx-review'),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             child: Text(
                               '✨ Tự động',
                               style: TextStyle(
@@ -3807,7 +4150,10 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                           onTap: () => context.push('/finance-report'),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             child: Text(
                               '📊 Báo cáo',
                               style: TextStyle(
@@ -4022,13 +4368,21 @@ class _LifeOsSpendingOverviewDeck extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, size: 19, color: c.textSecondary),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 19,
+                    color: c.textSecondary,
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 8),
-          for (var rowIdx = 0; rowIdx < topCategoryEntries.length; rowIdx += 2) ...[
+          for (
+            var rowIdx = 0;
+            rowIdx < topCategoryEntries.length;
+            rowIdx += 2
+          ) ...[
             if (rowIdx > 0) const SizedBox(height: 8),
             IntrinsicHeight(
               child: Row(

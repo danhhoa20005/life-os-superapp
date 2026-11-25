@@ -17,15 +17,24 @@ enum AutomationTriggerKind {
 }
 
 enum AutomationActionKind {
-  suggestSalaryBudgetAllocation('allocate_budget', 'Đề xuất phân bổ ngân sách tháng'),
+  suggestSalaryBudgetAllocation(
+    'allocate_budget',
+    'Đề xuất phân bổ ngân sách tháng',
+  ),
   logVehicleFuelCost('log_vehicle_fuel', 'Gắn chi phí nhiên liệu vào hồ sơ xe'),
-  updateVehicleMaintenanceCycle('update_vehicle_maint', 'Cập nhật mốc ODO bảo dưỡng xe'),
+  updateVehicleMaintenanceCycle(
+    'update_vehicle_maint',
+    'Cập nhật mốc ODO bảo dưỡng xe',
+  ),
   markRecurringBillPaid('update_recurring_bill', 'Cập nhật kỳ hóa đơn định kỳ'),
   promptSaveWarranty('save_warranty', 'Đề xuất lưu phiếu bảo hành thiết bị'),
   promptSplitGroupBill('split_group_bill', 'Đề xuất chia tiền nhóm'),
   emitSpendingAlert('spending_alert', 'Phát cảnh báo kiểm soát chi tiêu'),
   createExpiryReminder('create_doc_reminder', 'Tạo lời nhắc gia hạn giấy tờ'),
-  showUpcomingEventAlert('event_alert', 'Hiển thị nhắc nhở sự kiện sắp diễn ra');
+  showUpcomingEventAlert(
+    'event_alert',
+    'Hiển thị nhắc nhở sự kiện sắp diễn ra',
+  );
 
   final String code;
   final String labelVi;

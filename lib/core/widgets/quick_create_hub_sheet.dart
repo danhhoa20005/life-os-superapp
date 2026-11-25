@@ -533,11 +533,7 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody> {
                   extra: draftText.isEmpty ? null : draftText,
                 );
               },
-              icon: Icon(
-                Icons.edit_note_rounded,
-                size: 18,
-                color: c.primary,
-              ),
+              icon: Icon(Icons.edit_note_rounded, size: 18, color: c.primary),
               label: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -1344,12 +1340,10 @@ class _SheetControllersScope extends StatefulWidget {
     BuildContext context,
     List<TextEditingController> controllers,
     StateSetter setModalState,
-  ) builder;
+  )
+  builder;
 
-  const _SheetControllersScope({
-    required this.count,
-    required this.builder,
-  });
+  const _SheetControllersScope({required this.count, required this.builder});
 
   @override
   State<_SheetControllersScope> createState() => _SheetControllersScopeState();
@@ -1393,10 +1387,7 @@ Future<void> _showQuickWaterAndMedSheet(
     showDragHandle: true,
     builder: (_) => BlocProvider<DailyLifeBloc>.value(
       value: dailyBloc,
-      child: _QuickWaterAndMedModal(
-        parentContext: context,
-        userId: user.id,
-      ),
+      child: _QuickWaterAndMedModal(parentContext: context, userId: user.id),
     ),
   );
 }
@@ -1451,9 +1442,7 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              _mode == 'water'
-                  ? 'Uống nước & Hẹn nhắc'
-                  : 'Đặt nhắc uống thuốc',
+              _mode == 'water' ? 'Uống nước & Hẹn nhắc' : 'Đặt nhắc uống thuốc',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,

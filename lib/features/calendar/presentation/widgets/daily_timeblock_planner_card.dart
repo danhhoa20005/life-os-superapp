@@ -136,11 +136,7 @@ class DailyTimeblockPlannerCard extends StatelessWidget {
                     'Trống ${timeFmt.format(w.startsAt)}–${timeFmt.format(w.endsAt)}';
                 return ActionChip(
                   visualDensity: VisualDensity.compact,
-                  avatar: Icon(
-                    Icons.bolt_rounded,
-                    size: 15,
-                    color: c.primary,
-                  ),
+                  avatar: Icon(Icons.bolt_rounded, size: 15, color: c.primary),
                   label: Text(
                     candidateTask != null ? '$label · Xếp việc' : label,
                     style: const TextStyle(
@@ -150,9 +146,10 @@ class DailyTimeblockPlannerCard extends StatelessWidget {
                   onPressed: candidateTask == null
                       ? null
                       : () {
-                          final endSlot = w.startsAt
-                              .add(const Duration(minutes: 45))
-                              .isBefore(w.endsAt)
+                          final endSlot =
+                              w.startsAt
+                                  .add(const Duration(minutes: 45))
+                                  .isBefore(w.endsAt)
                               ? w.startsAt.add(const Duration(minutes: 45))
                               : w.endsAt;
                           context.read<CalendarBloc>().add(

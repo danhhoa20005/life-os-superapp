@@ -30,17 +30,18 @@ class FamilyFundsPage extends StatelessWidget {
     }
   }
 
-  SemanticStatusKind _expenseBadgeKind(FundExpenseStatus status) => switch (status) {
-    FundExpenseStatus.draft => SemanticStatusKind.info,
-    FundExpenseStatus.pendingApproval => SemanticStatusKind.provisional,
-    FundExpenseStatus.approved => SemanticStatusKind.info,
-    FundExpenseStatus.executed => SemanticStatusKind.success,
-    FundExpenseStatus.reconciled => SemanticStatusKind.success,
-    FundExpenseStatus.rejected => SemanticStatusKind.error,
-    FundExpenseStatus.cancelled => SemanticStatusKind.warning,
-    FundExpenseStatus.disputed => SemanticStatusKind.error,
-    FundExpenseStatus.reversed => SemanticStatusKind.warning,
-  };
+  SemanticStatusKind _expenseBadgeKind(FundExpenseStatus status) =>
+      switch (status) {
+        FundExpenseStatus.draft => SemanticStatusKind.info,
+        FundExpenseStatus.pendingApproval => SemanticStatusKind.provisional,
+        FundExpenseStatus.approved => SemanticStatusKind.info,
+        FundExpenseStatus.executed => SemanticStatusKind.success,
+        FundExpenseStatus.reconciled => SemanticStatusKind.success,
+        FundExpenseStatus.rejected => SemanticStatusKind.error,
+        FundExpenseStatus.cancelled => SemanticStatusKind.warning,
+        FundExpenseStatus.disputed => SemanticStatusKind.error,
+        FundExpenseStatus.reversed => SemanticStatusKind.warning,
+      };
 
   ({String asset, IconData icon, LifeOsAccentTone tone}) _resolveFundVisual(
     String fundName,
@@ -801,8 +802,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                   ),
                                                 ),
                                                 TextSpan(
-                                                  text: fund.targetAmountMinor >
-                                                          0
+                                                  text:
+                                                      fund.targetAmountMinor > 0
                                                       ? ' / ${VndAmount.format(fund.targetAmountMinor)}'
                                                       : ' (Chưa đặt mục tiêu)',
                                                   style: TextStyle(
@@ -826,23 +827,19 @@ class FamilyFundsPage extends StatelessWidget {
                                                         BorderRadius.circular(
                                                           8,
                                                         ),
-                                                    child:
-                                                        LinearProgressIndicator(
-                                                          minHeight: 8,
-                                                          value:
-                                                              (fund.progressPct /
-                                                                      100)
-                                                                  .clamp(
-                                                                    0.0,
-                                                                    1.0,
-                                                                  ),
-                                                          backgroundColor:
-                                                              c.surfaceRaised,
-                                                          valueColor:
-                                                              AlwaysStoppedAnimation<
-                                                                Color
-                                                              >(c.primary),
-                                                        ),
+                                                    child: LinearProgressIndicator(
+                                                      minHeight: 8,
+                                                      value:
+                                                          (fund.progressPct /
+                                                                  100)
+                                                              .clamp(0.0, 1.0),
+                                                      backgroundColor:
+                                                          c.surfaceRaised,
+                                                      valueColor:
+                                                          AlwaysStoppedAnimation<
+                                                            Color
+                                                          >(c.primary),
+                                                    ),
                                                   ),
                                                 ),
                                                 const SizedBox(width: 10),
@@ -871,15 +868,18 @@ class FamilyFundsPage extends StatelessWidget {
                                                 ),
                                                 onPressed: state.isSaving
                                                     ? null
-                                                    : () => _showContributeSheet(
-                                                        context,
-                                                        userId: user.id,
-                                                        userName: user.fullName,
-                                                        fund: fund,
-                                                        wallets: wallets,
-                                                      ),
+                                                    : () =>
+                                                          _showContributeSheet(
+                                                            context,
+                                                            userId: user.id,
+                                                            userName:
+                                                                user.fullName,
+                                                            fund: fund,
+                                                            wallets: wallets,
+                                                          ),
                                                 icon: const Icon(
-                                                  Icons.add_circle_outline_rounded,
+                                                  Icons
+                                                      .add_circle_outline_rounded,
                                                   size: 17,
                                                 ),
                                                 label: const Text('Nạp quỹ'),
@@ -908,8 +908,12 @@ class FamilyFundsPage extends StatelessWidget {
                                               ),
                                             ],
                                           ),
-                                          if (fund.recentContributions.isNotEmpty ||
-                                              fund.expenseRequests.isNotEmpty) ...[
+                                          if (fund
+                                                  .recentContributions
+                                                  .isNotEmpty ||
+                                              fund
+                                                  .expenseRequests
+                                                  .isNotEmpty) ...[
                                             const SizedBox(height: 10),
                                             LifeOsDetailsDiscloseSection(
                                               label: 'Chi tiết quỹ',
@@ -990,7 +994,7 @@ class FamilyFundsPage extends StatelessWidget {
                                   ),
                                 )
                               else
-                                  ...pendingExpenses.map((entry) {
+                                ...pendingExpenses.map((entry) {
                                   final fund = entry.fund;
                                   final req = entry.item;
                                   final isFamilyFund =
@@ -1056,7 +1060,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               const LifeOsIconSquircle(
-                                                icon: Icons.receipt_long_rounded,
+                                                icon:
+                                                    Icons.receipt_long_rounded,
                                                 tone: LifeOsAccentTone.amber,
                                                 size: 40,
                                               ),
@@ -1142,7 +1147,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                 kind: _expenseBadgeKind(
                                                   req.status,
                                                 ),
-                                                label: req.status.displayLabelVi,
+                                                label:
+                                                    req.status.displayLabelVi,
                                               ),
                                               if (canSubmitDraft)
                                                 FilledButton.icon(
@@ -1374,8 +1380,7 @@ class FamilyFundsPage extends StatelessWidget {
                                           i < decidedExpenses.length;
                                           i++
                                         ) ...[
-                                          if (i > 0)
-                                            const Divider(height: 18),
+                                          if (i > 0) const Divider(height: 18),
                                           Builder(
                                             builder: (ctx) {
                                               final entry = decidedExpenses[i];
@@ -1440,7 +1445,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w800,
-                                                              color: exp
+                                                              color:
+                                                                  exp
                                                                       .status
                                                                       .affectsBalance
                                                                   ? c.error
@@ -1480,18 +1486,18 @@ class FamilyFundsPage extends StatelessWidget {
                                                             ),
                                                             onPressed:
                                                                 state.isSaving
-                                                                    ? null
-                                                                    : () => _showReconcileDialog(
-                                                                        ctx,
-                                                                        familyId:
-                                                                            f.familyId!,
-                                                                        fundId: f
-                                                                            .id,
-                                                                        expenseId:
-                                                                            exp.id,
-                                                                        actorUserId:
-                                                                            user.id,
-                                                                      ),
+                                                                ? null
+                                                                : () => _showReconcileDialog(
+                                                                    ctx,
+                                                                    familyId: f
+                                                                        .familyId!,
+                                                                    fundId:
+                                                                        f.id,
+                                                                    expenseId:
+                                                                        exp.id,
+                                                                    actorUserId:
+                                                                        user.id,
+                                                                  ),
                                                             icon: const Icon(
                                                               Icons
                                                                   .fact_check_outlined,
@@ -1508,21 +1514,21 @@ class FamilyFundsPage extends StatelessWidget {
                                                             ),
                                                             onPressed:
                                                                 state.isSaving
-                                                                    ? null
-                                                                    : () => ctx
-                                                                          .read<
-                                                                            BudgetBloc
-                                                                          >()
-                                                                          .add(
-                                                                            FundExpenseReversed(
-                                                                              ReverseFundExpenseParams(
-                                                                                familyId: f.familyId!,
-                                                                                fundId: f.id,
-                                                                                expenseId: exp.id,
-                                                                                actorUserId: user.id,
-                                                                              ),
-                                                                            ),
-                                                                          ),
+                                                                ? null
+                                                                : () => ctx.read<BudgetBloc>().add(
+                                                                    FundExpenseReversed(
+                                                                      ReverseFundExpenseParams(
+                                                                        familyId:
+                                                                            f.familyId!,
+                                                                        fundId:
+                                                                            f.id,
+                                                                        expenseId:
+                                                                            exp.id,
+                                                                        actorUserId:
+                                                                            user.id,
+                                                                      ),
+                                                                    ),
+                                                                  ),
                                                             icon: const Icon(
                                                               Icons
                                                                   .undo_rounded,
@@ -1538,18 +1544,17 @@ class FamilyFundsPage extends StatelessWidget {
                                                           ),
                                                           onPressed:
                                                               state.isSaving
-                                                                  ? null
-                                                                  : () => _showDisputeDialog(
-                                                                      ctx,
-                                                                      familyId: f
-                                                                          .familyId!,
-                                                                      fundId:
-                                                                          f.id,
-                                                                      expenseId:
-                                                                          exp.id,
-                                                                      actorUserId:
-                                                                          user.id,
-                                                                    ),
+                                                              ? null
+                                                              : () => _showDisputeDialog(
+                                                                  ctx,
+                                                                  familyId: f
+                                                                      .familyId!,
+                                                                  fundId: f.id,
+                                                                  expenseId:
+                                                                      exp.id,
+                                                                  actorUserId:
+                                                                      user.id,
+                                                                ),
                                                           icon: Icon(
                                                             Icons
                                                                 .report_problem_outlined,
@@ -1988,8 +1993,8 @@ class _CreateFundDialogState extends State<_CreateFundDialog> {
   );
   late FundScope _scope =
       (widget.familyId != null && widget.familyId!.isNotEmpty)
-          ? FundScope.family
-          : FundScope.personal;
+      ? FundScope.family
+      : FundScope.personal;
 
   @override
   void dispose() {
@@ -2097,8 +2102,9 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
   final TextEditingController _amtCtrl = TextEditingController();
   final TextEditingController _noteCtrl = TextEditingController();
   bool _deductFromWallet = false;
-  late String? _selectedWalletId =
-      widget.wallets.isNotEmpty ? widget.wallets.first.id : null;
+  late String? _selectedWalletId = widget.wallets.isNotEmpty
+      ? widget.wallets.first.id
+      : null;
   bool _isSubmitting = false;
 
   @override
@@ -2116,12 +2122,7 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
     return LiquidGlassSheetFrame(
       showHandle: true,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          18,
-          6,
-          18,
-          20 + viewInsets.bottom,
-        ),
+        padding: EdgeInsets.fromLTRB(18, 6, 18, 20 + viewInsets.bottom),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2244,8 +2245,8 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
                               }
                               final selectedWalletId =
                                   _deductFromWallet && canDeductWallet
-                                      ? _selectedWalletId
-                                      : null;
+                                  ? _selectedWalletId
+                                  : null;
                               if (_deductFromWallet &&
                                   canDeductWallet &&
                                   (selectedWalletId == null ||
@@ -2260,24 +2261,25 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
                               setState(() => _isSubmitting = true);
                               final opId = const Uuid().v4();
                               final trimmedNote = _noteCtrl.text.trim();
-                              final res = await widget.budgetBloc.submitAndAwait(
-                                FundContributionSubmitted(
-                                  ContributeFundParams(
-                                    userId: widget.userId,
-                                    userName: widget.userName,
-                                    scope: widget.fund.scope,
-                                    familyId: widget.fund.familyId,
-                                    fundId: widget.fund.id,
-                                    amountMinor: amt,
-                                    note: trimmedNote.isEmpty
-                                        ? null
-                                        : trimmedNote,
-                                    sourceWalletId: selectedWalletId,
+                              final res = await widget.budgetBloc
+                                  .submitAndAwait(
+                                    FundContributionSubmitted(
+                                      ContributeFundParams(
+                                        userId: widget.userId,
+                                        userName: widget.userName,
+                                        scope: widget.fund.scope,
+                                        familyId: widget.fund.familyId,
+                                        fundId: widget.fund.id,
+                                        amountMinor: amt,
+                                        note: trimmedNote.isEmpty
+                                            ? null
+                                            : trimmedNote,
+                                        sourceWalletId: selectedWalletId,
+                                        operationId: opId,
+                                      ),
+                                    ),
                                     operationId: opId,
-                                  ),
-                                ),
-                                operationId: opId,
-                              );
+                                  );
                               if (!context.mounted) return;
                               setState(() => _isSubmitting = false);
                               if (res.failure != null) {
@@ -2408,12 +2410,7 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
           return LiquidGlassSheetFrame(
             showHandle: true,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                6,
-                18,
-                20 + viewInsets.bottom,
-              ),
+              padding: EdgeInsets.fromLTRB(18, 6, 18, 20 + viewInsets.bottom),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -2482,10 +2479,7 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
                           ? 'Khoản đề xuất từ quỹ chung sẽ chờ quản trị viên phê duyệt và giải ngân trước khi trừ quỹ.'
                           : 'Khoản rút từ quỹ cá nhân sẽ được trừ trực tiếp vào số dư quỹ nếu đủ số dư.',
                       softWrap: true,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: c.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                     const SizedBox(height: 16),
                     Wrap(
@@ -2494,7 +2488,9 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
                       alignment: WrapAlignment.end,
                       children: [
                         OutlinedButton(
-                          onPressed: busy ? null : () => Navigator.of(ctx).pop(),
+                          onPressed: busy
+                              ? null
+                              : () => Navigator.of(ctx).pop(),
                           child: const Text('Hủy'),
                         ),
                         if (isFamily)

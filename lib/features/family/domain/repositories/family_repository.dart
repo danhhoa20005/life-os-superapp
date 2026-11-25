@@ -89,9 +89,7 @@ abstract interface class FamilyRepository {
     required String itemId,
   });
 
-  Future<Result<int>> clearPurchasedShoppingItems({
-    required String familyId,
-  });
+  Future<Result<int>> clearPurchasedShoppingItems({required String familyId});
 
   Future<Result<SharedBillSplitEntity>> createSharedBillSplit({
     required String familyId,

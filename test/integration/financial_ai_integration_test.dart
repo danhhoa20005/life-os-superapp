@@ -35,7 +35,10 @@ import 'package:life_os/features/transactions/domain/repositories/transaction_re
 import 'package:life_os/features/transactions/presentation/bloc/transaction_bloc.dart';
 import 'package:life_os/features/transactions/presentation/bloc/transaction_event.dart';
 
-void _assertZeroVisualOverflow(WidgetTester tester, {required String contextLabel}) {
+void _assertZeroVisualOverflow(
+  WidgetTester tester, {
+  required String contextLabel,
+}) {
   final renderObjects = tester.allRenderObjects.toList();
   for (final ro in renderObjects) {
     if (ro is RenderParagraph && ro.didExceedMaxLines) {
@@ -596,7 +599,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        _assertZeroVisualOverflow(tester, contextLabel: 'FinancialAiAssistantPage Idle');
+        _assertZeroVisualOverflow(
+          tester,
+          contextLabel: 'FinancialAiAssistantPage Idle',
+        );
 
         // Dispatch multi-transaction sentence into FinancialAiBloc
         aiBloc.add(
@@ -773,7 +779,9 @@ void main() {
         await tester.tap(find.text('Tài chính'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(const Key('open_financial_ai_assistant_btn')));
+        await tester.tap(
+          find.byKey(const Key('open_financial_ai_assistant_btn')),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(FinancialAiAssistantPage), findsOneWidget);

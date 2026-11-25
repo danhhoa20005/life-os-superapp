@@ -122,7 +122,8 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Kéo ngang duyệt sao kê có ngưỡng Haptic',
       uxPurposeVi:
           'Kéo sang phải để khớp giao dịch hoặc sang trái để hoàn tác với phản hồi xúc giác đúng ngưỡng 64px.',
-      tokenSummary: 'gestureThrowSpring (k:260, c:26, ζ=0.806) · selectionHaptic',
+      tokenSummary:
+          'gestureThrowSpring (k:260, c:26, ζ=0.806) · selectionHaptic',
       upstreamRef: 'iOS Mail / Revolut Statement Swipe Action',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample36SwipeStatementRow(
@@ -279,7 +280,8 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Màng sóng Bezier đàn hồi khi kéo cạnh',
       uxPurposeVi:
           'Đường cong Bezier biến dạng theo ngón tay và bật về trạng thái phẳng bằng lò xo đàn hồi giàu cảm xúc.',
-      tokenSummary: 'CustomPainter Quadratic/Cubic Bezier + bouncySpring (ζ=0.616)',
+      tokenSummary:
+          'CustomPainter Quadratic/Cubic Bezier + bouncySpring (ζ=0.616)',
       upstreamRef: 'gskinner/flutter_vignettes Gooey Edge Port',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample46GooeyBezierEdge(
@@ -326,8 +328,7 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Hộp thoại Kính xuất hiện bằng FadeScaleTransition',
       uxPurposeVi:
           'Mở hộp thoại xác nhận quan trọng với độ phóng tinh tế (0.80 -> 1.0) và tự chuyển về mờ phẳng khi Giảm chuyển động.',
-      tokenSummary:
-          'FadeScaleTransition · standard 220ms / exitFast 140ms',
+      tokenSummary: 'FadeScaleTransition · standard 220ms / exitFast 140ms',
       upstreamRef: 'Material Motion FadeScaleTransition (animations ^2.2.0)',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample49FadeScaleDialog(
@@ -346,13 +347,13 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Biểu đồ Donut đa phân khúc biến hình 0% vọt lố',
       uxPurposeVi:
           'Nội suy góc cung từng nhóm chi tiêu bằng lò xo tới hạn (ζ=1.001) để tổng tỷ lệ không bao giờ vượt 100%.',
-      tokenSummary: 'chartMorphSpring (m:1, k:240, c:31, ζ=1.001, 0% overshoot)',
+      tokenSummary:
+          'chartMorphSpring (m:1, k:240, c:31, ζ=1.001, 0% overshoot)',
       upstreamRef: 'UI/UX Pro Max Native CustomPainter Donut',
-      previewBuilder: (context, speedFactor, replaySeed) =>
-          _Sample50MorphDonut(
-            key: ValueKey<String>('s50_$replaySeed'),
-            speedFactor: speedFactor,
-          ),
+      previewBuilder: (context, speedFactor, replaySeed) => _Sample50MorphDonut(
+        key: ValueKey<String>('s50_$replaySeed'),
+        speedFactor: speedFactor,
+      ),
     ),
     MotionSampleSpec(
       number: 51,
@@ -376,7 +377,8 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Đường Sparkline tài sản ròng & kiểm chứng biến động 0',
       uxPurposeVi:
           'Vẽ mượt quỹ đạo tài sản bằng PathMetric.extractPath và giữ đường phẳng chính xác khi dữ liệu không đổi.',
-      tokenSummary: 'PathMetric.extractPath · expressive 420ms · flat-line safe',
+      tokenSummary:
+          'PathMetric.extractPath · expressive 420ms · flat-line safe',
       upstreamRef: 'Skia/Impeller PathMetric Progressive Stroke',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample52PathSparkline(
@@ -421,7 +423,8 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Vòng đồng tâm 6 Hũ tài chính 0% vọt lố',
       uxPurposeVi:
           'Ba vòng tiến độ đồng tâm co giãn mượt bằng lò xo tới hạn để không bao giờ báo hoàn thành giả quá ngưỡng.',
-      tokenSummary: 'chartMorphSpring (ζ=1.001, 0% overshoot) · 3 concentric arcs',
+      tokenSummary:
+          'chartMorphSpring (ζ=1.001, 0% overshoot) · 3 concentric arcs',
       upstreamRef: 'Apple Activity Rings / LifeOS 6-Jars Gauge',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample55SixJarsRings(
@@ -451,7 +454,8 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Thanh ngân sách trung thực: 68% an toàn vs 118% vượt mức',
       uxPurposeVi:
           'Chỉ giới hạn phần vẽ thanh ở 100% chiều rộng khung nhưng giữ nguyên con số 118% và cảnh báo vượt ngân sách.',
-      tokenSummary: 'LifeOsAnimatedProgressBar · medium 300ms · honest 118% label',
+      tokenSummary:
+          'LifeOsAnimatedProgressBar · medium 300ms · honest 118% label',
       upstreamRef: 'LifeOS Section 6.1 #5 Honest Budget Bar',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample57HonestBudgetBar(
@@ -489,11 +493,10 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       tokenSummary:
           'LifeOsShaderSurface(holographicFoil) · shaders/holographic_foil.frag',
       upstreamRef: 'Apple Wallet Cash / Revolut Metal Foil Shader',
-      previewBuilder: (context, speedFactor, replaySeed) =>
-          _Sample59ShaderFoil(
-            key: ValueKey<String>('s59_$replaySeed'),
-            speedFactor: speedFactor,
-          ),
+      previewBuilder: (context, speedFactor, replaySeed) => _Sample59ShaderFoil(
+        key: ValueKey<String>('s59_$replaySeed'),
+        speedFactor: speedFactor,
+      ),
     ),
     MotionSampleSpec(
       number: 60,
@@ -502,7 +505,8 @@ List<MotionSampleSpec> buildMotionSamplesPart2() {
       titleVi: 'Vầng sóng âm AI Voice RMS (0 setState/khung hình)',
       uxPurposeVi:
           'Nối trực tiếp ValueNotifier biên độ âm thanh vào CustomPainter(repaint:) để vẽ 60/120 FPS không rebuild widget.',
-      tokenSummary: 'ValueNotifier<double> + CustomPainter(repaint:) · 0 setState',
+      tokenSummary:
+          'ValueNotifier<double> + CustomPainter(repaint:) · 0 setState',
       upstreamRef: 'LifeOS On-Device Voice Capture Aura',
       previewBuilder: (context, speedFactor, replaySeed) =>
           _Sample60VoiceRmsAura(
@@ -642,11 +646,7 @@ class _Sample34GuardedStaggerState extends State<_Sample34GuardedStagger> {
   void _addSingle() {
     setState(() {
       _counter++;
-      _rows.insert(0, (
-        'tx_$_counter',
-        'Giao dịch lẻ #$_counter',
-        '-85.000 ₫',
-      ));
+      _rows.insert(0, ('tx_$_counter', 'Giao dịch lẻ #$_counter', '-85.000 ₫'));
       _statusNote = 'Thêm +1 dòng: chạy entrance mượt';
     });
   }
@@ -1176,7 +1176,11 @@ class _Sample37PriorityLiftCardState extends State<_Sample37PriorityLiftCard> {
   int _selectedIdx = 0;
 
   static const _tasks = <(String, String, LifeOsAccentTone)>[
-    ('Thanh toán thẻ tín dụng trước 17:00', 'Ưu tiên cao', LifeOsAccentTone.coral),
+    (
+      'Thanh toán thẻ tín dụng trước 17:00',
+      'Ưu tiên cao',
+      LifeOsAccentTone.coral,
+    ),
     ('Gửi báo cáo ngân sách gia đình', 'Hôm nay', LifeOsAccentTone.emerald),
     ('Đặt lịch bảo dưỡng xe định kỳ', 'Tuần này', LifeOsAccentTone.blue),
   ];
@@ -1253,10 +1257,7 @@ class _Sample37PriorityLiftCardState extends State<_Sample37PriorityLiftCard> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      LifeOsStatusPill(
-                        label: _tasks[i].$2,
-                        tone: _tasks[i].$3,
-                      ),
+                      LifeOsStatusPill(label: _tasks[i].$2, tone: _tasks[i].$3),
                     ],
                   ),
                 ),
@@ -2080,7 +2081,9 @@ class _Sample43NestedScrollHandoffState
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
-                    border: Border(top: BorderSide(color: c.primary, width: 1.2)),
+                    border: Border(
+                      top: BorderSide(color: c.primary, width: 1.2),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2427,7 +2430,10 @@ class _Sample46GooeyBezierEdgeState extends State<_Sample46GooeyBezierEdge>
           onPanUpdate: (d) {
             final box = context.findRenderObject() as RenderBox?;
             if (box != null && box.hasSize) {
-              _anchorX = (d.localPosition.dx / box.size.width).clamp(0.15, 0.85);
+              _anchorX = (d.localPosition.dx / box.size.width).clamp(
+                0.15,
+                0.85,
+              );
             }
             _bendCtrl.jumpTo((_bendCtrl.value + d.delta.dy).clamp(-56.0, 56.0));
           },
@@ -2515,10 +2521,7 @@ class _GooeyWavePainter extends CustomPainter {
       ..quadraticBezierTo(peakX, midY + bendPx * 1.45, size.width, midY)
       ..lineTo(size.width, size.height)
       ..close();
-    canvas.drawPath(
-      path,
-      Paint()..color = fillColor.withValues(alpha: 0.28),
-    );
+    canvas.drawPath(path, Paint()..color = fillColor.withValues(alpha: 0.28));
   }
 
   @override
@@ -2810,10 +2813,7 @@ class _Sample50MorphDonutState extends State<_Sample50MorphDonut>
 
   List<double> _currentWeights() {
     final t = _morphCtrl.value.clamp(0.0, 1.0);
-    return List<double>.generate(
-      4,
-      (i) => ui.lerpDouble(_from[i], _to[i], t)!,
-    );
+    return List<double>.generate(4, (i) => ui.lerpDouble(_from[i], _to[i], t)!);
   }
 
   void _cyclePreset() {
@@ -2841,7 +2841,8 @@ class _Sample50MorphDonutState extends State<_Sample50MorphDonut>
         Row(
           children: [
             GestureDetector(
-              onTap: () => setState(() => _activeSlice = (_activeSlice + 1) % 4),
+              onTap: () =>
+                  setState(() => _activeSlice = (_activeSlice + 1) % 4),
               child: SizedBox(
                 width: 96,
                 height: 96,
@@ -3044,7 +3045,8 @@ class _Sample51CashflowScrubState extends State<_Sample51CashflowScrub>
         LayoutBuilder(
           builder: (ctx, constraints) {
             return GestureDetector(
-              onTapDown: (d) => _scrubAt(d.localPosition.dx, constraints.maxWidth),
+              onTapDown: (d) =>
+                  _scrubAt(d.localPosition.dx, constraints.maxWidth),
               onHorizontalDragUpdate: (d) =>
                   _scrubAt(d.localPosition.dx, constraints.maxWidth),
               child: SizedBox(
@@ -3436,10 +3438,7 @@ class _FireCurvePainter extends CustomPainter {
   final double saveRate;
   final Color strokeColor;
 
-  const _FireCurvePainter({
-    required this.saveRate,
-    required this.strokeColor,
-  });
+  const _FireCurvePainter({required this.saveRate, required this.strokeColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3906,14 +3905,15 @@ class _Sample60VoiceRmsAuraState extends State<_Sample60VoiceRmsAura>
   @override
   void initState() {
     super.initState();
-    _voicePulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..addListener(() {
-        final t = _voicePulseCtrl.value;
-        _rmsNotifier.value =
-            (0.25 + 0.65 * math.sin(t * math.pi * 3).abs()) * (1.0 - t * 0.4);
-      });
+    _voicePulseCtrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1100),
+        )..addListener(() {
+          final t = _voicePulseCtrl.value;
+          _rmsNotifier.value =
+              (0.25 + 0.65 * math.sin(t * math.pi * 3).abs()) * (1.0 - t * 0.4);
+        });
   }
 
   @override
@@ -4021,8 +4021,7 @@ class _VoiceRmsAuraPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _VoiceRmsAuraPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.rmsListenable != rmsListenable;
+      oldDelegate.color != color || oldDelegate.rmsListenable != rmsListenable;
 }
 
 class _Sample61LottieCheck extends StatefulWidget {
@@ -4204,10 +4203,7 @@ class _Sample63SpriteVsStaticState extends State<_Sample63SpriteVsStatic> {
                       '1 khung tĩnh minh họa',
                       textAlign: TextAlign.center,
                       softWrap: true,
-                      style: TextStyle(
-                        fontSize: 10.8,
-                        color: c.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 10.8, color: c.textSecondary),
                     ),
                   ],
                 ),
@@ -4248,10 +4244,7 @@ class _Sample63SpriteVsStaticState extends State<_Sample63SpriteVsStatic> {
                       'Chạm xu để quay 8 khung',
                       textAlign: TextAlign.center,
                       softWrap: true,
-                      style: TextStyle(
-                        fontSize: 10.8,
-                        color: c.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 10.8, color: c.textSecondary),
                     ),
                   ],
                 ),

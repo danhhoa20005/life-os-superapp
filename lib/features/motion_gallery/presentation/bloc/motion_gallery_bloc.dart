@@ -108,9 +108,8 @@ class MotionGalleryBloc extends Bloc<MotionGalleryEvent, MotionGalleryState> {
       transformer: restartable(),
     );
     on<MotionGallerySpeedChanged>(
-      (event, emit) => emit(
-        state.copyWith(speedFactor: event.speedFactor.clamp(0.25, 2.0)),
-      ),
+      (event, emit) =>
+          emit(state.copyWith(speedFactor: event.speedFactor.clamp(0.25, 2.0))),
       transformer: sequential(),
     );
     on<MotionGalleryReplayTriggered>(

@@ -64,8 +64,8 @@ class AndroidNotificationBridge {
   @visibleForTesting
   List<String>? get debugLastSyncedAllowedPackages =>
       _debugLastSyncedAllowedPackages == null
-          ? null
-          : List.unmodifiable(_debugLastSyncedAllowedPackages!);
+      ? null
+      : List.unmodifiable(_debugLastSyncedAllowedPackages!);
 
   Future<bool> isNotificationAccessGranted() async {
     if (!isSupportedPlatform || !_hasServicesBinding) return false;
@@ -151,9 +151,7 @@ class AndroidNotificationBridge {
   Future<List<Map<String, dynamic>>>
   drainQueuedBackgroundNotifications() async {
     final results = <Map<String, dynamic>>[
-      ..._simulatedDurableQueue.values.map(
-        (m) => Map<String, dynamic>.from(m),
-      ),
+      ..._simulatedDurableQueue.values.map((m) => Map<String, dynamic>.from(m)),
     ];
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return results;
@@ -164,9 +162,9 @@ class AndroidNotificationBridge {
       );
       if (rawList != null) {
         results.addAll(
-          rawList
-              .whereType<Map<dynamic, dynamic>>()
-              .map((m) => Map<String, dynamic>.from(m)),
+          rawList.whereType<Map<dynamic, dynamic>>().map(
+            (m) => Map<String, dynamic>.from(m),
+          ),
         );
       }
     } catch (_) {}

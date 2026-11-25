@@ -90,10 +90,9 @@ abstract final class LifeTimelineEngine {
   }) {
     final seen = <String>{};
     final deduped = <LifeTimelineEntry>[];
-    final queryTokens = _foldVi(query.trim())
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final queryTokens = _foldVi(
+      query.trim(),
+    ).split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
 
     for (final entry in rawEntries) {
       if (!seen.add(entry.dedupKey)) continue;

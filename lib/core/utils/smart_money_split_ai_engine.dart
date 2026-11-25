@@ -167,7 +167,16 @@ class AdvancedGroupSplitParseResult extends Equatable {
   final SplitMethod splitMethod;
   final String? paidByParticipantId;
   final String? paidByDisplayName;
-  final List<({String participantId, String displayName, int amountMinor, int? percentage, int? sharesWeight})> shares;
+  final List<
+    ({
+      String participantId,
+      String displayName,
+      int amountMinor,
+      int? percentage,
+      int? sharesWeight,
+    })
+  >
+  shares;
   final Map<String, int> rawInputValuesByUserId;
   final SplitValidationStatus validationStatus;
   final String? validationMessageVi;
@@ -310,9 +319,7 @@ abstract final class SmartMoneySplitAiEngine {
     if (weights.isEmpty) return const <int>[];
     if (totalMinor == 0) return List<int>.filled(weights.length, 0);
 
-    final allWhole = weights.every(
-      (w) => (w - w.roundToDouble()).abs() < 1e-9,
-    );
+    final allWhole = weights.every((w) => (w - w.roundToDouble()).abs() < 1e-9);
     final needsNanoScale = !allWhole && weights.any((w) => w > 0 && w < 1e-4);
     final doubleScale = needsNanoScale ? 1e9 : 1e6;
     final bigWeights = weights.map((w) {
@@ -630,7 +637,8 @@ abstract final class SmartMoneySplitAiEngine {
     );
 
     if (allAmounts.isEmpty) {
-      if (hasNegativeOrZeroBill && looksLikeGroupSplitUtterance(normalized.toLowerCase())) {
+      if (hasNegativeOrZeroBill &&
+          looksLikeGroupSplitUtterance(normalized.toLowerCase())) {
         return AdvancedGroupSplitParseResult(
           title: 'Khoản chi chung nhóm',
           totalAmountMinor: 0,
@@ -749,13 +757,16 @@ abstract final class SmartMoneySplitAiEngine {
           extraByLower[k] = (extraByLower[k] ?? 0) + ex.amountMinor;
         }
 
-        final draftShares = <({
-          String name,
-          int amountMinor,
-          int? percentage,
-          int? sharesWeight,
-          int? rawValue,
-        })>[];
+        final draftShares =
+            <
+              ({
+                String name,
+                int amountMinor,
+                int? percentage,
+                int? sharesWeight,
+                int? rawValue,
+              })
+            >[];
         for (var i = 0; i < n; i++) {
           final name = participantNames[i];
           final personalExtra = extraByLower[name.toLowerCase()] ?? 0;
@@ -853,22 +864,25 @@ abstract final class SmartMoneySplitAiEngine {
         totalMinor,
         entries.map((e) => math.max(0, e.pct).toDouble()).toList(),
       );
-      final draftShares = <({
-        String name,
-        int amountMinor,
-        int? percentage,
-        int? sharesWeight,
-        int? rawValue,
-      })>[
-        for (var i = 0; i < entries.length; i++)
-          (
-            name: entries[i].name,
-            amountMinor: exactAmts[i],
-            percentage: entries[i].pct,
-            sharesWeight: null,
-            rawValue: entries[i].pct,
-          ),
-      ];
+      final draftShares =
+          <
+            ({
+              String name,
+              int amountMinor,
+              int? percentage,
+              int? sharesWeight,
+              int? rawValue,
+            })
+          >[
+            for (var i = 0; i < entries.length; i++)
+              (
+                name: entries[i].name,
+                amountMinor: exactAmts[i],
+                percentage: entries[i].pct,
+                sharesWeight: null,
+                rawValue: entries[i].pct,
+              ),
+          ];
 
       String? pctErrorMsg;
       SplitValidationStatus? pctOverrideStatus;
@@ -957,22 +971,25 @@ abstract final class SmartMoneySplitAiEngine {
         totalMinor,
         shareEntries.map((e) => e.weight.toDouble()).toList(),
       );
-      final draftShares = <({
-        String name,
-        int amountMinor,
-        int? percentage,
-        int? sharesWeight,
-        int? rawValue,
-      })>[
-        for (var i = 0; i < shareEntries.length; i++)
-          (
-            name: shareEntries[i].name,
-            amountMinor: exactAmts[i],
-            percentage: null,
-            sharesWeight: shareEntries[i].weight,
-            rawValue: shareEntries[i].weight,
-          ),
-      ];
+      final draftShares =
+          <
+            ({
+              String name,
+              int amountMinor,
+              int? percentage,
+              int? sharesWeight,
+              int? rawValue,
+            })
+          >[
+            for (var i = 0; i < shareEntries.length; i++)
+              (
+                name: shareEntries[i].name,
+                amountMinor: exactAmts[i],
+                percentage: null,
+                sharesWeight: shareEntries[i].weight,
+                rawValue: shareEntries[i].weight,
+              ),
+          ];
       return _finalizeValidatedResult(
         title: rawTitle,
         totalMinor: totalMinor,
@@ -987,13 +1004,15 @@ abstract final class SmartMoneySplitAiEngine {
         explicitParticipantOverrides: explicitParticipantOverrides,
         includeRawValues: true,
         postResolutionStatusOverride:
-            (declaredHeadcount != null && declaredHeadcount != shareEntries.length)
-                ? SplitValidationStatus.inconsistentTotal
-                : null,
+            (declaredHeadcount != null &&
+                declaredHeadcount != shareEntries.length)
+            ? SplitValidationStatus.inconsistentTotal
+            : null,
         postResolutionMessageOverride:
-            (declaredHeadcount != null && declaredHeadcount != shareEntries.length)
-                ? 'Khai báo chia cho $declaredHeadcount người nhưng có ${shareEntries.length} suất phân bổ.'
-                : null,
+            (declaredHeadcount != null &&
+                declaredHeadcount != shareEntries.length)
+            ? 'Khai báo chia cho $declaredHeadcount người nhưng có ${shareEntries.length} suất phân bổ.'
+            : null,
       );
     }
 
@@ -1003,7 +1022,9 @@ abstract final class SmartMoneySplitAiEngine {
       caseSensitive: false,
       unicode: true,
     );
-    final rawPersonMatches = personAmtRegex.allMatches(afterFirstAmount).toList();
+    final rawPersonMatches = personAmtRegex
+        .allMatches(afterFirstAmount)
+        .toList();
     final personMatches = <({String name, String amtToken, bool isNegative})>[];
     for (final m in rawPersonMatches) {
       final cleanedName = _cleanParticipantCandidateName(m.group(1)!);
@@ -1022,13 +1043,16 @@ abstract final class SmartMoneySplitAiEngine {
     }
 
     if (personMatches.isNotEmpty) {
-      final draftShares = <({
-        String name,
-        int amountMinor,
-        int? percentage,
-        int? sharesWeight,
-        int? rawValue,
-      })>[];
+      final draftShares =
+          <
+            ({
+              String name,
+              int amountMinor,
+              int? percentage,
+              int? sharesWeight,
+              int? rawValue,
+            })
+          >[];
       var assignedSum = 0;
       var hasBadShareAmount = false;
       for (final pm in personMatches) {
@@ -1171,22 +1195,25 @@ abstract final class SmartMoneySplitAiEngine {
       totalMinor,
       List<double>.filled(n, 1.0),
     );
-    final draftShares = <({
-      String name,
-      int amountMinor,
-      int? percentage,
-      int? sharesWeight,
-      int? rawValue,
-    })>[
-      for (var i = 0; i < n; i++)
-        (
-          name: participantNames[i],
-          amountMinor: exactAmts[i],
-          percentage: null,
-          sharesWeight: null,
-          rawValue: null,
-        ),
-    ];
+    final draftShares =
+        <
+          ({
+            String name,
+            int amountMinor,
+            int? percentage,
+            int? sharesWeight,
+            int? rawValue,
+          })
+        >[
+          for (var i = 0; i < n; i++)
+            (
+              name: participantNames[i],
+              amountMinor: exactAmts[i],
+              percentage: null,
+              sharesWeight: null,
+              rawValue: null,
+            ),
+        ];
 
     return _finalizeValidatedResult(
       title: rawTitle,
@@ -1215,9 +1242,7 @@ abstract final class SmartMoneySplitAiEngine {
     final extractedAmounts = _extractLabeledAmounts(lower);
     final incomeMinor = math.max(
       1000000,
-      explicitIncomeMinor ??
-          extractedAmounts.incomeMinor ??
-          25000000,
+      explicitIncomeMinor ?? extractedAmounts.incomeMinor ?? 25000000,
     );
     final fixedRentMinor = math.min(
       (incomeMinor * 0.65).round(),
@@ -1230,7 +1255,8 @@ abstract final class SmartMoneySplitAiEngine {
 
     final modelPred = classifyWithModel(prompt, modelOverride: modelOverride);
 
-    final strategy = forcedStrategy ??
+    final strategy =
+        forcedStrategy ??
         _selectBestAllocationStrategy(
           lower: lower,
           modelPred: modelPred,
@@ -1246,14 +1272,20 @@ abstract final class SmartMoneySplitAiEngine {
     // Adapt weights when user explicitly has fixed rent or debt commitments!
     final weights = List<double>.from(template.weights);
     if (fixedDebtMinor > 0) {
-      final debtPct = ((fixedDebtMinor / incomeMinor) * 100.0).clamp(10.0, 55.0);
+      final debtPct = ((fixedDebtMinor / incomeMinor) * 100.0).clamp(
+        10.0,
+        55.0,
+      );
       final essentialIdx = template.debtBucketIdx;
       if (essentialIdx != null) {
         weights[essentialIdx] = math.max(weights[essentialIdx], debtPct);
       }
     }
     if (fixedRentMinor > 0 && template.housingBucketIdx != null) {
-      final rentPct = ((fixedRentMinor / incomeMinor) * 100.0).clamp(15.0, 50.0);
+      final rentPct = ((fixedRentMinor / incomeMinor) * 100.0).clamp(
+        15.0,
+        50.0,
+      );
       weights[template.housingBucketIdx!] = math.max(
         weights[template.housingBucketIdx!],
         rentPct,
@@ -1364,11 +1396,13 @@ abstract final class SmartMoneySplitAiEngine {
   }
 
   static ({
-    List<({String id, String titleVi, String subtitleVi, bool isSavings})> specs,
+    List<({String id, String titleVi, String subtitleVi, bool isSavings})>
+    specs,
     List<double> weights,
     int? housingBucketIdx,
     int? debtBucketIdx,
-  }) _strategyWeights(AllocationStrategyKind strategy) {
+  })
+  _strategyWeights(AllocationStrategyKind strategy) {
     switch (strategy) {
       case AllocationStrategyKind.rule503020:
         return (
@@ -1510,7 +1544,8 @@ abstract final class SmartMoneySplitAiEngine {
             (
               id: 'fire_invest',
               titleVi: 'Tích sản FIRE & Mua Tài sản (45%)',
-              subtitleVi: 'Trích ngay khi nhận lương vào ETF, tiết kiệm, tích sản',
+              subtitleVi:
+                  'Trích ngay khi nhận lương vào ETF, tiết kiệm, tích sản',
               isSavings: true,
             ),
             (
@@ -1554,12 +1589,15 @@ abstract final class SmartMoneySplitAiEngine {
       (
         id: 'cat_health',
         name: 'Sức khỏe & Giáo dục',
-        weight: strategy == AllocationStrategyKind.familyHousehold ? 18.0 : 12.0,
+        weight: strategy == AllocationStrategyKind.familyHousehold
+            ? 18.0
+            : 12.0,
       ),
       (
         id: 'cat_entertainment',
         name: 'Giải trí & Đăng ký',
-        weight: strategy == AllocationStrategyKind.fireHighSavings ||
+        weight:
+            strategy == AllocationStrategyKind.fireHighSavings ||
                 strategy == AllocationStrategyKind.debtPayoff
             ? 8.0
             : 14.0,
@@ -1569,12 +1607,7 @@ abstract final class SmartMoneySplitAiEngine {
         name: 'Hiếu hỉ & Đối ngoại',
         weight: strategy == AllocationStrategyKind.familyHousehold ? 12.0 : 8.0,
       ),
-      if (hasDebt)
-        (
-          id: 'cat_debt',
-          name: 'Trả nợ & Cho vay',
-          weight: 28.0,
-        ),
+      if (hasDebt) (id: 'cat_debt', name: 'Trả nợ & Cho vay', weight: 28.0),
     ];
 
     final limits = apportionExactVnd(
@@ -1616,7 +1649,7 @@ abstract final class SmartMoneySplitAiEngine {
   }
 
   static ({int? incomeMinor, int? rentMinor, int? debtMinor})
-      _extractLabeledAmounts(String lower) {
+  _extractLabeledAmounts(String lower) {
     int? income;
     int? rent;
     int? debt;
@@ -1662,7 +1695,8 @@ abstract final class SmartMoneySplitAiEngine {
     String? payerName,
     String cleanedTitle,
     ParticipantResolutionOutcome? payerOutcome,
-  }) _extractUpfrontPayer(
+  })
+  _extractUpfrontPayer(
     String headBeforeTotal, {
     required String currentUserId,
     required String currentUserName,
@@ -1705,7 +1739,9 @@ abstract final class SmartMoneySplitAiEngine {
     final restTitle = (payerMatch.group(2) ?? '').trim();
     return (
       payerId: outcome.participantId,
-      payerName: outcome.displayName.isNotEmpty ? outcome.displayName : rawPayer,
+      payerName: outcome.displayName.isNotEmpty
+          ? outcome.displayName
+          : rawPayer,
       cleanedTitle: restTitle.isEmpty ? 'Khoản chi chung nhóm' : restTitle,
       payerOutcome: outcome,
     );
@@ -1724,7 +1760,10 @@ abstract final class SmartMoneySplitAiEngine {
       final cleaned = _cleanParticipantCandidateName(m.group(1)!);
       if (cleaned.isEmpty || _isStopWord(cleaned)) continue;
       final token = m.group(2)!.trim();
-      final isNeg = RegExp(r'^(?:-|âm\b)', caseSensitive: false).hasMatch(token);
+      final isNeg = RegExp(
+        r'^(?:-|âm\b)',
+        caseSensitive: false,
+      ).hasMatch(token);
       final amt = isNeg ? 0 : (_parseAmountToken(token) ?? 0);
       results.add((name: cleaned, amountMinor: amt));
     }
@@ -1738,7 +1777,10 @@ abstract final class SmartMoneySplitAiEngine {
         final cleaned = _cleanParticipantCandidateName(m.group(1)!);
         if (cleaned.isEmpty || _isStopWord(cleaned)) continue;
         final token = m.group(2)!.trim();
-        final isNeg = RegExp(r'^(?:-|âm\b)', caseSensitive: false).hasMatch(token);
+        final isNeg = RegExp(
+          r'^(?:-|âm\b)',
+          caseSensitive: false,
+        ).hasMatch(token);
         final amt = isNeg ? 0 : (_parseAmountToken(token) ?? 0);
         results.add((name: cleaned, amountMinor: amt));
       }
@@ -1978,7 +2020,8 @@ abstract final class SmartMoneySplitAiEngine {
       String? payerName,
       String cleanedTitle,
       ParticipantResolutionOutcome? payerOutcome,
-    }) payerExtract,
+    })
+    payerExtract,
     required SplitValidationStatus status,
     required String messageVi,
     List<ParticipantResolutionOutcome> ambiguousParticipants =
@@ -2009,7 +2052,8 @@ abstract final class SmartMoneySplitAiEngine {
       String? payerName,
       String cleanedTitle,
       ParticipantResolutionOutcome? payerOutcome,
-    }) payerExtract,
+    })
+    payerExtract,
     required List<
       ({
         String name,
@@ -2035,13 +2079,16 @@ abstract final class SmartMoneySplitAiEngine {
       ambiguousOutcomes.add(payerExtract.payerOutcome!);
     }
 
-    final shares = <({
-      String participantId,
-      String displayName,
-      int amountMinor,
-      int? percentage,
-      int? sharesWeight,
-    })>[];
+    final shares =
+        <
+          ({
+            String participantId,
+            String displayName,
+            int amountMinor,
+            int? percentage,
+            int? sharesWeight,
+          })
+        >[];
     final rawMap = <String, int>{};
     final seenIdentityKeys = <String>{};
     String? duplicateDisplayName;
@@ -2068,12 +2115,14 @@ abstract final class SmartMoneySplitAiEngine {
           ? outcome.participantId
           : 'guest:${FinancialTextNormalizer.stripVnAccents(item.name).replaceAll(RegExp(r'\s+'), '_')}';
       if (!seenIdentityKeys.add(identityKey)) {
-        duplicateDisplayName ??=
-            outcome.displayName.isNotEmpty ? outcome.displayName : item.name;
+        duplicateDisplayName ??= outcome.displayName.isNotEmpty
+            ? outcome.displayName
+            : item.name;
       }
 
-      final display =
-          outcome.displayName.isNotEmpty ? outcome.displayName : item.name;
+      final display = outcome.displayName.isNotEmpty
+          ? outcome.displayName
+          : item.name;
       if (includeRawValues && item.rawValue != null) {
         rawMap[outcome.participantId] = item.rawValue!;
       }

@@ -1,8 +1,8 @@
 {
   "measuredOn": "Dart VM Worker Isolate (Windows x64 Host)",
-  "coldStartMs": 23.228,
-  "warmIsolateRoundtripP50Ms": 0.407,
-  "warmIsolateRoundtripP95Ms": 0.761,
+  "coldStartMs": 42.096,
+  "warmIsolateRoundtripP50Ms": 0.584,
+  "warmIsolateRoundtripP95Ms": 2.43,
   "totalWarmIterations": 100,
   "colloquialSuiteSize": 20,
   "ruleOnlySuiteAccuracy": 0.75,

@@ -25,6 +25,7 @@ import 'package:life_os/features/authentication/presentation/bloc/auth_bloc.dart
 import 'package:life_os/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:life_os/features/calendar/domain/entities/calendar_entities.dart';
 import 'package:life_os/features/dashboard/presentation/pages/today_page.dart';
+import 'package:life_os/features/family/data/repositories/family_repository_impl.dart';
 import 'package:life_os/features/family/domain/entities/family_entities.dart';
 import 'package:life_os/features/family/domain/repositories/family_repository.dart';
 import 'package:life_os/features/transactions/presentation/bloc/transaction_bloc.dart';
@@ -222,10 +223,15 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Quỹ gia đình & Tài sản'), findsOneWidget);
-        expect(find.byKey(const Key('open_menu_directory_button')), findsOneWidget);
+        expect(
+          find.byKey(const Key('open_menu_directory_button')),
+          findsOneWidget,
+        );
 
         // Verify `+` button is centered INSIDE the bottom navigation bar!
-        final dockFinder = find.byKey(const Key('lifeos_liquid_glass_bottom_dock'));
+        final dockFinder = find.byKey(
+          const Key('lifeos_liquid_glass_bottom_dock'),
+        );
         final fabFinder = find.byKey(const Key('lifeos_center_quick_add_fab'));
         expect(dockFinder, findsOneWidget);
         expect(fabFinder, findsOneWidget);
@@ -676,8 +682,20 @@ void main() {
         // Raw English enum label 'owner' must never appear!
         expect(find.text('owner'), findsNothing);
 
-        // 3. Invitee joins via pasted message -> moves from pending (0) to official members (2)!
-        final joinedRes = await familyRepo.joinFamilyByInvite(
+        // 3. Invitee joins from Lan's own authenticated session via pasted message
+        //    -> moves from pending (0) to official members (2)!
+        final inviteeAuth = MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(
+            uid: inviteeUid,
+            email: 'lan@lifeos.vn',
+            displayName: 'Trần Lan',
+          ),
+        );
+        final inviteeFamilyRepo = FamilyRepositoryImpl(
+          FamilyRemoteDataSource(fakeFirestore, firebaseAuth: inviteeAuth),
+        );
+        final joinedRes = await inviteeFamilyRepo.joinFamilyByInvite(
           userId: inviteeUid,
           userName: 'Trần Lan',
           inviteCode: pastedZaloText,
@@ -1323,8 +1341,24 @@ void main() {
                     ),
                     const SizedBox(height: 16),
                     ProCashflowPulseCard(
-                      dailyIncomesMinor: const [0, 0, 12000000, 0, 0, 0, 500000],
-                      dailyExpensesMinor: const [120000, 0, 350000, 85000, 0, 210000, 95000],
+                      dailyIncomesMinor: const [
+                        0,
+                        0,
+                        12000000,
+                        0,
+                        0,
+                        0,
+                        500000,
+                      ],
+                      dailyExpensesMinor: const [
+                        120000,
+                        0,
+                        350000,
+                        85000,
+                        0,
+                        210000,
+                        95000,
+                      ],
                       liquidAssetsMinor: 18500000,
                       savingsAssetsMinor: 45000000,
                       dailySafeToSpendMinor: 420000,
@@ -1368,7 +1402,11 @@ void main() {
             truncated.add(ro.text.toPlainText());
           }
         }
-        expect(truncated, isEmpty, reason: 'Unexpected truncated text: $truncated');
+        expect(
+          truncated,
+          isEmpty,
+          reason: 'Unexpected truncated text: $truncated',
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -1626,9 +1664,13 @@ void main() {
           'Họp kế hoạch tuần',
         );
         // Expand optional details to verify location field works cleanly
-        await tester.tap(find.byKey(const Key('toggle_event_advanced_options')));
+        await tester.tap(
+          find.byKey(const Key('toggle_event_advanced_options')),
+        );
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.byKey(const Key('event_location_field')));
+        await tester.ensureVisible(
+          find.byKey(const Key('event_location_field')),
+        );
         await tester.enterText(
           find.byKey(const Key('event_location_field')),
           'Phòng họp A2',

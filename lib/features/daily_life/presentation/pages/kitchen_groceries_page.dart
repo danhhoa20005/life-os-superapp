@@ -134,7 +134,7 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                                     ],
                                   ),
                                   const SizedBox(height: 14),
-                                   IntrinsicHeight(
+                                  IntrinsicHeight(
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -667,11 +667,12 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                         runSpacing: 4,
                         children: [
                           Tooltip(
-                            message: 'Chuyển món này vào Tủ lạnh theo dõi hạn dùng',
+                            message:
+                                'Chuyển món này vào Tủ lạnh theo dõi hạn dùng',
                             child: Material(
-                              color: const Color(0xFF0EA5E9).withValues(
-                                alpha: 0.10,
-                              ),
+                              color: const Color(
+                                0xFF0EA5E9,
+                              ).withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(20),
                               child: InkWell(
                                 key: Key('move_grocery_to_fridge_${item.id}'),

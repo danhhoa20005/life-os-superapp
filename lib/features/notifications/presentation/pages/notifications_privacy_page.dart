@@ -117,9 +117,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                             .map(
                               (b) => DropdownMenuItem(
                                 value: b.bin,
-                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                                  '${b.shortName} · ${b.fullName}',
-                                )),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text('${b.shortName} · ${b.fullName}'),
+                                ),
                               ),
                             )
                             .toList(),
@@ -158,9 +160,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               .map(
                                 (w) => DropdownMenuItem(
                                   value: w.id,
-                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                                    w.name,
-                                  )),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(w.name),
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -336,9 +340,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               .map(
                                 (w) => DropdownMenuItem(
                                   value: w.id,
-                                  child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(
-                                    w.name,
-                                  )),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(w.name),
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -1207,9 +1213,12 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                                 : 'Chỉ tạo mã QR',
                                           ),
                                           IconButton(
-                                            key: Key('delete_bank_acc_${acc.id}'),
+                                            key: Key(
+                                              'delete_bank_acc_${acc.id}',
+                                            ),
                                             tooltip: 'Gỡ tài khoản ngân hàng',
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                             onPressed: () async {
                                               final ok =
                                                   await showDestructiveConfirmDialog(
@@ -1217,7 +1226,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                                     title: 'Gỡ tài khoản này?',
                                                     message:
                                                         'Tài khoản ${acc.bankName} ${acc.maskedAccount} sẽ được gỡ khỏi danh sách nhận QR.',
-                                                    confirmLabel: 'Gỡ tài khoản',
+                                                    confirmLabel:
+                                                        'Gỡ tài khoản',
                                                   );
                                               if (ok && context.mounted) {
                                                 context
@@ -1336,7 +1346,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   final verText = switch (tx.verification) {
                                     TransactionVerification.verified =>
                                       'Đã đối soát ngân hàng',
-                                    TransactionVerification.matchedPaymentOrder =>
+                                    TransactionVerification
+                                        .matchedPaymentOrder =>
                                       'Đã khớp đơn QR',
                                     TransactionVerification.userConfirmed =>
                                       'Đã xác nhận',

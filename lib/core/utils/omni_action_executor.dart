@@ -80,10 +80,7 @@ abstract final class OmniActionExecutor {
         return false;
       }
       if (showSuccessToast && toastContext.mounted) {
-        LifeOsTopToast.show(
-          toastContext,
-          'Đã lưu ghi chú: "${draft.title}".',
-        );
+        LifeOsTopToast.show(toastContext, 'Đã lưu ghi chú: "${draft.title}".');
       }
       return true;
     }
@@ -93,8 +90,7 @@ abstract final class OmniActionExecutor {
       if (draft.amountMinor <= 0) return false;
       if (budgetBloc != null && !budgetBloc.isClosed) {
         final now = DateTime.now();
-        final monthKey =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
         final waiter = budgetBloc.stream
             .firstWhere((s) => s.actionMessage != null || s.failure != null)
             .timeout(_kConfirmTimeout, onTimeout: () => budgetBloc.state);
@@ -349,7 +345,8 @@ abstract final class OmniActionExecutor {
         if (!familyBloc.isClosed) {
           final waiter = familyBloc.stream
               .firstWhere(
-                (s) => !s.isSubmitting && (s.message != null || s.failure != null),
+                (s) =>
+                    !s.isSubmitting && (s.message != null || s.failure != null),
               )
               .timeout(_kConfirmTimeout, onTimeout: () => familyBloc.state);
           familyBloc.add(SharedBillSplitCreated(splitParams));
@@ -366,7 +363,9 @@ abstract final class OmniActionExecutor {
             return false;
           }
         } else {
-          final directRes = await sl<CreateSharedBillSplitUseCase>()(splitParams);
+          final directRes = await sl<CreateSharedBillSplitUseCase>()(
+            splitParams,
+          );
           final failed = directRes.fold((f) => f, (_) => null);
           if (failed != null) {
             if (toastContext.mounted) {

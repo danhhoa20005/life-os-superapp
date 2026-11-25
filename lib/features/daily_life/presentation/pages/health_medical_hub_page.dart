@@ -477,8 +477,11 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                           tooltip: 'Xóa thuốc',
                           onPressed: userId.isEmpty
                               ? null
-                              : () =>
-                                    _confirmDeleteMedication(context, userId, med),
+                              : () => _confirmDeleteMedication(
+                                  context,
+                                  userId,
+                                  med,
+                                ),
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             size: 19,
@@ -550,7 +553,9 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                           ),
                         ] else
                           InkWell(
-                            key: Key('med_unconfirmed_inventory_pill_${med.id}'),
+                            key: Key(
+                              'med_unconfirmed_inventory_pill_${med.id}',
+                            ),
                             borderRadius: BorderRadius.circular(16),
                             onTap: userId.isEmpty
                                 ? null
@@ -2934,9 +2939,8 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
                     name: name,
                     dosage: _doseCtrl.text.trim(),
                     slot: _selectedSlot,
-                    remainingPills:
-                        (int.tryParse(_pillsCtrl.text.trim()) ?? 30)
-                            .clamp(0, 100000),
+                    remainingPills: (int.tryParse(_pillsCtrl.text.trim()) ?? 30)
+                        .clamp(0, 100000),
                     expiryDate: _expiryDate,
                     reminderEnabled:
                         _selectedSlot.isScheduledDaily && _reminderEnabled,

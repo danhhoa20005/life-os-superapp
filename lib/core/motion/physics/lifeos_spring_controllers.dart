@@ -23,7 +23,10 @@ class LifeOsSpringController extends ChangeNotifier {
     double initialValue = 0.0,
     this.spring = LifeOsMotionTokens.snappySpring,
     this.tolerance = LifeOsMotionTokens.springTolerance,
-  }) : _ctrl = AnimationController.unbounded(vsync: vsync, value: initialValue) {
+  }) : _ctrl = AnimationController.unbounded(
+         vsync: vsync,
+         value: initialValue,
+       ) {
     _ctrl.addListener(notifyListeners);
   }
 
@@ -286,18 +289,10 @@ class _LifeOsPhysicsAnimatedBoxState extends State<LifeOsPhysicsAnimatedBox>
     _hCtrl.spring = widget.spring;
     _rCtrl.spring = widget.spring;
     if (oldWidget.width != widget.width) {
-      _wCtrl.animateTo(
-        widget.width,
-        motion: motion,
-        tickersEnabled: tickers,
-      );
+      _wCtrl.animateTo(widget.width, motion: motion, tickersEnabled: tickers);
     }
     if (oldWidget.height != widget.height) {
-      _hCtrl.animateTo(
-        widget.height,
-        motion: motion,
-        tickersEnabled: tickers,
-      );
+      _hCtrl.animateTo(widget.height, motion: motion, tickersEnabled: tickers);
     }
     if (oldWidget.borderRadius != widget.borderRadius) {
       _rCtrl.animateTo(
@@ -343,12 +338,13 @@ class _LifeOsPhysicsAnimatedBoxState extends State<LifeOsPhysicsAnimatedBox>
 
 /// Custom perspective carousel (`gskinnerTeam/flutter_custom_carousel` architectural port)
 /// exposing continuous `scrollRatio` in `[-1.0 .. +1.0]` around the active item.
-typedef LifeOsCarouselEffectsBuilder = Widget Function(
-  BuildContext context,
-  int index,
-  double scrollRatio,
-  Widget child,
-);
+typedef LifeOsCarouselEffectsBuilder =
+    Widget Function(
+      BuildContext context,
+      int index,
+      double scrollRatio,
+      Widget child,
+    );
 
 class LifeOsPerspectiveCarousel extends StatefulWidget {
   final List<Widget> children;

@@ -93,7 +93,12 @@ abstract final class FinancialTaxonomyCatalog {
       direction: 'debit',
       defaultSystemCategoryName: 'Điện/Nước/Internet',
       defaultSystemCategoryIdHint: 'cat_utilities',
-      matchAliases: ['dien/nuoc/internet', 'dien nuoc', 'internet', 'vien thong'],
+      matchAliases: [
+        'dien/nuoc/internet',
+        'dien nuoc',
+        'internet',
+        'vien thong',
+      ],
     ),
     SemanticCategorySpec(
       semanticKey: 'housing.housework',
@@ -141,7 +146,12 @@ abstract final class FinancialTaxonomyCatalog {
       direction: 'debit',
       defaultSystemCategoryName: 'Sức khỏe & Giáo dục',
       defaultSystemCategoryIdHint: 'cat_health',
-      matchAliases: ['kham benh', 'benh vien', 'suc khoe & giao duc', 'suc khoe'],
+      matchAliases: [
+        'kham benh',
+        'benh vien',
+        'suc khoe & giao duc',
+        'suc khoe',
+      ],
     ),
     SemanticCategorySpec(
       semanticKey: 'education',

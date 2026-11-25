@@ -42,7 +42,8 @@ Future<void> showLifeOsBackupRestoreSheet(BuildContext context) async {
   final dailyBloc = _tryBloc<DailyLifeBloc>(context);
 
   Map<String, List<Map<String, dynamic>>> collectCurrentData() {
-    final txs = txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
+    final txs =
+        txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
     final wallets = txListBloc?.state.wallets ?? const <WalletEntity>[];
     final budgets = budgetBloc?.state.budgets ?? const [];
     final tasks = taskBloc?.state.tasks ?? const [];
@@ -419,9 +420,13 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                         obscureText: true,
                         decoration: const InputDecoration(
                           isDense: true,
-                          labelText: 'Mật khẩu mã hóa bản sao lưu (khuyên dùng)',
+                          labelText:
+                              'Mật khẩu mã hóa bản sao lưu (khuyên dùng)',
                           hintText: 'Để trống nếu xuất JSON kiểm tra SHA-256',
-                          prefixIcon: Icon(Icons.lock_outline_rounded, size: 18),
+                          prefixIcon: Icon(
+                            Icons.lock_outline_rounded,
+                            size: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -442,8 +447,9 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                                 _lastExportedArchive = archive;
                                 _revealRawPreview = false;
                               });
-                              final encrypted =
-                                  _exportPassCtrl.text.trim().isNotEmpty;
+                              final encrypted = _exportPassCtrl.text
+                                  .trim()
+                                  .isNotEmpty;
                               _shareOrCopy(
                                 context,
                                 fileName: encrypted
@@ -475,7 +481,10 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                                 title: 'Sao kê giao dịch CSV',
                               );
                             },
-                            icon: const Icon(Icons.table_view_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.table_view_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Xuất giao dịch CSV'),
                           ),
                         ],
@@ -508,7 +517,9 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                               onPressed: () => setState(
                                 () => _revealRawPreview = !_revealRawPreview,
                               ),
-                              child: Text(_revealRawPreview ? 'Ẩn bớt' : 'Mở xem'),
+                              child: Text(
+                                _revealRawPreview ? 'Ẩn bớt' : 'Mở xem',
+                              ),
                             ),
                           ],
                         ),
@@ -581,7 +592,8 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                         maxLines: 4,
                         decoration: const InputDecoration(
                           isDense: true,
-                          hintText: 'Dán nội dung JSON / .lfbk sao lưu tại đây...',
+                          hintText:
+                              'Dán nội dung JSON / .lfbk sao lưu tại đây...',
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -638,7 +650,8 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                               tone: LifeOsAccentTone.emerald,
                             ),
                             LifeOsStatusPill(
-                              label: 'Schema v${_previewSummary!.schemaVersion}',
+                              label:
+                                  'Schema v${_previewSummary!.schemaVersion}',
                               tone: LifeOsAccentTone.blue,
                             ),
                           ],

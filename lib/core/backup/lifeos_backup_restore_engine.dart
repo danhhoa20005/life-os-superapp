@@ -194,11 +194,11 @@ abstract final class LifeOsBackupRestoreEngine {
   }
 
   /// Validates checksum, decrypts if needed, upgrades legacy v1 schema, and returns preview counts.
-  static ({BackupPreviewSummary summary, Map<String, List<Map<String, dynamic>>> collections})
-      previewAndValidateArchive(
-    String rawArchiveText, {
-    String? passphrase,
-  }) {
+  static ({
+    BackupPreviewSummary summary,
+    Map<String, List<Map<String, dynamic>>> collections,
+  })
+  previewAndValidateArchive(String rawArchiveText, {String? passphrase}) {
     final dynamic rootDecoded = jsonDecode(rawArchiveText);
     if (rootDecoded is! Map) {
       throw const FormatException('Định dạng tệp sao lưu không hợp lệ.');
@@ -234,13 +234,15 @@ abstract final class LifeOsBackupRestoreEngine {
         );
       }
       checksumOk = true;
-      payloadMap =
-          Map<String, dynamic>.from(jsonDecode(utf8.decode(plainBytes)) as Map);
+      payloadMap = Map<String, dynamic>.from(
+        jsonDecode(utf8.decode(plainBytes)) as Map,
+      );
     } else if (root['format'] == magicEnvelope && root['payload'] is Map) {
       final rawPayload = Map<String, dynamic>.from(root['payload'] as Map);
       final expectedSha = (root['sha256'] ?? '').toString();
-      final actualSha =
-          sha256.convert(utf8.encode(jsonEncode(rawPayload))).toString();
+      final actualSha = sha256
+          .convert(utf8.encode(jsonEncode(rawPayload)))
+          .toString();
       if (expectedSha != actualSha) {
         throw const FormatException(
           'Mã kiểm tra toàn vẹn SHA-256 không khớp — từ chối nhập dữ liệu bị sửa đổi.',
@@ -253,8 +255,8 @@ abstract final class LifeOsBackupRestoreEngine {
       payloadMap = <String, dynamic>{
         'schemaVersion': (root['schemaVersion'] as num?)?.toInt() ?? 1,
         'ownerId': (root['ownerId'] ?? root['userId'] ?? '').toString(),
-        'exportedAtUtc':
-            (root['exportedAtUtc'] ?? root['exportedAt'] ?? '').toString(),
+        'exportedAtUtc': (root['exportedAtUtc'] ?? root['exportedAt'] ?? '')
+            .toString(),
         'collections': root['collections'] is Map
             ? root['collections']
             : <String, dynamic>{
@@ -287,7 +289,10 @@ abstract final class LifeOsBackupRestoreEngine {
       if (raw is! List) return <Map<String, dynamic>>[];
       return raw
           .whereType<Map<dynamic, dynamic>>()
-          .map((m) => _migrateRecordIfNeeded(schemaVer, Map<String, dynamic>.from(m)))
+          .map(
+            (m) =>
+                _migrateRecordIfNeeded(schemaVer, Map<String, dynamic>.from(m)),
+          )
           .toList();
     }
 
@@ -308,9 +313,8 @@ abstract final class LifeOsBackupRestoreEngine {
       );
     }
 
-    final exportedAt = DateTime.tryParse(
-          (payloadMap['exportedAtUtc'] ?? '').toString(),
-        ) ??
+    final exportedAt =
+        DateTime.tryParse((payloadMap['exportedAtUtc'] ?? '').toString()) ??
         DateTime.fromMillisecondsSinceEpoch(0);
 
     final summary = BackupPreviewSummary(
@@ -335,7 +339,8 @@ abstract final class LifeOsBackupRestoreEngine {
   static ({
     Map<String, List<Map<String, dynamic>>> resultingCollections,
     BackupRestoreReport report,
-  }) applyRestorePlan({
+  })
+  applyRestorePlan({
     required Map<String, List<Map<String, dynamic>>> existingCollections,
     required Map<String, List<Map<String, dynamic>>> incomingCollections,
     required String targetUserId,
@@ -345,9 +350,7 @@ abstract final class LifeOsBackupRestoreEngine {
   }) {
     if (mode == BackupRestoreMode.replaceConfirmed &&
         !explicitReplaceConfirmation) {
-      throw StateError(
-        'Chế độ ghi đè yêu cầu người dùng xác nhận tường minh.',
-      );
+      throw StateError('Chế độ ghi đè yêu cầu người dùng xác nhận tường minh.');
     }
 
     final out = <String, List<Map<String, dynamic>>>{};
@@ -452,8 +455,13 @@ abstract final class LifeOsBackupRestoreEngine {
     return '$colKey|${rec['title'] ?? rec['merchant'] ?? rec['name'] ?? ''}|${rec['amountMinor'] ?? rec['limitMinor'] ?? ''}|${rec['occurredAt'] ?? rec['startsAt'] ?? ''}';
   }
 
-  static ({Uint8List salt, Uint8List nonce, Uint8List ciphertext, Uint8List mac})
-      _encryptPortablePayload(List<int> plainBytes, String passphrase) {
+  static ({
+    Uint8List salt,
+    Uint8List nonce,
+    Uint8List ciphertext,
+    Uint8List mac,
+  })
+  _encryptPortablePayload(List<int> plainBytes, String passphrase) {
     final rng = math.Random.secure();
     final salt = Uint8List.fromList(
       List<int>.generate(16, (_) => rng.nextInt(256)),
@@ -478,17 +486,23 @@ abstract final class LifeOsBackupRestoreEngine {
     required String passphrase,
   }) {
     final keys = _deriveEncAndMacKeys(passphrase, salt);
-    final actualMac =
-        Hmac(sha256, keys.macKey).convert(<int>[...salt, ...nonce, ...ciphertext]).bytes;
+    final actualMac = Hmac(
+      sha256,
+      keys.macKey,
+    ).convert(<int>[...salt, ...nonce, ...ciphertext]).bytes;
     if (actualMac.length != expectedMac.length) {
-      throw const FormatException('Mật khẩu giải mã không đúng hoặc tệp bị sửa đổi.');
+      throw const FormatException(
+        'Mật khẩu giải mã không đúng hoặc tệp bị sửa đổi.',
+      );
     }
     var diff = 0;
     for (var i = 0; i < actualMac.length; i++) {
       diff |= actualMac[i] ^ expectedMac[i];
     }
     if (diff != 0) {
-      throw const FormatException('Mật khẩu giải mã không đúng hoặc tệp bị sửa đổi.');
+      throw const FormatException(
+        'Mật khẩu giải mã không đúng hoặc tệp bị sửa đổi.',
+      );
     }
     return _xorKeystream(ciphertext, keys.encKey, nonce);
   }

@@ -44,20 +44,22 @@ class FinancialAiLocalSyncDataSource {
       .collection('ai_preferences')
       .doc('settings');
 
-  CollectionReference<Map<String, dynamic>> _legacyMerchantRulesCol(String userId) =>
-      _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('merchant_rules');
+  CollectionReference<Map<String, dynamic>> _legacyMerchantRulesCol(
+    String userId,
+  ) => _firestore.collection('users').doc(userId).collection('merchant_rules');
 
-  PersonalizationRule _mapRule(String id, String userId, Map<String, dynamic> d) {
+  PersonalizationRule _mapRule(
+    String id,
+    String userId,
+    Map<String, dynamic> d,
+  ) {
     final ts = d['lastCorrectedAt'];
     final rawKind = (d['ruleKind'] as String?) ?? 'category';
     final kind = rawKind == 'participantNickname' || rawKind == 'nickname'
         ? 'nickname'
         : rawKind == 'wallet'
-            ? 'wallet'
-            : 'category';
+        ? 'wallet'
+        : 'category';
     return PersonalizationRule(
       id: id,
       userId: userId,
@@ -108,7 +110,8 @@ class FinancialAiLocalSyncDataSource {
               userId: userId,
               merchantCanonicalKey: canon,
               merchantDisplay:
-                  (ld['merchantSample'] as String?) ?? canon.replaceAll('_', ' '),
+                  (ld['merchantSample'] as String?) ??
+                  canon.replaceAll('_', ' '),
               selectedCategoryId: '',
               selectedCategoryName: (ld['categoryName'] as String?) ?? '',
               semanticKey: 'other',
@@ -138,13 +141,14 @@ class FinancialAiLocalSyncDataSource {
 
   Stream<List<PersonalizationRule>> watchRules(String userId) {
     return _rulesCol(userId).snapshots().map((snap) {
-      final list = snap.docs
-          .map((doc) => _mapRule(doc.id, userId, doc.data()))
-          .toList()
-        ..sort((a, b) {
-          final p = b.priority.compareTo(a.priority);
-          return p != 0 ? p : b.lastCorrectedAt.compareTo(a.lastCorrectedAt);
-        });
+      final list =
+          snap.docs.map((doc) => _mapRule(doc.id, userId, doc.data())).toList()
+            ..sort((a, b) {
+              final p = b.priority.compareTo(a.priority);
+              return p != 0
+                  ? p
+                  : b.lastCorrectedAt.compareTo(a.lastCorrectedAt);
+            });
       _rulesMemoryCache[userId] = list;
       return list;
     });
@@ -170,14 +174,15 @@ class FinancialAiLocalSyncDataSource {
     final now = DateTime.now();
     final cleanKey =
         FinancialTextNormalizer.canonicalizeMerchant(merchantCanonicalKey) ??
-        merchantCanonicalKey.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+        merchantCanonicalKey.trim().toLowerCase().replaceAll(
+          RegExp(r'\s+'),
+          '_',
+        );
     // Deterministic composite rule ID per (ruleKind + merchantKey + direction + sourceContext)
     // so conditional rules and participant nickname rules coexist cleanly!
     final ruleHash = sha256
         .convert(
-          utf8.encode(
-            '$ruleKind|$cleanKey|$directionCondition|$sourceContext',
-          ),
+          utf8.encode('$ruleKind|$cleanKey|$directionCondition|$sourceContext'),
         )
         .toString()
         .substring(0, 20);

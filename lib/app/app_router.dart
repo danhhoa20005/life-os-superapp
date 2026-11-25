@@ -305,23 +305,19 @@ GoRouter createAppRouter(
       ),
       GoRoute(
         path: '/event-alarm',
-        pageBuilder: (_, state) => _motionPage(
-          state,
-          (context) {
-            final user = context.read<AuthBloc>().state.user;
-            if (user == null) return const LoginPage();
-            return _ScopedAuthenticatedProviders(
-              userId: user.id,
-              familyId: user.activeFamilyId,
-              child: EventAlarmPage(
-                event: state.extra is CalendarEventEntity
-                    ? state.extra as CalendarEventEntity
-                    : null,
-              ),
-            );
-          },
-          fadeThrough: true,
-        ),
+        pageBuilder: (_, state) => _motionPage(state, (context) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: EventAlarmPage(
+              event: state.extra is CalendarEventEntity
+                  ? state.extra as CalendarEventEntity
+                  : null,
+            ),
+          );
+        }, fadeThrough: true),
       ),
       GoRoute(
         path: '/tasks-board',
@@ -948,8 +944,9 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
                               iconBuilder: (ctx, isSelected, color) =>
                                   BananaGlassIcon(
                                     assetPath: t.bananaAsset,
-                                    fallbackIcon:
-                                        isSelected ? t.activeIcon : t.icon,
+                                    fallbackIcon: isSelected
+                                        ? t.activeIcon
+                                        : t.icon,
                                     fallbackColor: color,
                                     size: isSelected ? 26 : 24,
                                     borderRadius: 8,

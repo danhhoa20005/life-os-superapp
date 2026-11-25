@@ -134,7 +134,10 @@ class AutomationBloc extends Bloc<AutomationEvent, AutomationState> {
       transformer: sequential(),
     );
     on<AutomationSuggestionDismissed>(_onSuggestionDismissed);
-    on<AutomationAuditUndoRequested>(_onUndoRequested, transformer: sequential());
+    on<AutomationAuditUndoRequested>(
+      _onUndoRequested,
+      transformer: sequential(),
+    );
   }
 
   Future<void> _onStarted(
@@ -142,21 +145,11 @@ class AutomationBloc extends Bloc<AutomationEvent, AutomationState> {
     Emitter<AutomationState> emit,
   ) async {
     emit(
-      state.copyWith(
-        userId: event.userId,
-        isLoading: true,
-        clearMessage: true,
-      ),
+      state.copyWith(userId: event.userId, isLoading: true, clearMessage: true),
     );
     final rules = await _repository.loadRules(event.userId);
     final audits = await _repository.loadAuditLog(event.userId);
-    emit(
-      state.copyWith(
-        isLoading: false,
-        rules: rules,
-        audits: audits,
-      ),
-    );
+    emit(state.copyWith(isLoading: false, rules: rules, audits: audits));
   }
 
   Future<void> _onRuleToggled(

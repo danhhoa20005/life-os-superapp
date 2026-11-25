@@ -206,14 +206,15 @@ class _LifeTimelinePageState extends State<LifeTimelinePage> {
     return entries;
   }
 
-  LifeOsAccentTone _toneForDomain(LifeTimelineDomain domain) => switch (domain) {
-    LifeTimelineDomain.finance => LifeOsAccentTone.emerald,
-    LifeTimelineDomain.calendar => LifeOsAccentTone.blue,
-    LifeTimelineDomain.tasks => LifeOsAccentTone.emerald,
-    LifeTimelineDomain.vehiclesAndBills => LifeOsAccentTone.amber,
-    LifeTimelineDomain.family => LifeOsAccentTone.purple,
-    LifeTimelineDomain.goals => LifeOsAccentTone.emerald,
-  };
+  LifeOsAccentTone _toneForDomain(LifeTimelineDomain domain) =>
+      switch (domain) {
+        LifeTimelineDomain.finance => LifeOsAccentTone.emerald,
+        LifeTimelineDomain.calendar => LifeOsAccentTone.blue,
+        LifeTimelineDomain.tasks => LifeOsAccentTone.emerald,
+        LifeTimelineDomain.vehiclesAndBills => LifeOsAccentTone.amber,
+        LifeTimelineDomain.family => LifeOsAccentTone.purple,
+        LifeTimelineDomain.goals => LifeOsAccentTone.emerald,
+      };
 
   IconData _iconForDomain(LifeTimelineDomain domain) => switch (domain) {
     LifeTimelineDomain.finance => Icons.account_balance_wallet_rounded,

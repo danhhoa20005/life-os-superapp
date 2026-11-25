@@ -19,10 +19,8 @@ class BudgetRemoteDataSource {
   final FirebaseAuth? _firebaseAuth;
   static const Uuid _uuid = Uuid();
 
-  const BudgetRemoteDataSource(
-    this._firestore, {
-    FirebaseAuth? firebaseAuth,
-  }) : _firebaseAuth = firebaseAuth;
+  const BudgetRemoteDataSource(this._firestore, {FirebaseAuth? firebaseAuth})
+    : _firebaseAuth = firebaseAuth;
 
   Stream<List<BudgetEntity>> watchBudgets({
     required String userId,
@@ -96,8 +94,7 @@ class BudgetRemoteDataSource {
         sourceWalletId: cd['sourceWalletId'] as String?,
         createdAt: _readDateTime(cd['createdAt'], now),
       );
-    }).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     final expenses = expSnap.docs.map((e) {
       final ed = e.data();
@@ -127,8 +124,7 @@ class BudgetRemoteDataSource {
         reversalReason: ed['reversalReason'] as String?,
         createdAt: _readDateTime(ed['createdAt'], now),
       );
-    }).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     final audits = auditSnap.docs.map((a) {
       final ad = a.data();
@@ -144,8 +140,7 @@ class BudgetRemoteDataSource {
         newBalanceMinor: (ad['newBalanceMinor'] as num?)?.toInt() ?? 0,
         createdAt: _readDateTime(ad['createdAt'], now),
       );
-    }).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     final computedIn = contributions.fold<int>(0, (s, c) => s + c.amountMinor);
     final computedOut = expenses
@@ -786,8 +781,7 @@ class BudgetRemoteDataSource {
     );
     final role = memberRoles[actorUserId]?.toString();
     final isManager =
-        memberIds.contains(actorUserId) &&
-        (role == 'owner' || role == 'admin');
+        memberIds.contains(actorUserId) && (role == 'owner' || role == 'admin');
     return (memberIds: memberIds, isManager: isManager);
   }
 
@@ -874,7 +868,8 @@ class BudgetRemoteDataSource {
       }
 
       final amountMinor = (ed['amountMinor'] as num?)?.toInt() ?? 0;
-      final currentBal = (fundSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final currentBal =
+          (fundSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
       if (approve && currentBal < amountMinor) {
         throw const AppException(
           code: 'VALIDATION_FAILURE',

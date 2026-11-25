@@ -255,8 +255,7 @@ class VehicleRemoteDataSource {
     DateTime? insuranceExpiryDate,
     DateTime? inspectionExpiryDate,
   }) async {
-    final resolvedName =
-        (updatedName != null && updatedName.trim().length >= 2)
+    final resolvedName = (updatedName != null && updatedName.trim().length >= 2)
         ? updatedName.trim()
         : vehicle.name;
     final resolvedPlate =
@@ -416,27 +415,28 @@ class VehicleRemoteDataSource {
           costMinor > 0) {
         final bal = (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
         final nextBal = bal - costMinor;
-        final auditRecord = LedgerIntegrityEngine.buildAndValidateAudit(
-          auditId: auditId,
-          operationId: mId,
-          transactionId: txId,
-          walletId: walletIdForExpense!,
-          previousBalanceMinor: bal,
-          deltaAmountMinor: -costMinor,
-          newBalanceMinor: nextBal,
-          createdAt: now,
-          actorId: vehicle.ownerId,
-          source: 'vehicle_maintenance',
-          verificationStatus: LedgerVerificationStatuses.userConfirmed,
-          walletName: walletSnap.data()?['name']?.toString(),
-          kind: 'expense',
-        ).fold(
-          (f) => throw AppException(
-            code: 'VALIDATION_FAILURE',
-            message: f.message,
-          ),
-          (r) => r,
-        );
+        final auditRecord =
+            LedgerIntegrityEngine.buildAndValidateAudit(
+              auditId: auditId,
+              operationId: mId,
+              transactionId: txId,
+              walletId: walletIdForExpense!,
+              previousBalanceMinor: bal,
+              deltaAmountMinor: -costMinor,
+              newBalanceMinor: nextBal,
+              createdAt: now,
+              actorId: vehicle.ownerId,
+              source: 'vehicle_maintenance',
+              verificationStatus: LedgerVerificationStatuses.userConfirmed,
+              walletName: walletSnap.data()?['name']?.toString(),
+              kind: 'expense',
+            ).fold(
+              (f) => throw AppException(
+                code: 'VALIDATION_FAILURE',
+                message: f.message,
+              ),
+              (r) => r,
+            );
         final txRef = _firestore
             .collection('users')
             .doc(vehicle.ownerId)
@@ -597,27 +597,28 @@ class VehicleRemoteDataSource {
       );
       final bal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
       final nextBal = bal - paidAmountMinor;
-      final auditRecord = LedgerIntegrityEngine.buildAndValidateAudit(
-        auditId: auditId,
-        operationId: txId,
-        transactionId: txId,
-        walletId: walletId,
-        previousBalanceMinor: bal,
-        deltaAmountMinor: -paidAmountMinor,
-        newBalanceMinor: nextBal,
-        createdAt: now,
-        actorId: userId,
-        source: 'recurring_bill',
-        verificationStatus: LedgerVerificationStatuses.userConfirmed,
-        walletName: wSnap.data()?['name']?.toString(),
-        kind: 'expense',
-      ).fold(
-        (f) => throw AppException(
-          code: 'VALIDATION_FAILURE',
-          message: f.message,
-        ),
-        (r) => r,
-      );
+      final auditRecord =
+          LedgerIntegrityEngine.buildAndValidateAudit(
+            auditId: auditId,
+            operationId: txId,
+            transactionId: txId,
+            walletId: walletId,
+            previousBalanceMinor: bal,
+            deltaAmountMinor: -paidAmountMinor,
+            newBalanceMinor: nextBal,
+            createdAt: now,
+            actorId: userId,
+            source: 'recurring_bill',
+            verificationStatus: LedgerVerificationStatuses.userConfirmed,
+            walletName: wSnap.data()?['name']?.toString(),
+            kind: 'expense',
+          ).fold(
+            (f) => throw AppException(
+              code: 'VALIDATION_FAILURE',
+              message: f.message,
+            ),
+            (r) => r,
+          );
 
       tx.update(walletRef, {
         'balanceMinor': nextBal,

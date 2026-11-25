@@ -210,7 +210,8 @@ abstract final class LedgerIntegrityEngine {
     if (existingOperationIds.contains(trimmed)) {
       return Err(
         ConflictFailure(
-          message: 'Thao tác với operationId "$trimmed" đã được ghi sổ trước đó.',
+          message:
+              'Thao tác với operationId "$trimmed" đã được ghi sổ trước đó.',
         ),
       );
     }
@@ -242,7 +243,8 @@ abstract final class LedgerIntegrityEngine {
     if (newWalletId != null && newWalletId != existing.walletId) {
       return const Err(
         PermissionDeniedFailure(
-          message: 'Không thể sửa walletId của giao dịch ngân hàng đã VERIFIED.',
+          message:
+              'Không thể sửa walletId của giao dịch ngân hàng đã VERIFIED.',
         ),
       );
     }

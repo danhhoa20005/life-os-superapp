@@ -171,17 +171,16 @@ class VoiceDiagnosticsSnapshot {
     required this.manufacturer,
   });
 
-  const VoiceDiagnosticsSnapshot.fallback({
-    bool supported = false,
-  }) : hardwareMicAvailable = supported,
-       hasRecordPermission = supported,
-       isRecognitionAvailable = supported,
-       isOnDeviceAvailable = false,
-       hasSystemSpeechDialog = supported,
-       availableEngines = const <String>[],
-       activeEngineLabel = 'auto',
-       sdkInt = 0,
-       manufacturer = 'unknown';
+  const VoiceDiagnosticsSnapshot.fallback({bool supported = false})
+    : hardwareMicAvailable = supported,
+      hasRecordPermission = supported,
+      isRecognitionAvailable = supported,
+      isOnDeviceAvailable = false,
+      hasSystemSpeechDialog = supported,
+      availableEngines = const <String>[],
+      activeEngineLabel = 'auto',
+      sdkInt = 0,
+      manufacturer = 'unknown';
 
   factory VoiceDiagnosticsSnapshot.fromMap(Map<String, dynamic> map) {
     final rawEngines = map['availableEngines'];
@@ -295,7 +294,8 @@ abstract interface class AdvancedVoiceAssistantDriver
   Future<VoiceDiagnosticsSnapshot> getDiagnostics();
 }
 
-class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver {
+class MethodChannelVoiceAssistantDriver
+    implements AdvancedVoiceAssistantDriver {
   static const MethodChannel _methodChannel = MethodChannel(
     'vn.lifeos.app/voice_assistant',
   );
@@ -402,15 +402,13 @@ class MethodChannelVoiceAssistantDriver implements AdvancedVoiceAssistantDriver 
       final normalizedMode = useDialog
           ? 'system_dialog'
           : (engineMode == 'on_device' ? 'on_device' : 'google_service');
-      final status = await _methodChannel.invokeMethod<String>(
-        'startListening',
-        <String, dynamic>{
-          if (sessionToken != null) 'sessionToken': sessionToken,
-          'preferSystemDialog': useDialog,
-          'engineMode': normalizedMode,
-          'forceInlineProbe': forceInlineProbe,
-        },
-      );
+      final status = await _methodChannel
+          .invokeMethod<String>('startListening', <String, dynamic>{
+            if (sessionToken != null) 'sessionToken': sessionToken,
+            'preferSystemDialog': useDialog,
+            'engineMode': normalizedMode,
+            'forceInlineProbe': forceInlineProbe,
+          });
       return status ?? 'STARTED';
     } catch (_) {
       return 'ERROR';

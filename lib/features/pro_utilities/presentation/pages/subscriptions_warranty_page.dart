@@ -150,8 +150,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                       child: Wrap(
                                         spacing: 8,
                                         runSpacing: 6,
-                                        alignment:
-                                            WrapAlignment.spaceBetween,
+                                        alignment: WrapAlignment.spaceBetween,
                                         crossAxisAlignment:
                                             WrapCrossAlignment.center,
                                         children: [
@@ -159,8 +158,8 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               const BananaGlassIcon(
-                                                assetPath:
-                                                    AppAssets.icToolSubscription,
+                                                assetPath: AppAssets
+                                                    .icToolSubscription,
                                                 fallbackIcon:
                                                     Icons.radar_rounded,
                                                 size: 30,
@@ -185,8 +184,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                 'subs_due_soon_$dueSoonCount',
                                             icon: Icons
                                                 .notifications_active_outlined,
-                                            label:
-                                                '$dueSoonCount sắp đến hạn',
+                                            label: '$dueSoonCount sắp đến hạn',
                                             tone: dueSoonCount > 0
                                                 ? LifeOsAccentTone.amber
                                                 : LifeOsAccentTone.emerald,
@@ -215,23 +213,22 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                   fit: BoxFit.scaleDown,
                                                   alignment:
                                                       Alignment.centerLeft,
-                                                  child:
-                                                      LifeOsTruthfulNumericText(
-                                                        formattedValue:
-                                                            VndAmount.format(
-                                                              state
-                                                                  .totalMonthlySubBurnMinor,
-                                                            ),
-                                                        style: TextStyle(
-                                                          fontSize: 19,
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                          color: c.textPrimary,
-                                                          fontFeatures: const [
-                                                            FontFeature.tabularFigures(),
-                                                          ],
+                                                  child: LifeOsTruthfulNumericText(
+                                                    formattedValue:
+                                                        VndAmount.format(
+                                                          state
+                                                              .totalMonthlySubBurnMinor,
                                                         ),
-                                                      ),
+                                                    style: TextStyle(
+                                                      fontSize: 19,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: c.textPrimary,
+                                                      fontFeatures: const [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -257,23 +254,22 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                   fit: BoxFit.scaleDown,
                                                   alignment:
                                                       Alignment.centerLeft,
-                                                  child:
-                                                      LifeOsTruthfulNumericText(
-                                                        formattedValue:
-                                                            VndAmount.format(
-                                                              state
-                                                                  .totalAnnualSubBurnMinor,
-                                                            ),
-                                                        style: TextStyle(
-                                                          fontSize: 19,
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                          color: c.error,
-                                                          fontFeatures: const [
-                                                            FontFeature.tabularFigures(),
-                                                          ],
+                                                  child: LifeOsTruthfulNumericText(
+                                                    formattedValue:
+                                                        VndAmount.format(
+                                                          state
+                                                              .totalAnnualSubBurnMinor,
                                                         ),
-                                                      ),
+                                                    style: TextStyle(
+                                                      fontSize: 19,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: c.error,
+                                                      fontFeatures: const [
+                                                        FontFeature.tabularFigures(),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -385,8 +381,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                             ? AppAssets.icSysShield
                                             : AppAssets.icToolSubscription,
                                         fallbackIcon: _dueSoonOnly
-                                            ? Icons
-                                                  .check_circle_outline_rounded
+                                            ? Icons.check_circle_outline_rounded
                                             : (_showWarranties
                                                   ? Icons.verified_user_outlined
                                                   : Icons
@@ -604,11 +599,12 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                           key: Key(
                                                             'renew_sub_wallet_${item.id}',
                                                           ),
-                                                          style: TextButton.styleFrom(
-                                                            visualDensity:
-                                                                VisualDensity
-                                                                    .compact,
-                                                          ),
+                                                          style:
+                                                              TextButton.styleFrom(
+                                                                visualDensity:
+                                                                    VisualDensity
+                                                                        .compact,
+                                                              ),
                                                           onPressed: isRenewing
                                                               ? null
                                                               : () => _renewAndRecordToWallet(
@@ -627,11 +623,10 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                               ? const SizedBox(
                                                                   width: 14,
                                                                   height: 14,
-                                                                  child:
-                                                                      CircularProgressIndicator(
-                                                                        strokeWidth:
-                                                                            2,
-                                                                      ),
+                                                                  child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
                                                                 )
                                                               : const Icon(
                                                                   Icons
@@ -650,23 +645,25 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                           visualDensity:
                                                               VisualDensity
                                                                   .compact,
-                                                          tooltip: isNoteRevealed
+                                                          tooltip:
+                                                              isNoteRevealed
                                                               ? 'Ẩn ghi chú / serial'
                                                               : 'Hiện ghi chú / serial',
-                                                          onPressed: () =>
-                                                              setState(() {
-                                                                if (isNoteRevealed) {
-                                                                  _revealedNoteIds
-                                                                      .remove(
-                                                                        item.id,
-                                                                      );
-                                                                } else {
-                                                                  _revealedNoteIds
-                                                                      .add(
-                                                                        item.id,
-                                                                      );
-                                                                }
-                                                              }),
+                                                          onPressed: () => setState(
+                                                            () {
+                                                              if (isNoteRevealed) {
+                                                                _revealedNoteIds
+                                                                    .remove(
+                                                                      item.id,
+                                                                    );
+                                                              } else {
+                                                                _revealedNoteIds
+                                                                    .add(
+                                                                      item.id,
+                                                                    );
+                                                              }
+                                                            },
+                                                          ),
                                                           icon: Icon(
                                                             isNoteRevealed
                                                                 ? Icons
@@ -720,7 +717,8 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                                     'Xóa',
                                                               );
                                                           if (!confirmed ||
-                                                              !context.mounted) {
+                                                              !context
+                                                                  .mounted) {
                                                             return;
                                                           }
                                                           _revealedNoteIds

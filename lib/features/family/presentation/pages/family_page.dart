@@ -318,11 +318,8 @@ class FamilyPage extends StatelessWidget {
     final bloc = context.read<FamilyBloc>();
     await showDialog<void>(
       context: context,
-      builder: (_) => _CreateFamilyDialog(
-        bloc: bloc,
-        userId: userId,
-        userName: userName,
-      ),
+      builder: (_) =>
+          _CreateFamilyDialog(bloc: bloc, userId: userId, userName: userName),
     );
   }
 
@@ -340,11 +337,8 @@ class FamilyPage extends StatelessWidget {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       showDragHandle: false,
-      builder: (_) => _JoinFamilySheet(
-        bloc: bloc,
-        userId: userId,
-        userName: userName,
-      ),
+      builder: (_) =>
+          _JoinFamilySheet(bloc: bloc, userId: userId, userName: userName),
     );
   }
 }
@@ -485,12 +479,7 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
           return LiquidGlassSheetFrame(
             showHandle: true,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                6,
-                18,
-                20 + viewInsets.bottom,
-              ),
+              padding: EdgeInsets.fromLTRB(18, 6, 18, 20 + viewInsets.bottom),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -545,8 +534,9 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
                         ),
                       ),
                       onChanged: (val) {
-                        final extracted =
-                            FamilyInviteCodeExtractor.extractCode(val);
+                        final extracted = FamilyInviteCodeExtractor.extractCode(
+                          val,
+                        );
                         if (extracted.startsWith('FAM-') &&
                             extracted.length >= 8) {
                           widget.bloc.add(
@@ -735,10 +725,9 @@ class _SplitBillsAndSettlementTabViewState
                     )?.state.events.length ??
                     0;
                 final totalFunds =
-                    _maybeWatchFamily<BudgetBloc>(context)?.state.funds.fold<int>(
-                      0,
-                      (s, f) => s + f.balanceMinor,
-                    ) ??
+                    _maybeWatchFamily<BudgetBloc>(
+                      context,
+                    )?.state.funds.fold<int>(0, (s, f) => s + f.balanceMinor) ??
                     0;
                 final displayFund = totalFunds > 0
                     ? totalFunds
@@ -1372,17 +1361,15 @@ class _SplitBillsAndSettlementTabViewState
                                               ),
                                               actions: [
                                                 TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(
-                                                        ctx,
-                                                      ).pop(false),
+                                                  onPressed: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(false),
                                                   child: const Text('Hủy'),
                                                 ),
                                                 FilledButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(
-                                                        ctx,
-                                                      ).pop(true),
+                                                  onPressed: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(true),
                                                   child: const Text(
                                                     'Xác nhận tất toán',
                                                   ),
@@ -1776,13 +1763,14 @@ class _SharedBillSplitSheetState extends State<_SharedBillSplitSheet> {
   SplitMethod _method = SplitMethod.equal;
   late String _payerId =
       widget.family.members.any((m) => m.userId == widget.currentUserId)
-          ? widget.currentUserId
-          : widget.family.members.first.userId;
+      ? widget.currentUserId
+      : widget.family.members.first.userId;
   late final Set<String> _selectedIds = <String>{
     for (final m in widget.family.members) m.userId,
   };
-  late String? _selectedWalletId =
-      widget.wallets.isNotEmpty ? widget.wallets.first.id : null;
+  late String? _selectedWalletId = widget.wallets.isNotEmpty
+      ? widget.wallets.first.id
+      : null;
   bool _recordToPersonalWallet = false;
   bool _isSubmittingLocal = false;
 
@@ -1819,12 +1807,7 @@ class _SharedBillSplitSheetState extends State<_SharedBillSplitSheet> {
             child: LiquidGlassSheetFrame(
               showHandle: true,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  18,
-                  6,
-                  18,
-                  18 + viewInsets.bottom,
-                ),
+                padding: EdgeInsets.fromLTRB(18, 6, 18, 18 + viewInsets.bottom),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2019,8 +2002,7 @@ class _SharedBillSplitSheetState extends State<_SharedBillSplitSheet> {
                                               _selectedIds.isNotEmpty) {
                                             final basePct =
                                                 100 ~/ _selectedIds.length;
-                                            var rem =
-                                                100 % _selectedIds.length;
+                                            var rem = 100 % _selectedIds.length;
                                             for (final uid in _selectedIds) {
                                               final add = rem > 0 ? 1 : 0;
                                               if (rem > 0) rem -= 1;
@@ -2325,9 +2307,7 @@ class _FamilyInviteMemberSheetState extends State<_FamilyInviteMemberSheet> {
           final c = TammySemanticColors.of(ctx);
           final viewInsets = MediaQuery.viewInsetsOf(ctx);
           final updatedFamily =
-              famState.families
-                  .where((f) => f.id == family.id)
-                  .firstOrNull ??
+              famState.families.where((f) => f.id == family.id).firstOrNull ??
               family;
           final latestInvite = updatedFamily
               .activePendingInvites()
@@ -2343,12 +2323,7 @@ class _FamilyInviteMemberSheetState extends State<_FamilyInviteMemberSheet> {
           return LiquidGlassSheetFrame(
             showHandle: true,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                6,
-                18,
-                20 + viewInsets.bottom,
-              ),
+              padding: EdgeInsets.fromLTRB(18, 6, 18, 20 + viewInsets.bottom),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -3371,7 +3346,10 @@ class _SharedShoppingTabViewState extends State<_SharedShoppingTabView> {
                               familyId: widget.family.id,
                               userName: widget.currentUserName,
                             ),
-                      icon: const Icon(Icons.add_shopping_cart_rounded, size: 17),
+                      icon: const Icon(
+                        Icons.add_shopping_cart_rounded,
+                        size: 17,
+                      ),
                       label: const Text('Thêm món đầu tiên'),
                     ),
                   ],
@@ -3391,10 +3369,7 @@ class _SharedShoppingTabViewState extends State<_SharedShoppingTabView> {
                     const SizedBox(height: 8),
                     FilledButton.tonalIcon(
                       onPressed: () => setState(() => _statusFilter = 'all'),
-                      icon: const Icon(
-                        Icons.filter_alt_off_rounded,
-                        size: 16,
-                      ),
+                      icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
                       label: const Text('Xem tất cả món đồ'),
                     ),
                   ],

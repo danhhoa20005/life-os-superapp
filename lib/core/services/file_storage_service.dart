@@ -177,7 +177,10 @@ class SparkSafeFileStorageService implements FileStorageService {
     final aad = _buildAad(userId, key);
 
     if (kIsWeb) {
-      final cipherPack = await _bridge.encryptBytes(plainBytes: bytes, aad: aad);
+      final cipherPack = await _bridge.encryptBytes(
+        plainBytes: bytes,
+        aad: aad,
+      );
       _ephemeralWebVault['$userId/$key'] = cipherPack;
       _ephemeralWebMeta['$userId/$key'] = (
         sha256: digest,
@@ -230,7 +233,8 @@ class SparkSafeFileStorageService implements FileStorageService {
       return Err(
         UnexpectedFailure(
           code: 'LOCAL_VAULT_WRITE_FAILED',
-          message: 'Không thể mã hóa và lưu tệp vào kho an toàn trên thiết bị: $e',
+          message:
+              'Không thể mã hóa và lưu tệp vào kho an toàn trên thiết bị: $e',
         ),
       );
     }
@@ -323,10 +327,7 @@ class SparkSafeFileStorageService implements FileStorageService {
       );
     }
 
-    final plain = await _bridge.decryptBytes(
-      cipherPack: cipherPack,
-      aad: aad,
-    );
+    final plain = await _bridge.decryptBytes(cipherPack: cipherPack, aad: aad);
 
     final actualDigest = sha256.convert(plain).toString();
     if (metaPlainSha != null &&
@@ -385,9 +386,7 @@ class SparkSafeFileStorageService implements FileStorageService {
         }
         final legacyDir = await _resolveLegacyVaultDir(userId);
         if (legacyDir != null) {
-          final lf = File(
-            '${legacyDir.path}${Platform.pathSeparator}$safeKey',
-          );
+          final lf = File('${legacyDir.path}${Platform.pathSeparator}$safeKey');
           await unlinkIfExists(lf);
           await unlinkIfExists(_metaFileFor(lf));
         }

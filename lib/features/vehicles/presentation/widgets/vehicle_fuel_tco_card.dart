@@ -129,7 +129,9 @@ class _VehicleFuelAndTcoCardState extends State<VehicleFuelAndTcoCard> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: isElectric ? 'Điện năng sạc (kWh)' : 'Số lít xăng (L)',
+                  labelText: isElectric
+                      ? 'Điện năng sạc (kWh)'
+                      : 'Số lít xăng (L)',
                 ),
               ),
               const SizedBox(height: 8),
@@ -267,7 +269,10 @@ class _VehicleFuelAndTcoCardState extends State<VehicleFuelAndTcoCard> {
                     children: [
                       Text(
                         isElectric ? 'Mức tiêu thụ' : 'Tiêu hao nhiên liệu',
-                        style: TextStyle(fontSize: 11.4, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11.4,
+                          color: c.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       FittedBox(
@@ -295,7 +300,10 @@ class _VehicleFuelAndTcoCardState extends State<VehicleFuelAndTcoCard> {
                     children: [
                       Text(
                         'Chi phí thực tế / km',
-                        style: TextStyle(fontSize: 11.4, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11.4,
+                          color: c.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       FittedBox(

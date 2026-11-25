@@ -1111,9 +1111,10 @@ class _SaveGiftLedgerDialogState extends State<_SaveGiftLedgerDialog> {
                       widget.txActionBloc != null) {
                     setState(() => _isSubmitting = true);
                     final isRecv = _direction == GiftDirection.received;
-                    final expenseCatName = widget.categories.any(
-                            (c) => c.name == 'Hiếu hỉ & Đối ngoại',
-                          )
+                    final expenseCatName =
+                        widget.categories.any(
+                          (c) => c.name == 'Hiếu hỉ & Đối ngoại',
+                        )
                         ? 'Hiếu hỉ & Đối ngoại'
                         : 'Chi tiêu khác';
                     final txRes = await widget.txActionBloc!

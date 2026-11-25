@@ -984,12 +984,10 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
-                                    colors: Theme.of(context).brightness ==
+                                    colors:
+                                        Theme.of(context).brightness ==
                                             Brightness.dark
-                                        ? [
-                                            c.surfaceRaised,
-                                            c.surface,
-                                          ]
+                                        ? [c.surfaceRaised, c.surface]
                                         : const [
                                             Color(0xFFF6FCF8),
                                             Color(0xFFFFFFFF),
@@ -1002,7 +1000,8 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(
-                                        alpha: Theme.of(context).brightness ==
+                                        alpha:
+                                            Theme.of(context).brightness ==
                                                 Brightness.dark
                                             ? 0.22
                                             : 0.045,
@@ -1172,7 +1171,12 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                   children: [
                                     for (final preset
                                         in const <
-                                          (int h, int m, String label, List<int> days)
+                                          (
+                                            int h,
+                                            int m,
+                                            String label,
+                                            List<int> days,
+                                          )
                                         >[
                                           (
                                             6,
@@ -1543,9 +1547,7 @@ class _UpsertPersonalAlarmBottomSheetState
     _minute = ex?.minute ?? 30;
     _snoozeMinutes = ex?.snoozeMinutes ?? 5;
     _selectedDays = <int>{...(ex?.repeatWeekdays ?? const <int>[])};
-    _labelCtrl = TextEditingController(
-      text: ex?.label ?? 'Thức dậy buổi sáng',
-    );
+    _labelCtrl = TextEditingController(text: ex?.label ?? 'Thức dậy buổi sáng');
   }
 
   @override
@@ -1582,9 +1584,7 @@ class _UpsertPersonalAlarmBottomSheetState
         '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}';
 
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Material(
         color: c.background,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1918,9 +1918,9 @@ class _AlarmRingingFullScreenViewState
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ev = widget.event;
-    final alarmTime = DateFormat('HH:mm').format(
-      ev.startsAt.subtract(Duration(minutes: ev.reminderMinutesBefore)),
-    );
+    final alarmTime = DateFormat(
+      'HH:mm',
+    ).format(ev.startsAt.subtract(Duration(minutes: ev.reminderMinutesBefore)));
     final eventTitle = ev.title;
     final eventTimeLine =
         '${DateFormat('dd/MM/yyyy').format(ev.startsAt)} • ${DateFormat('HH:mm').format(ev.startsAt)}';
@@ -1954,9 +1954,7 @@ class _AlarmRingingFullScreenViewState
             builder: (context, constraints) {
               return SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 430),
@@ -2104,8 +2102,9 @@ class _AlarmRingingFullScreenViewState
                                         height: 44,
                                         decoration: BoxDecoration(
                                           color: c.primarySubtle,
-                                          borderRadius:
-                                              BorderRadius.circular(13),
+                                          borderRadius: BorderRadius.circular(
+                                            13,
+                                          ),
                                         ),
                                         child: Icon(
                                           Icons.alarm_rounded,

@@ -5,11 +5,7 @@ import 'package:equatable/equatable.dart';
 import '../../features/family/domain/entities/family_entities.dart';
 import '../../features/financial_ai/data/normalization/financial_text_normalizer.dart';
 
-enum ParticipantResolutionStatus {
-  resolved,
-  ambiguous,
-  unresolvedGuest,
-}
+enum ParticipantResolutionStatus { resolved, ambiguous, unresolvedGuest }
 
 class ParticipantCandidateMatch extends Equatable {
   final String participantId;
@@ -87,19 +83,19 @@ abstract final class ParticipantResolutionEngine {
     required String currentUserId,
     required String currentUserName,
     List<FamilyMemberInfo> knownMembers = const <FamilyMemberInfo>[],
-    Map<String, List<String>> nicknamesByUserId = const <String, List<String>>{},
+    Map<String, List<String>> nicknamesByUserId =
+        const <String, List<String>>{},
     Map<String, String> explicitOverridesBySpoken = const <String, String>{},
     double minConfidence = defaultConfidenceThreshold,
   }) {
     final trimmedSpoken = spokenName.trim().replaceAll(RegExp(r'\s+'), ' ');
     final lowerSpoken = trimmedSpoken.toLowerCase();
-    final foldedSpoken = FinancialTextNormalizer.stripVnAccents(trimmedSpoken)
-        .trim()
-        .replaceAll(RegExp(r'\s+'), ' ');
-    final slug = foldedSpoken.replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(
-      RegExp(r'^_|_$'),
-      '',
-    );
+    final foldedSpoken = FinancialTextNormalizer.stripVnAccents(
+      trimmedSpoken,
+    ).trim().replaceAll(RegExp(r'\s+'), ' ');
+    final slug = foldedSpoken
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
     final guestId = 'voice_member_${index}_${slug.isEmpty ? 'guest' : slug}';
 
     if (trimmedSpoken.isEmpty) {
@@ -140,8 +136,9 @@ abstract final class ParticipantResolutionEngine {
     if (overrideId == null && explicitOverridesBySpoken.isNotEmpty) {
       for (final entry in explicitOverridesBySpoken.entries) {
         final kLower = entry.key.trim().toLowerCase();
-        final kFolded = FinancialTextNormalizer.stripVnAccents(entry.key)
-            .trim();
+        final kFolded = FinancialTextNormalizer.stripVnAccents(
+          entry.key,
+        ).trim();
         if (kLower == lowerSpoken || kFolded == foldedSpoken) {
           overrideId = entry.value;
           break;
@@ -226,11 +223,7 @@ abstract final class ParticipantResolutionEngine {
 
     // Check close ties / homonym ambiguity (`Lê Hà` vs `Phạm Hà`)
     final closeMatches = scored
-        .where(
-          (c) =>
-              c.score >= 0.55 &&
-              (top.score - c.score) <= _tieMargin,
-        )
+        .where((c) => c.score >= 0.55 && (top.score - c.score) <= _tieMargin)
         .take(5)
         .toList(growable: false);
 
@@ -335,7 +328,10 @@ abstract final class ParticipantResolutionEngine {
 
       // Tier 2: Personalized nickname match (exact token/phrase)
       for (final nick in nicknames) {
-        final nLower = nick.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+        final nLower = nick.trim().toLowerCase().replaceAll(
+          RegExp(r'\s+'),
+          ' ',
+        );
         final nFolded = FinancialTextNormalizer.stripVnAccents(nLower).trim();
         if (nLower.isEmpty) continue;
         if (nLower == q.lower) {

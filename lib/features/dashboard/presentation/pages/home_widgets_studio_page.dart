@@ -42,7 +42,8 @@ class _HomeWidgetsStudioPageState extends State<HomeWidgetsStudioPage> {
   String? _lastUndoLabel;
 
   bool _hideBalances = false;
-  int _wealthViewMode = 0; // 0 = Net Worth, 1 = Monthly Surplus, 2 = Today Spend
+  int _wealthViewMode =
+      0; // 0 = Net Worth, 1 = Monthly Surplus, 2 = Today Spend
 
   int _groupMembers = 3;
   String _groupLiveStatus = 'Chọn số người rồi chạm mức chia nhanh bên dưới';
@@ -78,9 +79,7 @@ class _HomeWidgetsStudioPageState extends State<HomeWidgetsStudioPage> {
 
   String _resolveWalletId(BuildContext context) {
     final wallets = context.read<TransactionListBloc>().state.wallets;
-    return UserBehaviorPrefs.resolvePreferredWalletId(
-      wallets.map((w) => w.id),
-    );
+    return UserBehaviorPrefs.resolvePreferredWalletId(wallets.map((w) => w.id));
   }
 
   Future<void> _pinWidget(
@@ -305,8 +304,7 @@ class _HomeWidgetsStudioPageState extends State<HomeWidgetsStudioPage> {
         'Dư ròng tháng này',
         _formatVndOrMasked(
           dash.monthlyIncomeMinor - dash.monthlyExpenseMinor,
-          signPrefix:
-              (dash.monthlyIncomeMinor - dash.monthlyExpenseMinor) > 0
+          signPrefix: (dash.monthlyIncomeMinor - dash.monthlyExpenseMinor) > 0
               ? '+'
               : '',
         ),
@@ -663,12 +661,11 @@ class _HomeWidgetsStudioPageState extends State<HomeWidgetsStudioPage> {
                                         shape: const CircleBorder(),
                                         child: InkWell(
                                           customBorder: const CircleBorder(),
-                                          onTap: () =>
-                                              showVoiceSmartCaptureSheet(
-                                                context,
-                                                initialTranscript:
-                                                    'Ăn lẩu bò 450 nghìn chia đều $_groupMembers người',
-                                              ),
+                                          onTap: () => showVoiceSmartCaptureSheet(
+                                            context,
+                                            initialTranscript:
+                                                'Ăn lẩu bò 450 nghìn chia đều $_groupMembers người',
+                                          ),
                                           child: SizedBox(
                                             width: 38,
                                             height: 38,

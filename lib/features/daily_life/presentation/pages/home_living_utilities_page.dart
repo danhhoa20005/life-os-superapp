@@ -82,12 +82,10 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
   void _applyLatestReadingSuggestion(UtilityMeterReadingEntity latest) {
     _prevKwh = latest.currElectricKwh;
     _currKwh =
-        latest.currElectricKwh +
-        (latest.kwhUsed > 0 ? latest.kwhUsed : 150);
+        latest.currElectricKwh + (latest.kwhUsed > 0 ? latest.kwhUsed : 150);
     _prevWater = latest.currWaterM3;
     _currWater =
-        latest.currWaterM3 +
-        (latest.waterM3Used > 0 ? latest.waterM3Used : 10);
+        latest.currWaterM3 + (latest.waterM3Used > 0 ? latest.waterM3Used : 10);
     _prevKwhCtrl.text = '$_prevKwh';
     _currKwhCtrl.text = '$_currKwh';
     _prevWaterCtrl.text = '$_prevWater';
@@ -329,8 +327,9 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
 
     final txActionBloc = context.read<TransactionActionBloc>();
     final dailyBloc = context.read<DailyLifeBloc>();
-    final amountToPay =
-        _splitMembers > 1 ? calc.perPersonShareMinor : calc.grandTotalMinor;
+    final amountToPay = _splitMembers > 1
+        ? calc.perPersonShareMinor
+        : calc.grandTotalMinor;
 
     setState(() => _isSubmittingUtilityPay = true);
     late final TransactionActionState outcome;
@@ -345,7 +344,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
           kind: TransactionKind.expense,
           amountMinor: amountToPay,
           merchant: 'Điện nước & Internet kỳ $monthKey',
-          note: '${calc.kwhConsumed} kWh điện · ${calc.waterM3Consumed} m³ nước',
+          note:
+              '${calc.kwhConsumed} kWh điện · ${calc.waterM3Consumed} m³ nước',
           occurredAt: DateTime.now(),
         ),
       );
@@ -385,10 +385,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
 
     if (matchingUnpaid != null) {
       dailyBloc.add(
-        UtilityReadingMarkedPaid(
-          userId: userId,
-          readingId: matchingUnpaid.id,
-        ),
+        UtilityReadingMarkedPaid(userId: userId, readingId: matchingUnpaid.id),
       );
     } else {
       dailyBloc.add(

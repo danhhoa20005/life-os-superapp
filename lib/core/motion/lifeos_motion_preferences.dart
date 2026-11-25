@@ -79,7 +79,8 @@ final class LifeOsMotionPreferences {
     LifeOsMotionMode userMode = LifeOsMotionMode.system,
     bool hapticsEnabled = true,
   }) {
-    final mqElement = context.getElementForInheritedWidgetOfExactType<MediaQuery>();
+    final mqElement = context
+        .getElementForInheritedWidgetOfExactType<MediaQuery>();
     final mqWidget = mqElement?.widget;
     final mqDisable = mqWidget is MediaQuery
         ? mqWidget.data.disableAnimations

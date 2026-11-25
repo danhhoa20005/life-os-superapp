@@ -210,13 +210,16 @@ abstract final class SmartHybridGate {
     final trimmed = rawInput.trim();
     final isAdvisory = _advisoryOrQuestionRegex.hasMatch(trimmed);
     final isMultiIntent = localDrafts.length >= 2;
-    final hasMultipleConnectors =
-        RegExp(r'[,;\n]|\s+(?:và|rồi)\s+', caseSensitive: false)
-            .allMatches(trimmed)
-            .isNotEmpty;
+    final hasMultipleConnectors = RegExp(
+      r'[,;\n]|\s+(?:và|rồi)\s+',
+      caseSensitive: false,
+    ).allMatches(trimmed).isNotEmpty;
     final unparsedLocally = localDrafts.isEmpty;
 
-    if (isAdvisory || isMultiIntent || unparsedLocally || hasMultipleConnectors) {
+    if (isAdvisory ||
+        isMultiIntent ||
+        unparsedLocally ||
+        hasMultipleConnectors) {
       return SmartHybridDecision(
         route: SmartHybridRoute.cloudGemini,
         reasonVi: isAdvisory

@@ -48,8 +48,7 @@ class MethodChannelPrivacyScreenDriver implements PrivacyScreenDriver {
 /// Bridge controlling Android `FLAG_SECURE` + API 33+ `setRecentsScreenshotEnabled`
 /// to prevent sensitive financial balances from leaking in Recent Apps snapshots.
 class NativePrivacyScreenBridge {
-  static const NativePrivacyScreenBridge instance =
-      NativePrivacyScreenBridge();
+  static const NativePrivacyScreenBridge instance = NativePrivacyScreenBridge();
   static PrivacyScreenDriver _driver = const MethodChannelPrivacyScreenDriver();
   static bool _isEnabled = false;
 

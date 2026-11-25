@@ -424,7 +424,10 @@ void main() {
           ),
           0,
         );
-        expect(unresolvedSummary.suggestedTransfers.single.fromUserId, 'u_binh');
+        expect(
+          unresolvedSummary.suggestedTransfers.single.fromUserId,
+          'u_binh',
+        );
         expect(unresolvedSummary.suggestedTransfers.single.toUserId, 'u_an');
         expect(unresolvedSummary.suggestedTransfers.single.amountMinor, 100000);
 
@@ -476,11 +479,31 @@ void main() {
         // Total spend = 150k: A pays 120k (shares: A=20k, C=70k, E=30k -> A:+100k, C:-70k, E:-30k),
         // B pays 50k (shares: D=50k -> B:+50k, D:-50k).
         final members5 = const [
-          FamilyMemberInfo(userId: 'u_a', fullName: 'A', role: HouseholdRole.owner),
-          FamilyMemberInfo(userId: 'u_b', fullName: 'B', role: HouseholdRole.member),
-          FamilyMemberInfo(userId: 'u_c', fullName: 'C', role: HouseholdRole.member),
-          FamilyMemberInfo(userId: 'u_d', fullName: 'D', role: HouseholdRole.member),
-          FamilyMemberInfo(userId: 'u_e', fullName: 'E', role: HouseholdRole.member),
+          FamilyMemberInfo(
+            userId: 'u_a',
+            fullName: 'A',
+            role: HouseholdRole.owner,
+          ),
+          FamilyMemberInfo(
+            userId: 'u_b',
+            fullName: 'B',
+            role: HouseholdRole.member,
+          ),
+          FamilyMemberInfo(
+            userId: 'u_c',
+            fullName: 'C',
+            role: HouseholdRole.member,
+          ),
+          FamilyMemberInfo(
+            userId: 'u_d',
+            fullName: 'D',
+            role: HouseholdRole.member,
+          ),
+          FamilyMemberInfo(
+            userId: 'u_e',
+            fullName: 'E',
+            role: HouseholdRole.member,
+          ),
         ];
         final bills5 = [
           SharedBillSplitEntity(
@@ -521,7 +544,10 @@ void main() {
         expect(dpSummary.suggestedTransfers.length, 3);
         expect(
           dpSummary.suggestedTransfers.any(
-            (t) => t.fromUserId == 'u_d' && t.toUserId == 'u_b' && t.amountMinor == 50000,
+            (t) =>
+                t.fromUserId == 'u_d' &&
+                t.toUserId == 'u_b' &&
+                t.amountMinor == 50000,
           ),
           isTrue,
         );
@@ -554,7 +580,9 @@ void main() {
               totalAmountMinor: total15,
               splitMethod: SplitMethod.exact,
               sharesByUserId: shares15,
-              participantNames: {for (final m in members15) m.userId: m.fullName},
+              participantNames: {
+                for (final m in members15) m.userId: m.fullName,
+              },
               createdAt: now,
             ),
           ],
@@ -563,7 +591,10 @@ void main() {
         expect(summary15.isExactOptimal, isFalse);
         expect(summary15.suggestedTransfers.length, 14);
         expect(
-          summary15.memberBalances.fold<int>(0, (s, b) => s + b.netBalanceMinor),
+          summary15.memberBalances.fold<int>(
+            0,
+            (s, b) => s + b.netBalanceMinor,
+          ),
           0,
         );
       },
@@ -576,7 +607,9 @@ void main() {
         final now = DateTime.utc(2026, 11, 25);
 
         for (var trial = 0; trial < 200; trial++) {
-          final n = 2 + rng.nextInt(13); // 2..14 members (covers both Exact DP & Greedy)
+          final n =
+              2 +
+              rng.nextInt(13); // 2..14 members (covers both Exact DP & Greedy)
           final members = List.generate(
             n,
             (i) => FamilyMemberInfo(
@@ -605,13 +638,16 @@ void main() {
                 id: 'b_${trial}_$b',
                 familyId: 'fam_prop',
                 title: 'Bill $b',
-                topic: SharedExpenseTopic.values[b % SharedExpenseTopic.values.length],
+                topic: SharedExpenseTopic
+                    .values[b % SharedExpenseTopic.values.length],
                 paidByUserId: payer.userId,
                 paidByName: payer.fullName,
                 totalAmountMinor: total,
                 splitMethod: SplitMethod.equal,
                 sharesByUserId: shares,
-                participantNames: {for (final m in members) m.userId: m.fullName},
+                participantNames: {
+                  for (final m in members) m.userId: m.fullName,
+                },
                 createdAt: now,
               ),
             );
@@ -643,7 +679,8 @@ void main() {
           for (final tr in s1.suggestedTransfers) {
             expect(tr.amountMinor, greaterThan(0));
             expect(tr.fromUserId, isNot(equals(tr.toUserId)));
-            netMap[tr.fromUserId] = (netMap[tr.fromUserId] ?? 0) + tr.amountMinor;
+            netMap[tr.fromUserId] =
+                (netMap[tr.fromUserId] ?? 0) + tr.amountMinor;
             netMap[tr.toUserId] = (netMap[tr.toUserId] ?? 0) - tr.amountMinor;
           }
           expect(netMap.values.every((v) => v == 0), isTrue);
@@ -704,7 +741,10 @@ void main() {
           ),
         );
         await Future<void>.delayed(const Duration(milliseconds: 60));
-        expect(bloc.state.sharedLedger.suggestedTransfers.single.amountMinor, 150000);
+        expect(
+          bloc.state.sharedLedger.suggestedTransfers.single.amountMinor,
+          150000,
+        );
 
         // Step 1: Debtor requests a PARTIAL settlement of 50,000 VND
         bloc.add(
@@ -726,7 +766,10 @@ void main() {
         final req = bloc.state.pendingSettlementRequests.single;
         expect(req.isPartial, isTrue);
         // Before creditor confirms, debt remains 150,000!
-        expect(bloc.state.sharedLedger.suggestedTransfers.single.amountMinor, 150000);
+        expect(
+          bloc.state.sharedLedger.suggestedTransfers.single.amountMinor,
+          150000,
+        );
 
         // Non-creditor (debtor) trying to self-confirm MUST be denied!
         final selfConfirm = await repo.confirmSettlementRequest(
@@ -755,7 +798,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 60));
         expect(bloc.state.pendingSettlementRequests, isEmpty);
         expect(bloc.state.settlements.length, 1);
-        expect(bloc.state.sharedLedger.suggestedTransfers.single.amountMinor, 100000);
+        expect(
+          bloc.state.sharedLedger.suggestedTransfers.single.amountMinor,
+          100000,
+        );
 
         // Second partial direct settlement (40,000) -> remaining debt 60,000
         bloc.add(
@@ -773,7 +819,10 @@ void main() {
           ),
         );
         await Future<void>.delayed(const Duration(milliseconds: 60));
-        expect(bloc.state.sharedLedger.suggestedTransfers.single.amountMinor, 60000);
+        expect(
+          bloc.state.sharedLedger.suggestedTransfers.single.amountMinor,
+          60000,
+        );
 
         // Reverse the 40,000 settlement via append-only contra entry -> remaining debt restores to 100,000!
         final part2 = bloc.state.settlements.firstWhere(
@@ -791,7 +840,10 @@ void main() {
         );
         await Future<void>.delayed(const Duration(milliseconds: 60));
         expect(bloc.state.settlements.any((s) => s.isReversal), isTrue);
-        expect(bloc.state.sharedLedger.suggestedTransfers.single.amountMinor, 100000);
+        expect(
+          bloc.state.sharedLedger.suggestedTransfers.single.amountMinor,
+          100000,
+        );
 
         // Double-reversal is idempotently blocked with ConflictFailure!
         final doubleRev = await repo.reverseDebtSettlement(
@@ -836,7 +888,10 @@ void main() {
               .status,
           SettlementRequestStatus.rejected,
         );
-        expect(bloc.state.sharedLedger.suggestedTransfers.single.amountMinor, 100000);
+        expect(
+          bloc.state.sharedLedger.suggestedTransfers.single.amountMinor,
+          100000,
+        );
 
         await bloc.close();
       },

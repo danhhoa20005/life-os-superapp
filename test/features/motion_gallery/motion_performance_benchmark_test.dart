@@ -254,9 +254,8 @@ class _OptimizedNotifierVoiceSheetState
           width: double.infinity,
           child: ValueListenableBuilder<double>(
             valueListenable: rmsNotifier,
-            builder: (_, rmsDb, _) => CustomPaint(
-              painter: _BenchWaveformPainter(rmsDb: rmsDb),
-            ),
+            builder: (_, rmsDb, _) =>
+                CustomPaint(painter: _BenchWaveformPainter(rmsDb: rmsDb)),
           ),
         ),
       ),
@@ -583,37 +582,44 @@ void main() {
         final metrics = <String, Object>{
           'arch1_eager_mounted_cards': eagerMountedCards,
           'arch1_lazy_mounted_cards': lazyMountedCards,
-          'arch1_eager_mount_median_ms':
-              (_median(eagerMountUs) / 1000.0).toStringAsFixed(2),
-          'arch1_lazy_mount_median_ms':
-              (_median(lazyMountUs) / 1000.0).toStringAsFixed(2),
+          'arch1_eager_mount_median_ms': (_median(eagerMountUs) / 1000.0)
+              .toStringAsFixed(2),
+          'arch1_lazy_mount_median_ms': (_median(lazyMountUs) / 1000.0)
+              .toStringAsFixed(2),
           'arch1_speedup_factor':
               (_median(eagerMountUs) / math.max(1.0, _median(lazyMountUs)))
                   .toStringAsFixed(2),
-          'arch2_legacy_total_ms':
-              (swLegacyTotal.elapsedMicroseconds / 1000.0).toStringAsFixed(2),
-          'arch2_optimized_total_ms':
-              (swOptTotal.elapsedMicroseconds / 1000.0).toStringAsFixed(2),
-          'arch2_legacy_median_us_per_event':
-              _median(legacyRmsFrameUs).toStringAsFixed(1),
-          'arch2_optimized_median_us_per_event':
-              _median(optRmsFrameUs).toStringAsFixed(1),
+          'arch2_legacy_total_ms': (swLegacyTotal.elapsedMicroseconds / 1000.0)
+              .toStringAsFixed(2),
+          'arch2_optimized_total_ms': (swOptTotal.elapsedMicroseconds / 1000.0)
+              .toStringAsFixed(2),
+          'arch2_legacy_median_us_per_event': _median(
+            legacyRmsFrameUs,
+          ).toStringAsFixed(1),
+          'arch2_optimized_median_us_per_event': _median(
+            optRmsFrameUs,
+          ).toStringAsFixed(1),
           'arch2_legacy_form_rebuilds': legacyFormBuilds,
           'arch2_optimized_form_rebuilds': optimizedFormBuilds,
-          'arch2_speedup_factor': (swLegacyTotal.elapsedMicroseconds /
-                  math.max(1, swOptTotal.elapsedMicroseconds))
-              .toStringAsFixed(2),
+          'arch2_speedup_factor':
+              (swLegacyTotal.elapsedMicroseconds /
+                      math.max(1, swOptTotal.elapsedMicroseconds))
+                  .toStringAsFixed(2),
           'spring_pure_math_ns_per_eval':
               ((rawSimSw.elapsedMicroseconds * 1000.0) / 1000.0)
                   .toStringAsFixed(1),
-          'spring_retarget_widget_median_us_per_tick':
-              _median(springWidgetTickUs).toStringAsFixed(1),
-          'spring_retarget_widget_p95_us_per_tick':
-              _p95(springWidgetTickUs).toStringAsFixed(1),
-          'particle_28_soa_median_us_per_tick':
-              _median(particleTickUs).toStringAsFixed(1),
-          'particle_28_soa_p95_us_per_tick':
-              _p95(particleTickUs).toStringAsFixed(1),
+          'spring_retarget_widget_median_us_per_tick': _median(
+            springWidgetTickUs,
+          ).toStringAsFixed(1),
+          'spring_retarget_widget_p95_us_per_tick': _p95(
+            springWidgetTickUs,
+          ).toStringAsFixed(1),
+          'particle_28_soa_median_us_per_tick': _median(
+            particleTickUs,
+          ).toStringAsFixed(1),
+          'particle_28_soa_p95_us_per_tick': _p95(
+            particleTickUs,
+          ).toStringAsFixed(1),
         };
 
         // ignore: avoid_print

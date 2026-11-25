@@ -50,10 +50,7 @@ class SuperAppServiceEntry {
 class SuperAppDirectoryPage extends StatefulWidget {
   final bool isEmbeddedShellTab;
 
-  const SuperAppDirectoryPage({
-    super.key,
-    this.isEmbeddedShellTab = false,
-  });
+  const SuperAppDirectoryPage({super.key, this.isEmbeddedShellTab = false});
 
   @override
   State<SuperAppDirectoryPage> createState() => _SuperAppDirectoryPageState();
@@ -439,8 +436,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                                         _resetDirectoryFilters();
                                       } else {
                                         setState(() {
-                                          _domainFilter =
-                                              _domainFilter == f.$1
+                                          _domainFilter = _domainFilter == f.$1
                                               ? 'all'
                                               : f.$1;
                                         });
@@ -771,9 +767,7 @@ class _MenuQuickActionPill extends StatelessWidget {
 
     return Material(
       color: bg,
-      shape: StadiumBorder(
-        side: BorderSide(color: fg.withValues(alpha: 0.24)),
-      ),
+      shape: StadiumBorder(side: BorderSide(color: fg.withValues(alpha: 0.24))),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: pillKey,

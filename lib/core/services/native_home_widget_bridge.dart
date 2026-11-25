@@ -69,8 +69,7 @@ class NativeHomeWidgetBridge {
 
   NativeHomeWidgetBridge();
 
-  bool get isSupportedPlatform =>
-      !kIsWeb && Platform.isAndroid;
+  bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
 
   bool get _hasServicesBinding {
     try {

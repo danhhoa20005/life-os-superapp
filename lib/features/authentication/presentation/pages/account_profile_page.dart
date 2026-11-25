@@ -44,26 +44,14 @@ class AccountProfilePage extends StatefulWidget {
   if (RegExp(r'[^A-Za-z0-9]').hasMatch(pwd) || pwd.length >= 12) pts++;
 
   return switch (pts) {
-    0 || 1 => (
-      score: 1,
-      label: 'Độ mạnh: Yếu',
-      color: const Color(0xFFDC2626),
-    ),
+    0 || 1 => (score: 1, label: 'Độ mạnh: Yếu', color: const Color(0xFFDC2626)),
     2 => (
       score: 2,
       label: 'Độ mạnh: Trung bình',
       color: const Color(0xFFD97706),
     ),
-    3 => (
-      score: 3,
-      label: 'Độ mạnh: Mạnh',
-      color: const Color(0xFF2563EB),
-    ),
-    _ => (
-      score: 4,
-      label: 'Độ mạnh: Rất mạnh',
-      color: const Color(0xFF12B847),
-    ),
+    3 => (score: 3, label: 'Độ mạnh: Mạnh', color: const Color(0xFF2563EB)),
+    _ => (score: 4, label: 'Độ mạnh: Rất mạnh', color: const Color(0xFF12B847)),
   };
 }
 
@@ -713,8 +701,7 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                                   fontSize: 12.2,
                                                   color: c.textSecondary,
                                                   fontFeatures: const [
-                                                    FontFeature
-                                                        .tabularFigures(),
+                                                    FontFeature.tabularFigures(),
                                                   ],
                                                 ),
                                               ),
@@ -792,8 +779,7 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                                     fontWeight: FontWeight.w700,
                                                     color: c.textPrimary,
                                                     fontFeatures: const [
-                                                      FontFeature
-                                                          .tabularFigures(),
+                                                      FontFeature.tabularFigures(),
                                                     ],
                                                   ),
                                                 ),
@@ -885,11 +871,12 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                               turns: _securitySectionExpanded
                                                   ? 0.5
                                                   : 0.0,
-                                              duration: LifeOsMotionScope.of(
-                                                context,
-                                              ).resolveDuration(
-                                                LifeOsMotionTokens.micro,
-                                              ),
+                                              duration:
+                                                  LifeOsMotionScope.of(
+                                                    context,
+                                                  ).resolveDuration(
+                                                    LifeOsMotionTokens.micro,
+                                                  ),
                                               child: Icon(
                                                 Icons.expand_more_rounded,
                                                 color: c.textSecondary,
@@ -1007,8 +994,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                         if (user.isGoogleLinked)
                                           Material(
                                             color: c.surfaceRaised,
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             child: Padding(
                                               padding: const EdgeInsets.all(12),
                                               child: Row(
@@ -1085,9 +1073,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                             ),
                                             label: 'Liên kết tài khoản Google',
                                             isLoading: state.isSubmitting,
-                                            onPressed: () => context
-                                                .read<AuthBloc>()
-                                                .add(
+                                            onPressed: () =>
+                                                context.read<AuthBloc>().add(
                                                   const AuthGoogleLinkRequested(),
                                                 ),
                                           ),
@@ -1187,8 +1174,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                         // App Security PIN Row
                                         Material(
                                           color: c.surfaceRaised,
-                                          borderRadius:
-                                              BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                           clipBehavior: Clip.antiAlias,
                                           child: InkWell(
                                             key: const Key(
@@ -1283,7 +1271,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                   TextField(
                                     key: const Key('profile_phone_field'),
                                     controller: _phoneController,
-                                    obscureText: !_revealSensitiveProfile &&
+                                    obscureText:
+                                        !_revealSensitiveProfile &&
                                         _phoneController.text.trim().isNotEmpty,
                                     keyboardType: TextInputType.phone,
                                     onChanged: (_) => setState(() {}),
@@ -1411,8 +1400,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                         value: _hideBalances,
                                         onChanged: (val) async {
                                           setState(() => _hideBalances = val);
-                                          await UserBehaviorPrefs
-                                              .saveHideBalances(val);
+                                          await UserBehaviorPrefs.saveHideBalances(
+                                            val,
+                                          );
                                         },
                                       ),
                                     ],
@@ -1457,9 +1447,8 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                           'profile_availability_opt_in_switch',
                                         ),
                                         value: user.availabilityOptIn,
-                                        onChanged: (val) => context
-                                            .read<AuthBloc>()
-                                            .add(
+                                        onChanged: (val) =>
+                                            context.read<AuthBloc>().add(
                                               AuthAvailabilitySharingToggled(
                                                 val,
                                               ),

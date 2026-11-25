@@ -304,7 +304,8 @@ class FinanceOverviewSummary extends Equatable {
     this.userConfirmedCount = 0,
     this.matchedPaymentOrderCount = 0,
     required this.expenseByCategory,
-  }) : unconfirmedCount = unconfirmedCount ?? (provisionalCount + needsReviewCount);
+  }) : unconfirmedCount =
+           unconfirmedCount ?? (provisionalCount + needsReviewCount);
 
   int get netMonthlyExpenseMinor => monthlyExpenseMinor - monthlyRefundMinor;
 

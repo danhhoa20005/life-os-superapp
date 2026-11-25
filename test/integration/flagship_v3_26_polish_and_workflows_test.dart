@@ -56,7 +56,8 @@ void main() {
           expect(
             resolved,
             isNotNull,
-            reason: 'Glyph ${glyph.codePoint} must map to a 3D Nano Banana icon',
+            reason:
+                'Glyph ${glyph.codePoint} must map to a 3D Nano Banana icon',
           );
         }
         expect(
@@ -122,7 +123,9 @@ void main() {
       '3. VehicleBloc updates vehicle Name & License Plate and RecurringBillPaid detects >=25% abnormal bill spikes',
       () async {
         final fs = FakeFirebaseFirestore();
-        final txRepo = TransactionRepositoryImpl(TransactionRemoteDataSource(fs));
+        final txRepo = TransactionRepositoryImpl(
+          TransactionRemoteDataSource(fs),
+        );
         await txRepo.createWallet(
           userId: 'u_veh_326',
           name: 'Ví Chính',
@@ -136,9 +139,7 @@ void main() {
             .get();
         final walletId = walletsSnap.docs.single.id;
 
-        final vehRepo = VehicleRepositoryImpl(
-          VehicleRemoteDataSource(fs),
-        );
+        final vehRepo = VehicleRepositoryImpl(VehicleRemoteDataSource(fs));
         final bloc = VehicleBloc(
           repository: vehRepo,
           updateOdometer: UpdateOdometerUseCase(vehRepo),
@@ -327,10 +328,7 @@ void main() {
       () async {
         // Safe end-of-month clamping: Jan 31 + 1 month -> Feb 28 (non-leap 2026)
         expect(
-          SubscriptionWarrantyEntity.addMonthsSafely(
-            DateTime(2026, 1, 31),
-            1,
-          ),
+          SubscriptionWarrantyEntity.addMonthsSafely(DateTime(2026, 1, 31), 1),
           DateTime(2026, 2, 28),
         );
 
@@ -429,7 +427,10 @@ void main() {
           ),
         );
         await Future<void>.delayed(const Duration(milliseconds: 40));
-        expect(proBloc.state.habits.single.title, 'Đọc sách chuyên sâu 30 phút');
+        expect(
+          proBloc.state.habits.single.title,
+          'Đọc sách chuyên sâu 30 phút',
+        );
 
         proBloc.add(HabitDeleted(userId: 'u_fam_326', habitId: habitId));
         await Future<void>.delayed(const Duration(milliseconds: 40));

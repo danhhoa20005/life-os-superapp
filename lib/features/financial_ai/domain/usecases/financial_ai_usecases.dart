@@ -167,7 +167,8 @@ class ConfirmTransactionDraftUseCase
     if (c.amountMinor <= 0) {
       return const Err(
         ValidationFailure(
-          message: 'Số tiền giao dịch phải lớn hơn 0 ₫ (không ghi giao dịch 0 hoặc âm).',
+          message:
+              'Số tiền giao dịch phải lớn hơn 0 ₫ (không ghi giao dịch 0 hoặc âm).',
         ),
       );
     }

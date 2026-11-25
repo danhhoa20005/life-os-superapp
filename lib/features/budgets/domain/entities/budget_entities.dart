@@ -66,7 +66,8 @@ enum FundExpenseStatus {
 
 /// Pure Dart state-machine & RBAC separation-of-duties validator for fund expenses (`AUD-006`).
 abstract final class FundExpenseStateMachine {
-  static const Map<FundExpenseStatus, Set<FundExpenseStatus>> allowedTransitions = {
+  static const Map<FundExpenseStatus, Set<FundExpenseStatus>>
+  allowedTransitions = {
     FundExpenseStatus.draft: {
       FundExpenseStatus.draft,
       FundExpenseStatus.pendingApproval,
@@ -86,9 +87,7 @@ abstract final class FundExpenseStateMachine {
       FundExpenseStatus.disputed,
       FundExpenseStatus.reversed,
     },
-    FundExpenseStatus.disputed: {
-      FundExpenseStatus.reversed,
-    },
+    FundExpenseStatus.disputed: {FundExpenseStatus.reversed},
     FundExpenseStatus.reconciled: <FundExpenseStatus>{},
     FundExpenseStatus.rejected: <FundExpenseStatus>{},
     FundExpenseStatus.cancelled: <FundExpenseStatus>{},

@@ -196,7 +196,8 @@ class FamilyPendingInviteEntity extends Equatable {
 
   bool get hasRemainingUses => usedCount < maxUses;
 
-  int get remainingUses => (maxUses - usedCount) < 0 ? 0 : (maxUses - usedCount);
+  int get remainingUses =>
+      (maxUses - usedCount) < 0 ? 0 : (maxUses - usedCount);
 
   String get displayInviteeTitle {
     if (isTargetedInvite) return inviteeName!.trim();
@@ -408,7 +409,8 @@ class SharedBillSplitEntity extends Equatable {
   final String paidByName;
   final int totalAmountMinor;
   final SplitMethod splitMethod;
-  final Map<String, int> sharesByUserId; // Exact VND integer owed by each userId
+  final Map<String, int>
+  sharesByUserId; // Exact VND integer owed by each userId
   final Map<String, String> participantNames;
   final String? choreOrTaskNote;
   final DateTime createdAt;

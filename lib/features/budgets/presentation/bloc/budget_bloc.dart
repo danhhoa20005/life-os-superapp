@@ -287,7 +287,9 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     Emitter<BudgetState> emit,
   ) async {
     _activeUserId = event.userId;
-    emit(state.copyWith(isLoading: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isLoading: true, clearFailure: true, clearMessage: true),
+    );
     final stream =
         StreamCombiner.combine2<
           Result<List<BudgetEntity>>,
@@ -401,7 +403,8 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
       (_) => emit(
         state.copyWith(
           isSaving: false,
-          actionMessage: event.params.sourceWalletId != null &&
+          actionMessage:
+              event.params.sourceWalletId != null &&
                   event.params.sourceWalletId!.isNotEmpty
               ? 'Đã trừ ví nguồn và nạp quỹ thành công.'
               : 'Đã ghi nhận đóng góp vào quỹ.',
@@ -440,9 +443,9 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           actionMessage: event.params.saveAsDraft
               ? 'Đã lưu nháp đề xuất chi quỹ.'
               : event.params.scope == FundScope.personal &&
-                      event.params.canAutoApprove
-                  ? 'Đã giải ngân khoản rút quỹ cá nhân.'
-                  : 'Đã gửi đề xuất chi quỹ chờ duyệt.',
+                    event.params.canAutoApprove
+              ? 'Đã giải ngân khoản rút quỹ cá nhân.'
+              : 'Đã gửi đề xuất chi quỹ chờ duyệt.',
           lastActionOperationId: opId,
         ),
       ),
@@ -617,7 +620,10 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     res.fold(
       (f) => emit(state.copyWith(isSaving: false, failure: f)),
       (_) => emit(
-        state.copyWith(isSaving: false, actionMessage: 'Đã hủy đề xuất chi quỹ.'),
+        state.copyWith(
+          isSaving: false,
+          actionMessage: 'Đã hủy đề xuất chi quỹ.',
+        ),
       ),
     );
   }

@@ -39,10 +39,7 @@ class TransactionListBloc
       _onCategoryFilterChanged,
       transformer: restartable(),
     );
-    on<TransactionsFiltersReset>(
-      _onFiltersReset,
-      transformer: restartable(),
-    );
+    on<TransactionsFiltersReset>(_onFiltersReset, transformer: restartable());
   }
 
   Future<void> _onSubscriptionRequested(

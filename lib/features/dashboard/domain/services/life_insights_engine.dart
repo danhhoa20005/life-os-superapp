@@ -135,8 +135,10 @@ abstract final class LifeInsightsEngine {
         ? ((completedTasksCount * 100.0) / totalTasksCount).clamp(0.0, 100.0)
         : 100.0;
     final goalPct = totalGoalsTargetMinor > 0
-        ? ((savedTowardGoalsMinor * 100.0) / totalGoalsTargetMinor)
-              .clamp(0.0, 100.0)
+        ? ((savedTowardGoalsMinor * 100.0) / totalGoalsTargetMinor).clamp(
+            0.0,
+            100.0,
+          )
         : 0.0;
 
     final observations = <VerifiedInsightObservation>[];
@@ -210,14 +212,14 @@ abstract final class LifeInsightsEngine {
     }
 
     if (totalDebtMinor > 0 && netWorthMinor > 0) {
-      final debtRatio = ((totalDebtMinor * 100.0) / (netWorthMinor + totalDebtMinor)).round();
+      final debtRatio =
+          ((totalDebtMinor * 100.0) / (netWorthMinor + totalDebtMinor)).round();
       observations.add(
         VerifiedInsightObservation(
           id: 'obs_debt_ratio',
           tone: debtRatio > 40 ? InsightTone.warning : InsightTone.neutral,
           domainLabelVi: 'Công nợ',
-          headlineVi:
-              'Dư nợ hiện chiếm $debtRatio% tổng tài sản gộp.',
+          headlineVi: 'Dư nợ hiện chiếm $debtRatio% tổng tài sản gộp.',
           metricBadgeVi: '$debtRatio%',
         ),
       );

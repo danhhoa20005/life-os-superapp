@@ -199,10 +199,12 @@ abstract final class FinancialAggregationEngine {
       final year = int.tryParse(parts[0]);
       final month = int.tryParse(parts[1]);
       if (year != null && month != null && month >= 1 && month <= 12) {
-        final matching = transactions.where((tx) {
-          if (tx.monthKey == monthKey) return true;
-          return tx.occurredAt.year == year && tx.occurredAt.month == month;
-        }).toList(growable: false);
+        final matching = transactions
+            .where((tx) {
+              if (tx.monthKey == monthKey) return true;
+              return tx.occurredAt.year == year && tx.occurredAt.month == month;
+            })
+            .toList(growable: false);
         return aggregate(
           matching,
           wallets: wallets,
@@ -378,8 +380,7 @@ abstract final class FinancialAggregationEngine {
       }
 
       if (tx.kind == TransactionKind.reversal) {
-        final pairKey =
-            (tx.reversalOfId != null && tx.reversalOfId!.isNotEmpty)
+        final pairKey = (tx.reversalOfId != null && tx.reversalOfId!.isNotEmpty)
             ? tx.reversalOfId!
             : tx.id;
         if (countedReversedKeys.add(pairKey)) {
@@ -463,7 +464,8 @@ abstract final class FinancialAggregationEngine {
     int todayExpenseMinor,
     List<int> dailyExpensesMinor,
     List<int> dailyIncomesMinor,
-  }) computeRecentDailyCashflow(
+  })
+  computeRecentDailyCashflow(
     List<TransactionEntity> transactions, {
     required DateTime referenceNow,
     int days = 7,

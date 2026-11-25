@@ -701,8 +701,8 @@ class _LifeOsLogoSideDrawerSheetState
                                   runSpacing: 6,
                                   children: [
                                     LifeOsStatusPill(
-                                      icon: Icons
-                                          .account_balance_wallet_outlined,
+                                      icon:
+                                          Icons.account_balance_wallet_outlined,
                                       label: _hideBalances
                                           ? 'Ví: •••••• ₫'
                                           : 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
@@ -887,22 +887,23 @@ class _LifeOsLogoSideDrawerSheetState
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
                       child: Material(
-                        color: widget.currentLocation.startsWith(
-                          '/motion-gallery',
-                        )
+                        color:
+                            widget.currentLocation.startsWith('/motion-gallery')
                             ? c.primarySubtle
                             : c.surfaceRaised,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                           side: BorderSide(
-                            color: widget.currentLocation.startsWith(
-                              '/motion-gallery',
-                            )
+                            color:
+                                widget.currentLocation.startsWith(
+                                  '/motion-gallery',
+                                )
                                 ? c.primary.withValues(alpha: 0.45)
                                 : c.border.withValues(alpha: 0.55),
-                            width: widget.currentLocation.startsWith(
-                              '/motion-gallery',
-                            )
+                            width:
+                                widget.currentLocation.startsWith(
+                                  '/motion-gallery',
+                                )
                                 ? 1.1
                                 : 0.7,
                           ),
@@ -940,8 +941,10 @@ class _LifeOsLogoSideDrawerSheetState
                                           fontSize: 13,
                                           fontWeight: FontWeight.w800,
                                           height: 1.2,
-                                          color: widget.currentLocation
-                                                  .startsWith('/motion-gallery')
+                                          color:
+                                              widget.currentLocation.startsWith(
+                                                '/motion-gallery',
+                                              )
                                               ? c.primary
                                               : c.textPrimary,
                                         ),

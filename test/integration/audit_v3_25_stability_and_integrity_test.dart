@@ -321,10 +321,7 @@ void main() {
         whenListen(
           mockAuthBloc,
           const Stream<AuthState>.empty(),
-          initialState: AuthState(
-            status: AuthStatus.authenticated,
-            user: user,
-          ),
+          initialState: AuthState(status: AuthStatus.authenticated, user: user),
         );
 
         final mockTxRepo = _MockTransactionRepository();
@@ -355,9 +352,9 @@ void main() {
             monthKey: any(named: 'monthKey'),
           ),
         ).thenAnswer((_) => Stream.value(const Success(<TransactionEntity>[])));
-        when(() => mockFamilyRepo.watchMyFamilies(any())).thenAnswer(
-          (_) => Stream.value(const Success(<FamilyEntity>[])),
-        );
+        when(
+          () => mockFamilyRepo.watchMyFamilies(any()),
+        ).thenAnswer((_) => Stream.value(const Success(<FamilyEntity>[])));
 
         when(
           () => mockTxRepo.createTransaction(
@@ -378,9 +375,7 @@ void main() {
           final opId = inv.namedArguments[#operationId] as String;
           final merchant = inv.namedArguments[#merchant] as String;
           final amt = inv.namedArguments[#amountMinor] as int;
-          seenOpIdsByMerchant
-              .putIfAbsent(merchant, () => <String>{})
-              .add(opId);
+          seenOpIdsByMerchant.putIfAbsent(merchant, () => <String>{}).add(opId);
 
           if (failFuelOnce && merchant.toLowerCase().contains('xăng')) {
             failFuelOnce = false;
@@ -892,7 +887,10 @@ void main() {
         );
 
         // Deep-link ?tab= normalization contract
-        expect(FeatureRegistry.normalizeSmartNotesSalaryTab('salary'), 'salary');
+        expect(
+          FeatureRegistry.normalizeSmartNotesSalaryTab('salary'),
+          'salary',
+        );
         expect(FeatureRegistry.normalizeSmartNotesSalaryTab('notes'), 'notes');
         expect(FeatureRegistry.normalizeWealthToolTab('loan'), 'loan');
         expect(FeatureRegistry.normalizeWealthToolTab('fire'), 'fire');

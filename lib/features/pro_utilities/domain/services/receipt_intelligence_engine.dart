@@ -90,8 +90,7 @@ class StructuredReceiptAnalysis extends Equatable {
 
   int get effectiveTotalMinor => statedTotalMinor ?? computedNetTotalMinor;
 
-  bool get isTotalVerified =>
-      effectiveTotalMinor > 0 && discrepancyMinor == 0;
+  bool get isTotalVerified => effectiveTotalMinor > 0 && discrepancyMinor == 0;
 
   bool get requiresManualTotalReview =>
       effectiveTotalMinor <= 0 || discrepancyMinor != 0;
@@ -330,13 +329,17 @@ abstract final class ReceiptIntelligenceEngine {
         l.contains('túi rác')) {
       return 'Việc nhà & Gia dụng';
     }
-    if (l.contains('điện') || l.contains('nước máy') || l.contains('internet')) {
+    if (l.contains('điện') ||
+        l.contains('nước máy') ||
+        l.contains('internet')) {
       return 'Điện/Nước/Internet';
     }
     if (l.contains('nhớt') || l.contains('xăng') || l.contains('lốp xe')) {
       return 'Xe cộ & Di chuyển';
     }
-    if (l.contains('thuốc') || l.contains('vitamin') || l.contains('khẩu trang')) {
+    if (l.contains('thuốc') ||
+        l.contains('vitamin') ||
+        l.contains('khẩu trang')) {
       return 'Sức khỏe & Giáo dục';
     }
     if (l.contains('thịt') ||
@@ -395,7 +398,10 @@ abstract final class ReceiptIntelligenceEngine {
       (s, w) => s + BigInt.from(w > 0 ? w : 0),
     );
     if (weightSum <= BigInt.zero) {
-      return _apportionBigIntWeighted(total, List<int>.filled(weights.length, 1));
+      return _apportionBigIntWeighted(
+        total,
+        List<int>.filled(weights.length, 1),
+      );
     }
 
     final bigTotal = BigInt.from(total);

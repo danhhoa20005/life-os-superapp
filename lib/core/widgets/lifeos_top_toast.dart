@@ -418,7 +418,9 @@ class _TopToastBannerCard extends StatelessWidget {
         : const Color(0xFF0066CC);
 
     final squircleShape = ContinuousRectangleBorder(
-      borderRadius: BorderRadius.circular(LifeOsTopToast.applePlatterRadius * 2),
+      borderRadius: BorderRadius.circular(
+        LifeOsTopToast.applePlatterRadius * 2,
+      ),
       side: BorderSide(
         color: isDark
             ? Colors.white.withValues(alpha: 0.20)
@@ -434,188 +436,196 @@ class _TopToastBannerCard extends StatelessWidget {
       child: DecoratedBox(
         decoration: ShapeDecoration(
           shape: squircleShape,
-        shadows: [
-          // 1. Soft airy 3D ambient lift (warm slate-sage, never pitch black)
-          BoxShadow(
-            color: (isDark ? const Color(0xFF060E0A) : const Color(0xFF1E352A))
-                .withValues(alpha: isDark ? 0.28 : 0.095),
-            blurRadius: 24,
-            spreadRadius: 0,
-            offset: const Offset(0, 10),
-          ),
-          // 2. Physical 3D slab thickness shadow right beneath the card
-          BoxShadow(
-            color: (isDark ? Colors.black : const Color(0xFF1E2E26))
-                .withValues(alpha: isDark ? 0.20 : 0.065),
-            blurRadius: 5,
-            spreadRadius: 0,
-            offset: const Offset(0, 2.5),
-          ),
-        ],
-      ),
-      child: ClipPath(
-        clipper: ShapeBorderClipper(shape: squircleShape),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-          child: CustomPaint(
-            foregroundPainter: _Apple3DToastBevelPainter(
-              radius: LifeOsTopToast.applePlatterRadius,
-              isDark: isDark,
+          shadows: [
+            // 1. Soft airy 3D ambient lift (warm slate-sage, never pitch black)
+            BoxShadow(
+              color:
+                  (isDark ? const Color(0xFF060E0A) : const Color(0xFF1E352A))
+                      .withValues(alpha: isDark ? 0.28 : 0.095),
+              blurRadius: 24,
+              spreadRadius: 0,
+              offset: const Offset(0, 10),
             ),
-            child: LiquidGlassSurface(
-              key: const Key('lifeos_top_toast_banner'),
-              material: LiquidGlassMaterial.floatingToast,
-              borderRadius: LifeOsTopToast.applePlatterRadius,
-              enableBlur: false,
-              // Bright porcelain white in light mode; lifted frosted slate-pearl in dark mode!
-              tintColor: isDark
-                  ? const Color(0xFF323C37)
-                  : const Color(0xFFFFFFFF),
-              rimIntensity: 0.55,
-              shadows: const [],
-              padding: EdgeInsets.fromLTRB(12, 10.5, hasAction ? 8 : 13, 11.5),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _Apple3DCushionBadge(
-                    icon: icon,
-                    topColor: cushionTop,
-                    bottomColor: cushionBottom,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                badgeTitle,
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 11.2,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.08,
-                                  height: 1.15,
-                                  color: secondaryLabel,
+            // 2. Physical 3D slab thickness shadow right beneath the card
+            BoxShadow(
+              color: (isDark ? Colors.black : const Color(0xFF1E2E26))
+                  .withValues(alpha: isDark ? 0.20 : 0.065),
+              blurRadius: 5,
+              spreadRadius: 0,
+              offset: const Offset(0, 2.5),
+            ),
+          ],
+        ),
+        child: ClipPath(
+          clipper: ShapeBorderClipper(shape: squircleShape),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+            child: CustomPaint(
+              foregroundPainter: _Apple3DToastBevelPainter(
+                radius: LifeOsTopToast.applePlatterRadius,
+                isDark: isDark,
+              ),
+              child: LiquidGlassSurface(
+                key: const Key('lifeos_top_toast_banner'),
+                material: LiquidGlassMaterial.floatingToast,
+                borderRadius: LifeOsTopToast.applePlatterRadius,
+                enableBlur: false,
+                // Bright porcelain white in light mode; lifted frosted slate-pearl in dark mode!
+                tintColor: isDark
+                    ? const Color(0xFF323C37)
+                    : const Color(0xFFFFFFFF),
+                rimIntensity: 0.55,
+                shadows: const [],
+                padding: EdgeInsets.fromLTRB(
+                  12,
+                  10.5,
+                  hasAction ? 8 : 13,
+                  11.5,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _Apple3DCushionBadge(
+                      icon: icon,
+                      topColor: cushionTop,
+                      bottomColor: cushionBottom,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  badgeTitle,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 11.2,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.08,
+                                    height: 1.15,
+                                    color: secondaryLabel,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (!hasAction) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                'bây giờ',
-                                style: TextStyle(
-                                  fontSize: 10.8,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.05,
-                                  color: secondaryLabel.withValues(alpha: 0.78),
+                              if (!hasAction) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  'bây giờ',
+                                  style: TextStyle(
+                                    fontSize: 10.8,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: -0.05,
+                                    color: secondaryLabel.withValues(
+                                      alpha: 0.78,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          data.message,
-                          softWrap: true,
-                          style: TextStyle(
-                            fontSize: 13.0,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.15,
-                            height: 1.26,
-                            color: primaryLabel,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (hasAction) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 0.8,
-                      height: 26,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.14)
-                          : Colors.black.withValues(alpha: 0.07),
-                    ),
-                    const SizedBox(width: 8),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.16 : 0.04,
+                          const SizedBox(height: 2),
+                          Text(
+                            data.message,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.15,
+                              height: 1.26,
+                              color: primaryLabel,
                             ),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: actionText,
-                          backgroundColor: actionFill,
-                          visualDensity: VisualDensity.compact,
-                          minimumSize: const Size(0, 32),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                    ),
+                    if (hasAction) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 0.8,
+                        height: 26,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.14)
+                            : Colors.black.withValues(alpha: 0.07),
+                      ),
+                      const SizedBox(width: 8),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.16 : 0.04,
+                              ),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: actionText,
+                            backgroundColor: actionFill,
+                            visualDensity: VisualDensity.compact,
+                            minimumSize: const Size(0, 32),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.5),
+                              side: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.16)
+                                    : Colors.white.withValues(alpha: 0.90),
+                                width: 0.8,
+                              ),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.5),
-                            side: BorderSide(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.16)
-                                  : Colors.white.withValues(alpha: 0.90),
-                              width: 0.8,
+                          onPressed: () {
+                            final cb = data.onAction;
+                            onDismiss();
+                            cb?.call();
+                          },
+                          child: Text(
+                            data.actionLabel!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.1,
                             ),
                           ),
                         ),
-                        onPressed: () {
-                          final cb = data.onAction;
-                          onDismiss();
-                          cb?.call();
-                        },
-                        child: Text(
-                          data.actionLabel!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.1,
+                      ),
+                      const SizedBox(width: 2),
+                      Semantics(
+                        button: true,
+                        label: 'Đóng thông báo',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: onDismiss,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                              color: secondaryLabel,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 2),
-                    Semantics(
-                      button: true,
-                      label: 'Đóng thông báo',
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: onDismiss,
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: secondaryLabel,
-                          ),
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }
@@ -717,10 +727,7 @@ class _Apple3DToastBevelPainter extends CustomPainter {
   final double radius;
   final bool isDark;
 
-  const _Apple3DToastBevelPainter({
-    required this.radius,
-    required this.isDark,
-  });
+  const _Apple3DToastBevelPainter({required this.radius, required this.isDark});
 
   @override
   void paint(Canvas canvas, Size size) {

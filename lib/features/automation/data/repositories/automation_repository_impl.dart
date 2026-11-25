@@ -10,10 +10,7 @@ class AutomationRepositoryImpl implements AutomationRepository {
   const AutomationRepositoryImpl(this._firestore);
 
   CollectionReference<Map<String, dynamic>> _rulesCol(String userId) =>
-      _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('automation_rules');
+      _firestore.collection('users').doc(userId).collection('automation_rules');
 
   CollectionReference<Map<String, dynamic>> _auditsCol(String userId) =>
       _firestore
@@ -73,10 +70,9 @@ class AutomationRepositoryImpl implements AutomationRepository {
   @override
   Future<List<AutomationAuditEntry>> loadAuditLog(String userId) async {
     try {
-      final snap = await _auditsCol(userId)
-          .orderBy('timestampEpochMs', descending: true)
-          .limit(60)
-          .get();
+      final snap = await _auditsCol(
+        userId,
+      ).orderBy('timestampEpochMs', descending: true).limit(60).get();
       return snap.docs.map((d) => _auditFromMap(d.data())).toList();
     } catch (_) {
       return const <AutomationAuditEntry>[];

@@ -144,9 +144,7 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<NativePrivacyScreenBridge>(
     () => NativePrivacyScreenBridge.instance,
   );
-  sl.registerLazySingleton<OfflineOutboxService>(
-    () => OfflineOutboxService(),
-  );
+  sl.registerLazySingleton<OfflineOutboxService>(() => OfflineOutboxService());
 
   // 2. Remote Data Sources
   sl.registerLazySingleton<GeminiRemoteDataSource>(

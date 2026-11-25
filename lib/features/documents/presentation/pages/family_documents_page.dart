@@ -117,7 +117,8 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                     'Tìm tài liệu, mã hợp đồng, biển số (có dấu / không dấu)...',
                                 prefixIcon: const Icon(Icons.search_rounded),
                                 fillColor: c.surface,
-                                suffixIcon: state.searchQuery.isEmpty &&
+                                suffixIcon:
+                                    state.searchQuery.isEmpty &&
                                         _searchCtrl.text.isEmpty
                                     ? null
                                     : IconButton(
@@ -170,9 +171,8 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                       ),
                                       selected: state.selectedFolder == folder,
                                       visualDensity: VisualDensity.compact,
-                                      onSelected: (_) => context
-                                          .read<DocumentVaultBloc>()
-                                          .add(
+                                      onSelected: (_) =>
+                                          context.read<DocumentVaultBloc>().add(
                                             DocumentVaultFolderFilterChanged(
                                               folder,
                                             ),
@@ -201,7 +201,8 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                     final isSelected =
                                         state.selectedFolder == folder;
                                     final folderIcon = switch (folder) {
-                                      DocumentFolderCategory.billsAndContracts =>
+                                      DocumentFolderCategory
+                                          .billsAndContracts =>
                                         Icons.electric_bolt_rounded,
                                       DocumentFolderCategory.vehiclePapers =>
                                         Icons.directions_car_outlined,
@@ -212,7 +213,8 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                         Icons.folder_open_rounded,
                                     };
                                     final folderTone = switch (folder) {
-                                      DocumentFolderCategory.billsAndContracts =>
+                                      DocumentFolderCategory
+                                          .billsAndContracts =>
                                         LifeOsAccentTone.amber,
                                       DocumentFolderCategory.vehiclePapers =>
                                         LifeOsAccentTone.blue,
@@ -279,8 +281,7 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                                           ? Colors.white
                                                           : c.textSecondary,
                                                       fontFeatures: const [
-                                                        FontFeature
-                                                            .tabularFigures(),
+                                                        FontFeature.tabularFigures(),
                                                       ],
                                                     ),
                                                   ),
@@ -416,7 +417,8 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                         LifeOsIconSquircle(
                                           icon: doc.isFamilyShared
                                               ? Icons.folder_shared_outlined
-                                              : Icons.insert_drive_file_outlined,
+                                              : Icons
+                                                    .insert_drive_file_outlined,
                                           tone: expired
                                               ? LifeOsAccentTone.coral
                                               : soon
@@ -453,8 +455,7 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                                           FontWeight.w700,
                                                       color: c.primary,
                                                       fontFeatures: const [
-                                                        FontFeature
-                                                            .tabularFigures(),
+                                                        FontFeature.tabularFigures(),
                                                       ],
                                                     ),
                                                   ),
@@ -523,9 +524,7 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                             ),
                                           ),
                                         IconButton(
-                                          key: Key(
-                                            'edit_doc_btn_${doc.id}',
-                                          ),
+                                          key: Key('edit_doc_btn_${doc.id}'),
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Sửa / Gia hạn tài liệu',
                                           onPressed: () =>
@@ -546,15 +545,14 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Xóa tài liệu',
                                           onPressed: () async {
-                                            final ok =
-                                                await showDestructiveConfirmDialog(
-                                                  context: context,
-                                                  title: 'Xóa tài liệu này?',
-                                                  message: doc.isFamilyShared
-                                                      ? 'Tài liệu "${doc.title}" đang chia sẻ chung sẽ bị xóa khỏi Kho tài liệu gia đình.'
-                                                      : 'Tài liệu "${doc.title}" sẽ bị xóa khỏi kho lưu trữ.',
-                                                  confirmLabel: 'Xóa tài liệu',
-                                                );
+                                            final ok = await showDestructiveConfirmDialog(
+                                              context: context,
+                                              title: 'Xóa tài liệu này?',
+                                              message: doc.isFamilyShared
+                                                  ? 'Tài liệu "${doc.title}" đang chia sẻ chung sẽ bị xóa khỏi Kho tài liệu gia đình.'
+                                                  : 'Tài liệu "${doc.title}" sẽ bị xóa khỏi kho lưu trữ.',
+                                              confirmLabel: 'Xóa tài liệu',
+                                            );
                                             if (ok && context.mounted) {
                                               context
                                                   .read<DocumentVaultBloc>()
@@ -721,8 +719,7 @@ class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
               controller: _titleCtrl,
               decoration: const InputDecoration(
                 labelText: 'Tên tài liệu / hồ sơ',
-                hintText:
-                    'VD: Bảo hiểm vật chất Toyota Cross / Hợp đồng điện',
+                hintText: 'VD: Bảo hiểm vật chất Toyota Cross / Hợp đồng điện',
               ),
             ),
             const SizedBox(height: 10),

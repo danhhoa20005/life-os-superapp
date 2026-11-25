@@ -509,7 +509,8 @@ abstract final class BankNotificationParser {
       ).firstMatch(combined);
       if (verbMatch != null) {
         final verb = (verbMatch.group(1) ?? '').toLowerCase();
-        direction = RegExp(
+        direction =
+            RegExp(
               r'(nh[aậ]n|c[oộ]ng|chuy[eể]n\s*v[aà]o|ghi\s*c[oó])',
             ).hasMatch(verb)
             ? 'credit'

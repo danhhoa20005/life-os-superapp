@@ -467,20 +467,17 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
       actorUserId: event.actorUserId,
       vehicle: event.vehicle,
     );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) {
-        final nextHistory = Map<String, List<MaintenanceRecordEntity>>.from(
-          state.maintenanceHistoryByVehicleId,
-        )..remove(event.vehicle.id);
-        emit(
-          state.copyWith(
-            maintenanceHistoryByVehicleId: nextHistory,
-            message: 'Đã xóa phương tiện "${event.vehicle.name}".',
-          ),
-        );
-      },
-    );
+    res.fold((f) => emit(state.copyWith(failure: f)), (_) {
+      final nextHistory = Map<String, List<MaintenanceRecordEntity>>.from(
+        state.maintenanceHistoryByVehicleId,
+      )..remove(event.vehicle.id);
+      emit(
+        state.copyWith(
+          maintenanceHistoryByVehicleId: nextHistory,
+          message: 'Đã xóa phương tiện "${event.vehicle.name}".',
+        ),
+      );
+    });
   }
 
   Future<void> _onCreateBill(

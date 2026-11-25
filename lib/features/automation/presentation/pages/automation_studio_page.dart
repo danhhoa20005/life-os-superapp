@@ -241,42 +241,46 @@ class AutomationStudioPage extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              ...state.audits.take(15).map(
-                                (audit) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: LifeOsSoftCard(
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            audit.summaryVi,
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 12.6,
-                                              color: c.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                        if (audit.status ==
-                                            AutomationAuditStatus.executed)
-                                          TextButton(
-                                            key: Key(
-                                              'automation_undo_${audit.auditId}',
-                                            ),
-                                            onPressed: () {
-                                              context.read<AutomationBloc>().add(
-                                                AutomationAuditUndoRequested(
-                                                  audit.auditId,
+                              ...state.audits
+                                  .take(15)
+                                  .map(
+                                    (audit) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: LifeOsSoftCard(
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                audit.summaryVi,
+                                                softWrap: true,
+                                                style: TextStyle(
+                                                  fontSize: 12.6,
+                                                  color: c.textPrimary,
                                                 ),
-                                              );
-                                            },
-                                            child: const Text('Hoàn tác'),
-                                          ),
-                                      ],
+                                              ),
+                                            ),
+                                            if (audit.status ==
+                                                AutomationAuditStatus.executed)
+                                              TextButton(
+                                                key: Key(
+                                                  'automation_undo_${audit.auditId}',
+                                                ),
+                                                onPressed: () {
+                                                  context
+                                                      .read<AutomationBloc>()
+                                                      .add(
+                                                        AutomationAuditUndoRequested(
+                                                          audit.auditId,
+                                                        ),
+                                                      );
+                                                },
+                                                child: const Text('Hoàn tác'),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
                             ],
                           ],
                         ),

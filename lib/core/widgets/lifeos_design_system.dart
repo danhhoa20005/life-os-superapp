@@ -853,9 +853,7 @@ class LifeOsTopBrandHeader extends StatelessWidget {
         DecoratedBox(
           decoration: BoxDecoration(
             color: c.surface.withValues(alpha: isDark ? 0.94 : 0.97),
-            border: Border(
-              bottom: BorderSide(color: c.separator, width: 0.8),
-            ),
+            border: Border(bottom: BorderSide(color: c.separator, width: 0.8)),
           ),
           child: Padding(
             padding: EdgeInsets.fromLTRB(
@@ -2184,7 +2182,9 @@ Future<void> showLifeOsAppearanceSheet(BuildContext context) async {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            key: const Key('appearance_open_motion_gallery_btn'),
+                            key: const Key(
+                              'appearance_open_motion_gallery_btn',
+                            ),
                             onPressed: () {
                               Navigator.of(sheetCtx).pop();
                               if (context.mounted) {

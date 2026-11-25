@@ -24,7 +24,9 @@ extension LifeOsAnimateWidgetExt on Widget {
     Color? highlightColor,
   }) {
     final motion = LifeOsMotionScope.of(context);
-    if (!active || motion.isReducedMotion || !TickerMode.valuesOf(context).enabled) {
+    if (!active ||
+        motion.isReducedMotion ||
+        !TickerMode.valuesOf(context).enabled) {
       return this;
     }
     return animate().shimmer(
@@ -150,24 +152,24 @@ class _LifeOsLottieAnimationState extends State<LifeOsLottieAnimation>
     final delegates = LottieDelegates(
       values: [
         if (widget.primaryColorOverride != null) ...[
-          ValueDelegate.color(
-            const ['**', 'PrimaryFill'],
-            value: widget.primaryColorOverride,
-          ),
-          ValueDelegate.color(
-            const ['**', 'PrimaryStroke'],
-            value: widget.primaryColorOverride,
-          ),
+          ValueDelegate.color(const [
+            '**',
+            'PrimaryFill',
+          ], value: widget.primaryColorOverride),
+          ValueDelegate.color(const [
+            '**',
+            'PrimaryStroke',
+          ], value: widget.primaryColorOverride),
         ],
         if (widget.accentColorOverride != null) ...[
-          ValueDelegate.color(
-            const ['**', 'AccentFill'],
-            value: widget.accentColorOverride,
-          ),
-          ValueDelegate.color(
-            const ['**', 'AccentStroke'],
-            value: widget.accentColorOverride,
-          ),
+          ValueDelegate.color(const [
+            '**',
+            'AccentFill',
+          ], value: widget.accentColorOverride),
+          ValueDelegate.color(const [
+            '**',
+            'AccentStroke',
+          ], value: widget.accentColorOverride),
         ],
       ],
     );
@@ -196,7 +198,11 @@ class _LifeOsLottieAnimationState extends State<LifeOsLottieAnimation>
     );
 
     if (widget.semanticsLabel != null) {
-      return Semantics(label: widget.semanticsLabel, image: true, child: player);
+      return Semantics(
+        label: widget.semanticsLabel,
+        image: true,
+        child: player,
+      );
     }
     return ExcludeSemantics(child: player);
   }
@@ -239,23 +245,24 @@ class _LifeOsSpriteSheetPlayerState extends State<LifeOsSpriteSheetPlayer>
     super.initState();
     final cycleMs = ((widget.frameCount / math.max(1, widget.fps)) * 1000)
         .round();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: math.max(120, cycleMs)),
-    )..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _cycles++;
-          if (mounted &&
-              widget.manualProgress == null &&
-              _cycles < widget.maxCycles) {
-            final motion = LifeOsMotionScope.read(context);
-            if (!motion.isReducedMotion &&
-                TickerMode.valuesOf(context).enabled) {
-              _ctrl.forward(from: 0.0);
+    _ctrl =
+        AnimationController(
+          vsync: this,
+          duration: Duration(milliseconds: math.max(120, cycleMs)),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _cycles++;
+            if (mounted &&
+                widget.manualProgress == null &&
+                _cycles < widget.maxCycles) {
+              final motion = LifeOsMotionScope.read(context);
+              if (!motion.isReducedMotion &&
+                  TickerMode.valuesOf(context).enabled) {
+                _ctrl.forward(from: 0.0);
+              }
             }
           }
-        }
-      });
+        });
     _loadSprite();
   }
 
@@ -295,8 +302,8 @@ class _LifeOsSpriteSheetPlayerState extends State<LifeOsSpriteSheetPlayer>
   @override
   Widget build(BuildContext context) {
     final motion = LifeOsMotionScope.of(context);
-    final progress = widget.manualProgress ??
-        (motion.isReducedMotion ? 0.0 : _ctrl.value);
+    final progress =
+        widget.manualProgress ?? (motion.isReducedMotion ? 0.0 : _ctrl.value);
 
     return GestureDetector(
       onTap: replay,
@@ -306,7 +313,8 @@ class _LifeOsSpriteSheetPlayerState extends State<LifeOsSpriteSheetPlayer>
         child: AnimatedBuilder(
           animation: _ctrl,
           builder: (context, _) {
-            final p = widget.manualProgress ??
+            final p =
+                widget.manualProgress ??
                 (motion.isReducedMotion ? 0.0 : _ctrl.value);
             final frameIdx =
                 (p * widget.frameCount).floor() % widget.frameCount;
@@ -543,12 +551,8 @@ class _GlslSurfacePainter extends CustomPainter {
       try {
         final shader = prog.fragmentShader();
         if (preset == LifeOsShaderPreset.liquidCaustics) {
-          final c1 = isDark
-              ? const Color(0xFF0E4D26)
-              : const Color(0xFF0B7A2A);
-          final c2 = isDark
-              ? const Color(0xFF1E8E48)
-              : const Color(0xFF55D52F);
+          final c1 = isDark ? const Color(0xFF0E4D26) : const Color(0xFF0B7A2A);
+          final c2 = isDark ? const Color(0xFF1E8E48) : const Color(0xFF55D52F);
           shader
             ..setFloat(0, size.width)
             ..setFloat(1, size.height)
@@ -881,8 +885,8 @@ class _LifeOsInteractiveMascotRigState extends State<LifeOsInteractiveMascotRig>
   @override
   Widget build(BuildContext context) {
     final motion = LifeOsMotionScope.of(context);
-    final effectiveState = motion.isReducedMotion &&
-            widget.state == LifeOsMascotState.celebrate
+    final effectiveState =
+        motion.isReducedMotion && widget.state == LifeOsMascotState.celebrate
         ? LifeOsMascotState.idle
         : widget.state;
 
@@ -965,7 +969,12 @@ class _MascotStatePainter extends CustomPainter {
       canvas.rotate(dir * spreadAngle);
       final leafPath = Path()
         ..moveTo(0, 0)
-        ..quadraticBezierTo(dir * r * 0.45, -r * 0.55, dir * r * 0.08, -r * 0.78)
+        ..quadraticBezierTo(
+          dir * r * 0.45,
+          -r * 0.55,
+          dir * r * 0.08,
+          -r * 0.78,
+        )
         ..quadraticBezierTo(-dir * r * 0.22, -r * 0.42, 0, 0)
         ..close();
       canvas.drawPath(
@@ -1022,7 +1031,11 @@ class _MascotStatePainter extends CustomPainter {
       for (final sgn in const [-1.0, 1.0]) {
         final ex = cx + sgn * r * 0.36;
         canvas.drawArc(
-          Rect.fromCenter(center: Offset(ex, eyeY), width: r * 0.30, height: r * 0.18),
+          Rect.fromCenter(
+            center: Offset(ex, eyeY),
+            width: r * 0.30,
+            height: r * 0.18,
+          ),
           0,
           math.pi,
           false,
@@ -1033,8 +1046,16 @@ class _MascotStatePainter extends CustomPainter {
       final eyeRadius = state == LifeOsMascotState.listening
           ? r * 0.16
           : r * 0.135;
-      canvas.drawCircle(Offset(cx - r * 0.36 + lookDx, eyeY), eyeRadius, eyePaint);
-      canvas.drawCircle(Offset(cx + r * 0.36 + lookDx, eyeY), eyeRadius, eyePaint);
+      canvas.drawCircle(
+        Offset(cx - r * 0.36 + lookDx, eyeY),
+        eyeRadius,
+        eyePaint,
+      );
+      canvas.drawCircle(
+        Offset(cx + r * 0.36 + lookDx, eyeY),
+        eyeRadius,
+        eyePaint,
+      );
     }
 
     // Mouth / Status Expression

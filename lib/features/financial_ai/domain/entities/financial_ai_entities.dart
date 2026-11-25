@@ -718,18 +718,16 @@ class PersonalizationRule extends Equatable {
     required int? amountMinor,
   }) {
     if (!isEnabled || ruleKind == 'nickname') return false;
-    final normIncoming = canonicalKey
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), '_');
-    final normRule = merchantCanonicalKey
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), '_');
-    if (normRule.isEmpty || normIncoming.isEmpty) return false;
-    final boundaryPattern = RegExp(
-      '(?:^|_)${RegExp.escape(normRule)}(?:_|\$)',
+    final normIncoming = canonicalKey.trim().toLowerCase().replaceAll(
+      RegExp(r'\s+'),
+      '_',
     );
+    final normRule = merchantCanonicalKey.trim().toLowerCase().replaceAll(
+      RegExp(r'\s+'),
+      '_',
+    );
+    if (normRule.isEmpty || normIncoming.isEmpty) return false;
+    final boundaryPattern = RegExp('(?:^|_)${RegExp.escape(normRule)}(?:_|\$)');
     if (normIncoming != normRule && !boundaryPattern.hasMatch(normIncoming)) {
       return false;
     }

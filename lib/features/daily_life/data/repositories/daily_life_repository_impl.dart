@@ -156,9 +156,10 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
                 reminderEnabled: d['reminderEnabled'] is bool
                     ? d['reminderEnabled'] as bool
                     : slot.isScheduledDaily,
-                reminderHour: (d['reminderHour'] as num?)?.toInt() ??
-                    slot.defaultHour,
-                reminderMinute: (d['reminderMinute'] as num?)?.toInt() ??
+                reminderHour:
+                    (d['reminderHour'] as num?)?.toInt() ?? slot.defaultHour,
+                reminderMinute:
+                    (d['reminderMinute'] as num?)?.toInt() ??
                     slot.defaultMinute,
               );
             }).toList()..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
@@ -816,16 +817,14 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     try {
       final safeMins = minutes.clamp(5, 120);
       final until = DateTime.now().add(Duration(minutes: safeMins));
-      await _userRef(
-        userId,
-      ).collection('medical_profiles').doc('hydration_reminder').set(
-        <String, dynamic>{
-          'reminderEnabled': true,
-          'snoozedUntil': until.toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
-        },
-        SetOptions(merge: true),
-      );
+      await _userRef(userId)
+          .collection('medical_profiles')
+          .doc('hydration_reminder')
+          .set(<String, dynamic>{
+            'reminderEnabled': true,
+            'snoozedUntil': until.toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
+          }, SetOptions(merge: true));
       final updatedStatus = HydrationReminderStatusEntity(
         dayKey: status.dayKey,
         waterMl: status.waterMl,
@@ -1019,7 +1018,8 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       ).collection('medical_profiles').doc('hydration_reminder');
       final remSnap = await remRef.get();
       final remData = remSnap.data();
-      final autoSync = remData == null || remData['autoSyncTargetByBody'] != false;
+      final autoSync =
+          remData == null || remData['autoSyncTargetByBody'] != false;
       final activity = HydrationActivityLevel.fromName(
         remData?['activityLevel'] as String?,
       );
@@ -1038,12 +1038,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
 
       if (autoSync) {
         final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        await _userRef(
-          userId,
-        ).collection('wellness_daily').doc(todayKey).set(<String, dynamic>{
-          'dateKey': todayKey,
-          'targetWaterMl': recomputedTarget,
-        }, SetOptions(merge: true));
+        await _userRef(userId).collection('wellness_daily').doc(todayKey).set(
+          <String, dynamic>{
+            'dateKey': todayKey,
+            'targetWaterMl': recomputedTarget,
+          },
+          SetOptions(merge: true),
+        );
       }
 
       return const Success(null);
@@ -1206,9 +1207,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       return const Success(null);
     } catch (e) {
       return Err(
-        UnexpectedFailure(
-          message: 'Không thể cất thực phẩm vào tủ lạnh: $e',
-        ),
+        UnexpectedFailure(message: 'Không thể cất thực phẩm vào tủ lạnh: $e'),
       );
     }
   }

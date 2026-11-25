@@ -107,8 +107,7 @@ class FinancialEntityExtractor {
               ? AmbiguityFlag.cancellationCommandNotExpense
               : AmbiguityFlag.negatedStatement,
         ClauseSafetyStatus.blockedHypothetical ||
-        ClauseSafetyStatus.blockedQuestion =>
-          AmbiguityFlag.negatedStatement,
+        ClauseSafetyStatus.blockedQuestion => AmbiguityFlag.negatedStatement,
         ClauseSafetyStatus.allowed => AmbiguityFlag.negatedStatement,
       };
       return NonTransactionScreeningResult.blocked(
@@ -182,7 +181,9 @@ class FinancialEntityExtractor {
     for (final m in conjRegex.allMatches(normalized)) {
       final candidateLeft = normalized.substring(cursor, m.start).trim();
       final candidateRight = normalized.substring(m.end).trim();
-      final leftHasAmount = _normalizer.extractAmounts(candidateLeft).isNotEmpty;
+      final leftHasAmount = _normalizer
+          .extractAmounts(candidateLeft)
+          .isNotEmpty;
       final rightHasBoundaryClause =
           _normalizer.extractAmounts(candidateRight).isNotEmpty ||
           _looksLikeNonFinancialOrBlockedTail(candidateRight);
@@ -207,7 +208,9 @@ class FinancialEntityExtractor {
         final amt = subAmounts[i];
         if (i < subAmounts.length - 1) {
           final nextAmt = subAmounts[i + 1];
-          final between = part.substring(amt.endIndex, nextAmt.startIndex).trim();
+          final between = part
+              .substring(amt.endIndex, nextAmt.startIndex)
+              .trim();
           final beforeAmt = part.substring(subCursor, amt.startIndex).trim();
           final beforeWords = beforeAmt
               .replaceAll(
@@ -288,7 +291,9 @@ class FinancialEntityExtractor {
     final clauseDate =
         _normalizer.extractRelativeDate(clause, referenceTime: referenceTime) ??
         inheritedDate;
-    final entitySnap = VietnameseTemporalAndEntityResolver.extractEntities(clause);
+    final entitySnap = VietnameseTemporalAndEntityResolver.extractEntities(
+      clause,
+    );
     if (clauseDate != null && clauseDate.isAmbiguous) {
       // Keep date but note mild relative-window ambiguity if "tuần trước" / "tháng trước"
     }
@@ -355,9 +360,11 @@ class FinancialEntityExtractor {
       merchant: typeDetection.explicitMerchant ?? desc,
       merchantCanonicalKey: canonicalMerchant,
       description: desc,
-      sourceAccountHint: typeDetection.sourceAccountHint ?? entitySnap.walletHint,
+      sourceAccountHint:
+          typeDetection.sourceAccountHint ?? entitySnap.walletHint,
       destinationAccountHint:
-          typeDetection.destinationAccountHint ?? entitySnap.destinationWalletHint,
+          typeDetection.destinationAccountHint ??
+          entitySnap.destinationWalletHint,
       recipient: typeDetection.recipient,
       paymentMethod: typeDetection.paymentMethod,
       candidateSemanticKey: typeDetection.deterministicSemanticHint,
@@ -423,8 +430,8 @@ class FinancialEntityExtractor {
           destinationAccountHint: dstCode,
           recipient: null,
           paymentMethod: 'bank_transfer',
-          explicitMerchant:
-              'Chuyển nội bộ ${srcCode ?? ""} → ${dstCode ?? ""}'.trim(),
+          explicitMerchant: 'Chuyển nội bộ ${srcCode ?? ""} → ${dstCode ?? ""}'
+              .trim(),
           deterministicSemanticHint: null,
         );
       }
@@ -445,9 +452,9 @@ class FinancialEntityExtractor {
     }
 
     // 4. Reversal ("đảo bút toán", "ngân hàng thu hồi giao dịch lỗi")
-    if (RegExp(r'\b(dao\s+but\s+toan|reversal|hoan\s+tra\s+loi)\b').hasMatch(
-      ascii,
-    )) {
+    if (RegExp(
+      r'\b(dao\s+but\s+toan|reversal|hoan\s+tra\s+loi)\b',
+    ).hasMatch(ascii)) {
       return (
         type: FinancialTransactionType.reversal,
         confidence: 0.93,
@@ -531,9 +538,9 @@ class FinancialEntityExtractor {
     if (RegExp(
           r'\b(nhan\s+luong|luong\s+thang|tien\s+luong|ung\s+luong|payroll|salary)\b',
         ).hasMatch(ascii) ||
-        RegExp(r'\b(duoc\s+thuong|nhan\s+thuong|^thuong\b|\sthuong\s+\d)').hasMatch(
-          ascii,
-        ) ||
+        RegExp(
+          r'\b(duoc\s+thuong|nhan\s+thuong|^thuong\b|\sthuong\s+\d)',
+        ).hasMatch(ascii) ||
         RegExp(
           r'\b(nhan\s+\d[a-z0-9.,]*|nhan\s+tien|nhan\s+duoc|duoc\s+nhan|duoc\s+cho|duoc\s+cong|lai\s+tiet\s+kiem|co\s+tuc|thu\s+lao|tien\s+job|doanh\s+thu)\b',
         ).hasMatch(ascii) ||

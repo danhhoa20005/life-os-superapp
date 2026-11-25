@@ -86,9 +86,7 @@ Widget _buildTestApp({required Widget home}) {
           textScaler: const TextScaler.linear(1.12),
         ),
         child: LifeOsMotionHost(
-          child: LifeOsTopToastHost(
-            child: child ?? const SizedBox.shrink(),
-          ),
+          child: LifeOsTopToastHost(child: child ?? const SizedBox.shrink()),
         ),
       );
     },
@@ -216,8 +214,9 @@ void main() {
                     sl<AuthBloc>()..add(const AuthSubscriptionRequested()),
               ),
               BlocProvider<DocumentVaultBloc>(
-                create: (_) => sl<DocumentVaultBloc>()
-                  ..add(const DocumentVaultWatchStarted(userId: userId)),
+                create: (_) =>
+                    sl<DocumentVaultBloc>()
+                      ..add(const DocumentVaultWatchStarted(userId: userId)),
               ),
             ],
             child: _buildTestApp(home: const FamilyDocumentsPage()),
@@ -310,8 +309,9 @@ void main() {
                     sl<AuthBloc>()..add(const AuthSubscriptionRequested()),
               ),
               BlocProvider<DailyLifeBloc>(
-                create: (_) => sl<DailyLifeBloc>()
-                  ..add(const DailyLifeWatchStarted(userId)),
+                create: (_) =>
+                    sl<DailyLifeBloc>()
+                      ..add(const DailyLifeWatchStarted(userId)),
               ),
             ],
             child: _buildTestApp(
@@ -373,37 +373,36 @@ void main() {
           fullName: 'Trần Minh Quân',
           activeFamilyId: familyId,
           seedFirestore: (firestore) async {
-            await firestore
-                .collection('families')
-                .doc(familyId)
-                .set(<String, dynamic>{
-                  'id': familyId,
-                  'name': 'Tổ ấm Minh Quân',
-                  'spaceType': 'family',
-                  'createdBy': userId,
-                  'memberIds': <String>[userId],
-                  'memberRoles': <String, String>{userId: 'owner'},
-                  'memberNames': <String, String>{userId: 'Trần Minh Quân'},
-                  'pendingInvites': <String, dynamic>{
-                    'FAM-8K2P9Q': <String, dynamic>{
-                      'inviteCode': 'FAM-8K2P9Q',
-                      'familyId': familyId,
-                      'familyName': 'Tổ ấm Minh Quân',
-                      'spaceType': 'family',
-                      'createdBy': userId,
-                      'invitedByName': 'Trần Minh Quân',
-                      'inviteeName': 'Trần Lan',
-                      'inviteeContact': '0988776655',
-                      'revoked': false,
-                      'createdAt': Timestamp.fromDate(now),
-                      'expiresAt': Timestamp.fromDate(
-                        now.add(const Duration(days: 6)),
-                      ),
-                    },
+            await firestore.collection('families').doc(familyId).set(
+              <String, dynamic>{
+                'id': familyId,
+                'name': 'Tổ ấm Minh Quân',
+                'spaceType': 'family',
+                'createdBy': userId,
+                'memberIds': <String>[userId],
+                'memberRoles': <String, String>{userId: 'owner'},
+                'memberNames': <String, String>{userId: 'Trần Minh Quân'},
+                'pendingInvites': <String, dynamic>{
+                  'FAM-8K2P9Q': <String, dynamic>{
+                    'inviteCode': 'FAM-8K2P9Q',
+                    'familyId': familyId,
+                    'familyName': 'Tổ ấm Minh Quân',
+                    'spaceType': 'family',
+                    'createdBy': userId,
+                    'invitedByName': 'Trần Minh Quân',
+                    'inviteeName': 'Trần Lan',
+                    'inviteeContact': '0988776655',
+                    'revoked': false,
+                    'createdAt': Timestamp.fromDate(now),
+                    'expiresAt': Timestamp.fromDate(
+                      now.add(const Duration(days: 6)),
+                    ),
                   },
-                  'createdAt': Timestamp.fromDate(now),
-                  'updatedAt': Timestamp.fromDate(now),
-                });
+                },
+                'createdAt': Timestamp.fromDate(now),
+                'updatedAt': Timestamp.fromDate(now),
+              },
+            );
           },
         );
 

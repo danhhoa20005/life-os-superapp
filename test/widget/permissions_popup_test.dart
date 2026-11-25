@@ -161,7 +161,10 @@ void main() {
         );
         expect(find.text('Cấp quyền thiết bị'), findsOneWidget);
         expect(find.text('Đã bật 0/6'), findsOneWidget);
-        expect(find.byKey(const Key('perm_item_notifications')), findsOneWidget);
+        expect(
+          find.byKey(const Key('perm_item_notifications')),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('perm_item_microphone')), findsOneWidget);
         expect(find.byKey(const Key('perm_item_calendar')), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -318,36 +321,39 @@ void main() {
       },
     );
 
-    testWidgets('Direct showLifeOsPermissionsPopup works standalone in Dark mode', (
-      tester,
-    ) async {
-      final fakePerms = _FakePermissionsDriver(AppPermissionsSnapshot.allMissing);
-      NativePermissionsService.setDriverOverride(fakePerms);
+    testWidgets(
+      'Direct showLifeOsPermissionsPopup works standalone in Dark mode',
+      (tester) async {
+        final fakePerms = _FakePermissionsDriver(
+          AppPermissionsSnapshot.allMissing,
+        );
+        NativePermissionsService.setDriverOverride(fakePerms);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          themeMode: ThemeMode.dark,
-          darkTheme: ThemeData.dark(useMaterial3: true),
-          home: Scaffold(
-            body: Builder(
-              builder: (ctx) => Center(
-                child: ElevatedButton(
-                  onPressed: () => showLifeOsPermissionsPopup(ctx),
-                  child: const Text('Mở Popup'),
+        await tester.pumpWidget(
+          MaterialApp(
+            themeMode: ThemeMode.dark,
+            darkTheme: ThemeData.dark(useMaterial3: true),
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) => Center(
+                  child: ElevatedButton(
+                    onPressed: () => showLifeOsPermissionsPopup(ctx),
+                    child: const Text('Mở Popup'),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Mở Popup'));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('lifeos_permissions_popup_dialog')),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    });
+        await tester.tap(find.text('Mở Popup'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('lifeos_permissions_popup_dialog')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

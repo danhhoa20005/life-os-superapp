@@ -149,9 +149,12 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
     }
 
     // 3. Upcoming Calendar, Open Tasks & Vehicle Reminders
-    for (final ev in calState.events
-        .where((e) => !e.endsAt.isBefore(now.subtract(const Duration(days: 1))))
-        .take(6)) {
+    for (final ev
+        in calState.events
+            .where(
+              (e) => !e.endsAt.isBefore(now.subtract(const Duration(days: 1))),
+            )
+            .take(6)) {
       items.add((
         sortTime: ev.startsAt,
         category: 'other',
@@ -164,13 +167,12 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
         onTap: () => context.push('/event-detail', extra: ev),
       ));
     }
-    for (final t in taskState.tasks
-        .where(
-          (t) =>
-              t.status.name != 'done' &&
-              t.status.name != 'declined',
-        )
-        .take(6)) {
+    for (final t
+        in taskState.tasks
+            .where(
+              (t) => t.status.name != 'done' && t.status.name != 'declined',
+            )
+            .take(6)) {
       items.add((
         sortTime: t.dueAt ?? now,
         category: 'other',
@@ -229,17 +231,25 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
     };
 
     final q = _searchQuery.trim();
-    final indexedVisible = <({int idx, ({
-      DateTime sortTime,
-      String category,
-      String title,
-      String subtitle,
-      String? metaBadge,
-      String timeLabel,
-      IconData icon,
-      LifeOsAccentTone tone,
-      VoidCallback onTap,
-    }) item, String dedupKey})>[];
+    final indexedVisible =
+        <
+          ({
+            int idx,
+            ({
+              DateTime sortTime,
+              String category,
+              String title,
+              String subtitle,
+              String? metaBadge,
+              String timeLabel,
+              IconData icon,
+              LifeOsAccentTone tone,
+              VoidCallback onTap,
+            })
+            item,
+            String dedupKey,
+          })
+        >[];
 
     for (var idx = 0; idx < items.length; idx++) {
       final it = items[idx];
@@ -308,7 +318,10 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                           decoration: InputDecoration(
                             isDense: true,
                             hintText: 'Tìm biến động, lịch hẹn, việc làm...',
-                            prefixIcon: const Icon(Icons.search_rounded, size: 19),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 19,
+                            ),
                             suffixIcon: _searchQuery.isEmpty
                                 ? null
                                 : IconButton(
@@ -319,7 +332,10 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                                       _searchCtrl.clear();
                                       _searchQuery = '';
                                     }),
-                                    icon: const Icon(Icons.close_rounded, size: 18),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                    ),
                                   ),
                           ),
                         ),
@@ -437,135 +453,134 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
                             ),
                           )
                         else
-                          ...indexedVisible.map(
-                            (entry) {
-                              final item = entry.item;
-                              final dk = entry.dedupKey;
-                              final isRead = _readDedupKeys.contains(dk);
-                              final isSnoozed = snoozedSet.contains(dk);
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: LifeOsSoftCard(
-                                  onTap: () {
-                                    setState(() => _readDedupKeys.add(dk));
-                                    item.onTap();
-                                  },
-                                  padding: const EdgeInsets.all(14),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      LifeOsIconSquircle(
-                                        icon: item.icon,
-                                        tone: item.tone,
-                                        size: 42,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    item.title,
-                                                    softWrap: true,
-                                                    style: TextStyle(
-                                                      fontWeight: isRead
-                                                          ? FontWeight.w600
-                                                          : FontWeight.w800,
-                                                      fontSize: 14.5,
-                                                      color: c.textPrimary,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Text(
-                                                  item.timeLabel,
+                          ...indexedVisible.map((entry) {
+                            final item = entry.item;
+                            final dk = entry.dedupKey;
+                            final isRead = _readDedupKeys.contains(dk);
+                            final isSnoozed = snoozedSet.contains(dk);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: LifeOsSoftCard(
+                                onTap: () {
+                                  setState(() => _readDedupKeys.add(dk));
+                                  item.onTap();
+                                },
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    LifeOsIconSquircle(
+                                      icon: item.icon,
+                                      tone: item.tone,
+                                      size: 42,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item.title,
+                                                  softWrap: true,
                                                   style: TextStyle(
-                                                    fontSize: 11.5,
-                                                    color: c.textSecondary,
+                                                    fontWeight: isRead
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w800,
+                                                    fontSize: 14.5,
+                                                    color: c.textPrimary,
                                                   ),
                                                 ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              item.subtitle,
-                                              softWrap: true,
-                                              style: TextStyle(
-                                                fontSize: 12.8,
-                                                height: 1.35,
-                                                color: c.textSecondary,
                                               ),
+                                              Text(
+                                                item.timeLabel,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: c.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            item.subtitle,
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              fontSize: 12.8,
+                                              height: 1.35,
+                                              color: c.textSecondary,
                                             ),
-                                            const SizedBox(height: 6),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 4,
-                                              crossAxisAlignment:
-                                                  WrapCrossAlignment.center,
-                                              children: [
-                                                if (item.metaBadge != null)
-                                                  LifeOsStatusPill(
-                                                    label: item.metaBadge!,
-                                                    tone: item.tone,
-                                                  ),
-                                                InkWell(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  onTap: () {
-                                                    setState(() {
-                                                      if (isSnoozed) {
-                                                        _snoozedUntilByKey
-                                                            .remove(dk);
-                                                      } else {
-                                                        _snoozedUntilByKey[dk] =
-                                                            DateTime.now().add(
-                                                              const Duration(
-                                                                hours: 1,
-                                                              ),
-                                                            );
-                                                      }
-                                                    });
-                                                    LifeOsTopToast.show(
-                                                      context,
-                                                      isSnoozed
-                                                          ? 'Đã khôi phục thông báo vào danh sách chính.'
-                                                          : 'Đã tạm hoãn thông báo 1 giờ.',
-                                                      kind: LifeOsToastKind.info,
-                                                    );
-                                                  },
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 2,
-                                                        ),
-                                                    child: Text(
-                                                      isSnoozed
-                                                          ? 'Bỏ hoãn'
-                                                          : 'Hoãn 1h',
-                                                      style: TextStyle(
-                                                        fontSize: 11.5,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: c.primary,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              if (item.metaBadge != null)
+                                                LifeOsStatusPill(
+                                                  label: item.metaBadge!,
+                                                  tone: item.tone,
+                                                ),
+                                              InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                onTap: () {
+                                                  setState(() {
+                                                    if (isSnoozed) {
+                                                      _snoozedUntilByKey.remove(
+                                                        dk,
+                                                      );
+                                                    } else {
+                                                      _snoozedUntilByKey[dk] =
+                                                          DateTime.now().add(
+                                                            const Duration(
+                                                              hours: 1,
+                                                            ),
+                                                          );
+                                                    }
+                                                  });
+                                                  LifeOsTopToast.show(
+                                                    context,
+                                                    isSnoozed
+                                                        ? 'Đã khôi phục thông báo vào danh sách chính.'
+                                                        : 'Đã tạm hoãn thông báo 1 giờ.',
+                                                    kind: LifeOsToastKind.info,
+                                                  );
+                                                },
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
                                                       ),
+                                                  child: Text(
+                                                    isSnoozed
+                                                        ? 'Bỏ hoãn'
+                                                        : 'Hoãn 1h',
+                                                    style: TextStyle(
+                                                      fontSize: 11.5,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: c.primary,
                                                     ),
                                                   ),
                                                 ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          }),
                       ],
                     ),
                   ),
@@ -784,8 +799,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         trailing: Switch(
           value: bankConsentEnabled,
           onChanged: (v) {
-            final pkgs =
-                notifState.consent?.allowedPackages.isNotEmpty == true
+            final pkgs = notifState.consent?.allowedPackages.isNotEmpty == true
                 ? notifState.consent!.allowedPackages
                 : kSupportedVnBanks.map((b) => b.packageName).toList();
             context.read<NotificationIngestionBloc>().add(
@@ -1021,10 +1035,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
           }).toList();
 
     final grouped =
-        <
-          String,
-          ({LifeOsAccentTone tone, List<_SettingsItemSpec> items})
-        >{};
+        <String, ({LifeOsAccentTone tone, List<_SettingsItemSpec> items})>{};
     for (final it in filtered) {
       final bucket = grouped.putIfAbsent(
         it.sectionTitle,
@@ -1249,8 +1260,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
                           LifeOsPrimaryCtaButton(
                             icon: Icons.link_rounded,
                             trailingIcon: Icons.arrow_forward_rounded,
-                            label:
-                                'Quản lý kết nối ngân hàng & quyền riêng tư',
+                            label: 'Quản lý kết nối ngân hàng & quyền riêng tư',
                             onPressed: () =>
                                 context.push('/notifications-privacy'),
                           ),

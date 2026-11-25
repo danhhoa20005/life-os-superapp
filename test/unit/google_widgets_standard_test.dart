@@ -105,7 +105,10 @@ void main() {
         expect(kotlinCode.contains('R.id.widget_safe_root'), isFalse);
 
         // Registered properly in AndroidManifest.xml
-        expect(manifestXml, contains('android:name=".LifeOsWidgetActionReceiver"'));
+        expect(
+          manifestXml,
+          contains('android:name=".LifeOsWidgetActionReceiver"'),
+        );
         expect(
           manifestXml,
           contains('android:name=".LifeOsWidgetQuickOverlayActivity"'),

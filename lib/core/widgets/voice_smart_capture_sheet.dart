@@ -114,7 +114,8 @@ class _VoiceSmartCaptureSheetBody extends StatefulWidget {
       _VoiceSmartCaptureSheetBodyState();
 }
 
-class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody>
+class _VoiceSmartCaptureSheetBodyState
+    extends State<_VoiceSmartCaptureSheetBody>
     with WidgetsBindingObserver {
   late final TextEditingController _textCtrl;
   final String _voiceSessionToken = const Uuid().v4();
@@ -443,7 +444,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
         _refreshDiagnostics();
       case VoiceEngineSwitchedSignal(:final modeWireValue):
         final nextMode = VoiceEngineMode.fromWireValue(modeWireValue);
-        unawaited(UserBehaviorPrefs.savePreferredVoiceEngineMode(nextMode.wireValue));
+        unawaited(
+          UserBehaviorPrefs.savePreferredVoiceEngineMode(nextMode.wireValue),
+        );
         setState(() {
           _selectedEngineMode = nextMode;
         });
@@ -463,9 +466,8 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
     );
 
     final wordCount = liveText.split(RegExp(r'\s+')).length;
-    final shouldArmAutoStop = eval.isReadyComplete ||
-        eval.hasActionableDraft ||
-        wordCount >= 4;
+    final shouldArmAutoStop =
+        eval.isReadyComplete || eval.hasActionableDraft || wordCount >= 4;
     if (!shouldArmAutoStop) return;
 
     _autoEndpointTimer = Timer(eval.silenceAutoStopDelay, () async {
@@ -478,7 +480,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
         final trimmed = _textCtrl.text.trim();
         _sessionPrefixText = trimmed;
         _transitionVoiceState(
-          trimmed.isNotEmpty ? VoiceCaptureState.review : VoiceCaptureState.idle,
+          trimmed.isNotEmpty
+              ? VoiceCaptureState.review
+              : VoiceCaptureState.idle,
         );
         _voiceStatusHint = eval.isReadyComplete
             ? 'Đã nhận diện đủ ý và tự dừng — mời bạn xác nhận.'
@@ -587,14 +591,14 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
   }
 
   static IconData _iconForOmniKind(OmniActionKind kind) => switch (kind) {
-        OmniActionKind.transaction => Icons.account_balance_wallet_outlined,
-        OmniActionKind.groupSplit => Icons.groups_outlined,
-        OmniActionKind.calendarEvent => Icons.event_available_rounded,
-        OmniActionKind.task => Icons.task_alt_rounded,
-        OmniActionKind.grocery => Icons.shopping_basket_outlined,
-        OmniActionKind.waterLog => Icons.water_drop_rounded,
-        OmniActionKind.medication => Icons.medication_outlined,
-      };
+    OmniActionKind.transaction => Icons.account_balance_wallet_outlined,
+    OmniActionKind.groupSplit => Icons.groups_outlined,
+    OmniActionKind.calendarEvent => Icons.event_available_rounded,
+    OmniActionKind.task => Icons.task_alt_rounded,
+    OmniActionKind.grocery => Icons.shopping_basket_outlined,
+    OmniActionKind.waterLog => Icons.water_drop_rounded,
+    OmniActionKind.medication => Icons.medication_outlined,
+  };
 
   Future<void> _confirmAndCommit({
     required BuildContext context,
@@ -1063,7 +1067,10 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                         overrideMode: VoiceEngineMode.systemDialog,
                       );
                     },
-                    icon: const Icon(Icons.record_voice_over_outlined, size: 15),
+                    icon: const Icon(
+                      Icons.record_voice_over_outlined,
+                      size: 15,
+                    ),
                     label: const Text('Google', style: TextStyle(fontSize: 12)),
                   ),
                   TextButton.icon(
@@ -1293,7 +1300,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                                                   'PERMISSION_PERMANENTLY_DENIED'
                                               ? 'Mở Cài đặt Micro'
                                               : 'Cấp quyền Micro',
-                                          style: const TextStyle(fontSize: 11.5),
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                          ),
                                         ),
                                       ),
                                     OutlinedButton.icon(
@@ -1463,8 +1472,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                             visualDensity: VisualDensity.compact,
                             onSelected: (_) async {
                               if (!_consumeRapidTapDebounce()) return;
-                              await UserBehaviorPrefs
-                                  .savePreferredVoiceEngineMode(mode.wireValue);
+                              await UserBehaviorPrefs.savePreferredVoiceEngineMode(
+                                mode.wireValue,
+                              );
                               if (!mounted) return;
                               await _startListeningFresh(
                                 clearExisting: false,
@@ -1577,8 +1587,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                               style: TextStyle(
                                 fontSize: 12.8,
                                 fontWeight: FontWeight.w800,
-                                color:
-                                    isGroupSplitInvalid ? c.error : c.primary,
+                                color: isGroupSplitInvalid
+                                    ? c.error
+                                    : c.primary,
                               ),
                             ),
                           ),
@@ -1612,7 +1623,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        analysis.groupSplit!.validationMessageVi ??
+                                        analysis
+                                                .groupSplit!
+                                                .validationMessageVi ??
                                             'Bảng chia tiền chưa hợp lệ — vui lòng sửa lại câu nói.',
                                         softWrap: true,
                                         style: TextStyle(
@@ -1651,19 +1664,18 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                                           Wrap(
                                             spacing: 6,
                                             runSpacing: 6,
-                                            children: amb.ambiguousCandidates
-                                                .map((cand) {
+                                            children: amb.ambiguousCandidates.map((
+                                              cand,
+                                            ) {
                                               final isChosen =
                                                   _participantOverrides[amb
-                                                          .spokenName] ==
-                                                      cand.participantId;
+                                                      .spokenName] ==
+                                                  cand.participantId;
                                               return ChoiceChip(
                                                 key: Key(
                                                   'voice_disambiguate_${cand.participantId}',
                                                 ),
-                                                label: Text(
-                                                  cand.displayName,
-                                                ),
+                                                label: Text(cand.displayName),
                                                 selected: isChosen,
                                                 materialTapTargetSize:
                                                     MaterialTapTargetSize
@@ -1822,7 +1834,9 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                             ),
                           ),
                         ],
-                        ...analysis.multiCategoryReceipt!.splitLines.map((line) {
+                        ...analysis.multiCategoryReceipt!.splitLines.map((
+                          line,
+                        ) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 6),
                             child: Row(
@@ -1857,143 +1871,156 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                           );
                         }),
                       ] else if (analysis != null) ...[
-                        ...analysis.personalEntries.asMap().entries.where(
-                          (e) => !_dismissedPersonalIndices.contains(e.key),
-                        ).map((mapEntry) {
-                          final idx = mapEntry.key;
-                          final item = mapEntry.value;
-                          final isInc = item.kind == TransactionKind.income;
-                          final allowDismiss =
-                              visiblePersonalCount + visibleOmniCount > 1;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              children: [
-                                ProCategoryStyle.buildCategoryBadge(
-                                  item.categoryName,
-                                  isCredit: isInc,
-                                  size: 34,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.merchant,
-                                        softWrap: true,
-                                        style: const TextStyle(
-                                          fontSize: 12.8,
-                                          fontWeight: FontWeight.w700,
+                        ...analysis.personalEntries
+                            .asMap()
+                            .entries
+                            .where(
+                              (e) => !_dismissedPersonalIndices.contains(e.key),
+                            )
+                            .map((mapEntry) {
+                              final idx = mapEntry.key;
+                              final item = mapEntry.value;
+                              final isInc = item.kind == TransactionKind.income;
+                              final allowDismiss =
+                                  visiblePersonalCount + visibleOmniCount > 1;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  children: [
+                                    ProCategoryStyle.buildCategoryBadge(
+                                      item.categoryName,
+                                      isCredit: isInc,
+                                      size: 34,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.merchant,
+                                            softWrap: true,
+                                            style: const TextStyle(
+                                              fontSize: 12.8,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          Text(
+                                            item.categoryName,
+                                            softWrap: true,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.labelSmall,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      VndAmount.format(
+                                        isInc
+                                            ? item.amountMinor
+                                            : -item.amountMinor,
+                                        showPlus: true,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: isInc
+                                            ? c.success
+                                            : c.textPrimary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                    if (allowDismiss)
+                                      IconButton(
+                                        key: Key('voice_remove_tx_$idx'),
+                                        tooltip: 'Bỏ khoản này',
+                                        constraints: const BoxConstraints(
+                                          minWidth: 48,
+                                          minHeight: 48,
+                                        ),
+                                        onPressed: () {
+                                          setState(
+                                            () => _dismissedPersonalIndices.add(
+                                              idx,
+                                            ),
+                                          );
+                                        },
+                                        icon: Icon(
+                                          Icons.close_rounded,
+                                          size: 18,
+                                          color: c.textSecondary,
                                         ),
                                       ),
-                                      Text(
-                                        item.categoryName,
-                                        softWrap: true,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelSmall,
-                                      ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
-                                Text(
-                                  VndAmount.format(
-                                    isInc
-                                        ? item.amountMinor
-                                        : -item.amountMinor,
-                                    showPlus: true,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: isInc ? c.success : c.textPrimary,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                                if (allowDismiss)
-                                  IconButton(
-                                    key: Key('voice_remove_tx_$idx'),
-                                    tooltip: 'Bỏ khoản này',
-                                    constraints: const BoxConstraints(
-                                      minWidth: 48,
-                                      minHeight: 48,
-                                    ),
-                                    onPressed: () {
-                                      setState(
-                                        () => _dismissedPersonalIndices.add(idx),
-                                      );
-                                    },
-                                    icon: Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        }),
+                              );
+                            }),
                       ],
                       if (trailingOmniDrafts.isNotEmpty) ...[
-                        ...trailingOmniDrafts.asMap().entries.where(
-                          (e) => !_dismissedOmniIndices.contains(e.key),
-                        ).map((mapEntry) {
-                          final idx = mapEntry.key;
-                          final draft = mapEntry.value;
-                          final allowDismiss =
-                              (analysis != null
-                                  ? visiblePersonalCount
-                                  : 0) +
-                              visibleOmniCount >
-                              1;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 7),
-                            child: Row(
-                              children: [
-                                LifeOsIconSquircle(
-                                  icon: _iconForOmniKind(draft.kind),
-                                  size: 34,
-                                  iconSize: 17,
+                        ...trailingOmniDrafts
+                            .asMap()
+                            .entries
+                            .where(
+                              (e) => !_dismissedOmniIndices.contains(e.key),
+                            )
+                            .map((mapEntry) {
+                              final idx = mapEntry.key;
+                              final draft = mapEntry.value;
+                              final allowDismiss =
+                                  (analysis != null
+                                          ? visiblePersonalCount
+                                          : 0) +
+                                      visibleOmniCount >
+                                  1;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: Row(
+                                  children: [
+                                    LifeOsIconSquircle(
+                                      icon: _iconForOmniKind(draft.kind),
+                                      size: 34,
+                                      iconSize: 17,
+                                    ),
+                                    const SizedBox(width: 9),
+                                    Expanded(
+                                      child: Text(
+                                        draft.summaryLineVi,
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 12.8,
+                                          fontWeight: FontWeight.w700,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    if (allowDismiss)
+                                      IconButton(
+                                        key: Key('voice_remove_omni_$idx'),
+                                        tooltip: 'Bỏ mục này',
+                                        constraints: const BoxConstraints(
+                                          minWidth: 48,
+                                          minHeight: 48,
+                                        ),
+                                        onPressed: () {
+                                          setState(
+                                            () =>
+                                                _dismissedOmniIndices.add(idx),
+                                          );
+                                        },
+                                        icon: Icon(
+                                          Icons.close_rounded,
+                                          size: 18,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                const SizedBox(width: 9),
-                                Expanded(
-                                  child: Text(
-                                    draft.summaryLineVi,
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 12.8,
-                                      fontWeight: FontWeight.w700,
-                                      color: c.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                if (allowDismiss)
-                                  IconButton(
-                                    key: Key('voice_remove_omni_$idx'),
-                                    tooltip: 'Bỏ mục này',
-                                    constraints: const BoxConstraints(
-                                      minWidth: 48,
-                                      minHeight: 48,
-                                    ),
-                                    onPressed: () {
-                                      setState(
-                                        () => _dismissedOmniIndices.add(idx),
-                                      );
-                                    },
-                                    icon: Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        }),
+                              );
+                            }),
                       ],
                       if (eval.blockedClauses.isNotEmpty) ...[
                         const SizedBox(height: 6),
@@ -2068,25 +2095,25 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                         ),
                         onPressed:
                             (_isListening ||
-                                    _isSubmittingConfirm ||
-                                    isGroupSplitInvalid ||
-                                    isReceiptNeedsConfirm ||
-                                    isEverythingDismissed ||
-                                    isOmniOnlyDismissed)
-                                ? null
-                                : () => _confirmAndCommit(
-                                    context: context,
-                                    eval: eval,
-                                    targetWalletId: resolvedWalletId,
-                                    activeFamily: activeFamily,
-                                    wallets: wallets,
-                                  ),
+                                _isSubmittingConfirm ||
+                                isGroupSplitInvalid ||
+                                isReceiptNeedsConfirm ||
+                                isEverythingDismissed ||
+                                isOmniOnlyDismissed)
+                            ? null
+                            : () => _confirmAndCommit(
+                                context: context,
+                                eval: eval,
+                                targetWalletId: resolvedWalletId,
+                                activeFamily: activeFamily,
+                                wallets: wallets,
+                              ),
                         icon: Icon(
                           _isSubmittingConfirm
                               ? Icons.hourglass_top_rounded
                               : isGroupSplitInvalid
-                                  ? Icons.block_rounded
-                                  : Icons.check_circle_rounded,
+                              ? Icons.block_rounded
+                              : Icons.check_circle_rounded,
                           size: 19,
                         ),
                         label: FittedBox(
@@ -2095,11 +2122,11 @@ class _VoiceSmartCaptureSheetBodyState extends State<_VoiceSmartCaptureSheetBody
                             _isSubmittingConfirm
                                 ? 'Đang lưu...'
                                 : isGroupSplitInvalid
-                                    ? 'Cần sửa lỗi chia tiền'
-                                    : analysis?.intentKind ==
-                                          VoiceSentenceIntentKind.groupBillSplit
-                                        ? 'Xác nhận chia (${analysis!.groupSplit!.shares.length} người)'
-                                        : 'Xác nhận & Lưu',
+                                ? 'Cần sửa lỗi chia tiền'
+                                : analysis?.intentKind ==
+                                      VoiceSentenceIntentKind.groupBillSplit
+                                ? 'Xác nhận chia (${analysis!.groupSplit!.shares.length} người)'
+                                : 'Xác nhận & Lưu',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),

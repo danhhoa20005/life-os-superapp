@@ -190,7 +190,8 @@ class RequestFundExpenseUseCase
       title: params.title.trim(),
       amountMinor: params.amountMinor,
       // Strict AUD-006 guard: NEVER allow auto-approval on family shared funds!
-      canAutoApprove: params.scope == FundScope.personal && params.canAutoApprove,
+      canAutoApprove:
+          params.scope == FundScope.personal && params.canAutoApprove,
       saveAsDraft: params.saveAsDraft,
       operationId: params.operationId?.trim(),
     );
@@ -227,7 +228,9 @@ class SubmitFundExpenseDraftUseCase
     if (params.updatedTitle != null && params.updatedTitle!.trim().length < 2) {
       return Future.value(
         const Err(
-          ValidationFailure(message: 'Mục đích chi quỹ phải có ít nhất 2 ký tự.'),
+          ValidationFailure(
+            message: 'Mục đích chi quỹ phải có ít nhất 2 ký tự.',
+          ),
         ),
       );
     }
@@ -399,7 +402,9 @@ class DisputeFundExpenseUseCase
     if (params.reason.trim().length < 2) {
       return Future.value(
         const Err(
-          ValidationFailure(message: 'Vui lòng nhập lý do khiếu nại (>= 2 ký tự).'),
+          ValidationFailure(
+            message: 'Vui lòng nhập lý do khiếu nại (>= 2 ký tự).',
+          ),
         ),
       );
     }

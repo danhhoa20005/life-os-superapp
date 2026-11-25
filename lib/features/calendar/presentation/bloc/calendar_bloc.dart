@@ -286,7 +286,9 @@ final class CalendarState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isSyncingGoogle: isSyncingGoogle ?? this.isSyncingGoogle,
       isGoogleAuthorized: isGoogleAuthorized ?? this.isGoogleAuthorized,
-      calendars: calendars != null ? List.unmodifiable(calendars) : this.calendars,
+      calendars: calendars != null
+          ? List.unmodifiable(calendars)
+          : this.calendars,
       events: events != null ? List.unmodifiable(events) : this.events,
       selectedCalendarId: clearSelectedCalendar
           ? null
@@ -559,7 +561,8 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
         (f) => emit(state.copyWith(failure: f, clearMessage: true)),
         (_) => emit(
           state.copyWith(
-            clearSelectedCalendar: state.selectedCalendarId == event.calendar.id,
+            clearSelectedCalendar:
+                state.selectedCalendarId == event.calendar.id,
             message: 'Đã xóa bộ lịch "${event.calendar.summary}".',
           ),
         ),
@@ -618,22 +621,19 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _createEvent(event.params);
     CalendarEventEntity? created;
-    res.fold(
-      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
-      (ev) {
-        created = ev;
-        emit(
-          state.copyWith(
-            isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
-            message: ev.syncStatus == CalendarSyncStatus.synced
-                ? 'Đã lưu & đồng bộ sự kiện vào Lịch!'
-                : ev.visibility == CalendarEventVisibility.privateEvent
-                ? 'Đã lưu sự kiện riêng tư${ev.isRecurring ? " (${ev.recurrence.humanReadableVi})" : ""}.'
-                : 'Đã chia sẻ sự kiện lên lịch gia đình.',
-          ),
-        );
-      },
-    );
+    res.fold((f) => emit(state.copyWith(failure: f, clearMessage: true)), (ev) {
+      created = ev;
+      emit(
+        state.copyWith(
+          isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
+          message: ev.syncStatus == CalendarSyncStatus.synced
+              ? 'Đã lưu & đồng bộ sự kiện vào Lịch!'
+              : ev.visibility == CalendarEventVisibility.privateEvent
+              ? 'Đã lưu sự kiện riêng tư${ev.isRecurring ? " (${ev.recurrence.humanReadableVi})" : ""}.'
+              : 'Đã chia sẻ sự kiện lên lịch gia đình.',
+        ),
+      );
+    });
     if (created != null) {
       await _syncEventReminderAlarm(created!);
     }
@@ -646,20 +646,17 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     emit(state.copyWith(clearFailure: true, clearMessage: true));
     final res = await _updateEvent(event.params);
     CalendarEventEntity? updated;
-    res.fold(
-      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
-      (ev) {
-        updated = ev;
-        emit(
-          state.copyWith(
-            isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
-            message: ev.syncStatus == CalendarSyncStatus.synced
-                ? 'Đã cập nhật & đồng bộ sự kiện vào Lịch!'
-                : 'Đã cập nhật sự kiện "${ev.title}".',
-          ),
-        );
-      },
-    );
+    res.fold((f) => emit(state.copyWith(failure: f, clearMessage: true)), (ev) {
+      updated = ev;
+      emit(
+        state.copyWith(
+          isGoogleAuthorized: _repository.isGoogleCalendarAuthorized,
+          message: ev.syncStatus == CalendarSyncStatus.synced
+              ? 'Đã cập nhật & đồng bộ sự kiện vào Lịch!'
+              : 'Đã cập nhật sự kiện "${ev.title}".',
+        ),
+      );
+    });
     if (updated != null) {
       if (updated!.reminderMinutesBefore <= 0) {
         await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(updated!.id);
@@ -683,13 +680,10 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
       googleEventId: event.googleEventId,
     );
     var deletedOk = false;
-    res.fold(
-      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
-      (_) {
-        deletedOk = true;
-        emit(state.copyWith(message: 'Đã xóa sự kiện khỏi lịch.'));
-      },
-    );
+    res.fold((f) => emit(state.copyWith(failure: f, clearMessage: true)), (_) {
+      deletedOk = true;
+      emit(state.copyWith(message: 'Đã xóa sự kiện khỏi lịch.'));
+    });
     if (deletedOk) {
       await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(event.eventId);
     }

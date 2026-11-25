@@ -213,12 +213,18 @@ abstract final class SmartQuickEntryParser {
       final unit = m.group(2) ?? '';
       final unitLower = unit.toLowerCase();
       final after = snapshotSpoken.substring(m.end).trimLeft();
-      final before = snapshotSpoken.substring(0, m.start).trimRight().toLowerCase();
+      final before = snapshotSpoken
+          .substring(0, m.start)
+          .trimRight()
+          .toLowerCase();
 
       // Guard "ngân hàng" (unaccented "ngan hang") and "máy bay" (unaccented "may bay") and "lì xì" ("li xi")
       if (unitLower == 'ngan' &&
-          RegExp(r'^(?:hàng|hang)(?![\p{L}\p{N}])', caseSensitive: false, unicode: true)
-              .hasMatch(after)) {
+          RegExp(
+            r'^(?:hàng|hang)(?![\p{L}\p{N}])',
+            caseSensitive: false,
+            unicode: true,
+          ).hasMatch(after)) {
         return m.group(0)!;
       }
       if (rawSpoken.trim().toLowerCase() == 'bay' &&
@@ -243,14 +249,18 @@ abstract final class SmartQuickEntryParser {
     final snapshotXi = s;
     s = snapshotXi.replaceAllMapped(_xiSlangRegex, (m) {
       final after = snapshotXi.substring(m.end).trimLeft();
-      if (RegExp(r'^(?:măng|mang|giày|giay)(?![\p{L}\p{N}])', caseSensitive: false, unicode: true)
-          .hasMatch(after)) {
+      if (RegExp(
+        r'^(?:măng|mang|giày|giay)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ).hasMatch(after)) {
         return m.group(0)!;
       }
       final n = int.tryParse(m.group(1) ?? '');
       if (n == null || n <= 0) return m.group(0)!;
       final dec = m.group(2);
-      final hasHalf = (m.group(3) != null && m.group(3)!.isNotEmpty) || dec == '5';
+      final hasHalf =
+          (m.group(3) != null && m.group(3)!.isNotEmpty) || dec == '5';
       final extraTens = (!hasHalf && dec != null && dec.isNotEmpty)
           ? (int.tryParse(dec) ?? 0) * 10
           : 0;
@@ -297,7 +307,8 @@ abstract final class SmartQuickEntryParser {
       final n = int.tryParse(m.group(1) ?? '');
       if (n == null || n <= 0) return m.group(0)!;
       final dec = m.group(2);
-      final hasHalf = (m.group(3) != null && m.group(3)!.isNotEmpty) || dec == '5';
+      final hasHalf =
+          (m.group(3) != null && m.group(3)!.isNotEmpty) || dec == '5';
       final extraTens = (!hasHalf && dec != null && dec.isNotEmpty)
           ? (int.tryParse(dec) ?? 0) * 10
           : 0;
@@ -316,7 +327,8 @@ abstract final class SmartQuickEntryParser {
         .where((e) => e.isNotEmpty)
         .toList();
     if (tokens.isEmpty) return null;
-    if (tokens.length == 1 && _nonStandaloneDigitTokens.contains(tokens.first)) {
+    if (tokens.length == 1 &&
+        _nonStandaloneDigitTokens.contains(tokens.first)) {
       return null;
     }
 
@@ -360,9 +372,14 @@ abstract final class SmartQuickEntryParser {
           _vnDigitWords.containsKey(tokens[i]) &&
           (_vnDigitWords[tokens[i]] ?? 0) >= 2 &&
           (_vnDigitWords[tokens[i]] ?? 0) <= 9 &&
-          const {'mốt', 'tư', 'tu', 'lăm', 'lam', 'nhăm'}.contains(
-            tokens[i + 1],
-          )) {
+          const {
+            'mốt',
+            'tư',
+            'tu',
+            'lăm',
+            'lam',
+            'nhăm',
+          }.contains(tokens[i + 1])) {
         // Shorthand spoken two-digit ("ba lăm" -> 35, "hai mốt" -> 21, "bốn tư" -> 44)
         tens = _vnDigitWords[tokens[i]]! * 10;
         ones = _vnDigitWords[tokens[i + 1]]!;

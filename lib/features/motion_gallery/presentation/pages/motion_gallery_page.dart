@@ -77,24 +77,26 @@ class _MotionGalleryPageState extends State<MotionGalleryPage> {
     final cat = state.selectedCategory;
     final query = state.searchQuery.trim();
 
-    return _allSamples.where((sample) {
-      if (cat != null && sample.category != cat) {
-        return false;
-      }
-      if (query.isEmpty) {
-        return true;
-      }
-      return VietnameseSearchMatcher.matchesAny(query, <String?>[
-        sample.formattedCode,
-        '${sample.number}',
-        sample.id,
-        sample.titleVi,
-        sample.uxPurposeVi,
-        sample.tokenSummary,
-        sample.upstreamRef,
-        sample.category.shortLabelVi,
-      ]);
-    }).toList(growable: false);
+    return _allSamples
+        .where((sample) {
+          if (cat != null && sample.category != cat) {
+            return false;
+          }
+          if (query.isEmpty) {
+            return true;
+          }
+          return VietnameseSearchMatcher.matchesAny(query, <String?>[
+            sample.formattedCode,
+            '${sample.number}',
+            sample.id,
+            sample.titleVi,
+            sample.uxPurposeVi,
+            sample.tokenSummary,
+            sample.upstreamRef,
+            sample.category.shortLabelVi,
+          ]);
+        })
+        .toList(growable: false);
   }
 
   void _toggleReduceMotion(BuildContext context, ThemeBloc? themeBloc) {
@@ -185,9 +187,8 @@ class _MotionGalleryPageState extends State<MotionGalleryPage> {
                         _ToolbarPillChip(
                           label: '${spd}x',
                           selected: (state.speedFactor - spd).abs() < 0.02,
-                          onTap: () => galleryBloc.add(
-                            MotionGallerySpeedChanged(spd),
-                          ),
+                          onTap: () =>
+                              galleryBloc.add(MotionGallerySpeedChanged(spd)),
                         ),
                       _ToolbarPillChip(
                         label: 'Phát lại mẫu',
@@ -300,8 +301,10 @@ class _MotionGalleryPageState extends State<MotionGalleryPage> {
                                             const MotionGalleryQueryChanged(''),
                                           );
                                         },
-                                        onSpeedSelected: (spd) => galleryBloc
-                                            .add(MotionGallerySpeedChanged(spd)),
+                                        onSpeedSelected: (spd) =>
+                                            galleryBloc.add(
+                                              MotionGallerySpeedChanged(spd),
+                                            ),
                                         onReplay: () => galleryBloc.add(
                                           const MotionGalleryReplayTriggered(),
                                         ),
@@ -315,9 +318,11 @@ class _MotionGalleryPageState extends State<MotionGalleryPage> {
                                               innerCtx,
                                               themeBloc,
                                             ),
-                                        onCategorySelected: (cat) => galleryBloc
-                                            .add(
-                                              MotionGalleryCategorySelected(cat),
+                                        onCategorySelected: (cat) =>
+                                            galleryBloc.add(
+                                              MotionGalleryCategorySelected(
+                                                cat,
+                                              ),
                                             ),
                                       ),
                                     ),
@@ -443,11 +448,31 @@ class _MotionStudioHeroCard extends StatelessWidget {
 
   static final _springRows = <(String, SpringDescription, String)>[
     ('pressSpring', LifeOsMotionTokens.pressSpring, 'Nhấn & nhả nút xúc giác'),
-    ('snappySpring', LifeOsMotionTokens.snappySpring, 'Segmented pill & công tắc'),
-    ('bouncySpring', LifeOsMotionTokens.bouncySpring, 'Mascot nhảy & sóng đàn hồi'),
-    ('sheetSnapSpring', LifeOsMotionTokens.sheetSnapSpring, 'Đa nấc Sheet (0% vọt lố)'),
-    ('gestureThrowSpring', LifeOsMotionTokens.gestureThrowSpring, 'Kéo thả 2D & vuốt sao kê'),
-    ('chartMorphSpring', LifeOsMotionTokens.chartMorphSpring, 'Biểu đồ & vòng (0% vọt lố)'),
+    (
+      'snappySpring',
+      LifeOsMotionTokens.snappySpring,
+      'Segmented pill & công tắc',
+    ),
+    (
+      'bouncySpring',
+      LifeOsMotionTokens.bouncySpring,
+      'Mascot nhảy & sóng đàn hồi',
+    ),
+    (
+      'sheetSnapSpring',
+      LifeOsMotionTokens.sheetSnapSpring,
+      'Đa nấc Sheet (0% vọt lố)',
+    ),
+    (
+      'gestureThrowSpring',
+      LifeOsMotionTokens.gestureThrowSpring,
+      'Kéo thả 2D & vuốt sao kê',
+    ),
+    (
+      'chartMorphSpring',
+      LifeOsMotionTokens.chartMorphSpring,
+      'Biểu đồ & vòng (0% vọt lố)',
+    ),
   ];
 
   @override
@@ -772,7 +797,8 @@ class _MotionStudioToolbar extends StatelessWidget {
             onChanged: onQueryChanged,
             decoration: InputDecoration(
               isDense: true,
-              hintText: 'Tìm mẫu không dấu (#34, lò xo, biểu đồ, shader, mascot...)',
+              hintText:
+                  'Tìm mẫu không dấu (#34, lò xo, biểu đồ, shader, mascot...)',
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               suffixIcon: state.searchQuery.isEmpty
                   ? null

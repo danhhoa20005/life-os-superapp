@@ -348,7 +348,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             const BananaGlassIcon(
-                                              assetPath: AppAssets.ic3dHydration,
+                                              assetPath:
+                                                  AppAssets.ic3dHydration,
                                               fallbackIcon:
                                                   Icons.water_drop_outlined,
                                               size: 40,
@@ -384,7 +385,9 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                           ],
                                         ),
                                         FilledButton.tonalIcon(
-                                          key: const Key('add_water_250_button'),
+                                          key: const Key(
+                                            'add_water_250_button',
+                                          ),
                                           onPressed: () => context
                                               .read<ProUtilitiesBloc>()
                                               .add(
@@ -478,8 +481,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                         label: Text(
                                           'Tất cả (${state.habits.length})',
                                         ),
-                                        selected:
-                                            _habitCategoryFilter == 'all',
+                                        selected: _habitCategoryFilter == 'all',
                                         onSelected: (_) => setState(
                                           () => _habitCategoryFilter = 'all',
                                         ),
@@ -491,8 +493,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                       ])
                                         ChoiceChip(
                                           label: Text(cat),
-                                          selected:
-                                              _habitCategoryFilter == cat,
+                                          selected: _habitCategoryFilter == cat,
                                           onSelected: (sel) => setState(
                                             () => _habitCategoryFilter = sel
                                                 ? cat
@@ -547,7 +548,9 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                       ),
                                       const SizedBox(height: 8),
                                       FilledButton.tonalIcon(
-                                        key: const Key('habits_reset_filter_btn'),
+                                        key: const Key(
+                                          'habits_reset_filter_btn',
+                                        ),
                                         onPressed: () => setState(
                                           () => _habitCategoryFilter = 'all',
                                         ),
@@ -717,7 +720,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                               LifeOsStatusPill(
                                                 icon: doneToday
                                                     ? Icons.check_circle_rounded
-                                                    : Icons.radio_button_unchecked,
+                                                    : Icons
+                                                          .radio_button_unchecked,
                                                 label: doneToday
                                                     ? 'Đã xong hôm nay'
                                                     : 'Chạm thẻ để hoàn thành',
@@ -755,11 +759,8 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
     final bloc = context.read<ProUtilitiesBloc>();
     await showDialog<void>(
       context: context,
-      builder: (_) => _SaveHabitDialog(
-        bloc: bloc,
-        userId: userId,
-        existing: existing,
-      ),
+      builder: (_) =>
+          _SaveHabitDialog(bloc: bloc, userId: userId, existing: existing),
     );
   }
 }

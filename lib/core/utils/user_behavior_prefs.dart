@@ -363,7 +363,10 @@ abstract final class UserBehaviorPrefs {
     if (cleanCmd.isEmpty || cleanLabel.isEmpty) return;
 
     final refNow = now ?? DateTime.now();
-    final canonicalId = cleanLabel.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+    final canonicalId = cleanLabel.toLowerCase().replaceAll(
+      RegExp(r'\s+'),
+      '_',
+    );
     final mutable = List<HabitShortcut>.from(_cachedHabits);
     final idx = mutable.indexWhere((h) => h.id == canonicalId);
 
@@ -373,7 +376,9 @@ abstract final class UserBehaviorPrefs {
         id: canonicalId,
         label: cleanLabel,
         commandText: cleanCmd,
-        categoryName: categoryName.isNotEmpty ? categoryName : prev.categoryName,
+        categoryName: categoryName.isNotEmpty
+            ? categoryName
+            : prev.categoryName,
         amountMinor: amountMinor > 0 ? amountMinor : prev.amountMinor,
         frequency: prev.frequency + 1,
         lastUsedEpochMs: refNow.millisecondsSinceEpoch,
@@ -466,11 +471,7 @@ abstract final class UserBehaviorPrefs {
     for (final item in defaults) {
       if (results.length >= maxCount) break;
       if (seenCommands.add(item.$2.toLowerCase())) {
-        results.add((
-          label: item.$1,
-          command: item.$2,
-          isPersonalHabit: false,
-        ));
+        results.add((label: item.$1, command: item.$2, isPersonalHabit: false));
       }
     }
 

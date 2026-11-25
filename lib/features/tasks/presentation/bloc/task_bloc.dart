@@ -93,10 +93,7 @@ final class TaskDeleted extends TaskEvent {
   final String actorUserId;
   final TaskEntity task;
 
-  const TaskDeleted({
-    required this.actorUserId,
-    required this.task,
-  });
+  const TaskDeleted({required this.actorUserId, required this.task});
 
   @override
   List<Object?> get props => [actorUserId, task];
@@ -160,7 +157,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     TasksWatchStarted event,
     Emitter<TaskState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(isLoading: true, clearFailure: true, clearMessage: true),
+    );
     await emit.forEach<Result<List<TaskEntity>>>(
       _repository.watchTasks(userId: event.userId, familyId: event.familyId),
       onData: (res) => res.fold(

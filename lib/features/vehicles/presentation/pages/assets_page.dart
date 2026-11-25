@@ -1764,152 +1764,160 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: VehicleCategory.values.map((cat) {
-                      return ChoiceChip(
-                        selected: cat == selectedCategory,
-                        label: Text(cat.displayLabel),
-                        onSelected: (_) {
-                          final first = MotorcycleSpecCatalog.allProfiles
-                              .firstWhere((p) => p.category == cat);
-                          setSheetState(() {
-                            selectedCategory = cat;
-                            selectedProfile = first;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: profiles.map((p) {
-                      return ChoiceChip(
-                        selected: p.profileKey == selectedProfile.profileKey,
-                        label: Text(p.modelLineTitle),
-                        onSelected: (_) =>
-                            setSheetState(() => selectedProfile = p),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  _OemCompactPreviewBanner(
-                    profile: selectedProfile,
-                    numFmt: numFmt,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: ctx,
-                            initialDate:
-                                insuranceExpiry ??
-                                DateTime.now().add(const Duration(days: 365)),
-                            firstDate: DateTime(2024),
-                            lastDate: DateTime(2035),
-                          );
-                          if (picked != null) {
-                            setSheetState(() => insuranceExpiry = picked);
-                          }
-                        },
-                        icon: const Icon(
-                          Icons.verified_user_outlined,
-                          size: 17,
-                        ),
-                        label: Text(
-                          insuranceExpiry != null
-                              ? 'BH TNDS: ${dateFmt.format(insuranceExpiry!)}'
-                              : 'Cập nhật hạn Bảo hiểm TNDS',
-                        ),
-                      ),
-                      if (selectedCategory.requiresPeriodicInspection)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: VehicleCategory.values.map((cat) {
+                        return ChoiceChip(
+                          selected: cat == selectedCategory,
+                          label: Text(cat.displayLabel),
+                          onSelected: (_) {
+                            final first = MotorcycleSpecCatalog.allProfiles
+                                .firstWhere((p) => p.category == cat);
+                            setSheetState(() {
+                              selectedCategory = cat;
+                              selectedProfile = first;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: profiles.map((p) {
+                        return ChoiceChip(
+                          selected: p.profileKey == selectedProfile.profileKey,
+                          label: Text(p.modelLineTitle),
+                          onSelected: (_) =>
+                              setSheetState(() => selectedProfile = p),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    _OemCompactPreviewBanner(
+                      profile: selectedProfile,
+                      numFmt: numFmt,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
                         OutlinedButton.icon(
                           onPressed: () async {
                             final picked = await showDatePicker(
                               context: ctx,
                               initialDate:
-                                  inspectionExpiry ??
+                                  insuranceExpiry ??
                                   DateTime.now().add(const Duration(days: 365)),
                               firstDate: DateTime(2024),
                               lastDate: DateTime(2035),
                             );
                             if (picked != null) {
-                              setSheetState(() => inspectionExpiry = picked);
+                              setSheetState(() => insuranceExpiry = picked);
                             }
                           },
-                          icon: const Icon(Icons.fact_check_outlined, size: 17),
+                          icon: const Icon(
+                            Icons.verified_user_outlined,
+                            size: 17,
+                          ),
                           label: Text(
-                            inspectionExpiry != null
-                                ? 'Đăng kiểm: ${dateFmt.format(inspectionExpiry!)}'
-                                : 'Cập nhật hạn Đăng kiểm ô tô',
+                            insuranceExpiry != null
+                                ? 'BH TNDS: ${dateFmt.format(insuranceExpiry!)}'
+                                : 'Cập nhật hạn Bảo hiểm TNDS',
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Đóng'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: FilledButton(
-                          onPressed: () {
-                            bloc.add(
-                              VehicleSpecProfileUpdated(
-                                vehicle: vehicle,
-                                category: selectedCategory,
-                                modelProfileKey: selectedProfile.profileKey,
-                                updatedName: nameCtrl.text,
-                                updatedPlateNumber: plateCtrl.text,
-                                insuranceExpiryDate: insuranceExpiry,
-                                inspectionExpiryDate: inspectionExpiry,
-                              ),
-                            );
-                            Navigator.of(ctx).pop();
-                          },
-                          child: const Text('Áp dụng thông số'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (!vehicle.isFamilyShared ||
-                      vehicle.ownerId.isEmpty ||
-                      vehicle.ownerId == widget.userId) ...[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      key: const Key('edit_sheet_delete_vehicle_btn'),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _confirmDeleteVehicle(context, vehicle);
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFDC2626),
-                      ),
-                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text('Xóa phương tiện này khỏi danh sách'),
+                        if (selectedCategory.requiresPeriodicInspection)
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate:
+                                    inspectionExpiry ??
+                                    DateTime.now().add(
+                                      const Duration(days: 365),
+                                    ),
+                                firstDate: DateTime(2024),
+                                lastDate: DateTime(2035),
+                              );
+                              if (picked != null) {
+                                setSheetState(() => inspectionExpiry = picked);
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.fact_check_outlined,
+                              size: 17,
+                            ),
+                            label: Text(
+                              inspectionExpiry != null
+                                  ? 'Đăng kiểm: ${dateFmt.format(inspectionExpiry!)}'
+                                  : 'Cập nhật hạn Đăng kiểm ô tô',
+                            ),
+                          ),
+                      ],
                     ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Đóng'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            onPressed: () {
+                              bloc.add(
+                                VehicleSpecProfileUpdated(
+                                  vehicle: vehicle,
+                                  category: selectedCategory,
+                                  modelProfileKey: selectedProfile.profileKey,
+                                  updatedName: nameCtrl.text,
+                                  updatedPlateNumber: plateCtrl.text,
+                                  insuranceExpiryDate: insuranceExpiry,
+                                  inspectionExpiryDate: inspectionExpiry,
+                                ),
+                              );
+                              Navigator.of(ctx).pop();
+                            },
+                            child: const Text('Áp dụng thông số'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!vehicle.isFamilyShared ||
+                        vehicle.ownerId.isEmpty ||
+                        vehicle.ownerId == widget.userId) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        key: const Key('edit_sheet_delete_vehicle_btn'),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _confirmDeleteVehicle(context, vehicle);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFDC2626),
+                        ),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Xóa phương tiện này khỏi danh sách'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        );
-      },
-    ),
-  );
+          );
+        },
+      ),
+    );
     nameCtrl.dispose();
     plateCtrl.dispose();
   }

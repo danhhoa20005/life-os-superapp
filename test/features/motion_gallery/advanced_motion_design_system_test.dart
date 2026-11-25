@@ -22,10 +22,7 @@ class _SpringHarness extends StatefulWidget {
   final ValueChanged<LifeOsSpringController> onReady1D;
   final ValueChanged<LifeOsSpring2DController> onReady2D;
 
-  const _SpringHarness({
-    required this.onReady1D,
-    required this.onReady2D,
-  });
+  const _SpringHarness({required this.onReady1D, required this.onReady2D});
 
   @override
   State<_SpringHarness> createState() => _SpringHarnessState();
@@ -88,10 +85,7 @@ void main() {
         for (var i = 0; i < samples.length; i++) {
           final s = samples[i];
           expect(s.number, i + 1);
-          expect(
-            s.formattedCode,
-            '#${(i + 1).toString().padLeft(2, '0')}',
-          );
+          expect(s.formattedCode, '#${(i + 1).toString().padLeft(2, '0')}');
           expect(seenNumbers.add(s.number), isTrue);
           expect(
             seenIds.add(s.id),
@@ -108,7 +102,10 @@ void main() {
         expect(seenNumbers.length, 66);
         expect(seenIds.length, 66);
         expect(MotionSampleCategory.values.length, 8);
-        expect(categoryCounts.keys.toSet(), MotionSampleCategory.values.toSet());
+        expect(
+          categoryCounts.keys.toSet(),
+          MotionSampleCategory.values.toSet(),
+        );
         for (final cat in MotionSampleCategory.values) {
           expect(
             categoryCounts[cat] ?? 0,
@@ -467,85 +464,88 @@ void main() {
     );
   });
 
-  group('4. Light Mode, Dark Mode & Reduced Motion / Disable Animations (A11Y)', () {
-    testWidgets(
-      'MotionGalleryPage renders cleanly across ThemeMode.light, ThemeMode.dark, platformReduceMotion, and platformDisableAnimations',
-      (tester) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
+  group(
+    '4. Light Mode, Dark Mode & Reduced Motion / Disable Animations (A11Y)',
+    () {
+      testWidgets(
+        'MotionGalleryPage renders cleanly across ThemeMode.light, ThemeMode.dark, platformReduceMotion, and platformDisableAnimations',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(() {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+          });
 
-        // 1. Light Mode + Standard Motion
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light(),
-            darkTheme: AppTheme.dark(),
-            themeMode: ThemeMode.light,
-            builder: (_, child) => LifeOsTopToastHost(child: child!),
-            home: const MotionGalleryPage(),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('66 mẫu chuẩn hoá'), findsOneWidget);
-        expect(find.text('Giao diện: Sáng'), findsOneWidget);
-        expect(find.text('Reduce Motion: Tắt (Chuẩn)'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-
-        // 2. Dark Mode
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light(),
-            darkTheme: AppTheme.dark(),
-            themeMode: ThemeMode.dark,
-            builder: (_, child) => LifeOsTopToastHost(child: child!),
-            home: const MotionGalleryPage(),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Giao diện: Tối'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-
-        // 3. iOS OS Reduce Motion (platformReduceMotion: true)
-        await tester.pumpWidget(
-          LifeOsMotionScope.overrideForTest(
-            preferences: const LifeOsMotionPreferences(
-              platformReduceMotion: true,
-              hapticsEnabled: false,
-            ),
-            child: MaterialApp(
+          // 1. Light Mode + Standard Motion
+          await tester.pumpWidget(
+            MaterialApp(
               theme: AppTheme.light(),
+              darkTheme: AppTheme.dark(),
+              themeMode: ThemeMode.light,
               builder: (_, child) => LifeOsTopToastHost(child: child!),
               home: const MotionGalleryPage(),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Reduce Motion: Đang bật'), findsOneWidget);
-        expect(tester.takeException(), isNull);
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('66 mẫu chuẩn hoá'), findsOneWidget);
+          expect(find.text('Giao diện: Sáng'), findsOneWidget);
+          expect(find.text('Reduce Motion: Tắt (Chuẩn)'), findsOneWidget);
+          expect(tester.takeException(), isNull);
 
-        // 4. Android Remove Animations (platformDisableAnimations: true -> 0ms instant)
-        await tester.pumpWidget(
-          LifeOsMotionScope.overrideForTest(
-            preferences: const LifeOsMotionPreferences(
-              platformDisableAnimations: true,
-              hapticsEnabled: false,
-            ),
-            child: MaterialApp(
-              theme: AppTheme.dark(),
+          // 2. Dark Mode
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light(),
+              darkTheme: AppTheme.dark(),
+              themeMode: ThemeMode.dark,
               builder: (_, child) => LifeOsTopToastHost(child: child!),
               home: const MotionGalleryPage(),
             ),
-          ),
-        );
-        await tester.pump();
-        expect(find.text('Reduce Motion: Đang bật'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  });
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Giao diện: Tối'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+
+          // 3. iOS OS Reduce Motion (platformReduceMotion: true)
+          await tester.pumpWidget(
+            LifeOsMotionScope.overrideForTest(
+              preferences: const LifeOsMotionPreferences(
+                platformReduceMotion: true,
+                hapticsEnabled: false,
+              ),
+              child: MaterialApp(
+                theme: AppTheme.light(),
+                builder: (_, child) => LifeOsTopToastHost(child: child!),
+                home: const MotionGalleryPage(),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Reduce Motion: Đang bật'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+
+          // 4. Android Remove Animations (platformDisableAnimations: true -> 0ms instant)
+          await tester.pumpWidget(
+            LifeOsMotionScope.overrideForTest(
+              preferences: const LifeOsMotionPreferences(
+                platformDisableAnimations: true,
+                hapticsEnabled: false,
+              ),
+              child: MaterialApp(
+                theme: AppTheme.dark(),
+                builder: (_, child) => LifeOsTopToastHost(child: child!),
+                home: const MotionGalleryPage(),
+              ),
+            ),
+          );
+          await tester.pump();
+          expect(find.text('Reduce Motion: Đang bật'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    },
+  );
 
   group('5. Full 66-Sample Narrow 360x800 @ 112% Audit & End-to-End App Navigation', () {
     testWidgets(
@@ -636,10 +636,12 @@ void main() {
 
           // Jump CustomScrollView back to top so the toolbar category strip is visible
           final scrollableState = tester.state<ScrollableState>(
-            find.descendant(
-              of: scrollViewFinder,
-              matching: find.byType(Scrollable),
-            ).first,
+            find
+                .descendant(
+                  of: scrollViewFinder,
+                  matching: find.byType(Scrollable),
+                )
+                .first,
           );
           scrollableState.position.jumpTo(0.0);
           await tester.pumpAndSettle();

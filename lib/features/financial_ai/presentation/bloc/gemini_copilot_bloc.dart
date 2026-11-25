@@ -80,12 +80,7 @@ final class GeminiOmniReset extends GeminiCopilotEvent {
   const GeminiOmniReset();
 }
 
-enum GeminiCopilotStatus {
-  initial,
-  ready,
-  verifyingConnection,
-  analyzing,
-}
+enum GeminiCopilotStatus { initial, ready, verifyingConnection, analyzing }
 
 final class GeminiCopilotState extends Equatable {
   final GeminiCopilotStatus status;
@@ -168,9 +163,8 @@ class GeminiCopilotBloc extends Bloc<GeminiCopilotEvent, GeminiCopilotState> {
   ) async {
     final res = await _repository.loadConfig();
     res.fold(
-      (f) => emit(
-        state.copyWith(status: GeminiCopilotStatus.ready, failure: f),
-      ),
+      (f) =>
+          emit(state.copyWith(status: GeminiCopilotStatus.ready, failure: f)),
       (cfg) => emit(
         state.copyWith(
           status: GeminiCopilotStatus.ready,
@@ -197,8 +191,8 @@ class GeminiCopilotBloc extends Bloc<GeminiCopilotEvent, GeminiCopilotState> {
         state.copyWith(
           config: cfg,
           clearFailure: true,
-          feedbackMessage: event.newApiKey != null &&
-                  event.newApiKey!.trim().isNotEmpty
+          feedbackMessage:
+              event.newApiKey != null && event.newApiKey!.trim().isNotEmpty
               ? 'Đã mã hóa và lưu khóa kết nối Gemini trên thiết bị.'
               : 'Đã cập nhật tùy chọn Gemini AI.',
         ),
@@ -283,9 +277,8 @@ class GeminiCopilotBloc extends Bloc<GeminiCopilotEvent, GeminiCopilotState> {
     );
 
     res.fold(
-      (f) => emit(
-        state.copyWith(status: GeminiCopilotStatus.ready, failure: f),
-      ),
+      (f) =>
+          emit(state.copyWith(status: GeminiCopilotStatus.ready, failure: f)),
       (hybrid) => emit(
         state.copyWith(
           status: GeminiCopilotStatus.ready,

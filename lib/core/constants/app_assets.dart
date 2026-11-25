@@ -481,8 +481,8 @@ class BananaGlassIcon extends StatelessWidget {
           color: isSelected
               ? c.primary
               : (isDark
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : c.separator.withValues(alpha: 0.85)),
+                    ? Colors.white.withValues(alpha: 0.14)
+                    : c.separator.withValues(alpha: 0.85)),
           width: isSelected ? 1.4 : 0.85,
         ),
       ),
@@ -500,11 +500,7 @@ class BananaGlassIcon extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => ColoredBox(
             color: effectiveColor.withValues(alpha: 0.14),
-            child: Icon(
-              fallbackIcon,
-              color: effectiveColor,
-              size: size * 0.54,
-            ),
+            child: Icon(fallbackIcon, color: effectiveColor, size: size * 0.54),
           ),
         ),
       ),

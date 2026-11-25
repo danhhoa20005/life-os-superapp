@@ -103,7 +103,9 @@ class FastTextBinaryModel {
       if (offset + strLen > bytes.length) {
         throw const FormatException('Truncated LFTQ label string.');
       }
-      labels.add(utf8.decode(Uint8List.sublistView(bytes, offset, offset + strLen)));
+      labels.add(
+        utf8.decode(Uint8List.sublistView(bytes, offset, offset + strLen)),
+      );
       offset += strLen;
     }
 
@@ -167,9 +169,7 @@ class FastTextBinaryModel {
     for (final b in data) {
       h ^= (b & 0xFF);
       // 0x01000193 = (1 << 24) + 0x193 -> intermediate stays < 2^41
-      h =
-          (((h << 24) & 0xFFFFFFFF) + ((h * 0x193) & 0xFFFFFFFF)) &
-          0xFFFFFFFF;
+      h = (((h << 24) & 0xFFFFFFFF) + ((h * 0x193) & 0xFFFFFFFF)) & 0xFFFFFFFF;
     }
     return h;
   }

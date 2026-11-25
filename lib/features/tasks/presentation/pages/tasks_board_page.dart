@@ -176,56 +176,57 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                   t.dueAt!.isBefore(now),
             )
             .length;
-        final doneCount =
-            allTasks.where((t) => t.status == TaskWorkflowStatus.done).length;
+        final doneCount = allTasks
+            .where((t) => t.status == TaskWorkflowStatus.done)
+            .length;
 
         final q = _searchQuery.trim();
-        final filtered = allTasks.where((t) {
-          if (_selectedAssigneeFilter != 'all' &&
-              t.assigneeId != _selectedAssigneeFilter) {
-            return false;
-          }
-          if (q.isNotEmpty) {
-            final matches = VietnameseSearchMatcher.matchesAny(q, [
-              t.title,
-              t.description,
-              t.assigneeName,
-              t.creatorName,
-            ]);
-            if (!matches) return false;
-          }
-          return switch (_statusFilter) {
-            'open' =>
-              t.status == TaskWorkflowStatus.proposed ||
-                  t.status == TaskWorkflowStatus.accepted ||
-                  t.status == TaskWorkflowStatus.inProgress,
-            'today' =>
-              t.status != TaskWorkflowStatus.done &&
-                  t.status != TaskWorkflowStatus.declined &&
-                  t.dueAt != null &&
-                  _isSameDay(t.dueAt!, now),
-            'overdue' =>
-              t.status != TaskWorkflowStatus.done &&
-                  t.status != TaskWorkflowStatus.declined &&
-                  t.dueAt != null &&
-                  t.dueAt!.isBefore(now),
-            'done' => t.status == TaskWorkflowStatus.done,
-            _ => true,
-          };
-        }).toList()
-          ..sort((a, b) {
-            final sr = _statusSortRank(a.status).compareTo(
-              _statusSortRank(b.status),
-            );
-            if (sr != 0) return sr;
-            final pr = _prioritySortRank(a.priority).compareTo(
-              _prioritySortRank(b.priority),
-            );
-            if (pr != 0) return pr;
-            final aDue = a.dueAt ?? DateTime(2099);
-            final bDue = b.dueAt ?? DateTime(2099);
-            return aDue.compareTo(bDue);
-          });
+        final filtered =
+            allTasks.where((t) {
+              if (_selectedAssigneeFilter != 'all' &&
+                  t.assigneeId != _selectedAssigneeFilter) {
+                return false;
+              }
+              if (q.isNotEmpty) {
+                final matches = VietnameseSearchMatcher.matchesAny(q, [
+                  t.title,
+                  t.description,
+                  t.assigneeName,
+                  t.creatorName,
+                ]);
+                if (!matches) return false;
+              }
+              return switch (_statusFilter) {
+                'open' =>
+                  t.status == TaskWorkflowStatus.proposed ||
+                      t.status == TaskWorkflowStatus.accepted ||
+                      t.status == TaskWorkflowStatus.inProgress,
+                'today' =>
+                  t.status != TaskWorkflowStatus.done &&
+                      t.status != TaskWorkflowStatus.declined &&
+                      t.dueAt != null &&
+                      _isSameDay(t.dueAt!, now),
+                'overdue' =>
+                  t.status != TaskWorkflowStatus.done &&
+                      t.status != TaskWorkflowStatus.declined &&
+                      t.dueAt != null &&
+                      t.dueAt!.isBefore(now),
+                'done' => t.status == TaskWorkflowStatus.done,
+                _ => true,
+              };
+            }).toList()..sort((a, b) {
+              final sr = _statusSortRank(
+                a.status,
+              ).compareTo(_statusSortRank(b.status));
+              if (sr != 0) return sr;
+              final pr = _prioritySortRank(
+                a.priority,
+              ).compareTo(_prioritySortRank(b.priority));
+              if (pr != 0) return pr;
+              final aDue = a.dueAt ?? DateTime(2099);
+              final bDue = b.dueAt ?? DateTime(2099);
+              return aDue.compareTo(bDue);
+            });
 
         final filterOptions = <(String key, String label, int? badge)>[
           ('all', 'Tất cả', null),
@@ -358,9 +359,7 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                                     vertical: 7,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? activeColor
-                                        : c.surface,
+                                    color: isSelected ? activeColor : c.surface,
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
                                       color: isSelected
@@ -490,9 +489,8 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                             label: const Text('Mọi thành viên'),
                             selected: _selectedAssigneeFilter == 'all',
                             visualDensity: VisualDensity.compact,
-                            onSelected: (_) => setState(
-                              () => _selectedAssigneeFilter = 'all',
-                            ),
+                            onSelected: (_) =>
+                                setState(() => _selectedAssigneeFilter = 'all'),
                           ),
                         ),
                         if (user != null)
@@ -514,8 +512,7 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                                 padding: const EdgeInsets.only(right: 6),
                                 child: ChoiceChip(
                                   label: Text(m.fullName),
-                                  selected:
-                                      _selectedAssigneeFilter == m.userId,
+                                  selected: _selectedAssigneeFilter == m.userId,
                                   visualDensity: VisualDensity.compact,
                                   onSelected: (_) => setState(
                                     () => _selectedAssigneeFilter = m.userId,
@@ -582,12 +579,12 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                           onPressed: user == null
                               ? null
                               : () => showUnifiedCreateTaskDialog(
-                                    context,
-                                    userId: user.id,
-                                    userName: user.fullName,
-                                    familyId: family?.id,
-                                    members: members,
-                                  ),
+                                  context,
+                                  userId: user.id,
+                                  userName: user.fullName,
+                                  familyId: family?.id,
+                                  members: members,
+                                ),
                         ),
                       ],
                     ),
@@ -615,7 +612,9 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                                   child: LifeOsAnimatedItemEntrance(
                                     key: ValueKey('task_entrance_${task.id}'),
                                     itemId: task.id,
-                                    animateOnMount: newTaskIds.contains(task.id),
+                                    animateOnMount: newTaskIds.contains(
+                                      task.id,
+                                    ),
                                     child: _UnifiedTaskRowCard(
                                       task: task,
                                       currentUserId: widget.userId,
@@ -637,12 +636,12 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                     onPressed: user == null
                         ? null
                         : () => showUnifiedCreateTaskDialog(
-                              context,
-                              userId: user.id,
-                              userName: user.fullName,
-                              familyId: family?.id,
-                              members: members,
-                            ),
+                            context,
+                            userId: user.id,
+                            userName: user.fullName,
+                            familyId: family?.id,
+                            members: members,
+                          ),
                   ),
                 ],
               ],
@@ -756,32 +755,33 @@ class _UnifiedTaskRowCard extends StatelessWidget {
     final isDone = task.status == TaskWorkflowStatus.done;
     final isDeclined = task.status == TaskWorkflowStatus.declined;
     final isPending = task.status == TaskWorkflowStatus.proposed;
-    final isOverdue = !isDone &&
+    final isOverdue =
+        !isDone &&
         !isDeclined &&
         task.dueAt != null &&
         task.dueAt!.isBefore(referenceNow);
 
     final (barColor, pillTone, pillLabel) = switch (task.status) {
       TaskWorkflowStatus.done => (
-          c.primary,
-          LifeOsAccentTone.emerald,
-          'Đã xong',
-        ),
+        c.primary,
+        LifeOsAccentTone.emerald,
+        'Đã xong',
+      ),
       TaskWorkflowStatus.proposed => (
-          const Color(0xFFF59E0B),
-          LifeOsAccentTone.amber,
-          'Chờ nhận',
-        ),
+        const Color(0xFFF59E0B),
+        LifeOsAccentTone.amber,
+        'Chờ nhận',
+      ),
       TaskWorkflowStatus.declined => (
-          c.error,
-          LifeOsAccentTone.coral,
-          'Từ chối',
-        ),
+        c.error,
+        LifeOsAccentTone.coral,
+        'Từ chối',
+      ),
       TaskWorkflowStatus.accepted || TaskWorkflowStatus.inProgress => (
-          isOverdue ? c.error : const Color(0xFF2563EB),
-          isOverdue ? LifeOsAccentTone.coral : LifeOsAccentTone.blue,
-          isOverdue ? 'Quá hạn' : 'Đang làm',
-        ),
+        isOverdue ? c.error : const Color(0xFF2563EB),
+        isOverdue ? LifeOsAccentTone.coral : LifeOsAccentTone.blue,
+        isOverdue ? 'Quá hạn' : 'Đang làm',
+      ),
     };
 
     final recurrenceLabel = switch (task.recurrence) {
@@ -906,8 +906,9 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                           height: 1.25,
                           fontWeight: FontWeight.w800,
                           color: isDone ? c.textSecondary : c.textPrimary,
-                          decoration:
-                              isDone ? TextDecoration.lineThrough : null,
+                          decoration: isDone
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       if (task.description != null &&
@@ -949,8 +950,9 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                                     fontWeight: isOverdue
                                         ? FontWeight.w700
                                         : FontWeight.w500,
-                                    color:
-                                        isOverdue ? c.error : c.textSecondary,
+                                    color: isOverdue
+                                        ? c.error
+                                        : c.textSecondary,
                                     fontFeatures: const [
                                       FontFeature.tabularFigures(),
                                     ],
@@ -1039,8 +1041,10 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                   onSelected: (action) async {
                     if (action == 'edit') {
                       final user = context.read<AuthBloc>().state.user;
-                      final family =
-                          context.read<FamilyBloc>().state.activeFamily;
+                      final family = context
+                          .read<FamilyBloc>()
+                          .state
+                          .activeFamily;
                       if (user == null) return;
                       await showUnifiedCreateTaskDialog(
                         context,
@@ -1062,10 +1066,7 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                       );
                       if (ok && context.mounted) {
                         context.read<TaskBloc>().add(
-                          TaskDeleted(
-                            actorUserId: currentUserId,
-                            task: task,
-                          ),
+                          TaskDeleted(actorUserId: currentUserId, task: task),
                         );
                       }
                       return;
@@ -1164,14 +1165,14 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                         foregroundColor: c.error,
                       ),
                       onPressed: () => context.read<TaskBloc>().add(
-                            TaskResponseSubmitted(
-                              RespondToTaskParams(
-                                actorUserId: currentUserId,
-                                task: task,
-                                accept: false,
-                              ),
-                            ),
+                        TaskResponseSubmitted(
+                          RespondToTaskParams(
+                            actorUserId: currentUserId,
+                            task: task,
+                            accept: false,
                           ),
+                        ),
+                      ),
                       child: const Text('Từ chối'),
                     ),
                     const SizedBox(width: 4),
@@ -1180,14 +1181,14 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                       ),
                       onPressed: () => context.read<TaskBloc>().add(
-                            TaskResponseSubmitted(
-                              RespondToTaskParams(
-                                actorUserId: currentUserId,
-                                task: task,
-                                accept: true,
-                              ),
-                            ),
+                        TaskResponseSubmitted(
+                          RespondToTaskParams(
+                            actorUserId: currentUserId,
+                            task: task,
+                            accept: true,
                           ),
+                        ),
+                      ),
                       icon: const Icon(Icons.check_rounded, size: 16),
                       label: const Text('Nhận việc'),
                     ),
@@ -1219,28 +1220,30 @@ class _KanbanColumnsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final groups =
         <(String title, LifeOsAccentTone tone, List<TaskEntity> items)>[
-      (
-        'Chờ nhận việc',
-        LifeOsAccentTone.amber,
-        tasks.where((t) => t.status == TaskWorkflowStatus.proposed).toList(),
-      ),
-      (
-        'Đang thực hiện',
-        LifeOsAccentTone.blue,
-        tasks
-            .where(
-              (t) =>
-                  t.status == TaskWorkflowStatus.accepted ||
-                  t.status == TaskWorkflowStatus.inProgress,
-            )
-            .toList(),
-      ),
-      (
-        'Đã hoàn thành',
-        LifeOsAccentTone.emerald,
-        tasks.where((t) => t.status == TaskWorkflowStatus.done).toList(),
-      ),
-    ];
+          (
+            'Chờ nhận việc',
+            LifeOsAccentTone.amber,
+            tasks
+                .where((t) => t.status == TaskWorkflowStatus.proposed)
+                .toList(),
+          ),
+          (
+            'Đang thực hiện',
+            LifeOsAccentTone.blue,
+            tasks
+                .where(
+                  (t) =>
+                      t.status == TaskWorkflowStatus.accepted ||
+                      t.status == TaskWorkflowStatus.inProgress,
+                )
+                .toList(),
+          ),
+          (
+            'Đã hoàn thành',
+            LifeOsAccentTone.emerald,
+            tasks.where((t) => t.status == TaskWorkflowStatus.done).toList(),
+          ),
+        ];
 
     return Column(
       children: groups.map((g) {
@@ -1566,8 +1569,9 @@ class _UnifiedCreateTaskDialogState extends State<_UnifiedCreateTaskDialog> {
                     .toList(),
                 onChanged: (val) {
                   if (val != null) {
-                    final found =
-                        widget.members.where((m) => m.userId == val).first;
+                    final found = widget.members
+                        .where((m) => m.userId == val)
+                        .first;
                     setState(() {
                       _assigneeId = val;
                       _assigneeName = found.fullName as String;
