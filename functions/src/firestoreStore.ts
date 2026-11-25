@@ -199,6 +199,7 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
             name: String(d.name ?? "Ngân hàng"),
             balanceMinor: Number(d.balanceMinor ?? 0),
             isEstimatedBalance: d.isEstimatedBalance !== false,
+            lastAuditId: typeof d.lastAuditId === "string" ? d.lastAuditId : undefined,
             bankCode: typeof d.bankCode === "string" ? d.bankCode : undefined,
             maskedAccount: typeof d.maskedAccount === "string" ? d.maskedAccount : undefined,
             updatedAtMs: Date.now()
@@ -215,6 +216,7 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
               type: "bank",
               balanceMinor: wallet.balanceMinor,
               isEstimatedBalance: wallet.isEstimatedBalance,
+              ...(wallet.lastAuditId ? { lastAuditId: wallet.lastAuditId } : {}),
               bankCode: wallet.bankCode ?? null,
               maskedAccount: wallet.maskedAccount ?? null,
               updatedAt: Timestamp.fromMillis(wallet.updatedAtMs)
@@ -304,7 +306,9 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
       const d = doc.data() as ServerBankConnectionRecord;
       if (d.consentStatus !== "granted") continue;
       if (d.bankCode.toUpperCase() === params.bankCode.toUpperCase()) {
-        if (params.subAccount && d.subAccount && d.subAccount !== params.subAccount) continue;
+        const expectedSub = String(d.subAccount ?? "").trim();
+        const incomingSub = String(params.subAccount ?? "").trim();
+        if (expectedSub !== incomingSub) continue;
         return d;
       }
     }

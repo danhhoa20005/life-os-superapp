@@ -16,8 +16,6 @@ import '../../../budgets/domain/usecases/budget_usecases.dart';
 import '../../../budgets/presentation/bloc/budget_bloc.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
-import '../../../transactions/presentation/bloc/transaction_event.dart';
-import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../bloc/family_bloc.dart';
 
 /// Screen 08: "Quỹ gia đình" following Unified LifeOS Design System v3.19.
@@ -31,6 +29,18 @@ class FamilyFundsPage extends StatelessWidget {
       return null;
     }
   }
+
+  SemanticStatusKind _expenseBadgeKind(FundExpenseStatus status) => switch (status) {
+    FundExpenseStatus.draft => SemanticStatusKind.info,
+    FundExpenseStatus.pendingApproval => SemanticStatusKind.provisional,
+    FundExpenseStatus.approved => SemanticStatusKind.info,
+    FundExpenseStatus.executed => SemanticStatusKind.success,
+    FundExpenseStatus.reconciled => SemanticStatusKind.success,
+    FundExpenseStatus.rejected => SemanticStatusKind.error,
+    FundExpenseStatus.cancelled => SemanticStatusKind.warning,
+    FundExpenseStatus.disputed => SemanticStatusKind.error,
+    FundExpenseStatus.reversed => SemanticStatusKind.warning,
+  };
 
   ({String asset, IconData icon, LifeOsAccentTone tone}) _resolveFundVisual(
     String fundName,
@@ -183,7 +193,7 @@ class FamilyFundsPage extends StatelessWidget {
                       final totalOut = allExpenseRequests
                           .where(
                             (e) =>
-                                e.item.status == FundExpenseStatus.approved &&
+                                e.item.status.affectsBalance &&
                                 e.item.createdAt.year == now.year &&
                                 e.item.createdAt.month == now.month,
                           )
@@ -191,12 +201,22 @@ class FamilyFundsPage extends StatelessWidget {
 
                       final pendingExpenses = allExpenseRequests
                           .where(
-                            (e) => e.item.status == FundExpenseStatus.pending,
+                            (e) =>
+                                e.item.status == FundExpenseStatus.draft ||
+                                e.item.status ==
+                                    FundExpenseStatus.pendingApproval ||
+                                e.item.status == FundExpenseStatus.approved ||
+                                e.item.status == FundExpenseStatus.disputed,
                           )
                           .toList();
                       final decidedExpenses = allExpenseRequests
                           .where(
-                            (e) => e.item.status != FundExpenseStatus.pending,
+                            (e) =>
+                                e.item.status == FundExpenseStatus.executed ||
+                                e.item.status == FundExpenseStatus.reconciled ||
+                                e.item.status == FundExpenseStatus.rejected ||
+                                e.item.status == FundExpenseStatus.cancelled ||
+                                e.item.status == FundExpenseStatus.reversed,
                           )
                           .toList();
 
@@ -970,13 +990,60 @@ class FamilyFundsPage extends StatelessWidget {
                                   ),
                                 )
                               else
-                                ...pendingExpenses.map((entry) {
+                                  ...pendingExpenses.map((entry) {
                                   final fund = entry.fund;
                                   final req = entry.item;
-                                  final canDecide =
+                                  final isFamilyFund =
                                       fund.scope == FundScope.family &&
                                       fund.familyId != null &&
                                       fund.familyId!.isNotEmpty;
+                                  final isManager =
+                                      isFamilyFund &&
+                                      family != null &&
+                                      family.id == fund.familyId &&
+                                      family.isManager(user.id);
+                                  final memberCount =
+                                      family?.members.length ?? 1;
+                                  final canDecide =
+                                      isFamilyFund &&
+                                      req.status ==
+                                          FundExpenseStatus.pendingApproval &&
+                                      FundExpenseStateMachine.canUserDecide(
+                                        isManager: isManager,
+                                        actorUserId: user.id,
+                                        requesterId: req.requesterId,
+                                        memberCount: memberCount,
+                                      );
+                                  final canExecute =
+                                      isFamilyFund &&
+                                      isManager &&
+                                      req.status == FundExpenseStatus.approved;
+                                  final canReverse =
+                                      isFamilyFund &&
+                                      isManager &&
+                                      (req.status ==
+                                              FundExpenseStatus.approved ||
+                                          req.status ==
+                                              FundExpenseStatus.disputed);
+                                  final canSubmitDraft =
+                                      FundExpenseStateMachine.canUserSubmitDraft(
+                                        currentStatus: req.status,
+                                        actorUserId: user.id,
+                                        requesterId: req.requesterId,
+                                      );
+                                  final canCancel =
+                                      FundExpenseStateMachine.canUserCancel(
+                                        currentStatus: req.status,
+                                        actorUserId: user.id,
+                                        requesterId: req.requesterId,
+                                      );
+                                  final blockedSelfApproval =
+                                      isFamilyFund &&
+                                      isManager &&
+                                      req.status ==
+                                          FundExpenseStatus.pendingApproval &&
+                                      req.requesterId == user.id &&
+                                      memberCount > 1;
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 10),
                                     child: LifeOsSoftCard(
@@ -1018,6 +1085,23 @@ class FamilyFundsPage extends StatelessWidget {
                                                         color: c.textSecondary,
                                                       ),
                                                     ),
+                                                    if (req.disputeReason !=
+                                                            null &&
+                                                        req
+                                                            .disputeReason!
+                                                            .isNotEmpty) ...[
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        'Lý do khiếu nại: ${req.disputeReason}',
+                                                        softWrap: true,
+                                                        style: TextStyle(
+                                                          fontSize: 11.8,
+                                                          color: c.error,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ],
                                                 ),
                                               ),
@@ -1048,11 +1132,52 @@ class FamilyFundsPage extends StatelessWidget {
                                             ],
                                           ),
                                           const SizedBox(height: 10),
-                                          if (canDecide)
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 8,
-                                              children: [
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              SemanticStatusBadge(
+                                                kind: _expenseBadgeKind(
+                                                  req.status,
+                                                ),
+                                                label: req.status.displayLabelVi,
+                                              ),
+                                              if (canSubmitDraft)
+                                                FilledButton.icon(
+                                                  key: Key(
+                                                    'submit_draft_fund_exp_${req.id}',
+                                                  ),
+                                                  onPressed: state.isSaving
+                                                      ? null
+                                                      : () => context
+                                                            .read<BudgetBloc>()
+                                                            .add(
+                                                              FundExpenseDraftSubmitted(
+                                                                SubmitFundExpenseDraftParams(
+                                                                  scope: fund
+                                                                      .scope,
+                                                                  userId:
+                                                                      user.id,
+                                                                  familyId: fund
+                                                                      .familyId,
+                                                                  fundId:
+                                                                      fund.id,
+                                                                  expenseId:
+                                                                      req.id,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                  icon: const Icon(
+                                                    Icons.send_rounded,
+                                                    size: 16,
+                                                  ),
+                                                  label: const Text(
+                                                    'Gửi duyệt',
+                                                  ),
+                                                ),
+                                              if (canDecide) ...[
                                                 FilledButton.icon(
                                                   key: Key(
                                                     'approve_fund_exp_${req.id}',
@@ -1071,6 +1196,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                                   expenseId:
                                                                       req.id,
                                                                   approve: true,
+                                                                  actorUserId:
+                                                                      user.id,
                                                                 ),
                                                               ),
                                                             ),
@@ -1101,6 +1228,8 @@ class FamilyFundsPage extends StatelessWidget {
                                                                       req.id,
                                                                   approve:
                                                                       false,
+                                                                  actorUserId:
+                                                                      user.id,
                                                                 ),
                                                               ),
                                                             ),
@@ -1117,13 +1246,115 @@ class FamilyFundsPage extends StatelessWidget {
                                                   ),
                                                 ),
                                               ],
-                                            )
-                                          else
-                                            const SemanticStatusBadge(
-                                              kind:
-                                                  SemanticStatusKind.provisional,
-                                              label: 'Đang chờ duyệt',
+                                              if (canExecute)
+                                                FilledButton.icon(
+                                                  key: Key(
+                                                    'execute_fund_exp_${req.id}',
+                                                  ),
+                                                  onPressed: state.isSaving
+                                                      ? null
+                                                      : () => context
+                                                            .read<BudgetBloc>()
+                                                            .add(
+                                                              FundExpenseExecuted(
+                                                                ExecuteFundExpenseParams(
+                                                                  familyId: fund
+                                                                      .familyId!,
+                                                                  fundId:
+                                                                      fund.id,
+                                                                  expenseId:
+                                                                      req.id,
+                                                                  actorUserId:
+                                                                      user.id,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                  icon: const Icon(
+                                                    Icons.payments_outlined,
+                                                    size: 17,
+                                                  ),
+                                                  label: const Text(
+                                                    'Giải ngân',
+                                                  ),
+                                                ),
+                                              if (canReverse)
+                                                OutlinedButton.icon(
+                                                  key: Key(
+                                                    'reverse_fund_exp_${req.id}',
+                                                  ),
+                                                  onPressed: state.isSaving
+                                                      ? null
+                                                      : () => context
+                                                            .read<BudgetBloc>()
+                                                            .add(
+                                                              FundExpenseReversed(
+                                                                ReverseFundExpenseParams(
+                                                                  familyId: fund
+                                                                      .familyId!,
+                                                                  fundId:
+                                                                      fund.id,
+                                                                  expenseId:
+                                                                      req.id,
+                                                                  actorUserId:
+                                                                      user.id,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                  icon: const Icon(
+                                                    Icons.undo_rounded,
+                                                    size: 17,
+                                                  ),
+                                                  label: const Text('Hoàn tác'),
+                                                ),
+                                              if (canCancel)
+                                                TextButton.icon(
+                                                  key: Key(
+                                                    'cancel_fund_exp_${req.id}',
+                                                  ),
+                                                  onPressed: state.isSaving
+                                                      ? null
+                                                      : () => context
+                                                            .read<BudgetBloc>()
+                                                            .add(
+                                                              FundExpenseCancelled(
+                                                                CancelFundExpenseParams(
+                                                                  scope: fund
+                                                                      .scope,
+                                                                  userId:
+                                                                      user.id,
+                                                                  familyId: fund
+                                                                      .familyId,
+                                                                  fundId:
+                                                                      fund.id,
+                                                                  expenseId:
+                                                                      req.id,
+                                                                  actorUserId:
+                                                                      user.id,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                  icon: Icon(
+                                                    Icons.cancel_outlined,
+                                                    size: 16,
+                                                    color: c.textSecondary,
+                                                  ),
+                                                  label: const Text(
+                                                    'Hủy đề xuất',
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          if (blockedSelfApproval) ...[
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'Cần quản trị viên khác phê duyệt để bảo đảm kiểm soát chéo.',
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: c.textSecondary,
+                                              ),
                                             ),
+                                          ],
                                         ],
                                       ),
                                     ),
@@ -1140,85 +1371,204 @@ class FamilyFundsPage extends StatelessWidget {
                                       children: [
                                         for (
                                           var i = 0;
-                                          i <
-                                              decidedExpenses.take(6).length;
+                                          i < decidedExpenses.length;
                                           i++
                                         ) ...[
                                           if (i > 0)
                                             const Divider(height: 18),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      decidedExpenses[i]
-                                                          .item
-                                                          .title,
-                                                      softWrap: true,
-                                                      style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: c.textPrimary,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      '${decidedExpenses[i].fund.name} · ${decidedExpenses[i].item.requesterName} · ${dtFmt.format(decidedExpenses[i].item.createdAt)}',
-                                                      softWrap: true,
-                                                      style: TextStyle(
-                                                        fontSize: 11.8,
-                                                        color: c.textSecondary,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Column(
+                                          Builder(
+                                            builder: (ctx) {
+                                              final entry = decidedExpenses[i];
+                                              final f = entry.fund;
+                                              final exp = entry.item;
+                                              final isFamilyFund =
+                                                  f.scope == FundScope.family &&
+                                                  f.familyId != null &&
+                                                  f.familyId!.isNotEmpty;
+                                              final isMgr =
+                                                  isFamilyFund &&
+                                                  family != null &&
+                                                  family.id == f.familyId &&
+                                                  family.isManager(user.id);
+                                              final isExec =
+                                                  exp.status ==
+                                                  FundExpenseStatus.executed;
+                                              return Column(
                                                 crossAxisAlignment:
-                                                    CrossAxisAlignment.end,
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                    '-${VndAmount.format(decidedExpenses[i].item.amountMinor)}',
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color: decidedExpenses[i]
-                                                                  .item
-                                                                  .status ==
-                                                              FundExpenseStatus
-                                                                  .approved
-                                                          ? c.error
-                                                          : c.textSecondary,
-                                                      fontFeatures: const [
-                                                        FontFeature.tabularFigures(),
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              exp.title,
+                                                              softWrap: true,
+                                                              style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: c
+                                                                    .textPrimary,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '${f.name} · ${exp.requesterName} · ${dtFmt.format(exp.createdAt)}',
+                                                              softWrap: true,
+                                                              style: TextStyle(
+                                                                fontSize: 11.8,
+                                                                color: c
+                                                                    .textSecondary,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .end,
+                                                        children: [
+                                                          Text(
+                                                            '-${VndAmount.format(exp.amountMinor)}',
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                              color: exp
+                                                                      .status
+                                                                      .affectsBalance
+                                                                  ? c.error
+                                                                  : c.textSecondary,
+                                                              fontFeatures: const [
+                                                                FontFeature.tabularFigures(),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 3,
+                                                          ),
+                                                          SemanticStatusBadge(
+                                                            kind:
+                                                                _expenseBadgeKind(
+                                                                  exp.status,
+                                                                ),
+                                                            label: exp
+                                                                .status
+                                                                .displayLabelVi,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  if (isFamilyFund &&
+                                                      isExec) ...[
+                                                    const SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 6,
+                                                      children: [
+                                                        if (isMgr)
+                                                          OutlinedButton.icon(
+                                                            key: Key(
+                                                              'reconcile_fund_exp_${exp.id}',
+                                                            ),
+                                                            onPressed:
+                                                                state.isSaving
+                                                                    ? null
+                                                                    : () => _showReconcileDialog(
+                                                                        ctx,
+                                                                        familyId:
+                                                                            f.familyId!,
+                                                                        fundId: f
+                                                                            .id,
+                                                                        expenseId:
+                                                                            exp.id,
+                                                                        actorUserId:
+                                                                            user.id,
+                                                                      ),
+                                                            icon: const Icon(
+                                                              Icons
+                                                                  .fact_check_outlined,
+                                                              size: 16,
+                                                            ),
+                                                            label: const Text(
+                                                              'Đối soát',
+                                                            ),
+                                                          ),
+                                                        if (isMgr)
+                                                          OutlinedButton.icon(
+                                                            key: Key(
+                                                              'reverse_exec_fund_exp_${exp.id}',
+                                                            ),
+                                                            onPressed:
+                                                                state.isSaving
+                                                                    ? null
+                                                                    : () => ctx
+                                                                          .read<
+                                                                            BudgetBloc
+                                                                          >()
+                                                                          .add(
+                                                                            FundExpenseReversed(
+                                                                              ReverseFundExpenseParams(
+                                                                                familyId: f.familyId!,
+                                                                                fundId: f.id,
+                                                                                expenseId: exp.id,
+                                                                                actorUserId: user.id,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                            icon: const Icon(
+                                                              Icons
+                                                                  .undo_rounded,
+                                                              size: 16,
+                                                            ),
+                                                            label: const Text(
+                                                              'Hoàn tác',
+                                                            ),
+                                                          ),
+                                                        TextButton.icon(
+                                                          key: Key(
+                                                            'dispute_fund_exp_${exp.id}',
+                                                          ),
+                                                          onPressed:
+                                                              state.isSaving
+                                                                  ? null
+                                                                  : () => _showDisputeDialog(
+                                                                      ctx,
+                                                                      familyId: f
+                                                                          .familyId!,
+                                                                      fundId:
+                                                                          f.id,
+                                                                      expenseId:
+                                                                          exp.id,
+                                                                      actorUserId:
+                                                                          user.id,
+                                                                    ),
+                                                          icon: Icon(
+                                                            Icons
+                                                                .report_problem_outlined,
+                                                            size: 16,
+                                                            color: c.error,
+                                                          ),
+                                                          label: Text(
+                                                            'Khiếu nại',
+                                                            style: TextStyle(
+                                                              color: c.error,
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ],
                                                     ),
-                                                  ),
-                                                  const SizedBox(height: 3),
-                                                  SemanticStatusBadge(
-                                                    kind: decidedExpenses[i]
-                                                                .item
-                                                                .status ==
-                                                            FundExpenseStatus
-                                                                .approved
-                                                        ? SemanticStatusKind
-                                                              .success
-                                                        : SemanticStatusKind
-                                                              .error,
-                                                    label: decidedExpenses[i]
-                                                                .item
-                                                                .status ==
-                                                            FundExpenseStatus
-                                                                .approved
-                                                        ? 'Đã duyệt'
-                                                        : 'Đã từ chối',
-                                                  ),
+                                                  ],
                                                 ],
-                                              ),
-                                            ],
+                                              );
+                                            },
                                           ),
                                         ],
                                       ],
@@ -1397,7 +1747,6 @@ class FamilyFundsPage extends StatelessWidget {
     required List<WalletEntity> wallets,
   }) async {
     final budgetBloc = context.read<BudgetBloc>();
-    final txActionBloc = _maybeRead<TransactionActionBloc>(context);
     await showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
@@ -1407,7 +1756,6 @@ class FamilyFundsPage extends StatelessWidget {
       showDragHandle: false,
       builder: (_) => _ContributeFundSheet(
         budgetBloc: budgetBloc,
-        txActionBloc: txActionBloc,
         userId: userId,
         userName: userName,
         fund: fund,
@@ -1438,6 +1786,183 @@ class FamilyFundsPage extends StatelessWidget {
         fund: fund,
       ),
     );
+  }
+
+  Future<void> _showReconcileDialog(
+    BuildContext context, {
+    required String familyId,
+    required String fundId,
+    required String expenseId,
+    required String actorUserId,
+  }) async {
+    final budgetBloc = context.read<BudgetBloc>();
+    final txCtrl = TextEditingController();
+    var isSubmitting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dCtx, setDialogState) => AlertDialog(
+          title: const Text('Đối soát chứng từ chi quỹ'),
+          content: TextField(
+            key: Key('reconcile_tx_input_$expenseId'),
+            controller: txCtrl,
+            enabled: !isSubmitting,
+            decoration: const InputDecoration(
+              labelText: 'Mã giao dịch ví / chứng từ',
+              hintText: 'VD: tx_20261125_001',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Đóng'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final txId = txCtrl.text.trim();
+                      if (txId.isEmpty) {
+                        LifeOsTopToast.show(
+                          dCtx,
+                          'Vui lòng nhập mã giao dịch đối soát.',
+                          kind: LifeOsToastKind.warning,
+                        );
+                        return;
+                      }
+                      setDialogState(() => isSubmitting = true);
+                      final opId = const Uuid().v4();
+                      final res = await budgetBloc.submitAndAwait(
+                        FundExpenseReconciled(
+                          ReconcileFundExpenseParams(
+                            familyId: familyId,
+                            fundId: fundId,
+                            expenseId: expenseId,
+                            actorUserId: actorUserId,
+                            reconciledTxId: txId,
+                            operationId: opId,
+                          ),
+                        ),
+                        operationId: opId,
+                      );
+                      if (!dialogCtx.mounted) return;
+                      setDialogState(() => isSubmitting = false);
+                      if (res.failure != null) {
+                        if (budgetBloc.state.failure != res.failure) {
+                          LifeOsTopToast.show(
+                            dialogCtx,
+                            res.failure!.message,
+                            kind: LifeOsToastKind.error,
+                          );
+                        }
+                        return;
+                      }
+                      Navigator.of(dialogCtx).pop();
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Xác nhận đối soát'),
+            ),
+          ],
+        ),
+      ),
+    );
+    txCtrl.dispose();
+  }
+
+  Future<void> _showDisputeDialog(
+    BuildContext context, {
+    required String familyId,
+    required String fundId,
+    required String expenseId,
+    required String actorUserId,
+  }) async {
+    final budgetBloc = context.read<BudgetBloc>();
+    final reasonCtrl = TextEditingController();
+    var isSubmitting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dCtx, setDialogState) => AlertDialog(
+          title: const Text('Khiếu nại khoản chi quỹ'),
+          content: TextField(
+            key: Key('dispute_reason_input_$expenseId'),
+            controller: reasonCtrl,
+            enabled: !isSubmitting,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Lý do khiếu nại (>= 2 ký tự)',
+              hintText: 'VD: Số tiền thực chi khác với chứng từ',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Đóng'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final reason = reasonCtrl.text.trim();
+                      if (reason.length < 2) {
+                        LifeOsTopToast.show(
+                          dCtx,
+                          'Vui lòng nhập lý do khiếu nại (>= 2 ký tự).',
+                          kind: LifeOsToastKind.warning,
+                        );
+                        return;
+                      }
+                      setDialogState(() => isSubmitting = true);
+                      final opId = const Uuid().v4();
+                      final res = await budgetBloc.submitAndAwait(
+                        FundExpenseDisputed(
+                          DisputeFundExpenseParams(
+                            familyId: familyId,
+                            fundId: fundId,
+                            expenseId: expenseId,
+                            actorUserId: actorUserId,
+                            reason: reason,
+                            operationId: opId,
+                          ),
+                        ),
+                        operationId: opId,
+                      );
+                      if (!dialogCtx.mounted) return;
+                      setDialogState(() => isSubmitting = false);
+                      if (res.failure != null) {
+                        if (budgetBloc.state.failure != res.failure) {
+                          LifeOsTopToast.show(
+                            dialogCtx,
+                            res.failure!.message,
+                            kind: LifeOsToastKind.error,
+                          );
+                        }
+                        return;
+                      }
+                      Navigator.of(dialogCtx).pop();
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Gửi khiếu nại'),
+            ),
+          ],
+        ),
+      ),
+    );
+    reasonCtrl.dispose();
   }
 }
 
@@ -1550,7 +2075,6 @@ class _CreateFundDialogState extends State<_CreateFundDialog> {
 class _ContributeFundSheet extends StatefulWidget {
   const _ContributeFundSheet({
     required this.budgetBloc,
-    required this.txActionBloc,
     required this.userId,
     required this.userName,
     required this.fund,
@@ -1559,7 +2083,6 @@ class _ContributeFundSheet extends StatefulWidget {
   });
 
   final BudgetBloc budgetBloc;
-  final TransactionActionBloc? txActionBloc;
   final String userId;
   final String userName;
   final FundEntity fund;
@@ -1589,8 +2112,7 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final viewInsets = MediaQuery.viewInsetsOf(context);
-    final canDeductWallet =
-        widget.wallets.isNotEmpty && widget.txActionBloc != null;
+    final canDeductWallet = widget.wallets.isNotEmpty;
     return LiquidGlassSheetFrame(
       showHandle: true,
       child: Padding(
@@ -1630,6 +2152,7 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
               TextField(
                 key: const Key('contribute_fund_amount_input'),
                 controller: _amtCtrl,
+                enabled: !_isSubmitting,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Số tiền đóng góp (VND)',
@@ -1639,6 +2162,7 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
               const SizedBox(height: 10),
               TextField(
                 controller: _noteCtrl,
+                enabled: !_isSubmitting,
                 decoration: const InputDecoration(
                   labelText: 'Ghi chú (Tùy chọn)',
                   hintText: 'VD: Góp quỹ tháng này',
@@ -1651,7 +2175,7 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
                 title: const Text('Đồng thời trừ từ Ví cá nhân'),
                 subtitle: Text(
                   canDeductWallet
-                      ? 'Ghi nhận giao dịch chi tiêu thật vào ví được chọn'
+                      ? 'Ghi nhận giao dịch chi tiêu thật và nạp quỹ trong cùng một giao dịch an toàn'
                       : 'Chưa có ví cá nhân để trừ trực tiếp',
                 ),
                 value: _deductFromWallet && canDeductWallet,
@@ -1718,42 +2242,25 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
                                 );
                                 return;
                               }
+                              final selectedWalletId =
+                                  _deductFromWallet && canDeductWallet
+                                      ? _selectedWalletId
+                                      : null;
                               if (_deductFromWallet &&
                                   canDeductWallet &&
-                                  _selectedWalletId != null) {
-                                setState(() => _isSubmitting = true);
-                                final txRes = await widget.txActionBloc!
-                                    .submitAndAwaitCreate(
-                                      TransactionCreateSubmitted(
-                                        operationId: const Uuid().v4(),
-                                        userId: widget.userId,
-                                        walletId: _selectedWalletId!,
-                                        categoryName:
-                                            widget.fund.scope ==
-                                                FundScope.family
-                                            ? 'Hiếu hỉ & Đối ngoại'
-                                            : 'Chi tiêu khác',
-                                        kind: TransactionKind.expense,
-                                        amountMinor: amt,
-                                        merchant:
-                                            'Nạp quỹ: ${widget.fund.name}',
-                                        note: _noteCtrl.text.trim(),
-                                        occurredAt: DateTime.now(),
-                                      ),
-                                    );
-                                if (!context.mounted) return;
-                                if (txRes.status != ActionStatus.success) {
-                                  setState(() => _isSubmitting = false);
-                                  LifeOsTopToast.show(
-                                    context,
-                                    txRes.failure?.message ??
-                                        'Không thể trừ từ ví cá nhân. Chưa ghi nạp quỹ.',
-                                    kind: LifeOsToastKind.error,
-                                  );
-                                  return;
-                                }
+                                  (selectedWalletId == null ||
+                                      selectedWalletId.isEmpty)) {
+                                LifeOsTopToast.show(
+                                  context,
+                                  'Vui lòng chọn ví nguồn thanh toán.',
+                                  kind: LifeOsToastKind.warning,
+                                );
+                                return;
                               }
-                              widget.budgetBloc.add(
+                              setState(() => _isSubmitting = true);
+                              final opId = const Uuid().v4();
+                              final trimmedNote = _noteCtrl.text.trim();
+                              final res = await widget.budgetBloc.submitAndAwait(
                                 FundContributionSubmitted(
                                   ContributeFundParams(
                                     userId: widget.userId,
@@ -1762,13 +2269,29 @@ class _ContributeFundSheetState extends State<_ContributeFundSheet> {
                                     familyId: widget.fund.familyId,
                                     fundId: widget.fund.id,
                                     amountMinor: amt,
-                                    note: _noteCtrl.text,
+                                    note: trimmedNote.isEmpty
+                                        ? null
+                                        : trimmedNote,
+                                    sourceWalletId: selectedWalletId,
+                                    operationId: opId,
                                   ),
                                 ),
+                                operationId: opId,
                               );
-                              if (context.mounted) {
-                                Navigator.of(context).pop();
+                              if (!context.mounted) return;
+                              setState(() => _isSubmitting = false);
+                              if (res.failure != null) {
+                                if (widget.budgetBloc.state.failure !=
+                                    res.failure) {
+                                  LifeOsTopToast.show(
+                                    context,
+                                    res.failure!.message,
+                                    kind: LifeOsToastKind.error,
+                                  );
+                                }
+                                return;
                               }
+                              Navigator.of(context).pop();
                             },
                       child: _isSubmitting
                           ? const SizedBox(
@@ -1813,12 +2336,63 @@ class _RequestFundExpenseSheet extends StatefulWidget {
 class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
   final TextEditingController _reasonCtrl = TextEditingController();
   final TextEditingController _amtCtrl = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
     _reasonCtrl.dispose();
     _amtCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitExpense(
+    BuildContext ctx, {
+    required bool saveAsDraft,
+  }) async {
+    final reason = _reasonCtrl.text.trim();
+    final amt = VndAmount.tryParseInput(_amtCtrl.text) ?? 0;
+    if (reason.length < 2 || amt <= 0) {
+      LifeOsTopToast.show(
+        ctx,
+        'Vui lòng nhập lý do (>= 2 ký tự) và số tiền > 0 ₫.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    final opId = const Uuid().v4();
+    final res = await widget.budgetBloc.submitAndAwait(
+      FundExpenseRequested(
+        RequestFundExpenseParams(
+          userId: widget.userId,
+          userName: widget.userName,
+          scope: widget.fund.scope,
+          familyId: widget.fund.familyId,
+          fundId: widget.fund.id,
+          title: reason,
+          amountMinor: amt,
+          // Never auto-approve family expenses on client or server.
+          canAutoApprove:
+              widget.fund.scope == FundScope.personal && !saveAsDraft,
+          saveAsDraft: saveAsDraft,
+          operationId: opId,
+        ),
+      ),
+      operationId: opId,
+    );
+    if (!ctx.mounted) return;
+    setState(() => _isSubmitting = false);
+    if (res.failure != null) {
+      if (widget.budgetBloc.state.failure != res.failure) {
+        LifeOsTopToast.show(
+          ctx,
+          res.failure!.message,
+          kind: LifeOsToastKind.error,
+        );
+      }
+      return;
+    }
+    Navigator.of(ctx).pop();
   }
 
   @override
@@ -1829,6 +2403,8 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
         builder: (ctx, bState) {
           final c = TammySemanticColors.of(ctx);
           final viewInsets = MediaQuery.viewInsetsOf(ctx);
+          final busy = _isSubmitting || bState.isSaving;
+          final isFamily = widget.fund.scope == FundScope.family;
           return LiquidGlassSheetFrame(
             showHandle: true,
             child: Padding(
@@ -1883,6 +2459,7 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
                     TextField(
                       key: const Key('fund_expense_amount_input'),
                       controller: _amtCtrl,
+                      enabled: !busy,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Số tiền đề xuất chi (VND)',
@@ -1893,6 +2470,7 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
                     TextField(
                       key: const Key('fund_expense_reason_input'),
                       controller: _reasonCtrl,
+                      enabled: !busy,
                       decoration: const InputDecoration(
                         labelText: 'Lý do / Mục đích chi quỹ',
                         hintText: 'VD: Đặt phòng khách sạn Đà Lạt',
@@ -1900,8 +2478,8 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      widget.fund.scope == FundScope.family
-                          ? 'Khoản đề xuất từ quỹ chung sẽ vào mục chờ duyệt để thành viên xác nhận trước khi trừ quỹ.'
+                      isFamily
+                          ? 'Khoản đề xuất từ quỹ chung sẽ chờ quản trị viên phê duyệt và giải ngân trước khi trừ quỹ.'
                           : 'Khoản rút từ quỹ cá nhân sẽ được trừ trực tiếp vào số dư quỹ nếu đủ số dư.',
                       softWrap: true,
                       style: TextStyle(
@@ -1910,62 +2488,42 @@ class _RequestFundExpenseSheetState extends State<_RequestFundExpenseSheet> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: bState.isSaving
-                                ? null
-                                : () => Navigator.of(ctx).pop(),
-                            child: const Text('Hủy'),
-                          ),
+                        OutlinedButton(
+                          onPressed: busy ? null : () => Navigator.of(ctx).pop(),
+                          child: const Text('Hủy'),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: FilledButton(
-                            key: const Key('submit_fund_expense_btn'),
-                            onPressed: bState.isSaving
+                        if (isFamily)
+                          OutlinedButton(
+                            key: const Key('save_draft_fund_expense_btn'),
+                            onPressed: busy
                                 ? null
-                                : () {
-                                    final reason = _reasonCtrl.text.trim();
-                                    final amt =
-                                        VndAmount.tryParseInput(
-                                          _amtCtrl.text,
-                                        ) ??
-                                        0;
-                                    if (reason.length < 2 || amt <= 0) {
-                                      LifeOsTopToast.show(
-                                        ctx,
-                                        'Vui lòng nhập lý do (>= 2 ký tự) và số tiền > 0 ₫.',
-                                        kind: LifeOsToastKind.warning,
-                                      );
-                                      return;
-                                    }
-                                    widget.budgetBloc.add(
-                                      FundExpenseRequested(
-                                        RequestFundExpenseParams(
-                                          userId: widget.userId,
-                                          userName: widget.userName,
-                                          scope: widget.fund.scope,
-                                          familyId: widget.fund.familyId,
-                                          fundId: widget.fund.id,
-                                          title: reason,
-                                          amountMinor: amt,
-                                          canAutoApprove:
-                                              widget.fund.scope ==
-                                              FundScope.personal,
-                                        ),
-                                      ),
-                                    );
-                                    Navigator.of(ctx).pop();
-                                  },
-                            child: Text(
-                              widget.fund.scope == FundScope.family
-                                  ? 'Gửi đề xuất chi'
-                                  : 'Xác nhận rút quỹ',
-                            ),
+                                : () => _submitExpense(ctx, saveAsDraft: true),
+                            child: const Text('Lưu nháp'),
                           ),
+                        FilledButton(
+                          key: const Key('submit_fund_expense_btn'),
+                          onPressed: busy
+                              ? null
+                              : () => _submitExpense(ctx, saveAsDraft: false),
+                          child: busy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  isFamily
+                                      ? 'Gửi đề xuất chi'
+                                      : 'Xác nhận rút quỹ',
+                                ),
                         ),
                       ],
                     ),

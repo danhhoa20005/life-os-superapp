@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import * as admin from "firebase-admin";
 import { FcmMulticastResult, FcmPushSender, RealtimeBankingCoordinator } from "../bankingEngine";
 import { FirestoreAdminBankingStore } from "../firestoreStore";
+import { deleteServerOnlyUserAccountData } from "../index";
 import { computeHmacSha256Hex } from "../security";
 
 function isPortOpen(host: string, port: number): Promise<boolean> {
@@ -148,10 +149,45 @@ describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingSto
       const walletSnap = await db.collection("users").doc(uid).collection("wallets").doc("w_emu_mb").get();
       assert.equal(walletSnap.data()?.balanceMinor, 2750000);
       assert.equal(walletSnap.data()?.isEstimatedBalance, false);
+      assert.ok(walletSnap.data()?.lastAuditId);
+
+      // Strict subAccount isolation check (AUD-012)
+      const unmatched = await store.findActiveConnectionForAccount({
+        bankCode: "MB",
+        gateway: "MBBank",
+        accountNumber: testAccNum,
+        subAccount: "SUB_OTHER"
+      });
+      assert.equal(unmatched, null);
+      const matched = await store.findActiveConnectionForAccount({
+        bankCode: "MB",
+        gateway: "MBBank",
+        accountNumber: testAccNum,
+        subAccount: ""
+      });
+      assert.ok(matched);
 
       const notifSnap = await db.collection("users").doc(uid).collection("financial_notifications").doc(notifId!).get();
       assert.equal(notifSnap.exists, true);
       assert.equal(notifSnap.data()?.amountMinor, 750000);
+
+      // Verify deleteServerOnlyUserAccountData (AUD-007) deletes server-only docs for uid without touching other users
+      await db.collection("bank_reconciliation_jobs").doc(`job_${uid}`).set({ ownerId: uid, status: "done" });
+      await db.collection("family_invite_rate_limits").doc(uid).set({ failedCount: 3, windowStartMs: nowMs });
+      await db.collection("server_bank_connections").doc("conn_other_user").set({
+        id: "conn_other_user",
+        ownerId: "u_other_preserve",
+        status: "connected"
+      });
+      const delRes = await deleteServerOnlyUserAccountData(db, uid);
+      assert.equal(delRes.ok, true);
+      assert.ok(delRes.deletedCount >= 5);
+      assert.equal((await db.collection("server_bank_connections").doc(linkRes.connection!.id).get()).exists, false);
+      assert.equal((await db.collection("sepay_webhook_inbox").doc(httpRes.providerEventKey!).get()).exists, false);
+      assert.equal((await db.collection("notification_outbox").doc(notifId!).get()).exists, false);
+      assert.equal((await db.collection("bank_reconciliation_jobs").doc(`job_${uid}`).get()).exists, false);
+      assert.equal((await db.collection("family_invite_rate_limits").doc(uid).get()).exists, false);
+      assert.equal((await db.collection("server_bank_connections").doc("conn_other_user").get()).exists, true);
     } finally {
       await app.delete();
     }

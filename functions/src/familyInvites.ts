@@ -64,6 +64,7 @@ export interface FamilySpaceRecord {
   readonly spaceType: CollaborationSpaceType;
   readonly createdBy: string;
   readonly memberIds: readonly string[];
+  readonly bannedUserIds?: readonly string[];
   readonly memberRoles: Readonly<Record<string, string>>;
   readonly memberNames: Readonly<Record<string, string>>;
   readonly pendingInvites: Readonly<Record<string, Record<string, unknown>>>;
@@ -148,6 +149,25 @@ export function sanitizePublicInviteeName(rawName?: string): string | undefined 
   const digits = (trimmed.match(/\d/g) ?? []).length;
   if (digits >= 6) return undefined;
   return trimmed;
+}
+
+export function maskContactForInternalDisplay(rawContact?: string): string | undefined {
+  if (!rawContact) return undefined;
+  const trimmed = rawContact.trim();
+  if (!trimmed) return undefined;
+  const atIdx = trimmed.indexOf("@");
+  if (atIdx > 0) {
+    const local = trimmed.slice(0, atIdx);
+    const domain = trimmed.slice(atIdx);
+    const keep = local.slice(0, Math.min(2, local.length));
+    return `${keep}***${domain}`;
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length >= 6) {
+    const last4 = digits.slice(-4);
+    return `${"*".repeat(Math.max(4, digits.length - 4))}${last4}`;
+  }
+  return `${trimmed.slice(0, Math.min(2, trimmed.length))}***`;
 }
 
 function generateSecureInviteCode(): string {
@@ -363,6 +383,7 @@ export class FirestoreAdminFamilyInviteStore implements FamilyInviteStore {
             spaceType: rawSpace === "roommates" || rawSpace === "group" ? rawSpace : "family",
             createdBy: String(d.createdBy ?? ""),
             memberIds: Array.isArray(d.memberIds) ? d.memberIds.map(String) : [],
+            bannedUserIds: Array.isArray(d.bannedUserIds) ? d.bannedUserIds.map(String) : [],
             memberRoles: (d.memberRoles as Record<string, string>) ?? {},
             memberNames: (d.memberNames as Record<string, string>) ?? {},
             pendingInvites: (d.pendingInvites as Record<string, Record<string, unknown>>) ?? {},
@@ -633,6 +654,7 @@ export class FamilyInviteCoordinator {
         updatedAtMs: nowMs
       };
 
+      const maskedContact = maskContactForInternalDisplay(cleanContact);
       const internalPendingPayload: Record<string, unknown> = {
         inviteId: code,
         inviteCode: code,
@@ -645,7 +667,7 @@ export class FamilyInviteCoordinator {
         invitedByUserId: uid,
         invitedByName: inviterName,
         ...(cleanInviteeName ? { inviteeName: cleanInviteeName } : {}),
-        ...(cleanContact ? { inviteeContact: cleanContact } : {}),
+        ...(maskedContact ? { inviteeContactMasked: maskedContact } : {}),
         ...(recipientHash ? { intendedRecipientHash: recipientHash } : {}),
         maxUses: effectiveMaxUses,
         usedCount: 0,
@@ -739,6 +761,7 @@ export class FamilyInviteCoordinator {
     userName: string;
     inviteCode: string;
     authEmail?: string;
+    authEmailVerified?: boolean;
     authPhoneNumber?: string;
   }): Promise<{
     ok: true;
@@ -781,13 +804,14 @@ export class FamilyInviteCoordinator {
         }
 
         if (inv.intendedRecipientHash) {
-          const candidates = [params.authEmail, params.authPhoneNumber, uid]
+          const verifiedEmail = params.authEmailVerified === true ? params.authEmail : undefined;
+          const candidates = [verifiedEmail, params.authPhoneNumber, uid]
             .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
             .map(hashRecipientContact);
           if (!candidates.includes(inv.intendedRecipientHash)) {
             throw new FamilyInviteError(
               "PERMISSION_DENIED",
-              "Mã mời đích danh này chỉ dành cho đúng tài khoản được mời."
+              "Mã mời đích danh này chỉ dành cho đúng tài khoản đã xác minh được mời."
             );
           }
         }
@@ -795,6 +819,12 @@ export class FamilyInviteCoordinator {
         const fam = await tx.getFamily(inv.familyId);
         if (!fam) {
           throw new FamilyInviteError("NOT_FOUND", "Không gian nhóm không còn tồn tại.");
+        }
+        if (fam.bannedUserIds?.includes(uid)) {
+          throw new FamilyInviteError(
+            "PERMISSION_DENIED",
+            "Tài khoản này đã bị quản trị viên không gian nhóm hạn chế tham gia lại."
+          );
         }
 
         if (fam.memberIds.includes(uid)) {

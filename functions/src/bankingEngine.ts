@@ -105,6 +105,7 @@ export interface WalletRecord {
   readonly name: string;
   readonly balanceMinor: number;
   readonly isEstimatedBalance: boolean;
+  readonly lastAuditId?: string;
   readonly bankCode?: string;
   readonly maskedAccount?: string;
   readonly updatedAtMs: number;
@@ -651,22 +652,26 @@ export class RealtimeBankingCoordinator {
         }
 
         if (nextWalletBal !== wallet.balanceMinor || nextIsEstimated !== wallet.isEstimatedBalance) {
+          const auditId = `aud_${providerEventKey}`;
+          const exactDeltaMinor = nextWalletBal - wallet.balanceMinor;
+          const balanceChanged = exactDeltaMinor !== 0;
           await ctx.upsertWallet(ownerId, {
             ...wallet,
             balanceMinor: nextWalletBal,
             isEstimatedBalance: nextIsEstimated,
+            ...(balanceChanged ? { lastAuditId: auditId } : {}),
             bankCode: connection.bankCode,
             maskedAccount: connection.accountMasked,
             updatedAtMs: nowMs
           });
-          await ctx.appendLedgerAudit(ownerId, `aud_${providerEventKey}`, {
-            id: `aud_${providerEventKey}`,
+          await ctx.appendLedgerAudit(ownerId, auditId, {
+            id: auditId,
             ownerId,
             txId: matchedAndroidTx?.id ?? `ver_${sha256Hex(providerEventKey).slice(0, 20)}`,
             walletId,
             walletName: wallet.name,
             previousBalanceMinor: wallet.balanceMinor,
-            deltaMinor: alreadyAppliedInLedger ? 0 : delta,
+            deltaMinor: exactDeltaMinor,
             newBalanceMinor: nextWalletBal,
             balanceType: txBalanceType,
             kind: p.direction === "credit" ? "income" : "expense",

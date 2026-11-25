@@ -56,9 +56,10 @@ describe("Family Invites Cloud Functions — FIX-002 & FIX-003 (3 Modes, Race Co
     assert.equal(publicDoc.intendedRecipientHash, hashRecipientContact("0909123456"));
     assert.equal(publicDoc.status, "active");
 
-    // Internal family.pendingInvites retains display contact for family managers only
+    // Internal family.pendingInvites NEVER exposes raw contact PII — stores masked contact only
     const internalPending = store.families.get("fam_1")!.pendingInvites[created.inviteCode]!;
-    assert.equal(internalPending.inviteeContact, "+84 909 123 456");
+    assert.equal("inviteeContact" in internalPending, false);
+    assert.equal(internalPending.inviteeContactMasked, "*******3456");
 
     // Preview returns minimal safe payload without intendedRecipientHash or family memberIds
     const preview = await coordinator.previewFamilyInvite({
@@ -79,7 +80,62 @@ describe("Family Invites Cloud Functions — FIX-002 & FIX-003 (3 Modes, Race Co
           userName: "Kẻ lạ",
           inviteCode: created.inviteCode,
           authEmail: "intruder@lifeos.vn",
+          authEmailVerified: true,
           authPhoneNumber: "0911111111"
+        }),
+      (err: unknown) => err instanceof FamilyInviteError && err.code === "PERMISSION_DENIED"
+    );
+
+    // Email-targeted invite MUST reject unverified email claims (`authEmailVerified !== true`)
+    const emailInv = await coordinator.createFamilyInvite({
+      actorUserId: "owner_1",
+      familyId: "fam_1",
+      inviteKind: "targeted",
+      inviteeName: "Linh Email",
+      inviteeContact: "linh@lifeos.vn"
+    });
+    const emailPending = store.families.get("fam_1")!.pendingInvites[emailInv.inviteCode]!;
+    assert.equal("inviteeContact" in emailPending, false);
+    assert.equal(emailPending.inviteeContactMasked, "li***@lifeos.vn");
+
+    await assert.rejects(
+      () =>
+        coordinator.joinFamilyByInvite({
+          actorUserId: "uid_unverified",
+          userName: "Linh Fake",
+          inviteCode: emailInv.inviteCode,
+          authEmail: "linh@lifeos.vn",
+          authEmailVerified: false
+        }),
+      (err: unknown) => err instanceof FamilyInviteError && err.code === "PERMISSION_DENIED"
+    );
+    await coordinator.joinFamilyByInvite({
+      actorUserId: "uid_linh",
+      userName: "Linh",
+      inviteCode: emailInv.inviteCode,
+      authEmail: "linh@lifeos.vn",
+      authEmailVerified: true
+    });
+    assert.equal(store.families.get("fam_1")!.memberRoles.uid_linh, "member");
+
+    // Banned user cannot redeem invite
+    const openInv = await coordinator.createFamilyInvite({
+      actorUserId: "owner_1",
+      familyId: "fam_1",
+      inviteKind: "reusableGroup",
+      maxUses: 5
+    });
+    const famBeforeBan = store.families.get("fam_1")!;
+    store.families.set("fam_1", {
+      ...famBeforeBan,
+      bannedUserIds: ["uid_banned"]
+    });
+    await assert.rejects(
+      () =>
+        coordinator.joinFamilyByInvite({
+          actorUserId: "uid_banned",
+          userName: "Banned",
+          inviteCode: openInv.inviteCode
         }),
       (err: unknown) => err instanceof FamilyInviteError && err.code === "PERMISSION_DENIED"
     );

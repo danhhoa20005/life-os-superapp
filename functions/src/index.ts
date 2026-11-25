@@ -286,6 +286,12 @@ export const reconcileBankConnectionViaApi = onCall(
       throw new HttpsError("permission-denied", "Không tìm thấy kết nối ngân hàng hợp lệ.");
     }
     const conn = connSnap.data()!;
+    if (conn.status !== "connected" || conn.consentStatus !== "granted") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Kết nối ngân hàng đã ngắt hoặc chưa được cấp quyền đồng bộ."
+      );
+    }
     const accountNumber = String(conn.accountNumber ?? "");
     const watermarkTxId = ignoreWatermark ? undefined : (conn.lastReconciledExternalTxId as string | undefined);
 
@@ -458,7 +464,9 @@ export const joinFamilyByInvite = onCall(
     }
     const data = (request.data ?? {}) as Record<string, unknown>;
     const token = (request.auth?.token ?? {}) as Record<string, unknown>;
-    const authEmail = typeof token.email === "string" ? token.email : undefined;
+    const authEmailVerified = token.email_verified === true;
+    const authEmail =
+      authEmailVerified && typeof token.email === "string" ? token.email : undefined;
     const authPhoneNumber = typeof token.phone_number === "string" ? token.phone_number : undefined;
     try {
       return await createFamilyInviteCoordinator().joinFamilyByInvite({
@@ -466,6 +474,7 @@ export const joinFamilyByInvite = onCall(
         userName: String(data.userName ?? "Thành viên"),
         inviteCode: String(data.inviteCode ?? ""),
         authEmail,
+        authEmailVerified,
         authPhoneNumber
       });
     } catch (err) {
@@ -491,6 +500,66 @@ export const revokeFamilyInvite = onCall(
     } catch (err) {
       throw mapFamilyInviteErrorToHttps(err);
     }
+  }
+);
+
+async function deleteQueryInBatches(
+  db: admin.firestore.Firestore,
+  queryFactory: () => admin.firestore.Query
+): Promise<number> {
+  let deleted = 0;
+  while (true) {
+    const snap = await queryFactory().limit(400).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    for (const doc of snap.docs) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+    deleted += snap.size;
+    if (snap.size < 400) break;
+  }
+  return deleted;
+}
+
+export async function deleteServerOnlyUserAccountData(
+  db: admin.firestore.Firestore,
+  uid: string
+): Promise<{ ok: true; deletedCount: number }> {
+  const cleanUid = uid.trim();
+  if (!cleanUid) {
+    throw new HttpsError("invalid-argument", "Thiếu mã người dùng cần xóa dữ liệu.");
+  }
+  let deletedCount = 0;
+  const ownerScopedCollections = [
+    "server_bank_connections",
+    "sepay_webhook_inbox",
+    "notification_outbox",
+    "bank_reconciliation_jobs",
+    "family_invite_rate_limits"
+  ];
+  for (const colName of ownerScopedCollections) {
+    deletedCount += await deleteQueryInBatches(db, () =>
+      db.collection(colName).where("ownerId", "==", cleanUid)
+    );
+  }
+  const directRateLimitRef = db.collection("family_invite_rate_limits").doc(cleanUid);
+  const directRateLimitSnap = await directRateLimitRef.get();
+  if (directRateLimitSnap.exists) {
+    await directRateLimitRef.delete();
+    deletedCount += 1;
+  }
+  return { ok: true, deletedCount };
+}
+
+export const deleteUserAccountData = onCall(
+  { region: "asia-southeast1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để xóa dữ liệu tài khoản.");
+    }
+    return deleteServerOnlyUserAccountData(admin.firestore(), uid);
   }
 );
 

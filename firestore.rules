@@ -21,6 +21,16 @@ service cloud.firestore {
       return val is int && val > 0;
     }
 
+    function isTxVerified(data) {
+      return (data.get('verification', '') is string && data.get('verification', '').lower() == 'verified')
+        || (data.get('verificationStatus', '') is string && data.get('verificationStatus', '').lower() == 'verified');
+    }
+
+    function isTxReversed(data) {
+      return data.get('verificationStatus', '') is string
+        && data.get('verificationStatus', '').lower() == 'reversed';
+    }
+
     function familyDoc(familyId) {
       return get(/databases/$(database)/documents/families/$(familyId));
     }
@@ -61,7 +71,11 @@ service cloud.firestore {
         && !('password' in request.resource.data);
       allow update: if isOwner(userId)
         && request.resource.data.id == resource.data.id
-        && !('password' in request.resource.data);
+        && !('password' in request.resource.data)
+        && (
+          resource.data.get('deletionInProgress', false) != true
+          || request.resource.data.get('deletionInProgress', false) == true
+        );
       allow delete: if isOwner(userId);
 
       match /wallets/{walletId} {
@@ -69,7 +83,8 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.balanceMinor is int;
-        // F06 / Section 40: Balance updates must preserve identity, carry timestamp, and ALWAYS prove an atomic ledger_audit entry!
+        // F06 / Section 40 / AUD-010: Balance updates must preserve identity, carry timestamp,
+        // and prove a brand-new atomic ledger_audit entry with exact balance math!
         allow update: if isOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.get('id', walletId) == resource.data.get('id', walletId)
@@ -82,7 +97,13 @@ service cloud.firestore {
               && 'lastAuditId' in request.resource.data
               && request.resource.data.lastAuditId is string
               && request.resource.data.lastAuditId.size() > 0
+              && !exists(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId))
               && existsAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId))
+              && getAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId)).data.previousBalanceMinor == resource.data.balanceMinor
+              && getAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId)).data.newBalanceMinor == request.resource.data.balanceMinor
+              && getAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId)).data.previousBalanceMinor
+                + getAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId)).data.deltaMinor
+                == getAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId)).data.newBalanceMinor
             )
           );
         allow delete: if isOwner(userId);
@@ -136,10 +157,23 @@ service cloud.firestore {
           && request.resource.data.ownerId == resource.data.ownerId
           && isPositiveInt(request.resource.data.amountMinor)
           && (
-            (
-              resource.data.get('verification', '') != 'verified'
-              && resource.data.get('verificationStatus', '') != 'VERIFIED'
+            !isTxReversed(resource.data)
+            || (
+              request.resource.data.get('verificationStatus', null) == resource.data.get('verificationStatus', null)
+              && request.resource.data.get('reversedById', null) == resource.data.get('reversedById', null)
+              && request.resource.data.amountMinor == resource.data.amountMinor
+              && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
+              && request.resource.data.get('kind', null) == resource.data.get('kind', null)
+              && request.resource.data.get('direction', null) == resource.data.get('direction', null)
+              && request.resource.data.get('isRefund', null) == resource.data.get('isRefund', null)
+              && request.resource.data.get('occurredAt', null) == resource.data.get('occurredAt', null)
+              && request.resource.data.get('monthKey', null) == resource.data.get('monthKey', null)
+              && request.resource.data.get('balanceAfterMinor', null) == resource.data.get('balanceAfterMinor', null)
+              && request.resource.data.get('splitLines', null) == resource.data.get('splitLines', null)
             )
+          )
+          && (
+            !isTxVerified(resource.data)
             || (
               request.resource.data.amountMinor == resource.data.amountMinor
               && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
@@ -150,10 +184,17 @@ service cloud.firestore {
               && request.resource.data.get('externalTransactionId', null) == resource.data.get('externalTransactionId', null)
               && request.resource.data.get('referenceCode', null) == resource.data.get('referenceCode', null)
               && request.resource.data.get('observedBalanceMinor', null) == resource.data.get('observedBalanceMinor', null)
+              && request.resource.data.get('isRefund', null) == resource.data.get('isRefund', null)
+              && request.resource.data.get('occurredAt', null) == resource.data.get('occurredAt', null)
+              && request.resource.data.get('monthKey', null) == resource.data.get('monthKey', null)
+              && request.resource.data.get('balanceAfterMinor', null) == resource.data.get('balanceAfterMinor', null)
+              && request.resource.data.get('splitLines', null) == resource.data.get('splitLines', null)
               && (
                 request.resource.data.get('verificationStatus', null) == resource.data.get('verificationStatus', null)
                 || (
-                  'reversedById' in request.resource.data
+                  resource.data.get('verificationStatus', '') != 'REVERSED'
+                  && !isTxReversed(resource.data)
+                  && 'reversedById' in request.resource.data
                   && request.resource.data.reversedById is string
                   && request.resource.data.reversedById.size() > 0
                   && request.resource.data.get('verificationStatus', '') in ['REVERSED', 'reversed']
@@ -185,6 +226,11 @@ service cloud.firestore {
         match /expenses/{expId} {
           allow read, create, update: if isOwner(userId)
             && isPositiveInt(request.resource.data.amountMinor);
+          allow delete: if isAccountDeletionActive(userId);
+        }
+
+        match /fund_audits/{auditId} {
+          allow read, create: if isOwner(userId);
           allow delete: if isAccountDeletionActive(userId);
         }
       }
@@ -436,6 +482,7 @@ service cloud.firestore {
             || (request.resource.data.usedCount < resource.data.get('maxUses', 1) && request.resource.data.get('status', 'active') == 'active')
           )
           && !(request.auth.uid in get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.memberIds)
+          && !(request.auth.uid in get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.get('bannedUserIds', []))
           && getAfter(/databases/$(database)/documents/families/$(resource.data.familyId)).data.memberIds.hasAll([request.auth.uid])
         )
       );
@@ -450,25 +497,28 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
-        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds == [request.auth.uid]
+        && request.resource.data.memberRoles.keys().hasOnly([request.auth.uid])
         && request.resource.data.memberRoles[request.auth.uid] == 'owner';
 
       allow update: if isSignedIn() && (
-        // 1a. Owner manages family metadata & member roles while keeping creator & own owner role intact (F03)
+        // 1a. Owner manages family metadata & member roles while keeping creator & own owner role intact (F03 / AUD-005)
         (
           resource.data.memberRoles[request.auth.uid] == 'owner'
           && request.resource.data.createdBy == resource.data.createdBy
           && request.auth.uid in request.resource.data.memberIds
           && request.resource.data.memberRoles[request.auth.uid] == 'owner'
           && request.resource.data.memberRoles[resource.data.createdBy] == 'owner'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'spaceType', 'pendingInvites', 'memberIds', 'memberRoles', 'memberNames', 'lastRemovedMemberId', 'bannedUserIds', 'updatedAt'])
         )
-        // 1b. Admin manages invites/metadata or removes ONLY a plain 'member'; NEVER alters owner/admin roles or escalates self (F03 / SEC-02)
+        // 1b. Admin manages invites/metadata or removes ONLY a plain 'member'; NEVER alters owner/admin roles or escalates self (F03 / SEC-02 / AUD-005)
         || (
           resource.data.memberRoles[request.auth.uid] == 'admin'
           && request.resource.data.createdBy == resource.data.createdBy
           && request.auth.uid in request.resource.data.memberIds
           && request.resource.data.memberRoles[request.auth.uid] == 'admin'
           && request.resource.data.memberRoles[resource.data.createdBy] == resource.data.memberRoles[resource.data.createdBy]
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'spaceType', 'pendingInvites', 'memberIds', 'memberRoles', 'memberNames', 'lastRemovedMemberId', 'bannedUserIds', 'updatedAt'])
           && (
             (
               request.resource.data.memberIds == resource.data.memberIds
@@ -496,9 +546,10 @@ service cloud.firestore {
           && unchangedMapExceptSelfLeave(resource.data.memberRoles, request.resource.data.memberRoles, request.auth.uid)
           && (!('memberNames' in request.resource.data) || unchangedMapExceptSelfLeave(resource.data.get('memberNames', {}), request.resource.data.memberNames, request.auth.uid))
         )
-        // 3. New user joins with a valid, UNEXPIRED, UNREVOKED, UNCONSUMED invite code ONLY as 'member'; atomic slot consumption enforced (FIX-002 / FIX-003 / SEC-03)
+        // 3. New user joins with a valid, UNEXPIRED, UNREVOKED, UNCONSUMED invite code ONLY as 'member'; atomic slot consumption & ban block enforced (FIX-002 / FIX-003 / SEC-03 / AUD-005)
         || (
           !(request.auth.uid in resource.data.memberIds)
+          && !(request.auth.uid in resource.data.get('bannedUserIds', []))
           && request.auth.uid in request.resource.data.memberIds
           && request.resource.data.memberRoles[request.auth.uid] == 'member'
           && request.resource.data.createdBy == resource.data.createdBy
@@ -529,27 +580,187 @@ service cloud.firestore {
 
       allow delete: if false;
 
+      // AUD-001: Family Shared Fund — Zero-start balance, immutable audit trail, atomic contributions & 9-state expense lifecycle
       match /funds/{fundId} {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
-          && request.resource.data.familyId == familyId;
+          && request.resource.data.id == fundId
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.familyId == familyId
+          && request.resource.data.balanceMinor == 0
+          && request.resource.data.targetAmountMinor is int
+          && request.resource.data.targetAmountMinor >= 0;
         allow update: if isFamilyMember(familyId)
-          && request.resource.data.familyId == resource.data.familyId;
-        allow delete: if isFamilyManager(familyId);
+          && request.resource.data.get('id', fundId) == resource.data.get('id', fundId)
+          && request.resource.data.get('ownerId', resource.data.ownerId) == resource.data.ownerId
+          && request.resource.data.familyId == resource.data.familyId
+          && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+          && request.resource.data.balanceMinor is int
+          && request.resource.data.balanceMinor >= 0
+          && (
+            (
+              request.resource.data.balanceMinor == resource.data.balanceMinor
+              && (isFamilyManager(familyId) || resource.data.ownerId == request.auth.uid)
+            )
+            || (
+              request.resource.data.balanceMinor != resource.data.balanceMinor
+              && 'lastAuditId' in request.resource.data
+              && request.resource.data.lastAuditId is string
+              && request.resource.data.lastAuditId.size() > 0
+              && !exists(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId))
+              && existsAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId))
+              && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.previousBalanceMinor == resource.data.balanceMinor
+              && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.newBalanceMinor == request.resource.data.balanceMinor
+              && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.previousBalanceMinor
+                + getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.deltaMinor
+                == getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.newBalanceMinor
+              && 'lastEventType' in request.resource.data
+              && 'lastEventId' in request.resource.data
+              && request.resource.data.lastEventId is string
+              && request.resource.data.lastEventId.size() > 0
+              && (
+                (
+                  request.resource.data.lastEventType == 'contribution'
+                  && !exists(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/contributions/$(request.resource.data.lastEventId))
+                  && existsAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/contributions/$(request.resource.data.lastEventId))
+                  && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.deltaMinor
+                    == getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/contributions/$(request.resource.data.lastEventId)).data.amountMinor
+                )
+                || (
+                  request.resource.data.lastEventType == 'expense_executed'
+                  && isFamilyManager(familyId)
+                  && exists(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId))
+                  && get(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId)).data.status in ['approved', 'pending']
+                  && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId)).data.status == 'executed'
+                  && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.deltaMinor
+                    == -getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId)).data.amountMinor
+                )
+                || (
+                  request.resource.data.lastEventType == 'expense_reversed'
+                  && isFamilyManager(familyId)
+                  && exists(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId))
+                  && get(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId)).data.status in ['executed', 'disputed']
+                  && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId)).data.status == 'reversed'
+                  && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/fund_audits/$(request.resource.data.lastAuditId)).data.deltaMinor
+                    == get(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)/expenses/$(request.resource.data.lastEventId)).data.amountMinor
+                )
+              )
+            )
+          );
+        allow delete: if isFamilyManager(familyId) && resource.data.balanceMinor == 0;
+
+        match /fund_audits/{auditId} {
+          allow read: if isFamilyMember(familyId);
+          allow create: if isFamilyMember(familyId)
+            && request.resource.data.actorId == request.auth.uid
+            && request.resource.data.fundId == fundId
+            && request.resource.data.previousBalanceMinor is int
+            && request.resource.data.deltaMinor is int
+            && request.resource.data.newBalanceMinor == request.resource.data.previousBalanceMinor + request.resource.data.deltaMinor;
+          allow update, delete: if false;
+        }
 
         match /contributions/{contribId} {
           allow read: if isFamilyMember(familyId);
           allow create: if isFamilyMember(familyId)
+            && request.resource.data.get('id', contribId) == contribId
             && request.resource.data.contributorId == request.auth.uid
-            && isPositiveInt(request.resource.data.amountMinor);
+            && isPositiveInt(request.resource.data.amountMinor)
+            && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.lastEventType == 'contribution'
+            && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.lastEventId == contribId
+            && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.balanceMinor
+              == get(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.balanceMinor + request.resource.data.amountMinor;
+          allow update, delete: if false;
         }
 
         match /expenses/{expId} {
           allow read: if isFamilyMember(familyId);
           allow create: if isFamilyMember(familyId)
+            && request.resource.data.get('id', expId) == expId
+            && request.resource.data.get('fundId', fundId) == fundId
             && request.resource.data.requesterId == request.auth.uid
-            && isPositiveInt(request.resource.data.amountMinor);
-          allow update: if isFamilyManager(familyId);
+            && isPositiveInt(request.resource.data.amountMinor)
+            && request.resource.data.status in ['draft', 'pending_approval', 'pending']
+            && !('decidedBy' in request.resource.data)
+            && !('executedBy' in request.resource.data);
+          allow update: if isFamilyMember(familyId)
+            && request.resource.data.get('id', expId) == resource.data.get('id', expId)
+            && request.resource.data.get('fundId', fundId) == resource.data.get('fundId', fundId)
+            && request.resource.data.requesterId == resource.data.requesterId
+            && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+            && (
+              (
+                resource.data.status == 'draft'
+                && isPositiveInt(request.resource.data.amountMinor)
+              )
+              || (
+                request.resource.data.amountMinor == resource.data.amountMinor
+                && request.resource.data.get('title', '') == resource.data.get('title', '')
+              )
+            )
+            && (
+              // Requester: draft -> draft|pending_approval|cancelled, or pending_approval|pending -> cancelled
+              (
+                resource.data.requesterId == request.auth.uid
+                && !('decidedBy' in request.resource.data)
+                && !('executedBy' in request.resource.data)
+                && (
+                  (resource.data.status == 'draft' && request.resource.data.status in ['draft', 'pending_approval', 'cancelled'])
+                  || (resource.data.status in ['pending_approval', 'pending'] && request.resource.data.status == 'cancelled')
+                )
+              )
+              // Manager transitions: approve/reject (with separation-of-duties), execute, reconcile, reverse
+              || (
+                isFamilyManager(familyId)
+                && (
+                  (
+                    resource.data.status in ['pending_approval', 'pending']
+                    && request.resource.data.status in ['approved', 'rejected']
+                    && request.resource.data.decidedBy == request.auth.uid
+                    && !('executedBy' in request.resource.data)
+                    && (resource.data.requesterId != request.auth.uid || familyDoc(familyId).data.memberIds.size() == 1)
+                  )
+                  || (
+                    resource.data.status == 'approved'
+                    && request.resource.data.status == 'executed'
+                    && request.resource.data.executedBy == request.auth.uid
+                    && request.resource.data.get('decidedBy', null) == resource.data.get('decidedBy', null)
+                    && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.lastEventType == 'expense_executed'
+                    && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.lastEventId == expId
+                    && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.balanceMinor
+                      == get(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.balanceMinor - resource.data.amountMinor
+                  )
+                  || (
+                    resource.data.status == 'executed'
+                    && request.resource.data.status == 'reconciled'
+                    && request.resource.data.get('decidedBy', null) == resource.data.get('decidedBy', null)
+                    && request.resource.data.get('executedBy', null) == resource.data.get('executedBy', null)
+                  )
+                  || (
+                    resource.data.status in ['executed', 'approved', 'disputed']
+                    && request.resource.data.status == 'reversed'
+                    && (
+                      resource.data.status == 'approved'
+                      || (
+                        resource.data.status in ['executed', 'disputed']
+                        && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.lastEventType == 'expense_reversed'
+                        && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.lastEventId == expId
+                        && getAfter(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.balanceMinor
+                          == get(/databases/$(database)/documents/families/$(familyId)/funds/$(fundId)).data.balanceMinor + resource.data.amountMinor
+                      )
+                    )
+                  )
+                )
+              )
+              // Any member: executed -> disputed
+              || (
+                resource.data.status == 'executed'
+                && request.resource.data.status == 'disputed'
+                && request.resource.data.disputedBy == request.auth.uid
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'disputedBy', 'disputedAt', 'disputeReason', 'updatedAt'])
+              )
+            );
+          allow delete: if false;
         }
       }
 
@@ -557,14 +768,20 @@ service cloud.firestore {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
           && request.resource.data.ownerId == request.auth.uid;
-        allow update, delete: if isFamilyMember(familyId)
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && (resource.data.ownerId == request.auth.uid || isFamilyManager(familyId));
+        allow delete: if isFamilyMember(familyId)
           && (resource.data.ownerId == request.auth.uid || isFamilyManager(familyId));
       }
 
       match /availability/{slotId} {
         allow read: if isFamilyMember(familyId);
-        allow create, update: if isFamilyMember(familyId)
+        allow create: if isFamilyMember(familyId)
           && request.resource.data.ownerId == request.auth.uid;
+        allow update: if isFamilyMember(familyId)
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == resource.data.ownerId;
         allow delete: if isFamilyMember(familyId)
           && (resource.data.ownerId == request.auth.uid || isFamilyManager(familyId));
       }
@@ -576,9 +793,12 @@ service cloud.firestore {
         allow update: if isFamilyMember(familyId)
           && request.resource.data.createdBy == resource.data.createdBy
           && (
-            request.auth.uid == resource.data.assigneeId
-            || request.auth.uid == resource.data.createdBy
+            request.auth.uid == resource.data.createdBy
             || isFamilyManager(familyId)
+            || (
+              request.auth.uid == resource.data.assigneeId
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'responseNote', 'updatedAt'])
+            )
           );
         allow delete: if isFamilyMember(familyId)
           && (resource.data.createdBy == request.auth.uid || isFamilyManager(familyId));
@@ -586,21 +806,40 @@ service cloud.firestore {
 
       match /vehicles/{vehicleId} {
         allow read: if isFamilyMember(familyId);
-        allow create, update: if isFamilyMember(familyId);
-        allow delete: if isFamilyManager(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == request.auth.uid;
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == resource.data.ownerId;
+        allow delete: if isFamilyMember(familyId)
+          && (resource.data.ownerId == request.auth.uid || isFamilyManager(familyId));
 
         match /maintenances/{recordId} {
           allow read, create: if isFamilyMember(familyId);
+          allow delete: if isFamilyMember(familyId)
+            && (
+              get(/databases/$(database)/documents/families/$(familyId)/vehicles/$(vehicleId)).data.ownerId == request.auth.uid
+              || isFamilyManager(familyId)
+            );
         }
 
         match /fuel_logs/{logId} {
           allow read, create: if isFamilyMember(familyId);
+          allow delete: if isFamilyMember(familyId)
+            && (
+              get(/databases/$(database)/documents/families/$(familyId)/vehicles/$(vehicleId)).data.ownerId == request.auth.uid
+              || isFamilyManager(familyId)
+            );
         }
       }
 
       match /bills/{billId} {
-        allow read, create, update: if isFamilyMember(familyId);
-        allow delete: if isFamilyManager(familyId);
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == request.auth.uid;
+        allow update: if isFamilyMember(familyId)
+          && request.resource.data.ownerId == resource.data.ownerId;
+        allow delete: if isFamilyMember(familyId)
+          && (resource.data.ownerId == request.auth.uid || isFamilyManager(familyId));
       }
 
       match /shopping_items/{itemId} {
@@ -614,19 +853,27 @@ service cloud.firestore {
           && request.resource.data.familyId == familyId
           && request.resource.data.uploadedBy == request.auth.uid;
         allow update: if isFamilyMember(familyId)
-          && request.resource.data.familyId == resource.data.familyId;
+          && request.resource.data.familyId == resource.data.familyId
+          && (resource.data.uploadedBy == request.auth.uid || isFamilyManager(familyId))
+          && request.resource.data.uploadedBy == resource.data.uploadedBy;
         allow delete: if isFamilyManager(familyId)
           || (isFamilyMember(familyId) && resource.data.uploadedBy == request.auth.uid);
       }
 
-      // SHARED BILL SPLITTING (F05: Locked payer/creator authority, immutable paidByUserId & post-lock protection)
+      // SHARED BILL SPLITTING (F05 / AUD-003: Real member shares, locked payer/creator authority & settled deletion lock)
       match /split_bills/{billId} {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
+          && request.resource.data.get('id', billId) == billId
           && request.resource.data.familyId == familyId
           && isPositiveInt(request.resource.data.totalAmountMinor)
           && request.resource.data.paidByUserId is string
-          && (request.resource.data.paidByUserId == request.auth.uid || isFamilyManager(familyId));
+          && request.resource.data.paidByUserId in familyDoc(familyId).data.memberIds
+          && (request.resource.data.paidByUserId == request.auth.uid || isFamilyManager(familyId))
+          && request.resource.data.sharesByUserId is map
+          && request.resource.data.sharesByUserId.size() >= 1
+          && familyDoc(familyId).data.memberIds.hasAll(request.resource.data.sharesByUserId.keys())
+          && request.resource.data.get('status', 'open') in ['open', 'pending_confirmation'];
         allow update: if isFamilyMember(familyId)
           && (resource.data.paidByUserId == request.auth.uid || isFamilyManager(familyId))
           && resource.data.get('status', 'open') != 'locked'
@@ -634,11 +881,12 @@ service cloud.firestore {
           && request.resource.data.familyId == resource.data.familyId
           && request.resource.data.paidByUserId == resource.data.paidByUserId
           && isPositiveInt(request.resource.data.totalAmountMinor);
-        allow delete: if isFamilyManager(familyId)
-          || (isFamilyMember(familyId) && resource.data.paidByUserId == request.auth.uid && resource.data.get('status', 'open') == 'open');
+        allow delete: if isFamilyMember(familyId)
+          && resource.data.get('status', 'open') == 'open'
+          && (resource.data.paidByUserId == request.auth.uid || isFamilyManager(familyId));
       }
 
-      // TWO-STEP DEBT SETTLEMENT CONSENT REQUESTS (F04: Debtor initiates 'pending', Creditor confirms/rejects)
+      // TWO-STEP DEBT SETTLEMENT CONSENT REQUESTS (F04 / AUD-002: Debtor initiates 'pending', Creditor confirms/rejects atomically)
       match /settlement_requests/{requestId} {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
@@ -654,15 +902,25 @@ service cloud.firestore {
         allow update: if isFamilyMember(familyId)
           && resource.data.status == 'pending'
           && request.auth.uid == resource.data.toUserId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedBy', 'confirmedAt', 'disputeReason'])
-          && request.resource.data.status in ['confirmed', 'rejected'];
+          && request.resource.data.confirmedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedBy', 'confirmedAt', 'disputeReason', 'settlementId'])
+          && request.resource.data.status in ['confirmed', 'rejected']
+          && (
+            request.resource.data.status == 'rejected'
+            || (
+              request.resource.data.status == 'confirmed'
+              && request.resource.data.get('settlementId', '') == 'stl_req_' + requestId
+              && existsAfter(/databases/$(database)/documents/families/$(familyId)/settlements/$('stl_req_' + requestId))
+            )
+          );
         allow delete: if false;
       }
 
-      // DEBT SETTLEMENT LEDGER (F04 / SEC-04: Append-only; strictly forbids 3rd-party forgery or self-settlement)
+      // DEBT SETTLEMENT LEDGER (F04 / SEC-04 / AUD-002: Append-only; forbids unilateral debtor creation & unverified bank_transfer forgery)
       match /settlements/{settlementId} {
         allow read: if isFamilyMember(familyId);
         allow create: if isFamilyMember(familyId)
+          && request.resource.data.get('id', settlementId) == settlementId
           && request.resource.data.familyId == familyId
           && isPositiveInt(request.resource.data.amountMinor)
           && request.resource.data.fromUserId is string
@@ -670,10 +928,43 @@ service cloud.firestore {
           && request.resource.data.fromUserId != request.resource.data.toUserId
           && request.resource.data.toUserId in familyDoc(familyId).data.memberIds
           && (
-            request.resource.data.fromUserId in familyDoc(familyId).data.memberIds
-            || (request.auth.uid == request.resource.data.toUserId && request.resource.data.fromUserId == 'bank_transfer')
-          )
-          && (request.auth.uid == request.resource.data.fromUserId || request.auth.uid == request.resource.data.toUserId);
+            // (a) Creditor confirming direct receipt (NOT reversal, NOT settlementRequestId) from a real member
+            (
+              request.auth.uid == request.resource.data.toUserId
+              && !('reversalOfId' in request.resource.data)
+              && !('settlementRequestId' in request.resource.data)
+              && request.resource.data.fromUserId in familyDoc(familyId).data.memberIds
+            )
+            // (b) Atomic settlement_requests confirmation by creditor
+            || (
+              'settlementRequestId' in request.resource.data
+              && request.resource.data.settlementRequestId is string
+              && !('reversalOfId' in request.resource.data)
+              && settlementId == 'stl_req_' + request.resource.data.settlementRequestId
+              && exists(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId))
+              && get(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId)).data.status == 'pending'
+              && getAfter(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId)).data.status == 'confirmed'
+              && request.auth.uid == get(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId)).data.toUserId
+              && request.resource.data.fromUserId == get(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId)).data.fromUserId
+              && request.resource.data.toUserId == get(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId)).data.toUserId
+              && request.resource.data.amountMinor == get(/databases/$(database)/documents/families/$(familyId)/settlement_requests/$(request.resource.data.settlementRequestId)).data.amountMinor
+            )
+            // (c) Deterministic single reversal by creditor or family manager
+            || (
+              'reversalOfId' in request.resource.data
+              && request.resource.data.reversalOfId is string
+              && settlementId == 'rev_' + request.resource.data.reversalOfId
+              && exists(/databases/$(database)/documents/families/$(familyId)/settlements/$(request.resource.data.reversalOfId))
+              && !('reversalOfId' in get(/databases/$(database)/documents/families/$(familyId)/settlements/$(request.resource.data.reversalOfId)).data)
+              && request.resource.data.fromUserId == get(/databases/$(database)/documents/families/$(familyId)/settlements/$(request.resource.data.reversalOfId)).data.toUserId
+              && request.resource.data.toUserId == get(/databases/$(database)/documents/families/$(familyId)/settlements/$(request.resource.data.reversalOfId)).data.fromUserId
+              && request.resource.data.amountMinor == get(/databases/$(database)/documents/families/$(familyId)/settlements/$(request.resource.data.reversalOfId)).data.amountMinor
+              && (
+                request.auth.uid == get(/databases/$(database)/documents/families/$(familyId)/settlements/$(request.resource.data.reversalOfId)).data.toUserId
+                || isFamilyManager(familyId)
+              )
+            )
+          );
         allow update, delete: if false;
       }
     }

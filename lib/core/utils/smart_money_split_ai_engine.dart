@@ -286,20 +286,73 @@ abstract final class SmartMoneySplitAiEngine {
   /// rational arithmetic (`exactNumerator = BigInt.from(totalMinor) * weightBig`).
   /// Guarantees `result.fold(0, +) == totalMinor` with zero IEEE-754 float drift
   /// even for multi-billion VND bills!
+  ///
+  /// Throws [ArgumentError] on negative [totalMinor], non-finite/negative
+  /// weights, or all-zero weights when [totalMinor] > 0.
   static List<int> apportionExactVnd(int totalMinor, List<double> weights) {
+    if (totalMinor < 0) {
+      throw ArgumentError.value(
+        totalMinor,
+        'totalMinor',
+        'Total minor amount must be >= 0.',
+      );
+    }
+    for (var i = 0; i < weights.length; i++) {
+      final w = weights[i];
+      if (!w.isFinite || w < 0) {
+        throw ArgumentError.value(
+          w,
+          'weights[$i]',
+          'Weight must be finite and >= 0.',
+        );
+      }
+    }
     if (weights.isEmpty) return const <int>[];
-    if (totalMinor <= 0) return List<int>.filled(weights.length, 0);
+    if (totalMinor == 0) return List<int>.filled(weights.length, 0);
 
     final allWhole = weights.every(
-      (w) => w.isFinite && (w - w.roundToDouble()).abs() < 1e-9,
+      (w) => (w - w.roundToDouble()).abs() < 1e-9,
     );
+    final needsNanoScale = !allWhole && weights.any((w) => w > 0 && w < 1e-4);
+    final doubleScale = needsNanoScale ? 1e9 : 1e6;
     final bigWeights = weights.map((w) {
-      if (!w.isFinite || w <= 0) return BigInt.zero;
+      if (w == 0) return BigInt.zero;
       if (allWhole) return BigInt.from(w.round());
-      return BigInt.from((w * 1000000).round());
+      final scaled = (w * doubleScale).round();
+      return scaled > 0 ? BigInt.from(scaled) : BigInt.one;
     }).toList();
 
     return apportionExactVndBigInt(totalMinor, bigWeights);
+  }
+
+  /// Exact integer Hamilton apportionment from integer basis-point weights
+  /// (e.g. `10000` bps = `100.00%`, though any non-negative integer weights work).
+  static List<int> apportionExactVndBasisPoints(
+    int totalMinor,
+    List<int> basisPoints,
+  ) {
+    if (totalMinor < 0) {
+      throw ArgumentError.value(
+        totalMinor,
+        'totalMinor',
+        'Total minor amount must be >= 0.',
+      );
+    }
+    for (var i = 0; i < basisPoints.length; i++) {
+      if (basisPoints[i] < 0) {
+        throw ArgumentError.value(
+          basisPoints[i],
+          'basisPoints[$i]',
+          'Basis-point weight must be >= 0.',
+        );
+      }
+    }
+    if (basisPoints.isEmpty) return const <int>[];
+    if (totalMinor == 0) return List<int>.filled(basisPoints.length, 0);
+    return apportionExactVndBigInt(
+      totalMinor,
+      basisPoints.map(BigInt.from).toList(growable: false),
+    );
   }
 
   /// Pure `BigInt` Hamilton (Largest Remainder) integer apportionment.
@@ -307,27 +360,46 @@ abstract final class SmartMoneySplitAiEngine {
     int totalMinor,
     List<BigInt> weights,
   ) {
-    if (weights.isEmpty) return const <int>[];
-    if (totalMinor <= 0) return List<int>.filled(weights.length, 0);
-
-    final sanitized = weights
-        .map((w) => w > BigInt.zero ? w : BigInt.zero)
-        .toList();
-    var weightSum = sanitized.fold<BigInt>(BigInt.zero, (a, b) => a + b);
-    if (weightSum <= BigInt.zero) {
-      for (var i = 0; i < sanitized.length; i++) {
-        sanitized[i] = BigInt.one;
+    if (totalMinor < 0) {
+      throw ArgumentError.value(
+        totalMinor,
+        'totalMinor',
+        'Total minor amount must be >= 0.',
+      );
+    }
+    for (var i = 0; i < weights.length; i++) {
+      if (weights[i] < BigInt.zero) {
+        throw ArgumentError.value(
+          weights[i],
+          'weights[$i]',
+          'Weight must be >= 0.',
+        );
       }
-      weightSum = BigInt.from(sanitized.length);
+    }
+    if (weights.isEmpty) return const <int>[];
+    if (totalMinor == 0) return List<int>.filled(weights.length, 0);
+
+    final weightSum = weights.fold<BigInt>(BigInt.zero, (a, b) => a + b);
+    if (weightSum <= BigInt.zero) {
+      throw ArgumentError.value(
+        weights,
+        'weights',
+        'At least one positive weight is required when totalMinor > 0.',
+      );
     }
 
     final totalBig = BigInt.from(totalMinor);
-    final floors = List<int>.filled(sanitized.length, 0);
+    final floors = List<int>.filled(weights.length, 0);
     final remainders = <({int index, BigInt rem})>[];
     var allocated = BigInt.zero;
 
-    for (var i = 0; i < sanitized.length; i++) {
-      final exactNumerator = totalBig * sanitized[i];
+    for (var i = 0; i < weights.length; i++) {
+      final w = weights[i];
+      if (w == BigInt.zero) {
+        floors[i] = 0;
+        continue;
+      }
+      final exactNumerator = totalBig * w;
       final fl = exactNumerator ~/ weightSum;
       final rem = exactNumerator % weightSum;
       floors[i] = fl.toInt();
@@ -342,31 +414,128 @@ abstract final class SmartMoneySplitAiEngine {
         return cmp != 0 ? cmp : a.index.compareTo(b.index);
       });
       for (var k = 0; k < leftover; k++) {
-        floors[remainders[k % remainders.length].index] += 1;
+        floors[remainders[k].index] += 1;
       }
     }
     return floors;
   }
 
-  /// Greedy Minimum-Cash-Flow Debt Simplification across $N$ group members.
-  /// Reduces arbitrary pairwise IOUs to at most $N - 1$ optimal transfers!
+  /// Minimum-Cash-Flow Debt Simplification across group members.
+  ///
+  /// Enforces `sum(netBalanceByMemberId) == 0` (throws [ArgumentError] otherwise).
+  /// - For `M <= 12` non-zero members: uses Exact Zero-Sum Subset Decomposition
+  ///   bitmask DP (`O(3^M)`) to guarantee the provably minimum number of transfers.
+  /// - For `M > 12` non-zero members: falls back to the Bounded Greedy
+  ///   Largest-Match heuristic (`<= M - 1` transfers, not guaranteed globally optimal).
   static List<OptimalSettlementTransfer> optimizeSettlementTransfers(
     Map<String, int> netBalanceByMemberId, {
     Map<String, String> memberNames = const <String, String>{},
   }) {
-    final creditors = <({String id, int amount})>[];
-    final debtors = <({String id, int amount})>[];
+    final netSum = netBalanceByMemberId.values.fold<int>(0, (s, v) => s + v);
+    if (netSum != 0) {
+      throw ArgumentError.value(
+        netSum,
+        'netBalanceByMemberId',
+        'Group member net balances must sum to 0 VND (got $netSum).',
+      );
+    }
 
-    for (final entry in netBalanceByMemberId.entries) {
-      if (entry.value > 0) {
-        creditors.add((id: entry.key, amount: entry.value));
-      } else if (entry.value < 0) {
-        debtors.add((id: entry.key, amount: -entry.value));
+    final nonZero = netBalanceByMemberId.entries
+        .where((e) => e.value != 0)
+        .map((e) => (id: e.key, balance: e.value))
+        .toList();
+    if (nonZero.length <= 1) {
+      return const <OptimalSettlementTransfer>[];
+    }
+
+    if (nonZero.length <= 12) {
+      return _optimizeSettlementTransfersExactDp(nonZero, memberNames);
+    }
+    return _settleBalancedGroupGreedy(nonZero, memberNames);
+  }
+
+  static List<OptimalSettlementTransfer> _optimizeSettlementTransfersExactDp(
+    List<({String id, int balance})> nonZero,
+    Map<String, String> memberNames,
+  ) {
+    final m = nonZero.length;
+    final fullMask = (1 << m) - 1;
+    final subsetSums = List<int>.filled(1 << m, 0);
+    for (var mask = 1; mask <= fullMask; mask++) {
+      final lsb = mask & -mask;
+      final bitIdx = lsb.bitLength - 1;
+      subsetSums[mask] = subsetSums[mask ^ lsb] + nonZero[bitIdx].balance;
+    }
+
+    // dp[mask] = max number of disjoint zero-sum subsets partitioning `mask`.
+    final dp = List<int>.filled(1 << m, -1);
+    final choice = List<int>.filled(1 << m, 0);
+    dp[0] = 0;
+
+    for (var mask = 1; mask <= fullMask; mask++) {
+      if (subsetSums[mask] != 0) continue;
+      dp[mask] = 1;
+      choice[mask] = mask;
+      final lowestBit = mask & -mask;
+      for (var sub = (mask - 1) & mask; sub > 0; sub = (sub - 1) & mask) {
+        if ((sub & lowestBit) == 0) continue;
+        final left = dp[sub];
+        final right = dp[mask ^ sub];
+        if (left > 0 && right > 0 && left + right > dp[mask]) {
+          dp[mask] = left + right;
+          choice[mask] = sub;
+        }
       }
     }
 
-    creditors.sort((a, b) => b.amount.compareTo(a.amount));
-    debtors.sort((a, b) => b.amount.compareTo(a.amount));
+    final componentMasks = <int>[];
+    void collectComponents(int mask) {
+      if (mask == 0) return;
+      final picked = choice[mask];
+      if (picked == 0 || picked == mask) {
+        componentMasks.add(mask);
+        return;
+      }
+      collectComponents(picked);
+      collectComponents(mask ^ picked);
+    }
+
+    collectComponents(fullMask);
+
+    final transfers = <OptimalSettlementTransfer>[];
+    for (final compMask in componentMasks) {
+      final compMembers = <({String id, int balance})>[
+        for (var i = 0; i < m; i++)
+          if ((compMask & (1 << i)) != 0) nonZero[i],
+      ];
+      transfers.addAll(_settleBalancedGroupGreedy(compMembers, memberNames));
+    }
+    return transfers;
+  }
+
+  static List<OptimalSettlementTransfer> _settleBalancedGroupGreedy(
+    List<({String id, int balance})> members,
+    Map<String, String> memberNames,
+  ) {
+    final creditors = <({String id, int amount})>[];
+    final debtors = <({String id, int amount})>[];
+
+    for (final entry in members) {
+      if (entry.balance > 0) {
+        creditors.add((id: entry.id, amount: entry.balance));
+      } else if (entry.balance < 0) {
+        debtors.add((id: entry.id, amount: -entry.balance));
+      }
+    }
+
+    creditors.sort((a, b) {
+      final cmp = b.amount.compareTo(a.amount);
+      return cmp != 0 ? cmp : a.id.compareTo(b.id);
+    });
+    debtors.sort((a, b) {
+      final cmp = b.amount.compareTo(a.amount);
+      return cmp != 0 ? cmp : a.id.compareTo(b.id);
+    });
 
     final transfers = <OptimalSettlementTransfer>[];
     var cIdx = 0;

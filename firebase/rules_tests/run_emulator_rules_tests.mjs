@@ -57,10 +57,24 @@ async function firestoreRequest(method, docPath, { uid = null, data = null } = {
 }
 
 async function firestoreCommitBatch(uid, writes) {
+  const res = await firestoreCommitBatchResponse(uid, writes);
+  return res.status;
+}
+
+async function firestoreCommitBatchResponse(uid, writes, transaction = null) {
   const headers = { 'Content-Type': 'application/json' };
   if (uid) headers.Authorization = `Bearer ${makeEmulatorJwt(uid)}`;
   const formattedWrites = writes.map((w) => {
     const docName = `projects/${PROJECT_ID}/databases/(default)/documents/${w.path}`;
+    if (w.delete === true) {
+      const delObj = { delete: docName };
+      if (w.exists !== undefined) {
+        delObj.currentDocument = { exists: w.exists };
+      } else if (w.updateTime) {
+        delObj.currentDocument = { updateTime: w.updateTime };
+      }
+      return delObj;
+    }
     const writeObj = {
       update: {
         name: docName,
@@ -72,15 +86,41 @@ async function firestoreCommitBatch(uid, writes) {
     }
     if (w.exists !== undefined) {
       writeObj.currentDocument = { exists: w.exists };
+    } else if (w.updateTime) {
+      writeObj.currentDocument = { updateTime: w.updateTime };
     }
     return writeObj;
   });
+  const payload = { writes: formattedWrites };
+  if (transaction) payload.transaction = transaction;
   const res = await fetch(COMMIT_URL, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ writes: formattedWrites }),
+    body: JSON.stringify(payload),
   });
-  return res.status;
+  return res;
+}
+
+async function firestoreGetDoc(uid, docPath, transaction = null) {
+  const headers = {};
+  if (uid) headers.Authorization = `Bearer ${makeEmulatorJwt(uid)}`;
+  const qs = transaction ? `?transaction=${encodeURIComponent(transaction)}` : '';
+  const res = await fetch(`${BASE_URL}/${docPath}${qs}`, { method: 'GET', headers });
+  const body = res.ok ? await res.json() : null;
+  return { status: res.status, doc: body };
+}
+
+async function firestoreBeginTransaction(uid) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (uid) headers.Authorization = `Bearer ${makeEmulatorJwt(uid)}`;
+  const res = await fetch(`${BASE_URL}:beginTransaction`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ options: { readWrite: {} } }),
+  });
+  if (!res.ok) throw new Error(`beginTransaction failed: ${res.status}`);
+  const json = await res.json();
+  return json.transaction;
 }
 
 describe('Real Firebase Firestore Emulator — Full firestore.rules Verification', () => {
@@ -128,7 +168,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       403,
     );
 
-    // Family owner creates shared household with member_a
+    // Family owner creates shared household and invites member_a cleanly
     assert.equal(
       await firestoreRequest('PATCH', 'families/fam_shared', {
         uid: 'owner_b',
@@ -136,10 +176,55 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           id: 'fam_shared',
           name: 'Gia đình B',
           createdBy: 'owner_b',
-          memberIds: ['owner_b', 'member_a'],
-          memberRoles: { owner_b: 'owner', member_a: 'member' },
+          memberIds: ['owner_b'],
+          memberRoles: { owner_b: 'owner' },
         },
       }),
+      200,
+    );
+    const privInv = `FAM-PRIV-${Date.now()}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${privInv}`, {
+        uid: 'owner_b',
+        data: {
+          inviteCode: privInv,
+          familyId: 'fam_shared',
+          createdBy: 'owner_b',
+          maxUses: 1,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: new Date(Date.now() + 3600000),
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch('member_a', [
+        {
+          path: `family_invites/${privInv}`,
+          exists: true,
+          updateMask: ['usedCount', 'consumedBy', 'consumedAt', 'status', 'updatedAt'],
+          data: {
+            usedCount: 1,
+            consumedBy: 'member_a',
+            consumedAt: new Date(),
+            status: 'consumed',
+            updatedAt: new Date(),
+          },
+        },
+        {
+          path: 'families/fam_shared',
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'lastJoinedInviteCode', 'updatedAt'],
+          data: {
+            memberIds: ['owner_b', 'member_a'],
+            memberRoles: { owner_b: 'owner', member_a: 'member' },
+            lastJoinedInviteCode: privInv,
+            updatedAt: new Date(),
+          },
+        },
+      ]),
       200,
     );
 
@@ -215,7 +300,15 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
     assert.equal(
       await firestoreRequest('PATCH', `families/${famId}/funds/fund_1`, {
         uid: 'owner_1',
-        data: { id: 'fund_1', familyId: famId, name: 'Quỹ Tết', balanceMinor: 500000 },
+        data: {
+          id: 'fund_1',
+          ownerId: 'owner_1',
+          familyId: famId,
+          name: 'Quỹ Tết',
+          balanceMinor: 0,
+          targetAmountMinor: 1000000,
+          createdAt: new Date(),
+        },
       }),
       200,
     );
@@ -349,13 +442,30 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           title: 'Ăn tối & Nước giặt',
           paidByUserId: 'user_2',
           totalAmountMinor: 240000,
+          sharesByUserId: { owner_1: 120000, user_2: 120000 },
+          status: 'open',
         },
       }),
       200,
     );
+    // AUD-002: Unilateral debtor settlement creation MUST fail (403); creditor confirmation succeeds (200)!
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/st_forged_debtor`, {
+        uid: 'owner_1',
+        data: {
+          id: 'st_forged_debtor',
+          familyId: famId,
+          fromUserId: 'owner_1',
+          toUserId: 'user_2',
+          amountMinor: 120000,
+          paymentCode: 'SEVQR LIFEOS SPLIT01',
+        },
+      }),
+      403,
+    );
     assert.equal(
       await firestoreRequest('PATCH', `families/${famId}/settlements/st_1`, {
-        uid: 'owner_1',
+        uid: 'user_2',
         data: {
           id: 'st_1',
           familyId: famId,
@@ -693,18 +803,19 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
         {
           path: `families/${famId}/settlement_requests/req_1`,
           exists: true,
-          updateMask: ['status', 'confirmedBy', 'confirmedAt'],
+          updateMask: ['status', 'confirmedBy', 'confirmedAt', 'settlementId'],
           data: {
             status: 'confirmed',
             confirmedBy: 'owner_1',
             confirmedAt: new Date(),
+            settlementId: 'stl_req_req_1',
           },
         },
         {
-          path: `families/${famId}/settlements/stl_req_1`,
+          path: `families/${famId}/settlements/stl_req_req_1`,
           exists: false,
           data: {
-            id: 'stl_req_1',
+            id: 'stl_req_req_1',
             familyId: famId,
             fromUserId: 'user_2',
             toUserId: 'owner_1',
@@ -719,63 +830,67 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
 
     // SEC-02: Owner promotes user_3 to 'admin', then user_3 tries to self-escalate to 'owner' or demote owner_1 -> DENIED (403)!
     assert.equal(
-      await firestoreRequest('PATCH', `families/${famId}`, {
-        uid: 'owner_1',
-        data: {
-          id: famId,
-          name: 'Tổ ấm 1',
-          createdBy: 'owner_1',
-          memberIds: ['owner_1', 'user_2', 'user_3', 'user_4'],
-          memberRoles: { owner_1: 'owner', user_2: 'member', user_3: 'admin', user_4: 'member' },
-          memberNames: { owner_1: 'Chủ nhóm', user_2: 'Lan', user_3: 'Hùng', user_4: 'Mai' },
+      await firestoreCommitBatch('owner_1', [
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberRoles', 'updatedAt'],
+          data: {
+            memberRoles: { owner_1: 'owner', user_2: 'member', user_3: 'admin', user_4: 'member' },
+            updatedAt: new Date(),
+          },
         },
-      }),
+      ]),
       200,
     );
     assert.equal(
-      await firestoreRequest('PATCH', `families/${famId}`, {
-        uid: 'user_3',
-        data: {
-          id: famId,
-          name: 'Tổ ấm 1',
-          createdBy: 'owner_1',
-          memberIds: ['owner_1', 'user_2', 'user_3', 'user_4'],
-          memberRoles: { owner_1: 'member', user_2: 'member', user_3: 'owner', user_4: 'member' },
-          memberNames: { owner_1: 'Chủ nhóm', user_2: 'Lan', user_3: 'Hùng', user_4: 'Mai' },
+      await firestoreCommitBatch('user_3', [
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberRoles', 'updatedAt'],
+          data: {
+            memberRoles: { owner_1: 'member', user_2: 'member', user_3: 'owner', user_4: 'member' },
+            updatedAt: new Date(),
+          },
         },
-      }),
+      ]),
       403,
     );
 
     // SEC-01: user_2 leaves family AND tries to tamper user_3's role -> DENIED (403)!
     assert.equal(
-      await firestoreRequest('PATCH', `families/${famId}`, {
-        uid: 'user_2',
-        data: {
-          id: famId,
-          name: 'Tổ ấm 1',
-          createdBy: 'owner_1',
-          memberIds: ['owner_1', 'user_3', 'user_4'],
-          memberRoles: { owner_1: 'owner', user_3: 'member', user_4: 'member' },
-          memberNames: { owner_1: 'Chủ nhóm', user_3: 'Hùng', user_4: 'Mai' },
+      await firestoreCommitBatch('user_2', [
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'memberNames', 'updatedAt'],
+          data: {
+            memberIds: ['owner_1', 'user_3', 'user_4'],
+            memberRoles: { owner_1: 'owner', user_3: 'member', user_4: 'member' },
+            memberNames: { owner_1: 'Chủ nhóm', user_3: 'Hùng', user_4: 'Mai' },
+            updatedAt: new Date(),
+          },
         },
-      }),
+      ]),
       403,
     );
 
     // Legitimate user_2 voluntary leave -> immediately denied reading shared fund (403)!
     assert.equal(
-      await firestoreRequest('PATCH', `families/${famId}`, {
-        uid: 'user_2',
-        data: {
-          id: famId,
-          name: 'Tổ ấm 1',
-          createdBy: 'owner_1',
-          memberIds: ['owner_1', 'user_3', 'user_4'],
-          memberRoles: { owner_1: 'owner', user_3: 'admin', user_4: 'member' },
-          memberNames: { owner_1: 'Chủ nhóm', user_3: 'Hùng', user_4: 'Mai' },
+      await firestoreCommitBatch('user_2', [
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'memberNames', 'updatedAt'],
+          data: {
+            memberIds: ['owner_1', 'user_3', 'user_4'],
+            memberRoles: { owner_1: 'owner', user_3: 'admin', user_4: 'member' },
+            memberNames: { owner_1: 'Chủ nhóm', user_3: 'Hùng', user_4: 'Mai' },
+            updatedAt: new Date(),
+          },
         },
-      }),
+      ]),
       200,
     );
     assert.equal(
@@ -1041,5 +1156,1208 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       }),
       200,
     );
+  });
+
+  async function seedFamilyWithRoles(prefix) {
+    const suffix = `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const famId = `fam_${suffix}`;
+    const ownerId = `owner_${suffix}`;
+    const adminId = `admin_${suffix}`;
+    const memberId = `member_${suffix}`;
+    const outsiderId = `outsider_${suffix}`;
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}`, {
+        uid: ownerId,
+        data: {
+          id: famId,
+          name: 'Gia đình Kiểm thử P0',
+          spaceType: 'family',
+          createdBy: ownerId,
+          memberIds: [ownerId],
+          memberRoles: { [ownerId]: 'owner' },
+          memberNames: { [ownerId]: 'Trưởng nhóm' },
+        },
+      }),
+      200,
+    );
+
+    const invCode = `FAM-${suffix.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${invCode}`, {
+        uid: ownerId,
+        data: {
+          inviteCode: invCode,
+          familyId: famId,
+          createdBy: ownerId,
+          maxUses: 5,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: futureDate,
+        },
+      }),
+      200,
+    );
+
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `family_invites/${invCode}`,
+          exists: true,
+          updateMask: ['usedCount', 'consumedBy', 'consumedAt', 'status', 'updatedAt'],
+          data: {
+            usedCount: 1,
+            consumedBy: adminId,
+            consumedAt: new Date(),
+            status: 'active',
+            updatedAt: new Date(),
+          },
+        },
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'memberNames', 'lastJoinedInviteCode', 'updatedAt'],
+          data: {
+            memberIds: [ownerId, adminId],
+            memberRoles: { [ownerId]: 'owner', [adminId]: 'member' },
+            memberNames: { [ownerId]: 'Trưởng nhóm', [adminId]: 'Quản trị B' },
+            lastJoinedInviteCode: invCode,
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `family_invites/${invCode}`,
+          exists: true,
+          updateMask: ['usedCount', 'consumedBy', 'consumedAt', 'status', 'updatedAt'],
+          data: {
+            usedCount: 2,
+            consumedBy: memberId,
+            consumedAt: new Date(),
+            status: 'active',
+            updatedAt: new Date(),
+          },
+        },
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'memberNames', 'lastJoinedInviteCode', 'updatedAt'],
+          data: {
+            memberIds: [ownerId, adminId, memberId],
+            memberRoles: { [ownerId]: 'owner', [adminId]: 'member', [memberId]: 'member' },
+            memberNames: { [ownerId]: 'Trưởng nhóm', [adminId]: 'Quản trị B', [memberId]: 'Thành viên C' },
+            lastJoinedInviteCode: invCode,
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Promote adminId to 'admin'
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberRoles', 'updatedAt'],
+          data: {
+            memberRoles: { [ownerId]: 'owner', [adminId]: 'admin', [memberId]: 'member' },
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+
+    return { famId, ownerId, adminId, memberId, outsiderId, invCode };
+  }
+
+  it('6. P0 Attack 1 (AUD-001) — Blocks non-zero fund creation, phantom fund balance tampering, and requires atomic fund_audits + contributions', async () => {
+    const { famId, ownerId, memberId } = await seedFamilyWithRoles('p0_fund');
+
+    // Attack 1a: Create fund with forged initial balance > 0 -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/fund_bad`, {
+        uid: ownerId,
+        data: {
+          id: 'fund_bad',
+          ownerId,
+          familyId: famId,
+          name: 'Quỹ Ma',
+          balanceMinor: 5000000,
+          targetAmountMinor: 10000000,
+        },
+      }),
+      403,
+    );
+
+    // Create valid zero-balance fund -> 200
+    const createdAt = new Date();
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/fund_good`, {
+        uid: ownerId,
+        data: {
+          id: 'fund_good',
+          ownerId,
+          familyId: famId,
+          name: 'Quỹ Sinh hoạt',
+          balanceMinor: 0,
+          targetAmountMinor: 5000000,
+          createdAt,
+        },
+      }),
+      200,
+    );
+
+    // Attack 1b: Direct PATCH increasing balanceMinor without contribution/fund_audits -> 403
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/funds/fund_good`,
+          exists: true,
+          updateMask: ['balanceMinor', 'updatedAt'],
+          data: { balanceMinor: 9999999, updatedAt: new Date() },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 1c: Contribution + fund update with mismatched fund_audit delta -> 403
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/funds/fund_good/contributions/c_bad`,
+          exists: false,
+          data: { id: 'c_bad', fundId: 'fund_good', contributorId: memberId, amountMinor: 200000 },
+        },
+        {
+          path: `families/${famId}/funds/fund_good/fund_audits/fa_bad`,
+          exists: false,
+          data: {
+            id: 'fa_bad',
+            fundId: 'fund_good',
+            actorId: memberId,
+            previousBalanceMinor: 0,
+            deltaMinor: 900000,
+            newBalanceMinor: 900000,
+          },
+        },
+        {
+          path: `families/${famId}/funds/fund_good`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId'],
+          data: {
+            balanceMinor: 900000,
+            lastAuditId: 'fa_bad',
+            lastEventType: 'contribution',
+            lastEventId: 'c_bad',
+          },
+        },
+      ]),
+      403,
+    );
+
+    // Legitimate atomic contribution batch -> 200
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/funds/fund_good/contributions/c_1`,
+          exists: false,
+          data: { id: 'c_1', fundId: 'fund_good', contributorId: memberId, amountMinor: 500000 },
+        },
+        {
+          path: `families/${famId}/funds/fund_good/fund_audits/fa_1`,
+          exists: false,
+          data: {
+            id: 'fa_1',
+            fundId: 'fund_good',
+            actorId: memberId,
+            previousBalanceMinor: 0,
+            deltaMinor: 500000,
+            newBalanceMinor: 500000,
+          },
+        },
+        {
+          path: `families/${famId}/funds/fund_good`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId', 'updatedAt'],
+          data: {
+            balanceMinor: 500000,
+            lastAuditId: 'fa_1',
+            lastEventType: 'contribution',
+            lastEventId: 'c_1',
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+  });
+
+  it('7. P0 Attack 2 (AUD-001) — Enforces 9-state expense FSM, separation-of-duties (self-approval blocked), and immutable ledger deletes', async () => {
+    const { famId, ownerId, adminId, memberId } = await seedFamilyWithRoles('p0_exp');
+    const createdAt = new Date();
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/f_exp`, {
+        uid: ownerId,
+        data: {
+          id: 'f_exp',
+          ownerId,
+          familyId: famId,
+          name: 'Quỹ Chi Tiêu',
+          balanceMinor: 0,
+          targetAmountMinor: 2000000,
+          createdAt,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}/funds/f_exp/contributions/c_seed`,
+          exists: false,
+          data: { id: 'c_seed', fundId: 'f_exp', contributorId: ownerId, amountMinor: 1000000 },
+        },
+        {
+          path: `families/${famId}/funds/f_exp/fund_audits/fa_seed`,
+          exists: false,
+          data: {
+            id: 'fa_seed',
+            fundId: 'f_exp',
+            actorId: ownerId,
+            previousBalanceMinor: 0,
+            deltaMinor: 1000000,
+            newBalanceMinor: 1000000,
+          },
+        },
+        {
+          path: `families/${famId}/funds/f_exp`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId'],
+          data: {
+            balanceMinor: 1000000,
+            lastAuditId: 'fa_seed',
+            lastEventType: 'contribution',
+            lastEventId: 'c_seed',
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Owner creates a draft expense -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/f_exp/expenses/exp_1`, {
+        uid: ownerId,
+        data: {
+          id: 'exp_1',
+          fundId: 'f_exp',
+          requesterId: ownerId,
+          title: 'Mua đồ dùng nháp',
+          amountMinor: 200000,
+          status: 'draft',
+          createdAt,
+        },
+      }),
+      200,
+    );
+    // Edit draft title/amount and submit -> 200
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['title', 'amountMinor', 'status', 'updatedAt'],
+          data: {
+            title: 'Mua thực phẩm tuần',
+            amountMinor: 300000,
+            status: 'pending_approval',
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Attack 2a: Self-approval by requester (even though owner!) in multi-member family -> 403
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'decidedBy', 'updatedAt'],
+          data: { status: 'approved', decidedBy: ownerId, updatedAt: new Date() },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 2b: Plain member trying to approve -> 403
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'decidedBy', 'updatedAt'],
+          data: { status: 'approved', decidedBy: memberId, updatedAt: new Date() },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 2c: Tampering amountMinor once past draft -> 403
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'decidedBy', 'amountMinor', 'updatedAt'],
+          data: { status: 'approved', decidedBy: adminId, amountMinor: 900000, updatedAt: new Date() },
+        },
+      ]),
+      403,
+    );
+
+    // Manager B (adminId != ownerId) approves -> 200
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'decidedBy', 'updatedAt'],
+          data: { status: 'approved', decidedBy: adminId, updatedAt: new Date() },
+        },
+      ]),
+      200,
+    );
+
+    // Execute approved -> executed atomically with fund debit & fund_audits -> 200
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `families/${famId}/funds/f_exp/fund_audits/fa_exec_1`,
+          exists: false,
+          data: {
+            id: 'fa_exec_1',
+            fundId: 'f_exp',
+            actorId: adminId,
+            previousBalanceMinor: 1000000,
+            deltaMinor: -300000,
+            newBalanceMinor: 700000,
+          },
+        },
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'executedBy', 'updatedAt'],
+          data: { status: 'executed', executedBy: adminId, updatedAt: new Date() },
+        },
+        {
+          path: `families/${famId}/funds/f_exp`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId'],
+          data: {
+            balanceMinor: 700000,
+            lastAuditId: 'fa_exec_1',
+            lastEventType: 'expense_executed',
+            lastEventId: 'exp_1',
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Regular member disputes executed expense -> 200
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'disputedBy', 'disputeReason', 'updatedAt'],
+          data: {
+            status: 'disputed',
+            disputedBy: memberId,
+            disputeReason: 'Hóa đơn thiếu mục',
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Manager reverses disputed -> reversed atomically restoring balance -> 200
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `families/${famId}/funds/f_exp/fund_audits/fa_rev_1`,
+          exists: false,
+          data: {
+            id: 'fa_rev_1',
+            fundId: 'f_exp',
+            actorId: adminId,
+            previousBalanceMinor: 700000,
+            deltaMinor: 300000,
+            newBalanceMinor: 1000000,
+          },
+        },
+        {
+          path: `families/${famId}/funds/f_exp/expenses/exp_1`,
+          exists: true,
+          updateMask: ['status', 'updatedAt'],
+          data: { status: 'reversed', updatedAt: new Date() },
+        },
+        {
+          path: `families/${famId}/funds/f_exp`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId'],
+          data: {
+            balanceMinor: 1000000,
+            lastAuditId: 'fa_rev_1',
+            lastEventType: 'expense_reversed',
+            lastEventId: 'exp_1',
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Delete on expenses/contributions/fund_audits strictly denied -> 403
+    assert.equal(await firestoreRequest('DELETE', `families/${famId}/funds/f_exp/expenses/exp_1`, { uid: ownerId }), 403);
+    assert.equal(await firestoreRequest('DELETE', `families/${famId}/funds/f_exp/contributions/c_seed`, { uid: ownerId }), 403);
+    assert.equal(await firestoreRequest('DELETE', `families/${famId}/funds/f_exp/fund_audits/fa_seed`, { uid: ownerId }), 403);
+  });
+
+  it('8. P0 Attack 3 (AUD-002) — Blocks unilateral debtor settlements, bank_transfer forgery, non-creditor reversals & duplicate reversal replay', async () => {
+    const { famId, ownerId, memberId } = await seedFamilyWithRoles('p0_stl');
+
+    // Attack 3a: Unilateral bank_transfer forgery -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/st_bank_forge`, {
+        uid: memberId,
+        data: {
+          id: 'st_bank_forge',
+          familyId: famId,
+          fromUserId: 'bank_transfer',
+          toUserId: memberId,
+          amountMinor: 500000,
+          paymentCode: 'FAKE_BANK',
+        },
+      }),
+      403,
+    );
+
+    // Attack 3b: Debtor creates direct settlement without creditor consent -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/st_debtor_self`, {
+        uid: memberId,
+        data: {
+          id: 'st_debtor_self',
+          familyId: famId,
+          fromUserId: memberId,
+          toUserId: ownerId,
+          amountMinor: 200000,
+          paymentCode: 'PAY_FAKE',
+        },
+      }),
+      403,
+    );
+
+    // Creditor creates direct settlement -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/st_valid`, {
+        uid: ownerId,
+        data: {
+          id: 'st_valid',
+          familyId: famId,
+          fromUserId: memberId,
+          toUserId: ownerId,
+          amountMinor: 200000,
+          paymentCode: 'CASH_OK',
+        },
+      }),
+      200,
+    );
+
+    // Attack 3c: Plain debtor tries to reverse settlement -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/rev_st_valid`, {
+        uid: memberId,
+        data: {
+          id: 'rev_st_valid',
+          familyId: famId,
+          fromUserId: ownerId,
+          toUserId: memberId,
+          amountMinor: 200000,
+          paymentCode: 'REV_CASH_OK',
+          reversalOfId: 'st_valid',
+        },
+      }),
+      403,
+    );
+
+    // Creditor creates deterministic single reversal -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/rev_st_valid`, {
+        uid: ownerId,
+        data: {
+          id: 'rev_st_valid',
+          familyId: famId,
+          fromUserId: ownerId,
+          toUserId: memberId,
+          amountMinor: 200000,
+          paymentCode: 'REV_CASH_OK',
+          reversalOfId: 'st_valid',
+        },
+      }),
+      200,
+    );
+
+    // Attack 3d: Reversing a reversal (double reversal chain) -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/settlements/rev_rev_st_valid`, {
+        uid: ownerId,
+        data: {
+          id: 'rev_rev_st_valid',
+          familyId: famId,
+          fromUserId: memberId,
+          toUserId: ownerId,
+          amountMinor: 200000,
+          paymentCode: 'REV_2',
+          reversalOfId: 'rev_st_valid',
+        },
+      }),
+      403,
+    );
+  });
+
+  it('9. P0 Attack 4 (AUD-003) — Enforces member shares on split_bills & blocks deleting settled or locked bills', async () => {
+    const { famId, ownerId, memberId, outsiderId } = await seedFamilyWithRoles('p0_bill');
+
+    // Attack 4a: Non-member participant in sharesByUserId -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_bad_member`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_bad_member',
+          familyId: famId,
+          title: 'Tiền rác',
+          paidByUserId: ownerId,
+          totalAmountMinor: 100000,
+          sharesByUserId: { [ownerId]: 50000, [outsiderId]: 50000 },
+          status: 'open',
+        },
+      }),
+      403,
+    );
+
+    // Attack 4b: Create already settled bill -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_settled_create`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_settled_create',
+          familyId: famId,
+          title: 'Hóa đơn đóng sẵn',
+          paidByUserId: ownerId,
+          totalAmountMinor: 100000,
+          sharesByUserId: { [ownerId]: 50000, [memberId]: 50000 },
+          status: 'settled',
+        },
+      }),
+      403,
+    );
+
+    // Valid open bill -> update to settled -> DELETE must be DENIED (403) even for owner!
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_lock`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_lock',
+          familyId: famId,
+          title: 'Tiền điện',
+          paidByUserId: ownerId,
+          totalAmountMinor: 300000,
+          sharesByUserId: { [ownerId]: 150000, [memberId]: 150000 },
+          status: 'open',
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}/split_bills/bill_lock`,
+          exists: true,
+          updateMask: ['status'],
+          data: { status: 'settled' },
+        },
+      ]),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `families/${famId}/split_bills/bill_lock`, { uid: ownerId }),
+      403,
+    );
+  });
+
+  it('10. P0 Attack 5 & 6 (AUD-004, AUD-005) — Blocks availability/doc hijacks, pre-seeded ghosts, and banned member rejoin', async () => {
+    const { famId, ownerId, adminId, memberId, invCode } = await seedFamilyWithRoles('p0_rbac');
+
+    // Attack 5a: memberId creates availability, adminId CANNOT hijack/update it -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/availability/slot_c`, {
+        uid: memberId,
+        data: { id: 'slot_c', ownerId: memberId, label: 'Rảnh tối' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `families/${famId}/availability/slot_c`,
+          exists: true,
+          updateMask: ['label'],
+          data: { label: 'Bị sửa trộm' },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 5b: memberId uploads doc, another non-manager member CANNOT overwrite or forge uploadedBy
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/documents/doc_1`, {
+        uid: adminId,
+        data: { id: 'doc_1', familyId: famId, uploadedBy: adminId, title: 'Giấy tờ xe' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/documents/doc_1`,
+          exists: true,
+          updateMask: ['title'],
+          data: { title: 'Sửa trái phép' },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 6a: Pre-seeded ghost members on create -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `families/fam_ghost_${Date.now()}`, {
+        uid: ownerId,
+        data: {
+          id: 'fam_ghost',
+          name: 'Nhóm Ma',
+          createdBy: ownerId,
+          memberIds: [ownerId, 'ghost_uid'],
+          memberRoles: { [ownerId]: 'owner', ghost_uid: 'admin' },
+        },
+      }),
+      403,
+    );
+
+    // Attack 6b: Owner removes & bans memberId -> memberId CANNOT rejoin even with active invCode -> 403
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'memberNames', 'bannedUserIds', 'lastRemovedMemberId'],
+          data: {
+            memberIds: [ownerId, adminId],
+            memberRoles: { [ownerId]: 'owner', [adminId]: 'admin' },
+            memberNames: { [ownerId]: 'Trưởng nhóm', [adminId]: 'Quản trị B' },
+            bannedUserIds: [memberId],
+            lastRemovedMemberId: memberId,
+          },
+        },
+      ]),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `family_invites/${invCode}`,
+          exists: true,
+          updateMask: ['usedCount', 'consumedBy', 'consumedAt', 'status', 'updatedAt'],
+          data: {
+            usedCount: 3,
+            consumedBy: memberId,
+            consumedAt: new Date(),
+            status: 'active',
+            updatedAt: new Date(),
+          },
+        },
+        {
+          path: `families/${famId}`,
+          exists: true,
+          updateMask: ['memberIds', 'memberRoles', 'memberNames', 'lastJoinedInviteCode', 'updatedAt'],
+          data: {
+            memberIds: [ownerId, adminId, memberId],
+            memberRoles: { [ownerId]: 'owner', [adminId]: 'admin', [memberId]: 'member' },
+            memberNames: { [ownerId]: 'Trưởng nhóm', [adminId]: 'Quản trị B', [memberId]: 'Quay lại' },
+            lastJoinedInviteCode: invCode,
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      403,
+    );
+  });
+
+  it('11. P0 Attack 7 & 8 (AUD-010, AUD-021) — Blocks wallet audit replay/math skew, extended verified tx lock, and monotonic deletion lock', async () => {
+    const uid = `u_p0_ledger_${Date.now()}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}`, {
+        uid,
+        data: { id: uid, fullName: 'Minh', deletionInProgress: false },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/wallets/w_1`, {
+        uid,
+        data: { id: 'w_1', ownerId: uid, name: 'Ví Chính', balanceMinor: 1000000 },
+      }),
+      200,
+    );
+
+    // Valid audit_1 -> 200
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/ledger_audits/aud_1`,
+          exists: false,
+          data: {
+            id: 'aud_1',
+            ownerId: uid,
+            walletId: 'w_1',
+            previousBalanceMinor: 1000000,
+            deltaMinor: -200000,
+            newBalanceMinor: 800000,
+          },
+        },
+        {
+          path: `users/${uid}/wallets/w_1`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'updatedAt'],
+          data: { balanceMinor: 800000, lastAuditId: 'aud_1', updatedAt: new Date() },
+        },
+      ]),
+      200,
+    );
+
+    // Attack 7a: Wallet update reusing existing lastAuditId (`aud_1`) -> 403
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/wallets/w_1`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'updatedAt'],
+          data: { balanceMinor: 9999999, lastAuditId: 'aud_1', updatedAt: new Date() },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 7b: Wallet update with inconsistent audit math -> 403
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/ledger_audits/aud_bad_math`,
+          exists: false,
+          data: {
+            id: 'aud_bad_math',
+            ownerId: uid,
+            walletId: 'w_1',
+            previousBalanceMinor: 800000,
+            deltaMinor: 100000,
+            newBalanceMinor: 5000000,
+          },
+        },
+        {
+          path: `users/${uid}/wallets/w_1`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'updatedAt'],
+          data: { balanceMinor: 5000000, lastAuditId: 'aud_bad_math', updatedAt: new Date() },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 7c: Verified tx extended immutable fields (occurredAt, balanceAfterMinor, monthKey)
+    const txTime = new Date();
+    const verTx = {
+      id: 'tx_ext_lock',
+      ownerId: uid,
+      walletId: 'w_1',
+      kind: 'expense',
+      amountMinor: 200000,
+      currencyCode: 'VND',
+      verificationStatus: 'VERIFIED',
+      monthKey: '2026-11',
+      occurredAt: txTime,
+      balanceAfterMinor: 800000,
+      isRefund: false,
+    };
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_ext_lock`, { uid, data: verTx }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/transactions/tx_ext_lock`,
+          exists: true,
+          updateMask: ['monthKey'],
+          data: { monthKey: '2026-01' },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/transactions/tx_ext_lock`,
+          exists: true,
+          updateMask: ['balanceAfterMinor'],
+          data: { balanceAfterMinor: 9999999 },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 8 (AUD-021): Start deletion -> deletes audit -> cannot roll back deletionInProgress to false!
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}`,
+          exists: true,
+          updateMask: ['deletionInProgress'],
+          data: { deletionInProgress: true },
+        },
+      ]),
+      200,
+    );
+    assert.equal(await firestoreRequest('DELETE', `users/${uid}/ledger_audits/aud_1`, { uid }), 200);
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}`,
+          exists: true,
+          updateMask: ['deletionInProgress'],
+          data: { deletionInProgress: false },
+        },
+      ]),
+      403,
+    );
+  });
+
+  it('12. P0 Attack 9, 10 & 11 (AUD-011, Cross-Collection & Concurrency) — Blocks ownerId mutation, assignee task escalation, verifies cross-wallet fund debit and concurrent optimistic lock', async () => {
+    const { famId, ownerId, adminId, memberId } = await seedFamilyWithRoles('p0_conc');
+
+    // Attack 9: Tasks assignee-only restricted fields & recurring task spawn
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/tasks/task_1`, {
+        uid: ownerId,
+        data: {
+          id: 'task_1',
+          familyId: famId,
+          createdBy: ownerId,
+          assigneeId: memberId,
+          title: 'Đóng tiền nước',
+          status: 'accepted',
+        },
+      }),
+      200,
+    );
+    // Assignee cannot tamper task title -> 403
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/tasks/task_1`,
+          exists: true,
+          updateMask: ['status', 'title'],
+          data: { status: 'done', title: 'Sửa tiêu đề' },
+        },
+      ]),
+      403,
+    );
+    // Assignee completes task & spawns recurring occurrence with createdBy == memberId -> 200
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/tasks/task_1`,
+          exists: true,
+          updateMask: ['status', 'updatedAt'],
+          data: { status: 'done', updatedAt: new Date() },
+        },
+        {
+          path: `families/${famId}/tasks/task_2`,
+          exists: false,
+          data: {
+            id: 'task_2',
+            familyId: famId,
+            createdBy: memberId,
+            originalCreatorId: ownerId,
+            assigneeId: memberId,
+            title: 'Đóng tiền nước',
+            status: 'accepted',
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Owner cannot mutate ownerId on shared_events/vehicles/bills -> 403; vehicle owner can delete maintenances -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/shared_events/ev_1`, {
+        uid: memberId,
+        data: { id: 'ev_1', ownerId: memberId, title: 'Họp nhà' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/shared_events/ev_1`,
+          exists: true,
+          updateMask: ['ownerId'],
+          data: { ownerId: adminId },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/vehicles/veh_1`, {
+        uid: memberId,
+        data: { id: 'veh_1', ownerId: memberId, name: 'SH Mode' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/vehicles/veh_1`,
+          exists: true,
+          updateMask: ['ownerId'],
+          data: { ownerId: adminId },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/vehicles/veh_1/maintenances/m_1`, {
+        uid: ownerId,
+        data: { id: 'm_1', serviceTitle: 'Thay nhớt', costMinor: 150000 },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `families/${famId}/vehicles/veh_1/maintenances/m_1`, { uid: memberId }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/bills/bill_r1`, {
+        uid: memberId,
+        data: { id: 'bill_r1', ownerId: memberId, title: 'Internet' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `families/${famId}/bills/bill_r1`,
+          exists: true,
+          updateMask: ['ownerId'],
+          data: { ownerId: adminId },
+        },
+      ]),
+      403,
+    );
+
+    // Attack 10: Atomic wallet -> family fund contribution in a single batch!
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${memberId}/wallets/w_src`, {
+        uid: memberId,
+        data: { id: 'w_src', ownerId: memberId, name: 'Ví C', balanceMinor: 1000000 },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/f_shared`, {
+        uid: ownerId,
+        data: {
+          id: 'f_shared',
+          ownerId,
+          familyId: famId,
+          name: 'Quỹ Chung',
+          balanceMinor: 0,
+          targetAmountMinor: 5000000,
+          createdAt: new Date(),
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(memberId, [
+        {
+          path: `users/${memberId}/wallets/w_src`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'updatedAt'],
+          data: { balanceMinor: 750000, lastAuditId: 'aud_wf_1', updatedAt: new Date() },
+        },
+        {
+          path: `users/${memberId}/ledger_audits/aud_wf_1`,
+          exists: false,
+          data: {
+            id: 'aud_wf_1',
+            ownerId: memberId,
+            walletId: 'w_src',
+            previousBalanceMinor: 1000000,
+            deltaMinor: -250000,
+            newBalanceMinor: 750000,
+          },
+        },
+        {
+          path: `users/${memberId}/transactions/tx_wf_1`,
+          exists: false,
+          data: {
+            id: 'tx_wf_1',
+            ownerId: memberId,
+            walletId: 'w_src',
+            amountMinor: 250000,
+            currencyCode: 'VND',
+            kind: 'expense',
+          },
+        },
+        {
+          path: `families/${famId}/funds/f_shared/contributions/c_wf_1`,
+          exists: false,
+          data: { id: 'c_wf_1', fundId: 'f_shared', contributorId: memberId, amountMinor: 250000 },
+        },
+        {
+          path: `families/${famId}/funds/f_shared/fund_audits/fa_wf_1`,
+          exists: false,
+          data: {
+            id: 'fa_wf_1',
+            fundId: 'f_shared',
+            actorId: memberId,
+            previousBalanceMinor: 0,
+            deltaMinor: 250000,
+            newBalanceMinor: 250000,
+          },
+        },
+        {
+          path: `families/${famId}/funds/f_shared`,
+          exists: true,
+          updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId'],
+          data: {
+            balanceMinor: 250000,
+            lastAuditId: 'fa_wf_1',
+            lastEventType: 'contribution',
+            lastEventId: 'c_wf_1',
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Attack 11: Concurrent optimistic transactions racing on same approved expense -> AT MOST ONE wins (no lost update / double debit)!
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/f_shared/expenses/exp_race`, {
+        uid: memberId,
+        data: {
+          id: 'exp_race',
+          fundId: 'f_shared',
+          requesterId: memberId,
+          title: 'Chi đua tranh',
+          amountMinor: 200000,
+          status: 'approved',
+        },
+      }),
+      403, // Also confirms cannot create already-approved expense!
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/funds/f_shared/expenses/exp_race`, {
+        uid: memberId,
+        data: {
+          id: 'exp_race',
+          fundId: 'f_shared',
+          requesterId: memberId,
+          title: 'Chi đua tranh',
+          amountMinor: 200000,
+          status: 'pending_approval',
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(adminId, [
+        {
+          path: `families/${famId}/funds/f_shared/expenses/exp_race`,
+          exists: true,
+          updateMask: ['status', 'decidedBy'],
+          data: { status: 'approved', decidedBy: adminId },
+        },
+      ]),
+      200,
+    );
+
+    const fundSnap = await firestoreGetDoc(ownerId, `families/${famId}/funds/f_shared`);
+    assert.equal(fundSnap.status, 200);
+    const snapUpdateTime = fundSnap.doc.updateTime;
+
+    const raceWrites = (execUid, suffix) => [
+      {
+        path: `families/${famId}/funds/f_shared/fund_audits/fa_race_${suffix}`,
+        exists: false,
+        data: {
+          id: `fa_race_${suffix}`,
+          fundId: 'f_shared',
+          actorId: execUid,
+          previousBalanceMinor: 250000,
+          deltaMinor: -200000,
+          newBalanceMinor: 50000,
+        },
+      },
+      {
+        path: `families/${famId}/funds/f_shared/expenses/exp_race`,
+        exists: true,
+        updateMask: ['status', 'executedBy'],
+        data: { status: 'executed', executedBy: execUid },
+      },
+      {
+        path: `families/${famId}/funds/f_shared`,
+        updateTime: snapUpdateTime,
+        updateMask: ['balanceMinor', 'lastAuditId', 'lastEventType', 'lastEventId'],
+        data: {
+          balanceMinor: 50000,
+          lastAuditId: `fa_race_${suffix}`,
+          lastEventType: 'expense_executed',
+          lastEventId: 'exp_race',
+        },
+      },
+    ];
+
+    const [r1, r2] = await Promise.all([
+      firestoreCommitBatchResponse(ownerId, raceWrites(ownerId, 'a')),
+      firestoreCommitBatchResponse(adminId, raceWrites(adminId, 'b')),
+    ]);
+    const okCount = [r1.status, r2.status].filter((s) => s === 200).length;
+    assert.equal(okCount, 1, `Expected strictly 1 winner in concurrent debit race, got statuses [${r1.status}, ${r2.status}]`);
+    const finalFund = await firestoreGetDoc(ownerId, `families/${famId}/funds/f_shared`);
+    assert.equal(Number(finalFund.doc.fields.balanceMinor.integerValue), 50000);
   });
 });

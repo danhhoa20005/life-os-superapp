@@ -188,7 +188,8 @@ class TaskRemoteDataSource {
       batch.set(nextRef, {
         'id': nextId,
         'familyId': task.familyId,
-        'createdBy': task.createdBy,
+        'createdBy': actorUserId,
+        'originalCreatorId': task.createdBy,
         'creatorName': task.creatorName,
         'assigneeId': task.assigneeId,
         'assigneeName': task.assigneeName,

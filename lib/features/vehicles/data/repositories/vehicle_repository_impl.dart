@@ -6,6 +6,7 @@ import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/utils/stream_combiner.dart';
+import '../../../transactions/domain/entities/ledger_integrity_engine.dart';
 import '../../domain/entities/vehicle_entities.dart';
 import '../../domain/repositories/vehicle_repository.dart';
 
@@ -356,6 +357,10 @@ class VehicleRemoteDataSource {
     await _firestore.runTransaction((tx) async {
       DocumentSnapshot<Map<String, dynamic>>? walletSnap;
       DocumentReference<Map<String, dynamic>>? walletRef;
+      DocumentReference<Map<String, dynamic>>? auditRef;
+      DocumentSnapshot<Map<String, dynamic>>? auditSnap;
+      final txId = 'maint_$mId';
+      final auditId = 'aud_$txId';
       if (costMinor > 0 &&
           walletIdForExpense != null &&
           walletIdForExpense.isNotEmpty) {
@@ -364,7 +369,13 @@ class VehicleRemoteDataSource {
             .doc(vehicle.ownerId)
             .collection('wallets')
             .doc(walletIdForExpense);
+        auditRef = _firestore
+            .collection('users')
+            .doc(vehicle.ownerId)
+            .collection('ledger_audits')
+            .doc(auditId);
         walletSnap = await tx.get(walletRef);
+        auditSnap = await tx.get(auditRef);
       }
 
       final updatedKm = odometerKm > vehicle.currentOdometerKm
@@ -400,9 +411,32 @@ class VehicleRemoteDataSource {
       if (walletRef != null &&
           walletSnap != null &&
           walletSnap.exists &&
+          auditRef != null &&
+          (auditSnap == null || !auditSnap.exists) &&
           costMinor > 0) {
         final bal = (walletSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
-        final txId = 'maint_$mId';
+        final nextBal = bal - costMinor;
+        final auditRecord = LedgerIntegrityEngine.buildAndValidateAudit(
+          auditId: auditId,
+          operationId: mId,
+          transactionId: txId,
+          walletId: walletIdForExpense!,
+          previousBalanceMinor: bal,
+          deltaAmountMinor: -costMinor,
+          newBalanceMinor: nextBal,
+          createdAt: now,
+          actorId: vehicle.ownerId,
+          source: 'vehicle_maintenance',
+          verificationStatus: LedgerVerificationStatuses.userConfirmed,
+          walletName: walletSnap.data()?['name']?.toString(),
+          kind: 'expense',
+        ).fold(
+          (f) => throw AppException(
+            code: 'VALIDATION_FAILURE',
+            message: f.message,
+          ),
+          (r) => r,
+        );
         final txRef = _firestore
             .collection('users')
             .doc(vehicle.ownerId)
@@ -412,23 +446,32 @@ class VehicleRemoteDataSource {
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
         tx.update(walletRef, {
-          'balanceMinor': bal - costMinor,
+          'balanceMinor': nextBal,
+          'lastAuditId': auditId,
           'updatedAt': Timestamp.fromDate(now),
         });
+        tx.set(
+          auditRef,
+          auditRecord.toPayloadMap(createdAtValue: Timestamp.fromDate(now)),
+        );
         tx.set(txRef, {
           'id': txId,
+          'operationId': mId,
           'ownerId': vehicle.ownerId,
           'walletId': walletIdForExpense,
           'categoryName': 'Xe cộ & Di chuyển',
           'kind': 'expense',
           'direction': 'debit',
           'amountMinor': costMinor,
+          'balanceAfterMinor': nextBal,
           'currencyCode': 'VND',
           'merchant': '${vehicle.name} — $serviceTitle',
           'occurredAt': Timestamp.fromDate(now),
           'monthKey': monthKey,
           'sourceKind': 'manual',
           'verification': 'userConfirmed',
+          'verificationStatus': LedgerVerificationStatuses.userConfirmed,
+          'ledgerApplied': true,
           'crossSourceFingerprint':
               BankNotificationParser.computeCrossSourceFingerprint(
                 ownerId: vehicle.ownerId,
@@ -502,6 +545,15 @@ class VehicleRemoteDataSource {
         .doc(walletId);
     var spikeDetected = false;
 
+    final now = DateTime.now();
+    final txId = 'bill_${bill.id}_${now.millisecondsSinceEpoch}';
+    final auditId = 'aud_$txId';
+    final auditRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('ledger_audits')
+        .doc(auditId);
+
     await _firestore.runTransaction((tx) async {
       final wSnap = await tx.get(walletRef);
       if (!wSnap.exists) {
@@ -509,6 +561,10 @@ class VehicleRemoteDataSource {
           code: 'NOT_FOUND',
           message: 'Không tìm thấy ví thanh toán.',
         );
+      }
+      final auditSnap = await tx.get(auditRef);
+      if (auditSnap.exists) {
+        return;
       }
       final prevAvg = bill.averagePaidMinor ?? bill.estimatedAmountMinor;
       if (bill.paymentCount >= 1 &&
@@ -539,13 +595,39 @@ class VehicleRemoteDataSource {
         nextMonthFirst.month,
         clampedDay,
       );
-      final now = DateTime.now();
       final bal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
+      final nextBal = bal - paidAmountMinor;
+      final auditRecord = LedgerIntegrityEngine.buildAndValidateAudit(
+        auditId: auditId,
+        operationId: txId,
+        transactionId: txId,
+        walletId: walletId,
+        previousBalanceMinor: bal,
+        deltaAmountMinor: -paidAmountMinor,
+        newBalanceMinor: nextBal,
+        createdAt: now,
+        actorId: userId,
+        source: 'recurring_bill',
+        verificationStatus: LedgerVerificationStatuses.userConfirmed,
+        walletName: wSnap.data()?['name']?.toString(),
+        kind: 'expense',
+      ).fold(
+        (f) => throw AppException(
+          code: 'VALIDATION_FAILURE',
+          message: f.message,
+        ),
+        (r) => r,
+      );
 
       tx.update(walletRef, {
-        'balanceMinor': bal - paidAmountMinor,
+        'balanceMinor': nextBal,
+        'lastAuditId': auditId,
         'updatedAt': Timestamp.fromDate(now),
       });
+      tx.set(
+        auditRef,
+        auditRecord.toPayloadMap(createdAtValue: Timestamp.fromDate(now)),
+      );
 
       tx.update(billRef, {
         'lastPaidAmountMinor': paidAmountMinor,
@@ -554,7 +636,6 @@ class VehicleRemoteDataSource {
         'nextDueDate': Timestamp.fromDate(nextDue),
       });
 
-      final txId = 'bill_${bill.id}_${now.millisecondsSinceEpoch}';
       final txRef = _firestore
           .collection('users')
           .doc(userId)
@@ -565,18 +646,22 @@ class VehicleRemoteDataSource {
 
       tx.set(txRef, {
         'id': txId,
+        'operationId': txId,
         'ownerId': userId,
         'walletId': walletId,
         'categoryName': 'Điện/Nước/Internet',
         'kind': 'expense',
         'direction': 'debit',
         'amountMinor': paidAmountMinor,
+        'balanceAfterMinor': nextBal,
         'currencyCode': 'VND',
         'merchant': bill.title,
         'occurredAt': Timestamp.fromDate(now),
         'monthKey': monthKey,
         'sourceKind': 'manual',
         'verification': 'userConfirmed',
+        'verificationStatus': LedgerVerificationStatuses.userConfirmed,
+        'ledgerApplied': true,
         'crossSourceFingerprint':
             BankNotificationParser.computeCrossSourceFingerprint(
               ownerId: userId,

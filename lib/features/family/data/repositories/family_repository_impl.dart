@@ -975,6 +975,10 @@ class FamilyRemoteDataSource {
           .toList();
       final roles = Map<String, dynamic>.from((d['memberRoles'] as Map?) ?? {});
       final names = Map<String, dynamic>.from((d['memberNames'] as Map?) ?? {});
+      final banned = (d['bannedUserIds'] as List<dynamic>? ?? const <dynamic>[])
+          .map((e) => e.toString())
+          .where((id) => id.isNotEmpty)
+          .toSet();
 
       final actorRole = roles[actorUserId]?.toString();
       final targetRole = roles[targetUserId]?.toString();
@@ -995,11 +999,13 @@ class FamilyRemoteDataSource {
       memberIds.remove(targetUserId);
       roles.remove(targetUserId);
       names.remove(targetUserId);
+      banned.add(targetUserId);
 
       tx.update(familyRef, {
         'memberIds': memberIds,
         'memberRoles': roles,
         'memberNames': names,
+        'bannedUserIds': banned.toList(),
         'lastRemovedMemberId': targetUserId,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
@@ -1128,8 +1134,10 @@ class FamilyRemoteDataSource {
     required Map<String, int> sharesByUserId,
     required Map<String, String> participantNames,
     String? choreOrTaskNote,
+    String? operationId,
   }) async {
-    final id = _uuid.v4();
+    final opId = operationId?.trim();
+    final id = (opId != null && opId.isNotEmpty) ? 'bill_$opId' : _uuid.v4();
     final now = DateTime.now();
     final ref = _firestore
         .collection('families')
@@ -1137,22 +1145,29 @@ class FamilyRemoteDataSource {
         .collection('split_bills')
         .doc(id);
 
-    await ref.set({
-      'id': id,
-      'familyId': familyId,
-      'title': title,
-      'topic': topic.name,
-      'paidByUserId': paidByUserId,
-      'paidByName': paidByName,
-      'totalAmountMinor': totalAmountMinor,
-      'currencyCode': 'VND',
-      'splitMethod': splitMethod.name,
-      'sharesByUserId': sharesByUserId,
-      'participantNames': participantNames,
-      'status': 'open',
-      if (choreOrTaskNote != null && choreOrTaskNote.isNotEmpty)
-        'choreOrTaskNote': choreOrTaskNote,
-      'createdAt': Timestamp.fromDate(now),
+    await _firestore.runTransaction((tx) async {
+      final existing = await tx.get(ref);
+      if (existing.exists) {
+        return;
+      }
+      tx.set(ref, {
+        'id': id,
+        'familyId': familyId,
+        'title': title,
+        'topic': topic.name,
+        'paidByUserId': paidByUserId,
+        'paidByName': paidByName,
+        'totalAmountMinor': totalAmountMinor,
+        'currencyCode': 'VND',
+        'splitMethod': splitMethod.name,
+        'sharesByUserId': sharesByUserId,
+        'participantNames': participantNames,
+        'status': 'open',
+        if (opId != null && opId.isNotEmpty) 'operationId': opId,
+        if (choreOrTaskNote != null && choreOrTaskNote.isNotEmpty)
+          'choreOrTaskNote': choreOrTaskNote,
+        'createdAt': Timestamp.fromDate(now),
+      });
     });
 
     final snap = await ref.get();
@@ -1170,6 +1185,7 @@ class FamilyRemoteDataSource {
     bool isPartial = false,
     String? settlementRequestId,
     String? note,
+    String? operationId,
   }) async {
     if (fromUserId == toUserId) {
       throw const AppException(
@@ -1184,16 +1200,19 @@ class FamilyRemoteDataSource {
       );
     }
     final now = DateTime.now();
-    // F04 / SEC-04: Deterministic idempotency key per (family, payer, payee, amount, paymentCode, partial suffix)
+    // F04 / SEC-04: Deterministic idempotency key per (family, payer, payee, amount, paymentCode, partial suffix, or operationId)
     final safeCode = paymentCode
         .trim()
         .toUpperCase()
         .replaceAll(RegExp(r'[^A-Z0-9_-]'), '');
+    final opId = operationId?.trim();
     final id = settlementRequestId != null && settlementRequestId.isNotEmpty
         ? 'stl_req_$settlementRequestId'
         : (safeCode.isNotEmpty && safeCode != 'LIFEOS'
               ? 'stl_${fromUserId}_${toUserId}_${amountMinor}_$safeCode'
-              : _uuid.v4());
+              : (opId != null && opId.isNotEmpty
+                    ? 'stl_op_$opId'
+                    : _uuid.v4()));
     final ref = _firestore
         .collection('families')
         .doc(familyId)
@@ -1217,6 +1236,7 @@ class FamilyRemoteDataSource {
         'paymentCode': paymentCode,
         'status': 'confirmed',
         'isPartial': isPartial,
+        if (opId != null && opId.isNotEmpty) 'operationId': opId,
         if (settlementRequestId != null && settlementRequestId.isNotEmpty)
           'settlementRequestId': settlementRequestId,
         if (note != null && note.isNotEmpty) 'note': note,
@@ -1238,6 +1258,7 @@ class FamilyRemoteDataSource {
     required String paymentCode,
     bool isPartial = false,
     String? note,
+    String? operationId,
   }) async {
     if (fromUserId == toUserId) {
       throw const AppException(
@@ -1251,7 +1272,10 @@ class FamilyRemoteDataSource {
         message: 'Số tiền yêu cầu tất toán phải lớn hơn 0.',
       );
     }
-    final id = 'sreq_${_uuid.v4()}';
+    final opId = operationId?.trim();
+    final id = (opId != null && opId.isNotEmpty)
+        ? 'sreq_$opId'
+        : 'sreq_${_uuid.v4()}';
     final now = DateTime.now();
     final ref = _firestore
         .collection('families')
@@ -1259,20 +1283,27 @@ class FamilyRemoteDataSource {
         .collection('settlement_requests')
         .doc(id);
 
-    await ref.set({
-      'id': id,
-      'familyId': familyId,
-      'fromUserId': fromUserId,
-      'fromUserName': fromUserName,
-      'toUserId': toUserId,
-      'toUserName': toUserName,
-      'amountMinor': amountMinor,
-      'currencyCode': 'VND',
-      'paymentCode': paymentCode,
-      'status': 'pending',
-      'isPartial': isPartial,
-      if (note != null && note.isNotEmpty) 'note': note,
-      'createdAt': Timestamp.fromDate(now),
+    await _firestore.runTransaction((tx) async {
+      final existing = await tx.get(ref);
+      if (existing.exists) {
+        return;
+      }
+      tx.set(ref, {
+        'id': id,
+        'familyId': familyId,
+        'fromUserId': fromUserId,
+        'fromUserName': fromUserName,
+        'toUserId': toUserId,
+        'toUserName': toUserName,
+        'amountMinor': amountMinor,
+        'currencyCode': 'VND',
+        'paymentCode': paymentCode,
+        'status': 'pending',
+        'isPartial': isPartial,
+        if (opId != null && opId.isNotEmpty) 'operationId': opId,
+        if (note != null && note.isNotEmpty) 'note': note,
+        'createdAt': Timestamp.fromDate(now),
+      });
     });
 
     final snap = await ref.get();
@@ -1291,39 +1322,6 @@ class FamilyRemoteDataSource {
         .doc(familyId)
         .collection('settlement_requests')
         .doc(requestId);
-    final reqSnap = await reqRef.get();
-    if (!reqSnap.exists) {
-      throw const AppException(
-        code: 'NOT_FOUND',
-        message: 'Không tìm thấy yêu cầu tất toán.',
-      );
-    }
-    final req = _mapSettlementRequest(familyId, reqSnap);
-    if (req.status != SettlementRequestStatus.pending) {
-      throw const AppException(
-        code: 'CONFLICT_FAILURE',
-        message: 'Yêu cầu tất toán này đã được xử lý trước đó.',
-      );
-    }
-    if (actorUserId != req.toUserId) {
-      throw const AppException(
-        code: 'PERMISSION_DENIED',
-        message: 'Chỉ người nhận tiền mới có quyền xác nhận hoặc từ chối.',
-      );
-    }
-
-    final now = DateTime.now();
-    if (!approve) {
-      await reqRef.update({
-        'status': 'rejected',
-        'confirmedBy': actorUserId,
-        'confirmedAt': Timestamp.fromDate(now),
-        if (disputeReason != null && disputeReason.isNotEmpty)
-          'disputeReason': disputeReason,
-      });
-      return null;
-    }
-
     final stlId = 'stl_req_$requestId';
     final stlRef = _firestore
         .collection('families')
@@ -1331,30 +1329,78 @@ class FamilyRemoteDataSource {
         .collection('settlements')
         .doc(stlId);
 
-    final batch = _firestore.batch();
-    batch.update(reqRef, {
-      'status': 'confirmed',
-      'confirmedBy': actorUserId,
-      'confirmedAt': Timestamp.fromDate(now),
-    });
-    batch.set(stlRef, {
-      'id': stlId,
-      'familyId': familyId,
-      'fromUserId': req.fromUserId,
-      'fromUserName': req.fromUserName,
-      'toUserId': req.toUserId,
-      'toUserName': req.toUserName,
-      'amountMinor': req.amountMinor,
-      'currencyCode': 'VND',
-      'paymentCode': req.paymentCode,
-      'status': 'confirmed',
-      'isPartial': req.isPartial,
-      'settlementRequestId': requestId,
-      if (req.note != null && req.note!.isNotEmpty) 'note': req.note,
-      'createdAt': Timestamp.fromDate(now),
-    });
-    await batch.commit();
+    var confirmed = false;
+    await _firestore.runTransaction((tx) async {
+      final reqSnap = await tx.get(reqRef);
+      if (!reqSnap.exists) {
+        throw const AppException(
+          code: 'NOT_FOUND',
+          message: 'Không tìm thấy yêu cầu tất toán.',
+        );
+      }
+      final req = _mapSettlementRequest(familyId, reqSnap);
+      if (req.status != SettlementRequestStatus.pending) {
+        throw const AppException(
+          code: 'CONFLICT_FAILURE',
+          message: 'Yêu cầu tất toán này đã được xử lý trước đó.',
+        );
+      }
+      if (actorUserId != req.toUserId) {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Chỉ người nhận tiền mới có quyền xác nhận hoặc từ chối.',
+        );
+      }
 
+      final now = DateTime.now();
+      if (!approve) {
+        tx.update(reqRef, {
+          'status': 'rejected',
+          'confirmedBy': actorUserId,
+          'confirmedAt': Timestamp.fromDate(now),
+          if (disputeReason != null && disputeReason.isNotEmpty)
+            'disputeReason': disputeReason,
+        });
+        confirmed = false;
+        return;
+      }
+
+      final existingStlSnap = await tx.get(stlRef);
+      if (existingStlSnap.exists) {
+        throw const AppException(
+          code: 'CONFLICT_FAILURE',
+          message: 'Bút toán tất toán cho yêu cầu này đã tồn tại.',
+        );
+      }
+
+      tx.update(reqRef, {
+        'status': 'confirmed',
+        'confirmedBy': actorUserId,
+        'confirmedAt': Timestamp.fromDate(now),
+        'settlementId': stlId,
+      });
+      tx.set(stlRef, {
+        'id': stlId,
+        'familyId': familyId,
+        'fromUserId': req.fromUserId,
+        'fromUserName': req.fromUserName,
+        'toUserId': req.toUserId,
+        'toUserName': req.toUserName,
+        'amountMinor': req.amountMinor,
+        'currencyCode': 'VND',
+        'paymentCode': req.paymentCode,
+        'status': 'confirmed',
+        'isPartial': req.isPartial,
+        'settlementRequestId': requestId,
+        if (req.note != null && req.note!.isNotEmpty) 'note': req.note,
+        'createdAt': Timestamp.fromDate(now),
+      });
+      confirmed = true;
+    });
+
+    if (!confirmed) {
+      return null;
+    }
     final stlSnap = await stlRef.get();
     return _mapSettlement(familyId, stlSnap);
   }
@@ -1364,14 +1410,14 @@ class FamilyRemoteDataSource {
     required String settlementId,
     required String actorUserId,
     String? reason,
+    String? operationId,
   }) async {
-    final stlCol = _firestore
-        .collection('families')
-        .doc(familyId)
-        .collection('settlements');
+    final famRef = _firestore.collection('families').doc(familyId);
+    final stlCol = famRef.collection('settlements');
     final origRef = stlCol.doc(settlementId);
     final revId = 'rev_$settlementId';
     final revRef = stlCol.doc(revId);
+    final opId = operationId?.trim();
 
     await _firestore.runTransaction((tx) async {
       final origSnap = await tx.get(origRef);
@@ -1395,16 +1441,26 @@ class FamilyRemoteDataSource {
               'Không thể hoàn tác tự động giao dịch ngân hàng không gắn thành viên.',
         );
       }
-      if (actorUserId != orig.fromUserId && actorUserId != orig.toUserId) {
+      final famSnap = await tx.get(famRef);
+      final famRoles =
+          (famSnap.data()?['memberRoles'] as Map?) ?? const <dynamic, dynamic>{};
+      final actorRole = famRoles[actorUserId]?.toString();
+      final isManager = actorRole == 'owner' || actorRole == 'admin';
+      if (actorUserId != orig.toUserId && !isManager) {
         throw const AppException(
           code: 'PERMISSION_DENIED',
           message:
-              'Chỉ người trả hoặc người nhận của khoản tất toán mới được hoàn tác.',
+              'Chỉ người nhận tiền hoặc Quản trị viên mới được hoàn tác tất toán.',
         );
       }
 
       final revSnap = await tx.get(revRef);
       if (revSnap.exists) {
+        if (opId != null &&
+            opId.isNotEmpty &&
+            revSnap.data()?['operationId'] == opId) {
+          return;
+        }
         throw const AppException(
           code: 'CONFLICT_FAILURE',
           message: 'Khoản tất toán này đã được hoàn tác trước đó.',
@@ -1427,6 +1483,7 @@ class FamilyRemoteDataSource {
         'status': 'confirmed',
         'reversalOfId': settlementId,
         'isPartial': orig.isPartial,
+        if (opId != null && opId.isNotEmpty) 'operationId': opId,
         'note': (cleanReason != null && cleanReason.isNotEmpty)
             ? cleanReason
             : 'Hoàn tác tất toán (${orig.paymentCode})',
@@ -1781,6 +1838,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     required Map<String, int> sharesByUserId,
     required Map<String, String> participantNames,
     String? choreOrTaskNote,
+    String? operationId,
   }) async {
     try {
       final bill = await _remoteDataSource.createSharedBillSplit(
@@ -1794,6 +1852,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
         sharesByUserId: sharesByUserId,
         participantNames: participantNames,
         choreOrTaskNote: choreOrTaskNote,
+        operationId: operationId,
       );
       return Success(bill);
     } catch (e) {
@@ -1813,6 +1872,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     bool isPartial = false,
     String? settlementRequestId,
     String? note,
+    String? operationId,
   }) async {
     try {
       final settlement = await _remoteDataSource.recordDebtSettlement(
@@ -1826,6 +1886,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
         isPartial: isPartial,
         settlementRequestId: settlementRequestId,
         note: note,
+        operationId: operationId,
       );
       return Success(settlement);
     } catch (e) {
@@ -1844,6 +1905,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     required String paymentCode,
     bool isPartial = false,
     String? note,
+    String? operationId,
   }) async {
     try {
       final req = await _remoteDataSource.requestDebtSettlement(
@@ -1856,6 +1918,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
         paymentCode: paymentCode,
         isPartial: isPartial,
         note: note,
+        operationId: operationId,
       );
       return Success(req);
     } catch (e) {
@@ -1891,6 +1954,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     required String settlementId,
     required String actorUserId,
     String? reason,
+    String? operationId,
   }) async {
     try {
       final reversal = await _remoteDataSource.reverseDebtSettlement(
@@ -1898,6 +1962,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
         settlementId: settlementId,
         actorUserId: actorUserId,
         reason: reason,
+        operationId: operationId,
       );
       return Success(reversal);
     } catch (e) {
