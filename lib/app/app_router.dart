@@ -38,6 +38,7 @@ import '../features/daily_life/presentation/pages/smart_notes_salary_page.dart';
 import '../features/daily_life/presentation/pages/super_app_directory_page.dart';
 import '../features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../features/dashboard/presentation/pages/home_widgets_studio_page.dart';
+import '../features/dashboard/presentation/pages/life_timeline_page.dart';
 import '../features/dashboard/presentation/pages/today_page.dart';
 import '../features/documents/presentation/bloc/document_vault_bloc.dart';
 import '../features/documents/presentation/pages/family_documents_page.dart';
@@ -598,6 +599,18 @@ GoRouter createAppRouter(
             userId: user.id,
             familyId: user.activeFamilyId,
             child: const AutomationStudioPage(),
+          );
+        }),
+      ),
+      GoRoute(
+        path: '/life-timeline',
+        pageBuilder: (_, state) => _motionPage(state, (context) {
+          final user = context.read<AuthBloc>().state.user;
+          if (user == null) return const LoginPage();
+          return _ScopedAuthenticatedProviders(
+            userId: user.id,
+            familyId: user.activeFamilyId,
+            child: const LifeTimelinePage(),
           );
         }),
       ),

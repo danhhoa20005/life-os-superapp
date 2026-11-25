@@ -23,6 +23,7 @@ abstract final class FeatureRegistry {
 
   static const String routeMotionGallery = '/motion-gallery';
   static const String routeAutomationStudio = '/automation-studio';
+  static const String routeLifeTimeline = '/life-timeline';
 
   /// Normalizes `?tab=` query values for `WealthToolsPage`.
   static String normalizeWealthToolTab(String? rawTab) {
