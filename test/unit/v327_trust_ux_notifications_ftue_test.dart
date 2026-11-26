@@ -342,7 +342,7 @@ void main() {
           quietEndHour: 7,
           dailyDigestEnabled: true,
           digestHour: 20,
-          disabledKinds: {SmartInboxKind.medicationReminder},
+          disabledKinds: {SmartInboxKind.vehicleMaintenance},
         );
 
         expect(
@@ -386,13 +386,13 @@ void main() {
               primaryActionLabelVi: 'Mở',
             ),
             SmartInboxItem(
-              dedupKey: 'med::m1',
-              kind: SmartInboxKind.medicationReminder,
+              dedupKey: 'veh::v1',
+              kind: SmartInboxKind.vehicleMaintenance,
               tier: SmartInboxTier.timeSensitive,
-              titleVi: 'Vitamin D3',
+              titleVi: 'Bảo dưỡng xe',
               subtitleVi: 'Bị tắt loại thông báo này',
               timestamp: quietNow,
-              targetRoute: '/health-hub',
+              targetRoute: '/assets',
               primaryActionLabelVi: 'Xem',
             ),
           ],

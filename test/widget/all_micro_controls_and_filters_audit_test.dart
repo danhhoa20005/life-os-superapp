@@ -110,7 +110,7 @@ void main() {
     );
 
     test(
-      'SmartOmniIntentParser classifies unaccented Vietnamese calendar, task, water & medication inputs',
+      'SmartOmniIntentParser classifies unaccented Vietnamese calendar, task & water inputs',
       () {
         final now = DateTime(2026, 11, 24, 8, 30);
 
@@ -132,12 +132,6 @@ void main() {
         );
         expect(water?.kind, OmniActionKind.waterLog);
         expect(water?.waterMl, 500);
-
-        final med = SmartOmniIntentParser.tryParsePrimary(
-          'nhac uong thuoc vitamin',
-          now: now,
-        );
-        expect(med?.kind, OmniActionKind.medication);
       },
     );
 
@@ -698,7 +692,7 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('Sổ thu chi'), findsOneWidget);
-          expect(find.text('Sức khỏe & SOS'), findsOneWidget);
+          expect(find.text('Bếp & Đi chợ'), findsOneWidget);
 
           // 3. Unmatched query -> shows empty filter card with 1-tap reset button
           await tester.enterText(searchField, 'khong co dich vu xyz');

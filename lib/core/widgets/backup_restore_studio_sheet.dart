@@ -616,7 +616,7 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                   if (summary != null && summary.extendedCount > 0) ...[
                     const SizedBox(height: 6),
                     Text(
-                      'Mục mở rộng khác (${summary.extendedCount}): danh mục, hóa đơn, bảo dưỡng xe, quỹ cá nhân, tủ thuốc, chỉ số điện nước, giấy tờ (chỉ metadata)...',
+                      'Mục mở rộng khác (${summary.extendedCount}): danh mục, hóa đơn, bảo dưỡng xe, quỹ cá nhân, chỉ số điện nước, giấy tờ (chỉ metadata)...',
                       softWrap: true,
                       style: TextStyle(
                         fontSize: 12,

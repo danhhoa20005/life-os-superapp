@@ -1062,21 +1062,6 @@ class MainActivity : FlutterActivity() {
                     )
                     result.success(true)
                 }
-                "syncMedicationDaemon" -> {
-                    val medId = call.argument<String>("medId") ?: ""
-                    if (medId.isNotBlank()) {
-                        LifeOsAlarmScheduler.syncMedicationDaemonItem(
-                            context = applicationContext,
-                            medId = medId,
-                            enabled = call.argument<Boolean>("enabled") ?: false,
-                            name = call.argument<String>("name") ?: "Thuốc",
-                            dosage = call.argument<String>("dosage") ?: "1 liều",
-                            hour = call.argument<Int>("hour") ?: 8,
-                            minute = call.argument<Int>("minute") ?: 0
-                        )
-                    }
-                    result.success(true)
-                }
                 "drainBackgroundHealthActions" -> {
                     result.success(LifeOsAlarmScheduler.drainQueuedBackgroundHealthActions(applicationContext))
                 }

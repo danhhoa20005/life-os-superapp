@@ -220,7 +220,6 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
     OmniActionKind.task => Icons.task_alt_rounded,
     OmniActionKind.grocery => Icons.shopping_basket_outlined,
     OmniActionKind.waterLog => Icons.water_drop_outlined,
-    OmniActionKind.medication => Icons.medication_outlined,
   };
 
   Future<void> _saveInlineDraft() async {
@@ -1084,7 +1083,7 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
               label: const FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  'Nhắc uống nước & Uống thuốc',
+                  'Ghi nhanh uống nước',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
@@ -3264,7 +3263,7 @@ class _QuickGroceryAndNoteModalState extends State<_QuickGroceryAndNoteModal>
   }
 }
 
-/// Direct Quick Water & Medication Reminder Sheet opened right from `+ -> Nhắc uống nước & Uống thuốc`.
+/// Direct Quick Water Reminder Sheet opened right from `+ -> Ghi nhanh uống nước`.
 Future<void> _showQuickWaterAndMedSheet(
   BuildContext context, {
   required AuthBloc? authBloc,
@@ -3272,7 +3271,7 @@ Future<void> _showQuickWaterAndMedSheet(
 }) async {
   final user = authBloc?.state.user;
   if (user == null || dailyBloc == null) {
-    context.push('/health-hub');
+    context.push('/habits-focus');
     return;
   }
 
@@ -3288,7 +3287,7 @@ Future<void> _showQuickWaterAndMedSheet(
   );
 }
 
-class _QuickWaterAndMedModal extends StatefulWidget {
+class _QuickWaterAndMedModal extends StatelessWidget {
   final BuildContext parentContext;
   final String userId;
 
@@ -3298,32 +3297,10 @@ class _QuickWaterAndMedModal extends StatefulWidget {
   });
 
   @override
-  State<_QuickWaterAndMedModal> createState() => _QuickWaterAndMedModalState();
-}
-
-class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
-  String _mode = 'water'; // 'water' | 'med'
-  final TextEditingController _medNameCtrl = TextEditingController();
-  final TextEditingController _medDoseCtrl = TextEditingController(
-    text: '1 viên sau ăn',
-  );
-  MedicationScheduleSlot _slot = MedicationScheduleSlot.morning;
-  TimeOfDay _time = const TimeOfDay(hour: 7, minute: 30);
-
-  @override
-  void dispose() {
-    _medNameCtrl.dispose();
-    _medDoseCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final hyd = context.select((DailyLifeBloc b) => b.state.snapshot.hydration);
     final bloc = context.read<DailyLifeBloc>();
-    final hh = _time.hour.toString().padLeft(2, '0');
-    final mm = _time.minute.toString().padLeft(2, '0');
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -3338,236 +3315,95 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              _mode == 'water' ? 'Uống nước & Hẹn nhắc' : 'Đặt nhắc uống thuốc',
+              'Uống nước & Hẹn nhắc',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: c.textPrimary,
               ),
             ),
-            const SizedBox(height: 10),
-            LifeOsSegmentedPills<String>(
-              selected: _mode,
-              options: const [
-                ('water', 'Uống nước', Icons.water_drop_outlined),
-                ('med', 'Uống thuốc', Icons.medication_outlined),
-              ],
-              onChanged: (v) => setState(() => _mode = v),
-            ),
             const SizedBox(height: 12),
-            if (_mode == 'water') ...[
-              Text(
-                'Hôm nay: ${hyd.waterMl} / ${hyd.targetWaterMl} ml (${hyd.progressPct}%)',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: c.textPrimary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+            Text(
+              'Hôm nay: ${hyd.waterMl} / ${hyd.targetWaterMl} ml (${hyd.progressPct}%)',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: c.textPrimary,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final ml in const [150, 250, 350, 500])
-                    FilledButton.tonalIcon(
-                      key: Key('quick_sheet_water_$ml'),
-                      onPressed: () async {
-                        final waiter = bloc.stream
-                            .firstWhere(
-                              (s) =>
-                                  s.successBanner != null || s.failure != null,
-                            )
-                            .timeout(
-                              const Duration(seconds: 6),
-                              onTimeout: () => bloc.state,
-                            );
-                        bloc.add(
-                          WaterIntakeLogged(
-                            userId: widget.userId,
-                            deltaMl: ml,
-                            targetWaterMl: hyd.targetWaterMl,
-                          ),
-                        );
-                        final nextState = await waiter;
-                        if (nextState.failure != null) {
-                          if (widget.parentContext.mounted) {
-                            LifeOsTopToast.show(
-                              widget.parentContext,
-                              nextState.failure!.message,
-                              kind: LifeOsToastKind.error,
-                            );
-                          }
-                          return;
-                        }
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                        }
-                        if (widget.parentContext.mounted) {
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final ml in const [150, 250, 350, 500])
+                  FilledButton.tonalIcon(
+                    key: Key('quick_sheet_water_$ml'),
+                    onPressed: () async {
+                      final waiter = bloc.stream
+                          .firstWhere(
+                            (s) => s.successBanner != null || s.failure != null,
+                          )
+                          .timeout(
+                            const Duration(seconds: 6),
+                            onTimeout: () => bloc.state,
+                          );
+                      bloc.add(
+                        WaterIntakeLogged(
+                          userId: userId,
+                          deltaMl: ml,
+                          targetWaterMl: hyd.targetWaterMl,
+                        ),
+                      );
+                      final nextState = await waiter;
+                      if (nextState.failure != null) {
+                        if (parentContext.mounted) {
                           LifeOsTopToast.show(
-                            widget.parentContext,
-                            'Đã ghi nhận +$ml ml nước uống hôm nay.',
+                            parentContext,
+                            nextState.failure!.message,
+                            kind: LifeOsToastKind.error,
                           );
                         }
-                      },
-                      icon: const Icon(Icons.local_drink_outlined, size: 16),
-                      label: Text('+$ml ml'),
-                    ),
-                ],
+                        return;
+                      }
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                      if (parentContext.mounted) {
+                        LifeOsTopToast.show(
+                          parentContext,
+                          'Đã ghi nhận +$ml ml nước uống hôm nay.',
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.local_drink_outlined, size: 16),
+                    label: Text('+$ml ml'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              key: const Key('quick_sheet_water_reminder_switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Bật nhắc uống nước định kỳ'),
+              subtitle: Text(
+                'Nhắc mỗi ${hyd.intervalMinutes} phút (${hyd.startHour.toString().padLeft(2, "0")}:00 – ${hyd.endHour.toString().padLeft(2, "0")}:00)',
               ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                key: const Key('quick_sheet_water_reminder_switch'),
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Bật nhắc uống nước định kỳ'),
-                subtitle: Text(
-                  'Nhắc mỗi ${hyd.intervalMinutes} phút (${hyd.startHour.toString().padLeft(2, "0")}:00 – ${hyd.endHour.toString().padLeft(2, "0")}:00)',
-                ),
-                value: hyd.reminderEnabled,
-                onChanged: (val) {
-                  bloc.add(
-                    HydrationReminderSettingsSaved(
-                      userId: widget.userId,
-                      reminderEnabled: val,
-                      intervalMinutes: hyd.intervalMinutes,
-                      startHour: hyd.startHour,
-                      endHour: hyd.endHour,
-                      targetWaterMl: hyd.targetWaterMl,
-                    ),
-                  );
-                },
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  widget.parentContext.push('/health-hub?tab=water');
-                },
-                icon: const Icon(Icons.tune_rounded, size: 17),
-                label: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text('Mở trang Theo dõi Nước & Chu kỳ'),
-                ),
-              ),
-            ] else ...[
-              TextField(
-                key: const Key('quick_sheet_med_name_input'),
-                controller: _medNameCtrl,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Tên thuốc',
-                  hintText: 'VD: Vitamin D3, Thuốc cảm',
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _medDoseCtrl,
-                decoration: const InputDecoration(labelText: 'Liều dùng'),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<MedicationScheduleSlot>(
-                isExpanded: true,
-                initialValue: _slot,
-                decoration: const InputDecoration(labelText: 'Cữ uống'),
-                items: MedicationScheduleSlot.values
-                    .where((s) => s.isScheduledDaily)
-                    .map(
-                      (s) => DropdownMenuItem(
-                        value: s,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(s.label),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() {
-                      _slot = v;
-                      _time = TimeOfDay(
-                        hour: v.defaultHour,
-                        minute: v.defaultMinute,
-                      );
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _time,
-                  );
-                  if (picked != null && mounted) {
-                    setState(() => _time = picked);
-                  }
-                },
-                icon: const Icon(Icons.alarm_rounded, size: 18),
-                label: Text('Giờ chuông nhắc: $hh:$mm'),
-              ),
-              const SizedBox(height: 12),
-              LifeOsPrimaryCtaButton(
-                key: const Key('quick_sheet_save_med_btn'),
-                icon: Icons.check_rounded,
-                label: 'Lưu & Đặt nhắc thuốc',
-                onPressed: () async {
-                  final cleanName = _medNameCtrl.text.trim();
-                  if (cleanName.isEmpty) {
-                    LifeOsTopToast.show(
-                      widget.parentContext,
-                      'Vui lòng nhập tên thuốc cần nhắc.',
-                      kind: LifeOsToastKind.warning,
-                    );
-                    return;
-                  }
-                  final waiter = bloc.stream
-                      .firstWhere(
-                        (s) => s.successBanner != null || s.failure != null,
-                      )
-                      .timeout(
-                        const Duration(seconds: 6),
-                        onTimeout: () => bloc.state,
-                      );
-                  bloc.add(
-                    MedicationCabinetAdded(
-                      userId: widget.userId,
-                      name: cleanName,
-                      dosage: _medDoseCtrl.text.trim(),
-                      slot: _slot,
-                      remainingPills: 0,
-                      expiryDate: DateTime.fromMillisecondsSinceEpoch(0),
-                      inventoryConfirmed: false,
-                      reminderEnabled: true,
-                      reminderHour: _time.hour,
-                      reminderMinute: _time.minute,
-                    ),
-                  );
-                  final nextState = await waiter;
-                  if (nextState.failure != null) {
-                    if (widget.parentContext.mounted) {
-                      LifeOsTopToast.show(
-                        widget.parentContext,
-                        nextState.failure!.message,
-                        kind: LifeOsToastKind.error,
-                      );
-                    }
-                    return;
-                  }
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                  if (widget.parentContext.mounted) {
-                    LifeOsTopToast.show(
-                      widget.parentContext,
-                      'Đã đặt nhắc uống "$cleanName" lúc $hh:$mm (tồn kho & HSD: Chưa nhập).',
-                    );
-                  }
-                },
-              ),
-            ],
+              value: hyd.reminderEnabled,
+              onChanged: (val) {
+                bloc.add(
+                  HydrationReminderSettingsSaved(
+                    userId: userId,
+                    reminderEnabled: val,
+                    intervalMinutes: hyd.intervalMinutes,
+                    startHour: hyd.startHour,
+                    endHour: hyd.endHour,
+                    targetWaterMl: hyd.targetWaterMl,
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

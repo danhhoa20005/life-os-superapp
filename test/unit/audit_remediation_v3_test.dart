@@ -113,8 +113,8 @@ void main() {
         await uRef.collection('transactions').doc('tx1').set({
           'amountMinor': 50000,
         });
-        await uRef.collection('medications').doc('m1').set({
-          'name': 'Vitamin C',
+        await uRef.collection('daily_preferences').doc('p1').set({
+          'targetWaterMl': 2000,
         });
         await uRef.collection('life_notes').doc('n1').set({'title': 'Note'});
         await uRef.collection('documents').doc('d1').set({'title': 'Contract'});
@@ -135,7 +135,10 @@ void main() {
         expect((await uRef.collection('transactions').get()).docs, isEmpty);
         expect((await uRef.collection('bank_accounts').get()).docs, isEmpty);
         expect((await uRef.collection('payment_orders').get()).docs, isEmpty);
-        expect((await uRef.collection('medications').get()).docs, isEmpty);
+        expect(
+          (await uRef.collection('daily_preferences').get()).docs,
+          isEmpty,
+        );
         expect((await uRef.collection('life_notes').get()).docs, isEmpty);
         expect((await uRef.collection('documents').get()).docs, isEmpty);
         expect(
@@ -201,13 +204,7 @@ void main() {
     test(
       'Data Honesty, Busy/Free Revocation, Read-Only Google Calendars, Exact VND Parser & Local Vault',
       () async {
-        // 1. SOS Medical Card never fakes 'O+'
-        const emptyCard = EmergencyMedicalCardEntity(ownerId: 'u1');
-        expect(emptyCard.bloodType, isEmpty);
-        expect(emptyCard.allergies, isEmpty);
-        expect(emptyCard.isConfigured, isFalse);
-
-        // 2. Busy/Free slot is deleted immediately when shareBusyFree is turned OFF
+        // 1. Busy/Free slot is deleted immediately when shareBusyFree is turned OFF
         final firestore = FakeFirebaseFirestore();
         final calRemote = CalendarRemoteDataSource(firestore);
         final now = DateTime(2026, 11, 24, 9, 0);

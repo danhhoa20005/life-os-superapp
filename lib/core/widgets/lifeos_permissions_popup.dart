@@ -313,9 +313,9 @@ class _LifeOsPermissionsDialogState extends State<_LifeOsPermissionsDialog>
                             tone: LifeOsAccentTone.emerald,
                             title: 'Thông báo nhắc nhở',
                             subtitle:
-                                'Nhắc lịch hẹn, uống nước & uống thuốc đúng giờ',
+                                'Nhắc lịch hẹn, công việc & sinh hoạt đúng giờ',
                             whyNeeded:
-                                'Gửi thông báo nhắc lịch hẹn, thuốc men và biến động đã đăng ký.',
+                                'Gửi thông báo nhắc lịch hẹn, công việc và biến động đã đăng ký.',
                             dataAccessed:
                                 'Chỉ gửi thông báo từ LifeOS, không đọc tin nhắn ứng dụng khác.',
                             whereProcessed:
@@ -401,7 +401,7 @@ class _LifeOsPermissionsDialogState extends State<_LifeOsPermissionsDialog>
                                   subtitle:
                                       'Đổ chuông lịch hẹn chính xác từng phút',
                                   whyNeeded:
-                                      'Đảm bảo chuông nhắc thuốc và lịch quan trọng reo đúng giờ.',
+                                      'Đảm bảo chuông báo thức và lịch quan trọng reo đúng giờ.',
                                   dataAccessed:
                                       'Chỉ đặt lịch đánh thức báo thức nội bộ, không thu thập dữ liệu cá nhân.',
                                   whereProcessed:

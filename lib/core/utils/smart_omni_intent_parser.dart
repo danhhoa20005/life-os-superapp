@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
-import '../../features/daily_life/domain/entities/daily_life_entities.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../security/bank_notification_parser.dart';
@@ -19,7 +18,6 @@ enum OmniActionKind {
   task,
   grocery,
   waterLog,
-  medication,
 }
 
 enum OmniIntentSubtype {
@@ -40,7 +38,6 @@ enum OmniIntentSubtype {
   fuelRefill,
   vehicleMaintenance,
   waterLog,
-  medication,
   smartNote,
   financialOverviewQuery,
 }
@@ -64,8 +61,6 @@ class OmniActionDraft extends Equatable {
   final TaskPriorityLevel taskPriority;
   final String quantityLabel;
   final int waterMl;
-  final MedicationScheduleSlot medicationSlot;
-  final String dosage;
   final String originLabel;
   final String? sourceWalletHint;
   final String? destinationWalletHint;
@@ -92,8 +87,6 @@ class OmniActionDraft extends Equatable {
     this.taskPriority = TaskPriorityLevel.medium,
     this.quantityLabel = '1 phần',
     this.waterMl = 0,
-    this.medicationSlot = MedicationScheduleSlot.morning,
-    this.dosage = '1 viên sau ăn',
     this.originLabel = 'Trên máy',
     this.sourceWalletHint,
     this.destinationWalletHint,
@@ -118,7 +111,6 @@ class OmniActionDraft extends Equatable {
       OmniActionKind.task => OmniIntentSubtype.task,
       OmniActionKind.grocery => OmniIntentSubtype.shoppingGrocery,
       OmniActionKind.waterLog => OmniIntentSubtype.waterLog,
-      OmniActionKind.medication => OmniIntentSubtype.medication,
     };
   }
 
@@ -143,7 +135,6 @@ class OmniActionDraft extends Equatable {
         OmniIntentSubtype.fuelRefill => 'Đổ xăng',
         OmniIntentSubtype.vehicleMaintenance => 'Bảo dưỡng xe',
         OmniIntentSubtype.waterLog => 'Uống nước',
-        OmniIntentSubtype.medication => 'Nhắc thuốc',
         OmniIntentSubtype.smartNote => 'Ghi chú',
         OmniIntentSubtype.financialOverviewQuery => 'Truy vấn',
       };
@@ -157,12 +148,10 @@ class OmniActionDraft extends Equatable {
         taskPriority == TaskPriorityLevel.high ? 'Việc gấp' : 'Việc làm',
       OmniActionKind.grocery => 'Đi chợ',
       OmniActionKind.waterLog => 'Uống nước',
-      OmniActionKind.medication => 'Nhắc thuốc',
     };
   }
 
   static final DateFormat _dtFmt = DateFormat('HH:mm dd/MM');
-  static final DateFormat _hmFmt = DateFormat('HH:mm');
 
   int get perPersonShareMinor {
     if (participantCount <= 0) return amountMinor;
@@ -195,8 +184,6 @@ class OmniActionDraft extends Equatable {
       OmniActionKind.grocery =>
         'Đi chợ · $title ($quantityLabel)${amountMinor > 0 ? " · ~${VndAmount.format(amountMinor)}" : ""}',
       OmniActionKind.waterLog => 'Uống nước · +$waterMl ml hôm nay',
-      OmniActionKind.medication =>
-        'Nhắc thuốc · $title · $dosage${scheduledAt != null ? " · Lúc ${_hmFmt.format(scheduledAt!)}" : ""}',
     };
   }
 
@@ -217,8 +204,6 @@ class OmniActionDraft extends Equatable {
     TaskPriorityLevel? taskPriority,
     String? quantityLabel,
     int? waterMl,
-    MedicationScheduleSlot? medicationSlot,
-    String? dosage,
     String? originLabel,
     String? sourceWalletHint,
     String? destinationWalletHint,
@@ -245,8 +230,6 @@ class OmniActionDraft extends Equatable {
       taskPriority: taskPriority ?? this.taskPriority,
       quantityLabel: quantityLabel ?? this.quantityLabel,
       waterMl: waterMl ?? this.waterMl,
-      medicationSlot: medicationSlot ?? this.medicationSlot,
-      dosage: dosage ?? this.dosage,
       originLabel: originLabel ?? this.originLabel,
       sourceWalletHint: sourceWalletHint ?? this.sourceWalletHint,
       destinationWalletHint:
@@ -277,8 +260,6 @@ class OmniActionDraft extends Equatable {
     taskPriority,
     quantityLabel,
     waterMl,
-    medicationSlot,
-    dosage,
     originLabel,
     sourceWalletHint,
     destinationWalletHint,
@@ -631,17 +612,6 @@ abstract final class SmartOmniIntentParser {
     final waterDraft = _tryParseWaterClause(clause, lower, index: index);
     if (waterDraft != null) {
       return <OmniActionDraft>[waterDraft];
-    }
-
-    // 0B. Medication Reminder ("nhắc uống thuốc Vitamin D3 8h sáng", "uống thuốc cảm sau ăn tối")
-    final medDraft = _tryParseMedicationClause(
-      clause,
-      lower,
-      refNow: refNow,
-      index: index,
-    );
-    if (medDraft != null) {
-      return <OmniActionDraft>[medDraft];
     }
 
     // 0C. Smart Note ("ghi chú: ...", "note ...")
@@ -1351,80 +1321,5 @@ abstract final class SmartOmniIntentParser {
       );
     }
     return null;
-  }
-
-  static OmniActionDraft? _tryParseMedicationClause(
-    String clause,
-    String lower, {
-    required DateTime refNow,
-    required int index,
-  }) {
-    final folded = VietnameseSearchMatcher.fold(lower);
-    final hasMedCue =
-        folded.contains('uong thuoc') ||
-        folded.contains('nhac thuoc') ||
-        folded.startsWith('them thuoc ') ||
-        (folded.contains('vitamin') &&
-            (folded.contains('nhac') || folded.contains('uong')));
-    if (!hasMedCue) return null;
-
-    // Exclude paid pharmacy purchase like "mua thuốc 120k"
-    if (folded.startsWith('mua thuoc') &&
-        SmartQuickEntryParser.tryParse(clause) != null) {
-      return null;
-    }
-
-    var slot = MedicationScheduleSlot.morning;
-    if (lower.contains('trưa') || lower.contains('trua')) {
-      slot = MedicationScheduleSlot.noon;
-    } else if (lower.contains('tối') || lower.contains('toi')) {
-      slot = MedicationScheduleSlot.evening;
-    }
-
-    final (scheduledTime, _) = _extractDateTimeAndTitle(
-      clause,
-      refNow: refNow,
-      defaultHour: slot.defaultHour,
-    );
-
-    var medName = clause
-        .replaceFirst(
-          RegExp(
-            r'^(?:nhắc nhở\s+)?(?:nhắc\s+)?(?:nhớ\s+)?(?:thêm\s+)?(?:uống\s+)?(?:thuốc\s*)?',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .replaceAll(_explicitHourRegex, '')
-        .replaceAll(
-          RegExp(
-            r'(?<![\p{L}\p{N}])(?:lúc|vào|buổi sáng|buổi trưa|buổi tối|sau ăn sáng|sau ăn trưa|sau ăn tối|sau ăn|trước ăn|sáng nay|sáng mai|sáng mốt|chiều mốt|tối mốt|ngày mốt|tối nay|mỗi ngày)(?![\p{L}\p{N}])',
-            caseSensitive: false,
-            unicode: true,
-          ),
-          '',
-        )
-        .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .replaceAll(RegExp(r'^[-:,.\s]+|[-:,.\s]+$'), '')
-        .trim();
-
-    if (medName.length < 2) {
-      medName = 'Thuốc / Vitamin hằng ngày';
-    } else {
-      medName = _capitalizeFirst(medName);
-    }
-
-    final dosage = lower.contains('trước ăn')
-        ? '1 viên trước ăn'
-        : '1 viên sau ăn';
-
-    return OmniActionDraft(
-      id: 'omni_med_$index',
-      kind: OmniActionKind.medication,
-      title: medName,
-      medicationSlot: slot,
-      dosage: dosage,
-      scheduledAt: scheduledTime,
-    );
   }
 }

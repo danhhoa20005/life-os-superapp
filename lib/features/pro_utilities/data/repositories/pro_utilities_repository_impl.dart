@@ -360,7 +360,7 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       if (curr['targetWaterMl'] == null || addWaterMl != 0) {
         final remSnap = await _userRef(
           userId,
-        ).collection('medical_profiles').doc('hydration_reminder').get();
+        ).collection('daily_preferences').doc('hydration_reminder').get();
         remData = remSnap.data();
         profileTarget = (remData?['targetWaterMl'] as num?)?.toInt();
       }
@@ -407,7 +407,7 @@ class ProUtilitiesRepositoryImpl implements ProUtilitiesRepository {
       return const Err(
         UnexpectedFailure(
           message:
-              'Không thể lưu chỉ số sức khỏe lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+              'Không thể lưu tiến độ tập trung lúc này. Vui lòng kiểm tra kết nối và thử lại.',
         ),
       );
     }

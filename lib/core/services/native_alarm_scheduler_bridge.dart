@@ -282,30 +282,6 @@ class NativeAlarmSchedulerBridge {
     }
   }
 
-  Future<void> syncMedicationDaemon({
-    required String medId,
-    required bool enabled,
-    required String name,
-    required String dosage,
-    required int hour,
-    required int minute,
-  }) async {
-    if (!_useNativeAndroid) return;
-    try {
-      await _channel
-          .invokeMethod<bool>('syncMedicationDaemon', <String, dynamic>{
-            'medId': medId,
-            'enabled': enabled,
-            'name': name,
-            'dosage': dosage,
-            'hour': hour,
-            'minute': minute,
-          });
-    } on MissingPluginException {
-      // Ignore in test environment
-    }
-  }
-
   Future<List<QueuedBackgroundHealthAction>>
   drainBackgroundHealthActions() async {
     final out = <QueuedBackgroundHealthAction>[..._debugQueuedHealthActions];

@@ -553,49 +553,6 @@ abstract final class OmniActionExecutor {
           );
         }
         return true;
-
-      case OmniActionKind.medication:
-        if (dailyBloc == null || dailyBloc.isClosed) return false;
-        final sched = draft.scheduledAt;
-        final waiter = dailyBloc.stream
-            .firstWhere((s) => s.successBanner != null || s.failure != null)
-            .timeout(_kConfirmTimeout, onTimeout: () => dailyBloc.state);
-        dailyBloc.add(
-          MedicationCabinetAdded(
-            userId: user.id,
-            name: draft.title,
-            dosage: draft.dosage,
-            slot: draft.medicationSlot,
-            remainingPills: 0,
-            expiryDate: DateTime.fromMillisecondsSinceEpoch(0),
-            inventoryConfirmed: false,
-            reminderEnabled: true,
-            reminderHour: sched?.hour ?? draft.medicationSlot.defaultHour,
-            reminderMinute: sched?.minute ?? draft.medicationSlot.defaultMinute,
-          ),
-        );
-        final medState = await waiter;
-        if (medState.failure != null) {
-          if (toastContext.mounted) {
-            LifeOsTopToast.show(
-              toastContext,
-              medState.failure!.message,
-              kind: LifeOsToastKind.error,
-            );
-          }
-          return false;
-        }
-        await UserBehaviorPrefs.recordHabitExecution(
-          label: 'Thuốc ${draft.title}',
-          commandText: 'Nhắc uống thuốc ${draft.title}',
-        );
-        if (showSuccessToast && toastContext.mounted) {
-          LifeOsTopToast.show(
-            toastContext,
-            'Đã đặt chuông nhắc uống thuốc: "${draft.title}".',
-          );
-        }
-        return true;
     }
   }
 

@@ -22,102 +22,6 @@ final class DailyLifeWatchStarted extends DailyLifeEvent {
   List<Object?> get props => [userId];
 }
 
-final class MedicationCabinetAdded extends DailyLifeEvent {
-  final String userId;
-  final String name;
-  final String dosage;
-  final MedicationScheduleSlot slot;
-  final int remainingPills;
-  final DateTime expiryDate;
-  final bool inventoryConfirmed;
-  final String memberName;
-  final bool? reminderEnabled;
-  final int? reminderHour;
-  final int? reminderMinute;
-
-  MedicationCabinetAdded({
-    required this.userId,
-    required this.name,
-    required this.dosage,
-    required this.slot,
-    this.remainingPills = 0,
-    DateTime? expiryDate,
-    bool? inventoryConfirmed,
-    this.memberName = 'Cả gia đình',
-    this.reminderEnabled,
-    this.reminderHour,
-    this.reminderMinute,
-  }) : expiryDate = expiryDate ?? DateTime.fromMillisecondsSinceEpoch(0),
-       inventoryConfirmed = inventoryConfirmed ?? (remainingPills > 0);
-
-  @override
-  List<Object?> get props => [
-    userId,
-    name,
-    dosage,
-    slot,
-    remainingPills,
-    expiryDate,
-    inventoryConfirmed,
-    memberName,
-    reminderEnabled,
-    reminderHour,
-    reminderMinute,
-  ];
-}
-
-final class MedicationReminderUpdated extends DailyLifeEvent {
-  final String userId;
-  final MedicationCabinetItemEntity item;
-  final bool reminderEnabled;
-  final int reminderHour;
-  final int reminderMinute;
-
-  const MedicationReminderUpdated({
-    required this.userId,
-    required this.item,
-    required this.reminderEnabled,
-    required this.reminderHour,
-    required this.reminderMinute,
-  });
-
-  @override
-  List<Object?> get props => [
-    userId,
-    item,
-    reminderEnabled,
-    reminderHour,
-    reminderMinute,
-  ];
-}
-
-final class MedicationInventoryUpdated extends DailyLifeEvent {
-  final String userId;
-  final MedicationCabinetItemEntity item;
-  final int remainingPills;
-  final DateTime expiryDate;
-  final String? dosage;
-
-  const MedicationInventoryUpdated({
-    required this.userId,
-    required this.item,
-    required this.remainingPills,
-    required this.expiryDate,
-    this.dosage,
-  });
-
-  @override
-  List<Object?> get props => [userId, item, remainingPills, expiryDate, dosage];
-}
-
-final class MedicationSnoozed15Min extends DailyLifeEvent {
-  final MedicationCabinetItemEntity item;
-  const MedicationSnoozed15Min(this.item);
-
-  @override
-  List<Object?> get props => [item];
-}
-
 final class WaterIntakeLogged extends DailyLifeEvent {
   final String userId;
   final int deltaMl;
@@ -152,10 +56,7 @@ final class HydrationReminderSettingsSaved extends DailyLifeEvent {
   final int endHour;
   final int endMinute;
   final int targetWaterMl;
-  final double? weightKg;
-  final double? heightCm;
   final HydrationActivityLevel? activityLevel;
-  final bool? autoSyncTargetByBody;
   final int? preferredCupMl;
   final bool clearSnooze;
   final String? customToastMessage;
@@ -169,10 +70,7 @@ final class HydrationReminderSettingsSaved extends DailyLifeEvent {
     required this.endHour,
     this.endMinute = 0,
     required this.targetWaterMl,
-    this.weightKg,
-    this.heightCm,
     this.activityLevel,
-    this.autoSyncTargetByBody,
     this.preferredCupMl,
     this.clearSnooze = false,
     this.customToastMessage,
@@ -188,10 +86,7 @@ final class HydrationReminderSettingsSaved extends DailyLifeEvent {
     endHour,
     endMinute,
     targetWaterMl,
-    weightKg,
-    heightCm,
     activityLevel,
-    autoSyncTargetByBody,
     preferredCupMl,
     clearSnooze,
     customToastMessage,
@@ -222,78 +117,6 @@ final class WaterTestNotificationRequested extends DailyLifeEvent {
 
   @override
   List<Object?> get props => [delaySeconds];
-}
-
-final class MedicationTakenToggled extends DailyLifeEvent {
-  final String userId;
-  final MedicationCabinetItemEntity item;
-
-  const MedicationTakenToggled({required this.userId, required this.item});
-
-  @override
-  List<Object?> get props => [userId, item];
-}
-
-final class MedicationCabinetDeleted extends DailyLifeEvent {
-  final String userId;
-  final String medId;
-
-  const MedicationCabinetDeleted({required this.userId, required this.medId});
-
-  @override
-  List<Object?> get props => [userId, medId];
-}
-
-final class HealthVitalLogAdded extends DailyLifeEvent {
-  final String userId;
-  final double weightKg;
-  final double heightCm;
-  final int systolicMmHg;
-  final int diastolicMmHg;
-  final int heartRateBpm;
-  final double sleepHours;
-  final String note;
-
-  const HealthVitalLogAdded({
-    required this.userId,
-    required this.weightKg,
-    required this.heightCm,
-    required this.systolicMmHg,
-    required this.diastolicMmHg,
-    required this.heartRateBpm,
-    required this.sleepHours,
-    this.note = '',
-  });
-
-  @override
-  List<Object?> get props => [
-    userId,
-    weightKg,
-    heightCm,
-    systolicMmHg,
-    diastolicMmHg,
-    heartRateBpm,
-    sleepHours,
-    note,
-  ];
-}
-
-final class HealthVitalLogDeleted extends DailyLifeEvent {
-  final String userId;
-  final String logId;
-
-  const HealthVitalLogDeleted({required this.userId, required this.logId});
-
-  @override
-  List<Object?> get props => [userId, logId];
-}
-
-final class EmergencyMedicalCardSaved extends DailyLifeEvent {
-  final EmergencyMedicalCardEntity card;
-  const EmergencyMedicalCardSaved(this.card);
-
-  @override
-  List<Object?> get props => [card];
 }
 
 final class GroceryItemAdded extends DailyLifeEvent {
@@ -568,18 +391,6 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
 
   DailyLifeBloc(this._repository) : super(const DailyLifeState()) {
     on<DailyLifeWatchStarted>(_onWatchStarted, transformer: restartable());
-    on<MedicationCabinetAdded>(_onMedAdded, transformer: sequential());
-    on<MedicationReminderUpdated>(
-      _onMedReminderUpdated,
-      transformer: sequential(),
-    );
-    on<MedicationInventoryUpdated>(
-      _onMedInventoryUpdated,
-      transformer: sequential(),
-    );
-    on<MedicationSnoozed15Min>(_onMedSnoozed, transformer: sequential());
-    on<MedicationTakenToggled>(_onMedToggled, transformer: sequential());
-    on<MedicationCabinetDeleted>(_onMedDeleted, transformer: sequential());
     on<WaterIntakeLogged>(_onWaterLogged, transformer: sequential());
     on<HydrationReminderSettingsSaved>(
       _onHydrationSettingsSaved,
@@ -592,12 +403,6 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     );
     on<WaterTestNotificationRequested>(
       _onWaterTestNotificationRequested,
-      transformer: sequential(),
-    );
-    on<HealthVitalLogAdded>(_onVitalAdded, transformer: sequential());
-    on<HealthVitalLogDeleted>(_onVitalDeleted, transformer: sequential());
-    on<EmergencyMedicalCardSaved>(
-      _onEmergencyCardSaved,
       transformer: sequential(),
     );
     on<GroceryItemAdded>(_onGroceryAdded, transformer: sequential());
@@ -656,99 +461,6 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     );
   }
 
-  Future<void> _onMedAdded(
-    MedicationCabinetAdded e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.addMedication(
-      userId: e.userId,
-      name: e.name,
-      dosage: e.dosage,
-      slot: e.slot,
-      remainingPills: e.remainingPills,
-      expiryDate: e.expiryDate,
-      inventoryConfirmed: e.inventoryConfirmed,
-      memberName: e.memberName,
-      reminderEnabled: e.reminderEnabled,
-      reminderHour: e.reminderHour,
-      reminderMinute: e.reminderMinute,
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner: '✓ Đã thêm "${e.name}" vào Tủ thuốc & Lịch nhắc.',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onMedReminderUpdated(
-    MedicationReminderUpdated e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.updateMedicationReminder(
-      userId: e.userId,
-      item: e.item,
-      reminderEnabled: e.reminderEnabled,
-      reminderHour: e.reminderHour,
-      reminderMinute: e.reminderMinute,
-    );
-    final hh = e.reminderHour.toString().padLeft(2, '0');
-    final mm = e.reminderMinute.toString().padLeft(2, '0');
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner: e.reminderEnabled
-              ? '✓ Đã đặt chuông nhắc "${e.item.name}" lúc $hh:$mm.'
-              : '✓ Đã tắt chuông nhắc "${e.item.name}".',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onMedInventoryUpdated(
-    MedicationInventoryUpdated e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.updateMedicationInventory(
-      userId: e.userId,
-      item: e.item,
-      remainingPills: e.remainingPills,
-      expiryDate: e.expiryDate,
-      dosage: e.dosage,
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner:
-              '✓ Đã cập nhật tồn kho (${e.remainingPills} viên) & HSD cho "${e.item.name}".',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onMedSnoozed(
-    MedicationSnoozed15Min e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.snoozeMedication15Min(item: e.item);
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner: '✓ Đã hẹn nhắc lại "${e.item.name}" sau 15 phút.',
-        ),
-      ),
-    );
-  }
-
   Future<void> _onWaterLogged(
     WaterIntakeLogged e,
     Emitter<DailyLifeState> emit,
@@ -788,10 +500,7 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
       endHour: e.endHour,
       endMinute: e.endMinute,
       targetWaterMl: e.targetWaterMl,
-      weightKg: e.weightKg,
-      heightCm: e.heightCm,
       activityLevel: e.activityLevel,
-      autoSyncTargetByBody: e.autoSyncTargetByBody,
       preferredCupMl: e.preferredCupMl,
       clearSnooze: e.clearSnooze,
     );
@@ -874,96 +583,6 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
               : (e.delaySeconds > 0
                     ? '✓ Đã hẹn sau ${e.delaySeconds} giây — hãy khóa màn hình hoặc ra màn hình chính!'
                     : '✓ Đã gửi thông báo nhắc nước ra thanh trạng thái hệ thống!'),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onMedToggled(
-    MedicationTakenToggled e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.toggleMedicationToday(
-      userId: e.userId,
-      item: e.item,
-      dayKey: todayDayKey(),
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(clearFailure: true)),
-    );
-  }
-
-  Future<void> _onMedDeleted(
-    MedicationCabinetDeleted e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.deleteMedication(
-      userId: e.userId,
-      medId: e.medId,
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(state.copyWith(clearFailure: true)),
-    );
-  }
-
-  Future<void> _onVitalAdded(
-    HealthVitalLogAdded e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.addHealthVitalLog(
-      userId: e.userId,
-      weightKg: e.weightKg,
-      heightCm: e.heightCm,
-      systolicMmHg: e.systolicMmHg,
-      diastolicMmHg: e.diastolicMmHg,
-      heartRateBpm: e.heartRateBpm,
-      sleepHours: e.sleepHours,
-      note: e.note,
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner:
-              '✓ Đã lưu chỉ số sức khỏe & cập nhật hồ sơ BMI/Huyết áp.',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onVitalDeleted(
-    HealthVitalLogDeleted e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.deleteHealthVitalLog(
-      userId: e.userId,
-      logId: e.logId,
-    );
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner: '✓ Đã xóa bản ghi sinh hiệu.',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onEmergencyCardSaved(
-    EmergencyMedicalCardSaved e,
-    Emitter<DailyLifeState> emit,
-  ) async {
-    final res = await _repository.saveEmergencyMedicalCard(card: e.card);
-    res.fold(
-      (f) => emit(state.copyWith(failure: f)),
-      (_) => emit(
-        state.copyWith(
-          clearFailure: true,
-          successBanner: '✓ Đã lưu Thẻ Y Tế Khẩn Cấp (ICE & BHYT).',
         ),
       ),
     );

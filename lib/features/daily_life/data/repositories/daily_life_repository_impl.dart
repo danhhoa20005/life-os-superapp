@@ -30,9 +30,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
   Stream<DailyLifeSnapshot> watchAll({required String userId}) {
     final todayKey = _dayKeyFmt.format(DateTime.now());
     return Stream<DailyLifeSnapshot>.multi((controller) {
-      var meds = <MedicationCabinetItemEntity>[];
-      var healthLogs = <HealthVitalLogEntity>[];
-      var emergencyCard = EmergencyMedicalCardEntity(ownerId: userId);
       var waterMl = 0;
       int? dailyTargetWaterMl;
       int? profileTargetWaterMl;
@@ -43,10 +40,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       var waterStartMinute = 0;
       var waterEndHour = 21;
       var waterEndMinute = 0;
-      double? profileWeightKg;
-      double? profileHeightCm;
       var activityLevel = HydrationActivityLevel.sedentary;
-      var autoSyncTargetByBody = true;
       var preferredCupMl = 250;
       DateTime? snoozedUntil;
       var hydrationProfileLoaded = false;
@@ -59,25 +53,8 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
 
       void emitNow() {
         if (controller.isClosed) return;
-        final resolvedWeight =
-            profileWeightKg ??
-            (healthLogs.isNotEmpty ? healthLogs.first.weightKg : 63.0);
-        final resolvedHeight =
-            profileHeightCm ??
-            (healthLogs.isNotEmpty ? healthLogs.first.heightCm : 168.0);
-        final computedBodyTarget =
-            AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
-              weightKg: resolvedWeight,
-              heightCm: resolvedHeight,
-              activityLevel: activityLevel,
-            );
         final resolvedTarget =
-            profileTargetWaterMl ??
-            dailyTargetWaterMl ??
-            ((profileWeightKg != null || healthLogs.isNotEmpty) &&
-                    autoSyncTargetByBody
-                ? computedBodyTarget
-                : 2000);
+            profileTargetWaterMl ?? dailyTargetWaterMl ?? 2000;
 
         if (hydrationProfileLoaded) {
           unawaited(
@@ -98,9 +75,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
 
         controller.add(
           DailyLifeSnapshot(
-            medications: meds,
-            healthLogs: healthLogs,
-            emergencyCard: emergencyCard,
             hydration: HydrationReminderStatusEntity(
               dayKey: todayKey,
               waterMl: waterMl,
@@ -112,10 +86,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
               startMinute: waterStartMinute,
               endHour: waterEndHour,
               endMinute: waterEndMinute,
-              weightKg: resolvedWeight,
-              heightCm: resolvedHeight,
               activityLevel: activityLevel,
-              autoSyncTargetByBody: autoSyncTargetByBody,
               preferredCupMl: preferredCupMl,
               snoozedUntil: snoozedUntil,
               todayEntries: todayEntries,
@@ -128,104 +99,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           ),
         );
       }
-
-      final s1 = _userRef(userId)
-          .collection('medications')
-          .limit(60)
-          .snapshots()
-          .listen((snap) {
-            meds = snap.docs.map((doc) {
-              final d = doc.data();
-              final slot = MedicationScheduleSlot.fromName(
-                d['slot'] as String?,
-              );
-              final rawPills = (d['remainingPills'] as num?)?.toInt() ?? 0;
-              final explicitConfirmFlag = d['inventoryConfirmed'] == true;
-              final hasConfirmTimestamp =
-                  d['inventoryConfirmedAt'] != null &&
-                  d['inventoryConfirmedAt'].toString().trim().isNotEmpty;
-              // Legacy quick-create records that auto-filled 30 pills without explicit inventory confirmation
-              // require user confirmation before displaying stock/expiry or triggering low-stock/expiry alerts.
-              final isConfirmedInventory =
-                  explicitConfirmFlag &&
-                  (hasConfirmTimestamp || rawPills != 30);
-              return MedicationCabinetItemEntity(
-                id: doc.id,
-                ownerId: userId,
-                name: (d['name'] ?? 'Thuốc / Vitamin') as String,
-                dosage: (d['dosage'] ?? '1 viên') as String,
-                slot: slot,
-                remainingPills: isConfirmedInventory ? rawPills : 0,
-                expiryDate:
-                    DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
-                    DateTime.fromMillisecondsSinceEpoch(0),
-                inventoryConfirmed: isConfirmedInventory,
-                lastTakenDayKey: d['lastTakenDayKey'] as String?,
-                memberName: (d['memberName'] ?? 'Cả gia đình') as String,
-                reminderEnabled: d['reminderEnabled'] is bool
-                    ? d['reminderEnabled'] as bool
-                    : slot.isScheduledDaily,
-                reminderHour:
-                    (d['reminderHour'] as num?)?.toInt() ?? slot.defaultHour,
-                reminderMinute:
-                    (d['reminderMinute'] as num?)?.toInt() ??
-                    slot.defaultMinute,
-              );
-            }).toList()..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-            emitNow();
-          });
-
-      final s2 = _userRef(userId)
-          .collection('health_logs')
-          .limit(45)
-          .snapshots()
-          .listen((snap) {
-            healthLogs = snap.docs.map((doc) {
-              final d = doc.data();
-              return HealthVitalLogEntity(
-                id: doc.id,
-                ownerId: userId,
-                weightKg: (d['weightKg'] as num?)?.toDouble() ?? 62.0,
-                heightCm: (d['heightCm'] as num?)?.toDouble() ?? 168.0,
-                systolicMmHg: (d['systolicMmHg'] as num?)?.toInt() ?? 118,
-                diastolicMmHg: (d['diastolicMmHg'] as num?)?.toInt() ?? 76,
-                heartRateBpm: (d['heartRateBpm'] as num?)?.toInt() ?? 72,
-                sleepHours: (d['sleepHours'] as num?)?.toDouble() ?? 7.5,
-                recordedAt:
-                    DateTime.tryParse((d['recordedAt'] ?? '') as String) ??
-                    DateTime.now(),
-                note: (d['note'] ?? '') as String,
-              );
-            }).toList()..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
-            emitNow();
-          });
-
-      final s3 = _userRef(userId)
-          .collection('medical_profiles')
-          .doc('emergency_card')
-          .snapshots()
-          .listen((doc) {
-            if (doc.exists && doc.data() != null) {
-              final d = doc.data()!;
-              emergencyCard = EmergencyMedicalCardEntity(
-                ownerId: userId,
-                bloodType: ((d['bloodType'] ?? '') as String).trim(),
-                allergies: ((d['allergies'] ?? '') as String).trim(),
-                chronicConditions: ((d['chronicConditions'] ?? '') as String)
-                    .trim(),
-                insuranceCode: ((d['insuranceCode'] ?? '') as String).trim(),
-                emergencyContactName:
-                    ((d['emergencyContactName'] ?? '') as String).trim(),
-                emergencyContactPhone:
-                    ((d['emergencyContactPhone'] ?? '') as String).trim(),
-                preferredHospital: ((d['preferredHospital'] ?? '') as String)
-                    .trim(),
-              );
-            } else {
-              emergencyCard = EmergencyMedicalCardEntity(ownerId: userId);
-            }
-            emitNow();
-          });
 
       final s4 = _userRef(userId)
           .collection('grocery_items')
@@ -387,7 +260,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           });
 
       final s10 = _userRef(userId)
-          .collection('medical_profiles')
+          .collection('daily_preferences')
           .doc('hydration_reminder')
           .snapshots()
           .listen((doc) {
@@ -402,12 +275,9 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
               waterEndHour = (d['endHour'] as num?)?.toInt() ?? 21;
               waterEndMinute = (d['endMinute'] as num?)?.toInt() ?? 0;
               profileTargetWaterMl = (d['targetWaterMl'] as num?)?.toInt();
-              profileWeightKg = (d['weightKg'] as num?)?.toDouble();
-              profileHeightCm = (d['heightCm'] as num?)?.toDouble();
               activityLevel = HydrationActivityLevel.fromName(
                 d['activityLevel'] as String?,
               );
-              autoSyncTargetByBody = d['autoSyncTargetByBody'] != false;
               preferredCupMl = ((d['preferredCupMl'] as num?)?.toInt() ?? 250)
                   .clamp(100, 600);
               snoozedUntil = d['snoozedUntil'] != null
@@ -419,9 +289,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
 
       controller.onCancel = () async {
         await Future.wait([
-          s1.cancel(),
-          s2.cancel(),
-          s3.cancel(),
           s4.cancel(),
           s5.cancel(),
           s6.cancel(),
@@ -432,199 +299,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         ]);
       };
     });
-  }
-
-  @override
-  Future<Result<void>> addMedication({
-    required String userId,
-    required String name,
-    required String dosage,
-    required MedicationScheduleSlot slot,
-    required int remainingPills,
-    required DateTime expiryDate,
-    bool inventoryConfirmed = true,
-    String memberName = 'Cả gia đình',
-    bool? reminderEnabled,
-    int? reminderHour,
-    int? reminderMinute,
-  }) async {
-    try {
-      final id = 'med_${_uuid.v4().substring(0, 8)}';
-      final resolvedEnabled = reminderEnabled ?? slot.isScheduledDaily;
-      final resolvedHour = reminderHour ?? slot.defaultHour;
-      final resolvedMin = reminderMinute ?? slot.defaultMinute;
-
-      await _userRef(userId).collection('medications').doc(id).set({
-        'id': id,
-        'ownerId': userId,
-        'name': name.trim(),
-        'dosage': dosage.trim(),
-        'slot': slot.name,
-        'remainingPills': inventoryConfirmed ? remainingPills : 0,
-        'expiryDate': expiryDate.toIso8601String(),
-        'inventoryConfirmed': inventoryConfirmed,
-        if (inventoryConfirmed)
-          'inventoryConfirmedAt': DateTime.now().toIso8601String(),
-        'lastTakenDayKey': null,
-        'memberName': memberName.trim(),
-        'reminderEnabled': resolvedEnabled,
-        'reminderHour': resolvedHour,
-        'reminderMinute': resolvedMin,
-      });
-
-      final entity = MedicationCabinetItemEntity(
-        id: id,
-        ownerId: userId,
-        name: name.trim(),
-        dosage: dosage.trim(),
-        slot: slot,
-        remainingPills: remainingPills,
-        expiryDate: expiryDate,
-        inventoryConfirmed: inventoryConfirmed,
-        memberName: memberName.trim(),
-        reminderEnabled: resolvedEnabled,
-        reminderHour: resolvedHour,
-        reminderMinute: resolvedMin,
-      );
-      await _reminderScheduler.syncMedicationAlarm(entity);
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể lưu thuốc hoặc vitamin lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> updateMedicationReminder({
-    required String userId,
-    required MedicationCabinetItemEntity item,
-    required bool reminderEnabled,
-    required int reminderHour,
-    required int reminderMinute,
-  }) async {
-    try {
-      await _userRef(userId).collection('medications').doc(item.id).update({
-        'reminderEnabled': reminderEnabled,
-        'reminderHour': reminderHour,
-        'reminderMinute': reminderMinute,
-      });
-      final updated = item.copyWith(
-        reminderEnabled: reminderEnabled,
-        reminderHour: reminderHour,
-        reminderMinute: reminderMinute,
-      );
-      await _reminderScheduler.syncMedicationAlarm(updated);
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể cập nhật giờ nhắc thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> updateMedicationInventory({
-    required String userId,
-    required MedicationCabinetItemEntity item,
-    required int remainingPills,
-    required DateTime expiryDate,
-    String? dosage,
-  }) async {
-    try {
-      final safePills = remainingPills.clamp(0, 100000);
-      final trimmedDose = dosage?.trim();
-      await _userRef(userId).collection('medications').doc(item.id).update({
-        'remainingPills': safePills,
-        'expiryDate': expiryDate.toIso8601String(),
-        'inventoryConfirmed': true,
-        'inventoryConfirmedAt': DateTime.now().toIso8601String(),
-        if (trimmedDose != null && trimmedDose.isNotEmpty)
-          'dosage': trimmedDose,
-      });
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể cập nhật tồn kho và hạn dùng thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> snoozeMedication15Min({
-    required MedicationCabinetItemEntity item,
-  }) async {
-    try {
-      await _reminderScheduler.snoozeMedication15Min(item);
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể dời chuông nhắc thuốc lúc này. Vui lòng thử lại sau.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> toggleMedicationToday({
-    required String userId,
-    required MedicationCabinetItemEntity item,
-    required String dayKey,
-  }) async {
-    try {
-      final alreadyTaken = item.isTakenOn(dayKey);
-      final nextRemaining = alreadyTaken
-          ? item.remainingPills + 1
-          : (item.remainingPills > 0 ? item.remainingPills - 1 : 0);
-      await _userRef(userId).collection('medications').doc(item.id).update({
-        'lastTakenDayKey': alreadyTaken ? null : dayKey,
-        'remainingPills': nextRemaining,
-      });
-      final updated = item.copyWith(
-        lastTakenDayKey: dayKey,
-        clearLastTaken: alreadyTaken,
-        remainingPills: nextRemaining,
-      );
-      await _reminderScheduler.syncMedicationAlarm(updated, todayKey: dayKey);
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể cập nhật lịch uống thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> deleteMedication({
-    required String userId,
-    required String medId,
-  }) async {
-    try {
-      await _userRef(userId).collection('medications').doc(medId).delete();
-      await _reminderScheduler.cancelMedicationAlarm(medId);
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể xóa mục tủ thuốc lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
   }
 
   @override
@@ -644,7 +318,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       final existing = snap.data() ?? const <String, dynamic>{};
       final remRef = _userRef(
         userId,
-      ).collection('medical_profiles').doc('hydration_reminder');
+      ).collection('daily_preferences').doc('hydration_reminder');
       final remDoc = await remRef.get();
       final remData = remDoc.data();
 
@@ -754,10 +428,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     required int endHour,
     int endMinute = 0,
     required int targetWaterMl,
-    double? weightKg,
-    double? heightCm,
     HydrationActivityLevel? activityLevel,
-    bool? autoSyncTargetByBody,
     int? preferredCupMl,
     DateTime? snoozedUntil,
     bool clearSnooze = false,
@@ -766,19 +437,13 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       final todayKey = _dayKeyFmt.format(DateTime.now());
       final remRef = _userRef(
         userId,
-      ).collection('medical_profiles').doc('hydration_reminder');
+      ).collection('daily_preferences').doc('hydration_reminder');
       final prevSnap = await remRef.get();
       final prev = prevSnap.data() ?? const <String, dynamic>{};
 
-      final resolvedWeight =
-          weightKg ?? (prev['weightKg'] as num?)?.toDouble() ?? 63.0;
-      final resolvedHeight =
-          heightCm ?? (prev['heightCm'] as num?)?.toDouble() ?? 168.0;
       final resolvedActivity =
           activityLevel ??
           HydrationActivityLevel.fromName(prev['activityLevel'] as String?);
-      final resolvedAutoSync =
-          autoSyncTargetByBody ?? (prev['autoSyncTargetByBody'] != false);
       final resolvedCup =
           (preferredCupMl ?? (prev['preferredCupMl'] as num?)?.toInt() ?? 250)
               .clamp(100, 600);
@@ -797,10 +462,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'endHour': endHour,
         'endMinute': endMinute,
         'targetWaterMl': targetWaterMl,
-        'weightKg': resolvedWeight,
-        'heightCm': resolvedHeight,
         'activityLevel': resolvedActivity.name,
-        'autoSyncTargetByBody': resolvedAutoSync,
         'preferredCupMl': resolvedCup,
         'snoozedUntil': resolvedSnooze?.toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
@@ -827,10 +489,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           startMinute: startMinute,
           endHour: endHour,
           endMinute: endMinute,
-          weightKg: resolvedWeight,
-          heightCm: resolvedHeight,
           activityLevel: resolvedActivity,
-          autoSyncTargetByBody: resolvedAutoSync,
           preferredCupMl: resolvedCup,
           snoozedUntil: resolvedSnooze,
         ),
@@ -856,7 +515,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       final safeMins = minutes.clamp(5, 120);
       final until = DateTime.now().add(Duration(minutes: safeMins));
       await _userRef(userId)
-          .collection('medical_profiles')
+          .collection('daily_preferences')
           .doc('hydration_reminder')
           .set(<String, dynamic>{
             'reminderEnabled': true,
@@ -874,10 +533,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         startMinute: status.startMinute,
         endHour: status.endHour,
         endMinute: status.endMinute,
-        weightKg: status.weightKg,
-        heightCm: status.heightCm,
         activityLevel: status.activityLevel,
-        autoSyncTargetByBody: status.autoSyncTargetByBody,
         preferredCupMl: status.preferredCupMl,
         snoozedUntil: until,
         todayEntries: status.todayEntries,
@@ -948,55 +604,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
             }, SetOptions(merge: true));
             processed++;
           }
-        } else if (act.type == 'med_taken' && act.medId.isNotEmpty) {
-          final medRef = _userRef(
-            userId,
-          ).collection('medications').doc(act.medId);
-          final medSnap = await medRef.get();
-          final d = medSnap.data();
-          if (medSnap.exists && d != null) {
-            final prevTaken = d['lastTakenDayKey'] as String?;
-            if (prevTaken != actDayKey) {
-              final remPills = (d['remainingPills'] as num?)?.toInt() ?? 0;
-              final nextRemaining = remPills > 0 ? remPills - 1 : 0;
-              await medRef.update({
-                'lastTakenDayKey': actDayKey,
-                'remainingPills': nextRemaining,
-              });
-              final slot = MedicationScheduleSlot.fromName(
-                d['slot'] as String?,
-              );
-              final updatedEntity = MedicationCabinetItemEntity(
-                id: medSnap.id,
-                ownerId: userId,
-                name: (d['name'] ?? 'Thuốc / Vitamin') as String,
-                dosage: (d['dosage'] ?? '1 viên') as String,
-                slot: slot,
-                remainingPills: nextRemaining,
-                expiryDate:
-                    DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
-                    DateTime.now().add(const Duration(days: 180)),
-                inventoryConfirmed: d['inventoryConfirmed'] is bool
-                    ? d['inventoryConfirmed'] as bool
-                    : true,
-                lastTakenDayKey: actDayKey,
-                memberName: (d['memberName'] ?? 'Cả gia đình') as String,
-                reminderEnabled: d['reminderEnabled'] is bool
-                    ? d['reminderEnabled'] as bool
-                    : slot.isScheduledDaily,
-                reminderHour:
-                    (d['reminderHour'] as num?)?.toInt() ?? slot.defaultHour,
-                reminderMinute:
-                    (d['reminderMinute'] as num?)?.toInt() ??
-                    slot.defaultMinute,
-              );
-              await _reminderScheduler.syncMedicationAlarm(
-                updatedEntity,
-                todayKey: todayKey,
-              );
-              processed++;
-            }
-          }
         }
       }
       return Success(processed);
@@ -1026,124 +633,6 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         UnexpectedFailure(
           message:
               'Không thể gửi thông báo thử nghiệm lúc này. Vui lòng kiểm tra quyền thông báo và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> addHealthVitalLog({
-    required String userId,
-    required double weightKg,
-    required double heightCm,
-    required int systolicMmHg,
-    required int diastolicMmHg,
-    required int heartRateBpm,
-    required double sleepHours,
-    String note = '',
-  }) async {
-    try {
-      final id = 'vital_${_uuid.v4().substring(0, 8)}';
-      await _userRef(userId).collection('health_logs').doc(id).set({
-        'id': id,
-        'ownerId': userId,
-        'weightKg': weightKg,
-        'heightCm': heightCm,
-        'systolicMmHg': systolicMmHg,
-        'diastolicMmHg': diastolicMmHg,
-        'heartRateBpm': heartRateBpm,
-        'sleepHours': sleepHours,
-        'recordedAt': DateTime.now().toIso8601String(),
-        'note': note.trim(),
-      });
-
-      // Keep hydration body profile synced when autoSyncTargetByBody is active
-      final remRef = _userRef(
-        userId,
-      ).collection('medical_profiles').doc('hydration_reminder');
-      final remSnap = await remRef.get();
-      final remData = remSnap.data();
-      final autoSync =
-          remData == null || remData['autoSyncTargetByBody'] != false;
-      final activity = HydrationActivityLevel.fromName(
-        remData?['activityLevel'] as String?,
-      );
-      final recomputedTarget =
-          AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
-            weightKg: weightKg,
-            heightCm: heightCm,
-            activityLevel: activity,
-          );
-      await remRef.set(<String, dynamic>{
-        'weightKg': weightKg,
-        'heightCm': heightCm,
-        if (autoSync) 'targetWaterMl': recomputedTarget,
-        'updatedAt': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
-
-      if (autoSync) {
-        final todayKey = _dayKeyFmt.format(DateTime.now());
-        await _userRef(userId).collection('wellness_daily').doc(todayKey).set(
-          <String, dynamic>{
-            'dateKey': todayKey,
-            'targetWaterMl': recomputedTarget,
-          },
-          SetOptions(merge: true),
-        );
-      }
-
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể lưu chỉ số sức khỏe lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> deleteHealthVitalLog({
-    required String userId,
-    required String logId,
-  }) async {
-    try {
-      await _userRef(userId).collection('health_logs').doc(logId).delete();
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể xóa bản ghi sinh hiệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Future<Result<void>> saveEmergencyMedicalCard({
-    required EmergencyMedicalCardEntity card,
-  }) async {
-    try {
-      await _userRef(
-        card.ownerId,
-      ).collection('medical_profiles').doc('emergency_card').set({
-        'ownerId': card.ownerId,
-        'bloodType': card.bloodType.trim(),
-        'allergies': card.allergies.trim(),
-        'chronicConditions': card.chronicConditions.trim(),
-        'insuranceCode': card.insuranceCode.trim(),
-        'emergencyContactName': card.emergencyContactName.trim(),
-        'emergencyContactPhone': card.emergencyContactPhone.trim(),
-        'preferredHospital': card.preferredHospital.trim(),
-      });
-      return const Success(null);
-    } catch (_) {
-      return const Err(
-        UnexpectedFailure(
-          message:
-              'Không thể lưu thẻ y tế khẩn cấp lúc này. Vui lòng kiểm tra kết nối và thử lại.',
         ),
       );
     }

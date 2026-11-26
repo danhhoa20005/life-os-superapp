@@ -1657,7 +1657,6 @@ class _GeminiHybridInsightAndOmniActionsSectionState
     OmniActionKind.task => Icons.task_alt_rounded,
     OmniActionKind.grocery => Icons.shopping_basket_outlined,
     OmniActionKind.waterLog => Icons.water_drop_outlined,
-    OmniActionKind.medication => Icons.medication_outlined,
   };
 
   LifeOsAccentTone _toneForKind(OmniActionKind kind) => switch (kind) {
@@ -1667,7 +1666,6 @@ class _GeminiHybridInsightAndOmniActionsSectionState
     OmniActionKind.task => LifeOsAccentTone.purple,
     OmniActionKind.grocery => LifeOsAccentTone.amber,
     OmniActionKind.waterLog => LifeOsAccentTone.blue,
-    OmniActionKind.medication => LifeOsAccentTone.coral,
   };
 
   bool _supportsAmount(OmniActionDraft draft) =>
@@ -1679,7 +1677,6 @@ class _GeminiHybridInsightAndOmniActionsSectionState
   bool _supportsSchedule(OmniActionDraft draft) =>
       draft.kind == OmniActionKind.calendarEvent ||
       draft.kind == OmniActionKind.task ||
-      draft.kind == OmniActionKind.medication ||
       draft.scheduledAt != null;
 
   Future<void> _showQuickEditOmniSheet(
@@ -1882,8 +1879,6 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                                 taskPriority: draft.taskPriority,
                                 quantityLabel: draft.quantityLabel,
                                 waterMl: draft.waterMl,
-                                medicationSlot: draft.medicationSlot,
-                                dosage: draft.dosage,
                                 originLabel: draft.originLabel,
                               );
                               setState(() {

@@ -17,7 +17,6 @@ import 'package:life_os/features/authentication/presentation/bloc/auth_bloc.dart
 import 'package:life_os/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:life_os/features/authentication/presentation/bloc/auth_state.dart';
 import 'package:life_os/features/daily_life/data/repositories/daily_life_repository_impl.dart';
-import 'package:life_os/features/daily_life/domain/entities/daily_life_entities.dart';
 import 'package:life_os/features/daily_life/presentation/bloc/daily_life_bloc.dart';
 import 'package:life_os/features/financial_ai/data/datasources/gemini_remote_datasource.dart';
 import 'package:life_os/features/financial_ai/data/repositories/gemini_copilot_repository_impl.dart';
@@ -64,83 +63,47 @@ void main() {
     );
 
     test(
-      '2.2 Quick-create medication reminder does not fabricate 30 pills or +270d expiry, and legacy unconfirmed records require confirmation',
+      '2.2 DailyLifeBloc stores hydration preferences under daily_preferences and never touches medical or medication collections',
       () async {
         final firestore = FakeFirebaseFirestore();
         final repo = DailyLifeRepositoryImpl(firestore);
         final bloc = DailyLifeBloc(repo);
         addTearDown(bloc.close);
-        const uid = 'u_med_quick_audit';
-
-        // Seed a legacy quick-create medication document (30 pills, no inventoryConfirmedAt)
-        await firestore
-            .collection('users')
-            .doc(uid)
-            .collection('medications')
-            .doc('med_legacy_quick')
-            .set(<String, dynamic>{
-              'id': 'med_legacy_quick',
-              'ownerId': uid,
-              'name': 'Vitamin D3 cũ',
-              'dosage': '1 viên',
-              'slot': MedicationScheduleSlot.morning.name,
-              'remainingPills': 30,
-              'expiryDate': DateTime.now()
-                  .add(const Duration(days: 270))
-                  .toIso8601String(),
-              'inventoryConfirmed': true,
-              'reminderEnabled': true,
-              'reminderHour': 7,
-              'reminderMinute': 30,
-            });
+        const uid = 'u_daily_pref_audit';
 
         bloc.add(const DailyLifeWatchStarted(uid));
         await Future<void>.delayed(const Duration(milliseconds: 50));
 
-        // Legacy 30-pill record without inventoryConfirmedAt must be treated as unconfirmed
-        final legacyMed = bloc.state.snapshot.medications.single;
-        expect(legacyMed.inventoryConfirmed, isFalse);
-        expect(legacyMed.remainingPills, 0);
-        expect(legacyMed.isExpiringSoon(DateTime.now()), isFalse);
-
-        // Quick-create a new reminder without stock/expiry
         bloc.add(
-          MedicationCabinetAdded(
+          const HydrationReminderSettingsSaved(
             userId: uid,
-            name: 'Panadol Extra',
-            dosage: '1 viên sau ăn',
-            slot: MedicationScheduleSlot.evening,
             reminderEnabled: true,
-            reminderHour: 20,
-            reminderMinute: 0,
+            intervalMinutes: 90,
+            startHour: 8,
+            endHour: 21,
+            targetWaterMl: 2200,
+            preferredCupMl: 250,
           ),
         );
         await Future<void>.delayed(const Duration(milliseconds: 80));
 
-        final panadol = bloc.state.snapshot.medications.firstWhere(
-          (m) => m.name == 'Panadol Extra',
-        );
-        expect(panadol.inventoryConfirmed, isFalse);
-        expect(panadol.remainingPills, 0);
-        expect(panadol.isExpiringSoon(DateTime.now()), isFalse);
+        expect(bloc.state.snapshot.hydration.targetWaterMl, 2200);
+        expect(bloc.state.snapshot.hydration.preferredCupMl, 250);
 
-        // Once the user explicitly updates inventory, inventoryConfirmed becomes true
-        final confirmedExpiry = DateTime(2027, 12, 31);
-        bloc.add(
-          MedicationInventoryUpdated(
-            userId: uid,
-            item: panadol,
-            remainingPills: 16,
-            expiryDate: confirmedExpiry,
-          ),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 80));
+        final dailyPrefDoc = await firestore
+            .collection('users')
+            .doc(uid)
+            .collection('daily_preferences')
+            .doc('hydration_reminder')
+            .get();
+        expect(dailyPrefDoc.exists, isTrue);
 
-        final updatedPanadol = bloc.state.snapshot.medications.firstWhere(
-          (m) => m.name == 'Panadol Extra',
-        );
-        expect(updatedPanadol.inventoryConfirmed, isTrue);
-        expect(updatedPanadol.remainingPills, 16);
+        final medicalDocs = await firestore
+            .collection('users')
+            .doc(uid)
+            .collection('medical_profiles')
+            .get();
+        expect(medicalDocs.docs, isEmpty);
       },
     );
 

@@ -7,7 +7,6 @@ import '../../../../core/error/app_exception.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/utils/smart_omni_intent_parser.dart';
-import '../../../daily_life/domain/entities/daily_life_entities.dart';
 import '../../../tasks/domain/entities/task_entities.dart';
 import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../domain/entities/gemini_copilot_entities.dart';
@@ -318,8 +317,7 @@ class GeminiRemoteDataSource {
         '4. "calendarEvents": Mảng lịch hẹn có thời gian cụ thể [{"title":"tiêu đề","startsAtIso":"ISO8601","durationMinutes":60,"location":""}].\n'
         '5. "tasks": Mảng việc cần làm / nhắc nhở [{"title":"tiêu đề","dueAtIso":"ISO8601","priority":"low"|"medium"|"high"}].\n'
         '6. "groceries": Mảng món cần mua đi chợ khi chưa thanh toán tiền [{"name":"tên món","quantityLabel":"1 phần","estimatedMinor":0}].\n'
-        '7. "waterLogs": Mảng lượng nước lọc uống vào cơ thể [{"waterMl":250}].\n'
-        '8. "medications": Mảng lịch nhắc uống thuốc/vitamin [{"name":"tên thuốc","dosage":"1 viên sau ăn","slot":"morning"|"noon"|"evening","hour":8,"minute":0}].';
+        '7. "waterLogs": Mảng lượng nước lọc uống vào cơ thể [{"waterMl":250}].';
 
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/${config.modelId}:generateContent',
@@ -607,41 +605,6 @@ class GeminiRemoteDataSource {
             kind: OmniActionKind.waterLog,
             title: 'Nước lọc',
             waterMl: ml,
-            originLabel: 'Gemini AI',
-          ),
-        );
-      }
-    }
-
-    final meds = json['medications'];
-    if (meds is List) {
-      for (final item in meds.whereType<Map<dynamic, dynamic>>()) {
-        final name = ((item['name'] as String?) ?? '').trim();
-        if (name.length < 2) continue;
-        final dosage = ((item['dosage'] as String?) ?? '').trim().isNotEmpty
-            ? (item['dosage'] as String).trim()
-            : '1 viên sau ăn';
-        final slot = MedicationScheduleSlot.fromName(item['slot'] as String?);
-        final h = ((item['hour'] as num?)?.toInt() ?? slot.defaultHour).clamp(
-          0,
-          23,
-        );
-        final m = ((item['minute'] as num?)?.toInt() ?? slot.defaultMinute)
-            .clamp(0, 59);
-        out.add(
-          OmniActionDraft(
-            id: 'gemini_med_${idx++}',
-            kind: OmniActionKind.medication,
-            title: name,
-            dosage: dosage,
-            medicationSlot: slot,
-            scheduledAt: DateTime(
-              referenceNow.year,
-              referenceNow.month,
-              referenceNow.day,
-              h,
-              m,
-            ),
             originLabel: 'Gemini AI',
           ),
         );

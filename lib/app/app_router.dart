@@ -30,7 +30,6 @@ import '../features/calendar/presentation/bloc/calendar_bloc.dart';
 import '../features/calendar/presentation/pages/event_detail_and_alarm_pages.dart';
 import '../features/calendar/presentation/pages/planning_page.dart';
 import '../features/daily_life/presentation/bloc/daily_life_bloc.dart';
-import '../features/daily_life/presentation/pages/health_medical_hub_page.dart';
 import '../features/daily_life/presentation/pages/home_living_utilities_page.dart';
 import '../features/daily_life/presentation/pages/kitchen_groceries_page.dart';
 import '../features/daily_life/presentation/pages/smart_notes_salary_page.dart';
@@ -482,20 +481,6 @@ GoRouter createAppRouter(
             userId: user.id,
             familyId: user.activeFamilyId,
             child: const SuperAppDirectoryPage(),
-          );
-        }),
-      ),
-      GoRoute(
-        path: '/health-hub',
-        pageBuilder: (_, state) => _motionPage(state, (context) {
-          final user = context.read<AuthBloc>().state.user;
-          if (user == null) return const LoginPage();
-          return _ScopedAuthenticatedProviders(
-            userId: user.id,
-            familyId: user.activeFamilyId,
-            child: HealthMedicalHubPage(
-              initialTab: state.uri.queryParameters['tab'],
-            ),
           );
         }),
       ),
@@ -1397,7 +1382,7 @@ class _HomeWidgetSyncAndIntentHostState
       final user = context.read<AuthBloc>().state.user;
       final hyd = context.read<DailyLifeBloc>().state.snapshot.hydration;
       final cup = hyd.preferredCupMl;
-      context.push('/health-hub?tab=water');
+      context.push('/habits-focus');
       LifeOsTopToast.show(
         context,
         payload['title'] ?? 'Đến giờ uống nước rồi!',
@@ -1415,16 +1400,6 @@ class _HomeWidgetSyncAndIntentHostState
                 );
               },
         duration: const Duration(milliseconds: 5000),
-      );
-      return;
-    }
-    if (eventId.startsWith('med_')) {
-      context.push('/health-hub?tab=meds');
-      LifeOsTopToast.show(
-        context,
-        payload['title'] ?? 'Đến giờ uống thuốc!',
-        kind: LifeOsToastKind.warning,
-        duration: const Duration(milliseconds: 4500),
       );
       return;
     }

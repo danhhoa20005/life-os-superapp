@@ -153,7 +153,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('logo_drawer_tab_health')));
       await tester.pumpAndSettle();
-      expect(find.text('Nhắc uống nước & Chạy ngầm'), findsOneWidget);
+      expect(find.text('Thói quen & Đồng hồ tập trung'), findsOneWidget);
       expect(find.text('Bếp gia đình & Giỏ đi chợ'), findsOneWidget);
 
       // Tap "Tất cả" resets tab filter
@@ -180,27 +180,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Trang chủ Hôm nay'), findsOneWidget);
 
-      // 4. Tap "Nhắc uống nước & Chạy ngầm" -> closes drawer & opens Health Hub on Water tab
+      // 4. Tap "Bếp gia đình & Giỏ đi chợ" -> closes drawer & opens Kitchen Groceries Page
       final listScrollable = find.descendant(
         of: find.byKey(const Key('logo_drawer_feature_list')),
         matching: find.byType(Scrollable),
       );
       await tester.scrollUntilVisible(
-        find.byKey(const Key('logo_drawer_item_water_reminder')),
+        find.byKey(const Key('logo_drawer_item_kitchen_groceries')),
         140,
         scrollable: listScrollable,
       );
       await tester.ensureVisible(
-        find.byKey(const Key('logo_drawer_item_water_reminder')),
+        find.byKey(const Key('logo_drawer_item_kitchen_groceries')),
       );
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const Key('logo_drawer_item_water_reminder')),
+        find.byKey(const Key('logo_drawer_item_kitchen_groceries')),
       );
       await tester.pumpAndSettle();
 
       expect(drawerFinder, findsNothing);
-      expect(find.byKey(const Key('hydration_tracker_card')), findsOneWidget);
+      expect(find.text('Bếp & Đi chợ Thông minh'), findsOneWidget);
 
       // 5. Return to Today, open Logo drawer, switch shell tab to Finance, then swipe left to close!
       await tester.tap(find.byTooltip('Quay lại'));

@@ -354,8 +354,6 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
                     taskPriority: d.taskPriority,
                     quantityLabel: d.quantityLabel,
                     waterMl: d.waterMl,
-                    medicationSlot: d.medicationSlot,
-                    dosage: d.dosage,
                     originLabel: d.originLabel,
                   ),
                 );

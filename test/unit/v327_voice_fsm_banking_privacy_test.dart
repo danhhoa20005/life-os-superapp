@@ -800,9 +800,7 @@ void main() {
         final alarmKt = File(
           'android/app/src/main/kotlin/vn/lifeos/app/life_os/LifeOsAlarmScheduler.kt',
         ).readAsStringSync();
-        expect(alarmKt, contains('scheduleNextMedicationAlarm'));
         expect(alarmKt, contains('PREFS_HYDRATION_DAEMON'));
-        expect(alarmKt, contains('PREFS_MED_DAEMON'));
         expect(alarmKt, contains('PREFS_BG_ACTIONS'));
 
         final calKt = File(

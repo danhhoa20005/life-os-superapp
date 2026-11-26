@@ -173,8 +173,7 @@ bool _matchesExpectedIntent(
           drafts.every(
             (d) =>
                 d.kind == OmniActionKind.calendarEvent ||
-                d.kind == OmniActionKind.task ||
-                d.kind == OmniActionKind.medication,
+                d.kind == OmniActionKind.task,
           );
     case 'task':
       return drafts.isNotEmpty &&

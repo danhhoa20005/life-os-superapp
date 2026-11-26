@@ -224,15 +224,6 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
       keywords: ['automation', 'quy tac tu dong'],
     ),
     (
-      id: 'scr_health',
-      title: 'Sức khỏe & Tủ thuốc',
-      subtitle: 'Nhắc uống thuốc, nước uống & thẻ y tế khẩn cấp',
-      icon: Icons.favorite_outline_rounded,
-      route: '/health-hub',
-      tone: LifeOsAccentTone.coral,
-      keywords: ['thuoc', 'bhyt', 'bao hiem y te', 'suc khoe', 'nuoc uong'],
-    ),
-    (
       id: 'scr_kitchen',
       title: 'Bếp & Đi chợ Thông minh',
       subtitle: 'Thực đơn, giỏ đi chợ & tủ lạnh',
@@ -542,21 +533,6 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
               : 'Đi chợ',
           targetRoute: '/kitchen-groceries',
           ownerUserId: g.ownerId,
-          isPrivateToOwner: true,
-        ),
-      );
-    }
-    for (final m in dailySnap.medications) {
-      if (m.ownerId != activeUserId) continue;
-      corpus.add(
-        SearchableEntityRecord(
-          id: 'med_${m.id}',
-          domain: SearchDomainKind.note,
-          title: m.name,
-          subtitle: 'Thuốc · ${m.dosage} · ${m.formattedReminderTime}',
-          trailingBadge: 'Thuốc',
-          targetRoute: '/health-hub',
-          ownerUserId: m.ownerId,
           isPrivateToOwner: true,
         ),
       );

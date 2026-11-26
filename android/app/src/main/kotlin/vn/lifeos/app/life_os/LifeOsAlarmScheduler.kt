@@ -160,18 +160,17 @@ object LifeOsAlarmRinger {
  * Real Android OS Alarm & Background Notification Engine:
  * - Full-Screen Alarms (`AlarmManager.setAlarmClock` + `CHANNEL_ID`)
  * - Outside-the-Screen Heads-Up & Lock-Screen Reminders (`setExactAndAllowWhileIdle` + `HEALTH_CHANNEL_ID`)
- * - Autonomous Multi-Day Hydration & Medication Daemon (works even when app is swiped away or phone reboots)
- * - Direct Lock-Screen Action Buttons (`+Uống nước`, `Đã uống thuốc`, `Hoãn 15 phút`) queued safely offline
+ * - Autonomous Multi-Day Hydration Daemon (works even when app is swiped away or phone reboots)
+ * - Direct Lock-Screen Action Buttons (`+Uống nước`, `Hoãn 15 phút`) queued safely offline
  */
 object LifeOsAlarmScheduler {
     const val PREFS_NAME = "lifeos_scheduled_alarms_v1"
     const val PREFS_HYDRATION_DAEMON = "lifeos_hydration_daemon_v1"
-    const val PREFS_MED_DAEMON = "lifeos_med_daemon_v1"
     const val PREFS_BG_ACTIONS = "lifeos_bg_health_actions_v1"
     private const val KEY_BG_QUEUE = "queued_actions_json"
 
     const val CHANNEL_ID = "lifeos_calendar_alarms_v2"
-    const val HEALTH_CHANNEL_ID = "lifeos_health_reminders_v2"
+    const val HEALTH_CHANNEL_ID = "lifeos_daily_reminders_v2"
     const val WATER_NOTIFICATION_ID = 770101
     private const val DAEMON_WATER_NEXT_ID = "water_daemon_next"
 
@@ -180,7 +179,6 @@ object LifeOsAlarmScheduler {
     const val ACTION_ALARM_SNOOZE = "vn.lifeos.app.ACTION_CALENDAR_ALARM_SNOOZE"
     const val ACTION_REMINDER_SNOOZE_15M = "vn.lifeos.app.ACTION_REMINDER_SNOOZE_15M"
     const val ACTION_WATER_QUICK_LOG = "vn.lifeos.app.ACTION_WATER_QUICK_LOG"
-    const val ACTION_MED_QUICK_TAKEN = "vn.lifeos.app.ACTION_MED_QUICK_TAKEN"
     const val ACTION_OPEN_RINGING_UI = "vn.lifeos.app.ALARM_RINGING"
 
     @Volatile
@@ -326,10 +324,10 @@ object LifeOsAlarmScheduler {
                     .build()
                 val healthChannel = NotificationChannel(
                     HEALTH_CHANNEL_ID,
-                    "Nhắc Uống nước & Uống thuốc",
+                    "Nhắc Sinh hoạt & Lịch trình",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Thông báo nổi ngoài màn hình nhắc uống nước định kỳ và uống thuốc đúng giờ"
+                    description = "Thông báo nổi ngoài màn hình nhắc uống nước và sinh hoạt định kỳ"
                     enableLights(true)
                     lightColor = Color.parseColor("#0284C7")
                     enableVibration(true)
@@ -498,76 +496,6 @@ object LifeOsAlarmScheduler {
         return tomorrowStart
     }
 
-    fun syncMedicationDaemonItem(
-        context: Context,
-        medId: String,
-        enabled: Boolean,
-        name: String,
-        dosage: String,
-        hour: Int,
-        minute: Int
-    ) {
-        val prefs = context.applicationContext.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
-        if (!enabled) {
-            prefs.edit().remove(medId).apply()
-            return
-        }
-        val obj = JSONObject().apply {
-            put("medId", medId)
-            put("name", name)
-            put("dosage", dosage)
-            put("hour", hour.coerceIn(0, 23))
-            put("minute", minute.coerceIn(0, 59))
-        }
-        prefs.edit().putString(medId, obj.toString()).apply()
-    }
-
-    fun scheduleNextDayMedicationIfConfigured(context: Context, rawMedId: String) {
-        scheduleNextMedicationAlarm(
-            context = context,
-            rawMedId = rawMedId,
-            includeTodayIfFuture = false
-        )
-    }
-
-    fun scheduleNextMedicationAlarm(
-        context: Context,
-        rawMedId: String,
-        includeTodayIfFuture: Boolean = true
-    ) {
-        val appCtx = context.applicationContext
-        val raw = appCtx.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
-            .getString(rawMedId, null) ?: return
-        try {
-            val obj = JSONObject(raw)
-            val name = obj.optString("name", "Thuốc")
-            val dosage = obj.optString("dosage", "1 liều")
-            val hour = obj.optInt("hour", 8).coerceIn(0, 23)
-            val minute = obj.optInt("minute", 0).coerceIn(0, 59)
-            val now = System.currentTimeMillis()
-            val nextTrigger = Calendar.getInstance().apply {
-                timeInMillis = now
-                set(Calendar.HOUR_OF_DAY, hour)
-                set(Calendar.MINUTE, minute)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-                if (!includeTodayIfFuture || timeInMillis <= now + 5_000L) {
-                    add(Calendar.DAY_OF_YEAR, 1)
-                }
-            }.timeInMillis
-            scheduleAlarm(
-                context = appCtx,
-                eventId = "med_rem_$rawMedId",
-                title = "Nhắc uống thuốc: $name",
-                subtitle = dosage,
-                triggerAtEpochMs = nextTrigger,
-                minutesBefore = 0,
-                fullScreen = false
-            )
-        } catch (_: Exception) {
-        }
-    }
-
     fun enqueueBackgroundHealthAction(context: Context, item: JSONObject) {
         val appCtx = context.applicationContext
         try {
@@ -650,9 +578,8 @@ object LifeOsAlarmScheduler {
 
         val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val isWater = eventId.startsWith("water_")
-        val isMed = eventId.startsWith("med_")
 
-        if (isWater || isMed) {
+        if (isWater) {
             val resolvedCup = if (cupMl > 0) {
                 cupMl
             } else {
@@ -663,23 +590,21 @@ object LifeOsAlarmScheduler {
             // Refresh water title/subtitle dynamically from native daemon progress if available
             var resolvedTitle = title
             var resolvedSubtitle = subtitle
-            if (isWater) {
-                val hPrefs = appCtx.getSharedPreferences(PREFS_HYDRATION_DAEMON, Context.MODE_PRIVATE)
-                if (hPrefs.contains("targetWaterMl")) {
-                    val today = todayDayKey()
-                    var wMl = hPrefs.getInt("waterMl", 0)
-                    if (hPrefs.getString("dayKey", today) != today) {
-                        wMl = 0
-                        hPrefs.edit().putString("dayKey", today).putInt("waterMl", 0).apply()
-                    }
-                    val tMl = hPrefs.getInt("targetWaterMl", 2000)
-                    val remMl = (tMl - wMl).coerceAtLeast(0)
-                    resolvedTitle = "Đến giờ uống nước ($wMl/$tMl ml)"
-                    resolvedSubtitle = if (remMl > 0) {
-                        "Bấm Đã uống +${resolvedCup}ml ngay trên thông báo này · Còn thiếu $remMl ml hôm nay."
-                    } else {
-                        "Bạn đã hoàn thành mục tiêu $tMl ml nước hôm nay!"
-                    }
+            val hPrefs = appCtx.getSharedPreferences(PREFS_HYDRATION_DAEMON, Context.MODE_PRIVATE)
+            if (hPrefs.contains("targetWaterMl")) {
+                val today = todayDayKey()
+                var wMl = hPrefs.getInt("waterMl", 0)
+                if (hPrefs.getString("dayKey", today) != today) {
+                    wMl = 0
+                    hPrefs.edit().putString("dayKey", today).putInt("waterMl", 0).apply()
+                }
+                val tMl = hPrefs.getInt("targetWaterMl", 2000)
+                val remMl = (tMl - wMl).coerceAtLeast(0)
+                resolvedTitle = "Đến giờ uống nước ($wMl/$tMl ml)"
+                resolvedSubtitle = if (remMl > 0) {
+                    "Bấm Đã uống +${resolvedCup}ml ngay trên thông báo này · Còn thiếu $remMl ml hôm nay."
+                } else {
+                    "Bạn đã hoàn thành mục tiêu $tMl ml nước hôm nay!"
                 }
             }
 
@@ -696,7 +621,7 @@ object LifeOsAlarmScheduler {
 
             val builder = NotificationCompat.Builder(appCtx, HEALTH_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_widget_leaf)
-                .setColor(Color.parseColor(if (isWater) "#0284C7" else "#10B981"))
+                .setColor(Color.parseColor("#0284C7"))
                 .setContentTitle(resolvedTitle)
                 .setContentText(resolvedSubtitle)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(resolvedSubtitle))
@@ -707,33 +632,18 @@ object LifeOsAlarmScheduler {
                 .setAutoCancel(true)
                 .setContentIntent(launchPi)
 
-            if (isWater) {
-                val drinkPi = buildBroadcastPendingIntent(
-                    context = appCtx,
-                    action = ACTION_WATER_QUICK_LOG,
-                    eventId = eventId,
-                    title = resolvedTitle,
-                    subtitle = resolvedSubtitle,
-                    fullScreen = false,
-                    cupMl = resolvedCup,
-                    flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                builder.addAction(0, "✓ Đã uống +${resolvedCup}ml", drinkPi)
-                builder.addAction(0, "Hoãn 15 phút", snooze15Pi)
-            } else {
-                val medTakenPi = buildBroadcastPendingIntent(
-                    context = appCtx,
-                    action = ACTION_MED_QUICK_TAKEN,
-                    eventId = eventId,
-                    title = resolvedTitle,
-                    subtitle = resolvedSubtitle,
-                    fullScreen = false,
-                    cupMl = 0,
-                    flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                builder.addAction(0, "✓ Đã uống thuốc", medTakenPi)
-                builder.addAction(0, "Hoãn 15 phút", snooze15Pi)
-            }
+            val drinkPi = buildBroadcastPendingIntent(
+                context = appCtx,
+                action = ACTION_WATER_QUICK_LOG,
+                eventId = eventId,
+                title = resolvedTitle,
+                subtitle = resolvedSubtitle,
+                fullScreen = false,
+                cupMl = resolvedCup,
+                flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(0, "✓ Đã uống +${resolvedCup}ml", drinkPi)
+            builder.addAction(0, "Hoãn 15 phút", snooze15Pi)
 
             nm.notify(notificationIdFor(eventId), builder.build())
             return
@@ -947,8 +857,6 @@ object LifeOsAlarmScheduler {
         prefs.edit().clear().apply()
         appCtx.getSharedPreferences(PREFS_HYDRATION_DAEMON, Context.MODE_PRIVATE)
             .edit().clear().apply()
-        appCtx.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
-            .edit().clear().apply()
         appCtx.getSharedPreferences(PREFS_BG_ACTIONS, Context.MODE_PRIVATE)
             .edit().clear().apply()
         try {
@@ -963,7 +871,7 @@ object LifeOsAlarmScheduler {
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         for ((key, rawVal) in prefs.all.entries.toList()) {
-            if (key == DAEMON_WATER_NEXT_ID || key.startsWith("med_rem_")) {
+            if (key == DAEMON_WATER_NEXT_ID) {
                 // Recomputed cleanly below in the current timezone/wall-clock from daemon configs
                 continue
             }
@@ -988,20 +896,9 @@ object LifeOsAlarmScheduler {
             } catch (_: Exception) {
             }
         }
-        // Recompute BOTH hydration & medication daemon wall-clock triggers after reboot/timezone/time change
+        // Recompute hydration daemon wall-clock triggers after reboot/timezone/time change
         cancelAlarm(appCtx, DAEMON_WATER_NEXT_ID)
         ensureNextDaemonWaterAlarmScheduled(appCtx)
-
-        val medPrefs = appCtx.getSharedPreferences(PREFS_MED_DAEMON, Context.MODE_PRIVATE)
-        for (medId in medPrefs.all.keys.toList()) {
-            if (medId.isNotBlank()) {
-                scheduleNextMedicationAlarm(
-                    context = appCtx,
-                    rawMedId = medId,
-                    includeTodayIfFuture = true
-                )
-            }
-        }
     }
 
     fun buildBroadcastPendingIntent(
@@ -1062,9 +959,6 @@ class LifeOsAlarmReceiver : BroadcastReceiver() {
                 nm?.cancel(LifeOsAlarmScheduler.notificationIdFor(eventId))
                 val snoozeId = if (eventId.startsWith("water_")) {
                     "water_snooze_15m"
-                } else if (eventId.startsWith("med_")) {
-                    val rawMedId = eventId.removePrefix("med_rem_").removePrefix("med_snooze_")
-                    "med_snooze_$rawMedId"
                 } else {
                     "${eventId}_snooze_15m"
                 }
@@ -1137,25 +1031,6 @@ class LifeOsAlarmReceiver : BroadcastReceiver() {
                 LifeOsWidgetStore.refreshAllWidgets(appCtx)
                 return
             }
-            LifeOsAlarmScheduler.ACTION_MED_QUICK_TAKEN -> {
-                val appCtx = context.applicationContext
-                val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-                nm?.cancel(LifeOsAlarmScheduler.notificationIdFor(eventId))
-
-                val rawMedId = eventId.removePrefix("med_rem_").removePrefix("med_snooze_")
-                LifeOsAlarmScheduler.cancelAlarm(appCtx, "med_snooze_$rawMedId")
-
-                LifeOsAlarmScheduler.enqueueBackgroundHealthAction(
-                    appCtx,
-                    JSONObject().apply {
-                        put("type", "med_taken")
-                        put("medId", rawMedId)
-                        put("loggedAtEpochMs", System.currentTimeMillis())
-                    }
-                )
-                LifeOsAlarmScheduler.scheduleNextDayMedicationIfConfigured(appCtx, rawMedId)
-                return
-            }
             LifeOsAlarmScheduler.ACTION_ALARM_FIRED -> {
                 context.applicationContext
                     .getSharedPreferences(LifeOsAlarmScheduler.PREFS_NAME, Context.MODE_PRIVATE)
@@ -1163,7 +1038,7 @@ class LifeOsAlarmReceiver : BroadcastReceiver() {
                     .remove(eventId)
                     .apply()
 
-                if (fullScreen && !eventId.startsWith("water_") && !eventId.startsWith("med_")) {
+                if (fullScreen && !eventId.startsWith("water_")) {
                     LifeOsAlarmRinger.startRinging(context)
                 }
 
@@ -1179,9 +1054,6 @@ class LifeOsAlarmReceiver : BroadcastReceiver() {
                 // Autonomous background rollover for multi-day operation without opening the app!
                 if (eventId.startsWith("water_")) {
                     LifeOsAlarmScheduler.ensureNextDaemonWaterAlarmScheduled(context)
-                } else if (eventId.startsWith("med_rem_")) {
-                    val rawMedId = eventId.removePrefix("med_rem_")
-                    LifeOsAlarmScheduler.scheduleNextDayMedicationIfConfigured(context, rawMedId)
                 }
             }
         }

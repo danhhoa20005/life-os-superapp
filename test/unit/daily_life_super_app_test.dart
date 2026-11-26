@@ -76,27 +76,11 @@ void main() {
           expect((reversed.grossSalaryMinor - 35000000).abs() <= 5, isTrue);
         },
       );
-
-      test(
-        'AsianHealthBmiTdeeEngine applies Asian-Pacific WHO cutoffs (18.5–22.9)',
-        () {
-          final normal = AsianHealthBmiTdeeEngine.evaluate(
-            weightKg: 62,
-            heightCm: 170,
-            systolicMmHg: 116,
-            diastolicMmHg: 74,
-          );
-          expect(normal.bmi, 21.5);
-          expect(normal.bmiCategory, contains('Chuẩn Châu Á'));
-          expect(normal.bloodPressureStatus, contains('tối ưu'));
-          expect(normal.tdeeKcal, greaterThan(1800));
-        },
-      );
     },
   );
 
   test(
-    'DailyLifeBloc persists Medications, Meal Combo Groceries, EVN Readings & Notes in Firestore',
+    'DailyLifeBloc persists Meal Combo Groceries, EVN Readings & Notes in Firestore',
     () async {
       final firestore = FakeFirebaseFirestore();
       final repo = DailyLifeRepositoryImpl(firestore);
@@ -106,16 +90,6 @@ void main() {
       bloc.add(const DailyLifeWatchStarted(uid));
       await Future<void>.delayed(const Duration(milliseconds: 60));
 
-      bloc.add(
-        MedicationCabinetAdded(
-          userId: uid,
-          name: 'Vitamin D3 K2',
-          dosage: '1 viên sáng',
-          slot: MedicationScheduleSlot.morning,
-          remainingPills: 30,
-          expiryDate: DateTime(2027, 6, 1),
-        ),
-      );
       bloc.add(
         MealComboAppliedToGroceries(
           userId: uid,
@@ -148,8 +122,6 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 150));
 
       final snap = bloc.state.snapshot;
-      expect(snap.medications.length, 1);
-      expect(snap.medications.first.name, 'Vitamin D3 K2');
       expect(
         snap.groceryItems.length,
         VietnameseMealSuggestionCatalog.presets.first.ingredients.length,
@@ -220,14 +192,7 @@ void main() {
 
     expect(find.text('Tiện ích của bạn'), findsOneWidget);
 
-    // 1. Open Health & Medication Hub from 4x2 Dock
-    await tester.tap(find.byKey(const Key('home_tile_health')));
-    await tester.pumpAndSettle();
-    expect(find.text('Sức khỏe & Tủ thuốc'), findsOneWidget);
-    await tester.tap(find.byTooltip('Quay lại'));
-    await tester.pumpAndSettle();
-
-    // 2. Open Kitchen & Smart Groceries from 4x2 Dock
+    // 1. Open Kitchen & Smart Groceries from 4x2 Dock
     await tester.tap(find.byKey(const Key('home_tile_kitchen')));
     await tester.pumpAndSettle();
     expect(find.text('Bếp & Đi chợ Thông minh'), findsOneWidget);

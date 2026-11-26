@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -403,22 +402,6 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                             size: 17,
                                           ),
                                           label: const Text('+250ml'),
-                                        ),
-                                        OutlinedButton.icon(
-                                          key: const Key(
-                                            'open_water_reminder_settings_btn',
-                                          ),
-                                          onPressed: () => context.push(
-                                            '/health-hub?tab=water',
-                                          ),
-                                          icon: const Icon(
-                                            Icons.alarm_rounded,
-                                            size: 16,
-                                          ),
-                                          label: const FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Text('Hẹn nhắc'),
-                                          ),
                                         ),
                                       ],
                                     ),

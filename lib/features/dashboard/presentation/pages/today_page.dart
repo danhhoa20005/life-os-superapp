@@ -22,7 +22,6 @@ import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../budgets/presentation/bloc/budget_bloc.dart';
 import '../../../calendar/presentation/bloc/calendar_bloc.dart';
-import '../../../daily_life/domain/entities/daily_life_entities.dart';
 import '../../../daily_life/presentation/bloc/daily_life_bloc.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../notifications/presentation/bloc/notification_ingestion_bloc.dart';
@@ -111,14 +110,6 @@ class _TodayPageState extends State<TodayPage> {
       route: '/assets',
     ),
     _ShortcutSpec(
-      id: 'health',
-      label: 'Sức khỏe',
-      icon: Icons.favorite_outline_rounded,
-      tone: LifeOsAccentTone.coral,
-      route: '/health-hub',
-      tileKey: Key('home_tile_health'),
-    ),
-    _ShortcutSpec(
       id: 'kitchen',
       label: 'Bếp & Đi chợ',
       icon: Icons.shopping_basket_outlined,
@@ -197,11 +188,11 @@ class _TodayPageState extends State<TodayPage> {
   final Set<String> _pinnedIds = <String>{
     'bank_qr',
     'vehicles',
-    'health',
     'kitchen',
     'evn',
     'documents',
     'notes_salary',
+    'habits',
     'settings',
   };
 
@@ -1219,17 +1210,10 @@ class _TodayMintSummarySection extends StatelessWidget {
     final vehicles = context.select((VehicleBloc b) => b.state.vehicles);
     final bills = context.select((VehicleBloc b) => b.state.bills);
 
-    final (medications, hasActiveHydration) = context.select((
-      DailyLifeBloc? b,
-    ) {
-      if (b == null) {
-        return (const <MedicationCabinetItemEntity>[], false);
-      }
+    final hasActiveHydration = context.select((DailyLifeBloc? b) {
+      if (b == null) return false;
       final snap = b.state.snapshot;
-      return (
-        snap.medications,
-        snap.hydration.reminderEnabled && !snap.hydration.isGoalReached,
-      );
+      return snap.hydration.reminderEnabled && !snap.hydration.isGoalReached;
     });
 
     final upcomingEvents =
@@ -1259,13 +1243,6 @@ class _TodayMintSummarySection extends StatelessWidget {
         .where((b) => b.nextDueDate.difference(now).inDays <= 7)
         .toList();
 
-    final todayIso = dateIsoFmt.format(now);
-    final dueMedsToday = medications
-        .where(
-          (item) => item.slot.isScheduledDaily && !item.isTakenOn(todayIso),
-        )
-        .toList();
-
     final totalBudgetLimit = budgets.fold<int>(
       0,
       (sum, b) => sum + b.limitMinor,
@@ -1281,7 +1258,6 @@ class _TodayMintSummarySection extends StatelessWidget {
         (openTasks.isNotEmpty ? 1 : 0) +
         (dueVehicles.isNotEmpty ? 1 : 0) +
         (dueBills.isNotEmpty ? 1 : 0) +
-        (dueMedsToday.isNotEmpty ? 1 : 0) +
         (hasActiveHydration ? 1 : 0) +
         (hasConfiguredBudget && spentPct >= 85 ? 1 : 0);
 
@@ -1296,10 +1272,8 @@ class _TodayMintSummarySection extends StatelessWidget {
         context.push('/tasks-board');
       } else if (dueVehicles.isNotEmpty || dueBills.isNotEmpty) {
         context.push('/assets');
-      } else if (dueMedsToday.isNotEmpty) {
-        context.push('/health-hub');
       } else if (hasActiveHydration) {
-        context.push('/health-hub?tab=water');
+        context.push('/habits-focus');
       } else if (hasConfiguredBudget && spentPct >= 85) {
         context.go('/finance');
       } else {
@@ -2164,16 +2138,12 @@ class _TodayInboxSection extends StatelessWidget {
       dailyBloc = BlocProvider.of<DailyLifeBloc>(context, listen: false);
     } catch (_) {}
 
-    final (medications, activeHydration) = context.select((DailyLifeBloc? b) {
-      if (b == null) {
-        return (const <MedicationCabinetItemEntity>[], null);
-      }
+    final activeHydration = context.select((DailyLifeBloc? b) {
+      if (b == null) return null;
       final snap = b.state.snapshot;
-      final hydrationAlert =
-          snap.hydration.reminderEnabled && !snap.hydration.isGoalReached
+      return snap.hydration.reminderEnabled && !snap.hydration.isGoalReached
           ? snap.hydration
           : null;
-      return (snap.medications, hydrationAlert);
     });
 
     final upcomingEvents =
@@ -2204,13 +2174,6 @@ class _TodayInboxSection extends StatelessWidget {
         .toList();
     final dueBills = bills
         .where((b) => b.nextDueDate.difference(now).inDays <= 7)
-        .toList();
-
-    final todayIso = dateIsoFmt.format(now);
-    final dueMedsToday = medications
-        .where(
-          (item) => item.slot.isScheduledDaily && !item.isTakenOn(todayIso),
-        )
         .toList();
 
     final totalBudgetLimit = budgets.fold<int>(
@@ -2331,33 +2294,6 @@ class _TodayInboxSection extends StatelessWidget {
           badge: 'Hóa đơn',
           onTap: () => context.push('/assets'),
         ),
-      if (dueMedsToday.isNotEmpty)
-        _InboxActionItem(
-          icon: Icons.medication_outlined,
-          tone: LifeOsAccentTone.coral,
-          title: 'Nhắc uống thuốc: ${dueMedsToday.first.name}',
-          subtitle:
-              '${dueMedsToday.first.dosage} · Lúc ${dueMedsToday.first.formattedReminderTime}',
-          badge: 'Thuốc',
-          onTap: () => context.push('/health-hub'),
-          quickActionLabel: (userId != null && dailyBloc != null)
-              ? '✓ Đã uống'
-              : null,
-          onQuickAction: (userId == null || dailyBloc == null)
-              ? null
-              : () {
-                  dailyBloc!.add(
-                    MedicationTakenToggled(
-                      userId: userId,
-                      item: dueMedsToday.first,
-                    ),
-                  );
-                  LifeOsTopToast.show(
-                    context,
-                    'Đã đánh dấu uống "${dueMedsToday.first.name}".',
-                  );
-                },
-        ),
       if (activeHydration != null)
         _InboxActionItem(
           icon: Icons.water_drop_outlined,
@@ -2372,7 +2308,7 @@ class _TodayInboxSection extends StatelessWidget {
             return '$nextLabel · Còn thiếu ${activeHydration.remainingMl} ml';
           }(),
           badge: 'Nước',
-          onTap: () => context.push('/health-hub?tab=water'),
+          onTap: () => context.push('/habits-focus'),
           quickActionLabel: (userId != null && dailyBloc != null)
               ? '+${activeHydration.preferredCupMl}ml'
               : null,
@@ -2810,13 +2746,11 @@ class _FirstActionTipCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final hasZeroMedAndWater = context.select(
+    final hasZeroWater = context.select(
       (DailyLifeBloc? b) =>
-          b == null ||
-          (b.state.snapshot.medications.isEmpty &&
-              b.state.snapshot.hydration.waterMl == 0),
+          b == null || b.state.snapshot.hydration.waterMl == 0,
     );
-    if (!hasZeroMedAndWater) return const SizedBox.shrink();
+    if (!hasZeroWater) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),

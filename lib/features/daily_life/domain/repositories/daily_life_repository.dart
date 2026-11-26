@@ -4,52 +4,7 @@ import '../entities/daily_life_entities.dart';
 abstract interface class DailyLifeRepository {
   Stream<DailyLifeSnapshot> watchAll({required String userId});
 
-  // 1. Health, Hydration & Medication Cabinet
-  Future<Result<void>> addMedication({
-    required String userId,
-    required String name,
-    required String dosage,
-    required MedicationScheduleSlot slot,
-    required int remainingPills,
-    required DateTime expiryDate,
-    bool inventoryConfirmed = true,
-    String memberName = 'Cả gia đình',
-    bool? reminderEnabled,
-    int? reminderHour,
-    int? reminderMinute,
-  });
-
-  Future<Result<void>> updateMedicationReminder({
-    required String userId,
-    required MedicationCabinetItemEntity item,
-    required bool reminderEnabled,
-    required int reminderHour,
-    required int reminderMinute,
-  });
-
-  Future<Result<void>> updateMedicationInventory({
-    required String userId,
-    required MedicationCabinetItemEntity item,
-    required int remainingPills,
-    required DateTime expiryDate,
-    String? dosage,
-  });
-
-  Future<Result<void>> snoozeMedication15Min({
-    required MedicationCabinetItemEntity item,
-  });
-
-  Future<Result<void>> toggleMedicationToday({
-    required String userId,
-    required MedicationCabinetItemEntity item,
-    required String dayKey,
-  });
-
-  Future<Result<void>> deleteMedication({
-    required String userId,
-    required String medId,
-  });
-
+  // 1. Daily Hydration & Water Reminders
   Future<Result<void>> logWaterIntake({
     required String userId,
     required int deltaMl,
@@ -67,10 +22,7 @@ abstract interface class DailyLifeRepository {
     required int endHour,
     int endMinute = 0,
     required int targetWaterMl,
-    double? weightKg,
-    double? heightCm,
     HydrationActivityLevel? activityLevel,
-    bool? autoSyncTargetByBody,
     int? preferredCupMl,
     DateTime? snoozedUntil,
     bool clearSnooze = false,
@@ -89,26 +41,6 @@ abstract interface class DailyLifeRepository {
   Future<Result<bool>> sendTestHydrationNotification({
     required HydrationReminderStatusEntity status,
     int delaySeconds = 0,
-  });
-
-  Future<Result<void>> addHealthVitalLog({
-    required String userId,
-    required double weightKg,
-    required double heightCm,
-    required int systolicMmHg,
-    required int diastolicMmHg,
-    required int heartRateBpm,
-    required double sleepHours,
-    String note = '',
-  });
-
-  Future<Result<void>> deleteHealthVitalLog({
-    required String userId,
-    required String logId,
-  });
-
-  Future<Result<void>> saveEmergencyMedicalCard({
-    required EmergencyMedicalCardEntity card,
   });
 
   // 2. Kitchen, Smart Groceries & Fridge Anti-Waste

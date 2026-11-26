@@ -4049,10 +4049,10 @@ class _HouseholdAndAssetsHubView extends StatelessWidget {
               ),
             ),
 
-            // Group 2: Sức khỏe, Bếp, Hiếu Hỷ & Cài đặt
+            // Group 2: Bếp, Thói quen, Hiếu Hỷ & Cài đặt
             const LifeOsSectionHeader(
-              title: 'Sức khỏe, Bếp & Đời sống',
-              tone: LifeOsAccentTone.coral,
+              title: 'Bếp, Tiện ích & Đời sống',
+              tone: LifeOsAccentTone.amber,
             ),
             IntrinsicHeight(
               child: Row(
@@ -4061,11 +4061,11 @@ class _HouseholdAndAssetsHubView extends StatelessWidget {
                   Expanded(
                     child: LifeOsFeatureBentoTile(
                       tileKey: const Key('family_hub_health_tile'),
-                      icon: Icons.favorite_outline_rounded,
-                      tone: LifeOsAccentTone.coral,
-                      title: 'Sức khỏe & SOS',
-                      subtitle: 'Tủ thuốc & BMI',
-                      onTap: () => context.push('/health-hub'),
+                      icon: Icons.local_fire_department_outlined,
+                      tone: LifeOsAccentTone.amber,
+                      title: 'Thói quen & Tập trung',
+                      subtitle: 'Pomodoro & Kỷ luật',
+                      onTap: () => context.push('/habits-focus'),
                     ),
                   ),
                   const SizedBox(width: 8),

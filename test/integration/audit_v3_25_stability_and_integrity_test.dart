@@ -31,7 +31,6 @@ import 'package:life_os/features/calendar/data/datasources/google_calendar_api_d
 import 'package:life_os/features/calendar/data/repositories/calendar_repository_impl.dart';
 import 'package:life_os/features/calendar/domain/entities/calendar_entities.dart';
 import 'package:life_os/features/daily_life/data/repositories/daily_life_repository_impl.dart';
-import 'package:life_os/features/daily_life/domain/entities/daily_life_entities.dart';
 import 'package:life_os/features/daily_life/presentation/bloc/daily_life_bloc.dart';
 import 'package:life_os/features/family/domain/entities/family_entities.dart';
 import 'package:life_os/features/family/domain/repositories/family_repository.dart';
@@ -572,12 +571,12 @@ void main() {
     );
 
     testWidgets(
-      'P1 (2.4): Voice medication reminder sets inventoryConfirmed=false and never invents 30 pills or fake expiry alarms',
+      'P1 (2.4): Voice water log executes cleanly into DailyLifeBloc hydration snapshot',
       (tester) async {
         final fakeFs = FakeFirebaseFirestore();
         final repo = DailyLifeRepositoryImpl(fakeFs);
         final dailyBloc = DailyLifeBloc(repo)
-          ..add(const DailyLifeWatchStarted('u_med_test'));
+          ..add(const DailyLifeWatchStarted('u_water_test'));
 
         late BuildContext hostCtx;
         await tester.pumpWidget(
@@ -599,13 +598,12 @@ void main() {
           OmniActionExecutor.executeDraft(
             toastContext: hostCtx,
             draft: const OmniActionDraft(
-              id: 'med_voice_1',
-              kind: OmniActionKind.medication,
-              title: 'Vitamin D3',
-              dosage: '1 viên',
-              medicationSlot: MedicationScheduleSlot.morning,
+              id: 'water_voice_1',
+              kind: OmniActionKind.waterLog,
+              title: 'Uống 250ml nước',
+              waterMl: 250,
             ),
-            user: _testUser(id: 'u_med_test'),
+            user: _testUser(id: 'u_water_test'),
             walletId: 'w_cash',
             dailyBloc: dailyBloc,
             showSuccessToast: false,
@@ -615,12 +613,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 80));
 
         expect(ok, isTrue);
-        final meds = dailyBloc.state.snapshot.medications;
-        expect(meds.length, 1);
-        expect(meds.single.name, 'Vitamin D3');
-        expect(meds.single.inventoryConfirmed, isFalse);
-        expect(meds.single.remainingPills, 0);
-        expect(meds.single.isExpiringSoon(DateTime.now()), isFalse);
+        expect(dailyBloc.state.snapshot.hydration.waterMl, 250);
         unawaited(dailyBloc.close());
       },
     );

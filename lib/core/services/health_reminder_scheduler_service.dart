@@ -17,74 +17,7 @@ class HealthReminderSchedulerService {
   HealthReminderSchedulerService({NativeAlarmSchedulerBridge? alarmBridge})
     : _alarmBridge = alarmBridge ?? NativeAlarmSchedulerBridge.instance;
 
-  static String medAlarmId(String medId) => 'med_rem_$medId';
-  static String medSnoozeAlarmId(String medId) => 'med_snooze_$medId';
   static String waterAlarmId(int slotIndex) => 'water_rem_$slotIndex';
-
-  Future<ScheduledEventAlarmInfo?> syncMedicationAlarm(
-    MedicationCabinetItemEntity med, {
-    DateTime? now,
-    String? todayKey,
-  }) async {
-    final refNow = now ?? DateTime.now();
-    final key = todayKey ?? _dayKeyFmt.format(refNow);
-    final nextAt = med.nextTriggerAt(refNow, key);
-
-    if (nextAt == null) {
-      await cancelMedicationAlarm(med.id);
-      return null;
-    }
-
-    await _alarmBridge.syncMedicationDaemon(
-      medId: med.id,
-      enabled: med.reminderEnabled && med.slot.isScheduledDaily,
-      name: med.name,
-      dosage: '${med.dosage} · ${med.slot.label}',
-      hour: med.effectiveReminderHour,
-      minute: med.effectiveReminderMinute,
-    );
-
-    if (med.isTakenOn(key)) {
-      await _alarmBridge.cancelEventAlarm(medSnoozeAlarmId(med.id));
-    }
-
-    return _alarmBridge.scheduleEventAlarm(
-      eventId: medAlarmId(med.id),
-      title: 'Nhắc uống thuốc: ${med.name}',
-      subtitle: '${med.dosage} · ${med.slot.label}',
-      eventStartsAt: nextAt,
-      minutesBefore: 0,
-      fullScreen: false,
-    );
-  }
-
-  Future<ScheduledEventAlarmInfo> snoozeMedication15Min(
-    MedicationCabinetItemEntity med, {
-    DateTime? now,
-  }) async {
-    final triggerAt = (now ?? DateTime.now()).add(const Duration(minutes: 15));
-    return _alarmBridge.scheduleEventAlarm(
-      eventId: medSnoozeAlarmId(med.id),
-      title: 'Nhắc lại uống thuốc: ${med.name}',
-      subtitle: '${med.dosage} (Đã dời 15 phút)',
-      eventStartsAt: triggerAt,
-      minutesBefore: 0,
-      fullScreen: false,
-    );
-  }
-
-  Future<void> cancelMedicationAlarm(String medId) async {
-    await _alarmBridge.syncMedicationDaemon(
-      medId: medId,
-      enabled: false,
-      name: '',
-      dosage: '',
-      hour: 8,
-      minute: 0,
-    );
-    await _alarmBridge.cancelEventAlarm(medAlarmId(medId));
-    await _alarmBridge.cancelEventAlarm(medSnoozeAlarmId(medId));
-  }
 
   Future<List<ScheduledEventAlarmInfo>> syncHydrationReminders(
     HydrationReminderStatusEntity status, {

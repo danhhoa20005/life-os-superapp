@@ -58,9 +58,6 @@ class FirestoreBackupRemoteDataSource {
     BackupCollectionCatalog.bills: 'bills',
     BackupCollectionCatalog.notes: 'life_notes',
     BackupCollectionCatalog.documents: 'documents',
-    BackupCollectionCatalog.medications: 'medications',
-    BackupCollectionCatalog.healthLogs: 'health_logs',
-    BackupCollectionCatalog.medicalProfiles: 'medical_profiles',
     BackupCollectionCatalog.groceryItems: 'grocery_items',
     BackupCollectionCatalog.mealPlans: 'meal_plans',
     BackupCollectionCatalog.utilityReadings: 'utility_readings',
@@ -681,9 +678,6 @@ class FirestoreBackupRemoteDataSource {
       BackupCollectionCatalog.fundExpenses,
       BackupCollectionCatalog.fundAudits,
       BackupCollectionCatalog.documents,
-      BackupCollectionCatalog.medications,
-      BackupCollectionCatalog.healthLogs,
-      BackupCollectionCatalog.medicalProfiles,
       BackupCollectionCatalog.groceryItems,
       BackupCollectionCatalog.mealPlans,
       BackupCollectionCatalog.utilityReadings,
@@ -1860,9 +1854,6 @@ class FirestoreBackupRemoteDataSource {
         payload['dateKey'] = targetDocId;
         payload['ownerId'] = targetUserId;
       case BackupCollectionCatalog.mealPlans:
-        payload.remove('id');
-        payload['ownerId'] = targetUserId;
-      case BackupCollectionCatalog.medicalProfiles:
         payload.remove('id');
         payload['ownerId'] = targetUserId;
       case BackupCollectionCatalog.automationRules:

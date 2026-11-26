@@ -168,7 +168,7 @@ class _LifeOsLogoSideDrawerSheetState
     ('all', 'Tất cả'),
     ('core', 'Chính'),
     ('finance', 'Tài chính'),
-    ('health', 'Sức khỏe'),
+    ('health', 'Đời sống'),
     ('home', 'Nhà & Xe'),
   ];
 
@@ -234,33 +234,11 @@ class _LifeOsLogoSideDrawerSheetState
       route: '/financial-ai',
     ),
 
-    // 2. SỨC KHỎE, UỐNG NƯỚC & ĐỜI SỐNG HẰNG NGÀY
-    _LogoDrawerFeatureItem(
-      id: 'water_reminder',
-      tabKey: 'health',
-      sectionTitle: 'Sức khỏe · Uống nước & Bếp',
-      title: 'Nhắc uống nước & Chạy ngầm',
-      subtitle: 'Chuẩn theo cân nặng, chiều cao & báo màn hình khóa',
-      keywords: 'uong nuoc nhac nuoc can nang chieu cao thong bao ngam',
-      icon: Icons.water_drop_rounded,
-      tone: LifeOsAccentTone.blue,
-      route: '/health-hub?tab=water',
-    ),
-    _LogoDrawerFeatureItem(
-      id: 'health_meds',
-      tabKey: 'health',
-      sectionTitle: 'Sức khỏe · Uống nước & Bếp',
-      title: 'Tủ thuốc, BMI & Thẻ Y tế',
-      subtitle: 'Chuông nhắc thuốc, huyết áp & thông tin khẩn cấp',
-      keywords: 'tu thuoc uong thuoc bmi huyet ap the y te bhyt sos',
-      icon: Icons.favorite_outline_rounded,
-      tone: LifeOsAccentTone.coral,
-      route: '/health-hub',
-    ),
+    // 2. BẾP GIA ĐÌNH, THÓI QUEN & ĐỜI SỐNG HẰNG NGÀY
     _LogoDrawerFeatureItem(
       id: 'kitchen_groceries',
       tabKey: 'health',
-      sectionTitle: 'Sức khỏe · Uống nước & Bếp',
+      sectionTitle: 'Bếp · Tiện ích & Đời sống',
       title: 'Bếp gia đình & Giỏ đi chợ',
       subtitle: 'Thực đơn hôm nay, giỏ chợ & hạn dùng tủ lạnh',
       keywords: 'bep di cho thuc don tu lanh nau an',
@@ -271,7 +249,7 @@ class _LifeOsLogoSideDrawerSheetState
     _LogoDrawerFeatureItem(
       id: 'habits_focus',
       tabKey: 'health',
-      sectionTitle: 'Sức khỏe · Uống nước & Bếp',
+      sectionTitle: 'Bếp · Tiện ích & Đời sống',
       title: 'Thói quen & Đồng hồ tập trung',
       subtitle: 'Chuỗi kỷ luật hằng ngày & phiên làm việc sâu',
       keywords: 'thoi quen tap trung pomodoro ky luat',
@@ -282,7 +260,7 @@ class _LifeOsLogoSideDrawerSheetState
     _LogoDrawerFeatureItem(
       id: 'smart_notes',
       tabKey: 'health',
-      sectionTitle: 'Sức khỏe · Uống nước & Bếp',
+      sectionTitle: 'Bếp · Tiện ích & Đời sống',
       title: 'Sổ tay & Ghi chú nhanh',
       subtitle: 'Lưu mã số, mật khẩu & checklist ghim đầu',
       keywords: 'so tay ghi chu ghim ma so checklist',

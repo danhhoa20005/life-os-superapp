@@ -19,8 +19,6 @@ import 'package:life_os/features/authentication/presentation/bloc/auth_bloc.dart
 import 'package:life_os/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:life_os/features/budgets/presentation/bloc/budget_bloc.dart';
 import 'package:life_os/features/calendar/presentation/bloc/calendar_bloc.dart';
-import 'package:life_os/features/daily_life/presentation/bloc/daily_life_bloc.dart';
-import 'package:life_os/features/daily_life/presentation/pages/health_medical_hub_page.dart';
 import 'package:life_os/features/documents/presentation/bloc/document_vault_bloc.dart';
 import 'package:life_os/features/documents/presentation/pages/family_documents_page.dart';
 import 'package:life_os/features/family/presentation/bloc/family_bloc.dart';
@@ -267,93 +265,6 @@ void main() {
         );
         expect(find.textContaining('079200012345'), findsNothing);
         expect(find.textContaining('Cất ngăn kéo tủ khóa số 2'), findsNothing);
-      },
-    );
-
-    testWidgets(
-      '2. HealthMedicalHubPage(initialTab: sos) masks insuranceCode & emergencyContactPhone by default and reveals on toggle',
-      (tester) async {
-        await tester.binding.setSurfaceSize(const Size(360, 800));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-
-        const userId = 'u_health_sos_01';
-
-        await _configureMockSession(
-          uid: userId,
-          email: 'yte.sos@lifeos.vn',
-          fullName: 'Lê Hoàng Nam',
-          seedFirestore: (firestore) async {
-            await firestore
-                .collection('users')
-                .doc(userId)
-                .collection('medical_profiles')
-                .doc('emergency_card')
-                .set(<String, dynamic>{
-                  'bloodType': 'O+',
-                  'allergies': 'Penicillin',
-                  'chronicConditions': 'Không có',
-                  'insuranceCode': 'DN4790012345678',
-                  'emergencyContactName': 'Nguyễn Thị Mai',
-                  'emergencyContactPhone': '0909112233',
-                  'preferredHospital': 'Bệnh viện Chợ Rẫy',
-                });
-          },
-        );
-
-        await tester.pumpWidget(
-          MultiBlocProvider(
-            providers: [
-              BlocProvider<ThemeBloc>(create: (_) => sl<ThemeBloc>()),
-              BlocProvider<AuthBloc>(
-                create: (_) =>
-                    sl<AuthBloc>()..add(const AuthSubscriptionRequested()),
-              ),
-              BlocProvider<DailyLifeBloc>(
-                create: (_) =>
-                    sl<DailyLifeBloc>()
-                      ..add(const DailyLifeWatchStarted(userId)),
-              ),
-            ],
-            child: _buildTestApp(
-              home: const HealthMedicalHubPage(initialTab: 'sos'),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-
-        final toggleMedicalBtn = find.byKey(
-          const Key('toggle_medical_sensitive_btn'),
-        );
-        await _ensureVisibleInViewport(tester, toggleMedicalBtn);
-        expect(tester.takeException(), isNull);
-
-        // Masked by default
-        expect(find.text('•••• 5678'), findsOneWidget);
-        expect(find.textContaining('090•••••33'), findsOneWidget);
-        expect(find.textContaining('DN4790012345678'), findsNothing);
-        expect(find.textContaining('0909112233'), findsNothing);
-
-        // Reveal on tap
-        await tester.tap(toggleMedicalBtn);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-
-        expect(find.text('DN4790012345678'), findsOneWidget);
-        expect(find.textContaining('0909112233'), findsOneWidget);
-        expect(find.text('•••• 5678'), findsNothing);
-        expect(find.textContaining('090•••••33'), findsNothing);
-
-        // Re-mask on second tap
-        await _ensureVisibleInViewport(tester, toggleMedicalBtn);
-        await tester.tap(toggleMedicalBtn);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-
-        expect(find.text('•••• 5678'), findsOneWidget);
-        expect(find.textContaining('090•••••33'), findsOneWidget);
-        expect(find.textContaining('DN4790012345678'), findsNothing);
-        expect(find.textContaining('0909112233'), findsNothing);
       },
     );
 

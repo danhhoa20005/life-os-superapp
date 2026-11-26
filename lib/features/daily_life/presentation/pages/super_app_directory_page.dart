@@ -162,19 +162,10 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
       route: '/social-ledger-travel',
     ),
 
-    // 2. SỨC KHỎE, BẾP GIA ĐÌNH & ĐỜI SỐNG
+    // 2. BẾP GIA ĐÌNH, THÓI QUEN & ĐỜI SỐNG
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đời sống',
-      shortLabel: 'Sức khỏe & SOS',
-      keywords: 'tủ thuốc uống thuốc bmi huyết áp bhyt 115',
-      icon: Icons.favorite_outline_rounded,
-      tone: LifeOsAccentTone.coral,
-      route: '/health-hub',
-    ),
-    SuperAppServiceEntry(
-      domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đời sống',
+      domainTitle: 'Bếp · Tiện ích & Đời sống',
       shortLabel: 'Bếp & Đi chợ',
       keywords: 'hôm nay ăn gì thực đơn giỏ chợ tủ lạnh',
       icon: Icons.shopping_basket_outlined,
@@ -183,7 +174,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đời sống',
+      domainTitle: 'Bếp · Tiện ích & Đời sống',
       shortLabel: 'Đồng hồ & Nước',
       keywords: 'thói quen tập trung uống nước 2000ml pomodoro',
       icon: Icons.local_fire_department_outlined,
@@ -192,7 +183,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     ),
     SuperAppServiceEntry(
       domainKey: 'health_food',
-      domainTitle: 'Sức khỏe · Bếp & Đời sống',
+      domainTitle: 'Bếp · Tiện ích & Đời sống',
       shortLabel: 'Ghi chú nhanh',
       keywords: 'sổ tay ghi chú ghim mã số checklist',
       icon: Icons.sticky_note_2_outlined,
@@ -323,7 +314,6 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
         e.shortLabel,
         e.keywords,
         e.domainTitle,
-        if (e.route == '/health-hub') 'uống nước nhắc nước nhắc thuốc',
       ]);
     }).toList();
 
@@ -413,7 +403,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                               for (final f in const [
                                 ('all', 'Tất cả'),
                                 ('finance', 'Tài chính & Lương'),
-                                ('health_food', 'Sức khỏe & Bếp'),
+                                ('health_food', 'Bếp & Đời sống'),
                                 ('home_assets', 'Điện EVN & Nhà xe'),
                                 ('family_life', 'Lịch & Gia đình'),
                               ])
@@ -564,8 +554,8 @@ class _DirectoryLiveStatsCard extends StatelessWidget {
     final netWorthMinor = context.select(
       (DashboardBloc b) => b.state.data.netWorthMinor,
     );
-    final medsCount = context.select(
-      (DailyLifeBloc b) => b.state.snapshot.medications.length,
+    final notesCount = context.select(
+      (DailyLifeBloc b) => b.state.snapshot.notes.length,
     );
     final pendingGroceriesCount = context.select(
       (DailyLifeBloc b) => b.state.snapshot.pendingGroceriesCount,
@@ -588,9 +578,9 @@ class _DirectoryLiveStatsCard extends StatelessWidget {
             tone: LifeOsAccentTone.emerald,
           ),
           LifeOsStatusPill(
-            icon: Icons.medication_outlined,
-            label: 'Thuốc: $medsCount',
-            tone: LifeOsAccentTone.coral,
+            icon: Icons.sticky_note_2_outlined,
+            label: 'Ghi chú: $notesCount',
+            tone: LifeOsAccentTone.amber,
           ),
           LifeOsStatusPill(
             icon: Icons.shopping_cart_outlined,

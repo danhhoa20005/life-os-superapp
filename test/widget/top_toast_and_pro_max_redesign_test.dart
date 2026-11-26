@@ -2028,8 +2028,6 @@ void main() {
           ('/habits-focus', 'HabitsFocusPage'),
           ('/social-ledger-travel', 'SocialLedgerTravelPage'),
           ('/wealth-tools', 'WealthToolsPage'),
-          ('/health-hub', 'HealthMedicalHubPage'),
-          ('/health-hub?tab=water', 'HealthMedicalHubPage (Uống nước)'),
           ('/kitchen-groceries', 'KitchenGroceriesPage'),
           ('/home-living', 'HomeLivingUtilitiesPage'),
           ('/smart-notes-hub', 'SmartNotesSalaryPage'),

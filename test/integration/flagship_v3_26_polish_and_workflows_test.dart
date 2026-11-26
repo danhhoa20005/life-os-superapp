@@ -214,114 +214,62 @@ void main() {
       },
     );
 
-    test(
-      '4. DailyLifeBloc confirms unconfirmed medication stock, deletes vital logs, and preserves Fridge items on grocery clear',
-      () async {
-        final fs = FakeFirebaseFirestore();
-        final repo = DailyLifeRepositoryImpl(fs);
-        final bloc = DailyLifeBloc(repo)
-          ..add(const DailyLifeWatchStarted('u_daily_326'));
-        await Future<void>.delayed(const Duration(milliseconds: 30));
+    test('4. DailyLifeBloc preserves Fridge items on grocery clear', () async {
+      final fs = FakeFirebaseFirestore();
+      final repo = DailyLifeRepositoryImpl(fs);
+      final bloc = DailyLifeBloc(repo)
+        ..add(const DailyLifeWatchStarted('u_daily_326'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
 
-        // Unconfirmed medication from voice -> confirmed via MedicationInventoryUpdated
-        bloc.add(
-          MedicationCabinetAdded(
+      // Grocery -> Move to Fridge -> Clear bought groceries keeps Fridge item intact!
+      bloc
+        ..add(
+          const GroceryItemAdded(
             userId: 'u_daily_326',
-            name: 'Omega 3',
-            dosage: '1 viên',
-            slot: MedicationScheduleSlot.morning,
-            remainingPills: 0,
-            expiryDate: DateTime.fromMillisecondsSinceEpoch(0),
-            inventoryConfirmed: false,
+            name: 'Cá hồi tươi',
+            quantityLabel: '400g',
+            aisle: GroceryAisle.meatSeafood,
+            estimatedMinor: 185000,
           ),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 40));
-        final unconfirmed = bloc.state.snapshot.medications.single;
-        expect(unconfirmed.inventoryConfirmed, isFalse);
-
-        bloc.add(
-          MedicationInventoryUpdated(
+        )
+        ..add(
+          const GroceryItemAdded(
             userId: 'u_daily_326',
-            item: unconfirmed,
-            remainingPills: 60,
-            expiryDate: DateTime(2028, 6, 30),
-            dosage: '2 viên sau ăn',
+            name: 'Khăn giấy bếp',
+            quantityLabel: '2 cuộn',
+            aisle: GroceryAisle.household,
+            estimatedMinor: 35000,
           ),
         );
-        await Future<void>.delayed(const Duration(milliseconds: 40));
-        final confirmed = bloc.state.snapshot.medications.single;
-        expect(confirmed.inventoryConfirmed, isTrue);
-        expect(confirmed.remainingPills, 60);
-        expect(confirmed.dosage, '2 viên sau ăn');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
-        // Vital log add & delete
-        bloc.add(
-          const HealthVitalLogAdded(
-            userId: 'u_daily_326',
-            weightKg: 65,
-            heightCm: 170,
-            systolicMmHg: 118,
-            diastolicMmHg: 76,
-            heartRateBpm: 70,
-            sleepHours: 7.5,
-          ),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 40));
-        final vitalId = bloc.state.snapshot.healthLogs.single.id;
-        bloc.add(HealthVitalLogDeleted(userId: 'u_daily_326', logId: vitalId));
-        await Future<void>.delayed(const Duration(milliseconds: 40));
-        expect(bloc.state.snapshot.healthLogs, isEmpty);
+      final salmon = bloc.state.snapshot.groceryItems.firstWhere(
+        (g) => g.name == 'Cá hồi tươi',
+      );
+      final towel = bloc.state.snapshot.groceryItems.firstWhere(
+        (g) => g.name == 'Khăn giấy bếp',
+      );
 
-        // Grocery -> Move to Fridge -> Clear bought groceries keeps Fridge item intact!
-        bloc
-          ..add(
-            const GroceryItemAdded(
-              userId: 'u_daily_326',
-              name: 'Cá hồi tươi',
-              quantityLabel: '400g',
-              aisle: GroceryAisle.meatSeafood,
-              estimatedMinor: 185000,
-            ),
-          )
-          ..add(
-            const GroceryItemAdded(
-              userId: 'u_daily_326',
-              name: 'Khăn giấy bếp',
-              quantityLabel: '2 cuộn',
-              aisle: GroceryAisle.household,
-              estimatedMinor: 35000,
-            ),
-          );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+      bloc
+        ..add(GroceryMovedToFridge(userId: 'u_daily_326', item: salmon))
+        ..add(GroceryItemBoughtToggled(userId: 'u_daily_326', item: towel));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
-        final salmon = bloc.state.snapshot.groceryItems.firstWhere(
-          (g) => g.name == 'Cá hồi tươi',
-        );
-        final towel = bloc.state.snapshot.groceryItems.firstWhere(
-          (g) => g.name == 'Khăn giấy bếp',
-        );
+      bloc.add(
+        const BoughtGroceriesCleared(
+          'u_daily_326',
+          suppressSuccessBanner: true,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
-        bloc
-          ..add(GroceryMovedToFridge(userId: 'u_daily_326', item: salmon))
-          ..add(GroceryItemBoughtToggled(userId: 'u_daily_326', item: towel));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+      final remainingGroceries = bloc.state.snapshot.groceryItems;
+      expect(remainingGroceries.length, 1);
+      expect(remainingGroceries.single.name, 'Cá hồi tươi');
+      expect(remainingGroceries.single.inFridgeStorage, isTrue);
 
-        bloc.add(
-          const BoughtGroceriesCleared(
-            'u_daily_326',
-            suppressSuccessBanner: true,
-          ),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-
-        final remainingGroceries = bloc.state.snapshot.groceryItems;
-        expect(remainingGroceries.length, 1);
-        expect(remainingGroceries.single.name, 'Cá hồi tươi');
-        expect(remainingGroceries.single.inFridgeStorage, isTrue);
-
-        await bloc.close();
-      },
-    );
+      await bloc.close();
+    });
 
     test(
       '5. FamilyBloc shopping cleanup, ProUtilitiesBloc Habit edit/delete & Subscription safe end-of-month renewal',

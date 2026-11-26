@@ -1545,7 +1545,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         icon: Icons.phonelink_ring_rounded,
         tone: LifeOsAccentTone.blue,
         title: 'Thông báo ngoài màn hình & Chạy ngầm',
-        subtitle: 'Nhắc uống nước, thuốc trên màn hình khóa',
+        subtitle: 'Nhắc lịch hẹn & sinh hoạt trên màn hình khóa',
         keywords: 'thong bao ngoai man hinh chay ngam quyen nhac nho pin',
         statusPillLabel: _bgReadiness.isFullyOptimized
             ? 'Sẵn sàng chạy ngầm'
@@ -1554,7 +1554,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
             ? LifeOsAccentTone.emerald
             : LifeOsAccentTone.amber,
         onTap: () => context
-            .push('/health-hub?tab=water')
+            .push('/habits-focus')
             .then((_) => _refreshSystemAndSecurityStatus()),
       ),
       _SettingsItemSpec(
@@ -1634,8 +1634,8 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         icon: Icons.apps_rounded,
         tone: LifeOsAccentTone.emerald,
         title: 'Tất cả tiện ích',
-        subtitle: 'Sức khỏe, Đi chợ, Điện nước & Lương',
-        keywords: 'tat ca tien ich 360 suc khoe di cho dien nuoc luong',
+        subtitle: 'Đi chợ, Điện nước, Thói quen & Lương',
+        keywords: 'tat ca tien ich 360 di cho dien nuoc luong',
         onTap: () => context.push('/super-app-hub'),
       ),
       _SettingsItemSpec(

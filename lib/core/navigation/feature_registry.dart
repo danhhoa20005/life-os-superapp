@@ -17,10 +17,6 @@ abstract final class FeatureRegistry {
   static const String routeSmartNotes = '/smart-notes-hub?tab=notes';
   static const String routeSalaryTax = '/smart-notes-hub?tab=salary';
 
-  static const String routeHealthOverview = '/health-hub';
-  static const String routeHealthWater = '/health-hub?tab=water';
-  static const String routeHealthCabinet = '/health-hub?tab=meds';
-
   static const String routeMotionGallery = '/motion-gallery';
   static const String routeAutomationStudio = '/automation-studio';
   static const String routeLifeTimeline = '/life-timeline';

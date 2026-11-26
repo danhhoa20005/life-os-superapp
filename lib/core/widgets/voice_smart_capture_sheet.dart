@@ -411,7 +411,7 @@ class _VoiceSmartCaptureSheetBodyState
             : 'Nói tự nhiên — chế độ tự dừng thông minh đang bật',
       VoiceSessionPhase.finalizing =>
         'Đang chờ kết quả cuối cùng từ bộ nhận diện...',
-      _ => 'Thu chi, chia tiền, lịch hẹn, nhắc nước & thuốc',
+      _ => 'Thu chi, chia tiền, lịch hẹn & công việc',
     };
   }
 
@@ -468,7 +468,6 @@ class _VoiceSmartCaptureSheetBodyState
     OmniActionKind.task => Icons.task_alt_rounded,
     OmniActionKind.grocery => Icons.shopping_basket_outlined,
     OmniActionKind.waterLog => Icons.water_drop_rounded,
-    OmniActionKind.medication => Icons.medication_outlined,
   };
 
   Future<void> _confirmAndCommit({

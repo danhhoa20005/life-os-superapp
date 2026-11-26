@@ -20,9 +20,6 @@ abstract final class BackupCollectionCatalog {
   static const String bills = 'bills';
   static const String notes = 'notes';
   static const String documents = 'documents';
-  static const String medications = 'medications';
-  static const String healthLogs = 'health_logs';
-  static const String medicalProfiles = 'medical_profiles';
   static const String groceryItems = 'grocery_items';
   static const String mealPlans = 'meal_plans';
   static const String utilityReadings = 'utility_readings';
@@ -57,9 +54,6 @@ abstract final class BackupCollectionCatalog {
     fundExpenses,
     fundAudits,
     documents,
-    medications,
-    healthLogs,
-    medicalProfiles,
     groceryItems,
     mealPlans,
     utilityReadings,
@@ -94,9 +88,6 @@ abstract final class BackupCollectionCatalog {
     bills: 'Hóa đơn định kỳ',
     notes: 'Ghi chú đời sống',
     documents: 'Kho giấy tờ (chỉ metadata)',
-    medications: 'Tủ thuốc gia đình',
-    healthLogs: 'Chỉ số sức khỏe',
-    medicalProfiles: 'Hồ sơ y tế & nhắc uống nước',
     groceryItems: 'Danh sách đi chợ & tủ lạnh',
     mealPlans: 'Thực đơn hằng ngày',
     utilityReadings: 'Chỉ số điện nước',

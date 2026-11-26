@@ -1,160 +1,8 @@
 import 'package:equatable/equatable.dart';
 
 // =============================================================================
-// 1. HEALTH, MEDICATION CABINET, ASIAN BMI/TDEE & EMERGENCY SOS ENTITIES
+// 1. HYDRATION & DAILY WATER REMINDER ENTITIES
 // =============================================================================
-
-enum MedicationScheduleSlot {
-  morning('Buổi sáng (Sau ăn)', 7, 30),
-  noon('Buổi trưa', 12, 15),
-  evening('Buổi tối', 20, 0),
-  asNeeded('Tủ thuốc dự phòng (Khi cần)', 9, 0);
-
-  final String label;
-  final int defaultHour;
-  final int defaultMinute;
-  const MedicationScheduleSlot(
-    this.label,
-    this.defaultHour,
-    this.defaultMinute,
-  );
-
-  bool get isScheduledDaily => this != MedicationScheduleSlot.asNeeded;
-
-  static MedicationScheduleSlot fromName(String? raw) {
-    return MedicationScheduleSlot.values.firstWhere(
-      (e) => e.name == raw,
-      orElse: () => MedicationScheduleSlot.morning,
-    );
-  }
-}
-
-class MedicationCabinetItemEntity extends Equatable {
-  final String id;
-  final String ownerId;
-  final String name;
-  final String dosage;
-  final MedicationScheduleSlot slot;
-  final int remainingPills;
-  final DateTime expiryDate;
-  final bool inventoryConfirmed;
-  final String? lastTakenDayKey;
-  final String memberName;
-  final bool reminderEnabled;
-  final int reminderHour;
-  final int reminderMinute;
-
-  const MedicationCabinetItemEntity({
-    required this.id,
-    required this.ownerId,
-    required this.name,
-    required this.dosage,
-    required this.slot,
-    required this.remainingPills,
-    required this.expiryDate,
-    this.inventoryConfirmed = true,
-    this.lastTakenDayKey,
-    this.memberName = 'Cả gia đình',
-    bool? reminderEnabled,
-    int? reminderHour,
-    int? reminderMinute,
-  }) : reminderEnabled =
-           reminderEnabled ?? (slot != MedicationScheduleSlot.asNeeded),
-       reminderHour = reminderHour ?? -1,
-       reminderMinute = reminderMinute ?? -1;
-
-  int get effectiveReminderHour => (reminderHour >= 0 && reminderHour <= 23)
-      ? reminderHour
-      : slot.defaultHour;
-
-  int get effectiveReminderMinute =>
-      (reminderMinute >= 0 && reminderMinute <= 59)
-      ? reminderMinute
-      : slot.defaultMinute;
-
-  String get formattedReminderTime =>
-      '${effectiveReminderHour.toString().padLeft(2, '0')}:${effectiveReminderMinute.toString().padLeft(2, '0')}';
-
-  bool isTakenOn(String dayKey) => lastTakenDayKey == dayKey;
-
-  /// Computes the next OS alarm timestamp for this medication.
-  DateTime? nextTriggerAt(DateTime now, String todayKey) {
-    if (!reminderEnabled || !slot.isScheduledDaily) return null;
-    final todaySlot = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      effectiveReminderHour,
-      effectiveReminderMinute,
-    );
-    if (!isTakenOn(todayKey) && todaySlot.isAfter(now)) {
-      return todaySlot;
-    }
-    return DateTime(
-      now.year,
-      now.month,
-      now.day + 1,
-      effectiveReminderHour,
-      effectiveReminderMinute,
-    );
-  }
-
-  int daysUntilExpiry(DateTime now) {
-    final today = DateTime(now.year, now.month, now.day);
-    final exp = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
-    return exp.difference(today).inDays;
-  }
-
-  bool isExpiringSoon(DateTime now) =>
-      inventoryConfirmed && daysUntilExpiry(now) <= 30;
-
-  MedicationCabinetItemEntity copyWith({
-    String? dosage,
-    bool? reminderEnabled,
-    int? reminderHour,
-    int? reminderMinute,
-    String? lastTakenDayKey,
-    bool clearLastTaken = false,
-    int? remainingPills,
-    DateTime? expiryDate,
-    bool? inventoryConfirmed,
-  }) {
-    return MedicationCabinetItemEntity(
-      id: id,
-      ownerId: ownerId,
-      name: name,
-      dosage: dosage ?? this.dosage,
-      slot: slot,
-      remainingPills: remainingPills ?? this.remainingPills,
-      expiryDate: expiryDate ?? this.expiryDate,
-      inventoryConfirmed: inventoryConfirmed ?? this.inventoryConfirmed,
-      lastTakenDayKey: clearLastTaken
-          ? null
-          : (lastTakenDayKey ?? this.lastTakenDayKey),
-      memberName: memberName,
-      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
-      reminderHour: reminderHour ?? effectiveReminderHour,
-      reminderMinute: reminderMinute ?? effectiveReminderMinute,
-    );
-  }
-
-  @override
-  List<Object?> get props => [
-    id,
-    ownerId,
-    name,
-    dosage,
-    slot,
-    remainingPills,
-    expiryDate,
-    inventoryConfirmed,
-    lastTakenDayKey,
-    memberName,
-    reminderEnabled,
-    effectiveReminderHour,
-    effectiveReminderMinute,
-  ];
-}
 
 enum HydrationActivityLevel {
   sedentary('Văn phòng', 'Ít vận động · Ngồi làm việc', 0),
@@ -220,7 +68,7 @@ class WaterIntakeLogEntry extends Equatable {
   List<Object?> get props => [id, ml, beverageLabel, loggedAt];
 }
 
-/// Tracks daily water intake (synced with `wellness_daily/{dayKey}`) + body-calibrated reminder schedule.
+/// Tracks daily water intake (synced with `wellness_daily/{dayKey}`) + reminder schedule.
 class HydrationReminderStatusEntity extends Equatable {
   final String dayKey;
   final int waterMl;
@@ -232,10 +80,7 @@ class HydrationReminderStatusEntity extends Equatable {
   final int startMinute;
   final int endHour;
   final int endMinute;
-  final double weightKg;
-  final double heightCm;
   final HydrationActivityLevel activityLevel;
-  final bool autoSyncTargetByBody;
   final int preferredCupMl;
   final DateTime? snoozedUntil;
   final List<WaterIntakeLogEntry> todayEntries;
@@ -251,10 +96,7 @@ class HydrationReminderStatusEntity extends Equatable {
     this.startMinute = 0,
     this.endHour = 21,
     this.endMinute = 0,
-    this.weightKg = 63.0,
-    this.heightCm = 168.0,
     this.activityLevel = HydrationActivityLevel.sedentary,
-    this.autoSyncTargetByBody = true,
     this.preferredCupMl = 250,
     this.snoozedUntil,
     this.todayEntries = const <WaterIntakeLogEntry>[],
@@ -269,19 +111,6 @@ class HydrationReminderStatusEntity extends Equatable {
   int get remainingMl => (targetWaterMl - waterMl).clamp(0, targetWaterMl);
 
   bool get isGoalReached => targetWaterMl > 0 && waterMl >= targetWaterMl;
-
-  int get recommendedWaterMl =>
-      AsianHealthBmiTdeeEngine.computeRecommendedWaterMl(
-        weightKg: weightKg,
-        heightCm: heightCm,
-        activityLevel: activityLevel,
-      );
-
-  double get bmi {
-    final hm = heightCm.clamp(100.0, 230.0) / 100.0;
-    final w = weightKg.clamp(25.0, 250.0);
-    return double.parse((w / (hm * hm)).toStringAsFixed(1));
-  }
 
   int get recommendedCupCount =>
       preferredCupMl > 0 ? (targetWaterMl / preferredCupMl).ceil() : 8;
@@ -375,240 +204,11 @@ class HydrationReminderStatusEntity extends Equatable {
     startMinute,
     endHour,
     endMinute,
-    weightKg,
-    heightCm,
     activityLevel,
-    autoSyncTargetByBody,
     preferredCupMl,
     snoozedUntil,
     todayEntries,
   ];
-}
-
-class HealthVitalLogEntity extends Equatable {
-  final String id;
-  final String ownerId;
-  final double weightKg;
-  final double heightCm;
-  final int systolicMmHg;
-  final int diastolicMmHg;
-  final int heartRateBpm;
-  final double sleepHours;
-  final DateTime recordedAt;
-  final String note;
-
-  const HealthVitalLogEntity({
-    required this.id,
-    required this.ownerId,
-    required this.weightKg,
-    required this.heightCm,
-    required this.systolicMmHg,
-    required this.diastolicMmHg,
-    required this.heartRateBpm,
-    required this.sleepHours,
-    required this.recordedAt,
-    this.note = '',
-  });
-
-  @override
-  List<Object?> get props => [
-    id,
-    ownerId,
-    weightKg,
-    heightCm,
-    systolicMmHg,
-    diastolicMmHg,
-    heartRateBpm,
-    sleepHours,
-    recordedAt,
-    note,
-  ];
-}
-
-class EmergencyMedicalCardEntity extends Equatable {
-  final String ownerId;
-  final String bloodType;
-  final String allergies;
-  final String chronicConditions;
-  final String insuranceCode;
-  final String emergencyContactName;
-  final String emergencyContactPhone;
-  final String preferredHospital;
-
-  /// Never pre-fills unverified medical values (such as fake 'O+' or 'No allergies').
-  /// Empty strings represent unprovided fields and render as "Chưa cung cấp" in UI.
-  const EmergencyMedicalCardEntity({
-    required this.ownerId,
-    this.bloodType = '',
-    this.allergies = '',
-    this.chronicConditions = '',
-    this.insuranceCode = '',
-    this.emergencyContactName = '',
-    this.emergencyContactPhone = '',
-    this.preferredHospital = '',
-  });
-
-  bool get isConfigured =>
-      bloodType.trim().isNotEmpty ||
-      allergies.trim().isNotEmpty ||
-      chronicConditions.trim().isNotEmpty ||
-      insuranceCode.trim().isNotEmpty ||
-      emergencyContactPhone.trim().isNotEmpty;
-
-  static const empty = EmergencyMedicalCardEntity(ownerId: '');
-
-  @override
-  List<Object?> get props => [
-    ownerId,
-    bloodType,
-    allergies,
-    chronicConditions,
-    insuranceCode,
-    emergencyContactName,
-    emergencyContactPhone,
-    preferredHospital,
-  ];
-}
-
-class AsianHealthAssessment extends Equatable {
-  final double bmi;
-  final String bmiCategory;
-  final double idealMinWeightKg;
-  final double idealMaxWeightKg;
-  final int bmrKcal;
-  final int tdeeKcal;
-  final int recommendedWaterMl;
-  final String bloodPressureStatus;
-
-  const AsianHealthAssessment({
-    required this.bmi,
-    required this.bmiCategory,
-    required this.idealMinWeightKg,
-    required this.idealMaxWeightKg,
-    required this.bmrKcal,
-    required this.tdeeKcal,
-    required this.recommendedWaterMl,
-    required this.bloodPressureStatus,
-  });
-
-  @override
-  List<Object?> get props => [
-    bmi,
-    bmiCategory,
-    idealMinWeightKg,
-    idealMaxWeightKg,
-    bmrKcal,
-    tdeeKcal,
-    recommendedWaterMl,
-    bloodPressureStatus,
-  ];
-}
-
-class AsianHealthBmiTdeeEngine {
-  /// Physiological daily water intake calculator combining:
-  /// 1. Weight (`kg`) adjusted by Asian-Pacific WHO BMI (`18.5 – 22.9`) lean-mass ratio
-  /// 2. Height (`cm`) Body Surface Area / stature evaporation adjustment
-  /// 3. Physical activity & tropical climate perspiration bonus (`HydrationActivityLevel`)
-  static int computeRecommendedWaterMl({
-    required double weightKg,
-    required double heightCm,
-    HydrationActivityLevel activityLevel = HydrationActivityLevel.sedentary,
-  }) {
-    final safeHeightCm = heightCm.clamp(100.0, 230.0);
-    final safeHeightM = safeHeightCm / 100.0;
-    final safeWeight = weightKg.clamp(25.0, 250.0);
-    final bmi = safeWeight / (safeHeightM * safeHeightM);
-
-    final minIdeal = 18.5 * safeHeightM * safeHeightM;
-    final maxIdeal = 22.9 * safeHeightM * safeHeightM;
-
-    // Adipose tissue holds ~10% water vs ~73% in lean tissue; adjust effective weight by stature BMI:
-    final double effectiveWeightKg;
-    if (bmi > 22.9) {
-      effectiveWeightKg = maxIdeal + 0.42 * (safeWeight - maxIdeal);
-    } else if (bmi < 18.5) {
-      effectiveWeightKg = safeWeight + 0.25 * (minIdeal - safeWeight);
-    } else {
-      effectiveWeightKg = safeWeight;
-    }
-
-    // Stature / Body Surface Area insensible evaporation factor relative to 165 cm reference:
-    final statureDeltaMl = (safeHeightCm - 165.0) * 7.0;
-    final rawMl =
-        (effectiveWeightKg * 33.0) +
-        statureDeltaMl +
-        activityLevel.bonusWaterMl;
-
-    final rounded50 = ((rawMl / 50.0).round() * 50).clamp(1200, 4500);
-    return rounded50;
-  }
-
-  /// Computes Asian-Pacific WHO BMI (IDI & WPRO cutoffs), Mifflin-St Jeor BMR/TDEE,
-  /// height+weight calibrated hydration target, and blood pressure status.
-  static AsianHealthAssessment evaluate({
-    required double weightKg,
-    required double heightCm,
-    int ageYears = 29,
-    bool isMale = true,
-    double activityMultiplier = 1.375,
-    HydrationActivityLevel hydrationActivity = HydrationActivityLevel.sedentary,
-    int systolicMmHg = 118,
-    int diastolicMmHg = 76,
-  }) {
-    final safeHeightM = (heightCm.clamp(100.0, 230.0)) / 100.0;
-    final safeWeight = weightKg.clamp(25.0, 250.0);
-    final bmi = safeWeight / (safeHeightM * safeHeightM);
-
-    final String bmiLabel;
-    if (bmi < 18.5) {
-      bmiLabel = 'Thiếu cân (< 18.5)';
-    } else if (bmi < 23.0) {
-      bmiLabel = 'Chuẩn Châu Á (18.5 – 22.9)';
-    } else if (bmi < 25.0) {
-      bmiLabel = 'Thừa cân nhẹ (23.0 – 24.9)';
-    } else if (bmi < 30.0) {
-      bmiLabel = 'Béo phì độ I (25.0 – 29.9)';
-    } else {
-      bmiLabel = 'Béo phì độ II (>= 30.0)';
-    }
-
-    final minIdeal = 18.5 * safeHeightM * safeHeightM;
-    final maxIdeal = 22.9 * safeHeightM * safeHeightM;
-
-    final baseBmr =
-        (10 * safeWeight) +
-        (6.25 * (safeHeightM * 100)) -
-        (5 * ageYears.clamp(12, 100));
-    final bmr = (isMale ? baseBmr + 5 : baseBmr - 161).round();
-    final tdee = (bmr * activityMultiplier.clamp(1.2, 1.9)).round();
-    final waterMl = computeRecommendedWaterMl(
-      weightKg: safeWeight,
-      heightCm: safeHeightM * 100,
-      activityLevel: hydrationActivity,
-    );
-
-    final String bpLabel;
-    if (systolicMmHg >= 140 || diastolicMmHg >= 90) {
-      bpLabel = 'Tăng huyết áp (Cần theo dõi)';
-    } else if (systolicMmHg >= 120 || diastolicMmHg >= 80) {
-      bpLabel = 'Bình thường cao (Tiền THA)';
-    } else if (systolicMmHg < 90 || diastolicMmHg < 60) {
-      bpLabel = 'Huyết áp thấp';
-    } else {
-      bpLabel = 'Huyết áp tối ưu (< 120/80)';
-    }
-
-    return AsianHealthAssessment(
-      bmi: double.parse(bmi.toStringAsFixed(1)),
-      bmiCategory: bmiLabel,
-      idealMinWeightKg: double.parse(minIdeal.toStringAsFixed(1)),
-      idealMaxWeightKg: double.parse(maxIdeal.toStringAsFixed(1)),
-      bmrKcal: bmr,
-      tdeeKcal: tdee,
-      recommendedWaterMl: waterMl,
-      bloodPressureStatus: bpLabel,
-    );
-  }
 }
 
 // =============================================================================
@@ -1555,9 +1155,6 @@ class VietnamGrossNetTaxEngine {
 // =============================================================================
 
 class DailyLifeSnapshot extends Equatable {
-  final List<MedicationCabinetItemEntity> medications;
-  final List<HealthVitalLogEntity> healthLogs;
-  final EmergencyMedicalCardEntity emergencyCard;
   final HydrationReminderStatusEntity hydration;
   final List<SmartGroceryItemEntity> groceryItems;
   final List<DailyMealPlanEntity> mealPlans;
@@ -1566,9 +1163,6 @@ class DailyLifeSnapshot extends Equatable {
   final List<SmartLifeNoteEntity> notes;
 
   const DailyLifeSnapshot({
-    this.medications = const [],
-    this.healthLogs = const [],
-    this.emergencyCard = EmergencyMedicalCardEntity.empty,
     this.hydration = HydrationReminderStatusEntity.empty,
     this.groceryItems = const [],
     this.mealPlans = const [],
@@ -1593,19 +1187,8 @@ class DailyLifeSnapshot extends Equatable {
   int get fridgeItemsCount =>
       groceryItems.where((g) => g.inFridgeStorage).length;
 
-  int medicationsTakenCount(String dayKey) =>
-      medications.where((m) => m.isTakenOn(dayKey)).length;
-
-  List<MedicationCabinetItemEntity> dueScheduledMedications(String dayKey) =>
-      medications
-          .where((m) => m.slot.isScheduledDaily && !m.isTakenOn(dayKey))
-          .toList();
-
   @override
   List<Object?> get props => [
-    medications,
-    healthLogs,
-    emergencyCard,
     hydration,
     groceryItems,
     mealPlans,

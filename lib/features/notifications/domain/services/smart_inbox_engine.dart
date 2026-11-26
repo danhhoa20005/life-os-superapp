@@ -10,8 +10,7 @@ enum SmartInboxKind {
   taskOpen('task_open', 'Nhiệm vụ cần hoàn thành'),
   calendarUpcoming('event_upcoming', 'Lịch hẹn sắp diễn ra'),
   documentExpiring('doc_expiring', 'Giấy tờ sắp hết hạn'),
-  vehicleMaintenance('vehicle_due', 'Nhắc bảo dưỡng phương tiện'),
-  medicationReminder('med_reminder', 'Nhắc uống thuốc');
+  vehicleMaintenance('vehicle_due', 'Nhắc bảo dưỡng phương tiện');
 
   final String code;
   final String groupTitleVi;
@@ -186,7 +185,6 @@ class SmartInboxItem extends Equatable {
         return SmartInboxTier.critical;
       case SmartInboxPriority.high:
         return (kind == SmartInboxKind.calendarUpcoming ||
-                kind == SmartInboxKind.medicationReminder ||
                 kind == SmartInboxKind.billUpcoming)
             ? SmartInboxTier.timeSensitive
             : SmartInboxTier.actionable;
