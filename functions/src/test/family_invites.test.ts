@@ -304,4 +304,127 @@ describe("Family Invites Cloud Functions — FIX-002 & FIX-003 (3 Modes, Race Co
       (err: unknown) => err instanceof FamilyInviteError && err.code === "RESOURCE_EXHAUSTED"
     );
   });
+
+  it("4. Finding 2 — Enforces inviteeUid, verified inviteeEmail, unverified email denial message & open invites", async () => {
+    const nowMs = Date.parse("2026-11-25T10:00:00Z");
+    const { store, coordinator } = seedStore(nowMs);
+
+    // 4a. inviteeUid targeted invite: only matching UID joins; matching email with wrong UID denied
+    const uidInv = await coordinator.createFamilyInvite({
+      actorUserId: "owner_1",
+      familyId: "fam_1",
+      inviteKind: "targeted",
+      inviteeName: "Bob",
+      inviteeUid: "u_bob_target"
+    });
+    await assert.rejects(
+      () =>
+        coordinator.joinFamilyByInvite({
+          actorUserId: "u_other",
+          userName: "Fake Bob",
+          inviteCode: uidInv.inviteCode,
+          authEmail: "bob@lifeos.vn",
+          authEmailVerified: true
+        }),
+      (err: unknown) => err instanceof FamilyInviteError && err.code === "PERMISSION_DENIED"
+    );
+    const bobJoin = await coordinator.joinFamilyByInvite({
+      actorUserId: "u_bob_target",
+      userName: "Bob",
+      inviteCode: uidInv.inviteCode
+    });
+    assert.equal(bobJoin.ok, true);
+
+    // 4b. Unverified matching email on intendedRecipientHash invite yields explicit Vietnamese verification prompt
+    const hashInv = await coordinator.createFamilyInvite({
+      actorUserId: "owner_1",
+      familyId: "fam_1",
+      inviteKind: "targeted",
+      inviteeName: "Chi",
+      inviteeContact: "Chi@LifeOS.vn"
+    });
+    await assert.rejects(
+      () =>
+        coordinator.joinFamilyByInvite({
+          actorUserId: "u_chi",
+          userName: "Chi",
+          inviteCode: hashInv.inviteCode,
+          authEmail: "chi@lifeos.vn",
+          authEmailVerified: false
+        }),
+      (err: unknown) =>
+        err instanceof FamilyInviteError &&
+        err.code === "PERMISSION_DENIED" &&
+        err.message.includes("Cần xác minh email trước khi tham gia nhóm")
+    );
+    const chiJoin = await coordinator.joinFamilyByInvite({
+      actorUserId: "u_chi",
+      userName: "Chi",
+      inviteCode: hashInv.inviteCode,
+      authEmail: "chi@lifeos.vn",
+      authEmailVerified: true
+    });
+    assert.equal(chiJoin.ok, true);
+
+    // 4c. Legacy/direct targeted invite with inviteeEmail requires verified matching email
+    store.invites.set("FAM-MAILRAW1", {
+      inviteId: "FAM-MAILRAW1",
+      inviteCode: "FAM-MAILRAW1",
+      familyId: "fam_1",
+      familyName: "Tổ ấm Minh & Lan",
+      spaceType: "family",
+      inviteKind: "targeted",
+      isTargeted: true,
+      createdBy: "owner_1",
+      invitedByUserId: "owner_1",
+      invitedByName: "Minh",
+      inviteeEmail: "Mai@LifeOS.vn",
+      maxUses: 1,
+      usedCount: 0,
+      consumedBy: null,
+      consumedAtMs: null,
+      revoked: false,
+      revokedBy: null,
+      revokedAtMs: null,
+      status: "active",
+      expiresAtMs: nowMs + 86400_000,
+      createdAtMs: nowMs,
+      updatedAtMs: nowMs
+    });
+    await assert.rejects(
+      () =>
+        coordinator.joinFamilyByInvite({
+          actorUserId: "u_mai",
+          userName: "Mai",
+          inviteCode: "FAM-MAILRAW1",
+          authEmail: "mai@lifeos.vn",
+          authEmailVerified: false
+        }),
+      (err: unknown) =>
+        err instanceof FamilyInviteError &&
+        err.code === "PERMISSION_DENIED" &&
+        err.message.includes("Cần xác minh email trước khi tham gia nhóm")
+    );
+    const maiJoin = await coordinator.joinFamilyByInvite({
+      actorUserId: "u_mai",
+      userName: "Mai",
+      inviteCode: "FAM-MAILRAW1",
+      authEmail: "mai@lifeos.vn",
+      authEmailVerified: true
+    });
+    assert.equal(maiJoin.ok, true);
+
+    // 4d. Open invite works without verified email
+    const openInv = await coordinator.createFamilyInvite({
+      actorUserId: "owner_1",
+      familyId: "fam_1",
+      inviteKind: "oneTime"
+    });
+    const openJoin = await coordinator.joinFamilyByInvite({
+      actorUserId: "u_open",
+      userName: "Khách",
+      inviteCode: openInv.inviteCode
+    });
+    assert.equal(openJoin.ok, true);
+  });
 });

@@ -133,6 +133,8 @@ class FamilyRemoteDataSource {
           ),
           inviteeName: m['inviteeName'] as String?,
           inviteeContact: m['inviteeContact'] as String?,
+          inviteeUid: m['inviteeUid'] as String?,
+          inviteeEmail: m['inviteeEmail'] as String?,
           intendedRecipientHash: recipientHash,
           invitedByUserId:
               (m['invitedByUserId'] as String?) ??
@@ -637,6 +639,8 @@ class FamilyRemoteDataSource {
         maxUses: maxUses,
       ),
       inviteeName: d['inviteeName'] as String?,
+      inviteeUid: d['inviteeUid'] as String?,
+      inviteeEmail: d['inviteeEmail'] as String?,
       intendedRecipientHash: recipientHash,
       invitedByUserId:
           (d['invitedByUserId'] as String?) ??
@@ -709,53 +713,129 @@ class FamilyRemoteDataSource {
     await batch.commit();
   }
 
-  Future<List<String>> _resolveTargetedCandidateHashes({
+  Future<void> _verifyTargetedInviteRecipient({
     required String userId,
-    String? userEmail,
-    String? userPhone,
+    String? inviteeUid,
+    String? inviteeEmail,
+    String? recipientHash,
   }) async {
-    final candidates = <String>[];
-    if (_firebaseAuth != null) {
-      final current = _firebaseAuth.currentUser;
-      if (current == null || current.uid != userId) {
+    final cleanUidTarget = inviteeUid?.trim() ?? '';
+    final cleanEmailTarget = inviteeEmail?.trim().toLowerCase() ?? '';
+    final cleanHashTarget = recipientHash?.trim().toLowerCase() ?? '';
+
+    if (cleanUidTarget.isNotEmpty) {
+      final callerUid = _firebaseAuth?.currentUser?.uid ?? userId;
+      if (_firebaseAuth != null &&
+          (_firebaseAuth.currentUser == null ||
+              _firebaseAuth.currentUser!.uid != userId)) {
         throw const AppException(
           code: 'PERMISSION_DENIED',
           message:
               'Phiên đăng nhập hiện tại không khớp để xác thực mã mời đích danh.',
         );
       }
-      if (current.email != null && current.email!.trim().isNotEmpty) {
-        candidates.add(current.email!);
+      if (callerUid != cleanUidTarget) {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Mã mời đích danh này chỉ dành cho đúng tài khoản được mời.',
+        );
       }
-      if (current.phoneNumber != null &&
-          current.phoneNumber!.trim().isNotEmpty) {
-        candidates.add(current.phoneNumber!);
-      }
-      candidates.add(current.uid);
-    } else if ((userEmail != null && userEmail.trim().isNotEmpty) ||
-        (userPhone != null && userPhone.trim().isNotEmpty)) {
-      if (userEmail != null && userEmail.trim().isNotEmpty) {
-        candidates.add(userEmail);
-      }
-      if (userPhone != null && userPhone.trim().isNotEmpty) {
-        candidates.add(userPhone);
-      }
-      candidates.add(userId);
-    } else {
-      // Fallback for DI setups without FirebaseAuth override: read caller's own user profile doc (never families!)
-      final userSnap = await _firestore.collection('users').doc(userId).get();
-      final u = userSnap.data() ?? const <String, dynamic>{};
-      final email = u['email']?.toString();
-      final phone = (u['phone'] ?? u['phoneNumber'])?.toString();
-      if (email != null && email.trim().isNotEmpty) candidates.add(email);
-      if (phone != null && phone.trim().isNotEmpty) candidates.add(phone);
-      candidates.add(userId);
+      return;
     }
 
-    return candidates
-        .map(FamilyInviteCodeExtractor.hashRecipientContact)
-        .where((h) => h.isNotEmpty)
-        .toList();
+    // Fail closed if FirebaseAuth is unavailable (never fall back to mutable users/{uid} profile doc)
+    if (_firebaseAuth == null) {
+      throw const AppException(
+        code: 'PERMISSION_DENIED',
+        message: 'Cần xác minh email trước khi tham gia nhóm',
+      );
+    }
+
+    final current = _firebaseAuth.currentUser;
+    if (current == null || current.uid != userId) {
+      throw const AppException(
+        code: 'PERMISSION_DENIED',
+        message:
+            'Phiên đăng nhập hiện tại không khớp để xác thực mã mời đích danh.',
+      );
+    }
+
+    try {
+      await current.reload();
+      await current.getIdToken(true);
+    } catch (_) {
+      // Offline / MockUser fallback retains current claims safely
+    }
+    final refreshed = _firebaseAuth.currentUser ?? current;
+
+    if (cleanEmailTarget.isNotEmpty) {
+      if (!refreshed.emailVerified) {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Cần xác minh email trước khi tham gia nhóm',
+        );
+      }
+      final currentEmail = refreshed.email?.trim().toLowerCase() ?? '';
+      if (currentEmail.isEmpty || currentEmail != cleanEmailTarget) {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message:
+              'Mã mời đích danh này chỉ dành cho đúng email đã xác minh được mời.',
+        );
+      }
+      return;
+    }
+
+    if (cleanHashTarget.isNotEmpty) {
+      final verifiedContacts = <String>[
+        refreshed.uid,
+        if (refreshed.phoneNumber != null &&
+            refreshed.phoneNumber!.trim().isNotEmpty)
+          refreshed.phoneNumber!,
+        if (refreshed.emailVerified &&
+            refreshed.email != null &&
+            refreshed.email!.trim().isNotEmpty)
+          refreshed.email!,
+      ];
+      final verifiedHashes = verifiedContacts
+          .map(FamilyInviteCodeExtractor.hashRecipientContact)
+          .where((h) => h.isNotEmpty)
+          .toList();
+      if (verifiedHashes.contains(cleanHashTarget)) {
+        return;
+      }
+
+      if (!refreshed.emailVerified &&
+          (refreshed.phoneNumber == null ||
+              refreshed.phoneNumber!.trim().isEmpty)) {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Cần xác minh email trước khi tham gia nhóm',
+        );
+      }
+      final rawEmail = refreshed.email?.trim() ?? '';
+      if (!refreshed.emailVerified &&
+          rawEmail.isNotEmpty &&
+          FamilyInviteCodeExtractor.hashRecipientContact(rawEmail) ==
+              cleanHashTarget) {
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message: 'Cần xác minh email trước khi tham gia nhóm',
+        );
+      }
+
+      throw const AppException(
+        code: 'PERMISSION_DENIED',
+        message:
+            'Mã mời đích danh này chỉ dành cho đúng Email/SĐT đã xác minh được mời.',
+      );
+    }
+
+    throw const AppException(
+      code: 'PERMISSION_DENIED',
+      message:
+          'Lời mời đích danh thiếu thông tin định danh người nhận hợp lệ. Nhờ trưởng nhóm gửi lại lời mời.',
+    );
   }
 
   Future<FamilyEntity> joinFamilyByInvite({
@@ -774,6 +854,13 @@ class FamilyRemoteDataSource {
     }
 
     if (_functionsInvoker != null) {
+      final current = _firebaseAuth?.currentUser;
+      if (current != null && current.uid == userId) {
+        try {
+          await current.reload();
+          await current.getIdToken(true);
+        } catch (_) {}
+      }
       final res = await _functionsInvoker('joinFamilyByInvite', {
         'inviteCode': cleanCode,
         'userName': userName,
@@ -846,19 +933,22 @@ class FamilyRemoteDataSource {
       );
     }
 
+    final inviteeUid = (invData['inviteeUid'] as String?)?.trim();
+    final inviteeEmail = (invData['inviteeEmail'] as String?)?.trim();
     final recipientHash = (invData['intendedRecipientHash'] as String?)?.trim();
-    if (recipientHash != null && recipientHash.isNotEmpty) {
-      final candidateHashes = await _resolveTargetedCandidateHashes(
+    final isTargetedInvite =
+        (invData['isTargeted'] as bool?) == true ||
+        (invData['inviteKind'] as String?) == 'targeted' ||
+        (inviteeUid != null && inviteeUid.isNotEmpty) ||
+        (inviteeEmail != null && inviteeEmail.isNotEmpty) ||
+        (recipientHash != null && recipientHash.isNotEmpty);
+    if (isTargetedInvite) {
+      await _verifyTargetedInviteRecipient(
         userId: userId,
-        userEmail: userEmail,
-        userPhone: userPhone,
+        inviteeUid: inviteeUid,
+        inviteeEmail: inviteeEmail,
+        recipientHash: recipientHash,
       );
-      if (!candidateHashes.contains(recipientHash)) {
-        throw const AppException(
-          code: 'PERMISSION_DENIED',
-          message: 'Mã mời đích danh này chỉ dành cho đúng Email/SĐT được mời.',
-        );
-      }
     }
 
     final familyId = invData['familyId'] as String;
@@ -908,6 +998,11 @@ class FamilyRemoteDataSource {
             return _mapFamily(existingSnap);
           }
         } catch (_) {}
+        throw const AppException(
+          code: 'PERMISSION_DENIED',
+          message:
+              'Không thể tham gia nhóm với lời mời này. Vui lòng cập nhật ứng dụng lên phiên bản mới nhất hoặc nhờ trưởng nhóm gửi lại lời mời.',
+        );
       }
       rethrow;
     }
@@ -1137,6 +1232,37 @@ class FamilyRemoteDataSource {
     String? choreOrTaskNote,
     String? operationId,
   }) async {
+    if (totalAmountMinor <= 0) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Số tiền hóa đơn chia phải lớn hơn 0đ.',
+      );
+    }
+    if (sharesByUserId.isEmpty ||
+        sharesByUserId.length > SharedBillSplitEntity.maxSplitParticipants) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message:
+            'Số thành viên tham gia chia phải từ 1 đến ${SharedBillSplitEntity.maxSplitParticipants} người.',
+      );
+    }
+    if (sharesByUserId.entries.any(
+      (entry) => entry.key.trim().isEmpty || entry.value < 0,
+    )) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Phần chia cho từng thành viên không được âm.',
+      );
+    }
+    final sharesSum = sharesByUserId.values.fold<int>(0, (s, v) => s + v);
+    if (sharesSum != totalAmountMinor) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message:
+            'Tổng phần chia phải bằng đúng tổng hóa đơn trước khi lưu lên máy chủ.',
+      );
+    }
+
     final opId = operationId?.trim();
     final id = (opId != null && opId.isNotEmpty) ? 'bill_$opId' : _uuid.v4();
     final now = DateTime.now();

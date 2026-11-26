@@ -858,8 +858,9 @@ class _SplitBillsAndSettlementTabViewState
                               children: [
                                 LifeOsStatusPill(
                                   icon: Icons.receipt_long_outlined,
-                                  label:
-                                      'Tổng chi: ${VndAmount.format(ledger.totalSharedSpendMinor)}',
+                                  label: ledger.needsReconciliation
+                                      ? 'Tổng chi đã đối soát: ${VndAmount.format(ledger.totalSharedSpendMinor)}'
+                                      : 'Tổng chi: ${VndAmount.format(ledger.totalSharedSpendMinor)}',
                                   tone: LifeOsAccentTone.emerald,
                                 ),
                                 LifeOsStatusPill(
@@ -868,6 +869,12 @@ class _SplitBillsAndSettlementTabViewState
                                       '${state.sharedBills.length} khoản chia',
                                   tone: LifeOsAccentTone.blue,
                                 ),
+                                if (ledger.needsReconciliation)
+                                  const FinancialTrustStatusBadge(
+                                    status: FinancialTrustStatus.needsReview,
+                                    customLabel: 'Cần đối soát',
+                                    compact: true,
+                                  ),
                               ],
                             ),
                             const Divider(height: 20),
@@ -1041,6 +1048,33 @@ class _SplitBillsAndSettlementTabViewState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (ledger.needsReconciliation) ...[
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                const FinancialTrustStatusBadge(
+                                  status: FinancialTrustStatus.needsReview,
+                                  customLabel: 'Cần đối soát',
+                                  compact: true,
+                                ),
+                                Text(
+                                  '${ledger.inconsistentBillCount} khoản lệch tổng phần chia (${VndAmount.format(ledger.unverifiedSharedSpendMinor)})',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12.2,
+                                    fontWeight: FontWeight.w600,
+                                    color: c.warning,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           Text(
                             'Chưa có số liệu cân đối chi tiêu giữa các thành viên.',
                             style: TextStyle(
@@ -1068,7 +1102,51 @@ class _SplitBillsAndSettlementTabViewState
                       ),
                     )
                   : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (ledger.needsReconciliation) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: c.warning.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: c.warning.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    FinancialTrustStatusBadge(
+                                      status: FinancialTrustStatus.needsReview,
+                                      customLabel: 'Cần đối soát',
+                                      compact: true,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Có ${ledger.inconsistentBillCount} khoản chia lệch tổng (${VndAmount.format(ledger.unverifiedSharedSpendMinor)}) đang tạm tách khỏi số dư công nợ.',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12.2,
+                                    fontWeight: FontWeight.w600,
+                                    color: c.textPrimary,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         for (
                           var i = 0;
                           i < ledger.memberBalances.length;
@@ -1155,16 +1233,19 @@ class _SplitBillsAndSettlementTabViewState
                                                       color: statusColor,
                                                     ),
                                                     const SizedBox(width: 4),
-                                                    Text(
-                                                      statusLabel,
-                                                      style: TextStyle(
-                                                        fontSize: 12.5,
-                                                        fontWeight:
-                                                            FontWeight.w800,
-                                                        color: statusColor,
-                                                        fontFeatures: const [
-                                                          FontFeature.tabularFigures(),
-                                                        ],
+                                                    Flexible(
+                                                      child: Text(
+                                                        statusLabel,
+                                                        softWrap: true,
+                                                        style: TextStyle(
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                          color: statusColor,
+                                                          fontFeatures: const [
+                                                            FontFeature.tabularFigures(),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
@@ -1567,18 +1648,40 @@ class _SplitBillsAndSettlementTabViewState
                           ],
                         ),
                         const SizedBox(height: 8),
-                        const Wrap(
+                        Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: [
-                            FinancialTrustStatusBadge(
-                              status: FinancialTrustStatus.saved,
-                              customLabel: 'Đã ghi sổ chung',
-                              compact: true,
-                            ),
-                            DataVisibilityBadge(isFamilyShared: true),
+                            if (bill.needsReconciliation)
+                              const FinancialTrustStatusBadge(
+                                status: FinancialTrustStatus.needsReview,
+                                customLabel: 'Cần đối soát',
+                                compact: true,
+                              )
+                            else
+                              const FinancialTrustStatusBadge(
+                                status: FinancialTrustStatus.saved,
+                                customLabel: 'Đã ghi sổ chung',
+                                compact: true,
+                              ),
+                            const DataVisibilityBadge(isFamilyShared: true),
                           ],
                         ),
+                        if (bill.needsReconciliation) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Tổng hóa đơn ${VndAmount.format(bill.totalAmountMinor)} ≠ Tổng phần chia ${VndAmount.format(bill.sharesSumMinor)}',
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 12.2,
+                              fontWeight: FontWeight.w600,
+                              color: c.warning,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         LifeOsDetailsDiscloseSection(
                           label: 'Chi tiết phần chia',

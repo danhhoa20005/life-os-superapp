@@ -83,25 +83,6 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     const fcm = new RecordingFcmSender();
     const coordinator = new RealtimeBankingCoordinator(store, fcm, () => TEST_SECRET);
 
-    await coordinator.verifyAndConnectBankAccount({
-      authenticatedUserId: "user_minh",
-      bankCode: "VCB",
-      accountNumber: "1017588888",
-      linkedWalletId: "wallet_vcb",
-      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_vcb_1" },
-      nowMs: baseNowMs
-    });
-
-    await coordinator.verifyAndConnectBankAccount({
-      authenticatedUserId: "user_minh",
-      bankCode: "TPB",
-      accountNumber: "0123499999",
-      subAccount: "TKP8899",
-      linkedWalletId: "wallet_tpb",
-      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_tpb_1" },
-      nowMs: baseNowMs
-    });
-
     store.wallets.set("user_minh::wallet_vcb", {
       id: "wallet_vcb",
       ownerId: "user_minh",
@@ -122,6 +103,25 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
       bankCode: "TPB",
       maskedAccount: "•••• 9999",
       updatedAtMs: baseNowMs
+    });
+
+    await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_minh",
+      bankCode: "VCB",
+      accountNumber: "1017588888",
+      linkedWalletId: "wallet_vcb",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_vcb_1" },
+      nowMs: baseNowMs
+    });
+
+    await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_minh",
+      bankCode: "TPB",
+      accountNumber: "0123499999",
+      subAccount: "TKP8899",
+      linkedWalletId: "wallet_tpb",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_tpb_1" },
+      nowMs: baseNowMs
     });
 
     store.userDevices.set("user_minh", [
@@ -588,6 +588,14 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     assert.equal(wVcbOut.state, "FAILED_PERMANENT");
 
     // T23: Manual input without provider proof fails; cross-user claim of user_minh's VCB account fails!
+    store.wallets.set("user_attacker::w_att", {
+      id: "w_att",
+      ownerId: "user_attacker",
+      name: "Ví Kẻ tấn công",
+      balanceMinor: 0,
+      isEstimatedBalance: true,
+      updatedAtMs: baseNowMs
+    });
     const unverifiedAttempt = await coordinator.verifyAndConnectBankAccount({
       authenticatedUserId: "user_attacker",
       bankCode: "VCB",
@@ -695,5 +703,178 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     assert.equal(resumed.newestExternalTxId, "99500");
     // 1 initial BG-02 tx + 250 paginated backfill txs = 251 exact canonical transactions!
     assert.equal(store.transactions.size, 251);
+  });
+
+  it("Finding 3 — Matches SePay bank + account + subAccount + status, verifies caller wallet, and atomically enforces single claim under concurrency", async () => {
+    const store = new SerializedMemoryBankingStore();
+    const fcm = new RecordingFcmSender();
+    const coordinator = new RealtimeBankingCoordinator(store, fcm, () => TEST_SECRET);
+
+    store.wallets.set("u_alice::w_alice_mb", {
+      id: "w_alice_mb",
+      ownerId: "u_alice",
+      name: "MB Alice",
+      balanceMinor: 1000000,
+      isEstimatedBalance: true,
+      updatedAtMs: baseNowMs
+    });
+    store.wallets.set("u_bob::w_bob_mb", {
+      id: "w_bob_mb",
+      ownerId: "u_bob",
+      name: "MB Bob",
+      balanceMinor: 1000000,
+      isEstimatedBalance: true,
+      updatedAtMs: baseNowMs
+    });
+
+    // Mock SePay response where SAME digits `0123456789` exist at TWO different banks (VCB & MB), plus VA / inactive cases
+    const dualBankSepayList = [
+      {
+        id: "7001",
+        account_number: "0123456789",
+        bank_short_name: "VCB",
+        sub_account: "VA_VCB",
+        accumulated: 5000000,
+        active: "1"
+      },
+      {
+        id: "7002",
+        account_number: "0123456789",
+        bank_short_name: "MBBank",
+        sub_account: "VA_MB",
+        accumulated: 2000000,
+        active: "1"
+      }
+    ];
+
+    // 1. Missing bankCode is rejected fail-closed
+    const missingBankRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "u_alice",
+      bankCode: "",
+      accountNumber: "0123456789",
+      linkedWalletId: "w_alice_mb",
+      sepayAccounts: dualBankSepayList,
+      nowMs: baseNowMs
+    });
+    assert.equal(missingBankRes.ok, false);
+    assert.equal(missingBankRes.errorCode, "BANK_CODE_REQUIRED");
+
+    // 2. Bank not matching SePay list (e.g. TPB for those digits) is rejected
+    const wrongBankRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "u_alice",
+      bankCode: "TPB",
+      accountNumber: "0123456789",
+      linkedWalletId: "w_alice_mb",
+      sepayAccounts: dualBankSepayList,
+      nowMs: baseNowMs
+    });
+    assert.equal(wrongBankRes.ok, false);
+    assert.equal(wrongBankRes.errorCode, "BANK_MISMATCH_OR_UNVERIFIED");
+
+    // 3. Ambiguous SePay response (two active entries with identical bank+account & no differentiating VA requested) is rejected
+    const ambiguousList = [
+      { id: "7010", account_number: "555666777", bank_short_name: "MB", sub_account: "VA1", active: "1" },
+      { id: "7011", account_number: "555666777", bank_short_name: "MB", sub_account: "VA2", active: "1" }
+    ];
+    const ambigRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "u_alice",
+      bankCode: "MB",
+      accountNumber: "555666777",
+      linkedWalletId: "w_alice_mb",
+      sepayAccounts: ambiguousList,
+      nowMs: baseNowMs
+    });
+    assert.equal(ambigRes.ok, false);
+    assert.equal(ambigRes.errorCode, "AMBIGUOUS_SEPAY_ACCOUNT");
+
+    // 4. Wrong subAccount is rejected
+    const wrongSubRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "u_alice",
+      bankCode: "MB",
+      accountNumber: "0123456789",
+      subAccount: "WRONG_VA",
+      linkedWalletId: "w_alice_mb",
+      sepayAccounts: dualBankSepayList,
+      nowMs: baseNowMs
+    });
+    assert.equal(wrongSubRes.ok, false);
+    assert.equal(wrongSubRes.errorCode, "SUBACCOUNT_MISMATCH");
+
+    // 5. Inactive SePay account is rejected
+    const inactiveRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "u_alice",
+      bankCode: "VCB",
+      accountNumber: "9988776655",
+      linkedWalletId: "w_alice_mb",
+      sepayAccounts: [
+        { id: "7099", account_number: "9988776655", bank_short_name: "VCB", active: false }
+      ],
+      nowMs: baseNowMs
+    });
+    assert.equal(inactiveRes.ok, false);
+    assert.equal(inactiveRes.errorCode, "INACTIVE_SEPAY_ACCOUNT");
+
+    // 6. Wallet owned by another user (u_alice passing u_bob's walletId) is rejected
+    const wrongWalletRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "u_alice",
+      bankCode: "MB",
+      accountNumber: "0123456789",
+      subAccount: "VA_MB",
+      linkedWalletId: "w_bob_mb",
+      sepayAccounts: dualBankSepayList,
+      nowMs: baseNowMs
+    });
+    assert.equal(wrongWalletRes.ok, false);
+    assert.equal(wrongWalletRes.errorCode, "WALLET_NOT_FOUND_OR_FORBIDDEN");
+
+    // 7. Concurrent link race on identical SePay MB account -> strictly 1 wins, persists SePay-sourced fields!
+    const [raceA, raceB] = await Promise.all([
+      coordinator.verifyAndConnectBankAccount({
+        authenticatedUserId: "u_alice",
+        bankCode: "mbbank", // lowercase alias from client
+        accountNumber: "0123456789",
+        subAccount: "va_mb", // lowercase from client
+        linkedWalletId: "w_alice_mb",
+        sepayAccounts: dualBankSepayList,
+        nowMs: baseNowMs
+      }),
+      coordinator.verifyAndConnectBankAccount({
+        authenticatedUserId: "u_bob",
+        bankCode: "MB",
+        accountNumber: "0123456789",
+        subAccount: "VA_MB",
+        linkedWalletId: "w_bob_mb",
+        sepayAccounts: dualBankSepayList,
+        nowMs: baseNowMs
+      })
+    ]);
+
+    const winners = [raceA, raceB].filter((r) => r.ok);
+    const losers = [raceA, raceB].filter((r) => !r.ok);
+    assert.equal(winners.length, 1);
+    assert.equal(losers.length, 1);
+    assert.equal(losers[0].errorCode, "ACCOUNT_ALREADY_LINKED_OTHER_USER");
+    // Persisted fields MUST come from verified SePay response, not raw lowercase client args
+    assert.equal(winners[0].connection?.bankCode, "MB");
+    assert.equal(winners[0].connection?.bankName, "MB Bank");
+    assert.equal(winners[0].connection?.subAccount, "VA_MB");
+    assert.equal(winners[0].connection?.providerConnectionId, "sepay_ba_7002");
+
+    // 8. Disconnecting releases the claim so another verified owner can later claim it
+    const winnerOwner = winners[0].connection!.ownerId;
+    const loserOwner = winnerOwner === "u_alice" ? "u_bob" : "u_alice";
+    const loserWallet = loserOwner === "u_alice" ? "w_alice_mb" : "w_bob_mb";
+    await store.disconnectConnection(winnerOwner, winners[0].connection!.id, baseNowMs + 5000);
+    const relinkRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: loserOwner,
+      bankCode: "MB",
+      accountNumber: "0123456789",
+      subAccount: "VA_MB",
+      linkedWalletId: loserWallet,
+      sepayAccounts: dualBankSepayList,
+      nowMs: baseNowMs + 6000
+    });
+    assert.equal(relinkRes.ok, true);
+    assert.equal(relinkRes.connection?.ownerId, loserOwner);
   });
 });

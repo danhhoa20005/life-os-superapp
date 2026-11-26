@@ -4,7 +4,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { BANK_CAPABILITY_CATALOG } from "./capabilities";
-import { RealtimeBankingCoordinator } from "./bankingEngine";
+import { RealtimeBankingCoordinator, SePayBankAccountApiItem } from "./bankingEngine";
 import {
   CollaborationSpaceType,
   FamilyInviteCoordinator,
@@ -146,8 +146,7 @@ export const verifyAndLinkBankConnection = onCall(
       );
     }
 
-    let verifiedAccountFound = false;
-    let providerConnectionId = "";
+    let sepayAccounts: SePayBankAccountApiItem[] = [];
     try {
       const resp = await fetch("https://my.sepay.vn/userapi/bankaccounts/list", {
         method: "GET",
@@ -160,17 +159,9 @@ export const verifyAndLinkBankConnection = onCall(
         throw new HttpsError("permission-denied", "SePay từ chối xác thực API Token. Vui lòng kiểm tra lại.");
       }
       const bodyJson = (await resp.json()) as {
-        bankaccounts?: Array<{ id?: string | number; account_number?: string; bank_short_name?: string }>;
+        bankaccounts?: SePayBankAccountApiItem[];
       };
-      const list = Array.isArray(bodyJson.bankaccounts) ? bodyJson.bankaccounts : [];
-      const matched = list.find((acc) => {
-        const cleanRemote = String(acc.account_number ?? "").replace(/[^A-Za-z0-9]/g, "").trim();
-        return cleanRemote === accountNumber;
-      });
-      if (matched) {
-        verifiedAccountFound = true;
-        providerConnectionId = `sepay_ba_${matched.id ?? sha256Hex(accountNumber).slice(0, 10)}`;
-      }
+      sepayAccounts = Array.isArray(bodyJson.bankaccounts) ? bodyJson.bankaccounts : [];
     } catch (err) {
       if (err instanceof HttpsError) throw err;
       throw new HttpsError("unavailable", "Không thể kết nối tới máy chủ xác minh SePay lúc này.");
@@ -183,24 +174,62 @@ export const verifyAndLinkBankConnection = onCall(
       accountNumber,
       subAccount,
       linkedWalletId,
-      providerAccountProof: {
-        verifiedByProviderApi: verifiedAccountFound,
-        providerConnectionId
-      }
+      sepayAccounts
     });
 
     if (!res.ok || !res.connection) {
-      throw new HttpsError(
-        "permission-denied",
-        res.errorCode === "ACCOUNT_ALREADY_LINKED_OTHER_USER"
-          ? "Tài khoản ngân hàng này đã được liên kết với một người dùng khác."
-          : "Tài khoản ngân hàng không thuộc danh sách đã xác minh trên SePay của bạn."
-      );
+      switch (res.errorCode) {
+        case "ACCOUNT_ALREADY_LINKED_OTHER_USER":
+          throw new HttpsError(
+            "permission-denied",
+            "Tài khoản ngân hàng này đã được liên kết với một người dùng khác."
+          );
+        case "WALLET_NOT_FOUND_OR_FORBIDDEN":
+          throw new HttpsError(
+            "permission-denied",
+            "Ví liên kết không tồn tại hoặc không thuộc quyền sở hữu của bạn."
+          );
+        case "AMBIGUOUS_SEPAY_ACCOUNT":
+          throw new HttpsError(
+            "failed-precondition",
+            "Có nhiều tài khoản SePay khớp thông tin này. Vui lòng chọn đúng ngân hàng và tài khoản phụ (VA)."
+          );
+        case "INACTIVE_SEPAY_ACCOUNT":
+          throw new HttpsError(
+            "failed-precondition",
+            "Tài khoản ngân hàng này trên SePay đang tạm ngừng hoạt động."
+          );
+        case "SUBACCOUNT_MISMATCH":
+          throw new HttpsError(
+            "permission-denied",
+            "Mã tài khoản phụ (VA) không khớp với tài khoản đã xác minh trên SePay."
+          );
+        case "BANK_MISMATCH_OR_UNVERIFIED":
+          throw new HttpsError(
+            "permission-denied",
+            "Ngân hàng hoặc mã ngân hàng không khớp với danh sách đã xác minh trên SePay."
+          );
+        case "UNSUPPORTED_PROVIDER_BANK":
+        case "BANK_CODE_REQUIRED":
+        case "INVALID_ACCOUNT_NUMBER":
+          throw new HttpsError(
+            "invalid-argument",
+            "Mã ngân hàng hoặc số tài khoản chưa hợp lệ hoặc chưa được hỗ trợ."
+          );
+        default:
+          throw new HttpsError(
+            "permission-denied",
+            "Tài khoản ngân hàng không thuộc danh sách đã xác minh trên SePay của bạn."
+          );
+      }
     }
 
     return {
       ok: true,
       connectionId: res.connection.id,
+      bankCode: res.connection.bankCode,
+      bankName: res.connection.bankName,
+      subAccount: res.connection.subAccount,
       accountMasked: res.connection.accountMasked,
       capabilities: res.connection.capabilities
     };
@@ -413,7 +442,8 @@ export const createFamilyInvite = onCall(
         maxUses: typeof data.maxUses === "number" ? data.maxUses : undefined,
         ttlDays: typeof data.ttlDays === "number" ? data.ttlDays : undefined,
         inviteeName: typeof data.inviteeName === "string" ? data.inviteeName : undefined,
-        inviteeContact: typeof data.inviteeContact === "string" ? data.inviteeContact : undefined
+        inviteeContact: typeof data.inviteeContact === "string" ? data.inviteeContact : undefined,
+        inviteeUid: typeof data.inviteeUid === "string" ? data.inviteeUid : undefined
       });
     } catch (err) {
       throw mapFamilyInviteErrorToHttps(err);
@@ -465,8 +495,7 @@ export const joinFamilyByInvite = onCall(
     const data = (request.data ?? {}) as Record<string, unknown>;
     const token = (request.auth?.token ?? {}) as Record<string, unknown>;
     const authEmailVerified = token.email_verified === true;
-    const authEmail =
-      authEmailVerified && typeof token.email === "string" ? token.email : undefined;
+    const authEmail = typeof token.email === "string" ? token.email : undefined;
     const authPhoneNumber = typeof token.phone_number === "string" ? token.phone_number : undefined;
     try {
       return await createFamilyInviteCoordinator().joinFamilyByInvite({
@@ -533,6 +562,7 @@ export async function deleteServerOnlyUserAccountData(
   let deletedCount = 0;
   const ownerScopedCollections = [
     "server_bank_connections",
+    "server_bank_account_claims",
     "sepay_webhook_inbox",
     "notification_outbox",
     "bank_reconciliation_jobs",

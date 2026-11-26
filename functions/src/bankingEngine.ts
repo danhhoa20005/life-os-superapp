@@ -22,6 +22,205 @@ import {
   verifySePayWebhookSignature
 } from "./security";
 
+export interface SePayBankAccountApiItem {
+  readonly id?: string | number;
+  readonly account_number?: string;
+  readonly bank_short_name?: string;
+  readonly bank_code?: string;
+  readonly bank_brand_name?: string;
+  readonly bank_name?: string;
+  readonly sub_account?: string;
+  readonly va?: string;
+  readonly accumulated?: number | string;
+  readonly active?: boolean | number | string;
+  readonly status?: string;
+}
+
+export interface BankAccountClaimRecord {
+  readonly claimId: string;
+  readonly ownerId: string;
+  readonly connectionId: string;
+  readonly provider: "sepay";
+  readonly providerConnectionId: string;
+  readonly providerAccountId?: string;
+  readonly bankCode: string;
+  readonly accountNumber: string;
+  readonly subAccount: string;
+  readonly status: "connected" | "disconnected";
+  readonly updatedAtMs: number;
+}
+
+export function buildNormalizedAccountClaimId(
+  bankCode: string,
+  accountNumber: string,
+  subAccount = ""
+): string {
+  const cleanBank = bankCode.trim().toUpperCase();
+  const cleanAcc = accountNumber.replace(/[^A-Za-z0-9]/g, "").trim();
+  const cleanSub = subAccount.trim().toUpperCase();
+  return `sepay_acct_${sha256Hex(`${cleanBank}:${cleanAcc}:${cleanSub}`).slice(0, 28)}`;
+}
+
+export function buildProviderAccountIdClaimId(providerAccountId: string): string {
+  return `sepay_id_${sha256Hex(providerAccountId.trim()).slice(0, 28)}`;
+}
+
+export function isSePayAccountActive(acc: SePayBankAccountApiItem): boolean {
+  if (acc.active !== undefined && acc.active !== null) {
+    if (typeof acc.active === "boolean") {
+      if (!acc.active) return false;
+    } else if (typeof acc.active === "number") {
+      if (acc.active !== 1) return false;
+    } else if (typeof acc.active === "string") {
+      const norm = acc.active.trim().toLowerCase();
+      if (!["1", "true", "active", "enabled", "yes"].includes(norm)) return false;
+    } else {
+      return false;
+    }
+  }
+  if (acc.status !== undefined && acc.status !== null) {
+    const normStatus = String(acc.status).trim().toLowerCase();
+    if (!normStatus) return false;
+    if (!["1", "true", "active", "connected", "enabled"].includes(normStatus)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function resolveSePayItemBankCapability(
+  acc: SePayBankAccountApiItem
+): { capability: BankIntegrationCapability | null; ambiguous: boolean } {
+  const hints = [acc.bank_short_name, acc.bank_code, acc.bank_brand_name, acc.bank_name]
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  const resolved: BankIntegrationCapability[] = [];
+  for (const hint of hints) {
+    const cap = resolveBankCapability(hint);
+    if (cap && !resolved.some((r) => r.bankCode === cap.bankCode)) {
+      resolved.push(cap);
+    }
+  }
+  if (resolved.length === 0) return { capability: null, ambiguous: false };
+  if (resolved.length > 1) return { capability: null, ambiguous: true };
+  return { capability: resolved[0], ambiguous: false };
+}
+
+export type SePayMatchResult =
+  | {
+      readonly ok: true;
+      readonly capability: BankIntegrationCapability;
+      readonly accountNumber: string;
+      readonly subAccount: string;
+      readonly providerAccountId: string;
+      readonly providerConnectionId: string;
+      readonly observedAccumulatedMinor: number | null;
+    }
+  | { readonly ok: false; readonly errorCode: string };
+
+export function matchVerifiedSePayAccount(params: {
+  sepayAccounts: readonly SePayBankAccountApiItem[];
+  requestedBankCode: string;
+  requestedAccountNumber: string;
+  requestedSubAccount?: string;
+}): SePayMatchResult {
+  const cleanAcc = params.requestedAccountNumber.replace(/[^A-Za-z0-9]/g, "").trim();
+  if (cleanAcc.length < 6) {
+    return { ok: false, errorCode: "INVALID_ACCOUNT_NUMBER" };
+  }
+  const cleanReqBank = params.requestedBankCode.trim();
+  if (!cleanReqBank) {
+    return { ok: false, errorCode: "BANK_CODE_REQUIRED" };
+  }
+  const requestedCap = resolveBankCapability(cleanReqBank);
+  if (!requestedCap || !requestedCap.supportsWebhookCredit) {
+    return { ok: false, errorCode: "UNSUPPORTED_PROVIDER_BANK" };
+  }
+  const cleanReqSub = (params.requestedSubAccount ?? "").trim();
+
+  const accountMatches = params.sepayAccounts.filter((acc) => {
+    const remoteAcc = String(acc.account_number ?? "").replace(/[^A-Za-z0-9]/g, "").trim();
+    return remoteAcc.length >= 6 && remoteAcc === cleanAcc;
+  });
+
+  if (accountMatches.length === 0) {
+    return { ok: false, errorCode: "SEPAY_ACCOUNT_NOT_FOUND" };
+  }
+
+  let sawAmbiguousBankHint = false;
+  let sawSubMismatch = false;
+  const matchedEntries: Array<{
+    item: SePayBankAccountApiItem;
+    capability: BankIntegrationCapability;
+    subAccount: string;
+  }> = [];
+
+  for (const acc of accountMatches) {
+    const { capability: remoteCap, ambiguous } = resolveSePayItemBankCapability(acc);
+    if (ambiguous) {
+      sawAmbiguousBankHint = true;
+      continue;
+    }
+    if (!remoteCap || !remoteCap.supportsWebhookCredit) {
+      continue;
+    }
+    if (remoteCap.bankCode !== requestedCap.bankCode) {
+      continue;
+    }
+    const remoteSub = String(acc.sub_account ?? acc.va ?? "").trim();
+    if (cleanReqSub.length > 0) {
+      if (!remoteSub || remoteSub.toUpperCase() !== cleanReqSub.toUpperCase()) {
+        sawSubMismatch = true;
+        continue;
+      }
+    }
+    matchedEntries.push({
+      item: acc,
+      capability: remoteCap,
+      subAccount: remoteSub
+    });
+  }
+
+  if (matchedEntries.length === 0) {
+    if (sawAmbiguousBankHint) {
+      return { ok: false, errorCode: "AMBIGUOUS_SEPAY_ACCOUNT" };
+    }
+    if (sawSubMismatch) {
+      return { ok: false, errorCode: "SUBACCOUNT_MISMATCH" };
+    }
+    return { ok: false, errorCode: "BANK_MISMATCH_OR_UNVERIFIED" };
+  }
+
+  if (matchedEntries.length > 1) {
+    return { ok: false, errorCode: "AMBIGUOUS_SEPAY_ACCOUNT" };
+  }
+
+  const chosen = matchedEntries[0];
+  const rawId =
+    chosen.item.id !== undefined && chosen.item.id !== null
+      ? String(chosen.item.id).trim()
+      : "";
+  if (!rawId) {
+    return { ok: false, errorCode: "INVALID_SEPAY_ACCOUNT_ID" };
+  }
+  if (!isSePayAccountActive(chosen.item)) {
+    return { ok: false, errorCode: "INACTIVE_SEPAY_ACCOUNT" };
+  }
+
+  const parsedAcc = Number(chosen.item.accumulated);
+  const observedAccumulatedMinor =
+    Number.isSafeInteger(parsedAcc) && parsedAcc > 0 ? parsedAcc : null;
+
+  return {
+    ok: true,
+    capability: chosen.capability,
+    accountNumber: cleanAcc,
+    subAccount: chosen.subAccount,
+    providerAccountId: rawId,
+    providerConnectionId: `sepay_ba_${rawId}`,
+    observedAccumulatedMinor
+  };
+}
+
 export interface ServerBankConnectionRecord {
   readonly id: string;
   readonly ownerId: string;
@@ -240,6 +439,9 @@ export interface BankingTxContext {
   upsertFinancialNotification(ownerId: string, notif: FinancialNotificationRecord): Promise<void>;
   upsertNotificationOutbox(outbox: NotificationOutboxRecord): Promise<void>;
   updateConnectionLastSync(ownerId: string, connectionId: string, syncedAtMs: number): Promise<void>;
+  getBankAccountClaim(claimId: string): Promise<BankAccountClaimRecord | null>;
+  upsertBankAccountClaim(claim: BankAccountClaimRecord): Promise<void>;
+  saveVerifiedConnectionTx(record: ServerBankConnectionRecord): Promise<void>;
 }
 
 export interface BankingBackendStore {
@@ -252,7 +454,8 @@ export interface BankingBackendStore {
   }): Promise<ServerBankConnectionRecord | null>;
   findAnyVerifiedConnectionByAccount(
     bankCode: string,
-    accountNumber: string
+    accountNumber: string,
+    subAccount?: string
   ): Promise<ServerBankConnectionRecord | null>;
   saveVerifiedConnection(record: ServerBankConnectionRecord): Promise<void>;
   disconnectConnection(ownerId: string, connectionId: string, nowMs: number): Promise<void>;
@@ -1115,7 +1318,8 @@ export class RealtimeBankingCoordinator {
   }
 
   /**
-   * Multi-User Bank Linking with Strict Ownership Proof & Conflict Check (Section 7 & T23).
+   * Multi-User Bank Linking with Strict SePay Identity Proof, Wallet Ownership Check &
+   * Transactional Claim Ownership (Section 7, T23, Finding 3).
    * Typing an account number alone NEVER creates a `connected` SePay connection!
    */
   async verifyAndConnectBankAccount(params: {
@@ -1124,47 +1328,94 @@ export class RealtimeBankingCoordinator {
     accountNumber: string;
     subAccount?: string;
     linkedWalletId: string;
-    providerAccountProof: {
+    sepayAccounts?: readonly SePayBankAccountApiItem[];
+    providerAccountProof?: {
       verifiedByProviderApi: boolean;
       providerConnectionId?: string;
     };
     nowMs?: number;
   }): Promise<{ ok: boolean; errorCode?: string; connection?: ServerBankConnectionRecord }> {
     const nowMs = params.nowMs ?? Date.now();
+    const uid = params.authenticatedUserId.trim();
+    const linkedWalletId = params.linkedWalletId.trim();
     const cleanAcc = params.accountNumber.replace(/[^A-Za-z0-9]/g, "").trim();
+    if (!uid || !linkedWalletId) {
+      return { ok: false, errorCode: "WALLET_NOT_FOUND_OR_FORBIDDEN" };
+    }
     if (cleanAcc.length < 6) {
       return { ok: false, errorCode: "INVALID_ACCOUNT_NUMBER" };
     }
 
-    // T23: Manual account input without provider proof MUST NOT be marked connected!
-    if (!params.providerAccountProof.verifiedByProviderApi) {
-      return { ok: false, errorCode: "OWNERSHIP_PROOF_REQUIRED" };
+    let cap: BankIntegrationCapability;
+    let verifiedSubAcc: string;
+    let providerConnectionId: string;
+    let providerAccountId: string | undefined;
+
+    if (params.sepayAccounts !== undefined) {
+      const matched = matchVerifiedSePayAccount({
+        sepayAccounts: params.sepayAccounts,
+        requestedBankCode: params.bankCode,
+        requestedAccountNumber: cleanAcc,
+        requestedSubAccount: params.subAccount
+      });
+      if (!matched.ok) {
+        return { ok: false, errorCode: matched.errorCode };
+      }
+      cap = matched.capability;
+      verifiedSubAcc = matched.subAccount;
+      providerConnectionId = matched.providerConnectionId;
+      providerAccountId = matched.providerAccountId;
+    } else {
+      // T23: Manual account input without provider proof MUST NOT be marked connected!
+      if (!params.providerAccountProof?.verifiedByProviderApi) {
+        return { ok: false, errorCode: "OWNERSHIP_PROOF_REQUIRED" };
+      }
+      const resolved = resolveBankCapability(params.bankCode);
+      if (!resolved || !resolved.supportsWebhookCredit) {
+        return { ok: false, errorCode: "UNSUPPORTED_PROVIDER_BANK" };
+      }
+      cap = resolved;
+      verifiedSubAcc = (params.subAccount ?? "").trim();
+      providerConnectionId =
+        params.providerAccountProof.providerConnectionId?.trim() ||
+        `sepay_conn_${sha256Hex(`${cap.bankCode}:${cleanAcc}:${verifiedSubAcc}`).slice(0, 14)}`;
+      if (providerConnectionId.startsWith("sepay_ba_")) {
+        const extractedId = providerConnectionId.slice("sepay_ba_".length).trim();
+        if (extractedId) providerAccountId = extractedId;
+      }
     }
 
-    const cap = resolveBankCapability(params.bankCode);
-    if (!cap || !cap.supportsWebhookCredit) {
-      return { ok: false, errorCode: "UNSUPPORTED_PROVIDER_BANK" };
-    }
-
-    // Conflict guard: prevent User B from linking a bank account already verified by User A!
-    const existingOwnerConn = await this.store.findAnyVerifiedConnectionByAccount(cap.bankCode, cleanAcc);
-    if (existingOwnerConn && existingOwnerConn.ownerId !== params.authenticatedUserId && existingOwnerConn.status === "connected") {
+    // Legacy non-claim conflict pre-check (in case connections predate server_bank_account_claims)
+    const existingLegacyConn = await this.store.findAnyVerifiedConnectionByAccount(
+      cap.bankCode,
+      cleanAcc,
+      verifiedSubAcc
+    );
+    if (
+      existingLegacyConn &&
+      existingLegacyConn.ownerId !== uid &&
+      existingLegacyConn.status === "connected"
+    ) {
       return { ok: false, errorCode: "ACCOUNT_ALREADY_LINKED_OTHER_USER" };
     }
 
-    const subAcc = (params.subAccount ?? "").trim();
-    const connId = `conn_${cap.bankCode.toLowerCase()}_${sha256Hex(`${params.authenticatedUserId}:${cleanAcc}:${subAcc}`).slice(0, 14)}`;
+    const acctClaimId = buildNormalizedAccountClaimId(cap.bankCode, cleanAcc, verifiedSubAcc);
+    const idClaimId = providerAccountId
+      ? buildProviderAccountIdClaimId(providerAccountId)
+      : null;
+
+    const connId = `conn_${cap.bankCode.toLowerCase()}_${sha256Hex(`${uid}:${cleanAcc}:${verifiedSubAcc}`).slice(0, 14)}`;
     const record: ServerBankConnectionRecord = {
       id: connId,
-      ownerId: params.authenticatedUserId,
+      ownerId: uid,
       provider: "sepay",
-      providerConnectionId: params.providerAccountProof.providerConnectionId ?? `sepay_${connId}`,
+      providerConnectionId,
       bankCode: cap.bankCode,
       bankName: cap.bankName,
       accountNumber: cleanAcc,
       accountMasked: maskAccountNumber(cleanAcc),
-      subAccount: subAcc,
-      linkedWalletId: params.linkedWalletId,
+      subAccount: verifiedSubAcc,
+      linkedWalletId,
       consentStatus: "granted",
       status: "connected",
       capabilities: cap,
@@ -1173,7 +1424,64 @@ export class RealtimeBankingCoordinator {
       updatedAtMs: nowMs
     };
 
-    await this.store.saveVerifiedConnection(record);
-    return { ok: true, connection: record };
+    return this.store.runAtomic(async (tx) => {
+      // 1. All reads MUST occur before any writes (Cloud Firestore transaction constraint)
+      const targetWallet = await tx.getWallet(uid, linkedWalletId);
+      const acctClaim = await tx.getBankAccountClaim(acctClaimId);
+      const idClaim = idClaimId ? await tx.getBankAccountClaim(idClaimId) : null;
+
+      if (!targetWallet || targetWallet.ownerId !== uid) {
+        return { ok: false, errorCode: "WALLET_NOT_FOUND_OR_FORBIDDEN" };
+      }
+
+      if (
+        acctClaim &&
+        acctClaim.status === "connected" &&
+        acctClaim.ownerId !== uid
+      ) {
+        return { ok: false, errorCode: "ACCOUNT_ALREADY_LINKED_OTHER_USER" };
+      }
+      if (
+        idClaim &&
+        idClaim.status === "connected" &&
+        idClaim.ownerId !== uid
+      ) {
+        return { ok: false, errorCode: "ACCOUNT_ALREADY_LINKED_OTHER_USER" };
+      }
+
+      // 2. Write ownership claims + connection atomically inside the SAME transaction
+      await tx.upsertBankAccountClaim({
+        claimId: acctClaimId,
+        ownerId: uid,
+        connectionId: connId,
+        provider: "sepay",
+        providerConnectionId,
+        ...(providerAccountId ? { providerAccountId } : {}),
+        bankCode: cap.bankCode,
+        accountNumber: cleanAcc,
+        subAccount: verifiedSubAcc,
+        status: "connected",
+        updatedAtMs: nowMs
+      });
+
+      if (idClaimId) {
+        await tx.upsertBankAccountClaim({
+          claimId: idClaimId,
+          ownerId: uid,
+          connectionId: connId,
+          provider: "sepay",
+          providerConnectionId,
+          ...(providerAccountId ? { providerAccountId } : {}),
+          bankCode: cap.bankCode,
+          accountNumber: cleanAcc,
+          subAccount: verifiedSubAcc,
+          status: "connected",
+          updatedAtMs: nowMs
+        });
+      }
+
+      await tx.saveVerifiedConnectionTx(record);
+      return { ok: true, connection: record };
+    });
   }
 }

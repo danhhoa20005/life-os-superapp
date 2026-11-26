@@ -135,6 +135,8 @@ class FamilyPendingInviteEntity extends Equatable {
   final InviteKind inviteKind;
   final String? inviteeName;
   final String? inviteeContact;
+  final String? inviteeUid;
+  final String? inviteeEmail;
   final String? intendedRecipientHash;
   final String invitedByUserId;
   final String invitedByName;
@@ -157,6 +159,8 @@ class FamilyPendingInviteEntity extends Equatable {
     InviteKind? inviteKind,
     this.inviteeName,
     this.inviteeContact,
+    this.inviteeUid,
+    this.inviteeEmail,
     this.intendedRecipientHash,
     required this.invitedByUserId,
     required this.invitedByName,
@@ -190,6 +194,8 @@ class FamilyPendingInviteEntity extends Equatable {
 
   bool get isTargeted =>
       inviteKind == InviteKind.targeted ||
+      (inviteeUid != null && inviteeUid!.trim().isNotEmpty) ||
+      (inviteeEmail != null && inviteeEmail!.trim().isNotEmpty) ||
       (intendedRecipientHash != null &&
           intendedRecipientHash!.trim().isNotEmpty) ||
       isTargetedInvite;
@@ -244,6 +250,8 @@ class FamilyPendingInviteEntity extends Equatable {
     inviteKind,
     inviteeName,
     inviteeContact,
+    inviteeUid,
+    inviteeEmail,
     intendedRecipientHash,
     invitedByUserId,
     invitedByName,
@@ -398,9 +406,21 @@ class ShoppingItemEntity extends Equatable {
   ];
 }
 
+enum SharedBillReconciliationStatus {
+  reconciled,
+  needsReconciliation;
+
+  String get displayLabel => switch (this) {
+    SharedBillReconciliationStatus.reconciled => 'Đã đối soát',
+    SharedBillReconciliationStatus.needsReconciliation => 'Cần đối soát',
+  };
+}
+
 /// Represents a shared bill paid upfront by one member and split across participants
 /// (eating out, housework supplies/cleaning, utilities, rent, trip expenses).
 class SharedBillSplitEntity extends Equatable {
+  static const int maxSplitParticipants = 20;
+
   final String id;
   final String familyId;
   final String title;
@@ -429,6 +449,32 @@ class SharedBillSplitEntity extends Equatable {
     this.choreOrTaskNote,
     required this.createdAt,
   });
+
+  int get sharesSumMinor =>
+      sharesByUserId.values.fold<int>(0, (sum, value) => sum + value);
+
+  bool get hasInvalidShares =>
+      totalAmountMinor <= 0 ||
+      paidByUserId.trim().isEmpty ||
+      sharesByUserId.isEmpty ||
+      sharesByUserId.length > maxSplitParticipants ||
+      sharesByUserId.entries.any(
+        (entry) => entry.key.trim().isEmpty || entry.value < 0,
+      ) ||
+      sharesByUserId.values.every((value) => value == 0);
+
+  bool get isSharesBalanced =>
+      !hasInvalidShares && sharesSumMinor == totalAmountMinor;
+
+  SharedBillReconciliationStatus get reconciliationStatus => isSharesBalanced
+      ? SharedBillReconciliationStatus.reconciled
+      : SharedBillReconciliationStatus.needsReconciliation;
+
+  bool get needsReconciliation =>
+      reconciliationStatus ==
+      SharedBillReconciliationStatus.needsReconciliation;
+
+  int get discrepancyMinor => totalAmountMinor - sharesSumMinor;
 
   @override
   List<Object?> get props => [
@@ -634,6 +680,9 @@ class SharedLedgerSummary extends Equatable {
   final List<MemberNetBalance> memberBalances;
   final List<SimplifiedDebtTransfer> suggestedTransfers;
   final bool isExactOptimal;
+  final int unverifiedSharedSpendMinor;
+  final int inconsistentBillCount;
+  final List<String> inconsistentBillIds;
 
   const SharedLedgerSummary({
     this.totalSharedSpendMinor = 0,
@@ -641,7 +690,12 @@ class SharedLedgerSummary extends Equatable {
     this.memberBalances = const [],
     this.suggestedTransfers = const [],
     this.isExactOptimal = true,
+    this.unverifiedSharedSpendMinor = 0,
+    this.inconsistentBillCount = 0,
+    this.inconsistentBillIds = const [],
   });
+
+  bool get needsReconciliation => inconsistentBillCount > 0;
 
   @override
   List<Object?> get props => [
@@ -650,6 +704,9 @@ class SharedLedgerSummary extends Equatable {
     memberBalances,
     suggestedTransfers,
     isExactOptimal,
+    unverifiedSharedSpendMinor,
+    inconsistentBillCount,
+    inconsistentBillIds,
   ];
 }
 
@@ -750,31 +807,40 @@ abstract final class DebtSimplifier {
     final receivedMap = <String, int>{for (final m in members) m.userId: 0};
     final topicSpend = <SharedExpenseTopic, int>{};
     var totalSpend = 0;
+    var unverifiedSpend = 0;
+    final inconsistentIds = <String>[];
 
     for (final bill in bills) {
-      if (bill.totalAmountMinor <= 0) continue;
-      final positiveShares = <MapEntry<String, int>>[];
-      var sharesSum = 0;
-      for (final entry in bill.sharesByUserId.entries) {
-        if (entry.value > 0 && entry.key.trim().isNotEmpty) {
-          positiveShares.add(entry);
-          sharesSum += entry.value;
+      if (!bill.isSharesBalanced) {
+        inconsistentIds.add(bill.id);
+        if (bill.totalAmountMinor > 0) {
+          unverifiedSpend += bill.totalAmountMinor;
         }
+        continue;
       }
-      if (sharesSum <= 0) continue;
-
-      totalSpend += bill.totalAmountMinor;
-      topicSpend[bill.topic] =
-          (topicSpend[bill.topic] ?? 0) + bill.totalAmountMinor;
 
       final payerId = bill.paidByUserId;
       if (payerId.trim().isEmpty ||
           (payerId == 'bank_transfer' && !realMemberIds.contains(payerId))) {
+        inconsistentIds.add(bill.id);
+        unverifiedSpend += bill.totalAmountMinor;
         continue;
       }
+
+      final positiveShares = <MapEntry<String, int>>[];
+      for (final entry in bill.sharesByUserId.entries) {
+        if (entry.value > 0 && entry.key.trim().isNotEmpty) {
+          positiveShares.add(entry);
+        }
+      }
+
+      // Consistent reconciled basis: sum(shares) == totalAmountMinor strictly holds
+      totalSpend += bill.totalAmountMinor;
+      topicSpend[bill.topic] =
+          (topicSpend[bill.topic] ?? 0) + bill.totalAmountMinor;
+
       namesById.putIfAbsent(payerId, () => bill.paidByName);
-      // Use sharesSum if a malformed bill had rounding mismatch so net-zero invariant strictly holds
-      paidMap[payerId] = (paidMap[payerId] ?? 0) + sharesSum;
+      paidMap[payerId] = (paidMap[payerId] ?? 0) + bill.totalAmountMinor;
       owedMap.putIfAbsent(payerId, () => 0);
 
       for (final entry in positiveShares) {
@@ -877,6 +943,9 @@ abstract final class DebtSimplifier {
         memberBalances: List.unmodifiable(balances),
         suggestedTransfers: const [],
         isExactOptimal: false,
+        unverifiedSharedSpendMinor: unverifiedSpend,
+        inconsistentBillCount: inconsistentIds.length,
+        inconsistentBillIds: List.unmodifiable(inconsistentIds),
       );
     }
 
@@ -887,6 +956,9 @@ abstract final class DebtSimplifier {
         memberBalances: List.unmodifiable(balances),
         suggestedTransfers: const [],
         isExactOptimal: true,
+        unverifiedSharedSpendMinor: unverifiedSpend,
+        inconsistentBillCount: inconsistentIds.length,
+        inconsistentBillIds: List.unmodifiable(inconsistentIds),
       );
     }
 
@@ -940,6 +1012,9 @@ abstract final class DebtSimplifier {
       memberBalances: List.unmodifiable(balances),
       suggestedTransfers: List.unmodifiable(transfers),
       isExactOptimal: isExactOptimal,
+      unverifiedSharedSpendMinor: unverifiedSpend,
+      inconsistentBillCount: inconsistentIds.length,
+      inconsistentBillIds: List.unmodifiable(inconsistentIds),
     );
   }
 

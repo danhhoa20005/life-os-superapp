@@ -44,6 +44,8 @@ export interface FamilyInviteRecord {
   readonly invitedByUserId: string;
   readonly invitedByName: string;
   readonly inviteeName?: string;
+  readonly inviteeUid?: string;
+  readonly inviteeEmail?: string;
   readonly intendedRecipientHash?: string;
   readonly maxUses: number;
   readonly usedCount: number;
@@ -326,11 +328,18 @@ function mapInviteDoc(code: string, d: Record<string, unknown>, nowMs: number): 
           ? "expired"
           : "active";
   const rawKind = typeof d.inviteKind === "string" ? d.inviteKind : undefined;
-  const hasHash = typeof d.intendedRecipientHash === "string" && d.intendedRecipientHash.length > 0;
+  const inviteeUid = typeof d.inviteeUid === "string" && d.inviteeUid.trim().length > 0 ? d.inviteeUid.trim() : undefined;
+  const inviteeEmail =
+    typeof d.inviteeEmail === "string" && d.inviteeEmail.trim().length > 0 ? d.inviteeEmail.trim() : undefined;
+  const intendedRecipientHash =
+    typeof d.intendedRecipientHash === "string" && d.intendedRecipientHash.trim().length > 0
+      ? d.intendedRecipientHash.trim().toLowerCase()
+      : undefined;
+  const hasRecipientTarget = Boolean(inviteeUid || inviteeEmail || intendedRecipientHash);
   const inviteKind: InviteKind =
     rawKind === "targeted" || rawKind === "reusableGroup" || rawKind === "oneTime"
       ? rawKind
-      : hasHash
+      : hasRecipientTarget
         ? "targeted"
         : maxUses > 1
           ? "reusableGroup"
@@ -346,12 +355,14 @@ function mapInviteDoc(code: string, d: Record<string, unknown>, nowMs: number): 
     familyName: String(d.familyName ?? "Không gian chung"),
     spaceType,
     inviteKind,
-    isTargeted: Boolean(d.isTargeted ?? (inviteKind === "targeted" || hasHash)),
+    isTargeted: Boolean(d.isTargeted ?? (inviteKind === "targeted" || hasRecipientTarget)),
     createdBy: String(d.createdBy ?? d.invitedByUserId ?? ""),
     invitedByUserId: String(d.invitedByUserId ?? d.createdBy ?? ""),
     invitedByName: String(d.invitedByName ?? "Trưởng nhóm"),
     inviteeName: typeof d.inviteeName === "string" ? d.inviteeName : undefined,
-    intendedRecipientHash: typeof d.intendedRecipientHash === "string" ? d.intendedRecipientHash : undefined,
+    inviteeUid,
+    inviteeEmail,
+    intendedRecipientHash,
     maxUses,
     usedCount,
     consumedBy: typeof d.consumedBy === "string" ? d.consumedBy : null,
@@ -449,6 +460,7 @@ export class FirestoreAdminFamilyInviteStore implements FamilyInviteStore {
             updatedAt: Timestamp.fromMillis(invite.updatedAtMs)
           };
           if (invite.inviteeName) docData.inviteeName = invite.inviteeName;
+          if (invite.inviteeUid) docData.inviteeUid = invite.inviteeUid;
           if (invite.intendedRecipientHash) docData.intendedRecipientHash = invite.intendedRecipientHash;
           tx.set(ref, docData);
         },
@@ -558,6 +570,7 @@ export class FamilyInviteCoordinator {
     ttlDays?: number;
     inviteeName?: string;
     inviteeContact?: string;
+    inviteeUid?: string;
   }): Promise<{
     ok: true;
     inviteCode: string;
@@ -573,12 +586,14 @@ export class FamilyInviteCoordinator {
 
     const cleanInviteeName = params.inviteeName?.trim();
     const cleanContact = params.inviteeContact?.trim();
+    const cleanInviteeUid = params.inviteeUid?.trim();
     const hasContact = Boolean(cleanContact && cleanContact.length > 0);
+    const hasUid = Boolean(cleanInviteeUid && cleanInviteeUid.length > 0);
     const requestedMaxUses =
       typeof params.maxUses === "number" && Number.isFinite(params.maxUses) ? Math.floor(params.maxUses) : 1;
 
     const effectiveKind: InviteKind =
-      params.inviteKind ?? (hasContact ? "targeted" : requestedMaxUses > 1 ? "reusableGroup" : "oneTime");
+      params.inviteKind ?? (hasContact || hasUid ? "targeted" : requestedMaxUses > 1 ? "reusableGroup" : "oneTime");
 
     let effectiveMaxUses = requestedMaxUses;
     if (effectiveKind === "oneTime" || effectiveKind === "targeted") {
@@ -595,8 +610,8 @@ export class FamilyInviteCoordinator {
       }
     }
 
-    if (effectiveKind === "targeted" && !hasContact) {
-      throw new FamilyInviteError("INVALID_ARGUMENT", "Mã mời đích danh bắt buộc nhập Email hoặc SĐT người nhận.");
+    if (effectiveKind === "targeted" && !hasContact && !hasUid) {
+      throw new FamilyInviteError("INVALID_ARGUMENT", "Mã mời đích danh bắt buộc nhập Email, SĐT hoặc UID người nhận.");
     }
 
     const ttlDays = Math.min(
@@ -640,6 +655,7 @@ export class FamilyInviteCoordinator {
         invitedByUserId: uid,
         invitedByName: inviterName,
         inviteeName: publicInviteeName,
+        inviteeUid: hasUid ? cleanInviteeUid : undefined,
         intendedRecipientHash: recipientHash,
         maxUses: effectiveMaxUses,
         usedCount: 0,
@@ -667,6 +683,7 @@ export class FamilyInviteCoordinator {
         invitedByUserId: uid,
         invitedByName: inviterName,
         ...(cleanInviteeName ? { inviteeName: cleanInviteeName } : {}),
+        ...(hasUid ? { inviteeUid: cleanInviteeUid } : {}),
         ...(maskedContact ? { inviteeContactMasked: maskedContact } : {}),
         ...(recipientHash ? { intendedRecipientHash: recipientHash } : {}),
         maxUses: effectiveMaxUses,
@@ -803,15 +820,62 @@ export class FamilyInviteCoordinator {
           throw new FamilyInviteError("FAILED_PRECONDITION", "Mã mời này đã được sử dụng hết lượt.");
         }
 
-        if (inv.intendedRecipientHash) {
-          const verifiedEmail = params.authEmailVerified === true ? params.authEmail : undefined;
-          const candidates = [verifiedEmail, params.authPhoneNumber, uid]
-            .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-            .map(hashRecipientContact);
-          if (!candidates.includes(inv.intendedRecipientHash)) {
+        const invIsTargeted =
+          inv.isTargeted ||
+          inv.inviteKind === "targeted" ||
+          Boolean(inv.inviteeUid) ||
+          Boolean(inv.inviteeEmail) ||
+          Boolean(inv.intendedRecipientHash);
+
+        if (invIsTargeted) {
+          if (inv.inviteeUid && inv.inviteeUid.trim().length > 0) {
+            if (uid !== inv.inviteeUid.trim()) {
+              throw new FamilyInviteError(
+                "PERMISSION_DENIED",
+                "Mã mời đích danh này chỉ dành cho đúng tài khoản được mời."
+              );
+            }
+          } else if (inv.inviteeEmail && inv.inviteeEmail.trim().length > 0) {
+            if (params.authEmailVerified !== true) {
+              throw new FamilyInviteError(
+                "PERMISSION_DENIED",
+                "Cần xác minh email trước khi tham gia nhóm"
+              );
+            }
+            const normalizedTokenEmail = (params.authEmail ?? "").trim().toLowerCase();
+            if (!normalizedTokenEmail || normalizedTokenEmail !== inv.inviteeEmail.trim().toLowerCase()) {
+              throw new FamilyInviteError(
+                "PERMISSION_DENIED",
+                "Mã mời đích danh này chỉ dành cho đúng email đã xác minh được mời."
+              );
+            }
+          } else if (inv.intendedRecipientHash && inv.intendedRecipientHash.trim().length > 0) {
+            const targetHash = inv.intendedRecipientHash.trim().toLowerCase();
+            const verifiedEmail = params.authEmailVerified === true ? params.authEmail : undefined;
+            const verifiedCandidates = [verifiedEmail, params.authPhoneNumber, uid]
+              .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+              .map(hashRecipientContact);
+            if (!verifiedCandidates.includes(targetHash)) {
+              const rawEmail = typeof params.authEmail === "string" ? params.authEmail.trim() : "";
+              if (
+                params.authEmailVerified !== true &&
+                rawEmail.length > 0 &&
+                hashRecipientContact(rawEmail) === targetHash
+              ) {
+                throw new FamilyInviteError(
+                  "PERMISSION_DENIED",
+                  "Cần xác minh email trước khi tham gia nhóm"
+                );
+              }
+              throw new FamilyInviteError(
+                "PERMISSION_DENIED",
+                "Mã mời đích danh này chỉ dành cho đúng tài khoản đã xác minh được mời."
+              );
+            }
+          } else {
             throw new FamilyInviteError(
               "PERMISSION_DENIED",
-              "Mã mời đích danh này chỉ dành cho đúng tài khoản đã xác minh được mời."
+              "Mã mời đích danh thiếu thông tin định danh người nhận hợp lệ."
             );
           }
         }

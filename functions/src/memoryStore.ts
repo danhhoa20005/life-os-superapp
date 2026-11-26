@@ -1,4 +1,5 @@
 import {
+  BankAccountClaimRecord,
   BankingBackendStore,
   BankingTxContext,
   CanonicalTransactionRecord,
@@ -18,6 +19,7 @@ import {
  */
 export class SerializedMemoryBankingStore implements BankingBackendStore {
   public readonly serverConnections = new Map<string, ServerBankConnectionRecord>();
+  public readonly bankAccountClaims = new Map<string, BankAccountClaimRecord>();
   public readonly userConnections = new Map<string, Map<string, Record<string, unknown>>>();
   public readonly inbox = new Map<string, InboxEventRecord>();
   public readonly outbox = new Map<string, NotificationOutboxRecord>();
@@ -85,6 +87,13 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
               updatedAtMs: syncedAtMs
             });
           }
+        },
+        getBankAccountClaim: async (claimId) => this.bankAccountClaims.get(claimId) ?? null,
+        upsertBankAccountClaim: async (claim) => {
+          this.bankAccountClaims.set(claim.claimId, claim);
+        },
+        saveVerifiedConnectionTx: async (record) => {
+          await this.saveVerifiedConnection(record);
         }
       };
       return fn(ctx);
@@ -116,14 +125,18 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
 
   async findAnyVerifiedConnectionByAccount(
     bankCode: string,
-    accountNumber: string
+    accountNumber: string,
+    subAccount?: string
   ): Promise<ServerBankConnectionRecord | null> {
+    const expectedSub = String(subAccount ?? "").trim().toUpperCase();
     for (const c of this.serverConnections.values()) {
       if (
         c.bankCode.toUpperCase() === bankCode.toUpperCase() &&
         c.accountNumber === accountNumber &&
         c.status === "connected"
       ) {
+        const docSub = String(c.subAccount ?? "").trim().toUpperCase();
+        if (expectedSub !== docSub) continue;
         return c;
       }
     }
@@ -138,24 +151,41 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
     this.userConnections.get(record.ownerId)!.set(record.id, {
       id: record.id,
       ownerId: record.ownerId,
+      provider: record.provider,
+      providerConnectionId: record.providerConnectionId,
       bankCode: record.bankCode,
       bankName: record.bankName,
       accountMasked: record.accountMasked,
+      subAccount: record.subAccount,
       linkedWalletId: record.linkedWalletId,
       status: record.status
     });
   }
 
   async disconnectConnection(ownerId: string, connectionId: string, nowMs: number): Promise<void> {
-    const c = this.serverConnections.get(connectionId);
-    if (c && c.ownerId === ownerId) {
-      this.serverConnections.set(connectionId, {
-        ...c,
-        status: "disconnected",
-        consentStatus: "revoked",
-        updatedAtMs: nowMs
-      });
-    }
+    await this.runAtomic(async () => {
+      const c = this.serverConnections.get(connectionId);
+      if (c && c.ownerId !== ownerId) {
+        throw new Error("FORBIDDEN_CONNECTION_OWNER");
+      }
+      if (c && c.ownerId === ownerId) {
+        this.serverConnections.set(connectionId, {
+          ...c,
+          status: "disconnected",
+          consentStatus: "revoked",
+          updatedAtMs: nowMs
+        });
+      }
+      for (const [claimId, claim] of this.bankAccountClaims.entries()) {
+        if (claim.ownerId === ownerId && claim.connectionId === connectionId) {
+          this.bankAccountClaims.set(claimId, {
+            ...claim,
+            status: "disconnected",
+            updatedAtMs: nowMs
+          });
+        }
+      }
+    });
   }
 
   async getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null> {

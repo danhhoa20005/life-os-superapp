@@ -1,12 +1,19 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 
 const PROJECT_ID = 'demo-life-os';
 const EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8188';
 const BASE_URL = `http://${EMULATOR_HOST}/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const COMMIT_URL = `${BASE_URL}:commit`;
 
-function makeEmulatorJwt(uid) {
+function sha256Hex(input) {
+  return crypto.createHash('sha256').update(input, 'utf8').digest('hex');
+}
+
+function makeEmulatorJwt(authSpec) {
+  const uid = typeof authSpec === 'string' ? authSpec : authSpec.uid;
+  const claims = typeof authSpec === 'object' && authSpec !== null ? authSpec.claims ?? {} : {};
   const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -14,6 +21,7 @@ function makeEmulatorJwt(uid) {
       aud: PROJECT_ID,
       user_id: uid,
       sub: uid,
+      ...claims,
       iat: Math.floor(Date.now() / 1000) - 60,
       exp: Math.floor(Date.now() / 1000) + 3600,
     }),
@@ -25,7 +33,9 @@ function toFirestoreValue(v) {
   if (v === null || v === undefined) return { nullValue: null };
   if (v instanceof Date) return { timestampValue: v.toISOString() };
   if (typeof v === 'string') return { stringValue: v };
-  if (typeof v === 'number') return { integerValue: String(v) };
+  if (typeof v === 'number') {
+    return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  }
   if (typeof v === 'boolean') return { booleanValue: v };
   if (Array.isArray(v)) {
     return { arrayValue: { values: v.map((item) => toFirestoreValue(item)) } };
@@ -277,7 +287,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       403,
     );
 
-    // Valid one-time invite creation (hashed recipient only, no raw contact PII!) -> 200
+    // Valid open one-time invite creation (no raw contact PII!) -> 200
     const invCode = `FAM-JOIN-${suffix}`;
     assert.equal(
       await firestoreRequest('PATCH', `family_invites/${invCode}`, {
@@ -286,7 +296,8 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           inviteCode: invCode,
           familyId: famId,
           createdBy: 'owner_1',
-          intendedRecipientHash: 'a'.repeat(64),
+          inviteKind: 'oneTime',
+          isTargeted: false,
           maxUses: 1,
           usedCount: 0,
           revoked: false,
@@ -2359,5 +2370,440 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
     assert.equal(okCount, 1, `Expected strictly 1 winner in concurrent debit race, got statuses [${r1.status}, ${r2.status}]`);
     const finalFund = await firestoreGetDoc(ownerId, `families/${famId}/funds/f_shared`);
     assert.equal(Number(finalFund.doc.fields.balanceMinor.integerValue), 50000);
+  });
+
+  it('13. Finding 2 — Enforces targeted invite recipient binding (inviteeUid, verified inviteeEmail, intendedRecipientHash) & atomic member/useCount updates', async () => {
+    const suffix = `f2_${Date.now()}`;
+    const famId = `fam_${suffix}`;
+    const ownerId = `owner_${suffix}`;
+    const futureDate = new Date(Date.now() + 24 * 3600 * 1000);
+
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}`, {
+        uid: ownerId,
+        data: {
+          id: famId,
+          name: 'Nhóm Đích Danh',
+          createdBy: ownerId,
+          memberIds: [ownerId],
+          memberRoles: { [ownerId]: 'owner' },
+          memberNames: { [ownerId]: 'Minh' },
+        },
+      }),
+      200,
+    );
+
+    // 13a. Targeted invite using intendedRecipientHash (zero raw PII) for email lan@lifeos.vn
+    const hashCode = `FAM-HASH-${suffix}`;
+    const lanHash = sha256Hex('lan@lifeos.vn');
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${hashCode}`, {
+        uid: ownerId,
+        data: {
+          inviteCode: hashCode,
+          familyId: famId,
+          createdBy: ownerId,
+          inviteKind: 'targeted',
+          isTargeted: true,
+          intendedRecipientHash: lanHash,
+          maxUses: 1,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: futureDate,
+        },
+      }),
+      200,
+    );
+
+    // Helper for join batch (preserves prior memberNames so unchangedMapExceptSelfJoin holds)
+    const knownMemberNames = { [ownerId]: 'Minh' };
+    const joinWrites = (joinUid, joinName, code, prevMembers, nextUsed, nextStatus) => [
+      {
+        path: `family_invites/${code}`,
+        exists: true,
+        updateMask: ['usedCount', 'consumedBy', 'consumedAt', 'status', 'updatedAt'],
+        data: {
+          usedCount: nextUsed,
+          consumedBy: joinUid,
+          consumedAt: new Date(),
+          status: nextStatus,
+          updatedAt: new Date(),
+        },
+      },
+      {
+        path: `families/${famId}`,
+        exists: true,
+        updateMask: ['memberIds', 'memberRoles', 'memberNames', 'lastJoinedInviteCode', 'updatedAt'],
+        data: {
+          memberIds: [...prevMembers, joinUid],
+          memberRoles: Object.fromEntries([
+            ...prevMembers.map((id) => [id, id === ownerId ? 'owner' : 'member']),
+            [joinUid, 'member'],
+          ]),
+          memberNames: Object.fromEntries([
+            ...prevMembers.map((id) => [id, knownMemberNames[id] ?? id]),
+            [joinUid, joinName],
+          ]),
+          lastJoinedInviteCode: code,
+          updatedAt: new Date(),
+        },
+      },
+    ];
+
+    // Unverified email with matching address MUST BE DENIED (403)
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: `u_unver_${suffix}`, claims: { email: 'lan@lifeos.vn', email_verified: false } },
+        joinWrites(`u_unver_${suffix}`, 'Lan Unverified', hashCode, [ownerId], 1, 'consumed'),
+      ),
+      403,
+    );
+
+    // Different user with verified wrong email MUST BE DENIED (403)
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: `u_other_${suffix}`, claims: { email: 'intruder@lifeos.vn', email_verified: true } },
+        joinWrites(`u_other_${suffix}`, 'Intruder', hashCode, [ownerId], 1, 'consumed'),
+      ),
+      403,
+    );
+
+    // Non-atomic: incrementing invite usedCount WITHOUT updating family memberIds MUST BE DENIED (403)
+    const lanUid = `u_lan_${suffix}`;
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: lanUid, claims: { email: 'Lan@LifeOS.vn', email_verified: true } },
+        [joinWrites(lanUid, 'Lan', hashCode, [ownerId], 1, 'consumed')[0]],
+      ),
+      403,
+    );
+
+    // Non-atomic: updating family memberIds WITHOUT incrementing invite usedCount MUST BE DENIED (403)
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: lanUid, claims: { email: 'Lan@LifeOS.vn', email_verified: true } },
+        [joinWrites(lanUid, 'Lan', hashCode, [ownerId], 1, 'consumed')[1]],
+      ),
+      403,
+    );
+
+    // Verified matching email (case-insensitive) in atomic batch SUCCEEDS (200)
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: lanUid, claims: { email: 'Lan@LifeOS.vn', email_verified: true } },
+        joinWrites(lanUid, 'Lan', hashCode, [ownerId], 1, 'consumed'),
+      ),
+      200,
+    );
+    knownMemberNames[lanUid] = 'Lan';
+
+    // 13b. Targeted invite with inviteeUid: only matching UID joins; matching email with different UID is denied
+    const uidCode = `FAM-UID-${suffix}`;
+    const targetUid = `u_uidtarget_${suffix}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${uidCode}`, {
+        uid: ownerId,
+        data: {
+          inviteCode: uidCode,
+          familyId: famId,
+          createdBy: ownerId,
+          inviteKind: 'targeted',
+          isTargeted: true,
+          inviteeUid: targetUid,
+          inviteeEmail: 'bob@lifeos.vn',
+          maxUses: 1,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: futureDate,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: `u_wrong_uid_${suffix}`, claims: { email: 'bob@lifeos.vn', email_verified: true } },
+        joinWrites(`u_wrong_uid_${suffix}`, 'Wrong UID', uidCode, [ownerId, lanUid], 1, 'consumed'),
+      ),
+      403,
+    );
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: targetUid, claims: {} },
+        joinWrites(targetUid, 'Bob', uidCode, [ownerId, lanUid], 1, 'consumed'),
+      ),
+      200,
+    );
+    knownMemberNames[targetUid] = 'Bob';
+
+    // 13c. Targeted invite with inviteeEmail (no inviteeUid): requires email_verified == true and lowercased match
+    const emailCode = `FAM-MAIL-${suffix}`;
+    const mailUid = `u_mail_${suffix}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${emailCode}`, {
+        uid: ownerId,
+        data: {
+          inviteCode: emailCode,
+          familyId: famId,
+          createdBy: ownerId,
+          inviteKind: 'targeted',
+          isTargeted: true,
+          inviteeEmail: 'Mai.Nguyen@LifeOS.vn',
+          maxUses: 1,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: futureDate,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: mailUid, claims: { email: 'mai.nguyen@lifeos.vn', email_verified: false } },
+        joinWrites(mailUid, 'Mai', emailCode, [ownerId, lanUid, targetUid], 1, 'consumed'),
+      ),
+      403,
+    );
+    assert.equal(
+      await firestoreCommitBatch(
+        { uid: mailUid, claims: { email: 'mai.nguyen@lifeos.vn', email_verified: true } },
+        joinWrites(mailUid, 'Mai', emailCode, [ownerId, lanUid, targetUid], 1, 'consumed'),
+      ),
+      200,
+    );
+    knownMemberNames[mailUid] = 'Mai';
+
+    // 13d. Open invite still works without email verification
+    const openCode = `FAM-OPEN-${suffix}`;
+    const openUid = `u_open_${suffix}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${openCode}`, {
+        uid: ownerId,
+        data: {
+          inviteCode: openCode,
+          familyId: famId,
+          createdBy: ownerId,
+          inviteKind: 'oneTime',
+          isTargeted: false,
+          maxUses: 1,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: futureDate,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(
+        openUid,
+        joinWrites(openUid, 'Open Joiner', openCode, [ownerId, lanUid, targetUid, mailUid], 1, 'consumed'),
+      ),
+      200,
+    );
+  });
+
+  it('14. Finding 7 — Enforces split_bills shares integer >= 0, sum == totalAmountMinor & max 20 participants on create AND update', async () => {
+    const { famId, ownerId, adminId, memberId } = await seedFamilyWithRoles('f7_split');
+
+    // Valid 100,000 VND split among 3 to the last dong (33,334 + 33,333 + 33,333 = 100,000) -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_100k`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_100k',
+          familyId: famId,
+          title: 'Cà phê 3 người',
+          paidByUserId: ownerId,
+          totalAmountMinor: 100000,
+          sharesByUserId: { [ownerId]: 33334, [adminId]: 33333, [memberId]: 33333 },
+          status: 'open',
+        },
+      }),
+      200,
+    );
+
+    // Mismatched sum on create (33,333 * 3 = 99,999 != 100,000) -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_bad_sum`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_bad_sum',
+          familyId: famId,
+          title: 'Lệch 1 đồng',
+          paidByUserId: ownerId,
+          totalAmountMinor: 100000,
+          sharesByUserId: { [ownerId]: 33333, [adminId]: 33333, [memberId]: 33333 },
+          status: 'open',
+        },
+      }),
+      403,
+    );
+
+    // Negative share on create -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_neg`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_neg',
+          familyId: famId,
+          title: 'Phần âm',
+          paidByUserId: ownerId,
+          totalAmountMinor: 100000,
+          sharesByUserId: { [ownerId]: 120000, [memberId]: -20000 },
+          status: 'open',
+        },
+      }),
+      403,
+    );
+
+    // Non-integer float share on create -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${famId}/split_bills/bill_float`, {
+        uid: ownerId,
+        data: {
+          id: 'bill_float',
+          familyId: famId,
+          title: 'Phần số lẻ thập phân',
+          paidByUserId: ownerId,
+          totalAmountMinor: 100000,
+          sharesByUserId: { [ownerId]: 50000.5, [memberId]: 49999.5 },
+          status: 'open',
+        },
+      }),
+      403,
+    );
+
+    // Mismatched sum on update (changing totalAmountMinor without adjusting shares) -> DENIED (403)
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}/split_bills/bill_100k`,
+          exists: true,
+          updateMask: ['totalAmountMinor'],
+          data: { totalAmountMinor: 150000 },
+        },
+      ]),
+      403,
+    );
+
+    // Valid update adjusting both totalAmountMinor and sharesByUserId so sum matches -> 200
+    assert.equal(
+      await firestoreCommitBatch(ownerId, [
+        {
+          path: `families/${famId}/split_bills/bill_100k`,
+          exists: true,
+          updateMask: ['totalAmountMinor', 'sharesByUserId'],
+          data: {
+            totalAmountMinor: 150000,
+            sharesByUserId: { [ownerId]: 50000, [adminId]: 50000, [memberId]: 50000 },
+          },
+        },
+      ]),
+      200,
+    );
+
+    // Exceeding max 20 participants -> DENIED (403)
+    const fam21Id = `fam_21_${Date.now()}`;
+    const m21 = Array.from({ length: 21 }, (_, i) => `m21_${i}`);
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${fam21Id}`, {
+        uid: m21[0],
+        data: {
+          id: fam21Id,
+          name: 'Nhóm 21 người',
+          createdBy: m21[0],
+          memberIds: [m21[0]],
+          memberRoles: { [m21[0]]: 'owner' },
+        },
+      }),
+      200,
+    );
+    const inv21 = `FAM-21-${Date.now()}`;
+    assert.equal(
+      await firestoreRequest('PATCH', `family_invites/${inv21}`, {
+        uid: m21[0],
+        data: {
+          inviteCode: inv21,
+          familyId: fam21Id,
+          createdBy: m21[0],
+          maxUses: 25,
+          usedCount: 0,
+          revoked: false,
+          status: 'active',
+          expiresAt: new Date(Date.now() + 86400000),
+        },
+      }),
+      200,
+    );
+    const curMembers = [m21[0]];
+    const curRoles = { [m21[0]]: 'owner' };
+    for (let i = 1; i < 21; i++) {
+      curMembers.push(m21[i]);
+      curRoles[m21[i]] = 'member';
+      assert.equal(
+        await firestoreCommitBatch(m21[i], [
+          {
+            path: `family_invites/${inv21}`,
+            exists: true,
+            updateMask: ['usedCount', 'consumedBy', 'consumedAt', 'status', 'updatedAt'],
+            data: {
+              usedCount: i,
+              consumedBy: m21[i],
+              consumedAt: new Date(),
+              status: 'active',
+              updatedAt: new Date(),
+            },
+          },
+          {
+            path: `families/${fam21Id}`,
+            exists: true,
+            updateMask: ['memberIds', 'memberRoles', 'lastJoinedInviteCode', 'updatedAt'],
+            data: {
+              memberIds: [...curMembers],
+              memberRoles: { ...curRoles },
+              lastJoinedInviteCode: inv21,
+              updatedAt: new Date(),
+            },
+          },
+        ]),
+        200,
+      );
+    }
+    const shares21 = Object.fromEntries(m21.map((id) => [id, 10000]));
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${fam21Id}/split_bills/bill_21`, {
+        uid: m21[0],
+        data: {
+          id: 'bill_21',
+          familyId: fam21Id,
+          title: 'Quá 20 người',
+          paidByUserId: m21[0],
+          totalAmountMinor: 210000,
+          sharesByUserId: shares21,
+          status: 'open',
+        },
+      }),
+      403,
+    );
+    // 20 participants exact sum -> 200
+    const shares20 = Object.fromEntries(m21.slice(0, 20).map((id) => [id, 10000]));
+    assert.equal(
+      await firestoreRequest('PATCH', `families/${fam21Id}/split_bills/bill_20`, {
+        uid: m21[0],
+        data: {
+          id: 'bill_20',
+          familyId: fam21Id,
+          title: 'Đúng 20 người',
+          paidByUserId: m21[0],
+          totalAmountMinor: 200000,
+          sharesByUserId: shares20,
+          status: 'open',
+        },
+      }),
+      200,
+    );
   });
 });

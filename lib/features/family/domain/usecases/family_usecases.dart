@@ -152,6 +152,15 @@ class CreateSharedBillSplitUseCase
         ),
       );
     }
+    if (uniqueParticipants.length >
+        SharedBillSplitEntity.maxSplitParticipants) {
+      return const Err(
+        ValidationFailure(
+          message:
+              'Mỗi khoản chia hỗ trợ tối đa ${SharedBillSplitEntity.maxSplitParticipants} thành viên.',
+        ),
+      );
+    }
 
     late final Map<String, int> resolvedShares;
     switch (params.splitMethod) {
@@ -220,6 +229,19 @@ class CreateSharedBillSplitUseCase
           );
         }
         resolvedShares = Map.unmodifiable(exactMap);
+    }
+
+    final resolvedSum = resolvedShares.values.fold<int>(0, (s, v) => s + v);
+    if (resolvedShares.isEmpty ||
+        resolvedShares.length > SharedBillSplitEntity.maxSplitParticipants ||
+        resolvedShares.values.any((v) => v < 0) ||
+        resolvedSum != params.totalAmountMinor) {
+      return Err(
+        ValidationFailure(
+          message:
+              'Tổng phần chia (${VndAmount.format(resolvedSum)}) phải bằng đúng tổng hóa đơn (${VndAmount.format(params.totalAmountMinor)}).',
+        ),
+      );
     }
 
     return _repository.createSharedBillSplit(

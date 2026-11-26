@@ -85,10 +85,37 @@ describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingSto
         bankCode: "MB",
         accountNumber: testAccNum,
         linkedWalletId: "w_emu_mb",
-        providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_emu_mb" },
+        sepayAccounts: [
+          {
+            id: "emu_mb_101",
+            account_number: testAccNum,
+            bank_short_name: "MBBank",
+            active: "1"
+          }
+        ],
         nowMs
       });
       assert.equal(linkRes.ok, true);
+      assert.equal(linkRes.connection?.providerConnectionId, "sepay_ba_emu_mb_101");
+
+      // Concurrent cross-user attempt for the same SePay account MUST fail in real Firestore transaction!
+      const raceLoser = await coordinator.verifyAndConnectBankAccount({
+        authenticatedUserId: `${uid}_attacker`,
+        bankCode: "MB",
+        accountNumber: testAccNum,
+        linkedWalletId: "w_emu_mb",
+        sepayAccounts: [
+          {
+            id: "emu_mb_101",
+            account_number: testAccNum,
+            bank_short_name: "MBBank",
+            active: "1"
+          }
+        ],
+        nowMs
+      });
+      // Since attacker has no wallet w_emu_mb, test also with attacker wallet seeded:
+      assert.equal(raceLoser.ok, false);
 
       // Verify sanitized user bank_connection doc does NOT expose raw accountNumber!
       const userConnSnap = await db
@@ -188,6 +215,93 @@ describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingSto
       assert.equal((await db.collection("bank_reconciliation_jobs").doc(`job_${uid}`).get()).exists, false);
       assert.equal((await db.collection("family_invite_rate_limits").doc(uid).get()).exists, false);
       assert.equal((await db.collection("server_bank_connections").doc("conn_other_user").get()).exists, true);
+      const claimsAfterDelete = await db.collection("server_bank_account_claims").where("ownerId", "==", uid).get();
+      assert.equal(claimsAfterDelete.empty, true);
+    } finally {
+      await app.delete();
+    }
+  });
+
+  it("Finding 3 — Real Firestore transaction allows strictly one winner in concurrent bank account link race", async (t) => {
+    const reachable = await isPortOpen("127.0.0.1", 8188);
+    if (!reachable) {
+      t.skip("Firestore Emulator on 127.0.0.1:8188 is not running");
+      return;
+    }
+
+    process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8188";
+    const app = admin.initializeApp({ projectId: "demo-life-os" }, `emu_f3_race_${Date.now()}`);
+    try {
+      const db = app.firestore();
+      const store = new FirestoreAdminBankingStore(db);
+      const coordinator = new RealtimeBankingCoordinator(store, new EmulatorMockFcm(), () => "secret");
+      const nowMs = Date.now();
+      const uA = `u_a_${nowMs}`;
+      const uB = `u_b_${nowMs}`;
+      const sharedAcc = `088${nowMs.toString().slice(-7)}`;
+      const sepayList = [
+        {
+          id: `sp_${nowMs}`,
+          account_number: sharedAcc,
+          bank_short_name: "VCB",
+          sub_account: "VA01",
+          active: true
+        },
+        {
+          id: `sp_other_${nowMs}`,
+          account_number: sharedAcc,
+          bank_short_name: "MB",
+          sub_account: "VA01",
+          active: true
+        }
+      ];
+
+      await Promise.all([
+        db.collection("users").doc(uA).collection("wallets").doc("w_a").set({
+          id: "w_a",
+          ownerId: uA,
+          name: "VCB A",
+          type: "bank",
+          balanceMinor: 0,
+          isEstimatedBalance: true
+        }),
+        db.collection("users").doc(uB).collection("wallets").doc("w_b").set({
+          id: "w_b",
+          ownerId: uB,
+          name: "VCB B",
+          type: "bank",
+          balanceMinor: 0,
+          isEstimatedBalance: true
+        })
+      ]);
+
+      const [resA, resB] = await Promise.all([
+        coordinator.verifyAndConnectBankAccount({
+          authenticatedUserId: uA,
+          bankCode: "VCB",
+          accountNumber: sharedAcc,
+          subAccount: "VA01",
+          linkedWalletId: "w_a",
+          sepayAccounts: sepayList,
+          nowMs
+        }),
+        coordinator.verifyAndConnectBankAccount({
+          authenticatedUserId: uB,
+          bankCode: "VCB",
+          accountNumber: sharedAcc,
+          subAccount: "VA01",
+          linkedWalletId: "w_b",
+          sepayAccounts: sepayList,
+          nowMs
+        })
+      ]);
+
+      const winners = [resA, resB].filter((r) => r.ok);
+      const losers = [resA, resB].filter((r) => !r.ok);
+      assert.equal(winners.length, 1);
+      assert.equal(losers.length, 1);
+      assert.equal(losers[0].errorCode, "ACCOUNT_ALREADY_LINKED_OTHER_USER");
+      assert.equal(winners[0].connection?.bankCode, "VCB");
     } finally {
       await app.delete();
     }

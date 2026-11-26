@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import {
+  BankAccountClaimRecord,
   BankingBackendStore,
   BankingTxContext,
   CanonicalTransactionRecord,
@@ -11,7 +12,9 @@ import {
   NotificationOutboxRecord,
   ServerBankConnectionRecord,
   UserDeviceRecord,
-  UserNotificationPreferences
+  UserNotificationPreferences,
+  buildNormalizedAccountClaimId,
+  buildProviderAccountIdClaimId
 } from "./bankingEngine";
 import { resolveBankCapability } from "./capabilities";
 import { maskAccountNumber } from "./security";
@@ -283,11 +286,57 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
             { lastSyncedAtMs: syncedAtMs, lastSyncedAt: ts, updatedAt: ts },
             { merge: true }
           );
+        },
+        getBankAccountClaim: async (claimId) => {
+          const snap = await tx.get(this.db.collection("server_bank_account_claims").doc(claimId));
+          if (!snap.exists) return null;
+          return snap.data() as BankAccountClaimRecord;
+        },
+        upsertBankAccountClaim: async (claim) => {
+          tx.set(
+            this.db.collection("server_bank_account_claims").doc(claim.claimId),
+            stripUndefined({ ...claim })
+          );
+        },
+        saveVerifiedConnectionTx: async (record) => {
+          this.writeVerifiedConnection((ref, data) => tx.set(ref, data), record);
         }
       };
 
       return fn(ctx);
     });
+  }
+
+  private writeVerifiedConnection(
+    setDoc: (ref: admin.firestore.DocumentReference, data: Record<string, unknown>) => void,
+    record: ServerBankConnectionRecord
+  ): void {
+    const ts = Timestamp.fromMillis(record.updatedAtMs);
+    setDoc(
+      this.db.collection("server_bank_connections").doc(record.id),
+      stripUndefined({ ...record })
+    );
+    // User-readable document NEVER stores full accountNumber or provider tokens (Section 7 & 14)
+    setDoc(
+      this.db.collection("users").doc(record.ownerId).collection("bank_connections").doc(record.id),
+      {
+        id: record.id,
+        ownerId: record.ownerId,
+        provider: record.provider,
+        providerConnectionId: record.providerConnectionId,
+        bankCode: record.bankCode,
+        bankName: record.bankName,
+        accountMasked: maskAccountNumber(record.accountNumber),
+        subAccount: record.subAccount,
+        linkedWalletId: record.linkedWalletId,
+        consentStatus: record.consentStatus,
+        status: record.status,
+        capabilities: record.capabilities,
+        lastSyncedAt: ts,
+        createdAt: Timestamp.fromMillis(record.createdAtMs),
+        updatedAt: ts
+      }
+    );
   }
 
   async findActiveConnectionForAccount(params: {
@@ -317,66 +366,87 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
 
   async findAnyVerifiedConnectionByAccount(
     bankCode: string,
-    accountNumber: string
+    accountNumber: string,
+    subAccount?: string
   ): Promise<ServerBankConnectionRecord | null> {
     const snap = await this.db
       .collection("server_bank_connections")
       .where("bankCode", "==", bankCode)
       .where("accountNumber", "==", accountNumber)
       .where("status", "==", "connected")
-      .limit(1)
       .get();
     if (snap.empty) return null;
-    return snap.docs[0].data() as ServerBankConnectionRecord;
+    const expectedSub = String(subAccount ?? "").trim().toUpperCase();
+    for (const doc of snap.docs) {
+      const d = doc.data() as ServerBankConnectionRecord;
+      const docSub = String(d.subAccount ?? "").trim().toUpperCase();
+      if (expectedSub && docSub && docSub !== expectedSub) continue;
+      if (expectedSub && !docSub) continue;
+      if (!expectedSub && docSub) continue;
+      return d;
+    }
+    return null;
   }
 
   async saveVerifiedConnection(record: ServerBankConnectionRecord): Promise<void> {
     const batch = this.db.batch();
-    const ts = Timestamp.fromMillis(record.updatedAtMs);
-    batch.set(this.db.collection("server_bank_connections").doc(record.id), stripUndefined({ ...record }));
-    // User-readable document NEVER stores full accountNumber or provider tokens (Section 7 & 14)
-    batch.set(
-      this.db.collection("users").doc(record.ownerId).collection("bank_connections").doc(record.id),
-      {
-        id: record.id,
-        ownerId: record.ownerId,
-        provider: record.provider,
-        providerConnectionId: record.providerConnectionId,
-        bankCode: record.bankCode,
-        bankName: record.bankName,
-        accountMasked: maskAccountNumber(record.accountNumber),
-        subAccount: record.subAccount,
-        linkedWalletId: record.linkedWalletId,
-        consentStatus: record.consentStatus,
-        status: record.status,
-        capabilities: record.capabilities,
-        lastSyncedAt: ts,
-        createdAt: Timestamp.fromMillis(record.createdAtMs),
-        updatedAt: ts
-      }
-    );
+    this.writeVerifiedConnection((ref, data) => batch.set(ref, data), record);
     await batch.commit();
   }
 
   async disconnectConnection(ownerId: string, connectionId: string, nowMs: number): Promise<void> {
     const serverRef = this.db.collection("server_bank_connections").doc(connectionId);
-    const snap = await serverRef.get();
-    if (snap.exists && snap.data()?.ownerId !== ownerId) {
-      throw new Error("FORBIDDEN_CONNECTION_OWNER");
-    }
+    const userConnRef = this.db.collection("users").doc(ownerId).collection("bank_connections").doc(connectionId);
     const ts = Timestamp.fromMillis(nowMs);
-    const batch = this.db.batch();
-    batch.set(
-      serverRef,
-      { status: "disconnected", consentStatus: "revoked", updatedAtMs: nowMs },
-      { merge: true }
-    );
-    batch.set(
-      this.db.collection("users").doc(ownerId).collection("bank_connections").doc(connectionId),
-      { status: "disconnected", consentStatus: "revoked", updatedAt: ts },
-      { merge: true }
-    );
-    await batch.commit();
+
+    await this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(serverRef);
+      if (snap.exists && snap.data()?.ownerId !== ownerId) {
+        throw new Error("FORBIDDEN_CONNECTION_OWNER");
+      }
+
+      const d = snap.exists ? (snap.data() as ServerBankConnectionRecord) : null;
+      const claimRefsToRead: admin.firestore.DocumentReference[] = [];
+      if (d) {
+        claimRefsToRead.push(
+          this.db
+            .collection("server_bank_account_claims")
+            .doc(buildNormalizedAccountClaimId(d.bankCode, d.accountNumber, d.subAccount ?? ""))
+        );
+        if (d.providerConnectionId?.startsWith("sepay_ba_")) {
+          const providerAcctId = d.providerConnectionId.slice("sepay_ba_".length).trim();
+          if (providerAcctId) {
+            claimRefsToRead.push(
+              this.db
+                .collection("server_bank_account_claims")
+                .doc(buildProviderAccountIdClaimId(providerAcctId))
+            );
+          }
+        }
+      }
+
+      const claimSnaps = await Promise.all(claimRefsToRead.map((ref) => tx.get(ref)));
+
+      tx.set(
+        serverRef,
+        { status: "disconnected", consentStatus: "revoked", updatedAtMs: nowMs },
+        { merge: true }
+      );
+      tx.set(
+        userConnRef,
+        { status: "disconnected", consentStatus: "revoked", updatedAt: ts },
+        { merge: true }
+      );
+      for (const claimSnap of claimSnaps) {
+        if (claimSnap.exists && claimSnap.data()?.ownerId === ownerId) {
+          tx.set(
+            claimSnap.ref,
+            { status: "disconnected", updatedAtMs: nowMs },
+            { merge: true }
+          );
+        }
+      }
+    });
   }
 
   async getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null> {
