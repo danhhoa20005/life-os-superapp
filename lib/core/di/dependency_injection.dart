@@ -94,6 +94,7 @@ import '../services/native_home_widget_bridge.dart';
 import '../services/native_privacy_screen_bridge.dart';
 import '../services/native_receipt_picker_bridge.dart';
 import '../services/native_voice_assistant_bridge.dart';
+import 'backup_dependencies.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -594,4 +595,7 @@ Future<void> configureDependencies({
       disposeCoordinatorOnClose: false,
     ),
   );
+
+  // Full-history paginated Backup & Restore (audit finding #4).
+  registerBackupDependencies(sl);
 }

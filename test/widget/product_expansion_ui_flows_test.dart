@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:life_os/app/theme/app_theme.dart';
 import 'package:life_os/core/widgets/backup_restore_studio_sheet.dart';
+import 'package:life_os/features/backup/data/services/backup_file_share_service_impl.dart';
+import 'package:life_os/features/backup/domain/usecases/backup_usecases.dart';
+import 'package:life_os/features/backup/presentation/bloc/backup_bloc.dart';
 import 'package:life_os/core/widgets/lifeos_design_system.dart';
 import 'package:life_os/features/automation/data/repositories/automation_repository_impl.dart';
 import 'package:life_os/features/automation/presentation/bloc/automation_bloc.dart';
@@ -18,6 +21,8 @@ import 'package:life_os/features/transactions/presentation/widgets/cashflow_fore
 import 'package:life_os/features/transactions/presentation/widgets/life_insights_cross_domain_card.dart';
 import 'package:life_os/features/vehicles/domain/entities/vehicle_entities.dart';
 import 'package:life_os/features/vehicles/presentation/widgets/vehicle_fuel_tco_card.dart';
+
+import '../features/backup/helpers/in_memory_backup_repository.dart';
 
 Widget _wrapWithToastAndTheme(Widget child) {
   return MaterialApp(
@@ -228,6 +233,25 @@ void main() {
           tester.view.resetDevicePixelRatio();
         });
 
+        // The sheet no longer rebuilds a partial backup from BLoC state when DI is
+        // missing, so this flow injects an explicit in-memory backup repository.
+        final repo = InMemorySnapshotBackupRepository(
+          initialCollections: const {
+            'transactions': [
+              {'id': 'tx_1', 'amountMinor': 65000, 'kind': 'expense'},
+            ],
+          },
+        );
+        final backupBloc = BackupBloc(
+          loadSummary: LoadBackupOwnerSummaryUseCase(repo),
+          exportFullBackup: ExportFullBackupUseCase(repo),
+          exportTransactionsCsv: ExportTransactionsCsvUseCase(repo),
+          previewArchive: PreviewBackupArchiveUseCase(repo),
+          restoreArchive: RestoreBackupArchiveUseCase(repo),
+          fileShareService: const MethodChannelBackupFileShareService(),
+        );
+        addTearDown(backupBloc.close);
+
         await tester.pumpWidget(
           _wrapWithToastAndTheme(
             Scaffold(
@@ -235,7 +259,10 @@ void main() {
                 builder: (ctx) => Center(
                   child: FilledButton(
                     key: const Key('open_backup_sheet_btn'),
-                    onPressed: () => showLifeOsBackupRestoreSheet(ctx),
+                    onPressed: () => showLifeOsBackupRestoreSheet(
+                      ctx,
+                      backupBlocOverride: backupBloc,
+                    ),
                     child: const Text('Mở Sao lưu'),
                   ),
                 ),
@@ -266,7 +293,17 @@ void main() {
         final sheetList = find.byKey(
           const Key('backup_restore_sheet_list_view'),
         );
-        await tester.drag(sheetList, const Offset(0, -280));
+        expect(
+          find.byKey(const Key('backup_preview_error_text')),
+          findsNothing,
+        );
+        await tester.scrollUntilVisible(
+          find.text('Khớp toàn vẹn SHA-256'),
+          120,
+          scrollable: find
+              .descendant(of: sheetList, matching: find.byType(Scrollable))
+              .first,
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('Khớp toàn vẹn SHA-256'), findsOneWidget);

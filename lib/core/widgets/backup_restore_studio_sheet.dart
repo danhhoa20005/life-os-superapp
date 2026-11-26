@@ -780,6 +780,7 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
           borderColor: c.error,
           child: Text(
             state.previewError!,
+            key: const Key('backup_preview_error_text'),
             softWrap: true,
             style: TextStyle(
               fontSize: 12.8,
