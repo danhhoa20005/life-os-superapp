@@ -43,6 +43,31 @@ jobs:
       - name: Run Architecture, Security, Property/Fuzz, BLoC, Widget & E2E Tests with Coverage
         run: flutter test --coverage --reporter expanded
 
+      # Golden pixel comparison is opt-in (baselines were rendered on Windows and the screens show
+      # the real date/time). Render the 8 golden flows on Linux and upload them for human review
+      # instead of silently overwriting committed baselines.
+      - name: Render Linux golden screenshots for review (non-gating)
+        if: always()
+        continue-on-error: true
+        env:
+          LIFEOS_GOLDEN_COMPARE: 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/linux-goldens"
+          cp -r test/goldens "$RUNNER_TEMP/goldens-committed"
+          flutter test test/widget/ux_golden_qa_test.dart --update-goldens
+          cp test/goldens/*.png "$RUNNER_TEMP/linux-goldens/"
+          rm -rf test/goldens && cp -r "$RUNNER_TEMP/goldens-committed" test/goldens
+
+      - name: Upload golden review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-review-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/linux-goldens/
+            test/failures/
+          if-no-files-found: ignore
+
       - name: Verify Production Web Release Build
         run: flutter build web --release
 
