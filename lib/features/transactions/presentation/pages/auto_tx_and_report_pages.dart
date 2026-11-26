@@ -100,6 +100,11 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
     _selectedVehicleId = null;
   }
 
+  static final DateFormat _shortDtFmt = DateFormat('dd/MM HH:mm');
+  static final DateFormat _hhMmFmt = DateFormat('HH:mm');
+  static final DateFormat _fullDtFmt = DateFormat('dd/MM/yyyy, HH:mm');
+  static final DateFormat _dotDtFmt = DateFormat('dd/MM/yyyy · HH:mm');
+
   @override
   void dispose() {
     _merchantCtrl.dispose();
@@ -111,14 +116,22 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final listState = context.watch<TransactionListBloc>().state;
+    final userId = context.select((AuthBloc b) => b.state.user?.id);
+    final txTuple = context.select(
+      (TransactionListBloc b) => (
+        b.state.allTransactions,
+        b.state.provisionalTransactions,
+        b.state.wallets,
+      ),
+    );
+    final allTransactions = txTuple.$1;
+    final pendingQueue = txTuple.$2;
+    final wallets = txTuple.$3;
 
-    final pendingQueue = listState.provisionalTransactions;
     final byTargetId =
         (widget.initialTransactionId != null &&
             widget.initialTransactionId!.trim().isNotEmpty)
-        ? listState.allTransactions
+        ? allTransactions
               .where((t) => t.id == widget.initialTransactionId!.trim())
               .firstOrNull
         : null;
@@ -128,7 +141,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
       _syncControllersFromTransaction(tx);
     }
 
-    final recentAutoVerified = listState.allTransactions
+    final recentAutoVerified = allTransactions
         .where(
           (t) =>
               (t.sourceKind == TransactionSourceKind.androidNotification ||
@@ -193,10 +206,10 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           : _buildActiveReviewBody(
                               context,
                               c,
-                              userId: user?.id,
+                              userId: userId,
                               tx: tx,
                               pendingCount: pendingQueue.length,
-                              wallets: listState.wallets,
+                              wallets: wallets,
                             ),
                     ),
                   ),
@@ -308,7 +321,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
                           ),
                         ),
                         Text(
-                          '${item.categoryName} · ${DateFormat('dd/MM HH:mm').format(item.occurredAt)}',
+                          '${item.categoryName} · ${_shortDtFmt.format(item.occurredAt)}',
                           style: TextStyle(
                             fontSize: 12,
                             color: c.textSecondary,
@@ -358,8 +371,8 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
         tx.occurredAt.month == now.month &&
         tx.occurredAt.day == now.day;
     final timeDisplay = isToday
-        ? 'Hôm nay, ${DateFormat('HH:mm').format(tx.occurredAt)}'
-        : DateFormat('dd/MM/yyyy, HH:mm').format(tx.occurredAt);
+        ? 'Hôm nay, ${_hhMmFmt.format(tx.occurredAt)}'
+        : _fullDtFmt.format(tx.occurredAt);
     final matchedWallet =
         wallets.where((w) => w.id == tx.walletId).firstOrNull ??
         wallets.where((w) => w.type == WalletType.bank).firstOrNull;
@@ -609,7 +622,7 @@ class _AutoTransactionReviewPageState extends State<AutoTransactionReviewPage> {
               _TxMetaLine(
                 icon: Icons.schedule_rounded,
                 label: 'Thời gian',
-                value: DateFormat('dd/MM/yyyy · HH:mm').format(tx.occurredAt),
+                value: _dotDtFmt.format(tx.occurredAt),
               ),
               const SizedBox(height: 12),
               _TxMetaLine(
@@ -1294,18 +1307,22 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
     return '${next.year.toString().padLeft(4, '0')}-${next.month.toString().padLeft(2, '0')}';
   }
 
-  String? _resolveUserId(BuildContext context, TransactionListState listState) {
+  String? _resolveUserId(
+    BuildContext context,
+    List<TransactionEntity> allTransactions,
+    List<WalletEntity> wallets,
+  ) {
     try {
       final authUser = context.read<AuthBloc>().state.user;
       if (authUser != null && authUser.id.isNotEmpty) return authUser.id;
     } catch (_) {
       // Standalone widget test without AuthBloc provider.
     }
-    if (listState.allTransactions.isNotEmpty) {
-      return listState.allTransactions.first.ownerId;
+    if (allTransactions.isNotEmpty) {
+      return allTransactions.first.ownerId;
     }
-    if (listState.wallets.isNotEmpty) {
-      return listState.wallets.first.ownerId;
+    if (wallets.isNotEmpty) {
+      return wallets.first.ownerId;
     }
     return null;
   }
@@ -1358,11 +1375,18 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
 
   @override
   Widget build(BuildContext context) {
-    final listState = context.watch<TransactionListBloc>().state;
+    final txSummaryTuple = context.select(
+      (TransactionListBloc b) =>
+          (b.state.monthKey, b.state.allTransactions, b.state.wallets),
+    );
+    final listMonthKey = txSummaryTuple.$1;
+    final allTransactions = txSummaryTuple.$2;
+    final wallets = txSummaryTuple.$3;
+
     final refNow = widget.referenceDate ?? DateTime.now();
     final currentRefMonthKey =
         '${refNow.year.toString().padLeft(4, '0')}-${refNow.month.toString().padLeft(2, '0')}';
-    final activeMonthKey = _overrideMonthKey ?? listState.monthKey;
+    final activeMonthKey = _overrideMonthKey ?? listMonthKey;
 
     final mkParts = activeMonthKey.split('-');
     final selectedYear = mkParts.isNotEmpty
@@ -1411,8 +1435,8 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
           .toList(growable: false);
     }
 
-    if (_period == 'month' && activeMonthKey == listState.monthKey) {
-      final monthTxs = listState.allTransactions
+    if (_period == 'month' && activeMonthKey == listMonthKey) {
+      final monthTxs = allTransactions
           .where((t) => t.isConfirmedInLedger && !t.isReversed)
           .toList(growable: false);
       return _buildReportScaffold(
@@ -1428,13 +1452,13 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
       );
     }
 
-    final userId = _resolveUserId(context, listState);
+    final userId = _resolveUserId(context, allTransactions, wallets);
     final rangeStream = _resolveRangeStream(
       userId: userId,
       startInclusive: startInclusive,
       endExclusive: endExclusive,
     );
-    final fallbackTxs = filterInWindow(listState.allTransactions);
+    final fallbackTxs = filterInWindow(allTransactions);
 
     if (rangeStream == null) {
       return _buildReportScaffold(
@@ -2010,30 +2034,32 @@ class _FinanceReportPageState extends State<FinanceReportPage> {
                                                               Alignment.center,
                                                           children: [
                                                             SizedBox.expand(
-                                                              child: CustomPaint(
-                                                                painter: _ReportDualBarChartPainter(
-                                                                  incomes:
-                                                                      incomeBuckets,
-                                                                  expenses:
-                                                                      expenseBuckets,
-                                                                  selectedIdx:
-                                                                      sel,
-                                                                  incomeColor:
-                                                                      c.success,
-                                                                  expenseColor:
-                                                                      expenseBarColor,
-                                                                  highlightBg: c
-                                                                      .primary
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            0.08,
-                                                                      ),
-                                                                  gridColor: c
-                                                                      .separator
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            0.65,
-                                                                      ),
+                                                              child: RepaintBoundary(
+                                                                child: CustomPaint(
+                                                                  painter: _ReportDualBarChartPainter(
+                                                                    incomes:
+                                                                        incomeBuckets,
+                                                                    expenses:
+                                                                        expenseBuckets,
+                                                                    selectedIdx:
+                                                                        sel,
+                                                                    incomeColor:
+                                                                        c.success,
+                                                                    expenseColor:
+                                                                        expenseBarColor,
+                                                                    highlightBg: c
+                                                                        .primary
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.08,
+                                                                        ),
+                                                                    gridColor: c
+                                                                        .separator
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.65,
+                                                                        ),
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ),

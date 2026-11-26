@@ -326,6 +326,97 @@ object VoiceSessionCoordinatorNative {
         }
     }
 
+    fun canonicalEngineId(rawEngineId: String?): String {
+        val norm = rawEngineId?.trim()?.lowercase().orEmpty()
+        return when {
+            norm == "on_device_speech_recognizer" ||
+                norm == "on_device" ||
+                norm == "on_device_android13" ||
+                norm == "android_on_device" ||
+                norm == "offline_strict" -> "android_on_device"
+            norm == "system_speech_dialog" ||
+                norm == "system_dialog" -> "system_dialog"
+            norm == "local_asr" ||
+                norm == "pcm_local_capture" -> "local_asr"
+            norm == "system_default" ||
+                norm == "google_service" ||
+                norm == "android_speech" ||
+                norm == "online_google" ||
+                norm == "auto" ||
+                norm.startsWith("service:") -> "android_speech"
+            norm.isNotEmpty() -> norm
+            else -> "android_speech"
+        }
+    }
+
+    private fun resolveCanonicalEnvelopeEventType(
+        rawEventType: String,
+        extra: Map<String, Any?>
+    ): String? {
+        return when (rawEventType.trim()) {
+            "state" -> {
+                when ((extra["status"] as? String)?.trim()?.lowercase().orEmpty()) {
+                    "requesting_permission" -> "permissionRequested"
+                    "permission_granted" -> "permissionGranted"
+                    "permission_denied" -> "permissionDenied"
+                    "initializing", "preparing" -> "preparing"
+                    "listening" -> "readyForSpeech"
+                    "beginning_of_speech" -> "beginningOfSpeech"
+                    "processing", "finalizing" -> "endOfSpeech"
+                    "cancelled", "canceled" -> "cancelled"
+                    "error" -> if (extra["code"] != null || extra["errorCode"] != null) "error" else null
+                    else -> null
+                }
+            }
+            "rms" -> "rmsChanged"
+            "pcm_energy" -> "pcmEnergy"
+            "partial" -> "partialResult"
+            "final" -> "finalResult"
+            "error" -> "error"
+            "engine_switched" -> "engineSwitched"
+            "audio_route" -> "audioRouteChanged"
+            "audio_focus_lost" -> "audioFocusLost"
+            "permissionRequested",
+            "permissionGranted",
+            "permissionDenied",
+            "preparing",
+            "readyForSpeech",
+            "beginningOfSpeech",
+            "rmsChanged",
+            "pcmEnergy",
+            "partialResult",
+            "endOfSpeech",
+            "finalResult",
+            "cancelled",
+            "audioFocusLost",
+            "audioRouteChanged",
+            "engineSwitched",
+            "diagnosticsUpdated" -> rawEventType.trim()
+            else -> null
+        }
+    }
+
+    private fun resolveLegacyWireType(rawEventType: String): String {
+        return when (rawEventType.trim()) {
+            "permissionRequested",
+            "permissionGranted",
+            "permissionDenied",
+            "preparing",
+            "readyForSpeech",
+            "beginningOfSpeech",
+            "endOfSpeech",
+            "cancelled" -> "state"
+            "rmsChanged" -> "rms"
+            "pcmEnergy" -> "pcm_energy"
+            "partialResult" -> "partial"
+            "finalResult" -> "final"
+            "engineSwitched" -> "engine_switched"
+            "audioRouteChanged" -> "audio_route"
+            "audioFocusLost" -> "audio_focus_lost"
+            else -> rawEventType.trim()
+        }
+    }
+
     /**
      * Builds an event payload containing BOTH v2 fields (`sessionId`, `attemptId`, `ownerId`,
      * `sequenceNumber`, `engineId`, `eventType`, `monotonicTimestampMs`) AND backward-compatible
@@ -348,21 +439,33 @@ object VoiceSessionCoordinatorNative {
             match?.sequenceNumber?.incrementAndGet() ?: fallbackSequence.incrementAndGet()
         }
 
-        val out = LinkedHashMap<String, Any?>(10 + extra.size)
+        val canonicalEngine = canonicalEngineId(engineId)
+        val canonicalEventType = resolveCanonicalEnvelopeEventType(eventType, extra)
+        val legacyType = resolveLegacyWireType(eventType)
+
+        val out = LinkedHashMap<String, Any?>(12 + extra.size)
         // Legacy wire keys consumed by `MethodChannelVoiceAssistantDriver.parseRawVoiceEvent`
-        out["type"] = eventType
+        out["type"] = legacyType
         out["sessionToken"] = sessionId
         // V2 structured telemetry & ordering keys
         out["sessionId"] = sessionId
         out["attemptId"] = attemptId
         out["ownerId"] = ownerId
         out["sequenceNumber"] = seq
-        out["engineId"] = engineId
-        out["eventType"] = eventType
+        out["engineId"] = canonicalEngine
+        out["providerEngineId"] = engineId
+        if (canonicalEventType != null) {
+            out["eventType"] = canonicalEventType
+        }
         out["monotonicTimestampMs"] = SystemClock.elapsedRealtime()
 
         for ((k, v) in extra) {
             out[k] = v
+        }
+        if (canonicalEventType == "engineSwitched") {
+            val switchedRaw = (extra["mode"] as? String) ?: engineId
+            out["engineId"] = canonicalEngineId(switchedRaw)
+            out["providerEngineId"] = switchedRaw
         }
         return out
     }

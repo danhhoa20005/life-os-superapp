@@ -7,6 +7,11 @@ import '../../domain/entities/transaction_entities.dart';
 enum LoadStatus { initial, loading, loaded, failure }
 
 final class TransactionListState extends Equatable {
+  static final Expando<List<TransactionEntity>> _filteredCache =
+      Expando<List<TransactionEntity>>('_txFilteredCache');
+  static final Expando<List<TransactionEntity>> _provisionalCache =
+      Expando<List<TransactionEntity>>('_txProvisionalCache');
+
   final LoadStatus status;
   final String monthKey;
   final List<WalletEntity> wallets;
@@ -47,8 +52,14 @@ final class TransactionListState extends Equatable {
       categoryFilter != null;
 
   List<TransactionEntity> get filteredTransactions {
+    final cached = _filteredCache[this];
+    if (cached != null) return cached;
+
     final q = searchQuery.trim();
-    return allTransactions
+    final foldedCat = categoryFilter != null
+        ? VietnameseSearchMatcher.fold(categoryFilter!)
+        : null;
+    final result = allTransactions
         .where((tx) {
           if (!tx.isConfirmedInLedger) return false;
           if (selectedWalletId != null &&
@@ -66,8 +77,7 @@ final class TransactionListState extends Equatable {
               return false;
             }
           }
-          if (categoryFilter != null) {
-            final foldedCat = VietnameseSearchMatcher.fold(categoryFilter!);
+          if (foldedCat != null) {
             final matchesPrimary =
                 VietnameseSearchMatcher.fold(tx.categoryName) == foldedCat;
             final matchesSplit = tx.splitLines.any(
@@ -91,16 +101,22 @@ final class TransactionListState extends Equatable {
           return true;
         })
         .toList(growable: false);
+    _filteredCache[this] = result;
+    return result;
   }
 
   List<TransactionEntity> get provisionalTransactions {
-    return allTransactions
+    final cached = _provisionalCache[this];
+    if (cached != null) return cached;
+    final result = allTransactions
         .where(
           (tx) =>
               tx.verification == TransactionVerification.provisional ||
               tx.verification == TransactionVerification.needsReview,
         )
         .toList(growable: false);
+    _provisionalCache[this] = result;
+    return result;
   }
 
   TransactionListState copyWith({

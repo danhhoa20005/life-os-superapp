@@ -129,6 +129,7 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
   List<OmniActionDraft> _omniDrafts = const <OmniActionDraft>[];
   final Set<String> _excludedDraftIds = <String>{};
   bool _isSubmittingInline = false;
+  bool _showAllSecondaryActions = true;
 
   String? get _activeUserId => widget.authBloc?.state.user?.id;
 
@@ -367,6 +368,22 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
             },
           ),
           (
+            key: const Key('quick_tile_task'),
+            title: 'Thêm việc làm',
+            subtitle: 'Nhắc việc cần làm',
+            icon: Icons.task_alt_rounded,
+            tone: LifeOsAccentTone.purple,
+            onTap: () {
+              Navigator.of(context).pop();
+              _showQuickTaskSheet(
+                widget.parentContext,
+                authBloc: widget.authBloc,
+                taskBloc: widget.taskBloc,
+                familyBloc: widget.familyBloc,
+              );
+            },
+          ),
+          (
             key: const Key('quick_tile_split'),
             title: 'Chia tiền nhóm',
             subtitle: 'Chia đều hóa đơn',
@@ -382,11 +399,24 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
             },
           ),
           (
-            key: const Key('quick_tile_event'),
-            title: 'Thêm lịch hẹn',
-            subtitle: 'Lưu vào Lịch máy',
-            icon: Icons.event_available_rounded,
+            key: const Key('quick_tile_qr'),
+            title: 'Mã QR thu tiền',
+            subtitle: 'Tạo VietQR nhận tiền',
+            icon: Icons.qr_code_2_rounded,
             tone: LifeOsAccentTone.emerald,
+            onTap: () {
+              Navigator.of(context).pop();
+              widget.parentContext.push('/notifications-privacy?autoOpenQr=1');
+            },
+          ),
+        ];
+
+    final compactExtraActions =
+        <({Key key, String label, IconData icon, VoidCallback onTap})>[
+          (
+            key: const Key('quick_tile_event'),
+            label: 'Thêm lịch hẹn',
+            icon: Icons.event_available_rounded,
             onTap: () {
               final user = widget.authBloc?.state.user;
               final calBloc = widget.calBloc;
@@ -410,38 +440,9 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
             },
           ),
           (
-            key: const Key('quick_tile_task'),
-            title: 'Thêm việc làm',
-            subtitle: 'Nhắc việc cần làm',
-            icon: Icons.task_alt_rounded,
-            tone: LifeOsAccentTone.purple,
-            onTap: () {
-              Navigator.of(context).pop();
-              _showQuickTaskSheet(
-                widget.parentContext,
-                authBloc: widget.authBloc,
-                taskBloc: widget.taskBloc,
-                familyBloc: widget.familyBloc,
-              );
-            },
-          ),
-          (
-            key: const Key('quick_tile_qr'),
-            title: 'Mã QR thu tiền',
-            subtitle: 'Tạo VietQR nhận tiền',
-            icon: Icons.qr_code_2_rounded,
-            tone: LifeOsAccentTone.emerald,
-            onTap: () {
-              Navigator.of(context).pop();
-              widget.parentContext.push('/notifications-privacy');
-            },
-          ),
-          (
             key: const Key('quick_tile_note_grocery'),
-            title: 'Đi chợ & Ghi chú',
-            subtitle: 'Món cần mua · Sổ tay',
+            label: 'Đi chợ & Ghi chú',
             icon: Icons.shopping_basket_outlined,
-            tone: LifeOsAccentTone.amber,
             onTap: () {
               Navigator.of(context).pop();
               _showQuickGroceryAndNoteSheet(
@@ -451,10 +452,6 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
               );
             },
           ),
-        ];
-
-    final compactExtraActions =
-        <({Key key, String label, IconData icon, VoidCallback onTap})>[
           (
             key: const Key('quick_tile_transfer'),
             label: 'Chuyển ví',
@@ -833,9 +830,9 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
               ),
             ),
 
-            // 3. Mode 3: Complete Quick Action Bento Grid + Compact Action Pills
+            // 3. Mode 3: Primary Quick Action Bento Grid (4 core tasks) + "Tất cả" secondary actions group
             const LifeOsSectionHeader(
-              title: 'Tạo mới theo mục',
+              title: 'Thao tác chính',
               padding: EdgeInsets.only(top: 8, bottom: 5, left: 2, right: 2),
             ),
             for (var i = 0; i < tiles.length; i += 2) ...[
@@ -855,53 +852,98 @@ class _QuickCreateHubBodyState extends State<_QuickCreateHubBody>
                 ),
               ),
             ],
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            const SizedBox(height: 6),
+            Row(
               children: [
-                for (final act in compactExtraActions)
-                  Material(
-                    color: c.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(color: c.border),
+                const Expanded(
+                  child: LifeOsSectionHeader(
+                    title: 'Tất cả',
+                    padding: EdgeInsets.only(
+                      top: 4,
+                      bottom: 4,
+                      left: 2,
+                      right: 2,
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      key: act.key,
-                      onTap: act.onTap,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minHeight: 48,
-                          minWidth: 48,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                  ),
+                ),
+                TextButton.icon(
+                  key: const Key('quick_hub_toggle_all_actions_btn'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 36),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _showAllSecondaryActions = !_showAllSecondaryActions,
+                    );
+                  },
+                  icon: Icon(
+                    _showAllSecondaryActions
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 16,
+                  ),
+                  label: Text(
+                    _showAllSecondaryActions ? 'Thu gọn' : 'Mở rộng',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_showAllSecondaryActions)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final act in compactExtraActions)
+                    Material(
+                      color: c.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: c.border),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: act.key,
+                        onTap: act.onTap,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minHeight: 48,
+                            minWidth: 48,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(act.icon, size: 17, color: c.primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                act.label,
-                                style: TextStyle(
-                                  fontSize: 12.8,
-                                  fontWeight: FontWeight.w700,
-                                  color: c.textPrimary,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(act.icon, size: 17, color: c.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  act.label,
+                                  style: TextStyle(
+                                    fontSize: 12.8,
+                                    fontWeight: FontWeight.w700,
+                                    color: c.textPrimary,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
 
             // 4. Clearly Separated Section: Đối soát & Lưu trữ
             const LifeOsSectionHeader(
@@ -3331,7 +3373,16 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
                   for (final ml in const [150, 250, 350, 500])
                     FilledButton.tonalIcon(
                       key: Key('quick_sheet_water_$ml'),
-                      onPressed: () {
+                      onPressed: () async {
+                        final waiter = bloc.stream
+                            .firstWhere(
+                              (s) =>
+                                  s.successBanner != null || s.failure != null,
+                            )
+                            .timeout(
+                              const Duration(seconds: 6),
+                              onTimeout: () => bloc.state,
+                            );
                         bloc.add(
                           WaterIntakeLogged(
                             userId: widget.userId,
@@ -3339,11 +3390,26 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
                             targetWaterMl: hyd.targetWaterMl,
                           ),
                         );
-                        Navigator.of(context).pop();
-                        LifeOsTopToast.show(
-                          widget.parentContext,
-                          'Đã ghi nhận +$ml ml nước uống hôm nay.',
-                        );
+                        final nextState = await waiter;
+                        if (nextState.failure != null) {
+                          if (widget.parentContext.mounted) {
+                            LifeOsTopToast.show(
+                              widget.parentContext,
+                              nextState.failure!.message,
+                              kind: LifeOsToastKind.error,
+                            );
+                          }
+                          return;
+                        }
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
+                        if (widget.parentContext.mounted) {
+                          LifeOsTopToast.show(
+                            widget.parentContext,
+                            'Đã ghi nhận +$ml ml nước uống hôm nay.',
+                          );
+                        }
                       },
                       icon: const Icon(Icons.local_drink_outlined, size: 16),
                       label: Text('+$ml ml'),
@@ -3447,7 +3513,7 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
                 key: const Key('quick_sheet_save_med_btn'),
                 icon: Icons.check_rounded,
                 label: 'Lưu & Đặt nhắc thuốc',
-                onPressed: () {
+                onPressed: () async {
                   final cleanName = _medNameCtrl.text.trim();
                   if (cleanName.isEmpty) {
                     LifeOsTopToast.show(
@@ -3457,24 +3523,48 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
                     );
                     return;
                   }
+                  final waiter = bloc.stream
+                      .firstWhere(
+                        (s) => s.successBanner != null || s.failure != null,
+                      )
+                      .timeout(
+                        const Duration(seconds: 6),
+                        onTimeout: () => bloc.state,
+                      );
                   bloc.add(
                     MedicationCabinetAdded(
                       userId: widget.userId,
                       name: cleanName,
                       dosage: _medDoseCtrl.text.trim(),
                       slot: _slot,
-                      remainingPills: 30,
-                      expiryDate: DateTime.now().add(const Duration(days: 270)),
+                      remainingPills: 0,
+                      expiryDate: DateTime.fromMillisecondsSinceEpoch(0),
+                      inventoryConfirmed: false,
                       reminderEnabled: true,
                       reminderHour: _time.hour,
                       reminderMinute: _time.minute,
                     ),
                   );
-                  Navigator.of(context).pop();
-                  LifeOsTopToast.show(
-                    widget.parentContext,
-                    'Đã đặt nhắc uống "$cleanName" lúc $hh:$mm.',
-                  );
+                  final nextState = await waiter;
+                  if (nextState.failure != null) {
+                    if (widget.parentContext.mounted) {
+                      LifeOsTopToast.show(
+                        widget.parentContext,
+                        nextState.failure!.message,
+                        kind: LifeOsToastKind.error,
+                      );
+                    }
+                    return;
+                  }
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                  if (widget.parentContext.mounted) {
+                    LifeOsTopToast.show(
+                      widget.parentContext,
+                      'Đã đặt nhắc uống "$cleanName" lúc $hh:$mm (tồn kho & HSD: Chưa nhập).',
+                    );
+                  }
                 },
               ),
             ],

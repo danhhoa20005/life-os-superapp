@@ -1,17 +1,17 @@
 {
   "train": {
-    "count": 3910,
-    "unique_templates": 21,
+    "count": 5202,
+    "unique_templates": 29,
     "num_classes": 30,
-    "min_per_class": 105,
-    "max_per_class": 240
+    "min_per_class": 107,
+    "max_per_class": 395
   },
   "val": {
-    "count": 657,
-    "unique_templates": 9,
+    "count": 905,
+    "unique_templates": 13,
     "num_classes": 30,
     "min_per_class": 15,
-    "max_per_class": 34
+    "max_per_class": 56
   },
   "test": {
     "count": 1297,

@@ -3,6 +3,7 @@ import 'package:bloc_concurrency/bloc_concurrency.dart';
 
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/drafts/local_draft_store.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_home_widget_bridge.dart';
@@ -420,9 +421,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignOutRequested event,
     Emitter<AuthState> emit,
   ) async {
-    await _signOut(const NoParams());
-    UserBehaviorPrefs.clearSessionOnSignOut();
-    LocalDraftStore.clearAllInMemoryCaches();
+    emit(
+      state.copyWith(isSubmitting: true, clearFailure: true, clearInfo: true),
+    );
+    // Immediately lock external surfaces (widgets, notification listener) before sign-out completes.
     if (sl.isRegistered<NativeHomeWidgetBridge>()) {
       await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
     }
@@ -433,7 +435,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         allowedPackages: const <String>[],
         voiceSoundboxEnabled: false,
       );
-      await notifBridge.clearAllQueuedNotifications();
+    }
+
+    final result = await _signOut(const NoParams());
+    final signOutFailure = result.fold((f) => f, (_) => null);
+    if (signOutFailure != null) {
+      emit(
+        state.copyWith(
+          status: state.user != null ? AuthStatus.authenticated : state.status,
+          isSubmitting: false,
+          failure: ValidationFailure(
+            message:
+                'Đăng xuất chưa thành công (${signOutFailure.message}). Phiên đăng nhập vẫn đang mở — vui lòng thử đăng xuất lại.',
+            code: 'SIGN_OUT_FAILED',
+          ),
+          clearInfo: true,
+        ),
+      );
+      return;
+    }
+
+    UserBehaviorPrefs.clearSessionOnSignOut();
+    LocalDraftStore.clearAllInMemoryCaches();
+    if (sl.isRegistered<AndroidNotificationBridge>()) {
+      await sl<AndroidNotificationBridge>().clearAllQueuedNotifications();
     }
     await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
     emit(

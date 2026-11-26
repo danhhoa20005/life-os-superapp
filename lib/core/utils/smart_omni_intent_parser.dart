@@ -5,10 +5,12 @@ import '../../features/daily_life/domain/entities/daily_life_entities.dart';
 import '../../features/tasks/domain/entities/task_entities.dart';
 import '../../features/transactions/domain/entities/transaction_entities.dart';
 import '../security/bank_notification_parser.dart';
+import 'smart_money_split_ai_engine.dart';
 import 'smart_quick_entry_parser.dart';
 import 'vietnamese_search_matcher.dart';
 import 'vietnamese_temporal_and_entity_resolver.dart';
 import 'vnd_amount.dart';
+import 'voice_financial_nlp_engine.dart';
 
 enum OmniActionKind {
   transaction,
@@ -521,6 +523,35 @@ abstract final class SmartOmniIntentParser {
 
       final isComma = m.group(0)!.contains(',');
       if (isComma &&
+          !_splitCountRegex.hasMatch(left.toLowerCase()) &&
+          SmartMoneySplitAiEngine.looksLikeGroupSplitUtterance(
+            trimmed.toLowerCase(),
+          )) {
+        final nextMatch = _candidateClauseConnector.firstMatch(right);
+        final immediateRight = nextMatch == null
+            ? right
+            : right.substring(0, nextMatch.start).trim();
+        final immediateRightLower = immediateRight.toLowerCase();
+        final leftLower = left.toLowerCase();
+        final isDifferentialContinuation =
+            immediateRightLower.contains('còn lại') ||
+            immediateRightLower.contains('con lai') ||
+            immediateRightLower.contains('%') ||
+            immediateRightLower.contains('suất') ||
+            immediateRightLower.contains('chịu') ||
+            (SmartMoneySplitAiEngine.looksLikeGroupSplitUtterance(leftLower) &&
+                RegExp(
+                  r'^[\p{L}\s]{1,20}\d',
+                  unicode: true,
+                ).hasMatch(immediateRight));
+        if (isDifferentialContinuation &&
+            !_containsScheduleCue(immediateRightLower) &&
+            !_containsTaskCue(immediateRightLower) &&
+            !_splitCountRegex.hasMatch(immediateRightLower)) {
+          continue;
+        }
+      }
+      if (isComma &&
           _looksLikeGroceryCommand(left.toLowerCase()) &&
           SmartQuickEntryParser.tryParse(left) == null &&
           !_containsScheduleCue(left.toLowerCase())) {
@@ -625,12 +656,14 @@ abstract final class SmartOmniIntentParser {
       }
     }
 
-    // 0D. Alarm ("báo thức 6 giờ 30 sáng mai", "đặt chuông 7h sáng")
-    if (folded.startsWith('bao thuc') || folded.startsWith('dat chuong')) {
+    // 0D. Alarm ("báo thức 6 giờ 30 sáng mai", "đặt báo thức...", "đặt chuông 7h sáng")
+    if (folded.startsWith('bao thuc') ||
+        folded.startsWith('dat chuong') ||
+        folded.startsWith('dat bao thuc')) {
       final (alarmAt, cleanedTitle) = _extractDateTimeAndTitle(
         clause.replaceFirst(
           RegExp(
-            r'^(?:báo\s+thức|bao\s+thuc|đặt\s+chuông|dat\s+chuong)\s*:?\s*',
+            r'^(?:đặt\s+báo\s+thức|dat\s+bao\s+thuc|báo\s+thức|bao\s+thuc|đặt\s+chuông|dat\s+chuong)\s*:?\s*',
             caseSensitive: false,
           ),
           '',
@@ -717,6 +750,28 @@ abstract final class SmartOmniIntentParser {
             categoryId: tx.categoryId,
             categoryName: tx.categoryName,
             participantCount: count,
+          ),
+        ];
+      }
+    } else if (SmartMoneySplitAiEngine.looksLikeGroupSplitUtterance(lower)) {
+      final adv = SmartMoneySplitAiEngine.tryParseAdvancedGroupSplit(
+        clauseWithoutPhones,
+        currentUserId: 'me',
+        currentUserName: 'Tôi',
+        topic: VoiceFinancialNlpEngine.inferSharedTopic(clauseWithoutPhones),
+      );
+      if (adv != null && adv.totalAmountMinor > 0) {
+        return <OmniActionDraft>[
+          OmniActionDraft(
+            id: 'omni_split_$index',
+            kind: OmniActionKind.groupSplit,
+            subtype: OmniIntentSubtype.groupBillSplit,
+            title: adv.title,
+            amountMinor: adv.totalAmountMinor,
+            categoryId: moneyCandidate?.categoryId ?? 'cat_other_exp',
+            categoryName: moneyCandidate?.categoryName ?? 'Chia nhóm',
+            participantCount: adv.shares.length,
+            participantNames: adv.shares.map((s) => s.displayName).toList(),
           ),
         ];
       }
@@ -886,6 +941,10 @@ abstract final class SmartOmniIntentParser {
         (entities.destinationWalletHint != null ||
             folded.contains('tu vi') ||
             folded.contains('sang vi') ||
+            folded.contains('vao vi ') ||
+            folded.contains('vao so tiet kiem') ||
+            folded.contains('so tiet kiem') ||
+            folded.contains('tai khoan tiet kiem') ||
             folded.contains('noi bo'))) {
       return OmniIntentSubtype.internalTransfer;
     }
@@ -1026,13 +1085,36 @@ abstract final class SmartOmniIntentParser {
     ).hasMatch(folded);
   }
 
+  static final RegExp _leadingNhacToiBeforeTemporalRegex = RegExp(
+    r'^(?:nhắc\s+nhở|nhac\s+nho|nhắc\s+(?:tôi|mình)|nhac\s+(?:toi|minh))(?=\s+(?!nay\b|mai\b|mốt\b|mot\b|qua\b|thứ\b|thu\b|chủ\b|chu\b|\d|nữa\b|nua\b))[\s:,]*',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _midNhacToiBeforeTemporalRegex = RegExp(
+    r'\b(?:nhắc\s+(?:tôi|mình)|nhac\s+(?:toi|minh))(?=\s+(?!nay\b|mai\b|mốt\b|mot\b|qua\b|thứ\b|thu\b|chủ\b|chu\b|\d|nữa\b|nua\b))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _multiSpacesRegex = RegExp(r'\s{2,}');
+
   static (DateTime, String) _extractDateTimeAndTitle(
     String rawClause, {
     required DateTime refNow,
     required int defaultHour,
   }) {
+    // Strip "nhắc tôi / nhắc mình" before temporal parsing so unaccented "toi" never trips evening hour (20:00).
+    final lowerClause = rawClause.toLowerCase();
+    final preTemporalClause =
+        (lowerClause.contains('nhắc') || lowerClause.contains('nhac'))
+        ? rawClause
+              .replaceFirst(_leadingNhacToiBeforeTemporalRegex, '')
+              .replaceAll(_midNhacToiBeforeTemporalRegex, '')
+              .replaceAll(_multiSpacesRegex, ' ')
+              .trim()
+        : rawClause;
+
     final temporal = VietnameseTemporalAndEntityResolver.resolveTemporal(
-      rawClause,
+      preTemporalClause.isEmpty ? rawClause : preTemporalClause,
       referenceNow: refNow,
       defaultHour: defaultHour,
     );

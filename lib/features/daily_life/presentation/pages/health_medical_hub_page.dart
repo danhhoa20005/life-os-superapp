@@ -566,7 +566,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                   ),
                             child: const LifeOsStatusPill(
                               icon: Icons.info_outline_rounded,
-                              label: 'Chưa khai báo tồn kho / HSD',
+                              label: 'Tồn kho & HSD: Chưa nhập',
                               tone: LifeOsAccentTone.neutral,
                             ),
                           ),

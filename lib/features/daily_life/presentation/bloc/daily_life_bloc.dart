@@ -35,19 +35,20 @@ final class MedicationCabinetAdded extends DailyLifeEvent {
   final int? reminderHour;
   final int? reminderMinute;
 
-  const MedicationCabinetAdded({
+  MedicationCabinetAdded({
     required this.userId,
     required this.name,
     required this.dosage,
     required this.slot,
-    required this.remainingPills,
-    required this.expiryDate,
-    this.inventoryConfirmed = true,
+    this.remainingPills = 0,
+    DateTime? expiryDate,
+    bool? inventoryConfirmed,
     this.memberName = 'Cả gia đình',
     this.reminderEnabled,
     this.reminderHour,
     this.reminderMinute,
-  });
+  }) : expiryDate = expiryDate ?? DateTime.fromMillisecondsSinceEpoch(0),
+       inventoryConfirmed = inventoryConfirmed ?? (remainingPills > 0);
 
   @override
   List<Object?> get props => [

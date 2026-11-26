@@ -193,7 +193,8 @@ abstract final class VietQrEmvBuilder {
     return '$payloadWithoutCrc$crc';
   }
 
-  /// Convenience VietQR image URL (compact2 NAPAS 247 card) for visual display when online.
+  /// Local offline EMVCo URI scheme (never sends bank account number, holder name,
+  /// amount, or payment memo to external servers such as `img.vietqr.io`).
   static String buildVisualQrUrl({
     required String bankBin,
     required String accountNumber,
@@ -201,21 +202,12 @@ abstract final class VietQrEmvBuilder {
     int? amountVnd,
     String? memo,
   }) {
-    final cleanBin = bankBin.replaceAll(RegExp(r'[^0-9]'), '');
-    final cleanAcc = accountNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
-    final params = <String>[];
-    if (amountVnd != null && amountVnd > 0) {
-      params.add('amount=$amountVnd');
-    }
-    if (memo != null && memo.trim().isNotEmpty) {
-      params.add('addInfo=${Uri.encodeComponent(toBankSafeAscii(memo))}');
-    }
-    if (accountHolderName != null && accountHolderName.trim().isNotEmpty) {
-      params.add(
-        'accountName=${Uri.encodeComponent(toBankSafeAscii(accountHolderName))}',
-      );
-    }
-    final query = params.isEmpty ? '' : '?${params.join("&")}';
-    return 'https://img.vietqr.io/image/$cleanBin-$cleanAcc-compact2.png$query';
+    final payload = buildNapas247Payload(
+      bankBin: bankBin,
+      accountNumber: accountNumber,
+      amountVnd: amountVnd,
+      memo: memo,
+    );
+    return 'urn:vietqr:emvco:$payload';
   }
 }

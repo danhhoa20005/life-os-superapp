@@ -17,10 +17,22 @@ enum VoiceEngineId {
 
   static VoiceEngineId? tryFromWireValue(String? raw) {
     final norm = (raw ?? '').trim().toLowerCase();
+    if (norm.isEmpty) return null;
+    if (norm.startsWith('service:')) {
+      return VoiceEngineId.androidSpeech;
+    }
     return switch (norm) {
-      'android_on_device' || 'on_device' => VoiceEngineId.androidOnDevice,
-      'local_asr' => VoiceEngineId.localAsr,
-      'android_speech' || 'google_service' => VoiceEngineId.androidSpeech,
+      'android_on_device' ||
+      'on_device' ||
+      'on_device_android13' ||
+      'on_device_speech_recognizer' ||
+      'offline_strict' => VoiceEngineId.androidOnDevice,
+      'local_asr' || 'pcm_local_capture' => VoiceEngineId.localAsr,
+      'android_speech' ||
+      'google_service' ||
+      'online_google' ||
+      'system_default' ||
+      'auto' => VoiceEngineId.androidSpeech,
       'system_dialog' || 'system_speech_dialog' => VoiceEngineId.systemDialog,
       _ => null,
     };

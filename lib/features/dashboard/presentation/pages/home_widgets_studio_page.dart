@@ -275,14 +275,16 @@ class _HomeWidgetsStudioPageState extends State<HomeWidgetsStudioPage> {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final user = context.watch<AuthBloc>().state.user;
+    final user = context.select((AuthBloc b) => b.state.user);
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final dash = context.watch<DashboardBloc>().state.data;
-    final family = context.watch<FamilyBloc>().state.activeFamily;
-    final hydration = context.watch<DailyLifeBloc>().state.snapshot.hydration;
+    final dash = context.select((DashboardBloc b) => b.state.data);
+    final family = context.select((FamilyBloc b) => b.state.activeFamily);
+    final hydration = context.select(
+      (DailyLifeBloc b) => b.state.snapshot.hydration,
+    );
     final runway = EmergencyRunwaySnapshot.compute(
       netLiquidMinor: dash.netWorthMinor,
       monthlyExpenseMinor: dash.monthlyExpenseMinor,

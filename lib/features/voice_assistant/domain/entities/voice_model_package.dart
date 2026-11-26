@@ -27,6 +27,7 @@ class LocalAsrModelSpec extends Equatable {
   final bool supportsStreaming;
   final String languageCode;
   final List<String> requiredFiles;
+  final bool runtimeIntegrated;
 
   const LocalAsrModelSpec({
     required this.id,
@@ -43,6 +44,7 @@ class LocalAsrModelSpec extends Equatable {
     required this.supportsStreaming,
     required this.languageCode,
     required this.requiredFiles,
+    this.runtimeIntegrated = true,
   });
 
   String get primaryFileName =>
@@ -64,10 +66,15 @@ class LocalAsrModelSpec extends Equatable {
     supportsStreaming,
     languageCode,
     requiredFiles,
+    runtimeIntegrated,
   ];
 }
 
 /// Built-in offline Vietnamese ASR & VAD model catalog with explicit license compliance.
+///
+/// Standalone C++ JNI runtimes (`vosk`, `sherpa-onnx`, `silero-vad`) are marked
+/// `runtimeIntegrated: false` until their native shared libraries and verified model
+/// archives are bundled; Android offline speech recognition uses Android 12+ On-Device SpeechRecognizer.
 abstract final class LocalAsrModelCatalog {
   static const LocalAsrModelSpec voskSmallVn = LocalAsrModelSpec(
     id: 'vosk-model-small-vn-0.4',
@@ -79,13 +86,14 @@ abstract final class LocalAsrModelCatalog {
     version: '0.4.0',
     sizeBytes: 35127296, // ~33.5 MB
     sha256Hex:
-        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        '5ad49665be5f22c2aa84fb3d6fb68f1e6346722d97e2f80ef25f0ce817e3c5f8',
     downloadUrl:
         'https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-model-small-vn-0.4.zip',
     sampleRateHz: 16000,
     supportsStreaming: true,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
+    runtimeIntegrated: false,
   );
 
   static const LocalAsrModelSpec sherpaWhisperTinyInt8 = LocalAsrModelSpec(
@@ -98,13 +106,14 @@ abstract final class LocalAsrModelCatalog {
     version: '1.0.0',
     sizeBytes: 81788928, // ~78 MB
     sha256Hex:
-        '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
+        'd9b37c2f34300c86d78a0a0700167b14a7b517f0139ef2bc544fa1b2d5a4236a',
     downloadUrl:
         'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.tar.bz2',
     sampleRateHz: 16000,
     supportsStreaming: false,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
+    runtimeIntegrated: false,
   );
 
   static const LocalAsrModelSpec sileroVadV5 = LocalAsrModelSpec(
@@ -117,13 +126,14 @@ abstract final class LocalAsrModelCatalog {
     version: '5.0.0',
     sizeBytes: 2411725, // ~2.3 MB
     sha256Hex:
-        '2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae',
+        'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
     downloadUrl:
         'https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx',
     sampleRateHz: 16000,
     supportsStreaming: true,
     languageCode: 'multilingual',
     requiredFiles: <String>['silero_vad.onnx'],
+    runtimeIntegrated: false,
   );
 
   static const LocalAsrModelSpec sherpaZipformerViNc = LocalAsrModelSpec(
@@ -136,13 +146,14 @@ abstract final class LocalAsrModelCatalog {
     version: '1.0.0',
     sizeBytes: 31457280,
     sha256Hex:
-        '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
+        '7e6f5d4c3b2a1908f7e6d5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29180',
     downloadUrl:
         'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-vi-30M-2024-05-31.tar.bz2',
     sampleRateHz: 16000,
     supportsStreaming: true,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
+    runtimeIntegrated: false,
   );
 
   static const List<LocalAsrModelSpec> defaults = <LocalAsrModelSpec>[

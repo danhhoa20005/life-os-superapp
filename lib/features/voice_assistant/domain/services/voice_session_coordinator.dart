@@ -1066,11 +1066,21 @@ class VoiceSessionCoordinator {
       );
     }
 
-    if (outcome.awaitsExternalActivity &&
-        !_snapshot.session.isAwaitingExternalActivity) {
-      _updateSession(
-        _snapshot.session.copyWith(isAwaitingExternalActivity: true),
-      );
+    if (outcome.awaitsExternalActivity) {
+      _preparingTimer?.cancel();
+      if (engineId != VoiceEngineId.systemDialog &&
+          _snapshot.session.phase == VoiceSessionPhase.preparing) {
+        _transitionPhase(
+          VoiceSessionPhase.requestingPermission,
+          isAwaitingExternalActivity: true,
+          engineId: engineId.wireValue,
+          eventNote: 'awaiting_runtime_permission',
+        );
+      } else if (!_snapshot.session.isAwaitingExternalActivity) {
+        _updateSession(
+          _snapshot.session.copyWith(isAwaitingExternalActivity: true),
+        );
+      }
     }
 
     return VoiceStartResult.accepted(
@@ -1105,17 +1115,22 @@ class VoiceSessionCoordinator {
       );
     }
 
+    final coordinatorNowMs = _clock.elapsedMilliseconds;
+
     switch (event.eventType) {
       case VoiceEnvelopeEventType.permissionRequested:
+        _preparingTimer?.cancel();
         _recordTimeline(
           'permissionRequested',
           _snapshot.session.phase,
           engineId: event.engineId,
         );
-        if (_snapshot.session.phase == VoiceSessionPhase.idle) {
+        if (_snapshot.session.phase == VoiceSessionPhase.idle ||
+            _snapshot.session.phase == VoiceSessionPhase.preparing) {
           _transitionPhase(
             VoiceSessionPhase.requestingPermission,
             isAwaitingExternalActivity: true,
+            engineId: event.engineId,
           );
         } else {
           _updateSession(
@@ -1133,7 +1148,16 @@ class VoiceSessionCoordinator {
           emitNow: false,
         );
         if (_snapshot.session.phase == VoiceSessionPhase.requestingPermission) {
-          _transitionPhase(VoiceSessionPhase.preparing);
+          _transitionPhase(
+            VoiceSessionPhase.preparing,
+            isAwaitingExternalActivity: false,
+            engineId: event.engineId,
+          );
+          _armPreparingTimer(
+            _snapshot.session.sessionId,
+            _snapshot.session.attemptId,
+            _snapshot.session.generationToken,
+          );
         } else {
           _emitSnapshot();
         }
@@ -1153,12 +1177,25 @@ class VoiceSessionCoordinator {
         );
         if (_snapshot.session.phase == VoiceSessionPhase.idle ||
             _snapshot.session.phase == VoiceSessionPhase.requestingPermission) {
-          _transitionPhase(VoiceSessionPhase.preparing);
+          final wasAwaitingPerm =
+              _snapshot.session.phase == VoiceSessionPhase.requestingPermission;
+          _transitionPhase(
+            VoiceSessionPhase.preparing,
+            isAwaitingExternalActivity: false,
+            engineId: event.engineId,
+          );
+          if (wasAwaitingPerm) {
+            _armPreparingTimer(
+              _snapshot.session.sessionId,
+              _snapshot.session.attemptId,
+              _snapshot.session.generationToken,
+            );
+          }
         }
       case VoiceEnvelopeEventType.readyForSpeech:
       case VoiceEnvelopeEventType.beginningOfSpeech:
         _preparingTimer?.cancel();
-        final nowMs = event.monotonicTimestampMs;
+        final nowMs = coordinatorNowMs;
         final isBeginning =
             event.eventType == VoiceEnvelopeEventType.beginningOfSpeech;
         if (isBeginning) {
@@ -1173,10 +1210,12 @@ class VoiceSessionCoordinator {
             : VoiceWaveformSample.indeterminateActive(
                 monotonicTimestampMs: nowMs,
               );
-        if (_snapshot.session.phase == VoiceSessionPhase.preparing) {
+        if (_snapshot.session.phase == VoiceSessionPhase.preparing ||
+            _snapshot.session.phase == VoiceSessionPhase.requestingPermission) {
           _updateSession(
             _snapshot.session.copyWith(
               phase: VoiceSessionPhase.listening,
+              isAwaitingExternalActivity: false,
               readyAtMonotonicMs: readyAt,
             ),
             waveform: nextWaveform,
@@ -1211,11 +1250,11 @@ class VoiceSessionCoordinator {
                   event.isRealPcmEnergy
               ? VoiceWaveformSample.fromPcmEnergy(
                   rmsDb,
-                  monotonicTimestampMs: event.monotonicTimestampMs,
+                  monotonicTimestampMs: coordinatorNowMs,
                 )
               : VoiceWaveformSample.fromRmsDb(
                   rmsDb,
-                  monotonicTimestampMs: event.monotonicTimestampMs,
+                  monotonicTimestampMs: coordinatorNowMs,
                 );
           final speechThreshold =
               event.eventType == VoiceEnvelopeEventType.pcmEnergy ||
@@ -1224,24 +1263,26 @@ class VoiceSessionCoordinator {
               : 3.0;
           if (rmsDb >= speechThreshold) {
             _hasSpeechStarted = true;
-            _speechStartedMs ??= event.monotonicTimestampMs;
-            _lastAcousticActivityMs = event.monotonicTimestampMs;
+            _speechStartedMs ??= coordinatorNowMs;
+            _lastAcousticActivityMs = coordinatorNowMs;
           }
           _updateSession(_snapshot.session, waveform: sample);
           _scheduleAutoEndpointCheckIfNeeded();
         }
       case VoiceEnvelopeEventType.partialResult:
         _preparingTimer?.cancel();
-        final nowMs = event.monotonicTimestampMs;
+        final nowMs = coordinatorNowMs;
         _listeningStartedMs ??= nowMs;
         _hasSpeechStarted = true;
         _speechStartedMs ??= nowMs;
         _lastAcousticActivityMs = nowMs;
 
-        if (_snapshot.session.phase == VoiceSessionPhase.preparing) {
+        if (_snapshot.session.phase == VoiceSessionPhase.preparing ||
+            _snapshot.session.phase == VoiceSessionPhase.requestingPermission) {
           _updateSession(
             _snapshot.session.copyWith(
               phase: VoiceSessionPhase.listening,
+              isAwaitingExternalActivity: false,
               readyAtMonotonicMs: _snapshot.session.readyAtMonotonicMs ?? nowMs,
             ),
             emitNow: false,
@@ -1318,7 +1359,7 @@ class VoiceSessionCoordinator {
             isAwaitingExternalActivity: false,
           ),
           waveform: VoiceWaveformSample.silent(
-            monotonicTimestampMs: event.monotonicTimestampMs,
+            monotonicTimestampMs: coordinatorNowMs,
           ),
         );
       case VoiceEnvelopeEventType.audioFocusLost:
@@ -1365,9 +1406,11 @@ class VoiceSessionCoordinator {
 
   void _handleFinalResultEvent(VoiceEnvelopeEvent event) {
     _cancelAllTimers();
+    final coordinatorNowMs = _clock.elapsedMilliseconds;
 
     // Enforce strict FSM path through finalizing before entering review/error.
     if (_snapshot.session.phase == VoiceSessionPhase.preparing ||
+        _snapshot.session.phase == VoiceSessionPhase.requestingPermission ||
         _snapshot.session.phase == VoiceSessionPhase.listening) {
       _transitionPhase(
         VoiceSessionPhase.finalizing,
@@ -1397,14 +1440,14 @@ class VoiceSessionCoordinator {
         _snapshot.session.copyWith(
           phase: VoiceSessionPhase.error,
           terminalOutcome: VoiceTerminalOutcome.error,
-          finalAtMonotonicMs: event.monotonicTimestampMs,
+          finalAtMonotonicMs: coordinatorNowMs,
           isAwaitingExternalActivity: false,
           lastErrorKind: VoiceErrorKind.noMatch,
           lastErrorCode: 'NO_MATCH',
           lastErrorMessageVi: VoiceErrorKind.noMatch.friendlyMessageVi,
         ),
         waveform: VoiceWaveformSample.silent(
-          monotonicTimestampMs: event.monotonicTimestampMs,
+          monotonicTimestampMs: coordinatorNowMs,
         ),
         actionableHintVi: VoiceErrorKind.noMatch.friendlyMessageVi,
       );
@@ -1432,12 +1475,12 @@ class VoiceSessionCoordinator {
       _snapshot.session.copyWith(
         phase: VoiceSessionPhase.review,
         terminalOutcome: VoiceTerminalOutcome.finalResult,
-        finalAtMonotonicMs: event.monotonicTimestampMs,
+        finalAtMonotonicMs: coordinatorNowMs,
         isAwaitingExternalActivity: false,
         clearLastError: true,
       ),
       waveform: VoiceWaveformSample.silent(
-        monotonicTimestampMs: event.monotonicTimestampMs,
+        monotonicTimestampMs: coordinatorNowMs,
       ),
       clearHint: true,
     );
@@ -1686,7 +1729,10 @@ class VoiceSessionCoordinator {
       _endpointConfig.preparingTimeout,
       () {
         if (_isStaleSession(sessionId, attemptId, genToken)) return;
-        if (_snapshot.session.phase != VoiceSessionPhase.preparing) return;
+        if (_snapshot.session.phase != VoiceSessionPhase.preparing ||
+            _snapshot.session.isAwaitingExternalActivity) {
+          return;
+        }
         unawaited(
           _handleAttemptFailure(
             errorKind: VoiceErrorKind.clientError,

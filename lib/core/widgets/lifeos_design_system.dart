@@ -181,7 +181,9 @@ class LifeOsSymbolMark extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _LifeOsSymbolPainter(variant: variant)),
+      child: RepaintBoundary(
+        child: CustomPaint(painter: _LifeOsSymbolPainter(variant: variant)),
+      ),
     );
   }
 }
@@ -611,39 +613,45 @@ class LifeOsHeaderCircleButton extends StatelessWidget {
     final c = TammySemanticColors.of(context);
     return Tooltip(
       message: tooltip,
-      child: LiquidGlassSurface(
-        material: LiquidGlassMaterial.navigationChrome,
-        borderRadius: 19,
-        blurSigma: 20,
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            key: buttonKey,
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox(
-              width: 38,
-              height: 38,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(icon, size: 19, color: c.textPrimary),
-                  if (showUnreadDot)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: c.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: c.surface, width: 1.5),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: buttonKey,
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: LiquidGlassSurface(
+                material: LiquidGlassMaterial.navigationChrome,
+                borderRadius: 19,
+                blurSigma: 0,
+                enableBlur: false,
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Icon(icon, size: 19, color: c.textPrimary),
+                      if (showUnreadDot)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: c.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: c.surface, width: 1.5),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -689,9 +697,9 @@ class LifeOsTopBrandHeader extends StatelessWidget {
       return Padding(
         padding: EdgeInsets.fromLTRB(
           AppSpacing.md,
-          compact ? 6 : 10,
+          compact ? 1 : 5,
           AppSpacing.md,
-          compact ? 6 : 10,
+          compact ? 1 : 5,
         ),
         child: Center(
           child: ConstrainedBox(
@@ -960,9 +968,9 @@ class LifeOsTopBrandHeader extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(
               AppSpacing.md,
-              compact ? 6 : 8,
+              compact ? 1 : 3,
               AppSpacing.md,
-              compact ? 4 : 6,
+              compact ? 0 : 2,
             ),
             child: Center(
               child: ConstrainedBox(

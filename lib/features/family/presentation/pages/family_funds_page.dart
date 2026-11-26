@@ -98,19 +98,21 @@ class FamilyFundsPage extends StatelessWidget {
     );
   }
 
+  static final DateFormat _dtFmt = DateFormat('dd/MM, HH:mm');
+
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
+    final user = context.select((AuthBloc b) => b.state.user);
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final c = TammySemanticColors.of(context);
-    final family = context.watch<FamilyBloc>().state.activeFamily;
-    final txListBloc = _maybeRead<TransactionListBloc>(context);
-    final wallets = txListBloc != null
-        ? context.watch<TransactionListBloc>().state.wallets
+    final family = context.select((FamilyBloc b) => b.state.activeFamily);
+    final hasTxBloc = _maybeRead<TransactionListBloc>(context) != null;
+    final wallets = hasTxBloc
+        ? context.select((TransactionListBloc b) => b.state.wallets)
         : const <WalletEntity>[];
-    final dtFmt = DateFormat('dd/MM, HH:mm');
+    final dtFmt = _dtFmt;
     final now = DateTime.now();
 
     return BlocListener<BudgetBloc, BudgetState>(
@@ -1593,12 +1595,15 @@ class FamilyFundsPage extends StatelessWidget {
                                     color: c.primary,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    'Đóng góp gần đây',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.textPrimary,
+                                  Expanded(
+                                    child: Text(
+                                      'Đóng góp gần đây',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
+                                      ),
                                     ),
                                   ),
                                 ],

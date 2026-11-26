@@ -24,9 +24,12 @@ class AndroidSpeechEngine implements SpeechEngineAdapter {
   @override
   Stream<VoiceEnvelopeEvent> get events => _dataSource.events.where(
     (e) =>
+        VoiceEngineId.tryFromWireValue(e.engineId) == engineId ||
         e.engineId == engineId.wireValue ||
         e.engineId == 'google_service' ||
-        e.engineId == 'auto',
+        e.engineId == 'system_default' ||
+        e.engineId == 'auto' ||
+        e.engineId.startsWith('service:'),
   );
 
   @override

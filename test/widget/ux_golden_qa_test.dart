@@ -17,6 +17,8 @@ import 'package:life_os/core/services/native_permissions_service.dart';
 import 'package:life_os/core/utils/user_behavior_prefs.dart';
 import 'package:life_os/features/financial_ai/data/inference/fasttext_classifier.dart';
 
+import '../helpers/test_font_loader.dart';
+
 class _NoOpCalendarDriver implements DeviceCalendarDriver {
   const _NoOpCalendarDriver();
   @override
@@ -72,6 +74,7 @@ Future<void> _seedGoldenApp(
   Size size = const Size(390, 844),
   double textScale = 1.0,
 }) async {
+  await loadVietnameseTestFonts();
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   NativeDeviceCalendarBridge.setDriverOverride(const _NoOpCalendarDriver());

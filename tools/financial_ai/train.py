@@ -192,13 +192,23 @@ def train_fasttext_with_ood_qat(
             counts[b_id] = counts.get(b_id, 0) + 1
         compiled_train.append((y, logit_gain / len(buckets), list(counts.items()), weight, is_zero))
 
+    # Class-balanced weighting prevents over-represented augmented classes from swallowing rarer ones
+    id_class_counts: dict[int, int] = {}
+    for y, bkts in train_id_feats:
+        if bkts:
+            id_class_counts[y] = id_class_counts.get(y, 0) + 1
+    sorted_counts = sorted(id_class_counts.values())
+    median_cnt = sorted_counts[len(sorted_counts) // 2] if sorted_counts else 150
+
     for y, buckets in train_id_feats:
         if buckets:
-            compile_sample(y, buckets, 1.15)
+            c_cnt = max(id_class_counts.get(y, median_cnt), 1)
+            bal = min(1.28, max(0.78, (median_cnt / c_cnt) ** 0.45))
+            compile_sample(y, buckets, 1.15 * bal)
             # Mild subword/word-drop resilience so unseen wrapper words never dilute core entity tokens
             if len(buckets) >= 18:
                 kept = rng.sample(buckets, k=max(10, (len(buckets) * 2) // 3))
-                compile_sample(y, kept, 0.70)
+                compile_sample(y, kept, 0.70 * bal)
 
     in_domain_buckets = {b_id for _, bkts in train_id_feats for b_id in bkts}
     unseen_bucket_pool = [b_id for b_id in range(num_buckets) if b_id not in in_domain_buckets]
@@ -208,15 +218,18 @@ def train_fasttext_with_ood_qat(
     for y, buckets in train_ood_feats:
         if not buckets:
             continue
-        compile_sample(y, buckets, 0.36)
+        compile_sample(y, buckets, 0.68)
+        if len(buckets) >= 14:
+            kept_ood = rng.sample(buckets, k=max(8, (len(buckets) * 2) // 3))
+            compile_sample(y, kept_ood, 0.28)
 
-    # Synthetic unknown-subword / zero-vector OOD samples (stopped once P(__ood__) >= 0.30
-    # so b[__ood__] learns a crisp positive prior without over-rejecting valid short ID phrases!)
-    for _ in range(80):
-        compile_sample(ood_idx, [], 0.42, is_zero=True)
-    for _ in range(100):
+    # Synthetic unknown-subword / zero-vector OOD samples (stopped once P(__ood__) >= 0.52
+    # so b[__ood__] maintains a strong rejection prior against unseen English/code/gibberish!)
+    for _ in range(180):
+        compile_sample(ood_idx, [], 0.55, is_zero=True)
+    for _ in range(220):
         syn_bkts = rng.sample(unseen_bucket_pool, k=rng.randint(3, 12))
-        compile_sample(ood_idx, syn_bkts, 0.42, is_zero=True)
+        compile_sample(ood_idx, syn_bkts, 0.55, is_zero=True)
 
     smooth_neg = label_smoothing / num_classes
     smooth_pos = (1.0 - label_smoothing) + smooth_neg
@@ -247,10 +260,10 @@ def train_fasttext_with_ood_qat(
 
             probs = softmax_probs(logits)
             if is_zero:
-                if probs[y] > 0.30:
+                if probs[y] > 0.52:
                     continue
             else:
-                skip_thresh = 0.994 if y != ood_idx else 0.70
+                skip_thresh = 0.994 if y != ood_idx else 0.88
                 if (y == ood_idx or ep >= 5) and probs[y] > skip_thresh:
                     continue
 
@@ -260,7 +273,8 @@ def train_fasttext_with_ood_qat(
             ]
 
             for c in range(dim):
-                bg = grad_z[c] + l2_bias * b[c]
+                bias_target = 1.65 if c == ood_idx else 0.0
+                bg = grad_z[c] + l2_bias * (b[c] - bias_target)
                 gb[c] += bg * bg
                 b[c] -= (bias_lr / sqrt(gb[c])) * bg
 
@@ -293,10 +307,10 @@ def train_fasttext_with_ood_qat(
 
             probs = softmax_probs(logits)
             if is_zero:
-                if probs[y] > 0.30:
+                if probs[y] > 0.52:
                     continue
             else:
-                skip_thresh = 0.994 if y != ood_idx else 0.70
+                skip_thresh = 0.994 if y != ood_idx else 0.88
                 if probs[y] > skip_thresh:
                     continue
 
@@ -306,7 +320,8 @@ def train_fasttext_with_ood_qat(
             ]
 
             for c in range(dim):
-                bg = grad_z[c] + l2_bias * b[c]
+                bias_target = 1.65 if c == ood_idx else 0.0
+                bg = grad_z[c] + l2_bias * (b[c] - bias_target)
                 gb[c] += bg * bg
                 b[c] -= (bias_lr / sqrt(gb[c])) * bg
 
@@ -414,7 +429,7 @@ def calibrate_post_quant_temperature(
         obj = (
             0.4 * comb_nll
             + 2.5 * comb_ece
-            + 5.0 * max(0.0, 0.98 - ood_rej_rate)
+            + 8.0 * max(0.0, 0.992 - ood_rej_rate)
             + 3.0 * id_false_rej_rate
             + 30.0 * false_auto_rate
         )

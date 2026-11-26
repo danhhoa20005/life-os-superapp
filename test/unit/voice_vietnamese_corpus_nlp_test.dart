@@ -56,6 +56,44 @@ class _CorpusUtterance {
   bool get expectsFinancialAmount => expectedAmountsMinor.isNotEmpty;
 }
 
+class _HardCorpusV2Utterance {
+  final String id;
+  final String group;
+  final String referenceTranscript;
+  final List<int> expectedAmountsMinor;
+  final String expectedIntentKind;
+  final int? expectedParticipantCount;
+  final String? expectedPaidBy;
+  final String? expectedDateTimeIso;
+
+  const _HardCorpusV2Utterance({
+    required this.id,
+    required this.group,
+    required this.referenceTranscript,
+    required this.expectedAmountsMinor,
+    required this.expectedIntentKind,
+    this.expectedParticipantCount,
+    this.expectedPaidBy,
+    this.expectedDateTimeIso,
+  });
+
+  factory _HardCorpusV2Utterance.fromJson(Map<String, dynamic> json) {
+    return _HardCorpusV2Utterance(
+      id: json['id'] as String,
+      group: json['group'] as String,
+      referenceTranscript: json['referenceTranscript'] as String,
+      expectedAmountsMinor: (json['expectedAmountsMinor'] as List<dynamic>)
+          .map((e) => (e as num).toInt())
+          .toList(),
+      expectedIntentKind: json['expectedIntentKind'] as String,
+      expectedParticipantCount: (json['expectedParticipantCount'] as num?)
+          ?.toInt(),
+      expectedPaidBy: json['expectedPaidBy'] as String?,
+      expectedDateTimeIso: json['expectedDateTimeIso'] as String?,
+    );
+  }
+}
+
 bool _listEqualsInt(List<int> a, List<int> b) {
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
@@ -553,5 +591,136 @@ void main() {
       expect(s7Omni.drafts[0].amountMinor, 50000);
       expect(s7Omni.drafts[1].amountMinor, 70000);
     });
+  });
+
+  group('4. Hard Spoken Amounts, Temporal & Split Corpus v2 (>=100 Utterances)', () {
+    test(
+      'evaluates >=100 hard spoken Vietnamese utterances (>=95% exact amount + intent)',
+      () {
+        final v2File = File(
+          'tools/voice_asr_poc/corpus/vi_financial_corpus_v2_hard.json',
+        );
+        expect(v2File.existsSync(), isTrue);
+        final decoded =
+            jsonDecode(v2File.readAsStringSync()) as Map<String, dynamic>;
+        final v2List = (decoded['utterances'] as List<dynamic>)
+            .map(
+              (e) => _HardCorpusV2Utterance.fromJson(e as Map<String, dynamic>),
+            )
+            .toList();
+        expect(v2List.length, greaterThanOrEqualTo(100));
+
+        var passed = 0;
+        final failures = <String>[];
+        final sw = Stopwatch();
+        final latenciesMs = <double>[];
+
+        for (final u in v2List) {
+          sw
+            ..reset()
+            ..start();
+          final norm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
+            u.referenceTranscript,
+          );
+          final finAnalysis = VoiceFinancialNlpEngine.analyze(
+            u.referenceTranscript,
+            currentUserId: 'u_hoa',
+            currentUserName: 'Hòa',
+          );
+          final envelope = SmartOmniIntentParser.parseDetailed(
+            norm,
+            now: fixedNow,
+          );
+          sw.stop();
+          latenciesMs.add(sw.elapsedMicroseconds / 1000.0);
+
+          final parsedAmounts = _extractParsedAmounts(
+            envelope,
+            finAnalysis,
+            u.expectedIntentKind,
+          );
+          final amountOk = u.expectedAmountsMinor.isEmpty
+              ? parsedAmounts.isEmpty
+              : _listEqualsInt(parsedAmounts, u.expectedAmountsMinor);
+
+          final dummyWrapper = _CorpusUtterance(
+            id: u.id,
+            category: u.group,
+            accentOrCondition: 'hard_v2',
+            referenceTranscript: u.referenceTranscript,
+            asrSimulatedVariants: const [],
+            expectedAmountsMinor: u.expectedAmountsMinor,
+            expectedIntentKind: u.expectedIntentKind,
+            expectedParticipantCount: u.expectedParticipantCount,
+            hasMidSentencePause: false,
+            isSection15Example: false,
+          );
+          final intentOk = _matchesExpectedIntent(
+            dummyWrapper,
+            envelope,
+            finAnalysis,
+          );
+
+          var splitExtraOk = true;
+          if (u.expectedParticipantCount != null) {
+            final finCount = finAnalysis?.groupSplit?.shares.length;
+            final omniCount = envelope.drafts.isNotEmpty
+                ? envelope.drafts.first.participantCount
+                : null;
+            splitExtraOk =
+                finCount == u.expectedParticipantCount ||
+                omniCount == u.expectedParticipantCount;
+          }
+          if (u.expectedPaidBy != null) {
+            splitExtraOk =
+                splitExtraOk &&
+                finAnalysis?.groupSplit?.paidByDisplayName == u.expectedPaidBy;
+          }
+
+          var dtOk = true;
+          if (u.expectedDateTimeIso != null) {
+            final expectedDt = DateTime.parse(u.expectedDateTimeIso!);
+            final scheduled = envelope.drafts
+                .where((d) => d.scheduledAt != null)
+                .map((d) => d.scheduledAt!)
+                .toList();
+            dtOk =
+                scheduled.isNotEmpty &&
+                scheduled.first.year == expectedDt.year &&
+                scheduled.first.month == expectedDt.month &&
+                scheduled.first.day == expectedDt.day &&
+                scheduled.first.hour == expectedDt.hour &&
+                scheduled.first.minute == expectedDt.minute;
+          }
+
+          if (amountOk && intentOk && splitExtraOk && dtOk) {
+            passed++;
+          } else {
+            failures.add(
+              '${u.id}[${u.group}] "${u.referenceTranscript}" -> norm="$norm" | '
+              'amt=$parsedAmounts (exp=${u.expectedAmountsMinor}) | '
+              'drafts=${envelope.drafts.map((d) => "${d.kind.name}:${d.resolvedSubtype.name}:${d.amountMinor}:${d.scheduledAt}:${d.participantCount}").toList()} | '
+              'fin=${finAnalysis?.intentKind.name}:${finAnalysis?.groupSplit?.shares.length}:paidBy=${finAnalysis?.groupSplit?.paidByDisplayName}',
+            );
+          }
+        }
+
+        latenciesMs.sort();
+        final p50 = _percentile(latenciesMs, 50);
+        final p95 = _percentile(latenciesMs, 95);
+        final exactRate = passed / v2List.length;
+
+        // ignore: avoid_print
+        print(
+          '\n[HARD_V2_CORPUS_BENCHMARK] total=${v2List.length} | '
+          'exact_pass=$passed/${v2List.length} (${(exactRate * 100).toStringAsFixed(2)}%) | '
+          'P50=${p50.toStringAsFixed(3)}ms / P95=${p95.toStringAsFixed(3)}ms\n'
+          '  Failures (${failures.length}):\n    - ${failures.join('\n    - ')}\n',
+        );
+
+        expect(exactRate, greaterThanOrEqualTo(0.95));
+        expect(p95, lessThan(25.0));
+      },
+    );
   });
 }

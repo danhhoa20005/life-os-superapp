@@ -1488,6 +1488,235 @@ void main() {
         expect(missingModelStart.errorKind, VoiceErrorKind.offlineModelMissing);
       },
     );
+
+    test(
+      '21. Exact Kotlin buildEventEnvelope maps (5/5) & native engine labels (3/3) reach coordinator review',
+      () async {
+        final ds = VoiceNativeChannelDataSource(clock: clock);
+        addTearDown(ds.dispose);
+
+        // 1) Verify 5/5 exact legacy+v2 hybrid Kotlin envelopes parse cleanly
+        final kotlinEnvelopes = <Map<String, dynamic>>[
+          <String, dynamic>{
+            'type': 'state',
+            'eventType': 'state',
+            'status': 'listening',
+            'sessionToken': 's_kt_1',
+            'sessionId': 's_kt_1',
+            'attemptId': 1,
+            'ownerId': 'main_activity',
+            'sequenceNumber': 1,
+            'engineId': 'system_default',
+            'monotonicTimestampMs': 86400000,
+          },
+          <String, dynamic>{
+            'type': 'rms',
+            'eventType': 'rms',
+            'rms': 6.5,
+            'sessionToken': 's_kt_1',
+            'sessionId': 's_kt_1',
+            'attemptId': 1,
+            'ownerId': 'main_activity',
+            'sequenceNumber': 2,
+            'engineId': 'system_default',
+            'monotonicTimestampMs': 86400100,
+          },
+          <String, dynamic>{
+            'type': 'partial',
+            'eventType': 'partial',
+            'text': 'Phở bò 55',
+            'sessionToken': 's_kt_1',
+            'sessionId': 's_kt_1',
+            'attemptId': 1,
+            'ownerId': 'main_activity',
+            'sequenceNumber': 3,
+            'engineId': 'service:com.google.android.tts',
+            'monotonicTimestampMs': 86400300,
+          },
+          <String, dynamic>{
+            'type': 'state',
+            'eventType': 'state',
+            'status': 'processing',
+            'sessionToken': 's_kt_1',
+            'sessionId': 's_kt_1',
+            'attemptId': 1,
+            'ownerId': 'main_activity',
+            'sequenceNumber': 4,
+            'engineId': 'service:com.google.android.tts',
+            'monotonicTimestampMs': 86400600,
+          },
+          <String, dynamic>{
+            'type': 'final',
+            'eventType': 'final',
+            'text': 'Phở bò 55 nghìn',
+            'sessionToken': 's_kt_1',
+            'sessionId': 's_kt_1',
+            'attemptId': 1,
+            'ownerId': 'main_activity',
+            'sequenceNumber': 5,
+            'engineId': 'service:com.google.android.tts',
+            'monotonicTimestampMs': 86400800,
+          },
+        ];
+
+        final parsed = kotlinEnvelopes
+            .map(
+              (m) => VoiceNativeChannelDataSource.parseRawEvent(
+                m,
+                fallbackSessionId: 's_kt_1',
+                fallbackAttemptId: 1,
+                fallbackOwnerId: 'main_activity',
+                fallbackEngineId: 'android_speech',
+                monotonicTimestampMs: clock.elapsedMilliseconds,
+              ),
+            )
+            .whereType<VoiceEnvelopeEvent>()
+            .toList();
+        expect(parsed.length, 5);
+        expect(parsed[0].eventType, VoiceEnvelopeEventType.readyForSpeech);
+        expect(parsed[1].eventType, VoiceEnvelopeEventType.rmsChanged);
+        expect(parsed[2].eventType, VoiceEnvelopeEventType.partialResult);
+        expect(parsed[3].eventType, VoiceEnvelopeEventType.endOfSpeech);
+        expect(parsed[4].eventType, VoiceEnvelopeEventType.finalResult);
+
+        // 2) Verify all 3 native labels are accepted by real AndroidSpeechEngine & AndroidOnDeviceEngine
+        expect(
+          VoiceEngineId.tryFromWireValue('system_default'),
+          VoiceEngineId.androidSpeech,
+        );
+        expect(
+          VoiceEngineId.tryFromWireValue('service:com.google.android.tts'),
+          VoiceEngineId.androidSpeech,
+        );
+        expect(
+          VoiceEngineId.tryFromWireValue('on_device_speech_recognizer'),
+          VoiceEngineId.androidOnDevice,
+        );
+      },
+    );
+
+    test(
+      '22. Runtime PERMISSION_REQUESTED pauses preparingTimeout (>4000ms) and cross-epoch clock offset triggers smartAutoEndpoint at 2s silence',
+      () async {
+        googleEngine.autoEmitReadyOnStart = false;
+        googleEngine.startOutcomeOverride = const EngineStartOutcome.success(
+          awaitsExternalActivity: true,
+        );
+
+        final coordinator = buildCoordinator(
+          preference: VoiceRecognitionPreference.onlineGoogle,
+          endpointConfig: const EndpointPolicyConfig(
+            mode: VoiceEndpointMode.smartAutoEndpoint,
+            preparingTimeout: Duration(milliseconds: 4000),
+          ),
+        );
+        addTearDown(coordinator.dispose);
+
+        final s1 = await coordinator.startSession(
+          ownerId: 'voice_sheet',
+          entryPoint: VoiceEntryPoint.voiceSheet,
+        );
+        expect(s1.accepted, isTrue);
+        expect(
+          coordinator.currentSession.phase,
+          VoiceSessionPhase.requestingPermission,
+        );
+        expect(coordinator.currentSession.isAwaitingExternalActivity, isTrue);
+
+        // Wait 6,500ms on Android runtime permission prompt -> MUST NOT trigger PREPARING_TIMEOUT!
+        timerFactory.advance(const Duration(milliseconds: 6500));
+        await _flushMicrotasks();
+        expect(
+          coordinator.currentSession.phase,
+          VoiceSessionPhase.requestingPermission,
+        );
+        expect(
+          coordinator.currentSession.terminalOutcome,
+          VoiceTerminalOutcome.none,
+        );
+
+        // User grants permission -> native emits preparing -> readyForSpeech with +1 day native monotonic clock offset
+        const oneDayMs = 86400000;
+        googleEngine.emit(
+          sessionId: s1.sessionId!,
+          attemptId: s1.attemptId,
+          type: VoiceEnvelopeEventType.preparing,
+        );
+        expect(coordinator.currentSession.phase, VoiceSessionPhase.preparing);
+
+        clock.advance(const Duration(milliseconds: 120));
+        googleEngine.emit(
+          sessionId: s1.sessionId!,
+          attemptId: s1.attemptId,
+          type: VoiceEnvelopeEventType.readyForSpeech,
+        );
+        expect(coordinator.currentSession.phase, VoiceSessionPhase.listening);
+
+        // Emit partial + RMS with a huge native clock offset (+1 day ahead of Dart clock)
+        clock.advance(const Duration(milliseconds: 300));
+        googleEngine.emit(
+          sessionId: s1.sessionId!,
+          attemptId: s1.attemptId,
+          type: VoiceEnvelopeEventType.rmsChanged,
+          rmsDb: 8.0,
+        );
+        googleEngine.emit(
+          sessionId: s1.sessionId!,
+          attemptId: s1.attemptId,
+          type: VoiceEnvelopeEventType.partialResult,
+          text: 'Ăn trưa 45 nghìn',
+        );
+        expect(
+          coordinator.currentSession.timeToReadyMs,
+          lessThan(oneDayMs ~/ 1000),
+        );
+
+        // Advance 2,100ms of silence -> smartAutoEndpoint MUST fire stopSession cleanly!
+        timerFactory.advance(const Duration(milliseconds: 2100));
+        await _flushMicrotasks();
+        expect(coordinator.currentSession.phase, VoiceSessionPhase.finalizing);
+        expect(googleEngine.stopCalls, 1);
+      },
+    );
+
+    test(
+      '23. Microphone self-test rejects all-zero PCM frames and separates micOpened / hasSignal / speechRecognized',
+      () {
+        final allZero = VoiceNativeChannelDataSource.normalizeSelfTestResult(
+          const <String, dynamic>{
+            'success': true,
+            'passed': true,
+            'totalFrames': 30,
+            'zeroFrames': 30,
+            'activeFrames': 0,
+            'peakDbfs': -96.0,
+            'audioRoute': 'built_in_mic',
+          },
+        );
+        expect(allZero['micOpened'], isTrue);
+        expect(allZero['hasSignal'], isFalse);
+        expect(allZero['speechRecognized'], isFalse);
+        expect(allZero['passed'], isFalse);
+        expect(allZero['success'], isFalse);
+        expect(allZero['reason'], 'ZERO_PCM_SIGNAL');
+
+        final realVoice = VoiceNativeChannelDataSource.normalizeSelfTestResult(
+          const <String, dynamic>{
+            'success': true,
+            'totalFrames': 30,
+            'zeroFrames': 2,
+            'activeFrames': 18,
+            'peakDbfs': -16.4,
+            'audioRoute': 'built_in_mic',
+          },
+          hasVerifiedTranscript: true,
+        );
+        expect(realVoice['micOpened'], isTrue);
+        expect(realVoice['hasSignal'], isTrue);
+        expect(realVoice['speechRecognized'], isTrue);
+        expect(realVoice['passed'], isTrue);
+      },
+    );
   });
 }
 

@@ -1805,158 +1805,188 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
       body: LifeOsMintWaveCanvas(
         child: SafeArea(
           child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: BlocBuilder<AuthBloc, AuthState>(
-                  builder: (context, state) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(child: SizedBox()),
-                            const LifeOsBrandWordmark(
-                              iconSize: 28,
-                              fontSize: 18,
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Semantics(
-                                  button: true,
-                                  label: 'Bỏ qua thiết lập ban đầu',
-                                  child: TextButton(
-                                    key: const Key('onboarding_skip_btn'),
-                                    style: TextButton.styleFrom(
-                                      minimumSize: const Size(
-                                        64,
-                                        AppSpacing.minHitTarget,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, state) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.md,
+                            AppSpacing.lg,
+                            AppSpacing.md,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  const Expanded(child: SizedBox()),
+                                  const LifeOsBrandWordmark(
+                                    iconSize: 28,
+                                    fontSize: 18,
+                                  ),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Semantics(
+                                        button: true,
+                                        label: 'Bỏ qua thiết lập ban đầu',
+                                        child: TextButton(
+                                          key: const Key('onboarding_skip_btn'),
+                                          style: TextButton.styleFrom(
+                                            minimumSize: const Size(
+                                              64,
+                                              AppSpacing.minHitTarget,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                            ),
+                                          ),
+                                          onPressed: state.isSubmitting
+                                              ? null
+                                              : _skipOnboarding,
+                                          child: const FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text('Bỏ qua'),
+                                          ),
+                                        ),
                                       ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                      ),
-                                    ),
-                                    onPressed: state.isSubmitting
-                                        ? null
-                                        : _skipOnboarding,
-                                    child: const FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text('Bỏ qua'),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Xin chào ${state.user?.fullName ?? ''}!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 25,
-                            fontWeight: FontWeight.w800,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Thiết lập nhanh nhu cầu, Gia đình, Lịch trình & Ngân hàng theo quyền chọn của bạn',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            color: c.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        LifeOsSoftCard(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                              const SizedBox(height: 10),
                               Text(
-                                'Chọn nhu cầu quan tâm',
+                                'Xin chào ${state.user?.fullName ?? ''}!',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 13.5,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w800,
                                   color: c.textPrimary,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final opt in _interestOptions)
-                                    FilterChip(
-                                      key: Key('onboarding_interest_${opt.$1}'),
-                                      selected: _selectedInterests.contains(
-                                        opt.$1,
+                              const SizedBox(height: 4),
+                              Text(
+                                'Bạn có thể bắt đầu ngay hoặc tùy chọn nhu cầu bên dưới. Quyền Micro, Thông báo và Lịch chỉ hỏi khi bạn dùng tính năng.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              LifeOsSoftCard(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Chọn nhu cầu quan tâm',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
                                       ),
-                                      avatar: Icon(opt.$3, size: 16),
-                                      label: Text(opt.$2),
-                                      selectedColor: c.primarySubtle,
-                                      checkmarkColor: c.primary,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.padded,
-                                      onSelected: (_) =>
-                                          _toggleInterest(opt.$1),
                                     ),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        for (final opt in _interestOptions)
+                                          FilterChip(
+                                            key: Key(
+                                              'onboarding_interest_${opt.$1}',
+                                            ),
+                                            selected: _selectedInterests
+                                                .contains(opt.$1),
+                                            avatar: Icon(opt.$3, size: 16),
+                                            label: Text(opt.$2),
+                                            selectedColor: c.primarySubtle,
+                                            checkmarkColor: c.primary,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize.padded,
+                                            onSelected: (_) =>
+                                                _toggleInterest(opt.$1),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // 3-Step Selector Pills
+                              LifeOsSegmentedPills<int>(
+                                selected: _stepIndex,
+                                options: const [
+                                  (0, 'Gia đình', Icons.home_outlined),
+                                  (
+                                    1,
+                                    'Lịch trình',
+                                    Icons.calendar_today_outlined,
+                                  ),
+                                  (
+                                    2,
+                                    'Ngân hàng',
+                                    Icons.account_balance_outlined,
+                                  ),
                                 ],
+                                onChanged: (v) =>
+                                    setState(() => _stepIndex = v),
+                              ),
+                              const SizedBox(height: 12),
+
+                              if (_stepIndex == 0) _buildFamilyInviteStep(c),
+                              if (_stepIndex == 1) _buildCalendarConnectStep(c),
+                              if (_stepIndex == 2) _buildBankConnectStep(c),
+
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                key: const Key(
+                                  'onboarding_open_permissions_popup_btn',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(
+                                    AppSpacing.buttonHeightM,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                ),
+                                onPressed: () => showLifeOsPermissionsPopup(
+                                  context,
+                                  markDismissedOnClose: false,
+                                ),
+                                icon: const Icon(
+                                  Icons.verified_user_outlined,
+                                  size: 18,
+                                ),
+                                label: const FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'Xem trước quyền Micro · Thông báo · Lịch (tùy chọn)',
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 14),
-
-                        // 3-Step Selector Pills
-                        LifeOsSegmentedPills<int>(
-                          selected: _stepIndex,
-                          options: const [
-                            (0, 'Gia đình', Icons.home_outlined),
-                            (1, 'Lịch trình', Icons.calendar_today_outlined),
-                            (2, 'Ngân hàng', Icons.account_balance_outlined),
-                          ],
-                          onChanged: (v) => setState(() => _stepIndex = v),
+                      ),
+                      // Pinned primary CTA: always visible without scrolling past optional permissions
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          8,
+                          AppSpacing.lg,
+                          14,
                         ),
-                        const SizedBox(height: 14),
-
-                        if (_stepIndex == 0) _buildFamilyInviteStep(c),
-                        if (_stepIndex == 1) _buildCalendarConnectStep(c),
-                        if (_stepIndex == 2) _buildBankConnectStep(c),
-
-                        const SizedBox(height: 14),
-                        OutlinedButton.icon(
-                          key: const Key(
-                            'onboarding_open_permissions_popup_btn',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(
-                              AppSpacing.buttonHeightM,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                          ),
-                          onPressed: () => showLifeOsPermissionsPopup(
-                            context,
-                            markDismissedOnClose: false,
-                          ),
-                          icon: const Icon(
-                            Icons.verified_user_outlined,
-                            size: 18,
-                          ),
-                          label: const FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              'Cấp nhanh quyền Micro · Thông báo · Lịch',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
+                        child: SizedBox(
                           height: 50,
                           child: FilledButton.icon(
                             key: const Key('complete_onboarding_button'),
@@ -1974,10 +2004,10 @@ class _OnboardingPrivacyPageState extends State<OnboardingPrivacyPage> {
                             label: const Text('Bắt đầu sử dụng Life OS'),
                           ),
                         ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),

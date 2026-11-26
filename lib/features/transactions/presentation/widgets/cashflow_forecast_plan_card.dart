@@ -33,20 +33,32 @@ class CashflowForecastPlanCard extends StatefulWidget {
 }
 
 class _CashflowForecastPlanCardState extends State<CashflowForecastPlanCard> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   int _horizonDays = 30;
   double _incomeDeltaPct = 0.0;
   double _contingencyPct = 8.0;
 
-  String _fmt(int minor, {bool showSign = false}) {
-    if (widget.obscureBalances) return '•••••• ₫';
-    if (showSign && minor > 0) return '+${VndAmount.format(minor)}';
-    return VndAmount.format(minor);
-  }
+  List<WalletEntity>? _lastWallets;
+  List<TransactionEntity>? _lastTransactions;
+  List<RecurringBillEntity>? _lastBills;
+  int? _lastRefDayKey;
+  double? _lastIncomeDelta;
+  double? _lastContingency;
+  SmartFinancialPlanReport? _cachedPlan;
 
-  @override
-  Widget build(BuildContext context) {
-    final c = TammySemanticColors.of(context);
-    final refNow = widget.referenceDate ?? DateTime.now();
+  SmartFinancialPlanReport _resolvePlan(DateTime refNow) {
+    final dayKey = refNow.year * 10000 + refNow.month * 100 + refNow.day;
+    final cached = _cachedPlan;
+    if (cached != null &&
+        identical(_lastWallets, widget.wallets) &&
+        identical(_lastTransactions, widget.transactions) &&
+        identical(_lastBills, widget.recurringBills) &&
+        _lastRefDayKey == dayKey &&
+        _lastIncomeDelta == _incomeDeltaPct &&
+        _lastContingency == _contingencyPct) {
+      return cached;
+    }
 
     var liquidMinor = 0;
     var savingsMinor = 0;
@@ -110,12 +122,33 @@ class _CashflowForecastPlanCardState extends State<CashflowForecastPlanCard> {
       abnormalContingencyPct: _contingencyPct,
     );
 
+    _lastWallets = widget.wallets;
+    _lastTransactions = widget.transactions;
+    _lastBills = widget.recurringBills;
+    _lastRefDayKey = dayKey;
+    _lastIncomeDelta = _incomeDeltaPct;
+    _lastContingency = _contingencyPct;
+    _cachedPlan = plan;
+    return plan;
+  }
+
+  String _fmt(int minor, {bool showSign = false}) {
+    if (widget.obscureBalances) return '•••••• ₫';
+    if (showSign && minor > 0) return '+${VndAmount.format(minor)}';
+    return VndAmount.format(minor);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final refNow = widget.referenceDate ?? DateTime.now();
+    final plan = _resolvePlan(refNow);
+
     final activeProj = switch (_horizonDays) {
       7 => plan.forecast7d,
       90 => plan.forecast90d,
       _ => plan.forecast30d,
     };
-    final dateFmt = DateFormat('dd/MM/yyyy');
 
     return LifeOsSoftCard(
       key: const Key('cashflow_forecast_plan_card'),
@@ -220,7 +253,7 @@ class _CashflowForecastPlanCardState extends State<CashflowForecastPlanCard> {
                 border: Border.all(color: c.error.withValues(alpha: 0.35)),
               ),
               child: Text(
-                'Cảnh báo: Số dư khả dụng dự kiến âm vào ngày ${dateFmt.format(activeProj.firstShortfallDate!)} (mức thấp nhất ${_fmt(activeProj.lowestBalanceMinor)}).',
+                'Cảnh báo: Số dư khả dụng dự kiến âm vào ngày ${_dateFmt.format(activeProj.firstShortfallDate!)} (mức thấp nhất ${_fmt(activeProj.lowestBalanceMinor)}).',
                 softWrap: true,
                 style: TextStyle(
                   fontSize: 12,

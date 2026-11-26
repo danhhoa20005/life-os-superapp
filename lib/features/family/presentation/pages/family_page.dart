@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,11 +37,15 @@ T? _maybeReadFamily<T>(BuildContext context) {
   }
 }
 
-T? _maybeWatchFamily<T>(BuildContext context) {
+R _maybeSelectFamily<T, R>(
+  BuildContext context,
+  R Function(T bloc) selector,
+  R fallback,
+) {
   try {
-    return context.watch<T>();
+    return context.select<T, R>(selector);
   } catch (_) {
-    return null;
+    return fallback;
   }
 }
 
@@ -91,7 +96,7 @@ class FamilyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
+    final user = context.select((AuthBloc b) => b.state.user);
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -102,8 +107,10 @@ class FamilyPage extends StatelessWidget {
           p.message != c.message ||
           p.selectedFamilyId != c.selectedFamilyId,
       listener: (context, state) {
-        if (state.selectedFamilyId != null &&
-            state.selectedFamilyId != user.activeFamilyId) {
+        final currentUser = context.read<AuthBloc>().state.user;
+        if (currentUser != null &&
+            state.selectedFamilyId != null &&
+            state.selectedFamilyId != currentUser.activeFamilyId) {
           context.read<AuthBloc>().add(
             AuthActiveFamilyChanged(state.selectedFamilyId!),
           );
@@ -169,6 +176,13 @@ class FamilyPage extends StatelessWidget {
                   ),
                   Expanded(
                     child: BlocBuilder<FamilyBloc, FamilyState>(
+                      buildWhen: (p, c) =>
+                          (p.activeFamily != null) !=
+                              (c.activeFamily != null) ||
+                          p.activeFamily?.id != c.activeFamily?.id ||
+                          p.families.length != c.families.length ||
+                          (p.families.length > 1 &&
+                              !listEquals(p.families, c.families)),
                       builder: (context, state) {
                         final family = state.activeFamily;
                         if (family == null) {
@@ -274,8 +288,6 @@ class FamilyPage extends StatelessWidget {
                               child: TabBarView(
                                 children: [
                                   _SplitBillsAndSettlementTabView(
-                                    family: family,
-                                    state: state,
                                     currentUserId: user.id,
                                     currentUserName: user.fullName,
                                   ),
@@ -283,14 +295,10 @@ class FamilyPage extends StatelessWidget {
                                     showSoloGroupInviteCard: false,
                                   ),
                                   _MembersAndGovernanceTabView(
-                                    family: family,
-                                    state: state,
                                     currentUserId: user.id,
                                     currentUserName: user.fullName,
                                   ),
                                   _SharedShoppingTabView(
-                                    family: family,
-                                    state: state,
                                     currentUserId: user.id,
                                     currentUserName: user.fullName,
                                   ),
@@ -671,14 +679,10 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
 }
 
 class _SplitBillsAndSettlementTabView extends StatefulWidget {
-  final FamilyEntity family;
-  final FamilyState state;
   final String currentUserId;
   final String currentUserName;
 
   const _SplitBillsAndSettlementTabView({
-    required this.family,
-    required this.state,
     required this.currentUserId,
     required this.currentUserName,
   });
@@ -695,46 +699,37 @@ class _SplitBillsAndSettlementTabViewState
 
   @override
   Widget build(BuildContext context) {
-    final family = widget.family;
-    final state = widget.state;
     final currentUserId = widget.currentUserId;
     final currentUserName = widget.currentUserName;
     final c = TammySemanticColors.of(context);
-    final ledger = state.sharedLedger;
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
-        child: ListView(
-          key: const Key('split_bills_list_view'),
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.dockClearance,
-          ),
-          children: [
-            // Unified LifeOS "Tổng quan gia đình" Pastel Mint Hero Card (`06_Gia_dinh.png`)
-            Builder(
-              builder: (context) {
-                final taskCount =
-                    _maybeWatchFamily<TaskBloc>(context)?.state.tasks.length ??
-                    0;
-                final eventCount =
-                    _maybeWatchFamily<CalendarBloc>(
-                      context,
-                    )?.state.events.length ??
-                    0;
-                final totalFunds =
-                    _maybeWatchFamily<BudgetBloc>(
-                      context,
-                    )?.state.funds.fold<int>(0, (s, f) => s + f.balanceMinor) ??
-                    0;
-                final displayFund = totalFunds > 0
-                    ? totalFunds
-                    : ledger.totalSharedSpendMinor;
+    return BlocBuilder<FamilyBloc, FamilyState>(
+      buildWhen: (p, c) =>
+          p.activeFamily != c.activeFamily ||
+          !listEquals(p.sharedBills, c.sharedBills) ||
+          !listEquals(p.settlements, c.settlements) ||
+          !listEquals(p.settlementRequests, c.settlementRequests),
+      builder: (context, state) {
+        final family = state.activeFamily;
+        if (family == null) return const SizedBox.shrink();
+        final ledger = state.sharedLedger;
 
-                return LifeOsMintHeroCard(
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
+            child: ListView(
+              key: const Key('split_bills_list_view'),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
+              ),
+              children: [
+                // Unified LifeOS "Tổng quan gia đình" Pastel Mint Hero Card (`06_Gia_dinh.png`)
+                LifeOsMintHeroCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -820,21 +815,25 @@ class _SplitBillsAndSettlementTabViewState
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          FilledButton.icon(
-                            key: const Key('open_add_split_bill_button'),
-                            onPressed: state.isSubmitting
-                                ? null
-                                : () => showSharedBillSplitSheet(
-                                    context,
-                                    family: family,
-                                    currentUserId: currentUserId,
-                                    currentUserName: currentUserName,
+                          BlocSelector<FamilyBloc, FamilyState, bool>(
+                            selector: (s) => s.isSubmitting,
+                            builder: (context, isSubmitting) =>
+                                FilledButton.icon(
+                                  key: const Key('open_add_split_bill_button'),
+                                  onPressed: isSubmitting
+                                      ? null
+                                      : () => showSharedBillSplitSheet(
+                                          context,
+                                          family: family,
+                                          currentUserId: currentUserId,
+                                          currentUserName: currentUserName,
+                                        ),
+                                  icon: const Icon(
+                                    Icons.call_split_rounded,
+                                    size: 18,
                                   ),
-                            icon: const Icon(
-                              Icons.call_split_rounded,
-                              size: 18,
-                            ),
-                            label: const Text('Chia khoản mới'),
+                                  label: const Text('Chia khoản mới'),
+                                ),
                           ),
                           OutlinedButton.icon(
                             onPressed: () => context.push('/family-funds'),
@@ -878,133 +877,8 @@ class _SplitBillsAndSettlementTabViewState
                               ],
                             ),
                             const Divider(height: 20),
-                            IntrinsicHeight(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: InkWell(
-                                      onTap: () => context.push('/tasks-board'),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'Việc chung',
-                                              style: TextStyle(
-                                                fontSize: 11.5,
-                                                color: c.textSecondary,
-                                              ),
-                                            ),
-                                          ),
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              '$taskCount',
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.w800,
-                                                color: c.primary,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  VerticalDivider(
-                                    width: 12,
-                                    color: c.separator,
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: InkWell(
-                                      onTap: () => context.go('/planning'),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'Lịch chung',
-                                              style: TextStyle(
-                                                fontSize: 11.5,
-                                                color: c.textSecondary,
-                                              ),
-                                            ),
-                                          ),
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              '$eventCount',
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.w800,
-                                                color: c.primary,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  VerticalDivider(
-                                    width: 12,
-                                    color: c.separator,
-                                  ),
-                                  Expanded(
-                                    flex: 4,
-                                    child: InkWell(
-                                      onTap: () =>
-                                          context.push('/family-funds'),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'Quỹ & Chi chung',
-                                              style: TextStyle(
-                                                fontSize: 11.5,
-                                                color: c.textSecondary,
-                                              ),
-                                            ),
-                                          ),
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: LifeOsTruthfulNumericText(
-                                              formattedValue: VndAmount.format(
-                                                displayFund,
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w800,
-                                                color: c.textPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            _FamilyHeroCrossMetricsRow(
+                              fallbackFundMinor: ledger.totalSharedSpendMinor,
                             ),
                             const SizedBox(height: 10),
                             Wrap(
@@ -1035,235 +909,818 @@ class _SplitBillsAndSettlementTabViewState
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
 
-            const LifeOsSectionHeader(title: 'Cân đối chi tiêu thành viên'),
-            LifeOsSoftCard(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: ledger.memberBalances.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (ledger.needsReconciliation) ...[
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                const FinancialTrustStatusBadge(
-                                  status: FinancialTrustStatus.needsReview,
-                                  customLabel: 'Cần đối soát',
-                                  compact: true,
+                const LifeOsSectionHeader(title: 'Cân đối chi tiêu thành viên'),
+                LifeOsSoftCard(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  child: ledger.memberBalances.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (ledger.needsReconciliation) ...[
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    const FinancialTrustStatusBadge(
+                                      status: FinancialTrustStatus.needsReview,
+                                      customLabel: 'Cần đối soát',
+                                      compact: true,
+                                    ),
+                                    Text(
+                                      '${ledger.inconsistentBillCount} khoản lệch tổng phần chia (${VndAmount.format(ledger.unverifiedSharedSpendMinor)})',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        fontWeight: FontWeight.w600,
+                                        color: c.warning,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  '${ledger.inconsistentBillCount} khoản lệch tổng phần chia (${VndAmount.format(ledger.unverifiedSharedSpendMinor)})',
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontSize: 12.2,
-                                    fontWeight: FontWeight.w600,
-                                    color: c.warning,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
+                                const SizedBox(height: 8),
+                              ],
+                              Text(
+                                'Chưa có số liệu cân đối chi tiêu giữa các thành viên.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              BlocSelector<FamilyBloc, FamilyState, bool>(
+                                selector: (s) => s.isSubmitting,
+                                builder: (context, isSubmitting) =>
+                                    FilledButton.tonalIcon(
+                                      onPressed: isSubmitting
+                                          ? null
+                                          : () => showSharedBillSplitSheet(
+                                              context,
+                                              family: family,
+                                              currentUserId: currentUserId,
+                                              currentUserName: currentUserName,
+                                            ),
+                                      icon: const Icon(
+                                        Icons.call_split_rounded,
+                                        size: 17,
+                                      ),
+                                      label: const Text('Chia khoản mới'),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (ledger.needsReconciliation) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                margin: const EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: c.warning.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: c.warning.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: [
+                                        FinancialTrustStatusBadge(
+                                          status:
+                                              FinancialTrustStatus.needsReview,
+                                          customLabel: 'Cần đối soát',
+                                          compact: true,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Có ${ledger.inconsistentBillCount} khoản chia lệch tổng (${VndAmount.format(ledger.unverifiedSharedSpendMinor)}) đang tạm tách khỏi số dư công nợ.',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        fontWeight: FontWeight.w600,
+                                        color: c.textPrimary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            for (
+                              var i = 0;
+                              i < ledger.memberBalances.length;
+                              i++
+                            ) ...[
+                              if (i > 0) const Divider(height: 14),
+                              Builder(
+                                builder: (_) {
+                                  final mb = ledger.memberBalances[i];
+                                  final isPositive = mb.netBalanceMinor > 0;
+                                  final isNegative = mb.netBalanceMinor < 0;
+                                  final statusColor = isPositive
+                                      ? c.success
+                                      : (isNegative
+                                            ? c.error
+                                            : c.textSecondary);
+                                  final statusIcon = isPositive
+                                      ? Icons.south_west_rounded
+                                      : (isNegative
+                                            ? Icons.north_east_rounded
+                                            : Icons
+                                                  .check_circle_outline_rounded);
+                                  final statusLabel = isPositive
+                                      ? 'Nhận lại ${VndAmount.format(mb.netBalanceMinor)}'
+                                      : isNegative
+                                      ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
+                                      : 'Đã cân bằng';
+
+                                  return Semantics(
+                                    container: true,
+                                    label:
+                                        '${mb.fullName}, $statusLabel, đã trả ${VndAmount.format(mb.totalPaidMinor)}, phần chia ${VndAmount.format(mb.totalOwedMinor)}',
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 6,
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 18,
+                                            backgroundColor: c.primarySubtle,
+                                            child: Text(
+                                              mb.fullName.isNotEmpty
+                                                  ? mb.fullName[0].toUpperCase()
+                                                  : '?',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                color: c.primary,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Wrap(
+                                                  spacing: 8,
+                                                  runSpacing: 4,
+                                                  alignment: WrapAlignment
+                                                      .spaceBetween,
+                                                  crossAxisAlignment:
+                                                      WrapCrossAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      mb.fullName,
+                                                      softWrap: true,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodyMedium
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                    ),
+                                                    Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          statusIcon,
+                                                          size: 15,
+                                                          color: statusColor,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        Flexible(
+                                                          child: Text(
+                                                            statusLabel,
+                                                            softWrap: true,
+                                                            style: TextStyle(
+                                                              fontSize: 12.5,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                              color:
+                                                                  statusColor,
+                                                              fontFeatures: const [
+                                                                FontFeature.tabularFigures(),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 3),
+                                                Text(
+                                                  'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
+                                                  softWrap: true,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        fontFeatures: const [
+                                                          FontFeature.tabularFigures(),
+                                                        ],
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
+
+                const LifeOsSectionHeader(
+                  title: 'Gợi ý thanh toán nhanh',
+                  tone: LifeOsAccentTone.amber,
+                ),
+                if (ledger.suggestedTransfers.isEmpty)
+                  LifeOsSoftCard(
+                    child: Row(
+                      children: [
+                        const BananaGlassIcon(
+                          assetPath: AppAssets.icQuickSplit,
+                          fallbackIcon: Icons.verified_outlined,
+                          size: 40,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Mọi khoản chi chung đã cân bằng',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14.2,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Không có khoản chênh lệch nào cần chuyển trả.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...ledger.suggestedTransfers.map((tr) {
+                    final transferKey =
+                        '${tr.fromUserId}_${tr.toUserId}_${tr.amountMinor}';
+                    final isRevealed = _revealedTransferCodes.contains(
+                      transferKey,
+                    );
+                    final maskedCode = PrivacyMaskFormatter.maskCode(
+                      tr.sePayTransferCode,
+                    );
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: LifeOsSoftCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const BananaGlassIcon(
+                                  assetPath: AppAssets.icQuickSplit,
+                                  fallbackIcon: Icons.swap_horiz_rounded,
+                                  size: 40,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${tr.fromUserName} → ${tr.toUserName}',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        VndAmount.format(tr.amountMinor),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.primary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                          ],
-                          Text(
-                            'Chưa có số liệu cân đối chi tiêu giữa các thành viên.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          FilledButton.tonalIcon(
-                            onPressed: state.isSubmitting
-                                ? null
-                                : () => showSharedBillSplitSheet(
-                                    context,
-                                    family: family,
-                                    currentUserId: currentUserId,
-                                    currentUserName: currentUserName,
-                                  ),
-                            icon: const Icon(
-                              Icons.call_split_rounded,
-                              size: 17,
-                            ),
-                            label: const Text('Chia khoản mới'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (ledger.needsReconciliation) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            margin: const EdgeInsets.only(bottom: 10),
-                            decoration: BoxDecoration(
-                              color: c.warning.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: c.warning.withValues(alpha: 0.35),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
+                            InkWell(
+                              key: Key('toggle_transfer_code_$transferKey'),
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => setState(() {
+                                if (isRevealed) {
+                                  _revealedTransferCodes.remove(transferKey);
+                                } else {
+                                  _revealedTransferCodes.add(transferKey);
+                                }
+                              }),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: c.primarySubtle,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    FinancialTrustStatusBadge(
-                                      status: FinancialTrustStatus.needsReview,
-                                      customLabel: 'Cần đối soát',
-                                      compact: true,
+                                    Flexible(
+                                      child: Text(
+                                        'Nội dung CK: ${isRevealed ? tr.sePayTransferCode : maskedCode}',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 12.2,
+                                          fontWeight: FontWeight.w700,
+                                          color: c.primary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      isRevealed
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      size: 16,
+                                      color: c.primary,
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Có ${ledger.inconsistentBillCount} khoản chia lệch tổng (${VndAmount.format(ledger.unverifiedSharedSpendMinor)}) đang tạm tách khỏi số dư công nợ.',
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontSize: 12.2,
-                                    fontWeight: FontWeight.w600,
-                                    color: c.textPrimary,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            BlocSelector<FamilyBloc, FamilyState, bool>(
+                              selector: (s) => s.isSubmitting,
+                              builder: (context, isSubmitting) => Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () {
+                                            showVietQrSettlementSheet(
+                                              context: context,
+                                              fromName: tr.fromUserName,
+                                              toName: tr.toUserName,
+                                              amountMinor: tr.amountMinor,
+                                              sePayCode: tr.sePayTransferCode,
+                                              onConfirmSettled: () {
+                                                context.read<FamilyBloc>().add(
+                                                  DebtSettlementRecorded(
+                                                    RecordDebtSettlementParams(
+                                                      familyId: family.id,
+                                                      fromUserId: tr.fromUserId,
+                                                      fromUserName:
+                                                          tr.fromUserName,
+                                                      toUserId: tr.toUserId,
+                                                      toUserName: tr.toUserName,
+                                                      amountMinor:
+                                                          tr.amountMinor,
+                                                      paymentCode:
+                                                          tr.sePayTransferCode,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            );
+                                          },
+                                    icon: const Icon(
+                                      Icons.qr_code_2_rounded,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Mã QR'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text: tr.sePayTransferCode,
+                                        ),
+                                      );
+                                      LifeOsTopToast.show(
+                                        context,
+                                        'Đã sao chép mã chuyển khoản.',
+                                        kind: LifeOsToastKind.success,
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 15,
+                                    ),
+                                    label: const Text('Sao chép mã'),
+                                  ),
+                                  FilledButton.tonalIcon(
+                                    onPressed: isSubmitting
+                                        ? null
+                                        : () async {
+                                            final confirmed =
+                                                await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: const Text(
+                                                      'Xác nhận đã tất toán?',
+                                                    ),
+                                                    content: Text(
+                                                      'Ghi nhận ${tr.fromUserName} đã chuyển ${VndAmount.format(tr.amountMinor)} cho ${tr.toUserName}?',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(
+                                                              ctx,
+                                                            ).pop(false),
+                                                        child: const Text(
+                                                          'Hủy',
+                                                        ),
+                                                      ),
+                                                      FilledButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(
+                                                              ctx,
+                                                            ).pop(true),
+                                                        child: const Text(
+                                                          'Xác nhận tất toán',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ) ??
+                                                false;
+                                            if (!confirmed ||
+                                                !context.mounted) {
+                                              return;
+                                            }
+                                            context.read<FamilyBloc>().add(
+                                              DebtSettlementRecorded(
+                                                RecordDebtSettlementParams(
+                                                  familyId: family.id,
+                                                  fromUserId: tr.fromUserId,
+                                                  fromUserName: tr.fromUserName,
+                                                  toUserId: tr.toUserId,
+                                                  toUserName: tr.toUserName,
+                                                  amountMinor: tr.amountMinor,
+                                                  paymentCode:
+                                                      tr.sePayTransferCode,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                    icon: const Icon(
+                                      Icons.check_circle_outline_rounded,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Ghi nhận đã tất toán'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+
+                LifeOsSectionHeader(
+                  title: 'Sổ Khoản chi Chung (${state.sharedBills.length})',
+                  tone: LifeOsAccentTone.blue,
+                ),
+                if (state.sharedBills.isEmpty)
+                  LifeOsSoftCard(
+                    child: Column(
+                      children: [
+                        const BananaGlassIcon(
+                          assetPath: AppAssets.icCatFood,
+                          fallbackIcon: Icons.receipt_long_rounded,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Chưa có khoản chi chung nào',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Ghi lại hóa đơn ăn uống, điện nước hoặc đi chợ chung để hệ thống tự tính phần chia minh bạch.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        BlocSelector<FamilyBloc, FamilyState, bool>(
+                          selector: (s) => s.isSubmitting,
+                          builder: (context, isSubmitting) =>
+                              FilledButton.tonalIcon(
+                                onPressed: isSubmitting
+                                    ? null
+                                    : () => showSharedBillSplitSheet(
+                                        context,
+                                        family: family,
+                                        currentUserId: currentUserId,
+                                        currentUserName: currentUserName,
+                                      ),
+                                icon: const Icon(
+                                  Icons.call_split_rounded,
+                                  size: 17,
+                                ),
+                                label: const Text('Tạo khoản chia đầu tiên'),
+                              ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...state.sharedBills.map((bill) {
+                    final visual = _topicVisual(bill.topic);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: LifeOsSoftCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                BananaGlassIcon(
+                                  assetPath: visual.asset,
+                                  fallbackIcon: visual.icon,
+                                  size: 42,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        bill.title,
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: c.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${bill.topic.displayLabel} · Trả trước: ${bill.paidByName} · ${bill.splitMethod.displayLabel}',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 12.2,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
                                     ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 120,
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      VndAmount.format(bill.totalAmountMinor),
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.primary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                        for (
-                          var i = 0;
-                          i < ledger.memberBalances.length;
-                          i++
-                        ) ...[
-                          if (i > 0) const Divider(height: 14),
-                          Builder(
-                            builder: (_) {
-                              final mb = ledger.memberBalances[i];
-                              final isPositive = mb.netBalanceMinor > 0;
-                              final isNegative = mb.netBalanceMinor < 0;
-                              final statusColor = isPositive
-                                  ? c.success
-                                  : (isNegative ? c.error : c.textSecondary);
-                              final statusIcon = isPositive
-                                  ? Icons.south_west_rounded
-                                  : (isNegative
-                                        ? Icons.north_east_rounded
-                                        : Icons.check_circle_outline_rounded);
-                              final statusLabel = isPositive
-                                  ? 'Nhận lại ${VndAmount.format(mb.netBalanceMinor)}'
-                                  : isNegative
-                                  ? 'Cần trả ${VndAmount.format(mb.netBalanceMinor.abs())}'
-                                  : 'Đã cân bằng';
-
-                              return Semantics(
-                                container: true,
-                                label:
-                                    '${mb.fullName}, $statusLabel, đã trả ${VndAmount.format(mb.totalPaidMinor)}, phần chia ${VndAmount.format(mb.totalOwedMinor)}',
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 6,
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                if (bill.needsReconciliation)
+                                  const FinancialTrustStatusBadge(
+                                    status: FinancialTrustStatus.needsReview,
+                                    customLabel: 'Cần đối soát',
+                                    compact: true,
+                                  )
+                                else
+                                  const FinancialTrustStatusBadge(
+                                    status: FinancialTrustStatus.saved,
+                                    customLabel: 'Đã ghi sổ chung',
+                                    compact: true,
                                   ),
-                                  child: Row(
+                                const DataVisibilityBadge(isFamilyShared: true),
+                              ],
+                            ),
+                            if (bill.needsReconciliation) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Tổng hóa đơn ${VndAmount.format(bill.totalAmountMinor)} ≠ Tổng phần chia ${VndAmount.format(bill.sharesSumMinor)}',
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 12.2,
+                                  fontWeight: FontWeight.w600,
+                                  color: c.warning,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            LifeOsDetailsDiscloseSection(
+                              label: 'Chi tiết phần chia',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (bill.choreOrTaskNote != null &&
+                                      bill.choreOrTaskNote!.isNotEmpty) ...[
+                                    Text(
+                                      'Gắn việc nhà / ghi chú: ${bill.choreOrTaskNote}',
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 12.2,
+                                        color: c.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                  ],
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: bill.sharesByUserId.entries
+                                        .map(
+                                          (e) => LifeOsStatusPill(
+                                            label:
+                                                '${bill.participantNames[e.key] ?? 'TV'}: ${VndAmount.format(e.value)}',
+                                            tone: LifeOsAccentTone.neutral,
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+
+                if (state.settlements.isNotEmpty) ...[
+                  LifeOsSectionHeader(
+                    title: 'Lịch sử Tất toán (${state.settlements.length})',
+                    tone: LifeOsAccentTone.emerald,
+                  ),
+                  ...state.settlements.take(10).map((st) {
+                    final isRevealed = _revealedSettlementIds.contains(st.id);
+                    final displayCode = isRevealed
+                        ? st.paymentCode
+                        : PrivacyMaskFormatter.maskCode(st.paymentCode);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: LifeOsSoftCard(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const LifeOsIconSquircle(
+                                  icon: Icons.verified_rounded,
+                                  tone: LifeOsAccentTone.emerald,
+                                  size: 36,
+                                  iconSize: 18,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: c.primarySubtle,
-                                        child: Text(
-                                          mb.fullName.isNotEmpty
-                                              ? mb.fullName[0].toUpperCase()
-                                              : '?',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            color: c.primary,
-                                          ),
+                                      Text(
+                                        '${st.fromUserName} đã trả ${st.toUserName}',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                          color: c.textPrimary,
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                      const SizedBox(height: 3),
+                                      InkWell(
+                                        key: Key(
+                                          'toggle_settlement_code_${st.id}',
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        onTap: () => setState(() {
+                                          if (isRevealed) {
+                                            _revealedSettlementIds.remove(
+                                              st.id,
+                                            );
+                                          } else {
+                                            _revealedSettlementIds.add(st.id);
+                                          }
+                                        }),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 4,
-                                              alignment:
-                                                  WrapAlignment.spaceBetween,
-                                              crossAxisAlignment:
-                                                  WrapCrossAlignment.center,
-                                              children: [
-                                                Text(
-                                                  mb.fullName,
-                                                  softWrap: true,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodyMedium
-                                                      ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
-                                                ),
-                                                Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      statusIcon,
-                                                      size: 15,
-                                                      color: statusColor,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Flexible(
-                                                      child: Text(
-                                                        statusLabel,
-                                                        softWrap: true,
-                                                        style: TextStyle(
-                                                          fontSize: 12.5,
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                          color: statusColor,
-                                                          fontFeatures: const [
-                                                            FontFeature.tabularFigures(),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
+                                            Flexible(
+                                              child: Text(
+                                                'Mã đối soát: $displayCode',
+                                                softWrap: true,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: c.textSecondary,
+                                                  fontFeatures: const [
+                                                    FontFeature.tabularFigures(),
                                                   ],
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                            const SizedBox(height: 3),
-                                            Text(
-                                              'Đã trả: ${VndAmount.format(mb.totalPaidMinor)} · Phần chia: ${VndAmount.format(mb.totalOwedMinor)}',
-                                              softWrap: true,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall
-                                                  ?.copyWith(
-                                                    fontFeatures: const [
-                                                      FontFeature.tabularFigures(),
-                                                    ],
-                                                  ),
+                                            const SizedBox(width: 5),
+                                            Icon(
+                                              isRevealed
+                                                  ? Icons
+                                                        .visibility_off_outlined
+                                                  : Icons.visibility_outlined,
+                                              size: 14,
+                                              color: c.textSecondary,
                                             ),
                                           ],
                                         ),
@@ -1271,581 +1728,181 @@ class _SplitBillsAndSettlementTabViewState
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-            ),
-
-            const LifeOsSectionHeader(
-              title: 'Gợi ý thanh toán nhanh',
-              tone: LifeOsAccentTone.amber,
-            ),
-            if (ledger.suggestedTransfers.isEmpty)
-              LifeOsSoftCard(
-                child: Row(
-                  children: [
-                    const BananaGlassIcon(
-                      assetPath: AppAssets.icQuickSplit,
-                      fallbackIcon: Icons.verified_outlined,
-                      size: 40,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Mọi khoản chi chung đã cân bằng',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14.2,
-                              color: c.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Không có khoản chênh lệch nào cần chuyển trả.',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...ledger.suggestedTransfers.map((tr) {
-                final transferKey =
-                    '${tr.fromUserId}_${tr.toUserId}_${tr.amountMinor}';
-                final isRevealed = _revealedTransferCodes.contains(transferKey);
-                final maskedCode = PrivacyMaskFormatter.maskCode(
-                  tr.sePayTransferCode,
-                );
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: LifeOsSoftCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const BananaGlassIcon(
-                              assetPath: AppAssets.icQuickSplit,
-                              fallbackIcon: Icons.swap_horiz_rounded,
-                              size: 40,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${tr.fromUserName} → ${tr.toUserName}',
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.textPrimary,
-                                    ),
+                                const SizedBox(width: 8),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 130,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    VndAmount.format(tr.amountMinor),
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.primary,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        InkWell(
-                          key: Key('toggle_transfer_code_$transferKey'),
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: () => setState(() {
-                            if (isRevealed) {
-                              _revealedTransferCodes.remove(transferKey);
-                            } else {
-                              _revealedTransferCodes.add(transferKey);
-                            }
-                          }),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: c.primarySubtle,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    'Nội dung CK: ${isRevealed ? tr.sePayTransferCode : maskedCode}',
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 12.2,
-                                      fontWeight: FontWeight.w700,
-                                      color: c.primary,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Icon(
-                                  isRevealed
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  size: 16,
-                                  color: c.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: state.isSubmitting
-                                  ? null
-                                  : () {
-                                      showVietQrSettlementSheet(
-                                        context: context,
-                                        fromName: tr.fromUserName,
-                                        toName: tr.toUserName,
-                                        amountMinor: tr.amountMinor,
-                                        sePayCode: tr.sePayTransferCode,
-                                        onConfirmSettled: () {
-                                          context.read<FamilyBloc>().add(
-                                            DebtSettlementRecorded(
-                                              RecordDebtSettlementParams(
-                                                familyId: family.id,
-                                                fromUserId: tr.fromUserId,
-                                                fromUserName: tr.fromUserName,
-                                                toUserId: tr.toUserId,
-                                                toUserName: tr.toUserName,
-                                                amountMinor: tr.amountMinor,
-                                                paymentCode:
-                                                    tr.sePayTransferCode,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
-                              icon: const Icon(
-                                Icons.qr_code_2_rounded,
-                                size: 16,
-                              ),
-                              label: const Text('Mã QR'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(text: tr.sePayTransferCode),
-                                );
-                                LifeOsTopToast.show(
-                                  context,
-                                  'Đã sao chép mã chuyển khoản.',
-                                  kind: LifeOsToastKind.success,
-                                );
-                              },
-                              icon: const Icon(Icons.copy_rounded, size: 15),
-                              label: const Text('Sao chép mã'),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: state.isSubmitting
-                                  ? null
-                                  : () async {
-                                      final confirmed =
-                                          await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: const Text(
-                                                'Xác nhận đã tất toán?',
-                                              ),
-                                              content: Text(
-                                                'Ghi nhận ${tr.fromUserName} đã chuyển ${VndAmount.format(tr.amountMinor)} cho ${tr.toUserName}?',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.of(
-                                                    ctx,
-                                                  ).pop(false),
-                                                  child: const Text('Hủy'),
-                                                ),
-                                                FilledButton(
-                                                  onPressed: () => Navigator.of(
-                                                    ctx,
-                                                  ).pop(true),
-                                                  child: const Text(
-                                                    'Xác nhận tất toán',
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ) ??
-                                          false;
-                                      if (!confirmed || !context.mounted) {
-                                        return;
-                                      }
-                                      context.read<FamilyBloc>().add(
-                                        DebtSettlementRecorded(
-                                          RecordDebtSettlementParams(
-                                            familyId: family.id,
-                                            fromUserId: tr.fromUserId,
-                                            fromUserName: tr.fromUserName,
-                                            toUserId: tr.toUserId,
-                                            toUserName: tr.toUserName,
-                                            amountMinor: tr.amountMinor,
-                                            paymentCode: tr.sePayTransferCode,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          VndAmount.format(st.amountMinor),
+                                          style: TextStyle(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: c.success,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
                                           ),
                                         ),
-                                      );
-                                    },
-                              icon: const Icon(
-                                Icons.check_circle_outline_rounded,
-                                size: 16,
-                              ),
-                              label: const Text('Ghi nhận đã tất toán'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-
-            LifeOsSectionHeader(
-              title: 'Sổ Khoản chi Chung (${state.sharedBills.length})',
-              tone: LifeOsAccentTone.blue,
-            ),
-            if (state.sharedBills.isEmpty)
-              LifeOsSoftCard(
-                child: Column(
-                  children: [
-                    const BananaGlassIcon(
-                      assetPath: AppAssets.icCatFood,
-                      fallbackIcon: Icons.receipt_long_rounded,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Chưa có khoản chi chung nào',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: c.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Ghi lại hóa đơn ăn uống, điện nước hoặc đi chợ chung để hệ thống tự tính phần chia minh bạch.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12.5, color: c.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.tonalIcon(
-                      onPressed: state.isSubmitting
-                          ? null
-                          : () => showSharedBillSplitSheet(
-                              context,
-                              family: family,
-                              currentUserId: currentUserId,
-                              currentUserName: currentUserName,
-                            ),
-                      icon: const Icon(Icons.call_split_rounded, size: 17),
-                      label: const Text('Tạo khoản chia đầu tiên'),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...state.sharedBills.map((bill) {
-                final visual = _topicVisual(bill.topic);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: LifeOsSoftCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            BananaGlassIcon(
-                              assetPath: visual.asset,
-                              fallbackIcon: visual.icon,
-                              size: 42,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    bill.title,
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                      color: c.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${bill.topic.displayLabel} · Trả trước: ${bill.paidByName} · ${bill.splitMethod.displayLabel}',
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 12.2,
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 120),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  VndAmount.format(bill.totalAmountMinor),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: c.primary,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const FinancialTrustStatusBadge(
+                                        status: FinancialTrustStatus.reconciled,
+                                        customLabel: 'Đã tất toán',
+                                        compact: true,
+                                      ),
                                     ],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            if (bill.needsReconciliation)
-                              const FinancialTrustStatusBadge(
-                                status: FinancialTrustStatus.needsReview,
-                                customLabel: 'Cần đối soát',
-                                compact: true,
-                              )
-                            else
-                              const FinancialTrustStatusBadge(
-                                status: FinancialTrustStatus.saved,
-                                customLabel: 'Đã ghi sổ chung',
-                                compact: true,
-                              ),
-                            const DataVisibilityBadge(isFamilyShared: true),
-                          ],
-                        ),
-                        if (bill.needsReconciliation) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Tổng hóa đơn ${VndAmount.format(bill.totalAmountMinor)} ≠ Tổng phần chia ${VndAmount.format(bill.sharesSumMinor)}',
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 12.2,
-                              fontWeight: FontWeight.w600,
-                              color: c.warning,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        LifeOsDetailsDiscloseSection(
-                          label: 'Chi tiết phần chia',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (bill.choreOrTaskNote != null &&
-                                  bill.choreOrTaskNote!.isNotEmpty) ...[
-                                Text(
-                                  'Gắn việc nhà / ghi chú: ${bill.choreOrTaskNote}',
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontSize: 12.2,
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                              ],
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: bill.sharesByUserId.entries
-                                    .map(
-                                      (e) => LifeOsStatusPill(
-                                        label:
-                                            '${bill.participantNames[e.key] ?? 'TV'}: ${VndAmount.format(e.value)}',
-                                        tone: LifeOsAccentTone.neutral,
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
-            if (state.settlements.isNotEmpty) ...[
-              LifeOsSectionHeader(
-                title: 'Lịch sử Tất toán (${state.settlements.length})',
-                tone: LifeOsAccentTone.emerald,
-              ),
-              ...state.settlements.take(10).map((st) {
-                final isRevealed = _revealedSettlementIds.contains(st.id);
-                final displayCode = isRevealed
-                    ? st.paymentCode
-                    : PrivacyMaskFormatter.maskCode(st.paymentCode);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: LifeOsSoftCard(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const LifeOsIconSquircle(
-                              icon: Icons.verified_rounded,
-                              tone: LifeOsAccentTone.emerald,
-                              size: 36,
-                              iconSize: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${st.fromUserName} đã trả ${st.toUserName}',
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
-                                      color: c.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  InkWell(
-                                    key: Key('toggle_settlement_code_${st.id}'),
-                                    borderRadius: BorderRadius.circular(8),
-                                    onTap: () => setState(() {
-                                      if (isRevealed) {
-                                        _revealedSettlementIds.remove(st.id);
-                                      } else {
-                                        _revealedSettlementIds.add(st.id);
-                                      }
-                                    }),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            'Mã đối soát: $displayCode',
-                                            softWrap: true,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: c.textSecondary,
-                                              fontFeatures: const [
-                                                FontFeature.tabularFigures(),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Icon(
-                                          isRevealed
-                                              ? Icons.visibility_off_outlined
-                                              : Icons.visibility_outlined,
-                                          size: 14,
-                                          color: c.textSecondary,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 130),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      VndAmount.format(st.amountMinor),
-                                      style: TextStyle(
-                                        fontSize: 14.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: c.success,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const FinancialTrustStatusBadge(
-                                    status: FinancialTrustStatus.reconciled,
-                                    customLabel: 'Đã tất toán',
-                                    compact: true,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+class _FamilyHeroCrossMetricsRow extends StatelessWidget {
+  final int fallbackFundMinor;
+
+  const _FamilyHeroCrossMetricsRow({required this.fallbackFundMinor});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    final taskCount = _maybeSelectFamily<TaskBloc, int>(
+      context,
+      (b) => b.state.tasks.length,
+      0,
+    );
+    final eventCount = _maybeSelectFamily<CalendarBloc, int>(
+      context,
+      (b) => b.state.events.length,
+      0,
+    );
+    final totalFunds = _maybeSelectFamily<BudgetBloc, int>(
+      context,
+      (b) => b.state.funds.fold<int>(0, (s, f) => s + f.balanceMinor),
+      0,
+    );
+    final displayFund = totalFunds > 0 ? totalFunds : fallbackFundMinor;
+
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: InkWell(
+              onTap: () => context.push('/tasks-board'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Việc chung',
+                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
                     ),
                   ),
-                );
-              }),
-            ],
-          ],
-        ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '$taskCount',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: c.primary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          VerticalDivider(width: 12, color: c.separator),
+          Expanded(
+            flex: 3,
+            child: InkWell(
+              onTap: () => context.go('/planning'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Lịch chung',
+                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                    ),
+                  ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '$eventCount',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: c.primary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          VerticalDivider(width: 12, color: c.separator),
+          Expanded(
+            flex: 4,
+            child: InkWell(
+              onTap: () => context.push('/family-funds'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Quỹ & Chi chung',
+                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                    ),
+                  ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: LifeOsTruthfulNumericText(
+                      formattedValue: VndAmount.format(displayFund),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2699,14 +2756,10 @@ class _FamilyInviteMemberSheetState extends State<_FamilyInviteMemberSheet> {
 }
 
 class _MembersAndGovernanceTabView extends StatefulWidget {
-  final FamilyEntity family;
-  final FamilyState state;
   final String currentUserId;
   final String currentUserName;
 
   const _MembersAndGovernanceTabView({
-    required this.family,
-    required this.state,
     required this.currentUserId,
     required this.currentUserName,
   });
@@ -2722,569 +2775,604 @@ class _MembersAndGovernanceTabViewState
 
   @override
   Widget build(BuildContext context) {
-    final family = widget.family;
-    final state = widget.state;
     final currentUserId = widget.currentUserId;
     final currentUserName = widget.currentUserName;
     final c = TammySemanticColors.of(context);
-    final now = DateTime.now();
-    final isManager = family.isManager(currentUserId);
-    final isOwner = family.isOwnerUser(currentUserId);
-    final activeInvites = family.activePendingInvites(now);
-    final balanceByUid = <String, MemberNetBalance>{
-      for (final b in state.sharedLedger.memberBalances) b.userId: b,
-    };
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
-        child: ListView(
-          key: const Key('members_list_view'),
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.dockClearance,
-          ),
-          children: [
-            // 1. Group Governance & Quick Invite Hero Card
-            LifeOsMintHeroCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        family.name,
-                        softWrap: true,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SemanticStatusBadge(
-                        kind: SemanticStatusKind.info,
-                        label:
-                            '${family.spaceType.displayLabel} · ${family.roleOf(currentUserId).displayLabel}',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (isManager)
-                        FilledButton.icon(
-                          key: const Key('open_invite_member_sheet_button'),
-                          onPressed: () => showFamilyInviteMemberSheet(
-                            context,
-                            family: family,
-                            currentUserId: currentUserId,
-                            currentUserName: currentUserName,
-                          ),
-                          icon: const Icon(
-                            Icons.person_add_alt_1_rounded,
-                            size: 18,
-                          ),
-                          label: const Text('Mời thành viên'),
-                        ),
-                      if (isManager)
-                        OutlinedButton.icon(
-                          key: const Key('quick_generate_invite_code_button'),
-                          onPressed: state.isSubmitting
-                              ? null
-                              : () => context.read<FamilyBloc>().add(
-                                  FamilyInviteGenerated(
-                                    userId: currentUserId,
-                                    familyId: family.id,
-                                    familyName: family.name,
-                                    spaceType: family.spaceType,
-                                    invitedByName: currentUserName,
-                                  ),
-                                ),
-                          icon: const Icon(Icons.qr_code_rounded, size: 18),
-                          label: const Text('Tạo mã mời 7 ngày'),
-                        ),
-                      OutlinedButton.icon(
-                        onPressed: state.isSubmitting
-                            ? null
-                            : () async {
-                                final ok = await showDestructiveConfirmDialog(
-                                  context: context,
-                                  title: 'Rời khỏi "${family.name}"?',
-                                  message:
-                                      'Quyền truy cập dữ liệu chung sẽ thu hồi ngay lập tức. Ví và giao dịch cá nhân của bạn vẫn được giữ nguyên 100%.',
-                                  confirmLabel: 'Rời không gian',
-                                );
-                                if (ok && context.mounted) {
-                                  context.read<FamilyBloc>().add(
-                                    FamilyLeaveConfirmed(
-                                      userId: currentUserId,
-                                      familyId: family.id,
-                                    ),
-                                  );
-                                }
-                              },
-                        icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-                        label: const Text('Rời nhóm'),
-                      ),
-                    ],
-                  ),
-                ],
+    return BlocBuilder<FamilyBloc, FamilyState>(
+      buildWhen: (p, c) =>
+          p.activeFamily != c.activeFamily ||
+          !listEquals(p.sharedBills, c.sharedBills) ||
+          !listEquals(p.settlements, c.settlements) ||
+          p.isSubmitting != c.isSubmitting ||
+          p.latestInviteCode != c.latestInviteCode,
+      builder: (context, state) {
+        final family = state.activeFamily;
+        if (family == null) return const SizedBox.shrink();
+        final now = DateTime.now();
+        final isManager = family.isManager(currentUserId);
+        final isOwner = family.isOwnerUser(currentUserId);
+        final activeInvites = family.activePendingInvites(now);
+        final balanceByUid = <String, MemberNetBalance>{
+          for (final b in state.sharedLedger.memberBalances) b.userId: b,
+        };
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
+            ),
+            child: ListView(
+              key: const Key('members_list_view'),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
               ),
-            ),
-
-            // 2. Pending Invited Members Section ("Thành viên được mời · Đang chờ")
-            LifeOsSectionHeader(
-              title: 'Thành viên được mời (${activeInvites.length})',
-              tone: LifeOsAccentTone.amber,
-            ),
-            if (activeInvites.isEmpty)
-              LifeOsSoftCard(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const LifeOsIconSquircle(
-                          icon: Icons.group_add_outlined,
-                          tone: LifeOsAccentTone.amber,
-                          size: 38,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Chưa có lời mời đang chờ xác nhận.',
+              children: [
+                // 1. Group Governance & Quick Invite Hero Card
+                LifeOsMintHeroCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            family.name,
                             softWrap: true,
-                            style: TextStyle(
-                              fontSize: 12.6,
-                              height: 1.32,
-                              color: c.textSecondary,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
-                        ),
-                      ],
-                    ),
-                    if (isManager) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: () => showFamilyInviteMemberSheet(
-                          context,
-                          family: family,
-                          currentUserId: currentUserId,
-                          currentUserName: currentUserName,
-                        ),
-                        icon: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 17,
-                        ),
-                        label: const Text('Mời thành viên'),
+                          SemanticStatusBadge(
+                            kind: SemanticStatusKind.info,
+                            label:
+                                '${family.spaceType.displayLabel} · ${family.roleOf(currentUserId).displayLabel}',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (isManager)
+                            FilledButton.icon(
+                              key: const Key('open_invite_member_sheet_button'),
+                              onPressed: () => showFamilyInviteMemberSheet(
+                                context,
+                                family: family,
+                                currentUserId: currentUserId,
+                                currentUserName: currentUserName,
+                              ),
+                              icon: const Icon(
+                                Icons.person_add_alt_1_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Mời thành viên'),
+                            ),
+                          if (isManager)
+                            OutlinedButton.icon(
+                              key: const Key(
+                                'quick_generate_invite_code_button',
+                              ),
+                              onPressed: state.isSubmitting
+                                  ? null
+                                  : () => context.read<FamilyBloc>().add(
+                                      FamilyInviteGenerated(
+                                        userId: currentUserId,
+                                        familyId: family.id,
+                                        familyName: family.name,
+                                        spaceType: family.spaceType,
+                                        invitedByName: currentUserName,
+                                      ),
+                                    ),
+                              icon: const Icon(Icons.qr_code_rounded, size: 18),
+                              label: const Text('Tạo mã mời 7 ngày'),
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: state.isSubmitting
+                                ? null
+                                : () async {
+                                    final ok = await showDestructiveConfirmDialog(
+                                      context: context,
+                                      title: 'Rời khỏi "${family.name}"?',
+                                      message:
+                                          'Quyền truy cập dữ liệu chung sẽ thu hồi ngay lập tức. Ví và giao dịch cá nhân của bạn vẫn được giữ nguyên 100%.',
+                                      confirmLabel: 'Rời không gian',
+                                    );
+                                    if (ok && context.mounted) {
+                                      context.read<FamilyBloc>().add(
+                                        FamilyLeaveConfirmed(
+                                          userId: currentUserId,
+                                          familyId: family.id,
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(
+                              Icons.exit_to_app_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Rời nhóm'),
+                          ),
+                        ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              )
-            else
-              ...activeInvites.map((inv) {
-                final daysLeft = inv.remainingDaysFrom(now);
-                final isRevealed = _revealedInviteCodes.contains(
-                  inv.inviteCode,
-                );
-                final displayCode = isRevealed
-                    ? inv.inviteCode
-                    : PrivacyMaskFormatter.maskCode(inv.inviteCode);
-                final displayContact =
-                    (inv.inviteeContact != null &&
-                        inv.inviteeContact!.isNotEmpty)
-                    ? (isRevealed
-                          ? inv.inviteeContact!
-                          : PrivacyMaskFormatter.maskContact(
-                              inv.inviteeContact!,
-                            ))
-                    : '';
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: LifeOsSoftCard(
-                    key: Key('pending_invite_card_${inv.inviteCode}'),
+
+                // 2. Pending Invited Members Section ("Thành viên được mời · Đang chờ")
+                LifeOsSectionHeader(
+                  title: 'Thành viên được mời (${activeInvites.length})',
+                  tone: LifeOsAccentTone.amber,
+                ),
+                if (activeInvites.isEmpty)
+                  LifeOsSoftCard(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: c.warningSubtle,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: c.warning,
-                                  width: 1.4,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Icon(
-                                inv.isTargetedInvite
-                                    ? Icons.person_add_alt_1_rounded
-                                    : Icons.link_rounded,
-                                size: 19,
-                                color: c.warning,
-                              ),
+                            const LifeOsIconSquircle(
+                              icon: Icons.group_add_outlined,
+                              tone: LifeOsAccentTone.amber,
+                              size: 38,
                             ),
-                            const SizedBox(width: 11),
+                            const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    alignment: WrapAlignment.spaceBetween,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      Text(
-                                        inv.displayInviteeTitle,
-                                        softWrap: true,
-                                        style: TextStyle(
-                                          fontSize: 14.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: c.textPrimary,
-                                        ),
-                                      ),
-                                      const SemanticStatusBadge(
-                                        kind: SemanticStatusKind.warning,
-                                        label: 'Đang chờ',
-                                      ),
-                                    ],
-                                  ),
-                                  if (displayContact.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      displayContact,
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: c.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'Mời bởi ${inv.invitedByName} · Còn hạn $daysLeft ngày',
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 11.8,
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                'Chưa có lời mời đang chờ xác nhận.',
+                                softWrap: true,
+                                style: TextStyle(
+                                  fontSize: 12.6,
+                                  height: 1.32,
+                                  color: c.textSecondary,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            InkWell(
-                              key: Key('toggle_invite_code_${inv.inviteCode}'),
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: () => setState(() {
-                                if (isRevealed) {
-                                  _revealedInviteCodes.remove(inv.inviteCode);
-                                } else {
-                                  _revealedInviteCodes.add(inv.inviteCode);
-                                }
-                              }),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: c.primarySubtle,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      displayCode,
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.5,
-                                        color: c.primary,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Icon(
-                                      isRevealed
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      size: 14,
-                                      color: c.primary,
-                                    ),
-                                  ],
-                                ),
-                              ),
+                        if (isManager) ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: () => showFamilyInviteMemberSheet(
+                              context,
+                              family: family,
+                              currentUserId: currentUserId,
+                              currentUserName: currentUserName,
                             ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(text: inv.inviteCode),
-                                );
-                                LifeOsTopToast.show(
-                                  context,
-                                  'Đã sao chép mã mời tham gia nhóm.',
-                                );
-                              },
-                              icon: const Icon(Icons.copy_rounded, size: 15),
-                              label: const Text('Sao chép mã'),
+                            icon: const Icon(
+                              Icons.person_add_alt_1_rounded,
+                              size: 17,
                             ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              onPressed: () {
-                                final msg = _buildFamilyInviteShareText(
-                                  familyName: family.name,
-                                  inviteCode: inv.inviteCode,
-                                  inviteeName: inv.inviteeName,
-                                );
-                                Clipboard.setData(ClipboardData(text: msg));
-                                LifeOsTopToast.show(
-                                  context,
-                                  'Đã sao chép tin nhắn mời để gửi lại.',
-                                );
-                              },
-                              icon: const Icon(Icons.send_outlined, size: 15),
-                              label: const Text('Gửi lại lời mời'),
-                            ),
-                            if (isManager)
-                              TextButton.icon(
-                                key: Key('revoke_invite_${inv.inviteCode}'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: c.error,
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                onPressed: state.isSubmitting
-                                    ? null
-                                    : () => context.read<FamilyBloc>().add(
-                                        FamilyInviteRevokeRequested(
-                                          actorUserId: currentUserId,
-                                          familyId: family.id,
-                                          inviteCode: inv.inviteCode,
-                                        ),
-                                      ),
-                                icon: const Icon(
-                                  Icons.cancel_outlined,
-                                  size: 15,
-                                ),
-                                label: const Text('Thu hồi'),
-                              ),
-                          ],
-                        ),
+                            label: const Text('Mời thành viên'),
+                          ),
+                        ],
                       ],
                     ),
-                  ),
-                );
-              }),
-
-            // 3. Official Joined Members Section ("Thành viên chính thức")
-            LifeOsSectionHeader(
-              title: 'Thành viên chính thức (${family.members.length})',
-              tone: LifeOsAccentTone.emerald,
-            ),
-            ...family.members.map((m) {
-              final isSelf = m.userId == currentUserId;
-              final net = balanceByUid[m.userId]?.netBalanceMinor ?? 0;
-              final netLabel = net == 0
-                  ? 'Đã cân bằng chi chung'
-                  : (net > 0
-                        ? 'Cần nhận lại +${VndAmount.format(net)}'
-                        : 'Cần thanh toán -${VndAmount.format(net.abs())}');
-              final netColor = net == 0
-                  ? c.textSecondary
-                  : (net > 0 ? c.success : c.warning);
-
-              final canManageTarget =
-                  !isSelf &&
-                  m.role != HouseholdRole.owner &&
-                  (isOwner || (isManager && m.role == HouseholdRole.member));
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: LifeOsSoftCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: m.role == HouseholdRole.owner
-                            ? c.primary
-                            : c.primarySubtle,
-                        child: Text(
-                          m.fullName.trim().isEmpty
-                              ? 'TV'
-                              : m.fullName
-                                    .trim()
-                                    .characters
-                                    .first
-                                    .toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: m.role == HouseholdRole.owner
-                                ? Colors.white
-                                : c.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
+                  )
+                else
+                  ...activeInvites.map((inv) {
+                    final daysLeft = inv.remainingDaysFrom(now);
+                    final isRevealed = _revealedInviteCodes.contains(
+                      inv.inviteCode,
+                    );
+                    final displayCode = isRevealed
+                        ? inv.inviteCode
+                        : PrivacyMaskFormatter.maskCode(inv.inviteCode);
+                    final displayContact =
+                        (inv.inviteeContact != null &&
+                            inv.inviteeContact!.isNotEmpty)
+                        ? (isRevealed
+                              ? inv.inviteeContact!
+                              : PrivacyMaskFormatter.maskContact(
+                                  inv.inviteeContact!,
+                                ))
+                        : '';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: LifeOsSoftCard(
+                        key: Key('pending_invite_card_${inv.inviteCode}'),
+                        padding: const EdgeInsets.all(14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              isSelf ? '${m.fullName} (Bạn)' : m.fullName,
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w800,
-                                color: c.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              netLabel,
-                              softWrap: true,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: netColor,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SemanticStatusBadge(
-                        kind: m.role == HouseholdRole.owner
-                            ? SemanticStatusKind.success
-                            : SemanticStatusKind.info,
-                        label: m.role.displayLabel,
-                      ),
-                      if (canManageTarget)
-                        PopupMenuButton<String>(
-                          key: Key('manage_member_menu_${m.userId}'),
-                          enabled: !state.isSubmitting,
-                          tooltip: 'Quản lý thành viên',
-                          onSelected: (action) async {
-                            if (action == 'promote_admin') {
-                              context.read<FamilyBloc>().add(
-                                FamilyMemberRoleUpdated(
-                                  actorUserId: currentUserId,
-                                  familyId: family.id,
-                                  targetUserId: m.userId,
-                                  targetName: m.fullName,
-                                  newRole: HouseholdRole.admin,
-                                ),
-                              );
-                            } else if (action == 'demote_member') {
-                              context.read<FamilyBloc>().add(
-                                FamilyMemberRoleUpdated(
-                                  actorUserId: currentUserId,
-                                  familyId: family.id,
-                                  targetUserId: m.userId,
-                                  targetName: m.fullName,
-                                  newRole: HouseholdRole.member,
-                                ),
-                              );
-                            } else if (action == 'remove_member') {
-                              final ok = await showDestructiveConfirmDialog(
-                                context: context,
-                                title: 'Xóa ${m.fullName} khỏi nhóm?',
-                                message:
-                                    'Thành viên này sẽ không còn thấy chi tiêu chung, lịch hoặc công việc của "${family.name}".',
-                                confirmLabel: 'Xóa khỏi nhóm',
-                              );
-                              if (ok && context.mounted) {
-                                context.read<FamilyBloc>().add(
-                                  FamilyMemberRemoved(
-                                    actorUserId: currentUserId,
-                                    familyId: family.id,
-                                    targetUserId: m.userId,
-                                    targetName: m.fullName,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: c.warningSubtle,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: c.warning,
+                                      width: 1.4,
+                                    ),
                                   ),
-                                );
-                              }
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            if (isOwner && m.role == HouseholdRole.member)
-                              const PopupMenuItem(
-                                value: 'promote_admin',
-                                child: Text('Cấp quyền Quản trị'),
-                              ),
-                            if (isOwner && m.role == HouseholdRole.admin)
-                              const PopupMenuItem(
-                                value: 'demote_member',
-                                child: Text('Chuyển về Thành viên'),
-                              ),
-                            PopupMenuItem(
-                              value: 'remove_member',
-                              child: Text(
-                                'Xóa khỏi nhóm',
-                                style: TextStyle(color: c.error),
-                              ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    inv.isTargetedInvite
+                                        ? Icons.person_add_alt_1_rounded
+                                        : Icons.link_rounded,
+                                    size: 19,
+                                    color: c.warning,
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        alignment: WrapAlignment.spaceBetween,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            inv.displayInviteeTitle,
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              fontSize: 14.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: c.textPrimary,
+                                            ),
+                                          ),
+                                          const SemanticStatusBadge(
+                                            kind: SemanticStatusKind.warning,
+                                            label: 'Đang chờ',
+                                          ),
+                                        ],
+                                      ),
+                                      if (displayContact.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          displayContact,
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: c.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Mời bởi ${inv.invitedByName} · Còn hạn $daysLeft ngày',
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          fontSize: 11.8,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                InkWell(
+                                  key: Key(
+                                    'toggle_invite_code_${inv.inviteCode}',
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => setState(() {
+                                    if (isRevealed) {
+                                      _revealedInviteCodes.remove(
+                                        inv.inviteCode,
+                                      );
+                                    } else {
+                                      _revealedInviteCodes.add(inv.inviteCode);
+                                    }
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: c.primarySubtle,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          displayCode,
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.5,
+                                            color: c.primary,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Icon(
+                                          isRevealed
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 14,
+                                          color: c.primary,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                      ClipboardData(text: inv.inviteCode),
+                                    );
+                                    LifeOsTopToast.show(
+                                      context,
+                                      'Đã sao chép mã mời tham gia nhóm.',
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 15,
+                                  ),
+                                  label: const Text('Sao chép mã'),
+                                ),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () {
+                                    final msg = _buildFamilyInviteShareText(
+                                      familyName: family.name,
+                                      inviteCode: inv.inviteCode,
+                                      inviteeName: inv.inviteeName,
+                                    );
+                                    Clipboard.setData(ClipboardData(text: msg));
+                                    LifeOsTopToast.show(
+                                      context,
+                                      'Đã sao chép tin nhắn mời để gửi lại.',
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.send_outlined,
+                                    size: 15,
+                                  ),
+                                  label: const Text('Gửi lại lời mời'),
+                                ),
+                                if (isManager)
+                                  TextButton.icon(
+                                    key: Key('revoke_invite_${inv.inviteCode}'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: c.error,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: state.isSubmitting
+                                        ? null
+                                        : () => context.read<FamilyBloc>().add(
+                                            FamilyInviteRevokeRequested(
+                                              actorUserId: currentUserId,
+                                              familyId: family.id,
+                                              inviteCode: inv.inviteCode,
+                                            ),
+                                          ),
+                                    icon: const Icon(
+                                      Icons.cancel_outlined,
+                                      size: 15,
+                                    ),
+                                    label: const Text('Thu hồi'),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
-                    ],
-                  ),
+                      ),
+                    );
+                  }),
+
+                // 3. Official Joined Members Section ("Thành viên chính thức")
+                LifeOsSectionHeader(
+                  title: 'Thành viên chính thức (${family.members.length})',
+                  tone: LifeOsAccentTone.emerald,
                 ),
-              );
-            }),
-          ],
-        ),
-      ),
+                ...family.members.map((m) {
+                  final isSelf = m.userId == currentUserId;
+                  final net = balanceByUid[m.userId]?.netBalanceMinor ?? 0;
+                  final netLabel = net == 0
+                      ? 'Đã cân bằng chi chung'
+                      : (net > 0
+                            ? 'Cần nhận lại +${VndAmount.format(net)}'
+                            : 'Cần thanh toán -${VndAmount.format(net.abs())}');
+                  final netColor = net == 0
+                      ? c.textSecondary
+                      : (net > 0 ? c.success : c.warning);
+
+                  final canManageTarget =
+                      !isSelf &&
+                      m.role != HouseholdRole.owner &&
+                      (isOwner ||
+                          (isManager && m.role == HouseholdRole.member));
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: LifeOsSoftCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: m.role == HouseholdRole.owner
+                                ? c.primary
+                                : c.primarySubtle,
+                            child: Text(
+                              m.fullName.trim().isEmpty
+                                  ? 'TV'
+                                  : m.fullName
+                                        .trim()
+                                        .characters
+                                        .first
+                                        .toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: m.role == HouseholdRole.owner
+                                    ? Colors.white
+                                    : c.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      isSelf
+                                          ? '${m.fullName} (Bạn)'
+                                          : m.fullName,
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                    SemanticStatusBadge(
+                                      kind: m.role == HouseholdRole.owner
+                                          ? SemanticStatusKind.success
+                                          : SemanticStatusKind.info,
+                                      label: m.role.displayLabel,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  netLabel,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: netColor,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (canManageTarget) ...[
+                            const SizedBox(width: 4),
+                            PopupMenuButton<String>(
+                              key: Key('manage_member_menu_${m.userId}'),
+                              enabled: !state.isSubmitting,
+                              tooltip: 'Quản lý thành viên',
+                              onSelected: (action) async {
+                                if (action == 'promote_admin') {
+                                  context.read<FamilyBloc>().add(
+                                    FamilyMemberRoleUpdated(
+                                      actorUserId: currentUserId,
+                                      familyId: family.id,
+                                      targetUserId: m.userId,
+                                      targetName: m.fullName,
+                                      newRole: HouseholdRole.admin,
+                                    ),
+                                  );
+                                } else if (action == 'demote_member') {
+                                  context.read<FamilyBloc>().add(
+                                    FamilyMemberRoleUpdated(
+                                      actorUserId: currentUserId,
+                                      familyId: family.id,
+                                      targetUserId: m.userId,
+                                      targetName: m.fullName,
+                                      newRole: HouseholdRole.member,
+                                    ),
+                                  );
+                                } else if (action == 'remove_member') {
+                                  final ok = await showDestructiveConfirmDialog(
+                                    context: context,
+                                    title: 'Xóa ${m.fullName} khỏi nhóm?',
+                                    message:
+                                        'Thành viên này sẽ không còn thấy chi tiêu chung, lịch hoặc công việc của "${family.name}".',
+                                    confirmLabel: 'Xóa khỏi nhóm',
+                                  );
+                                  if (ok && context.mounted) {
+                                    context.read<FamilyBloc>().add(
+                                      FamilyMemberRemoved(
+                                        actorUserId: currentUserId,
+                                        familyId: family.id,
+                                        targetUserId: m.userId,
+                                        targetName: m.fullName,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                if (isOwner && m.role == HouseholdRole.member)
+                                  const PopupMenuItem(
+                                    value: 'promote_admin',
+                                    child: Text('Cấp quyền Quản trị'),
+                                  ),
+                                if (isOwner && m.role == HouseholdRole.admin)
+                                  const PopupMenuItem(
+                                    value: 'demote_member',
+                                    child: Text('Chuyển về Thành viên'),
+                                  ),
+                                PopupMenuItem(
+                                  value: 'remove_member',
+                                  child: Text(
+                                    'Xóa khỏi nhóm',
+                                    style: TextStyle(color: c.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _SharedShoppingTabView extends StatefulWidget {
-  final FamilyEntity family;
-  final FamilyState state;
   final String currentUserId;
   final String currentUserName;
 
   const _SharedShoppingTabView({
-    required this.family,
-    required this.state,
     required this.currentUserId,
     required this.currentUserName,
   });
@@ -3299,379 +3387,408 @@ class _SharedShoppingTabViewState extends State<_SharedShoppingTabView> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final allItems = widget.state.shoppingItems;
-    final todoCount = allItems.where((i) => !i.isPurchased).length;
-    final purchasedItems = allItems.where((i) => i.isPurchased).toList();
-    final doneCount = purchasedItems.length;
-    final purchasedTotalMinor = purchasedItems.fold<int>(
-      0,
-      (s, i) => s + i.estimatedPriceMinor,
-    );
-    final isSubmitting = widget.state.isSubmitting;
-    final visibleItems = switch (_statusFilter) {
-      'todo' => allItems.where((i) => !i.isPurchased).toList(),
-      'done' => purchasedItems,
-      _ => allItems,
-    };
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppSpacing.maxContentWidth),
-        child: ListView(
-          key: const Key('shopping_list_view'),
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.dockClearance,
-          ),
-          children: [
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.xs,
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  'Danh sách Mua sắm Chung (${allItems.length})',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  key: const Key('open_add_shopping_item_btn'),
-                  onPressed: isSubmitting
-                      ? null
-                      : () => _showAddShoppingDialog(
-                          context,
-                          familyId: widget.family.id,
-                          userName: widget.currentUserName,
-                        ),
-                  icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
-                  label: const Text('Thêm món'),
-                ),
-              ],
+    return BlocBuilder<FamilyBloc, FamilyState>(
+      buildWhen: (p, c) =>
+          p.activeFamily?.id != c.activeFamily?.id ||
+          !listEquals(p.shoppingItems, c.shoppingItems) ||
+          p.isSubmitting != c.isSubmitting,
+      builder: (context, state) {
+        final family = state.activeFamily;
+        if (family == null) return const SizedBox.shrink();
+        final allItems = state.shoppingItems;
+        final todoCount = allItems.where((i) => !i.isPurchased).length;
+        final purchasedItems = allItems.where((i) => i.isPurchased).toList();
+        final doneCount = purchasedItems.length;
+        final purchasedTotalMinor = purchasedItems.fold<int>(
+          0,
+          (s, i) => s + i.estimatedPriceMinor,
+        );
+        final isSubmitting = state.isSubmitting;
+        final visibleItems = switch (_statusFilter) {
+          'todo' => allItems.where((i) => !i.isPurchased).toList(),
+          'done' => purchasedItems,
+          _ => allItems,
+        };
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.maxContentWidth,
             ),
-            if (doneCount > 0) ...[
-              const SizedBox(height: 10),
-              LifeOsMintHeroCard(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const BananaGlassIcon(
-                          assetPath: AppAssets.icCatShopping,
-                          fallbackIcon: Icons.shopping_bag_rounded,
-                          size: 36,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Đã mua $doneCount món · Tạm tính ${VndAmount.format(purchasedTotalMinor)}',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13.8,
-                                  color: c.textPrimary,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                'Gộp các món đã mua để chia đều tiền nhóm nhanh.',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: c.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FilledButton.icon(
-                          key: const Key('checkout_purchased_to_split_btn'),
-                          onPressed: isSubmitting
-                              ? null
-                              : () {
-                                  final titlesSummary =
-                                      purchasedItems.length <= 3
-                                      ? purchasedItems
-                                            .map((e) => e.title)
-                                            .join(', ')
-                                      : '${purchasedItems.take(2).map((e) => e.title).join(', ')} và ${purchasedItems.length - 2} món khác';
-                                  final detailNote = purchasedItems
-                                      .map(
-                                        (e) =>
-                                            '${e.title} (${e.quantityLabel}): ${VndAmount.format(e.estimatedPriceMinor)}',
-                                      )
-                                      .join(' · ');
-                                  showSharedBillSplitSheet(
-                                    context,
-                                    family: widget.family,
-                                    currentUserId: widget.currentUserId,
-                                    currentUserName: widget.currentUserName,
-                                    initialTitle: 'Đi chợ: $titlesSummary',
-                                    initialAmountMinor: purchasedTotalMinor,
-                                    initialTopic: SharedExpenseTopic.shopping,
-                                    initialChoreNote: detailNote,
-                                  );
-                                },
-                          icon: const Icon(Icons.call_split_rounded, size: 17),
-                          label: const Text(
-                            'Chốt các món đã mua → Chia tiền nhóm',
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          key: const Key('clear_purchased_shopping_btn'),
-                          onPressed: isSubmitting
-                              ? null
-                              : () async {
-                                  final ok = await showDestructiveConfirmDialog(
-                                    context: context,
-                                    title: 'Dọn sạch $doneCount món đã mua?',
-                                    message:
-                                        'Các món đã đánh dấu đã mua sẽ bị xóa khỏi danh sách mua sắm chung.',
-                                    confirmLabel: 'Dọn sạch',
-                                  );
-                                  if (ok && context.mounted) {
-                                    context.read<FamilyBloc>().add(
-                                      PurchasedShoppingItemsCleared(
-                                        familyId: widget.family.id,
-                                      ),
-                                    );
-                                  }
-                                },
-                          icon: Icon(
-                            Icons.cleaning_services_outlined,
-                            size: 16,
-                            color: c.error,
-                          ),
-                          label: Text(
-                            'Dọn món đã mua',
-                            style: TextStyle(color: c.error),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            child: ListView(
+              key: const Key('shopping_list_view'),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.dockClearance,
               ),
-            ],
-            if (allItems.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              children: [
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ChoiceChip(
-                      label: Text('Tất cả (${allItems.length})'),
-                      selected: _statusFilter == 'all',
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => setState(() => _statusFilter = 'all'),
-                    ),
-                    const SizedBox(width: 6),
-                    ChoiceChip(
-                      label: Text('Cần mua ($todoCount)'),
-                      selected: _statusFilter == 'todo',
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => setState(
-                        () => _statusFilter = _statusFilter == 'todo'
-                            ? 'all'
-                            : 'todo',
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    ChoiceChip(
-                      label: Text('Đã mua ($doneCount)'),
-                      selected: _statusFilter == 'done',
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => setState(
-                        () => _statusFilter = _statusFilter == 'done'
-                            ? 'all'
-                            : 'done',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            if (allItems.isEmpty)
-              LifeOsSoftCard(
-                child: Column(
-                  children: [
-                    const BananaGlassIcon(
-                      assetPath: AppAssets.icCatShopping,
-                      fallbackIcon: Icons.shopping_cart_outlined,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 10),
                     Text(
-                      'Danh sách mua sắm chung đang trống',
-                      style: TextStyle(
+                      'Danh sách Mua sắm Chung (${allItems.length})',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: c.textPrimary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Cả nhà có thể cùng thêm đồ cần mua và chốt nhanh thành khoản chia tiền nhóm sau khi đi chợ.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12.5, color: c.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
                     FilledButton.tonalIcon(
+                      key: const Key('open_add_shopping_item_btn'),
                       onPressed: isSubmitting
                           ? null
                           : () => _showAddShoppingDialog(
                               context,
-                              familyId: widget.family.id,
+                              familyId: family.id,
                               userName: widget.currentUserName,
                             ),
                       icon: const Icon(
                         Icons.add_shopping_cart_rounded,
-                        size: 17,
+                        size: 18,
                       ),
-                      label: const Text('Thêm món đầu tiên'),
+                      label: const Text('Thêm món'),
                     ),
                   ],
                 ),
-              )
-            else if (visibleItems.isEmpty)
-              LifeOsSoftCard(
-                child: Column(
-                  children: [
-                    const LifeOsIconSquircle(
-                      icon: Icons.filter_list_off_rounded,
-                      tone: LifeOsAccentTone.neutral,
-                      size: 42,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Không có món đồ nào trong bộ lọc này.'),
-                    const SizedBox(height: 8),
-                    FilledButton.tonalIcon(
-                      onPressed: () => setState(() => _statusFilter = 'all'),
-                      icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
-                      label: const Text('Xem tất cả món đồ'),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...visibleItems.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: LifeOsSoftCard(
-                    onTap: () {
-                      context.read<FamilyBloc>().add(
-                        ShoppingItemToggled(
-                          familyId: widget.family.id,
-                          itemId: item.id,
-                          isPurchased: !item.isPurchased,
+                if (doneCount > 0) ...[
+                  const SizedBox(height: 10),
+                  LifeOsMintHeroCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const BananaGlassIcon(
+                              assetPath: AppAssets.icCatShopping,
+                              fallbackIcon: Icons.shopping_bag_rounded,
+                              size: 36,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Đã mua $doneCount món · Tạm tính ${VndAmount.format(purchasedTotalMinor)}',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13.8,
+                                      color: c.textPrimary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    'Gộp các món đã mua để chia đều tiền nhóm nhanh.',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FilledButton.icon(
+                              key: const Key('checkout_purchased_to_split_btn'),
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () {
+                                      final titlesSummary =
+                                          purchasedItems.length <= 3
+                                          ? purchasedItems
+                                                .map((e) => e.title)
+                                                .join(', ')
+                                          : '${purchasedItems.take(2).map((e) => e.title).join(', ')} và ${purchasedItems.length - 2} món khác';
+                                      final detailNote = purchasedItems
+                                          .map(
+                                            (e) =>
+                                                '${e.title} (${e.quantityLabel}): ${VndAmount.format(e.estimatedPriceMinor)}',
+                                          )
+                                          .join(' · ');
+                                      showSharedBillSplitSheet(
+                                        context,
+                                        family: family,
+                                        currentUserId: widget.currentUserId,
+                                        currentUserName: widget.currentUserName,
+                                        initialTitle: 'Đi chợ: $titlesSummary',
+                                        initialAmountMinor: purchasedTotalMinor,
+                                        initialTopic:
+                                            SharedExpenseTopic.shopping,
+                                        initialChoreNote: detailNote,
+                                      );
+                                    },
+                              icon: const Icon(
+                                Icons.call_split_rounded,
+                                size: 17,
+                              ),
+                              label: const Text(
+                                'Chốt các món đã mua → Chia tiền nhóm',
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              key: const Key('clear_purchased_shopping_btn'),
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () async {
+                                      final ok = await showDestructiveConfirmDialog(
+                                        context: context,
+                                        title:
+                                            'Dọn sạch $doneCount món đã mua?',
+                                        message:
+                                            'Các món đã đánh dấu đã mua sẽ bị xóa khỏi danh sách mua sắm chung.',
+                                        confirmLabel: 'Dọn sạch',
+                                      );
+                                      if (ok && context.mounted) {
+                                        context.read<FamilyBloc>().add(
+                                          PurchasedShoppingItemsCleared(
+                                            familyId: family.id,
+                                          ),
+                                        );
+                                      }
+                                    },
+                              icon: Icon(
+                                Icons.cleaning_services_outlined,
+                                size: 16,
+                                color: c.error,
+                              ),
+                              label: Text(
+                                'Dọn món đã mua',
+                                style: TextStyle(color: c.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
+                  ),
+                ],
+                if (allItems.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: Checkbox(
-                            value: item.isPurchased,
-                            onChanged: (checked) {
-                              context.read<FamilyBloc>().add(
-                                ShoppingItemToggled(
-                                  familyId: widget.family.id,
-                                  itemId: item.id,
-                                  isPurchased: checked ?? false,
-                                ),
-                              );
-                            },
+                        ChoiceChip(
+                          label: Text('Tất cả (${allItems.length})'),
+                          selected: _statusFilter == 'all',
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) =>
+                              setState(() => _statusFilter = 'all'),
+                        ),
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: Text('Cần mua ($todoCount)'),
+                          selected: _statusFilter == 'todo',
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) => setState(
+                            () => _statusFilter = _statusFilter == 'todo'
+                                ? 'all'
+                                : 'todo',
                           ),
                         ),
-                        const BananaGlassIcon(
-                          assetPath: AppAssets.icCatShopping,
-                          fallbackIcon: Icons.shopping_bag_outlined,
-                          size: 36,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${item.title} (${item.quantityLabel})',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: item.isPurchased
-                                      ? c.textSecondary
-                                      : c.textPrimary,
-                                  decoration: item.isPurchased
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Dự kiến: ${VndAmount.format(item.estimatedPriceMinor)} · ${item.addedByName}',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: c.textSecondary,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          key: Key('delete_shopping_item_${item.id}'),
-                          tooltip: 'Xóa món',
-                          onPressed: isSubmitting
-                              ? null
-                              : () => context.read<FamilyBloc>().add(
-                                  ShoppingItemDeleted(
-                                    familyId: widget.family.id,
-                                    itemId: item.id,
-                                  ),
-                                ),
-                          icon: Icon(
-                            Icons.delete_outline_rounded,
-                            size: 20,
-                            color: c.textSecondary,
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: Text('Đã mua ($doneCount)'),
+                          selected: _statusFilter == 'done',
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) => setState(
+                            () => _statusFilter = _statusFilter == 'done'
+                                ? 'all'
+                                : 'done',
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-          ],
-        ),
-      ),
+                ],
+                const SizedBox(height: AppSpacing.sm),
+                if (allItems.isEmpty)
+                  LifeOsSoftCard(
+                    child: Column(
+                      children: [
+                        const BananaGlassIcon(
+                          assetPath: AppAssets.icCatShopping,
+                          fallbackIcon: Icons.shopping_cart_outlined,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Danh sách mua sắm chung đang trống',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Cả nhà có thể cùng thêm đồ cần mua và chốt nhanh thành khoản chia tiền nhóm sau khi đi chợ.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.tonalIcon(
+                          onPressed: isSubmitting
+                              ? null
+                              : () => _showAddShoppingDialog(
+                                  context,
+                                  familyId: family.id,
+                                  userName: widget.currentUserName,
+                                ),
+                          icon: const Icon(
+                            Icons.add_shopping_cart_rounded,
+                            size: 17,
+                          ),
+                          label: const Text('Thêm món đầu tiên'),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (visibleItems.isEmpty)
+                  LifeOsSoftCard(
+                    child: Column(
+                      children: [
+                        const LifeOsIconSquircle(
+                          icon: Icons.filter_list_off_rounded,
+                          tone: LifeOsAccentTone.neutral,
+                          size: 42,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Không có món đồ nào trong bộ lọc này.'),
+                        const SizedBox(height: 8),
+                        FilledButton.tonalIcon(
+                          onPressed: () =>
+                              setState(() => _statusFilter = 'all'),
+                          icon: const Icon(
+                            Icons.filter_alt_off_rounded,
+                            size: 16,
+                          ),
+                          label: const Text('Xem tất cả món đồ'),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...visibleItems.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: LifeOsSoftCard(
+                        onTap: () {
+                          context.read<FamilyBloc>().add(
+                            ShoppingItemToggled(
+                              familyId: family.id,
+                              itemId: item.id,
+                              isPurchased: !item.isPurchased,
+                            ),
+                          );
+                        },
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: Checkbox(
+                                value: item.isPurchased,
+                                onChanged: (checked) {
+                                  context.read<FamilyBloc>().add(
+                                    ShoppingItemToggled(
+                                      familyId: family.id,
+                                      itemId: item.id,
+                                      isPurchased: checked ?? false,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const BananaGlassIcon(
+                              assetPath: AppAssets.icCatShopping,
+                              fallbackIcon: Icons.shopping_bag_outlined,
+                              size: 36,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${item.title} (${item.quantityLabel})',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: item.isPurchased
+                                          ? c.textSecondary
+                                          : c.textPrimary,
+                                      decoration: item.isPurchased
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Dự kiến: ${VndAmount.format(item.estimatedPriceMinor)} · ${item.addedByName}',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              key: Key('delete_shopping_item_${item.id}'),
+                              tooltip: 'Xóa món',
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () => context.read<FamilyBloc>().add(
+                                      ShoppingItemDeleted(
+                                        familyId: family.id,
+                                        itemId: item.id,
+                                      ),
+                                    ),
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                size: 20,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

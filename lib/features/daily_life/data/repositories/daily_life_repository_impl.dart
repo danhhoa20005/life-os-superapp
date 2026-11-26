@@ -138,19 +138,27 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
               final slot = MedicationScheduleSlot.fromName(
                 d['slot'] as String?,
               );
+              final rawPills = (d['remainingPills'] as num?)?.toInt() ?? 0;
+              final explicitConfirmFlag = d['inventoryConfirmed'] == true;
+              final hasConfirmTimestamp =
+                  d['inventoryConfirmedAt'] != null &&
+                  d['inventoryConfirmedAt'].toString().trim().isNotEmpty;
+              // Legacy quick-create records that auto-filled 30 pills without explicit inventory confirmation
+              // require user confirmation before displaying stock/expiry or triggering low-stock/expiry alerts.
+              final isConfirmedInventory =
+                  explicitConfirmFlag &&
+                  (hasConfirmTimestamp || rawPills != 30);
               return MedicationCabinetItemEntity(
                 id: doc.id,
                 ownerId: userId,
                 name: (d['name'] ?? 'Thuốc / Vitamin') as String,
                 dosage: (d['dosage'] ?? '1 viên') as String,
                 slot: slot,
-                remainingPills: (d['remainingPills'] as num?)?.toInt() ?? 0,
+                remainingPills: isConfirmedInventory ? rawPills : 0,
                 expiryDate:
                     DateTime.tryParse((d['expiryDate'] ?? '') as String) ??
-                    DateTime.now().add(const Duration(days: 180)),
-                inventoryConfirmed: d['inventoryConfirmed'] is bool
-                    ? d['inventoryConfirmed'] as bool
-                    : true,
+                    DateTime.fromMillisecondsSinceEpoch(0),
+                inventoryConfirmed: isConfirmedInventory,
                 lastTakenDayKey: d['lastTakenDayKey'] as String?,
                 memberName: (d['memberName'] ?? 'Cả gia đình') as String,
                 reminderEnabled: d['reminderEnabled'] is bool
@@ -451,9 +459,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'name': name.trim(),
         'dosage': dosage.trim(),
         'slot': slot.name,
-        'remainingPills': remainingPills,
+        'remainingPills': inventoryConfirmed ? remainingPills : 0,
         'expiryDate': expiryDate.toIso8601String(),
         'inventoryConfirmed': inventoryConfirmed,
+        if (inventoryConfirmed)
+          'inventoryConfirmedAt': DateTime.now().toIso8601String(),
         'lastTakenDayKey': null,
         'memberName': memberName.trim(),
         'reminderEnabled': resolvedEnabled,
@@ -533,6 +543,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
         'remainingPills': safePills,
         'expiryDate': expiryDate.toIso8601String(),
         'inventoryConfirmed': true,
+        'inventoryConfirmedAt': DateTime.now().toIso8601String(),
         if (trimmedDose != null && trimmedDose.isNotEmpty)
           'dosage': trimmedDose,
       });

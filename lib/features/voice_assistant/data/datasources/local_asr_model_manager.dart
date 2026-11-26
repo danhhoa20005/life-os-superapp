@@ -50,9 +50,21 @@ class LocalAsrDownloadException extends LocalAsrModelException {
       );
 }
 
+class LocalAsrRuntimeUnavailableException extends LocalAsrModelException {
+  const LocalAsrRuntimeUnavailableException(String modelId, String runtimeName)
+    : super(
+        'RUNTIME_UNAVAILABLE',
+        'Gói mô hình $modelId chưa khả dụng vì bộ chạy gốc ($runtimeName) chưa được tích hợp trong bản dựng này. Vui lòng dùng chế độ Chỉ Offline (Android On-Device).',
+      );
+}
+
 /// Real filesystem + HTTP Range resume + SHA-256 verified + atomic rollback ASR model manager.
 class LocalAsrModelManager implements LocalAsrModelRepository {
   static final RegExp _sha256HexRegex = RegExp(r'^[a-fA-F0-9]{64}$');
+  static const Set<String> _rejectedTrivialSha256 = <String>{
+    // SHA-256 of empty string ""
+    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+  };
 
   final Future<Directory> Function() _rootDirectoryProvider;
   final http.Client _httpClient;
@@ -159,6 +171,17 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
       throw LocalAsrLicenseBlockedException(spec.id, spec.modelLicenseSpdx);
     }
 
+    if (!spec.runtimeIntegrated) {
+      final unavailable = LocalAsrModelInstallState(
+        spec: spec,
+        status: LocalAsrModelStatus.error,
+        errorMessageVi:
+            'Bộ chạy ${spec.runtimeName} cho ${spec.displayNameVi} chưa khả dụng trong bản dựng này.',
+      );
+      _transientStates[spec.id] = unavailable;
+      throw LocalAsrRuntimeUnavailableException(spec.id, spec.runtimeName);
+    }
+
     final uri = Uri.tryParse(spec.downloadUrl.trim());
     if (uri == null ||
         uri.scheme.toLowerCase() != 'https' ||
@@ -169,7 +192,8 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     }
 
     final expectedHash = spec.sha256Hex.trim().toLowerCase();
-    if (!_sha256HexRegex.hasMatch(expectedHash)) {
+    if (!_sha256HexRegex.hasMatch(expectedHash) ||
+        _rejectedTrivialSha256.contains(expectedHash)) {
       throw LocalAsrCorruptedModelException(spec.id);
     }
 

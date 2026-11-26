@@ -1,11 +1,11 @@
 {
-  "model_size_bytes": 979062,
-  "model_size_kb": 956.12,
-  "cold_start_ms": 296.908,
-  "warm_latency_mean_ms": 0.4556,
-  "warm_latency_p50_ms": 0.4033,
-  "warm_latency_p95_ms": 0.7644,
-  "warm_latency_p99_ms": 1.0222,
-  "peak_python_heap_kb": 14491.17,
+  "model_size_bytes": 1007991,
+  "model_size_kb": 984.37,
+  "cold_start_ms": 806.23,
+  "warm_latency_mean_ms": 0.9536,
+  "warm_latency_p50_ms": 0.7418,
+  "warm_latency_p95_ms": 1.776,
+  "warm_latency_p99_ms": 5.1021,
+  "peak_python_heap_kb": 16768.15,
   "iterations": 1000
 }

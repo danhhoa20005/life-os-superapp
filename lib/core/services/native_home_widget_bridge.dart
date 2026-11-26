@@ -119,11 +119,12 @@ class NativeHomeWidgetBridge {
     }
   }
 
+  /// Reads pending widget commands without deleting them until [acknowledgeWidgetCommands]
+  /// is called after ledger persistence succeeds.
   Future<List<QueuedHomeWidgetCommand>> drainQueuedWidgetCommands() async {
     final results = <QueuedHomeWidgetCommand>[];
     if (_simulatedQueue.isNotEmpty) {
       results.addAll(_simulatedQueue);
-      _simulatedQueue.clear();
     }
     if (!isSupportedPlatform || !_hasServicesBinding) {
       return results;
@@ -131,6 +132,7 @@ class NativeHomeWidgetBridge {
     try {
       final raw = await _channel.invokeMethod<List<dynamic>>(
         'drainQueuedWidgetCommands',
+        <String, dynamic>{'clearImmediately': false},
       );
       if (raw != null) {
         for (final item in raw) {
@@ -141,6 +143,41 @@ class NativeHomeWidgetBridge {
       }
     } catch (_) {}
     return results;
+  }
+
+  /// Explicitly acknowledges and removes [commandIds] from the persistent widget queue
+  /// only after the Flutter ledger confirms transaction creation.
+  Future<int> acknowledgeWidgetCommands(
+    List<String> commandIds, {
+    String? feedback,
+  }) async {
+    if (commandIds.isEmpty) return 0;
+    final idSet = commandIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (idSet.isEmpty) return 0;
+
+    var removedLocal = 0;
+    _simulatedQueue.removeWhere((cmd) {
+      final match = idSet.contains(cmd.id);
+      if (match) removedLocal += 1;
+      return match;
+    });
+
+    if (!isSupportedPlatform || !_hasServicesBinding) {
+      return removedLocal;
+    }
+    try {
+      final acked = await _channel
+          .invokeMethod<int>('acknowledgeWidgetCommands', <String, dynamic>{
+            'commandIds': idSet.toList(growable: false),
+            if (feedback != null) 'feedback': feedback,
+          });
+      return (acked ?? 0) + removedLocal;
+    } catch (_) {
+      return removedLocal;
+    }
   }
 
   Future<String?> consumePendingWidgetAction() async {

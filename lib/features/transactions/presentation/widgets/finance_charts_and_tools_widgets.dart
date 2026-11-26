@@ -79,44 +79,50 @@ class _DailySpendingChartCardState extends State<DailySpendingChartCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: widget.onOpenReport,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bar_chart_rounded, size: 19, color: c.primary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Chi tiêu theo ngày',
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        color: c.textPrimary,
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: widget.onOpenReport,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.bar_chart_rounded, size: 19, color: c.primary),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Chi tiêu theo ngày',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: c.textSecondary,
-                    ),
-                  ],
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: c.textSecondary,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              LifeOsStatusPill(
-                label: widget.obscureBalances
-                    ? 'Tổng chi: •••••• ₫'
-                    : 'Tổng chi: ${VndAmount.format(widget.totalSpentMinor)}',
-                tone: LifeOsAccentTone.emerald,
-              ),
-            ],
+                LifeOsStatusPill(
+                  label: widget.obscureBalances
+                      ? 'Tổng chi: •••••• ₫'
+                      : 'Tổng chi: ${VndAmount.format(widget.totalSpentMinor)}',
+                  tone: LifeOsAccentTone.emerald,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           if (sel != null)
@@ -235,16 +241,18 @@ class _DailySpendingChartCardState extends State<DailySpendingChartCard> {
                                 alignment: Alignment.center,
                                 children: [
                                   SizedBox.expand(
-                                    child: CustomPaint(
-                                      painter: _DailySpendingChartPainter(
-                                        buckets: widget.buckets,
-                                        selectedIdx: _selectedIdx,
-                                        barColor: c.primary,
-                                        highlightBg: c.primary.withValues(
-                                          alpha: 0.08,
-                                        ),
-                                        gridColor: c.separator.withValues(
-                                          alpha: 0.65,
+                                    child: RepaintBoundary(
+                                      child: CustomPaint(
+                                        painter: _DailySpendingChartPainter(
+                                          buckets: widget.buckets,
+                                          selectedIdx: _selectedIdx,
+                                          barColor: c.primary,
+                                          highlightBg: c.primary.withValues(
+                                            alpha: 0.08,
+                                          ),
+                                          gridColor: c.separator.withValues(
+                                            alpha: 0.65,
+                                          ),
                                         ),
                                       ),
                                     ),

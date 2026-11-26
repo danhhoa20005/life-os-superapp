@@ -5,14 +5,19 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../dashboard/domain/services/life_insights_engine.dart';
 import '../../../dashboard/presentation/bloc/dashboard_bloc.dart';
+import '../../../family/domain/entities/family_entities.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../../tasks/domain/entities/task_entities.dart';
 import '../../../tasks/presentation/bloc/task_bloc.dart';
+import '../../../vehicles/domain/entities/vehicle_entities.dart';
 import '../../../vehicles/presentation/bloc/vehicle_bloc.dart';
 
-T? _maybeWatchInsight<T>(BuildContext context) {
+R? _maybeSelectInsight<B extends StateStreamable<S>, S, R>(
+  BuildContext context,
+  R Function(S state) selector,
+) {
   try {
-    return context.watch<T>();
+    return context.select((B bloc) => selector(bloc.state));
   } catch (_) {
     return null;
   }
@@ -37,30 +42,54 @@ class LifeInsightsCrossDomainCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final dash = _maybeWatchInsight<DashboardBloc>(context)?.state.data;
+    final netWorthMinor =
+        _maybeSelectInsight<DashboardBloc, DashboardState, int>(
+          context,
+          (s) => s.data.netWorthMinor,
+        ) ??
+        0;
     final tasks =
-        _maybeWatchInsight<TaskBloc>(context)?.state.tasks ??
+        _maybeSelectInsight<TaskBloc, TaskState, List<TaskEntity>>(
+          context,
+          (s) => s.tasks,
+        ) ??
         const <TaskEntity>[];
-    final famState = _maybeWatchInsight<FamilyBloc>(context)?.state;
-    final vehicleState = _maybeWatchInsight<VehicleBloc>(context)?.state;
+    final sharedBills =
+        _maybeSelectInsight<
+          FamilyBloc,
+          FamilyState,
+          List<SharedBillSplitEntity>
+        >(context, (s) => s.sharedBills) ??
+        const <SharedBillSplitEntity>[];
+    final vehicleTuple =
+        _maybeSelectInsight<
+          VehicleBloc,
+          VehicleState,
+          (
+            List<RecurringBillEntity>,
+            Map<String, List<MaintenanceRecordEntity>>,
+          )
+        >(context, (s) => (s.bills, s.maintenanceHistoryByVehicleId));
+    final bills = vehicleTuple?.$1 ?? const <RecurringBillEntity>[];
+    final maintMap =
+        vehicleTuple?.$2 ?? const <String, List<MaintenanceRecordEntity>>{};
 
     final completedTasks = tasks
         .where((t) => t.status == TaskWorkflowStatus.done)
         .length;
-    final fixedCostMinor = (vehicleState?.bills ?? const []).fold<int>(
+    final fixedCostMinor = bills.fold<int>(
       0,
       (s, b) => s + b.estimatedAmountMinor,
     );
     var maintCount = 0;
     var vehicleSpend = 0;
-    for (final list
-        in (vehicleState?.maintenanceHistoryByVehicleId ?? const {}).values) {
+    for (final list in maintMap.values) {
       maintCount += list.length;
       for (final item in list) {
         vehicleSpend += item.costMinor;
       }
     }
-    final familySharedMinor = (famState?.sharedBills ?? const []).fold<int>(
+    final familySharedMinor = sharedBills.fold<int>(
       0,
       (s, b) => s + b.totalAmountMinor,
     );
@@ -76,7 +105,7 @@ class LifeInsightsCrossDomainCard extends StatelessWidget {
       incomeMinor: incomeMinor,
       expenseMinor: expenseMinor,
       previousPeriodExpenseMinor: 0,
-      netWorthMinor: dash?.netWorthMinor ?? 0,
+      netWorthMinor: netWorthMinor,
       totalDebtMinor: 0,
       fixedCostMinor: fixedCostMinor,
       currentCategorySpendMinor: expenseByCategory,

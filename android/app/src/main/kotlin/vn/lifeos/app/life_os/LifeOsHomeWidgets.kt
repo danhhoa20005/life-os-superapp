@@ -332,7 +332,7 @@ object LifeOsWidgetStore {
             .putString("today_expense_formatted", formatVnd(nextToday))
             .putString("safe_daily_formatted", formatVnd(nextSafe))
             .putInt("daily_used_pct", usedPct)
-            .putString("voice_last_feedback", "Đã ghi: $label (${formatVnd(amountMinor)})")
+            .putString("voice_last_feedback", "Chờ đồng bộ: $label (${formatVnd(amountMinor)})")
             .putString(KEY_LAST_UNDOABLE_JSON, undoSnapshot.toString())
             .apply()
 
@@ -379,7 +379,7 @@ object LifeOsWidgetStore {
             put("prevGroupStatus", prevStatus)
         }
 
-        val statusLine = "Đã chia $label: ${formatVnd(perPerson)}/người ($members người)"
+        val statusLine = "Chờ đồng bộ chia $label: ${formatVnd(perPerson)}/người ($members người)"
         prefs.edit()
             .putInt("group_member_count", members)
             .putString("group_status", statusLine)
@@ -561,7 +561,7 @@ object LifeOsWidgetStore {
                 memberCountOverride = members,
                 rawCommandOverride = if (lower.contains("chia")) cleaned else "$cleaned chia đều $members người"
             )
-            return "Đã chia ${formatVnd(splitAmount / members)}/người ($members người)"
+            return "Chờ đồng bộ chia ${formatVnd(splitAmount / members)}/người ($members người)"
         }
 
         if (amount > 0L) {
@@ -577,7 +577,7 @@ object LifeOsWidgetStore {
                 isIncome = income,
                 rawCommandOverride = cleaned
             )
-            return "Đã lưu $shortLabel: ${formatVnd(amount)}"
+            return "Chờ đồng bộ $shortLabel: ${formatVnd(amount)}"
         }
 
         // Generic omni command (task, calendar, grocery, etc.) -> queue straight to SmartOmniIntentParser
@@ -591,11 +591,11 @@ object LifeOsWidgetStore {
         }
         enqueueWidgetCommand(appCtx, cmdJson)
         prefs.edit()
-            .putString("voice_last_feedback", "Đã ghi lệnh: $cleaned")
+            .putString("voice_last_feedback", "Chờ đồng bộ lệnh: $cleaned")
             .apply()
         refreshAllWidgets(appCtx)
         onBackgroundWidgetCommandPing?.invoke()
-        return "Đã lưu: $cleaned"
+        return "Chờ đồng bộ: $cleaned"
     }
 
     private fun enqueueWidgetCommand(context: Context, item: JSONObject) {
@@ -638,11 +638,21 @@ object LifeOsWidgetStore {
         return removed
     }
 
-    fun drainQueuedCommands(context: Context): List<Map<String, Any>> {
+    /**
+     * Reads queued widget commands without deleting them prematurely.
+     * Commands are only removed when [acknowledgeQueuedCommands] is invoked after
+     * the Flutter ledger confirms persistence.
+     */
+    fun drainQueuedCommands(
+        context: Context,
+        clearImmediately: Boolean = false
+    ): List<Map<String, Any>> {
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val raw = prefs.getString(KEY_QUEUED_COMMANDS_JSON, "[]") ?: "[]"
-        prefs.edit().putString(KEY_QUEUED_COMMANDS_JSON, "[]").apply()
+        if (clearImmediately) {
+            prefs.edit().putString(KEY_QUEUED_COMMANDS_JSON, "[]").apply()
+        }
         val out = mutableListOf<Map<String, Any>>()
         try {
             val arr = JSONArray(raw)
@@ -664,6 +674,82 @@ object LifeOsWidgetStore {
         } catch (_: Exception) {
         }
         return out
+    }
+
+    /**
+     * Removes only the ledger-committed [commandIds] from the persistent widget queue
+     * and promotes widget feedback from `"Chờ đồng bộ"` to `"Đã ghi"`.
+     */
+    fun acknowledgeQueuedCommands(
+        context: Context,
+        commandIds: Collection<String>,
+        feedbackOverride: String? = null
+    ): Int {
+        if (commandIds.isEmpty()) return 0
+        val idSet = commandIds.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        if (idSet.isEmpty()) return 0
+
+        val appCtx = context.applicationContext
+        val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_QUEUED_COMMANDS_JSON, "[]") ?: "[]"
+        var removedCount = 0
+        val remaining = JSONArray()
+        try {
+            val arr = JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                if (idSet.contains(obj.optString("id"))) {
+                    removedCount += 1
+                } else {
+                    remaining.put(obj)
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        if (removedCount > 0 || !feedbackOverride.isNullOrBlank()) {
+            val editor = prefs.edit()
+                .putString(KEY_QUEUED_COMMANDS_JSON, remaining.toString())
+            val currentFeedback = prefs.getString("voice_last_feedback", "") ?: ""
+            val nextFeedback = when {
+                !feedbackOverride.isNullOrBlank() -> feedbackOverride
+                remaining.length() == 0 && currentFeedback.startsWith("Chờ đồng bộ:") ->
+                    currentFeedback.replaceFirst("Chờ đồng bộ:", "Đã ghi:")
+                remaining.length() == 0 && currentFeedback.startsWith("Chờ đồng bộ chia ") ->
+                    currentFeedback.replaceFirst("Chờ đồng bộ chia ", "Đã chia ")
+                remaining.length() == 0 && currentFeedback.startsWith("Chờ đồng bộ lệnh:") ->
+                    currentFeedback.replaceFirst("Chờ đồng bộ lệnh:", "Đã ghi lệnh:")
+                else -> currentFeedback
+            }
+            if (nextFeedback.isNotBlank()) {
+                editor.putString("voice_last_feedback", nextFeedback)
+            }
+            val currentGroupStatus = prefs.getString("group_status", "") ?: ""
+            if (remaining.length() == 0 && currentGroupStatus.startsWith("Chờ đồng bộ chia ")) {
+                editor.putString(
+                    "group_status",
+                    currentGroupStatus.replaceFirst("Chờ đồng bộ chia ", "Đã chia ")
+                )
+            }
+            editor.apply()
+            refreshAllWidgets(appCtx)
+        }
+        return removedCount
+    }
+
+    fun maskFeedbackForPrivacy(raw: String, masked: Boolean): String {
+        if (!masked) return raw
+        val hasDigits = raw.any { it.isDigit() }
+        val isTransactional = raw.startsWith("Đã ghi") ||
+            raw.startsWith("Chờ đồng bộ") ||
+            raw.startsWith("Đã chia") ||
+            raw.startsWith("Đã lưu") ||
+            raw.startsWith("Đã hoàn tác")
+        return if (hasDigits || isTransactional) {
+            "Đã ẩn chi tiết giao dịch gần nhất (Chế độ Ẩn số)"
+        } else {
+            raw
+        }
     }
 
     fun onBackgroundBankSignalCaptured(context: Context) {
@@ -1619,10 +1705,11 @@ class VoiceQuickWidgetProvider : AppWidgetProvider() {
             } else {
                 prefs.getString("today_expense_formatted", "0 ₫") ?: "0 ₫"
             }
-            val hint = prefs.getString(
+            val rawHint = prefs.getString(
                 "voice_last_feedback",
                 "Chạm nói, gõ nhanh hoặc bấm mức bên dưới"
             ) ?: "Chạm nói, gõ nhanh hoặc bấm mức bên dưới"
+            val hint = LifeOsWidgetStore.maskFeedbackForPrivacy(rawHint, masked)
 
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_voice_quick)
@@ -1858,13 +1945,15 @@ class GroupSplitWidgetProvider : AppWidgetProvider() {
     companion object {
         fun render(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val prefs = context.getSharedPreferences(LifeOsWidgetStore.PREFS_NAME, Context.MODE_PRIVATE)
+            val masked = prefs.getBoolean("hide_balances", false)
             val groupTitle = prefs.getString("group_title", "Tổ ấm & Hội nhóm")
                 ?: "Tổ ấm & Hội nhóm"
             val members = prefs.getInt("group_member_count", 3).coerceIn(2, 20)
-            val groupStatus = prefs.getString(
+            val rawGroupStatus = prefs.getString(
                 "group_status",
                 "Chọn số người rồi chạm mức chia nhanh bên dưới"
             ) ?: "Chọn số người rồi chạm mức chia nhanh bên dưới"
+            val groupStatus = LifeOsWidgetStore.maskFeedbackForPrivacy(rawGroupStatus, masked)
 
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_group_split)

@@ -268,10 +268,13 @@ GoRouter createAppRouter(
         pageBuilder: (_, state) => _motionPage(state, (context) {
           final user = context.read<AuthBloc>().state.user;
           if (user == null) return const LoginPage();
+          final autoOpenQr =
+              state.uri.queryParameters['autoOpenQr'] == '1' ||
+              state.extra == 'auto_open_qr';
           return _ScopedAuthenticatedProviders(
             userId: user.id,
             familyId: user.activeFamilyId,
-            child: const NotificationsPrivacyPage(),
+            child: NotificationsPrivacyPage(autoOpenQrCreation: autoOpenQr),
           );
         }),
       ),
@@ -1182,12 +1185,15 @@ class _HomeWidgetSyncAndIntentHostState
     if (!mounted || _isDrainingWidgetCommands) return;
     _isDrainingWidgetCommands = true;
     try {
-      final commands = await sl<NativeHomeWidgetBridge>()
-          .drainQueuedWidgetCommands();
+      final widgetBridge = sl<NativeHomeWidgetBridge>();
+      final commands = await widgetBridge.drainQueuedWidgetCommands();
       if (!mounted || commands.isEmpty) return;
 
       final user = context.read<AuthBloc>().state.user;
-      if (user == null) return;
+      if (user == null) {
+        // Keep queued widget commands intact until an authenticated user session is ready.
+        return;
+      }
 
       final txActionBloc = context.read<TransactionActionBloc>();
       final familyBloc = context.read<FamilyBloc>();
@@ -1197,8 +1203,15 @@ class _HomeWidgetSyncAndIntentHostState
       );
 
       var appliedCount = 0;
+      final acknowledgedIds = <String>[];
+      String? latestFeedback;
       for (final cmd in commands) {
         if (!mounted) break;
+        if (cmd.id.isNotEmpty && _syncedWidgetCmdToTxId.containsKey(cmd.id)) {
+          // Already committed in this session -> acknowledge so duplicate queue entry is cleared.
+          acknowledgedIds.add(cmd.id);
+          continue;
+        }
         if (cmd.kind == 'undo') {
           final txId =
               _syncedWidgetCmdToTxId[cmd.targetCommandId] ??
@@ -1212,6 +1225,7 @@ class _HomeWidgetSyncAndIntentHostState
               ),
             );
             appliedCount++;
+            if (cmd.id.isNotEmpty) acknowledgedIds.add(cmd.id);
           }
           continue;
         }
@@ -1221,7 +1235,10 @@ class _HomeWidgetSyncAndIntentHostState
           final amount = cmd.amountMinor > 0
               ? cmd.amountMinor
               : (parsed?.amountMinor ?? 0);
-          if (amount <= 0) continue;
+          if (amount <= 0) {
+            if (cmd.id.isNotEmpty) acknowledgedIds.add(cmd.id);
+            continue;
+          }
           final opId = cmd.id.isNotEmpty
               ? cmd.id
               : 'widget_tx_${DateTime.now().microsecondsSinceEpoch}';
@@ -1260,7 +1277,11 @@ class _HomeWidgetSyncAndIntentHostState
           );
           final createdTx = outcome.lastCreatedTransaction;
           if (outcome.status == ActionStatus.success && createdTx != null) {
-            _syncedWidgetCmdToTxId[cmd.id] = createdTx.id;
+            if (cmd.id.isNotEmpty) {
+              _syncedWidgetCmdToTxId[cmd.id] = createdTx.id;
+              acknowledgedIds.add(cmd.id);
+            }
+            latestFeedback = 'Đã ghi: $title (${VndAmount.format(amount)})';
             await UserBehaviorPrefs.recordHabitExecution(
               label: '$title ${(amount / 1000).round()}k',
               commandText: '$title ${(amount / 1000).round()}k',
@@ -1290,7 +1311,10 @@ class _HomeWidgetSyncAndIntentHostState
             familyBloc: familyBloc,
             showSuccessToast: false,
           );
-          if (ok) appliedCount++;
+          if (ok) {
+            appliedCount++;
+            if (cmd.id.isNotEmpty) acknowledgedIds.add(cmd.id);
+          }
           continue;
         }
 
@@ -1299,8 +1323,12 @@ class _HomeWidgetSyncAndIntentHostState
           final taskBloc = context.read<TaskBloc>();
           final dailyBloc = context.read<DailyLifeBloc>();
           final drafts = SmartOmniIntentParser.parseMulti(cmd.commandText);
+          var allDraftsSucceeded = drafts.isNotEmpty;
           for (final draft in drafts) {
-            if (!mounted) break;
+            if (!mounted) {
+              allDraftsSucceeded = false;
+              break;
+            }
             final ok = await OmniActionExecutor.executeDraft(
               toastContext: context,
               draft: draft,
@@ -1313,9 +1341,23 @@ class _HomeWidgetSyncAndIntentHostState
               dailyBloc: dailyBloc,
               showSuccessToast: false,
             );
-            if (ok) appliedCount++;
+            if (ok) {
+              appliedCount++;
+            } else {
+              allDraftsSucceeded = false;
+            }
+          }
+          if (allDraftsSucceeded && cmd.id.isNotEmpty) {
+            acknowledgedIds.add(cmd.id);
           }
         }
+      }
+
+      if (acknowledgedIds.isNotEmpty) {
+        await widgetBridge.acknowledgeWidgetCommands(
+          acknowledgedIds,
+          feedback: latestFeedback,
+        );
       }
 
       if (appliedCount > 0 && mounted) {

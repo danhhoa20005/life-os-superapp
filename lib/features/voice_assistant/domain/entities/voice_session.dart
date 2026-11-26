@@ -65,6 +65,7 @@ enum VoiceSessionPhase {
     },
     VoiceSessionPhase.preparing: <VoiceSessionPhase>{
       VoiceSessionPhase.preparing,
+      VoiceSessionPhase.requestingPermission,
       VoiceSessionPhase.listening,
       VoiceSessionPhase.finalizing,
       VoiceSessionPhase.cancelled,

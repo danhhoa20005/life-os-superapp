@@ -335,7 +335,24 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "drainQueuedWidgetCommands" -> {
-                    result.success(LifeOsWidgetStore.drainQueuedCommands(applicationContext))
+                    val clearImmediately = call.argument<Boolean>("clearImmediately") ?: false
+                    result.success(
+                        LifeOsWidgetStore.drainQueuedCommands(
+                            applicationContext,
+                            clearImmediately = clearImmediately
+                        )
+                    )
+                }
+                "acknowledgeWidgetCommands" -> {
+                    val ids = call.argument<List<String>>("commandIds")
+                        ?: listOfNotNull(call.argument<String>("commandId"))
+                    val feedback = call.argument<String>("feedback")
+                    val count = LifeOsWidgetStore.acknowledgeQueuedCommands(
+                        applicationContext,
+                        ids,
+                        feedback
+                    )
+                    result.success(count)
                 }
                 "requestPinWidget" -> {
                     val kind = call.argument<String>("widgetKind") ?: "voice"
@@ -1620,16 +1637,6 @@ class MainActivity : FlutterActivity() {
                     "Chưa cấp quyền Micro để thu âm trực tiếp. Bấm Cấp quyền Micro để thử lại."
                 }
                 activeVoiceSessionId = null
-                emitVoiceEnvelope(
-                    VoiceSessionCoordinatorNative.buildEventEnvelope(
-                        sessionId = requestSessionId,
-                        attemptId = requestAttemptId,
-                        ownerId = requestOwnerId,
-                        engineId = requestEngineMode,
-                        eventType = "state",
-                        extra = mapOf("status" to LifeOsSpeechRecognizerHelper.STATE_ERROR)
-                    )
-                )
                 emitVoiceEnvelope(
                     VoiceSessionCoordinatorNative.buildEventEnvelope(
                         sessionId = requestSessionId,

@@ -958,14 +958,16 @@ class _ProDonutChartState extends State<ProDonutChart> {
                   duration: motion.resolveDuration(LifeOsMotionTokens.medium),
                   curve: LifeOsMotionTokens.emphasizedCurve,
                   builder: (context, sweepProgress, _) {
-                    return CustomPaint(
-                      size: const Size(ringDim, ringDim),
-                      painter: _DonutRingPainter(
-                        slices: widget.slices,
-                        selectedIndex: _selectedIdx,
-                        sweepProgress: sweepProgress.clamp(0.0, 1.0),
-                        emptyTrackColor: c.separator.withValues(alpha: 0.45),
-                        innerRingColor: c.separator.withValues(alpha: 0.25),
+                    return RepaintBoundary(
+                      child: CustomPaint(
+                        size: const Size(ringDim, ringDim),
+                        painter: _DonutRingPainter(
+                          slices: widget.slices,
+                          selectedIndex: _selectedIdx,
+                          sweepProgress: sweepProgress.clamp(0.0, 1.0),
+                          emptyTrackColor: c.separator.withValues(alpha: 0.45),
+                          innerRingColor: c.separator.withValues(alpha: 0.25),
+                        ),
                       ),
                     );
                   },
@@ -1320,9 +1322,11 @@ class ProHeroSparkline extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: CustomPaint(
-        size: Size(width, height),
-        painter: _SparklineCurvePainter(points: pts, isFlat: isFlat),
+      child: RepaintBoundary(
+        child: CustomPaint(
+          size: Size(width, height),
+          painter: _SparklineCurvePainter(points: pts, isFlat: isFlat),
+        ),
       ),
     );
   }
@@ -1654,13 +1658,16 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                         color: scoreColor,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        '$score điểm · $scoreLabel',
-                        style: TextStyle(
-                          color: scoreColor,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      Flexible(
+                        child: Text(
+                          '$score điểm · $scoreLabel',
+                          softWrap: true,
+                          style: TextStyle(
+                            color: scoreColor,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                     ],
@@ -1755,16 +1762,18 @@ class _ProCashflowPulseCardState extends State<ProCashflowPulseCard> {
                       ),
                       curve: LifeOsMotionTokens.emphasizedCurve,
                       builder: (context, barProgress, _) {
-                        return CustomPaint(
-                          painter: _CashflowBarsPainter(
-                            incomes: widget.dailyIncomesMinor,
-                            expenses: widget.dailyExpensesMinor,
-                            selectedDayIndex: _selectedDayIndex,
-                            barProgress: barProgress.clamp(0.0, 1.0),
-                            incomeColor: c.success,
-                            expenseColor: expenseBarColor,
-                            highlightColor: c.primary.withValues(alpha: 0.08),
-                            gridColor: c.separator.withValues(alpha: 0.55),
+                        return RepaintBoundary(
+                          child: CustomPaint(
+                            painter: _CashflowBarsPainter(
+                              incomes: widget.dailyIncomesMinor,
+                              expenses: widget.dailyExpensesMinor,
+                              selectedDayIndex: _selectedDayIndex,
+                              barProgress: barProgress.clamp(0.0, 1.0),
+                              incomeColor: c.success,
+                              expenseColor: expenseBarColor,
+                              highlightColor: c.primary.withValues(alpha: 0.08),
+                              gridColor: c.separator.withValues(alpha: 0.55),
+                            ),
                           ),
                         );
                       },

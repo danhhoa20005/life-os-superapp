@@ -16,24 +16,70 @@ import '../../domain/entities/gemini_copilot_entities.dart';
 /// - API keys live strictly inside hardware-backed `NativeSecureVaultBridge` (Android Keystore AES-256-GCM).
 /// - Sent via `x-goog-api-key` HTTP header (never appended to URL query strings, never logged).
 class GeminiRemoteDataSource {
-  static const String _keyApiKey = 'gemini_ai_api_key_v1';
-  static const String _keyConfigJson = 'gemini_ai_config_v1';
+  static const String _legacyKeyApiKey = 'gemini_ai_api_key_v1';
+  static const String _legacyKeyConfigJson = 'gemini_ai_config_v1';
+  static const String _scopedKeyPrefixApiKey = 'gemini_ai_api_key_v2__u_';
+  static const String _scopedKeyPrefixConfigJson = 'gemini_ai_config_v2__u_';
 
   final http.Client _httpClient;
   final NativeSecureVaultBridge _vault;
+  String? _activeUserId;
+  bool _userScopingConfigured;
 
   GeminiRemoteDataSource({
     http.Client? httpClient,
     NativeSecureVaultBridge? vault,
+    String? initialUserId,
   }) : _httpClient = httpClient ?? http.Client(),
-       _vault = vault ?? NativeSecureVaultBridge.instance;
+       _vault = vault ?? NativeSecureVaultBridge.instance,
+       _activeUserId = initialUserId,
+       _userScopingConfigured = initialUserId != null;
 
-  Future<GeminiConnectionConfig> readConfig() async {
-    final storedKey = await _vault.readSecret(_keyApiKey);
+  void setActiveUserId(String? userId) {
+    _userScopingConfigured = true;
+    _activeUserId = userId?.trim();
+  }
+
+  String? _resolveUid(String? userId) {
+    if (userId != null) {
+      final trimmed = userId.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    if (_userScopingConfigured) {
+      final candidate = _activeUserId?.trim();
+      if (candidate == null || candidate.isEmpty) return null;
+      return candidate;
+    }
+    return '__standalone_test_user__';
+  }
+
+  String _apiKeyVaultKey(String uid) => '$_scopedKeyPrefixApiKey$uid';
+  String _configVaultKey(String uid) => '$_scopedKeyPrefixConfigJson$uid';
+
+  Future<void> _purgeLegacyUnscopedKeys() async {
+    await _vault.deleteSecret(_legacyKeyApiKey);
+    await _vault.deleteSecret(_legacyKeyConfigJson);
+  }
+
+  Future<GeminiConnectionConfig> readConfig({String? userId}) async {
+    // Purge legacy device-global keys so unscoped credentials never leak across accounts
+    // and require explicit per-account re-linking.
+    await _purgeLegacyUnscopedKeys();
+
+    final uid = _resolveUid(userId);
+    if (uid == null) {
+      return const GeminiConnectionConfig(
+        enabled: false,
+        hasApiKey: false,
+        maskedApiKey: '',
+      );
+    }
+
+    final storedKey = await _vault.readSecret(_apiKeyVaultKey(uid));
     final hasKey = storedKey != null && storedKey.trim().isNotEmpty;
     final masked = hasKey ? GeminiConnectionConfig.maskKey(storedKey) : '';
 
-    final rawCfg = await _vault.readSecret(_keyConfigJson);
+    final rawCfg = await _vault.readSecret(_configVaultKey(uid));
     if (rawCfg == null || rawCfg.trim().isEmpty) {
       return GeminiConnectionConfig(
         enabled: hasKey,
@@ -66,17 +112,31 @@ class GeminiRemoteDataSource {
   }
 
   Future<GeminiConnectionConfig> writeConfig({
+    String? userId,
     String? newApiKey,
     bool? enabled,
     String? modelId,
     bool? maskSensitiveInfo,
     DateTime? lastVerifiedAt,
   }) async {
-    final current = await readConfig();
-    if (newApiKey != null && newApiKey.trim().isNotEmpty) {
-      await _vault.writeSecret(key: _keyApiKey, value: newApiKey.trim());
+    await _purgeLegacyUnscopedKeys();
+    final uid = _resolveUid(userId);
+    if (uid == null) {
+      throw const AppException(
+        code: 'GEMINI_AUTH_REQUIRED',
+        message:
+            'Vui lòng đăng nhập tài khoản trước khi lưu khóa kết nối Gemini.',
+      );
     }
-    final storedKey = await _vault.readSecret(_keyApiKey);
+
+    final current = await readConfig(userId: uid);
+    if (newApiKey != null && newApiKey.trim().isNotEmpty) {
+      await _vault.writeSecret(
+        key: _apiKeyVaultKey(uid),
+        value: newApiKey.trim(),
+      );
+    }
+    final storedKey = await _vault.readSecret(_apiKeyVaultKey(uid));
     final hasKey = storedKey != null && storedKey.trim().isNotEmpty;
 
     final next = current.copyWith(
@@ -90,8 +150,9 @@ class GeminiRemoteDataSource {
     );
 
     await _vault.writeSecret(
-      key: _keyConfigJson,
+      key: _configVaultKey(uid),
       value: jsonEncode(<String, dynamic>{
+        'ownerUserId': uid,
         'enabled': next.enabled,
         'modelId': next.modelId,
         'maskSensitiveInfo': next.maskSensitiveInfo,
@@ -103,18 +164,27 @@ class GeminiRemoteDataSource {
     return next;
   }
 
-  Future<GeminiConnectionConfig> clearKeyAndDisable() async {
-    await _vault.deleteSecret(_keyApiKey);
-    await _vault.deleteSecret(_keyConfigJson);
+  Future<GeminiConnectionConfig> clearKeyAndDisable({String? userId}) async {
+    await _purgeLegacyUnscopedKeys();
+    final uid = _resolveUid(userId);
+    if (uid != null) {
+      await _vault.deleteSecret(_apiKeyVaultKey(uid));
+      await _vault.deleteSecret(_configVaultKey(uid));
+    }
     return const GeminiConnectionConfig();
   }
 
   Future<String> verifyConnection({
+    String? userId,
     String? candidateApiKey,
     String? modelId,
     DateTime? now,
   }) async {
-    final storedKey = await _vault.readSecret(_keyApiKey);
+    await _purgeLegacyUnscopedKeys();
+    final uid = _resolveUid(userId);
+    final storedKey = uid != null
+        ? await _vault.readSecret(_apiKeyVaultKey(uid))
+        : null;
     final apiKey =
         (candidateApiKey != null && candidateApiKey.trim().isNotEmpty)
         ? candidateApiKey.trim()
@@ -127,7 +197,7 @@ class GeminiRemoteDataSource {
       );
     }
 
-    final current = await readConfig();
+    final current = await readConfig(userId: uid);
     final targetModel = (modelId != null && modelId.trim().isNotEmpty)
         ? modelId.trim()
         : current.modelId;
@@ -185,12 +255,15 @@ class GeminiRemoteDataSource {
       );
     }
 
-    await writeConfig(
-      newApiKey: candidateApiKey,
-      enabled: true,
-      modelId: targetModel,
-      lastVerifiedAt: now ?? DateTime.now(),
-    );
+    if (uid != null) {
+      await writeConfig(
+        userId: uid,
+        newApiKey: candidateApiKey,
+        enabled: true,
+        modelId: targetModel,
+        lastVerifiedAt: now ?? DateTime.now(),
+      );
+    }
 
     return 'Đã kết nối Gemini AI ($targetModel) thành công!';
   }
@@ -203,12 +276,17 @@ class GeminiRemoteDataSource {
     })
   >
   generateMultiDomainPlan({
+    String? userId,
     required String rawInput,
     required GeminiConnectionConfig config,
     required DateTime referenceNow,
     GeminiContextSnapshot? contextSnapshot,
   }) async {
-    final apiKey = (await _vault.readSecret(_keyApiKey) ?? '').trim();
+    await _purgeLegacyUnscopedKeys();
+    final uid = _resolveUid(userId);
+    final apiKey = uid != null
+        ? (await _vault.readSecret(_apiKeyVaultKey(uid)) ?? '').trim()
+        : '';
     if (apiKey.isEmpty) {
       throw const AppException(
         code: 'GEMINI_KEY_MISSING',

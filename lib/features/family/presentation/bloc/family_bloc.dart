@@ -345,20 +345,34 @@ final class FamilyState extends Equatable {
     return families.first;
   }
 
-  List<SettlementRequestEntity> get pendingSettlementRequests =>
-      settlementRequests
-          .where((r) => r.status == SettlementRequestStatus.pending)
-          .toList();
+  static final Expando<List<SettlementRequestEntity>> _pendingReqCache =
+      Expando<List<SettlementRequestEntity>>('_familyPendingReqCache');
+  static final Expando<SharedLedgerSummary> _ledgerCache =
+      Expando<SharedLedgerSummary>('_familyLedgerCache');
+
+  List<SettlementRequestEntity> get pendingSettlementRequests {
+    final cached = _pendingReqCache[this];
+    if (cached != null) return cached;
+    final list = settlementRequests
+        .where((r) => r.status == SettlementRequestStatus.pending)
+        .toList(growable: false);
+    _pendingReqCache[this] = list;
+    return list;
+  }
 
   SharedLedgerSummary get sharedLedger {
     final fam = activeFamily;
     if (fam == null) return const SharedLedgerSummary();
-    return DebtSimplifier.summarize(
+    final cached = _ledgerCache[this];
+    if (cached != null) return cached;
+    final ledger = DebtSimplifier.summarize(
       familyId: fam.id,
       members: fam.members,
       bills: sharedBills,
       settlements: settlements,
     );
+    _ledgerCache[this] = ledger;
+    return ledger;
   }
 
   FamilyState copyWith({

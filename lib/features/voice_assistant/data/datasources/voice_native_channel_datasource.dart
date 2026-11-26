@@ -228,8 +228,14 @@ class BridgeAwareVoiceMethodChannelClient implements VoiceMethodChannelClient {
       return const <String, dynamic>{
         'success': true,
         'passed': true,
+        'micOpened': true,
+        'hasSignal': true,
+        'speechRecognized': false,
         'peakDbfs': -18.5,
         'avgDbfs': -28.0,
+        'activeFrames': 24,
+        'zeroFrames': 0,
+        'totalFrames': 30,
         'audioRoute': 'built_in_mic',
         'reason': 'OK',
       };
@@ -449,28 +455,104 @@ class VoiceNativeChannelDataSource {
     }
   }
 
-  Future<Map<String, dynamic>> runMicrophoneSelfTest() async {
+  Future<Map<String, dynamic>> runMicrophoneSelfTest({
+    bool hasVerifiedTranscript = false,
+  }) async {
     if (!_client.isSupportedPlatform) {
-      return const <String, dynamic>{
+      return normalizeSelfTestResult(const <String, dynamic>{
         'supported': false,
         'passed': false,
         'reason': 'PLATFORM_UNSUPPORTED',
-      };
+      }, hasVerifiedTranscript: hasVerifiedTranscript);
     }
     try {
       final raw = await _client.invokeMapMethod('runMicrophoneSelfTest');
-      if (raw != null) return raw;
+      if (raw != null) {
+        return normalizeSelfTestResult(
+          raw,
+          hasVerifiedTranscript: hasVerifiedTranscript,
+        );
+      }
     } on MissingPluginException {
-      return const <String, dynamic>{
+      return normalizeSelfTestResult(const <String, dynamic>{
         'supported': false,
         'passed': false,
         'reason': 'SELF_TEST_NOT_IMPLEMENTED',
-      };
+      }, hasVerifiedTranscript: hasVerifiedTranscript);
     } catch (_) {}
-    return const <String, dynamic>{
+    return normalizeSelfTestResult(const <String, dynamic>{
       'supported': true,
       'passed': false,
       'reason': 'SELF_TEST_FAILED',
+    }, hasVerifiedTranscript: hasVerifiedTranscript);
+  }
+
+  /// Evaluates raw PCM self-test telemetry into 3 truthful indicators:
+  /// - `micOpened` ("Mở được mic")
+  /// - `hasSignal` ("Có tín hiệu")
+  /// - `speechRecognized` ("Đã nhận được chữ")
+  /// Never marks `passed` or `hasSignal` true when all PCM frames are zero or muted.
+  static Map<String, dynamic> normalizeSelfTestResult(
+    Map<String, dynamic> raw, {
+    bool hasVerifiedTranscript = false,
+  }) {
+    final supported = raw['supported'] != false;
+    final errorCode = raw['errorCode']?.toString();
+    final totalFrames = (raw['totalFrames'] as num?)?.toInt();
+    final zeroFrames = (raw['zeroFrames'] as num?)?.toInt() ?? 0;
+    final activeFrames = (raw['activeFrames'] as num?)?.toInt();
+    final peakDbfs = (raw['peakDbfs'] as num?)?.toDouble();
+    final isMicMuted = raw['isMicMuted'] == true;
+    final isClientSilenced = raw['isClientSilenced'] == true;
+    final allFramesZero =
+        totalFrames != null && totalFrames > 0 && zeroFrames >= totalFrames;
+
+    final micOpened =
+        raw['micOpened'] as bool? ??
+        (supported &&
+            errorCode == null &&
+            (totalFrames != null
+                ? totalFrames > 0
+                : (raw['passed'] == true || raw['success'] == true)));
+
+    final hasFrameTelemetry = totalFrames != null || activeFrames != null;
+    final hasSignal =
+        micOpened &&
+        !isMicMuted &&
+        !isClientSilenced &&
+        !allFramesZero &&
+        (hasFrameTelemetry
+            ? ((totalFrames ?? 1) > 0 &&
+                  (activeFrames ?? 0) > 0 &&
+                  (peakDbfs == null || peakDbfs > -85.0))
+            : (raw['hasSignal'] as bool? ??
+                  ((raw['passed'] == true || raw['success'] == true) &&
+                      (peakDbfs == null || peakDbfs > -85.0))));
+
+    final speechRecognized =
+        raw['speechRecognized'] == true || hasVerifiedTranscript;
+    final passed = micOpened && hasSignal;
+
+    final reason = !micOpened
+        ? (raw['reason'] ??
+              raw['message'] ??
+              errorCode ??
+              'AUDIO_RECORD_INIT_FAILED')
+        : (!hasSignal
+              ? (allFramesZero || isMicMuted || isClientSilenced
+                    ? 'ZERO_PCM_SIGNAL'
+                    : 'LOW_AUDIO_SIGNAL')
+              : (raw['reason'] ?? 'OK'));
+
+    return <String, dynamic>{
+      ...raw,
+      'supported': supported,
+      'micOpened': micOpened,
+      'hasSignal': hasSignal,
+      'speechRecognized': speechRecognized,
+      'passed': passed,
+      'success': passed,
+      'reason': reason,
     };
   }
 
@@ -547,55 +629,83 @@ class VoiceNativeChannelDataSource {
 
     final ownerId = map['ownerId']?.toString() ?? fallbackOwnerId;
     final sequenceNumber = (map['sequenceNumber'] as num?)?.toInt() ?? 0;
-    final engineId = map['engineId']?.toString() ?? fallbackEngineId;
+    final rawEngineId = map['engineId']?.toString() ?? fallbackEngineId;
+    final engineId =
+        VoiceEngineId.tryFromWireValue(rawEngineId)?.wireValue ?? rawEngineId;
     final tsMs =
         (map['monotonicTimestampMs'] as num?)?.toInt() ?? monotonicTimestampMs;
 
-    // 1. V2 structured `eventType` payload
+    // 1. V2 structured `eventType` payload (falls through to legacy `type` when unrecognized)
     final rawEventType = map['eventType']?.toString();
     if (rawEventType != null && rawEventType.isNotEmpty) {
       final parsedType = _parseEnvelopeEventType(rawEventType);
-      if (parsedType == null) return null;
-      final errCode = map['errorCode']?.toString() ?? map['code']?.toString();
-      final errKind = _parseErrorKind(
-        map['errorKind']?.toString(),
-        errCode,
-        (map['androidErrorCode'] as num?)?.toInt(),
-      );
-      return VoiceEnvelopeEvent(
-        sessionId: sessionId,
-        attemptId: attemptId,
-        ownerId: ownerId,
-        sequenceNumber: sequenceNumber,
-        engineId: engineId,
-        eventType: parsedType,
-        monotonicTimestampMs: tsMs,
-        text: map['text']?.toString(),
-        rmsDb: (map['rmsDb'] as num? ?? map['rms'] as num?)?.toDouble(),
-        isRealPcmEnergy: map['isRealPcmEnergy'] == true,
-        errorKind: errKind,
-        errorCode: errCode,
-        errorMessageVi:
-            map['errorMessageVi']?.toString() ?? map['message']?.toString(),
-        audioRoute: map['audioRoute']?.toString(),
-      );
+      if (parsedType != null) {
+        final errCode = map['errorCode']?.toString() ?? map['code']?.toString();
+        final errKind = _parseErrorKind(
+          map['errorKind']?.toString(),
+          errCode,
+          (map['androidErrorCode'] as num?)?.toInt(),
+        );
+        final resolvedEngineId =
+            parsedType == VoiceEnvelopeEventType.engineSwitched
+            ? (VoiceEngineId.tryFromWireValue(
+                    map['mode']?.toString() ?? rawEngineId,
+                  )?.wireValue ??
+                  engineId)
+            : engineId;
+        return VoiceEnvelopeEvent(
+          sessionId: sessionId,
+          attemptId: attemptId,
+          ownerId: ownerId,
+          sequenceNumber: sequenceNumber,
+          engineId: resolvedEngineId,
+          eventType: parsedType,
+          monotonicTimestampMs: tsMs,
+          text: map['text']?.toString(),
+          rmsDb: (map['rmsDb'] as num? ?? map['rms'] as num?)?.toDouble(),
+          isRealPcmEnergy:
+              map['isRealPcmEnergy'] == true ||
+              parsedType == VoiceEnvelopeEventType.pcmEnergy,
+          errorKind: errKind,
+          errorCode: errCode,
+          errorMessageVi:
+              map['errorMessageVi']?.toString() ??
+              map['message']?.toString() ??
+              errKind?.friendlyMessageVi,
+          audioRoute: map['audioRoute']?.toString(),
+        );
+      }
     }
 
     // 2. Legacy v1 payload compatibility (`type`: state / rms / partial / final / error / engine_switched)
-    final legacyType = (map['type'] ?? '').toString().trim().toLowerCase();
+    final legacyType = (map['type'] ?? rawEventType ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
     switch (legacyType) {
       case 'state':
         final status = (map['status'] ?? '').toString().trim().toLowerCase();
         final eventType = switch (status) {
           'requesting_permission' => VoiceEnvelopeEventType.permissionRequested,
+          'permission_granted' => VoiceEnvelopeEventType.permissionGranted,
+          'permission_denied' => VoiceEnvelopeEventType.permissionDenied,
           'initializing' || 'preparing' => VoiceEnvelopeEventType.preparing,
           'listening' => VoiceEnvelopeEventType.readyForSpeech,
+          'beginning_of_speech' => VoiceEnvelopeEventType.beginningOfSpeech,
           'processing' || 'finalizing' => VoiceEnvelopeEventType.endOfSpeech,
           'cancelled' || 'canceled' => VoiceEnvelopeEventType.cancelled,
           'error' => VoiceEnvelopeEventType.error,
           _ => null,
         };
         if (eventType == null) return null;
+        final errCode = map['errorCode']?.toString() ?? map['code']?.toString();
+        final errKind = eventType == VoiceEnvelopeEventType.error
+            ? _parseErrorKind(
+                map['errorKind']?.toString(),
+                errCode,
+                (map['androidErrorCode'] as num?)?.toInt(),
+              )
+            : null;
         return VoiceEnvelopeEvent(
           sessionId: sessionId,
           attemptId: attemptId,
@@ -604,6 +714,10 @@ class VoiceNativeChannelDataSource {
           engineId: engineId,
           eventType: eventType,
           monotonicTimestampMs: tsMs,
+          errorKind: errKind,
+          errorCode: errCode,
+          errorMessageVi:
+              map['errorMessageVi']?.toString() ?? map['message']?.toString(),
         );
       case 'rms':
         return VoiceEnvelopeEvent(

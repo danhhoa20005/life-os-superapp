@@ -46,17 +46,25 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
       final ds = sl.isRegistered<VoiceNativeChannelDataSource>()
           ? sl<VoiceNativeChannelDataSource>()
           : VoiceNativeChannelDataSource();
-      final res = await ds.runMicrophoneSelfTest();
+      final voiceState = context.read<VoiceAssistantBloc>().state;
+      final hasVerifiedTranscript = voiceState.effectiveText.trim().isNotEmpty;
+      final res = await ds.runMicrophoneSelfTest(
+        hasVerifiedTranscript: hasVerifiedTranscript,
+      );
       if (!mounted) return;
       setState(() => _selfTestResult = res);
-      final passed = res['passed'] == true || res['success'] == true;
+      final micOpened = res['micOpened'] == true;
+      final hasSignal = res['hasSignal'] == true;
+      final passed = micOpened && hasSignal;
       final reasonText =
           res['reason'] ?? res['message'] ?? res['errorCode'] ?? 'không hỗ trợ';
       LifeOsTopToast.show(
         context,
         passed
-            ? 'Kiểm tra micro hoàn tất: đã thu được khung âm thanh PCM thật.'
-            : 'Chưa thu được tín hiệu micro ($reasonText).',
+            ? 'Kiểm tra micro hoàn tất: mở được mic và có tín hiệu PCM thật.'
+            : (micOpened
+                  ? 'Mở được mic nhưng chưa có tín hiệu âm thanh ($reasonText).'
+                  : 'Không mở được micro ($reasonText).'),
         kind: passed ? LifeOsToastKind.success : LifeOsToastKind.warning,
       );
     } finally {
@@ -348,7 +356,10 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
                         ),
                         child: Text(
                           'Kết quả tự kiểm tra PCM16: '
-                          '${(_selfTestResult!['passed'] == true || _selfTestResult!['success'] == true) ? "ĐẠT" : "CHƯA ĐẠT"} · '
+                          '${(_selfTestResult!['passed'] == true && _selfTestResult!['hasSignal'] == true) ? "ĐẠT" : "CHƯA ĐẠT"}\n'
+                          '• Mở được mic: ${_selfTestResult!['micOpened'] == true ? "Đạt" : "Chưa đạt"}\n'
+                          '• Có tín hiệu: ${_selfTestResult!['hasSignal'] == true ? "Đạt" : "Chưa có tín hiệu"}\n'
+                          '• Đã nhận được chữ: ${_selfTestResult!['speechRecognized'] == true ? "Đã xác nhận" : "Chưa kiểm tra chữ"}\n'
                           'Peak: ${_selfTestResult!['peakDbfs'] ?? '—'} dBFS · '
                           'Route: ${_selfTestResult!['audioRoute'] ?? '—'} · '
                           'Status: ${_selfTestResult!['reason'] ?? _selfTestResult!['errorCode'] ?? 'OK'}',
@@ -553,6 +564,7 @@ class _ModelRowTile extends StatelessWidget {
     final spec = model.spec;
     final isInstalled = model.status == LocalAsrModelStatus.installed;
     final isBlocked = !spec.commercialAllowed;
+    final isRuntimeUnavailable = !spec.runtimeIntegrated;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -607,6 +619,14 @@ class _ModelRowTile extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ] else if (isRuntimeUnavailable) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Chưa khả dụng trong bản dựng này (chưa nhúng bộ chạy ${spec.runtimeName} gốc). Chế độ Chỉ Offline hiện dùng trực tiếp Android On-Device.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: palette.textSecondary),
+            ),
           ],
           const SizedBox(height: AppSpacing.sm),
           Wrap(
@@ -616,9 +636,15 @@ class _ModelRowTile extends StatelessWidget {
               if (!isInstalled)
                 FilledButton.tonal(
                   key: Key('voice_model_download_${spec.id}'),
-                  onPressed: (busy || isBlocked) ? null : onDownload,
+                  onPressed: (busy || isBlocked || isRuntimeUnavailable)
+                      ? null
+                      : onDownload,
                   child: Text(
-                    isBlocked ? 'Hạn chế giấy phép' : 'Tải về ($sizeLabel)',
+                    isBlocked
+                        ? 'Hạn chế giấy phép'
+                        : (isRuntimeUnavailable
+                              ? 'Chưa khả dụng'
+                              : 'Tải về ($sizeLabel)'),
                   ),
                 ),
               if (isInstalled)

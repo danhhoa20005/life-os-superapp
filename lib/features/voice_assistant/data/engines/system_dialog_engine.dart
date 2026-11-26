@@ -24,6 +24,7 @@ class SystemDialogEngine implements SpeechEngineAdapter {
   @override
   Stream<VoiceEnvelopeEvent> get events => _dataSource.events.where(
     (e) =>
+        VoiceEngineId.tryFromWireValue(e.engineId) == engineId ||
         e.engineId == engineId.wireValue ||
         e.engineId == 'system_speech_dialog',
   );

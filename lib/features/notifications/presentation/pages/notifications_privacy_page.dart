@@ -15,6 +15,7 @@ import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/lifeos_top_toast.dart';
+import '../../../../core/widgets/offline_qr_code_view.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
@@ -25,7 +26,9 @@ import '../../domain/entities/notification_entities.dart';
 import '../bloc/notification_ingestion_bloc.dart';
 
 class NotificationsPrivacyPage extends StatefulWidget {
-  const NotificationsPrivacyPage({super.key});
+  final bool autoOpenQrCreation;
+
+  const NotificationsPrivacyPage({super.key, this.autoOpenQrCreation = false});
 
   @override
   State<NotificationsPrivacyPage> createState() =>
@@ -39,6 +42,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
   String? _lastShownOrderId;
   String _historyFilter = 'all'; // 'all' | 'credit' | 'debit'
   bool _showRawExportPreview = false;
+  bool _hasTriggeredAutoOpenQr = false;
 
   @override
   void initState() {
@@ -491,16 +495,6 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
     required PaymentOrderEntity order,
   }) async {
     final bloc = context.read<NotificationIngestionBloc>();
-    final memoText =
-        '${order.paymentCode} ${VietQrEmvBuilder.toBankSafeAscii(order.description, maxLength: 28)}'
-            .trim();
-    final qrUrl = VietQrEmvBuilder.buildVisualQrUrl(
-      bankBin: order.bankBin,
-      accountNumber: order.accountNumber,
-      accountHolderName: order.accountHolderName,
-      amountVnd: order.amountMinor,
-      memo: memoText,
-    );
 
     await showModalBottomSheet<void>(
       context: context,
@@ -620,32 +614,10 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: c.separator),
                       ),
-                      child: Image.network(
-                        qrUrl,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.qr_code_2_rounded,
-                                size: 54,
-                                color: Colors.black54,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                order.paymentCode,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'monospace',
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      child: OfflineVietQrView(
+                        payload: order.emvQrPayload,
+                        paymentCode: order.paymentCode,
+                        size: 196,
                       ),
                     ),
                   ),
@@ -769,6 +741,20 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
               final allowedSet = (consent?.allowedPackages ?? const <String>[])
                   .toSet();
               final defaultAccount = state.defaultBankAccount;
+              if (widget.autoOpenQrCreation &&
+                  !_hasTriggeredAutoOpenQr &&
+                  defaultAccount != null) {
+                _hasTriggeredAutoOpenQr = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _showCreateQrOrderSheet(
+                      context: context,
+                      userId: user.id,
+                      account: defaultAccount,
+                    );
+                  }
+                });
+              }
               final prefs =
                   state.notificationPreferences ??
                   BankingNotificationPreferencesEntity(ownerId: user.id);

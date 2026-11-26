@@ -1325,7 +1325,7 @@ class LifeOsSpeechRecognizerHelper(
             )
         }
 
-        emitState(sessionId, attemptId, engineId, STATE_ERROR)
+        onStateChanged(STATE_ERROR)
         emitError(sessionId, attemptId, engineId, code, message)
         VoiceSessionCoordinatorNative.releaseSession(sessionId, attemptId)
     }

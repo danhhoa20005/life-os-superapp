@@ -24,9 +24,11 @@ class AndroidOnDeviceEngine implements SpeechEngineAdapter {
   @override
   Stream<VoiceEnvelopeEvent> get events => _dataSource.events.where(
     (e) =>
+        VoiceEngineId.tryFromWireValue(e.engineId) == engineId ||
         e.engineId == engineId.wireValue ||
         e.engineId == 'on_device' ||
-        e.engineId == 'on_device_android13',
+        e.engineId == 'on_device_android13' ||
+        e.engineId == 'on_device_speech_recognizer',
   );
 
   @override

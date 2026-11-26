@@ -6,7 +6,7 @@
   "language": "vi",
   "assetPath": "assets/models/vn_financial_fasttext_v1.ftq",
   "sizeBytes": 1007991,
-  "sha256": "602462570be9b70c138835ebf525ecf10e0e51e4d147c2fbd902349e7342a65e",
+  "sha256": "0ced8b3dd1270cdb136a03871b16b64ecac3a867118c3c55c05672c9ebde45dd",
   "numClasses": 30,
   "totalOutputClasses": 31,
   "hasExplicitOodClass": true,
@@ -57,7 +57,7 @@
     "l2_bias": 0.014,
     "logit_gain": 26.0
   },
-  "calibratedTemperature": 0.95,
+  "calibratedTemperature": 0.92,
   "thresholds": {
     "highConfidence": 0.87,
     "mediumConfidence": 0.52,
@@ -65,14 +65,14 @@
     "oodReject": 0.4
   },
   "metrics": {
-    "testAccuracy": 0.9645,
-    "testMacroF1": 0.9772,
-    "expectedCalibrationError": 0.0491,
-    "falseAutoAssignmentRate": 0.0018,
-    "oodUnknownRejectionRate": 0.9794,
-    "oodAuroc": 0.9947,
+    "testAccuracy": 0.9938,
+    "testMacroF1": 0.9939,
+    "expectedCalibrationError": 0.0438,
+    "falseAutoAssignmentRate": 0.0012,
+    "oodUnknownRejectionRate": 0.9823,
+    "oodAuroc": 0.9986,
     "heldOutTestSamples": 1297,
     "heldOutOodTestSamples": 339
   },
-  "exportedAtUtc": "2026-11-25T10:08:11Z"
+  "exportedAtUtc": "2026-11-26T04:06:17Z"
 }

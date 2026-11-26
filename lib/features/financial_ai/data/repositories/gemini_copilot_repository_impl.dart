@@ -20,6 +20,7 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
   final FinancialAiLocalSyncDataSource? _localSync;
   final FinancialTextNormalizer? _normalizer;
   final FirebaseAuth? _firebaseAuth;
+  final String? Function()? _userIdProvider;
 
   const GeminiCopilotRepositoryImpl(
     this._remote, {
@@ -27,15 +28,27 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
     FinancialAiLocalSyncDataSource? localSync,
     FinancialTextNormalizer? normalizer,
     FirebaseAuth? firebaseAuth,
+    String? Function()? userIdProvider,
   }) : _localClassifier = localClassifier,
        _localSync = localSync,
        _normalizer = normalizer,
-       _firebaseAuth = firebaseAuth;
+       _firebaseAuth = firebaseAuth,
+       _userIdProvider = userIdProvider;
+
+  String? _resolveUserId() {
+    if (_userIdProvider != null) {
+      return _userIdProvider() ?? '';
+    }
+    if (_firebaseAuth != null) {
+      return _firebaseAuth.currentUser?.uid ?? '';
+    }
+    return null;
+  }
 
   @override
   Future<Result<GeminiConnectionConfig>> loadConfig() async {
     try {
-      final cfg = await _remote.readConfig();
+      final cfg = await _remote.readConfig(userId: _resolveUserId());
       return Success(cfg);
     } catch (_) {
       return const Err(
@@ -53,12 +66,15 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
   }) async {
     try {
       final updated = await _remote.writeConfig(
+        userId: _resolveUserId(),
         newApiKey: newApiKey,
         enabled: enabled,
         modelId: modelId,
         maskSensitiveInfo: maskSensitiveInfo,
       );
       return Success(updated);
+    } on AppException catch (e) {
+      return Err(ValidationFailure(message: e.message, code: e.code));
     } catch (_) {
       return const Err(
         UnexpectedFailure(message: 'Không thể lưu cài đặt kết nối Gemini.'),
@@ -69,7 +85,9 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
   @override
   Future<Result<GeminiConnectionConfig>> disconnectAndClearKey() async {
     try {
-      final cleared = await _remote.clearKeyAndDisable();
+      final cleared = await _remote.clearKeyAndDisable(
+        userId: _resolveUserId(),
+      );
       return Success(cleared);
     } catch (_) {
       return const Err(
@@ -85,6 +103,7 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
   }) async {
     try {
       final msg = await _remote.verifyConnection(
+        userId: _resolveUserId(),
         candidateApiKey: candidateApiKey,
         modelId: modelId,
       );
@@ -127,7 +146,7 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
       now: refNow,
     );
 
-    final config = await _remote.readConfig();
+    final config = await _remote.readConfig(userId: _resolveUserId());
     final gateDecision = SmartHybridGate.evaluate(
       rawInput: trimmed,
       localDrafts: rawOfflineDrafts,
@@ -137,6 +156,7 @@ class GeminiCopilotRepositoryImpl implements GeminiCopilotRepository {
     if (gateDecision.shouldUseCloud && config.isReadyForCloud) {
       try {
         final cloudRes = await _remote.generateMultiDomainPlan(
+          userId: _resolveUserId(),
           rawInput: trimmed,
           config: config,
           referenceNow: refNow,

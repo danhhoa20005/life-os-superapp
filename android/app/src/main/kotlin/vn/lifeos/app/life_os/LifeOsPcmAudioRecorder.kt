@@ -234,26 +234,37 @@ object LifeOsPcmAudioRecorder {
             } else {
                 MIN_DBFS
             }
+            val micOpened = errorCode == null && totalFrames > 0
             val micMuted = isOsMicMuted(appCtx) ||
                 detectedClientSilenced ||
                 (totalFrames > 0 && zeroFrames == totalFrames)
+            val hasSignal = micOpened &&
+                !micMuted &&
+                !detectedClientSilenced &&
+                zeroFrames < totalFrames &&
+                activeFrames > 0 &&
+                peakAbs > 0
             val routeAtEnd = LifeOsAudioFocusCoordinator.detectCurrentAudioRoute(appCtx)
-            val succeeded = errorCode == null && totalFrames > 0
+            val succeeded = hasSignal
 
             val summaryMsg = when {
                 errorMsg != null -> errorMsg
                 micMuted || detectedClientSilenced ->
-                    "Micro đang bị tắt tiếng hoặc chặn quyền riêng tư trên hệ thống."
-                activeFrames > 0 ->
+                    "Mở được mic nhưng toàn bộ khung PCM bằng 0 hoặc đang bị tắt tiếng/chặn quyền riêng tư."
+                hasSignal ->
                     "Micro hoạt động tốt (đỉnh ${"%.1f".format(peakDbfs)} dBFS, $activeFrames khung có tín hiệu)."
                 else ->
-                    "Micro đang mở (${routeAtEnd}) nhưng chưa nghe rõ âm thanh đầu vào."
+                    "Mở được mic (${routeAtEnd}) nhưng chưa thu được tín hiệu âm thanh vượt ngưỡng."
             }
 
             postToMain {
                 onResult(
                     mapOf(
                         "success" to succeeded,
+                        "passed" to succeeded,
+                        "micOpened" to micOpened,
+                        "hasSignal" to hasSignal,
+                        "speechRecognized" to false,
                         "peakDbfs" to peakDbfs,
                         "avgDbfs" to avgDbfs,
                         "activeFrames" to activeFrames,
