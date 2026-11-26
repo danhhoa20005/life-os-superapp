@@ -29,8 +29,10 @@ class FastTextBinaryModel {
   final Int8List weightsA;
   final Float32List weightsW;
   final Float32List biasB;
+  final bool _isDiagonalW;
+  final Float32List _scratchH;
 
-  const FastTextBinaryModel._({
+  FastTextBinaryModel._({
     required this.version,
     required this.numClasses,
     required this.totalClasses,
@@ -46,7 +48,9 @@ class FastTextBinaryModel {
     required this.weightsA,
     required this.weightsW,
     required this.biasB,
-  });
+    required bool isDiagonalW,
+  }) : _isDiagonalW = isDiagonalW,
+       _scratchH = Float32List(dim);
 
   bool get hasExplicitOodClass => oodClassIndex >= 0;
 
@@ -143,6 +147,19 @@ class FastTextBinaryModel {
     final oodIndex = labels.indexOf(oodLabel);
     final inDomainCount = oodIndex >= 0 ? (k - 1) : k;
 
+    var isDiag = k == dim;
+    if (isDiag) {
+      for (var r = 0; r < k && isDiag; r++) {
+        final rBase = r * dim;
+        for (var c = 0; c < dim; c++) {
+          if (r != c && weightsW[rBase + c] != 0.0) {
+            isDiag = false;
+            break;
+          }
+        }
+      }
+    }
+
     return FastTextBinaryModel._(
       version: ver,
       numClasses: inDomainCount,
@@ -159,15 +176,29 @@ class FastTextBinaryModel {
       weightsA: weightsA,
       weightsW: weightsW,
       biasB: biasB,
+      isDiagonalW: isDiag,
     );
   }
 
   /// Exact 32-bit FNV-1a UTF-8 hash (safe across 64-bit VM AND 53-bit Web JS!).
+  /// Uses a zero-allocation fast path when all code units are ASCII (`< 0x80`).
   static int fnv1a32Utf8(String s) {
-    final data = utf8.encode(s);
+    final len = s.length;
     var h = 0x811C9DC5;
-    for (final b in data) {
-      h ^= (b & 0xFF);
+    for (var i = 0; i < len; i++) {
+      final cu = s.codeUnitAt(i);
+      if (cu >= 0x80) {
+        final data = utf8.encode(s);
+        var hUtf8 = 0x811C9DC5;
+        for (final b in data) {
+          hUtf8 ^= (b & 0xFF);
+          hUtf8 =
+              (((hUtf8 << 24) & 0xFFFFFFFF) + ((hUtf8 * 0x193) & 0xFFFFFFFF)) &
+              0xFFFFFFFF;
+        }
+        return hUtf8;
+      }
+      h ^= (cu & 0xFF);
       // 0x01000193 = (1 << 24) + 0x193 -> intermediate stays < 2^41
       h = (((h << 24) & 0xFFFFFFFF) + ((h * 0x193) & 0xFFFFFFFF)) & 0xFFFFFFFF;
     }
@@ -239,7 +270,10 @@ class FastTextBinaryModel {
       return probs;
     }
 
-    final h = Float32List(dim);
+    final h = _scratchH;
+    for (var d = 0; d < dim; d++) {
+      h[d] = 0.0;
+    }
     for (final bId in bucketIds) {
       final sc = scalesA[bId];
       if (sc == 0.0) continue;
@@ -255,16 +289,27 @@ class FastTextBinaryModel {
 
     final invTemp = 1.0 / temperature;
     var maxLogit = -1e30;
-    for (var c = 0; c < k; c++) {
-      final wBase = c * dim;
-      var sum = biasB[c];
-      for (var d = 0; d < dim; d++) {
-        sum += weightsW[wBase + d] * h[d];
+    if (_isDiagonalW) {
+      for (var c = 0; c < k; c++) {
+        final sum = biasB[c] + weightsW[c * dim + c] * h[c];
+        final scaled = sum * invTemp;
+        probs[c] = scaled;
+        if (scaled > maxLogit) {
+          maxLogit = scaled;
+        }
       }
-      final scaled = sum * invTemp;
-      probs[c] = scaled;
-      if (scaled > maxLogit) {
-        maxLogit = scaled;
+    } else {
+      for (var c = 0; c < k; c++) {
+        final wBase = c * dim;
+        var sum = biasB[c];
+        for (var d = 0; d < dim; d++) {
+          sum += weightsW[wBase + d] * h[d];
+        }
+        final scaled = sum * invTemp;
+        probs[c] = scaled;
+        if (scaled > maxLogit) {
+          maxLogit = scaled;
+        }
       }
     }
 

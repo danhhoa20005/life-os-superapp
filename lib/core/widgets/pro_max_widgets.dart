@@ -504,6 +504,8 @@ class ProWalletCreditCard extends StatelessWidget {
             Positioned.fill(
               child: Image.asset(
                 skinAsset,
+                cacheWidth: 552,
+                cacheHeight: 340,
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.medium,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),

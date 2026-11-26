@@ -6,6 +6,7 @@ import 'native_alarm_scheduler_bridge.dart';
 /// Schedules and cancels real OS-level alarms & outside-the-screen background notifications
 /// (`NativeAlarmSchedulerBridge` / Android `AlarmManager` + `BroadcastReceiver` + `BOOT_COMPLETED`).
 class HealthReminderSchedulerService {
+  static final DateFormat _dayKeyFmt = DateFormat('yyyy-MM-dd');
   static const int _maxWaterAlarmSlots = 24;
   static const String waterSnoozeEventId = 'water_snooze_15m';
   static const String waterTestImmediateId = 'water_test_now';
@@ -26,7 +27,7 @@ class HealthReminderSchedulerService {
     String? todayKey,
   }) async {
     final refNow = now ?? DateTime.now();
-    final key = todayKey ?? DateFormat('yyyy-MM-dd').format(refNow);
+    final key = todayKey ?? _dayKeyFmt.format(refNow);
     final nextAt = med.nextTriggerAt(refNow, key);
 
     if (nextAt == null) {
@@ -96,7 +97,7 @@ class HealthReminderSchedulerService {
 
     final refNow = now ?? DateTime.now();
     final dayKey = status.dayKey.isEmpty
-        ? DateFormat('yyyy-MM-dd').format(refNow)
+        ? _dayKeyFmt.format(refNow)
         : status.dayKey;
 
     if (!status.reminderEnabled) {

@@ -161,14 +161,15 @@ class OmniActionDraft extends Equatable {
     };
   }
 
+  static final DateFormat _dtFmt = DateFormat('HH:mm dd/MM');
+  static final DateFormat _hmFmt = DateFormat('HH:mm');
+
   int get perPersonShareMinor {
     if (participantCount <= 0) return amountMinor;
     return amountMinor ~/ participantCount;
   }
 
   String get summaryLineVi {
-    final dtFmt = DateFormat('HH:mm dd/MM');
-    final hmFmt = DateFormat('HH:mm');
     final s = resolvedSubtype;
     if (s == OmniIntentSubtype.budgetSetup) {
       return 'Ngân sách · $title · Hạn mức ${VndAmount.format(amountMinor)}';
@@ -188,14 +189,14 @@ class OmniActionDraft extends Equatable {
       OmniActionKind.groupSplit =>
         'Chia nhóm · $title · ${VndAmount.format(amountMinor)} (${VndAmount.format(perPersonShareMinor)}/người × $participantCount)',
       OmniActionKind.calendarEvent =>
-        'Lịch hẹn · $title${scheduledAt != null ? " · ${dtFmt.format(scheduledAt!)}" : ""}',
+        'Lịch hẹn · $title${scheduledAt != null ? " · ${_dtFmt.format(scheduledAt!)}" : ""}',
       OmniActionKind.task =>
-        '$badgeLabelVi · $title${scheduledAt != null ? " · Lúc ${dtFmt.format(scheduledAt!)}" : ""}',
+        '$badgeLabelVi · $title${scheduledAt != null ? " · Lúc ${_dtFmt.format(scheduledAt!)}" : ""}',
       OmniActionKind.grocery =>
         'Đi chợ · $title ($quantityLabel)${amountMinor > 0 ? " · ~${VndAmount.format(amountMinor)}" : ""}',
       OmniActionKind.waterLog => 'Uống nước · +$waterMl ml hôm nay',
       OmniActionKind.medication =>
-        'Nhắc thuốc · $title · $dosage${scheduledAt != null ? " · Lúc ${hmFmt.format(scheduledAt!)}" : ""}',
+        'Nhắc thuốc · $title · $dosage${scheduledAt != null ? " · Lúc ${_hmFmt.format(scheduledAt!)}" : ""}',
     };
   }
 

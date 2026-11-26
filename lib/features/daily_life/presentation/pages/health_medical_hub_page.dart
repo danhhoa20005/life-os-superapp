@@ -24,6 +24,10 @@ class HealthMedicalHubPage extends StatefulWidget {
 
 class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
     with WidgetsBindingObserver {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+  static final DateFormat _timeFmt = DateFormat('HH:mm');
+  static final DateFormat _dtFmt = DateFormat('dd/MM HH:mm');
+
   late String _tab;
   BackgroundReminderReadiness _bgReadiness =
       BackgroundReminderReadiness.allReady;
@@ -76,10 +80,14 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final userId = user?.id ?? '';
+    final userId = context.select((AuthBloc b) => b.state.user?.id ?? '');
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
+      buildWhen: (p, n) =>
+          p.snapshot.medications != n.snapshot.medications ||
+          p.snapshot.healthLogs != n.snapshot.healthLogs ||
+          p.snapshot.emergencyCard != n.snapshot.emergencyCard ||
+          p.snapshot.hydration != n.snapshot.hydration,
       listenWhen: (p, n) =>
           (n.failure != null && p.failure != n.failure) ||
           (n.successBanner != null && p.successBanner != n.successBanner),
@@ -311,7 +319,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
     String todayKey,
   ) {
     final now = DateTime.now();
-    final dateFmt = DateFormat('dd/MM/yyyy');
     final dueToday = snap.dueScheduledMedications(todayKey)
       ..sort(
         (a, b) => (a.effectiveReminderHour * 60 + a.effectiveReminderMinute)
@@ -545,7 +552,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                   ),
                             child: LifeOsStatusPill(
                               icon: Icons.event_busy_outlined,
-                              label: 'HSD: ${dateFmt.format(med.expiryDate)}',
+                              label: 'HSD: ${_dateFmt.format(med.expiryDate)}',
                               tone: expiring
                                   ? LifeOsAccentTone.coral
                                   : LifeOsAccentTone.emerald,
@@ -626,7 +633,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
     AsianHealthAssessment assessment,
   ) {
     final now = DateTime.now();
-    final timeFmt = DateFormat('HH:mm');
     final nextAt = hyd.nextReminderAt(now);
     final progressFrac = hyd.targetWaterMl > 0
         ? (hyd.waterMl / hyd.targetWaterMl).clamp(0.0, 1.0)
@@ -1408,7 +1414,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                       ? (hyd.isGoalReached
                             ? 'Đã đủ nước hôm nay · Nhắc lại ${hyd.startHour.toString().padLeft(2, "0")}:${hyd.startMinute.toString().padLeft(2, "0")} mai'
                             : (nextAt != null
-                                  ? 'Nhắc tiếp ${timeFmt.format(nextAt)} (~$paceMl ml)'
+                                  ? 'Nhắc tiếp ${_timeFmt.format(nextAt)} (~$paceMl ml)'
                                   : 'Đang bật chuông nhắc định kỳ'))
                       : 'Nhắc định kỳ trong khung giờ thức',
                 ),
@@ -1613,7 +1619,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                         icon: isFirst
                             ? Icons.notifications_active_outlined
                             : Icons.schedule_rounded,
-                        label: timeFmt.format(slot),
+                        label: _timeFmt.format(slot),
                         tone: isFirst
                             ? LifeOsAccentTone.blue
                             : LifeOsAccentTone.neutral,
@@ -1898,7 +1904,6 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
     DailyLifeSnapshot snap,
     AsianHealthAssessment assessment,
   ) {
-    final dtFmt = DateFormat('dd/MM HH:mm');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2161,7 +2166,7 @@ class _HealthMedicalHubPageState extends State<HealthMedicalHubPage>
                                 ),
                               ),
                               Text(
-                                '${dtFmt.format(log.recordedAt)} · ${log.note}',
+                                '${_dtFmt.format(log.recordedAt)} · ${log.note}',
                                 softWrap: true,
                                 style: TextStyle(
                                   fontSize: 11.8,
@@ -2764,6 +2769,8 @@ class _AddMedicationSheet extends StatefulWidget {
 }
 
 class _AddMedicationSheetState extends State<_AddMedicationSheet> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _doseCtrl = TextEditingController(
     text: '1 viên sau ăn',
@@ -2786,7 +2793,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
   Widget build(BuildContext context) {
     final hh = _reminderTime.hour.toString().padLeft(2, '0');
     final mm = _reminderTime.minute.toString().padLeft(2, '0');
-    final expFormatted = DateFormat('dd/MM/yyyy').format(_expiryDate);
+    final expFormatted = _dateFmt.format(_expiryDate);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -2974,6 +2981,8 @@ class _EditMedicationInventorySheet extends StatefulWidget {
 
 class _EditMedicationInventorySheetState
     extends State<_EditMedicationInventorySheet> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _dosageCtrl;
   late final TextEditingController _pillsCtrl;
   late DateTime _expiryDate;
@@ -3002,7 +3011,7 @@ class _EditMedicationInventorySheetState
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final expFormatted = DateFormat('dd/MM/yyyy').format(_expiryDate);
+    final expFormatted = _dateFmt.format(_expiryDate);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(

@@ -26,6 +26,9 @@ class HomeLivingUtilitiesPage extends StatefulWidget {
 }
 
 class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
+  static final DateFormat _monthKeyFmt = DateFormat('yyyy-MM');
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   String _tab = 'evn';
 
   // EVN & Roommate Utility Meter Calculator State (2892/QĐ-BCT 5-Tier Default)
@@ -95,9 +98,8 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final userId = user?.id ?? '';
-    final wallets = context.watch<TransactionListBloc>().state.wallets;
+    final userId = context.select((AuthBloc b) => b.state.user?.id ?? '');
+    final wallets = context.select((TransactionListBloc b) => b.state.wallets);
     final String? resolvedWalletId = wallets.isEmpty
         ? null
         : (_selectedWalletId != null &&
@@ -106,9 +108,12 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
               : UserBehaviorPrefs.resolvePreferredWalletId(
                   wallets.map((w) => w.id),
                 ));
-    final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
+    final monthKey = _monthKeyFmt.format(DateTime.now());
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
+      buildWhen: (p, n) =>
+          p.snapshot.utilityReadings != n.snapshot.utilityReadings ||
+          p.snapshot.homeContracts != n.snapshot.homeContracts,
       listenWhen: (p, n) =>
           (n.failure != null && p.failure != n.failure) ||
           (n.successBanner != null && p.successBanner != n.successBanner),
@@ -1205,7 +1210,6 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
       );
     }
 
-    final dateFmt = DateFormat('dd/MM/yyyy');
     final hasWifi = contract.wifiCredentials.trim().isNotEmpty;
     final wifiLabel = !hasWifi
         ? 'Chưa lưu Wi-Fi khách'
@@ -1242,7 +1246,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
                           ),
                         ),
                         Text(
-                          'Đóng tiền ngày ${contract.paymentDayOfMonth} hằng tháng · Hết hạn HĐ: ${dateFmt.format(contract.leaseEndDate)}',
+                          'Đóng tiền ngày ${contract.paymentDayOfMonth} hằng tháng · Hết hạn HĐ: ${_dateFmt.format(contract.leaseEndDate)}',
                           softWrap: true,
                           style: TextStyle(
                             fontSize: 12,
@@ -1493,7 +1497,7 @@ class _HomeLivingUtilitiesPageState extends State<HomeLivingUtilitiesPage> {
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (ctx, setModal) {
-            final leaseFmt = DateFormat('dd/MM/yyyy').format(leaseEndDate);
+            final leaseFmt = _dateFmt.format(leaseEndDate);
             return Padding(
               padding: EdgeInsets.fromLTRB(
                 16,

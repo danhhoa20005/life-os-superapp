@@ -19,6 +19,7 @@ struct LftqModel {
   uint32_t dim = 0;
   uint32_t num_buckets = 0;
   float temperature = 1.0f;
+  bool is_diagonal_w = false;
   std::vector<float> scales_a;
   std::vector<int8_t> weights_a;
   std::vector<float> weights_w;
@@ -133,6 +134,20 @@ LIFEOS_FFI_EXPORT void* lifeos_ftx_create(const uint8_t* data, int32_t byte_len)
     model->bias_b[i] = read_f32_le(data + offset + i * 4);
   }
 
+  bool is_diag = (k == dim);
+  if (is_diag) {
+    for (uint32_t r = 0; r < k && is_diag; ++r) {
+      const size_t r_base = static_cast<size_t>(r) * dim;
+      for (uint32_t c = 0; c < dim; ++c) {
+        if (r != c && model->weights_w[r_base + c] != 0.0f) {
+          is_diag = false;
+          break;
+        }
+      }
+    }
+  }
+  model->is_diagonal_w = is_diag;
+
   return model;
 }
 
@@ -161,7 +176,7 @@ LIFEOS_FFI_EXPORT int32_t lifeos_ftx_predict(
     return 0;
   }
 
-  std::vector<float> h(dim, 0.0f);
+  float h[512] = {0.0f};
   int32_t valid_count = 0;
   for (int32_t i = 0; i < bucket_count; ++i) {
     const uint32_t b_id = bucket_ids[i] % m->num_buckets;
@@ -181,16 +196,28 @@ LIFEOS_FFI_EXPORT int32_t lifeos_ftx_predict(
 
   const float inv_temp = 1.0f / m->temperature;
   float max_logit = -1e30f;
-  for (uint32_t c = 0; c < k; ++c) {
-    const float* w_row = m->weights_w.data() + (static_cast<size_t>(c) * dim);
-    float sum = m->bias_b[c];
-    for (uint32_t d = 0; d < dim; ++d) {
-      sum += w_row[d] * h[d];
+  if (m->is_diagonal_w) {
+    for (uint32_t c = 0; c < k; ++c) {
+      const float sum =
+          m->bias_b[c] + m->weights_w[static_cast<size_t>(c) * dim + c] * h[c];
+      const float scaled = sum * inv_temp;
+      out_probs[c] = scaled;
+      if (scaled > max_logit) {
+        max_logit = scaled;
+      }
     }
-    const float scaled = sum * inv_temp;
-    out_probs[c] = scaled;
-    if (scaled > max_logit) {
-      max_logit = scaled;
+  } else {
+    for (uint32_t c = 0; c < k; ++c) {
+      const float* w_row = m->weights_w.data() + (static_cast<size_t>(c) * dim);
+      float sum = m->bias_b[c];
+      for (uint32_t d = 0; d < dim; ++d) {
+        sum += w_row[d] * h[d];
+      }
+      const float scaled = sum * inv_temp;
+      out_probs[c] = scaled;
+      if (scaled > max_logit) {
+        max_logit = scaled;
+      }
     }
   }
 

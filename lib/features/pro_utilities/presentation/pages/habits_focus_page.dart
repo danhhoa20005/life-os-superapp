@@ -130,11 +130,11 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    if (user == null) {
+    final userId = context.select((AuthBloc b) => b.state.user?.id);
+    if (userId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    _activeUserId = user.id;
+    _activeUserId = userId;
     final c = TammySemanticColors.of(context);
     final now = DateTime.now();
 
@@ -175,12 +175,15 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                   showBackButton: true,
                   trailingAction: IconButton.filledTonal(
                     tooltip: 'Thêm thói quen mới',
-                    onPressed: () => _showSaveHabitDialog(context, user.id),
+                    onPressed: () => _showSaveHabitDialog(context, userId),
                     icon: const Icon(Icons.add_rounded),
                   ),
                 ),
                 Expanded(
                   child: BlocBuilder<ProUtilitiesBloc, ProUtilitiesState>(
+                    buildWhen: (p, n) =>
+                        p.todayWellness != n.todayWellness ||
+                        p.habits != n.habits,
                     builder: (context, state) {
                       final w = state.todayWellness;
                       final visibleHabits = _habitCategoryFilter == 'all'
@@ -304,8 +307,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                       runSpacing: 8,
                                       children: [
                                         FilledButton.icon(
-                                          onPressed: () =>
-                                              _toggleTimer(user.id),
+                                          onPressed: () => _toggleTimer(userId),
                                           icon: Icon(
                                             _isRunning
                                                 ? Icons.pause_rounded
@@ -392,7 +394,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                               .read<ProUtilitiesBloc>()
                                               .add(
                                                 WellnessMetricsIncremented(
-                                                  userId: user.id,
+                                                  userId: userId,
                                                   addWaterMl: 250,
                                                 ),
                                               ),
@@ -464,7 +466,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                   ),
                                   TextButton(
                                     onPressed: () =>
-                                        _showSaveHabitDialog(context, user.id),
+                                        _showSaveHabitDialog(context, userId),
                                     child: const Text('+ Thói quen mới'),
                                   ),
                                 ],
@@ -573,7 +575,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                       onTap: () =>
                                           context.read<ProUtilitiesBloc>().add(
                                             HabitToggledToday(
-                                              userId: user.id,
+                                              userId: userId,
                                               habit: h,
                                             ),
                                           ),
@@ -653,7 +655,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                                   if (action == 'edit') {
                                                     await _showSaveHabitDialog(
                                                       context,
-                                                      user.id,
+                                                      userId,
                                                       existing: h,
                                                     );
                                                   } else if (action ==
@@ -675,7 +677,7 @@ class _HabitsFocusPageState extends State<HabitsFocusPage>
                                                           >()
                                                           .add(
                                                             HabitDeleted(
-                                                              userId: user.id,
+                                                              userId: userId,
                                                               habitId: h.id,
                                                             ),
                                                           );

@@ -80,6 +80,8 @@ class SplashPage extends StatelessWidget {
                           children: [
                             Image.asset(
                               AppAssets.splashHero,
+                              cacheWidth: 540,
+                              cacheHeight: 540,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
                                 child: Icon(

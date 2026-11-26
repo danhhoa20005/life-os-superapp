@@ -2564,33 +2564,41 @@ class _TodayInboxRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                if ((item.onQuickAction != null || item.isQuickActionBusy) &&
-                    item.quickActionLabel != null)
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      minimumSize: const Size(48, 40),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                    ),
-                    onPressed: item.isQuickActionBusy
-                        ? null
-                        : item.onQuickAction,
-                    child: Text(
-                      item.isQuickActionBusy
-                          ? 'Đang duyệt'
-                          : item.quickActionLabel!,
-                      style: const TextStyle(
-                        fontSize: 11.8,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  )
-                else
-                  LifeOsStatusPill(label: item.badge, tone: item.tone),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 108),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child:
+                        (item.onQuickAction != null ||
+                                item.isQuickActionBusy) &&
+                            item.quickActionLabel != null
+                        ? FilledButton.tonal(
+                            style: FilledButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              minimumSize: const Size(48, 40),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                            ),
+                            onPressed: item.isQuickActionBusy
+                                ? null
+                                : item.onQuickAction,
+                            child: Text(
+                              item.isQuickActionBusy
+                                  ? 'Đang duyệt'
+                                  : item.quickActionLabel!,
+                              style: const TextStyle(
+                                fontSize: 11.8,
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          )
+                        : LifeOsStatusPill(label: item.badge, tone: item.tone),
+                  ),
+                ),
               ],
             ),
           ),

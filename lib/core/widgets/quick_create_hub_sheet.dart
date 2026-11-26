@@ -3320,7 +3320,7 @@ class _QuickWaterAndMedModalState extends State<_QuickWaterAndMedModal> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final hyd = context.watch<DailyLifeBloc>().state.snapshot.hydration;
+    final hyd = context.select((DailyLifeBloc b) => b.state.snapshot.hydration);
     final bloc = context.read<DailyLifeBloc>();
     final hh = _time.hour.toString().padLeft(2, '0');
     final mm = _time.minute.toString().padLeft(2, '0');

@@ -178,17 +178,17 @@ class FinancialAiSettingsPage extends StatelessWidget {
 }
 
 class _FinancialAiSettingsView extends StatelessWidget {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   const _FinancialAiSettingsView();
 
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    if (user == null) {
+    final userId = context.select((AuthBloc b) => b.state.user?.id);
+    if (userId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
-    final dateFmt = DateFormat('dd/MM/yyyy');
 
     return MultiBlocListener(
       listeners: [
@@ -236,10 +236,14 @@ class _FinancialAiSettingsView extends StatelessWidget {
                 ),
                 Expanded(
                   child: BlocBuilder<FinancialAiBloc, FinancialAiState>(
+                    buildWhen: (p, n) =>
+                        p.preferences != n.preferences ||
+                        p.modelMetadata != n.modelMetadata ||
+                        p.personalizationRules != n.personalizationRules,
                     builder: (context, state) {
                       final prefs =
                           state.preferences ??
-                          UserAiClassificationPreferences(userId: user.id);
+                          UserAiClassificationPreferences(userId: userId);
                       final meta = state.modelMetadata;
                       final rules = state.personalizationRules;
 
@@ -270,7 +274,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
 
                               // 2. Offline On-Device Agent Local Studio + Interactive Sandbox Card
                               _LocalAiEngineStudioCard(
-                                userId: user.id,
+                                userId: userId,
                                 meta: meta,
                                 rulesCount: rules.length,
                               ),
@@ -406,7 +410,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                         onPressed: () =>
                                             _showAddManualRuleSheet(
                                               context,
-                                              user.id,
+                                              userId,
                                             ),
                                         icon: const Icon(
                                           Icons.add_rounded,
@@ -426,10 +430,8 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                             visualDensity:
                                                 VisualDensity.compact,
                                           ),
-                                          onPressed: () => _confirmClearAll(
-                                            context,
-                                            user.id,
-                                          ),
+                                          onPressed: () =>
+                                              _confirmClearAll(context, userId),
                                           icon: const Icon(
                                             Icons.delete_sweep_outlined,
                                             size: 18,
@@ -503,7 +505,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                                   ),
                                                 ),
                                                 Text(
-                                                  'Đã xác nhận ${rule.confirmationCount} lần$dirLabel$walletLabel · Cập nhật ${dateFmt.format(rule.lastCorrectedAt)}',
+                                                  'Đã xác nhận ${rule.confirmationCount} lần$dirLabel$walletLabel · Cập nhật ${_dateFmt.format(rule.lastCorrectedAt)}',
                                                   softWrap: true,
                                                   style: TextStyle(
                                                     fontSize: 12,
@@ -526,7 +528,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                             onPressed: () =>
                                                 _showAddManualRuleSheet(
                                                   context,
-                                                  user.id,
+                                                  userId,
                                                   existingRule: rule,
                                                 ),
                                             icon: Icon(
@@ -547,7 +549,7 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                                 .read<FinancialAiBloc>()
                                                 .add(
                                                   FinancialPersonalizationRuleDeleted(
-                                                    userId: user.id,
+                                                    userId: userId,
                                                     ruleId: rule.id,
                                                   ),
                                                 ),
@@ -1648,6 +1650,8 @@ class _GeminiConnectionStudioCard extends StatefulWidget {
 
 class _GeminiConnectionStudioCardState
     extends State<_GeminiConnectionStudioCard> {
+  static final DateFormat _timeFmt = DateFormat('HH:mm dd/MM');
+
   final TextEditingController _apiKeyCtrl = TextEditingController();
   bool _obscureKey = true;
 
@@ -1660,9 +1664,12 @@ class _GeminiConnectionStudioCardState
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final timeFmt = DateFormat('HH:mm dd/MM');
 
     return BlocBuilder<GeminiCopilotBloc, GeminiCopilotState>(
+      buildWhen: (p, n) =>
+          p.config != n.config ||
+          (p.status == GeminiCopilotStatus.verifyingConnection) !=
+              (n.status == GeminiCopilotStatus.verifyingConnection),
       builder: (context, gState) {
         final cfg = gState.config;
         final isVerifying =
@@ -1743,7 +1750,7 @@ class _GeminiConnectionStudioCardState
                       title: const Text('Bật chế độ kết hợp Gemini AI'),
                       subtitle: Text(
                         cfg.lastVerifiedAt != null
-                            ? 'Đã lưu khóa kết nối · Kiểm tra lúc ${timeFmt.format(cfg.lastVerifiedAt!)}'
+                            ? 'Đã lưu khóa kết nối · Kiểm tra lúc ${_timeFmt.format(cfg.lastVerifiedAt!)}'
                             : 'Đã lưu khóa kết nối trên thiết bị',
                         style: const TextStyle(
                           fontFeatures: [FontFeature.tabularFigures()],

@@ -43,6 +43,8 @@ class WealthToolsPage extends StatefulWidget {
 }
 
 class _WealthToolsPageState extends State<WealthToolsPage> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   late String _activeTool; // 'receipt' | 'loan' | 'fire'
 
   @override
@@ -110,9 +112,12 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
     }
   }
 
-  T? _maybeWatch<T>(BuildContext context) {
+  R? _maybeSelect<B extends StateStreamable<S>, S, R>(
+    BuildContext context,
+    R Function(S state) selector,
+  ) {
     try {
-      return context.watch<T>();
+      return context.select<B, R>((bloc) => selector(bloc.state));
     } catch (_) {
       return null;
     }
@@ -120,18 +125,14 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    if (user == null) {
+    final userIdentity = context.select((AuthBloc b) {
+      final u = b.state.user;
+      return u == null ? null : (id: u.id, fullName: u.fullName);
+    });
+    if (userIdentity == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final c = TammySemanticColors.of(context);
-    final txListState = _maybeWatch<TransactionListBloc>(context)?.state;
-    final wallets = txListState?.wallets ?? const <WalletEntity>[];
-    final categories = txListState?.categories ?? const <CategoryEntity>[];
-    final dash = _maybeWatch<DashboardBloc>(context)?.state.data;
-    final rawMonthlyIncome = dash?.monthlyIncomeMinor ?? 0;
-    final rawMonthlyExpense = dash?.monthlyExpenseMinor ?? 0;
-    final netWorthMinor = dash?.netWorthMinor ?? 0;
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -175,34 +176,83 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                       ),
                       children: [
                         if (_activeTool == 'receipt')
-                          _buildReceiptScannerView(
-                            context,
-                            c,
-                            userId: user.id,
-                            userName: user.fullName,
-                            wallets: wallets,
-                            categories: categories,
+                          Builder(
+                            builder: (tabContext) {
+                              final wallets =
+                                  _maybeSelect<
+                                    TransactionListBloc,
+                                    TransactionListState,
+                                    List<WalletEntity>
+                                  >(tabContext, (s) => s.wallets) ??
+                                  const <WalletEntity>[];
+                              final categories =
+                                  _maybeSelect<
+                                    TransactionListBloc,
+                                    TransactionListState,
+                                    List<CategoryEntity>
+                                  >(tabContext, (s) => s.categories) ??
+                                  const <CategoryEntity>[];
+                              return _buildReceiptScannerView(
+                                tabContext,
+                                c,
+                                userId: userIdentity.id,
+                                userName: userIdentity.fullName,
+                                wallets: wallets,
+                                categories: categories,
+                              );
+                            },
                           ),
                         if (_activeTool == 'loan')
                           _buildLoanCalculatorView(
                             context,
                             c,
-                            userId: user.id,
-                            userName: user.fullName,
+                            userId: userIdentity.id,
+                            userName: userIdentity.fullName,
                           ),
                         if (_activeTool == 'fire')
-                          _buildFireAndSixJarsView(
-                            context,
-                            c,
-                            userId: user.id,
-                            netWorthMinor: netWorthMinor,
-                            rawMonthlyIncomeMinor: rawMonthlyIncome,
-                            monthlyIncomeMinor: rawMonthlyIncome > 0
-                                ? rawMonthlyIncome
-                                : 25000000,
-                            monthlyExpenseMinor: rawMonthlyExpense > 0
-                                ? rawMonthlyExpense
-                                : 12000000,
+                          Builder(
+                            builder: (tabContext) {
+                              final fireDash =
+                                  _maybeSelect<
+                                    DashboardBloc,
+                                    DashboardState,
+                                    ({
+                                      int netWorthMinor,
+                                      int monthlyIncomeMinor,
+                                      int monthlyExpenseMinor,
+                                    })
+                                  >(
+                                    tabContext,
+                                    (s) => (
+                                      netWorthMinor: s.data.netWorthMinor,
+                                      monthlyIncomeMinor:
+                                          s.data.monthlyIncomeMinor,
+                                      monthlyExpenseMinor:
+                                          s.data.monthlyExpenseMinor,
+                                    ),
+                                  ) ??
+                                  (
+                                    netWorthMinor: 0,
+                                    monthlyIncomeMinor: 0,
+                                    monthlyExpenseMinor: 0,
+                                  );
+                              return _buildFireAndSixJarsView(
+                                tabContext,
+                                c,
+                                userId: userIdentity.id,
+                                netWorthMinor: fireDash.netWorthMinor,
+                                rawMonthlyIncomeMinor:
+                                    fireDash.monthlyIncomeMinor,
+                                monthlyIncomeMinor:
+                                    fireDash.monthlyIncomeMinor > 0
+                                    ? fireDash.monthlyIncomeMinor
+                                    : 25000000,
+                                monthlyExpenseMinor:
+                                    fireDash.monthlyExpenseMinor > 0
+                                    ? fireDash.monthlyExpenseMinor
+                                    : 12000000,
+                              );
+                            },
                           ),
                       ],
                     ),
@@ -326,10 +376,13 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
         .where((cat) => cat.name == activeCategoryName)
         .firstOrNull;
     final txActionBloc = _maybeRead<TransactionActionBloc>(context);
-    final txActionState = _maybeWatch<TransactionActionBloc>(context)?.state;
-    final isSubmittingTx =
-        _isCommittingReceipt ||
-        txActionState?.status == ActionStatus.submitting;
+    final isActionSubmitting =
+        _maybeSelect<TransactionActionBloc, TransactionActionState, bool>(
+          context,
+          (s) => s.status == ActionStatus.submitting,
+        ) ??
+        false;
+    final isSubmittingTx = _isCommittingReceipt || isActionSubmitting;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -689,8 +742,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
                               occurredAt: DateTime.now(),
                             ),
                           );
-                          if (!context.mounted) return;
+                          if (!mounted) return;
                           setState(() => _isCommittingReceipt = false);
+                          if (!context.mounted) return;
                           if (res.status == ActionStatus.success &&
                               res.lastCreatedTransaction != null) {
                             final createdTx = res.lastCreatedTransaction!;
@@ -1019,7 +1073,6 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
       DateTime(now.year, now.month, now.day, 9, 0),
       1,
     );
-    final dateFmt = DateFormat('dd/MM/yyyy');
 
     final picked = await showDialog<(String, DateTime)>(
       context: context,
@@ -1075,7 +1128,7 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
     } else {
       LifeOsTopToast.show(
         context,
-        'Đã tạo lịch nhắc trả góp hằng tháng từ ${dateFmt.format(firstDueDate)}.',
+        'Đã tạo lịch nhắc trả góp hằng tháng từ ${_dateFmt.format(firstDueDate)}.',
         kind: LifeOsToastKind.success,
       );
     }
@@ -1098,9 +1151,13 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
       expectedAnnualReturnPct: _expectedReturnPct,
     );
     final budgetBloc = _maybeRead<BudgetBloc>(context);
-    final budgetState = _maybeWatch<BudgetBloc>(context)?.state;
-    final isSavingBudget =
-        _isApplyingBudgets || (budgetState?.isSaving ?? false);
+    final isBudgetSaving =
+        _maybeSelect<BudgetBloc, BudgetState, bool>(
+          context,
+          (s) => s.isSaving,
+        ) ??
+        false;
+    final isSavingBudget = _isApplyingBudgets || isBudgetSaving;
     final aiPlan = SmartMoneySplitAiEngine.recommendIncomeAllocation(
       prompt: _aiAllocPromptCtrl.text,
       explicitIncomeMinor: rawMonthlyIncomeMinor > 0
@@ -1435,8 +1492,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
       }
     }
 
-    if (!context.mounted) return;
+    if (!mounted) return;
     setState(() => _isApplyingBudgets = false);
+    if (!context.mounted) return;
     if (firstFailure != null) {
       LifeOsTopToast.show(
         context,
@@ -1489,8 +1547,9 @@ class _WealthToolsPageState extends State<WealthToolsPage> {
         break;
       }
     }
-    if (!context.mounted) return;
+    if (!mounted) return;
     setState(() => _isApplyingBudgets = false);
+    if (!context.mounted) return;
     if (firstFailure != null) {
       LifeOsTopToast.show(
         context,
@@ -1807,6 +1866,8 @@ class _ScheduleLoanReminderDialog extends StatefulWidget {
 
 class _ScheduleLoanReminderDialogState
     extends State<_ScheduleLoanReminderDialog> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _titleCtrl = TextEditingController(
     text: widget.initialTitle,
   );
@@ -1820,7 +1881,6 @@ class _ScheduleLoanReminderDialogState
 
   @override
   Widget build(BuildContext context) {
-    final dateFmt = DateFormat('dd/MM/yyyy');
     return AlertDialog(
       title: const Text('Lịch nhắc Trả góp Hàng tháng'),
       content: SingleChildScrollView(
@@ -1856,7 +1916,7 @@ class _ScheduleLoanReminderDialogState
                 }
               },
               icon: const Icon(Icons.calendar_today_rounded, size: 17),
-              label: Text('Ngày trả kỳ đầu: ${dateFmt.format(_firstDueDate)}'),
+              label: Text('Ngày trả kỳ đầu: ${_dateFmt.format(_firstDueDate)}'),
             ),
             const SizedBox(height: 8),
             Text(

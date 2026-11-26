@@ -16,8 +16,24 @@ class ProUtilitiesHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final proState = context.watch<ProUtilitiesBloc>().state;
-    final dashData = context.watch<DashboardBloc>().state.data;
+    final proSummary = context.select((ProUtilitiesBloc b) {
+      final s = b.state;
+      return (
+        monthlySubBurnMinor: s.totalMonthlySubBurnMinor,
+        waterMl: s.todayWellness.waterMl,
+        focusMinutes: s.todayWellness.focusMinutes,
+        giftCount: s.giftEntries.length,
+        subscriptionsCount: s.subscriptionsOnly.length,
+        warrantiesCount: s.warrantiesOnly.length,
+        habitsCount: s.habits.length,
+        completedPomodoros: s.todayWellness.completedPomodoros,
+        giftGaveMinor: s.totalGiftGaveMinor,
+        giftReceivedMinor: s.totalGiftReceivedMinor,
+      );
+    });
+    final netWorthMinor = context.select(
+      (DashboardBloc b) => b.state.data.netWorthMinor,
+    );
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -89,7 +105,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                       child: _MiniHubMetric(
                                         label: 'Phí định kỳ/tháng',
                                         value: VndAmount.formatCompact(
-                                          proState.totalMonthlySubBurnMinor,
+                                          proSummary.monthlySubBurnMinor,
                                         ),
                                         color: c.primary,
                                       ),
@@ -102,7 +118,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                       child: _MiniHubMetric(
                                         label: 'Nước & Tập trung',
                                         value:
-                                            '${proState.todayWellness.waterMl}ml · ${proState.todayWellness.focusMinutes}p',
+                                            '${proSummary.waterMl}ml · ${proSummary.focusMinutes}p',
                                         color: c.primary,
                                       ),
                                     ),
@@ -113,8 +129,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                                     Expanded(
                                       child: _MiniHubMetric(
                                         label: 'Sổ Hiếu Hỷ',
-                                        value:
-                                            '${proState.giftEntries.length} mục',
+                                        value: '${proSummary.giftCount} mục',
                                         color: c.primary,
                                       ),
                                     ),
@@ -135,7 +150,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           subtitle:
                               'Theo dõi phí gia hạn hằng tháng và hạn bảo hành đồ gia dụng.',
                           metricLine:
-                              '${proState.subscriptionsOnly.length} gói đăng ký · ${proState.warrantiesOnly.length} phiếu bảo hành',
+                              '${proSummary.subscriptionsCount} gói đăng ký · ${proSummary.warrantiesCount} phiếu bảo hành',
                           onTap: () => context.push('/subscriptions-warranty'),
                         ),
                         const SizedBox(height: 12),
@@ -149,7 +164,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           subtitle:
                               'Tách nhanh hóa đơn, tính lịch trả góp và lập mục tiêu tiết kiệm.',
                           metricLine:
-                              'Tài sản ròng: ${VndAmount.format(dashData.netWorthMinor)}',
+                              'Tài sản ròng: ${VndAmount.format(netWorthMinor)}',
                           onTap: () => context.push('/wealth-tools'),
                         ),
                         const SizedBox(height: 12),
@@ -163,7 +178,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           subtitle:
                               'Đồng hồ tập trung 25p/45p, nhắc uống nước và giữ kỷ luật chi tiêu.',
                           metricLine:
-                              '${proState.habits.length} thói quen · ${proState.todayWellness.completedPomodoros} phiên hôm nay',
+                              '${proSummary.habitsCount} thói quen · ${proSummary.completedPomodoros} phiên hôm nay',
                           onTap: () => context.push('/habits-focus'),
                         ),
                         const SizedBox(height: 12),
@@ -177,7 +192,7 @@ class ProUtilitiesHubPage extends StatelessWidget {
                           subtitle:
                               'Ghi chép tiền mừng cưới hai chiều và danh sách đồ mang đi xa.',
                           metricLine:
-                              'Đi mừng: ${VndAmount.formatCompact(proState.totalGiftGaveMinor)} · Nhận: ${VndAmount.formatCompact(proState.totalGiftReceivedMinor)}',
+                              'Đi mừng: ${VndAmount.formatCompact(proSummary.giftGaveMinor)} · Nhận: ${VndAmount.formatCompact(proSummary.giftReceivedMinor)}',
                           onTap: () => context.push('/social-ledger-travel'),
                         ),
                       ],

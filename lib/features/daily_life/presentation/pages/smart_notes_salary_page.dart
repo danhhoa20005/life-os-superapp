@@ -28,6 +28,8 @@ class SmartNotesSalaryPage extends StatefulWidget {
 }
 
 class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
+  static final DateFormat _dtFmt = DateFormat('dd/MM HH:mm');
+
   late String _tab;
   final TextEditingController _noteSearchCtrl = TextEditingController();
   String _noteSearch = '';
@@ -75,9 +77,8 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final userId = user?.id ?? '';
-    final wallets = context.watch<TransactionListBloc>().state.wallets;
+    final userId = context.select((AuthBloc b) => b.state.user?.id ?? '');
+    final wallets = context.select((TransactionListBloc b) => b.state.wallets);
     final String? resolvedWalletId = wallets.isEmpty
         ? null
         : (_selectedWalletId != null &&
@@ -102,6 +103,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
           );
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
+      buildWhen: (p, n) => p.snapshot.notes != n.snapshot.notes,
       listenWhen: (p, n) =>
           (n.failure != null && p.failure != n.failure) ||
           (n.successBanner != null && p.successBanner != n.successBanner),
@@ -234,7 +236,6 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
     String userId,
     List<SmartLifeNoteEntity> notes,
   ) {
-    final dtFmt = DateFormat('dd/MM HH:mm');
     final pinnedCount = notes.where((n) => n.isPinned).length;
     final hasActiveFilter = _pinnedOnly || _noteSearch.trim().isNotEmpty;
     final filtered = notes.where((n) {
@@ -396,7 +397,7 @@ class _SmartNotesSalaryPageState extends State<SmartNotesSalaryPage> {
                                 ),
                               ),
                               Text(
-                                '${note.categoryTag} · ${dtFmt.format(note.updatedAt)}',
+                                '${note.categoryTag} · ${_dtFmt.format(note.updatedAt)}',
                                 softWrap: true,
                                 style: TextStyle(
                                   fontSize: 11.8,

@@ -35,9 +35,9 @@ class _ReceiptItemizedSplitPanelState extends State<ReceiptItemizedSplitPanel> {
   final Map<String, Set<String>> _assigneesByItemId = <String, Set<String>>{};
   PickedReceiptImage? _pickedImage;
 
-  FamilyBloc? _maybeFamBloc(BuildContext context) {
+  FamilyEntity? _maybeSelectActiveFamily(BuildContext context) {
     try {
-      return context.watch<FamilyBloc>();
+      return context.select((FamilyBloc b) => b.state.activeFamily);
     } catch (_) {
       return null;
     }
@@ -79,8 +79,7 @@ class _ReceiptItemizedSplitPanelState extends State<ReceiptItemizedSplitPanel> {
     final baseAnalysis = ReceiptIntelligenceEngine.analyzeOcrText(
       widget.rawOcrText,
     );
-    final famBloc = _maybeFamBloc(context);
-    final activeFamily = famBloc?.state.activeFamily;
+    final activeFamily = _maybeSelectActiveFamily(context);
     final members = activeFamily?.members ?? const <FamilyMemberInfo>[];
 
     final decoratedItems = baseAnalysis.items.map((item) {

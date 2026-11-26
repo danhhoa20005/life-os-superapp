@@ -27,6 +27,8 @@ class SocialLedgerTravelPage extends StatefulWidget {
 }
 
 class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   bool _showPackingTab = false;
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _customPackCtrl = TextEditingController();
@@ -48,9 +50,12 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
     }
   }
 
-  T? _maybeWatch<T>(BuildContext context) {
+  R? _maybeSelect<B extends StateStreamable<S>, S, R>(
+    BuildContext context,
+    R Function(S state) selector,
+  ) {
     try {
-      return context.watch<T>();
+      return context.select<B, R>((bloc) => selector(bloc.state));
     } catch (_) {
       return null;
     }
@@ -80,15 +85,23 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    if (user == null) {
+    final userId = context.select((AuthBloc b) => b.state.user?.id);
+    if (userId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final c = TammySemanticColors.of(context);
-    final txListState = _maybeWatch<TransactionListBloc>(context)?.state;
-    final wallets = txListState?.wallets ?? const <WalletEntity>[];
-    final categories = txListState?.categories ?? const <CategoryEntity>[];
-    final dateFmt = DateFormat('dd/MM/yyyy');
+    final defaultWalletId =
+        _maybeSelect<TransactionListBloc, TransactionListState, String?>(
+          context,
+          (s) => s.wallets.isNotEmpty ? s.wallets.first.id : null,
+        );
+    final categories =
+        _maybeSelect<
+          TransactionListBloc,
+          TransactionListState,
+          List<CategoryEntity>
+        >(context, (s) => s.categories) ??
+        const <CategoryEntity>[];
 
     return BlocListener<ProUtilitiesBloc, ProUtilitiesState>(
       listenWhen: (p, n) =>
@@ -122,10 +135,8 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                           tooltip: 'Ghi mừng mới',
                           onPressed: () => _showSaveGiftDialog(
                             context,
-                            userId: user.id,
-                            defaultWalletId: wallets.isNotEmpty
-                                ? wallets.first.id
-                                : null,
+                            userId: userId,
+                            defaultWalletId: defaultWalletId,
                             categories: categories,
                           ),
                           icon: const Icon(Icons.add_rounded),
@@ -153,6 +164,9 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                 const SizedBox(height: 10),
                 Expanded(
                   child: BlocBuilder<ProUtilitiesBloc, ProUtilitiesState>(
+                    buildWhen: (p, n) =>
+                        p.giftEntries != n.giftEntries ||
+                        p.packingItems != n.packingItems,
                     builder: (context, state) {
                       return Center(
                         child: ConstrainedBox(
@@ -160,14 +174,13 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                             maxWidth: AppSpacing.maxContentWidth,
                           ),
                           child: _showPackingTab
-                              ? _buildPackingTab(context, c, user.id, state)
+                              ? _buildPackingTab(context, c, userId, state)
                               : _buildGiftLedgerTab(
                                   context,
                                   c,
-                                  user.id,
+                                  userId,
                                   state,
-                                  dateFmt,
-                                  wallets.isNotEmpty ? wallets.first.id : null,
+                                  defaultWalletId,
                                   categories,
                                 ),
                         ),
@@ -188,7 +201,6 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
     TammySemanticColors c,
     String userId,
     ProUtilitiesState state,
-    DateFormat dateFmt,
     String? defaultWalletId,
     List<CategoryEntity> categories,
   ) {
@@ -477,7 +489,7 @@ class _SocialLedgerTravelPageState extends State<SocialLedgerTravelPage> {
                                 ),
                               ),
                               Text(
-                                '${g.occasion.labelVi} · ${g.relationshipGroup} · ${dateFmt.format(g.eventDate)}',
+                                '${g.occasion.labelVi} · ${g.relationshipGroup} · ${_dateFmt.format(g.eventDate)}',
                                 softWrap: true,
                                 style: TextStyle(
                                   fontSize: 12,
@@ -893,6 +905,7 @@ class _SaveGiftLedgerDialog extends StatefulWidget {
 }
 
 class _SaveGiftLedgerDialogState extends State<_SaveGiftLedgerDialog> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
   static const List<String> _allowedGroups = <String>[
     'Đồng nghiệp',
     'Bạn học',
@@ -935,7 +948,6 @@ class _SaveGiftLedgerDialogState extends State<_SaveGiftLedgerDialog> {
   Widget build(BuildContext context) {
     final existing = widget.existing;
     final isEdit = existing != null;
-    final dateFmt = DateFormat('dd/MM/yyyy');
 
     return AlertDialog(
       title: Text(isEdit ? 'Sửa Sổ Hiếu Hỷ' : 'Ghi Sổ Hiếu Hỷ'),
@@ -1052,7 +1064,7 @@ class _SaveGiftLedgerDialogState extends State<_SaveGiftLedgerDialog> {
                       }
                     },
               icon: const Icon(Icons.event_rounded, size: 17),
-              label: Text('Ngày sự kiện: ${dateFmt.format(_eventDate)}'),
+              label: Text('Ngày sự kiện: ${_dateFmt.format(_eventDate)}'),
             ),
             const SizedBox(height: 10),
             TextField(

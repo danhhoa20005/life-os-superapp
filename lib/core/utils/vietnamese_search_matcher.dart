@@ -78,10 +78,15 @@ abstract final class VietnameseSearchMatcher {
   static final RegExp _trShorthand = RegExp(
     r'^(\d+)(?:[.,](\d{1,3}))?tr(\d{0,3})$',
   );
+  static final Map<String, String> _foldCache = <String, String>{};
+  static const int _maxFoldCacheEntries = 512;
 
   /// Folds Vietnamese accents/tones (`ă/â -> a`, `đ -> d`, etc.), lowercases, and trims whitespace.
   static String fold(String input) {
     if (input.isEmpty) return '';
+    final cached = _foldCache[input];
+    if (cached != null) return cached;
+
     final lower = input
         .replaceAll('\u00A0', ' ')
         .toLowerCase()
@@ -91,7 +96,14 @@ abstract final class VietnameseSearchMatcher {
       final ch = lower[i];
       sb.write(_diacriticMap[ch] ?? ch);
     }
-    return sb.toString().replaceAll(_whitespace, ' ').trim();
+    final result = sb.toString().replaceAll(_whitespace, ' ').trim();
+    if (input.length <= 160) {
+      if (_foldCache.length >= _maxFoldCacheEntries) {
+        _foldCache.remove(_foldCache.keys.first);
+      }
+      _foldCache[input] = result;
+    }
+    return result;
   }
 
   /// Splits a query/label into folded non-empty tokens.
@@ -102,12 +114,23 @@ abstract final class VietnameseSearchMatcher {
   }
 
   /// Checks whether [foldedHaystack] contains [foldedPhrase] using token boundaries
-  /// for short abbreviations (`<= 4` chars) to avoid accidental substring matches.
+  /// for short abbreviations (`<= 4` chars) without allocating a RegExp in the hot loop.
   static bool containsPhrase(String foldedHaystack, String foldedPhrase) {
     if (foldedHaystack.isEmpty || foldedPhrase.isEmpty) return false;
     if (foldedPhrase.length <= 4 && !foldedPhrase.contains(' ')) {
-      final escaped = RegExp.escape(foldedPhrase);
-      return RegExp('(?:^|\\s)$escaped(?:\\s|\$)').hasMatch(foldedHaystack);
+      final pLen = foldedPhrase.length;
+      final hLen = foldedHaystack.length;
+      var start = 0;
+      while (start <= hLen - pLen) {
+        final idx = foldedHaystack.indexOf(foldedPhrase, start);
+        if (idx < 0) return false;
+        final leftOk = idx == 0 || foldedHaystack.codeUnitAt(idx - 1) == 0x20;
+        final end = idx + pLen;
+        final rightOk = end == hLen || foldedHaystack.codeUnitAt(end) == 0x20;
+        if (leftOk && rightOk) return true;
+        start = idx + 1;
+      }
+      return false;
     }
     return foldedHaystack.contains(foldedPhrase);
   }

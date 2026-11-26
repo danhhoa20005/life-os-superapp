@@ -219,6 +219,8 @@ class EmptyStateView extends StatelessWidget {
                     imageAsset!,
                     width: 128,
                     height: 128,
+                    cacheWidth: 384,
+                    cacheHeight: 384,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) =>
                         Icon(icon, size: 40, color: c.primary),

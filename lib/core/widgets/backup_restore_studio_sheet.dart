@@ -324,6 +324,8 @@ class _BackupRestoreStudioBody extends StatefulWidget {
 }
 
 class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy HH:mm');
+
   bool _isRestoreTab = false;
   final TextEditingController _exportPassCtrl = TextEditingController();
   final TextEditingController _importPayloadCtrl = TextEditingController();
@@ -382,7 +384,6 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final dateFmt = DateFormat('dd/MM/yyyy HH:mm');
 
     return BlocConsumer<BackupBloc, BackupState>(
       listenWhen: (prev, curr) =>
@@ -481,7 +482,7 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                   if (!_isRestoreTab)
                     ..._buildExportTab(context, c, state, summary, isBusy)
                   else
-                    ..._buildRestoreTab(context, c, state, dateFmt, isBusy),
+                    ..._buildRestoreTab(context, c, state, _dateFmt, isBusy),
                 ],
               ),
             ),

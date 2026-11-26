@@ -629,8 +629,9 @@ class DailyLifeBloc extends Bloc<DailyLifeEvent, DailyLifeState> {
     on<SmartNoteDeleted>(_onNoteDeleted, transformer: sequential());
   }
 
-  static String todayDayKey() =>
-      DateFormat('yyyy-MM-dd').format(DateTime.now());
+  static final DateFormat _dayKeyFmt = DateFormat('yyyy-MM-dd');
+
+  static String todayDayKey() => _dayKeyFmt.format(DateTime.now());
 
   Future<void> _onWatchStarted(
     DailyLifeWatchStarted event,

@@ -374,8 +374,8 @@ Future<_SeededHarness> _bootRichLifeOs(
     familyId: familyId,
     visibility: CalendarEventVisibility.sharedEvent,
     title: 'Họp tổng kết ngân sách tuần',
-    startsAt: now.add(const Duration(hours: 2)),
-    endsAt: now.add(const Duration(hours: 3)),
+    startsAt: now.add(const Duration(days: 1, hours: 2)),
+    endsAt: now.add(const Duration(days: 1, hours: 3)),
     publishBusySlot: true,
   );
   await sl<TaskRepository>().createTask(

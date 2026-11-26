@@ -545,6 +545,8 @@ class BrandLogoMark extends StatelessWidget {
           AppAssets.logo,
           width: size,
           height: size,
+          cacheWidth: (size * 3).round(),
+          cacheHeight: (size * 3).round(),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
               Icon(Icons.shield_outlined, color: c.primary, size: size * 0.56),
@@ -590,6 +592,7 @@ class BrandVisualBanner extends StatelessWidget {
           assetPath,
           height: height,
           width: double.infinity,
+          cacheHeight: (height * 2.5).round(),
           fit: fit,
           errorBuilder: (_, __, ___) =>
               Center(child: Icon(fallbackIcon, size: 42, color: c.primary)),

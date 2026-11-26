@@ -390,6 +390,8 @@ class _AppPinSecurityDialogState extends State<_AppPinSecurityDialog> {
 }
 
 class _AccountProfilePageState extends State<AccountProfilePage> {
+  static final DateFormat _joinedMonthYearFmt = DateFormat('MM/yyyy');
+
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   String? _boundUserId;
@@ -627,7 +629,7 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
         final displayUidLabel = _revealSensitiveProfile
             ? 'Mã TK: $shortUid'
             : 'Mã TK: ${PrivacyMaskFormatter.maskUid(user.id)}';
-        final joinedDate = DateFormat('MM/yyyy').format(user.createdAt);
+        final joinedDate = _joinedMonthYearFmt.format(user.createdAt);
 
         return Scaffold(
           body: LifeOsMintWaveCanvas(

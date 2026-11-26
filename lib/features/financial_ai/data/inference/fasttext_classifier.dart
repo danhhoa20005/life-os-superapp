@@ -143,6 +143,8 @@ class FastTextClassifier implements FinancialClassifier {
   FastTextBinaryModel? _inlineModel;
   Completer<void>? _initCompleter;
   final Map<int, Completer<Map<String, dynamic>>> _pendingRequests = {};
+  final Map<String, ClassificationResult> _predictionCache = {};
+  static const int _maxPredictionCacheEntries = 128;
   int _nextRequestId = 1;
   bool _disposed = false;
 
@@ -328,6 +330,11 @@ class FastTextClassifier implements FinancialClassifier {
         !_metadata.usingRuleFallback) {
       await initialize();
     }
+    final cacheKey = normalizedText.trim();
+    final cached = _predictionCache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
     final inline = _inlineModel;
     if (inline != null) {
       final sw = Stopwatch()..start();
@@ -354,7 +361,7 @@ class FastTextClassifier implements FinancialClassifier {
         lowConfidenceThreshold: _metadata.lowConfidenceThreshold,
       );
       sw.stop();
-      return ClassificationResult(
+      final result = ClassificationResult(
         predictions: preds,
         latencyMicros: sw.elapsedMicroseconds,
         modelVersion: _metadata.modelVersion,
@@ -363,6 +370,8 @@ class FastTextClassifier implements FinancialClassifier {
             isOod || bestInDomainProb < _metadata.lowConfidenceThreshold,
         oodProbability: oodProb,
       );
+      _putCache(cacheKey, result);
+      return result;
     }
     if (_metadata.usingRuleFallback || _workerSendPort == null) {
       return _fallbackClassifier.classify(normalizedText);
@@ -409,7 +418,7 @@ class FastTextClassifier implements FinancialClassifier {
           topLabel == CategoryPrediction.oodSemanticKey ||
           oodProb >= _metadata.oodRejectThreshold ||
           bestInDomainProb < _metadata.lowConfidenceThreshold;
-      return ClassificationResult(
+      final result = ClassificationResult(
         predictions: preds,
         latencyMicros: micros,
         modelVersion: _metadata.modelVersion,
@@ -417,10 +426,20 @@ class FastTextClassifier implements FinancialClassifier {
         isOutOfDomain: isOod,
         oodProbability: oodProb,
       );
+      _putCache(cacheKey, result);
+      return result;
     } catch (_) {
       _pendingRequests.remove(reqId);
       return _fallbackClassifier.classify(normalizedText);
     }
+  }
+
+  void _putCache(String key, ClassificationResult result) {
+    if (key.length > 180) return;
+    if (_predictionCache.length >= _maxPredictionCacheEntries) {
+      _predictionCache.remove(_predictionCache.keys.first);
+    }
+    _predictionCache[key] = result;
   }
 
   void _cleanupWorkerSync() {
@@ -430,6 +449,7 @@ class FastTextClassifier implements FinancialClassifier {
       }
     }
     _pendingRequests.clear();
+    _predictionCache.clear();
     _workerSendPort = null;
     _inlineModel = null;
     _mainReceivePort?.close();

@@ -32,9 +32,8 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final userId = user?.id ?? '';
-    final wallets = context.watch<TransactionListBloc>().state.wallets;
+    final userId = context.select((AuthBloc b) => b.state.user?.id ?? '');
+    final wallets = context.select((TransactionListBloc b) => b.state.wallets);
     final String? resolvedWalletId = wallets.isEmpty
         ? null
         : (_selectedWalletId != null &&
@@ -45,6 +44,9 @@ class _KitchenGroceriesPageState extends State<KitchenGroceriesPage> {
                 ));
 
     return BlocConsumer<DailyLifeBloc, DailyLifeState>(
+      buildWhen: (p, n) =>
+          p.snapshot.groceryItems != n.snapshot.groceryItems ||
+          p.snapshot.mealPlans != n.snapshot.mealPlans,
       listenWhen: (p, n) =>
           (n.failure != null && p.failure != n.failure) ||
           (n.successBanner != null && p.successBanner != n.successBanner),

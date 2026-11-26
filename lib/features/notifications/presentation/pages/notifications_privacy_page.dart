@@ -37,6 +37,8 @@ class NotificationsPrivacyPage extends StatefulWidget {
 
 class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
     with WidgetsBindingObserver {
+  static final DateFormat _timeFmt = DateFormat('dd/MM · HH:mm');
+
   final TextEditingController _csvCtrl = TextEditingController();
   String? _selectedWalletId;
   String? _lastShownOrderId;
@@ -668,9 +670,16 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final authState = context.watch<AuthBloc>().state;
-    final user = authState.user;
-    final wallets = context.watch<TransactionListBloc>().state.wallets;
+    final user = context.select(
+      (AuthBloc b) => b.state.user == null
+          ? null
+          : (
+              id: b.state.user!.id,
+              fullName: b.state.user!.fullName,
+              availabilityOptIn: b.state.user!.availabilityOptIn,
+            ),
+    );
+    final wallets = context.select((TransactionListBloc b) => b.state.wallets);
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -733,6 +742,15 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
         ),
         body: SafeArea(
           child: BlocBuilder<NotificationIngestionBloc, NotificationIngestionState>(
+            buildWhen: (p, n) =>
+                p.consent != n.consent ||
+                p.linkedBankAccounts != n.linkedBankAccounts ||
+                p.bankConnections != n.bankConnections ||
+                p.notificationPreferences != n.notificationPreferences ||
+                p.paymentOrders != n.paymentOrders ||
+                p.isPushPermissionGranted != n.isPushPermissionGranted ||
+                p.isNativePermissionGranted != n.isNativePermissionGranted ||
+                p.exportedJson != n.exportedJson,
             builder: (context, state) {
               final consent = state.consent;
               final enabled = consent?.enabled ?? false;
@@ -758,26 +776,6 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
               final prefs =
                   state.notificationPreferences ??
                   BankingNotificationPreferencesEntity(ownerId: user.id);
-              final allTx = context
-                  .watch<TransactionListBloc>()
-                  .state
-                  .allTransactions;
-              final bankMovements = allTx
-                  .where(
-                    (t) =>
-                        t.sourceKind == TransactionSourceKind.bankWebhook ||
-                        t.sourceKind == TransactionSourceKind.bankApi ||
-                        t.sourceKind ==
-                            TransactionSourceKind.androidNotification,
-                  )
-                  .where(
-                    (t) =>
-                        _historyFilter == 'all' ||
-                        t.direction == _historyFilter,
-                  )
-                  .take(8)
-                  .toList(growable: false);
-              final timeFmt = DateFormat('dd/MM · HH:mm');
 
               return Center(
                 child: ConstrainedBox(
@@ -1115,7 +1113,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                         'Ví liên kết: $walletLabel\n'
                                         'Tiền vào: ${conn.capabilities.creditSupportSummary}\n'
                                         'Tiền ra: ${conn.capabilities.debitSupportSummary}'
-                                        '${conn.lastSyncedAt != null ? "\nĐồng bộ gần nhất: ${timeFmt.format(conn.lastSyncedAt!)}" : ""}',
+                                        '${conn.lastSyncedAt != null ? "\nĐồng bộ gần nhất: ${_timeFmt.format(conn.lastSyncedAt!)}" : ""}',
                                         style: Theme.of(
                                           context,
                                         ).textTheme.bodySmall,
@@ -1269,117 +1267,148 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       const SizedBox(height: AppSpacing.md),
 
                       // 2C. LỊCH SỬ BIẾN ĐỘNG NGÂN HÀNG (Tất cả | Tiền vào | Tiền ra)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Lịch sử biến động ngân hàng',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
+                      Builder(
+                        builder: (context) {
+                          final allTx = context.select(
+                            (TransactionListBloc b) => b.state.allTransactions,
+                          );
+                          final bankMovements = allTx
+                              .where(
+                                (t) =>
+                                    t.sourceKind ==
+                                        TransactionSourceKind.bankWebhook ||
+                                    t.sourceKind ==
+                                        TransactionSourceKind.bankApi ||
+                                    t.sourceKind ==
+                                        TransactionSourceKind
+                                            .androidNotification,
+                              )
+                              .where(
+                                (t) =>
+                                    _historyFilter == 'all' ||
+                                    t.direction == _historyFilter,
+                              )
+                              .take(8)
+                              .toList(growable: false);
+
+                          return Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.lg),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  for (final tab in const [
-                                    ('all', 'Tất cả'),
-                                    ('credit', 'Tiền vào'),
-                                    ('debit', 'Tiền ra'),
-                                  ])
-                                    ChoiceChip(
-                                      label: Text(tab.$2),
-                                      selected: _historyFilter == tab.$1,
-                                      onSelected: (_) => setState(
-                                        () => _historyFilter = tab.$1,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              if (bankMovements.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    'Chưa có biến động ngân hàng nào trong bộ lọc này.',
+                                  Text(
+                                    'Lịch sử biến động ngân hàng',
                                     style: Theme.of(
                                       context,
-                                    ).textTheme.bodySmall,
+                                    ).textTheme.titleMedium,
                                   ),
-                                )
-                              else
-                                ...bankMovements.map((tx) {
-                                  final isCredit = tx.direction == 'credit';
-                                  final wName =
-                                      tx.walletName ??
-                                      wallets
-                                          .where((w) => w.id == tx.walletId)
-                                          .firstOrNull
-                                          ?.name ??
-                                      'Ví liên kết';
-                                  final srcText = switch (tx.sourceKind) {
-                                    TransactionSourceKind.bankWebhook =>
-                                      'Đồng bộ tự động',
-                                    TransactionSourceKind.bankApi =>
-                                      'Đối soát ngân hàng',
-                                    TransactionSourceKind.androidNotification =>
-                                      'Thông báo điện thoại',
-                                    _ => 'Ghi thủ công',
-                                  };
-                                  final verText = switch (tx.verification) {
-                                    TransactionVerification.verified =>
-                                      'Đã đối soát ngân hàng',
-                                    TransactionVerification
-                                        .matchedPaymentOrder =>
-                                      'Đã khớp đơn QR',
-                                    TransactionVerification.userConfirmed =>
-                                      'Đã xác nhận',
-                                    TransactionVerification.needsReview =>
-                                      'Cần kiểm tra',
-                                    _ => 'Tạm ghi nhận',
-                                  };
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    onTap: () => context.push(
-                                      '/auto-tx-review',
-                                      extra: tx,
-                                    ),
-                                    leading: CircleAvatar(
-                                      backgroundColor: isCredit
-                                          ? c.successSubtle
-                                          : c.warningSubtle,
-                                      child: Icon(
-                                        isCredit
-                                            ? Icons.south_west_rounded
-                                            : Icons.north_east_rounded,
-                                        color: isCredit ? c.success : c.error,
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      for (final tab in const [
+                                        ('all', 'Tất cả'),
+                                        ('credit', 'Tiền vào'),
+                                        ('debit', 'Tiền ra'),
+                                      ])
+                                        ChoiceChip(
+                                          label: Text(tab.$2),
+                                          selected: _historyFilter == tab.$1,
+                                          onSelected: (_) => setState(
+                                            () => _historyFilter = tab.$1,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (bankMovements.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
                                       ),
-                                    ),
-                                    title: Text(
-                                      '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.bankCode ?? ""} ${tx.accountMasked ?? ""}'
-                                          .trim(),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        color: isCredit
-                                            ? c.success
-                                            : c.textPrimary,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
+                                      child: Text(
+                                        'Chưa có biến động ngân hàng nào trong bộ lọc này.',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
-                                    ),
-                                    subtitle: Text(
-                                      '${tx.merchant}\nVí: $wName · ${timeFmt.format(tx.occurredAt)} · $verText · $srcText',
-                                    ),
-                                    isThreeLine: true,
-                                  );
-                                }),
-                            ],
-                          ),
-                        ),
+                                    )
+                                  else
+                                    ...bankMovements.map((tx) {
+                                      final isCredit = tx.direction == 'credit';
+                                      final wName =
+                                          tx.walletName ??
+                                          wallets
+                                              .where((w) => w.id == tx.walletId)
+                                              .firstOrNull
+                                              ?.name ??
+                                          'Ví liên kết';
+                                      final srcText = switch (tx.sourceKind) {
+                                        TransactionSourceKind.bankWebhook =>
+                                          'Đồng bộ tự động',
+                                        TransactionSourceKind.bankApi =>
+                                          'Đối soát ngân hàng',
+                                        TransactionSourceKind
+                                            .androidNotification =>
+                                          'Thông báo điện thoại',
+                                        _ => 'Ghi thủ công',
+                                      };
+                                      final verText = switch (tx.verification) {
+                                        TransactionVerification.verified =>
+                                          'Đã đối soát ngân hàng',
+                                        TransactionVerification
+                                            .matchedPaymentOrder =>
+                                          'Đã khớp đơn QR',
+                                        TransactionVerification.userConfirmed =>
+                                          'Đã xác nhận',
+                                        TransactionVerification.needsReview =>
+                                          'Cần kiểm tra',
+                                        _ => 'Tạm ghi nhận',
+                                      };
+                                      return ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        onTap: () => context.push(
+                                          '/auto-tx-review',
+                                          extra: tx,
+                                        ),
+                                        leading: CircleAvatar(
+                                          backgroundColor: isCredit
+                                              ? c.successSubtle
+                                              : c.warningSubtle,
+                                          child: Icon(
+                                            isCredit
+                                                ? Icons.south_west_rounded
+                                                : Icons.north_east_rounded,
+                                            color: isCredit
+                                                ? c.success
+                                                : c.error,
+                                          ),
+                                        ),
+                                        title: Text(
+                                          '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.bankCode ?? ""} ${tx.accountMasked ?? ""}'
+                                              .trim(),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            color: isCredit
+                                                ? c.success
+                                                : c.textPrimary,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        subtitle: Text(
+                                          '${tx.merchant}\nVí: $wName · ${_timeFmt.format(tx.occurredAt)} · $verText · $srcText',
+                                        ),
+                                        isThreeLine: true,
+                                      );
+                                    }),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: AppSpacing.md),
 
@@ -1808,6 +1837,8 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 ),
                               ),
                               BlocBuilder<ThemeBloc, ThemeState>(
+                                buildWhen: (p, n) =>
+                                    p.highContrast != n.highContrast,
                                 builder: (context, themeState) {
                                   return SwitchListTile(
                                     contentPadding: EdgeInsets.zero,

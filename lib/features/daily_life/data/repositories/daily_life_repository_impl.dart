@@ -15,6 +15,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
   final FirebaseFirestore _firestore;
   final HealthReminderSchedulerService _reminderScheduler;
   static const Uuid _uuid = Uuid();
+  static final DateFormat _dayKeyFmt = DateFormat('yyyy-MM-dd');
 
   DailyLifeRepositoryImpl(
     this._firestore, {
@@ -27,7 +28,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
 
   @override
   Stream<DailyLifeSnapshot> watchAll({required String userId}) {
-    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayKey = _dayKeyFmt.format(DateTime.now());
     return Stream<DailyLifeSnapshot>.multi((controller) {
       var meds = <MedicationCabinetItemEntity>[];
       var healthLogs = <HealthVitalLogEntity>[];
@@ -635,7 +636,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     String? deleteEntryId,
   }) async {
     try {
-      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final todayKey = _dayKeyFmt.format(DateTime.now());
       final docRef = _userRef(
         userId,
       ).collection('wellness_daily').doc(todayKey);
@@ -762,7 +763,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
     bool clearSnooze = false,
   }) async {
     try {
-      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final todayKey = _dayKeyFmt.format(DateTime.now());
       final remRef = _userRef(
         userId,
       ).collection('medical_profiles').doc('hydration_reminder');
@@ -906,11 +907,11 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
           .drainBackgroundHealthActions();
       if (actions.isEmpty) return const Success(0);
 
-      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final todayKey = _dayKeyFmt.format(DateTime.now());
       var processed = 0;
 
       for (final act in actions) {
-        final actDayKey = DateFormat('yyyy-MM-dd').format(act.loggedAt);
+        final actDayKey = _dayKeyFmt.format(act.loggedAt);
         if (act.type == 'water_logged' && act.ml > 0) {
           if (actDayKey == todayKey) {
             final res = await logWaterIntake(
@@ -1081,7 +1082,7 @@ class DailyLifeRepositoryImpl implements DailyLifeRepository {
       }, SetOptions(merge: true));
 
       if (autoSync) {
-        final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final todayKey = _dayKeyFmt.format(DateTime.now());
         await _userRef(userId).collection('wellness_daily').doc(todayKey).set(
           <String, dynamic>{
             'dateKey': todayKey,

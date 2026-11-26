@@ -21,6 +21,8 @@ class FamilyDocumentsPage extends StatefulWidget {
 }
 
 class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _searchCtrl;
   final Set<String> _revealedDocIds = <String>{};
 
@@ -45,14 +47,25 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
+    final user = context.select(
+      (AuthBloc b) => b.state.user == null
+          ? null
+          : (
+              id: b.state.user!.id,
+              fullName: b.state.user!.fullName,
+              activeFamilyId: b.state.user!.activeFamilyId,
+            ),
+    );
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final c = TammySemanticColors.of(context);
-    final dateFmt = DateFormat('dd/MM/yyyy');
 
     return BlocConsumer<DocumentVaultBloc, DocumentVaultState>(
+      buildWhen: (p, n) =>
+          p.documents != n.documents ||
+          p.selectedFolder != n.selectedFolder ||
+          p.searchQuery != n.searchQuery,
       listenWhen: (p, n) =>
           p.searchQuery != n.searchQuery ||
           (n.failure != null && p.failure != n.failure) ||
@@ -482,10 +495,10 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                                 const SizedBox(height: 6),
                                                 LifeOsStatusPill(
                                                   label: expired
-                                                      ? 'Đã quá hạn: ${dateFmt.format(doc.expiryDate!)}'
+                                                      ? 'Đã quá hạn: ${_dateFmt.format(doc.expiryDate!)}'
                                                       : soon
-                                                      ? 'Sắp hết hạn: ${dateFmt.format(doc.expiryDate!)}'
-                                                      : 'Hiệu lực đến: ${dateFmt.format(doc.expiryDate!)}',
+                                                      ? 'Sắp hết hạn: ${_dateFmt.format(doc.expiryDate!)}'
+                                                      : 'Hiệu lực đến: ${_dateFmt.format(doc.expiryDate!)}',
                                                   tone: expired
                                                       ? LifeOsAccentTone.coral
                                                       : soon
@@ -648,6 +661,8 @@ class _AddDocumentVaultDialog extends StatefulWidget {
 }
 
 class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _titleCtrl;
   late final TextEditingController _codeCtrl;
   late final TextEditingController _noteCtrl;
@@ -761,7 +776,7 @@ class _AddDocumentVaultDialogState extends State<_AddDocumentVaultDialog> {
                     label: Text(
                       _expiryDate == null
                           ? 'Chọn ngày hết hạn / gia hạn'
-                          : 'Hết hạn: ${DateFormat('dd/MM/yyyy').format(_expiryDate!)}',
+                          : 'Hết hạn: ${_dateFmt.format(_expiryDate!)}',
                     ),
                   ),
                 ),

@@ -46,6 +46,10 @@ typedef _AppScreenDef = ({
   List<String> keywords,
 });
 
+abstract final class _OmniDateFormatters {
+  static final DateFormat shortDateTime = DateFormat('dd/MM HH:mm');
+}
+
 /// Global Omni-Search & Command Palette Sheet (Section 18 / Global Search 2.0).
 /// Combines all 12 domain entities (strictly RBAC-filtered by `GlobalSearchAndCommandEngine`),
 /// bidirectional Vietnamese synonym discovery, account-scoped Recent Searches, and grouped results.
@@ -306,7 +310,7 @@ Future<void> showLifeOsOmniCommandPaletteSheet(BuildContext context) async {
     ),
   ];
 
-  final dateFmt = DateFormat('dd/MM HH:mm');
+  final dateFmt = _OmniDateFormatters.shortDateTime;
   final corpus = <SearchableEntityRecord>[
     for (final s in appScreens)
       SearchableEntityRecord(

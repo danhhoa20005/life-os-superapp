@@ -790,19 +790,19 @@ class _AuthenticatedAdaptiveShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    if (user == null) {
+    final (userId, activeFamilyId) = context.select(
+      (AuthBloc b) => (b.state.user?.id, b.state.user?.activeFamilyId),
+    );
+    if (userId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final scopeKey = ValueKey(
-      'shell_${user.id}_${user.activeFamilyId ?? "none"}',
-    );
+    final scopeKey = ValueKey('shell_${userId}_${activeFamilyId ?? "none"}');
 
     return _ScopedAuthenticatedProviders(
       key: scopeKey,
-      userId: user.id,
-      familyId: user.activeFamilyId,
+      userId: userId,
+      familyId: activeFamilyId,
       child: _HomeWidgetSyncAndIntentHost(
         navigationShell: navigationShell,
         child: LayoutBuilder(

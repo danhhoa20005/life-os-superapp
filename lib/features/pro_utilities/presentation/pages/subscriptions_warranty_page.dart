@@ -29,6 +29,8 @@ class SubscriptionsWarrantyPage extends StatefulWidget {
 }
 
 class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   bool _showWarranties = false;
   bool _dueSoonOnly = false;
   String? _selectedWalletId;
@@ -45,9 +47,12 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
     }
   }
 
-  T? _maybeWatch<T>(BuildContext context) {
+  R? _maybeSelect<B extends StateStreamable<S>, S, R>(
+    BuildContext context,
+    R Function(S state) selector,
+  ) {
     try {
-      return context.watch<T>();
+      return context.select<B, R>((bloc) => selector(bloc.state));
     } catch (_) {
       return null;
     }
@@ -55,18 +60,21 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    if (user == null) {
+    final userId = context.select((AuthBloc b) => b.state.user?.id);
+    if (userId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final c = TammySemanticColors.of(context);
     final wallets =
-        _maybeWatch<TransactionListBloc>(context)?.state.wallets ??
+        _maybeSelect<
+          TransactionListBloc,
+          TransactionListState,
+          List<WalletEntity>
+        >(context, (s) => s.wallets) ??
         const <WalletEntity>[];
     final activeWalletId = wallets.any((w) => w.id == _selectedWalletId)
         ? _selectedWalletId
         : (wallets.isNotEmpty ? wallets.first.id : null);
-    final dateFmt = DateFormat('dd/MM/yyyy');
     final now = DateTime.now();
 
     return BlocListener<ProUtilitiesBloc, ProUtilitiesState>(
@@ -100,7 +108,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                     tooltip: 'Thêm gói hoặc bảo hành',
                     onPressed: () => _showSaveDialog(
                       context,
-                      user.id,
+                      userId,
                       defaultWarranty: _showWarranties,
                     ),
                     icon: const Icon(Icons.add_rounded),
@@ -108,6 +116,10 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                 ),
                 Expanded(
                   child: BlocBuilder<ProUtilitiesBloc, ProUtilitiesState>(
+                    buildWhen: (p, n) =>
+                        p.isLoading != n.isLoading ||
+                        p.subscriptionsAndWarranties !=
+                            n.subscriptionsAndWarranties,
                     builder: (context, state) {
                       final dueSoonCount = state.subscriptionsAndWarranties
                           .where((e) => e.isDueSoon(now))
@@ -282,14 +294,24 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                               ),
                               const SizedBox(height: 12),
                               if (!_showWarranties)
-                                SubscriptionIntelligenceBanner(
-                                  subscriptions: state.subscriptionsOnly,
-                                  recentTransactions:
-                                      _maybeWatch<TransactionListBloc>(
-                                        context,
-                                      )?.state.allTransactions ??
-                                      const <TransactionEntity>[],
-                                  referenceNow: now,
+                                Builder(
+                                  builder: (bannerCtx) {
+                                    final recentTransactions =
+                                        _maybeSelect<
+                                          TransactionListBloc,
+                                          TransactionListState,
+                                          List<TransactionEntity>
+                                        >(
+                                          bannerCtx,
+                                          (s) => s.allTransactions,
+                                        ) ??
+                                        const <TransactionEntity>[];
+                                    return SubscriptionIntelligenceBanner(
+                                      subscriptions: state.subscriptionsOnly,
+                                      recentTransactions: recentTransactions,
+                                      referenceNow: now,
+                                    );
+                                  },
                                 ),
 
                               // 2. Segmented Toggle: Subscriptions vs Appliance Warranties
@@ -498,7 +520,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                         ),
                                                       ),
                                                       Text(
-                                                        '${item.providerOrStore.isEmpty ? item.cycle.labelVi : "${item.providerOrStore} · ${item.cycle.labelVi}"} · Hạn: ${dateFmt.format(item.nextBillingOrExpiryDate)}',
+                                                        '${item.providerOrStore.isEmpty ? item.cycle.labelVi : "${item.providerOrStore} · ${item.cycle.labelVi}"} · Hạn: ${_dateFmt.format(item.nextBillingOrExpiryDate)}',
                                                         softWrap: true,
                                                         style: TextStyle(
                                                           fontSize: 12,
@@ -610,14 +632,12 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                               : () => _renewAndRecordToWallet(
                                                                   context,
                                                                   userId:
-                                                                      user.id,
+                                                                      userId,
                                                                   item: item,
                                                                   wallets:
                                                                       wallets,
                                                                   activeWalletId:
                                                                       activeWalletId,
-                                                                  dateFmt:
-                                                                      dateFmt,
                                                                 ),
                                                           icon: isRenewing
                                                               ? const SizedBox(
@@ -686,7 +706,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                         onPressed: () =>
                                                             _showSaveDialog(
                                                               context,
-                                                              user.id,
+                                                              userId,
                                                               existing: item,
                                                             ),
                                                         icon: Icon(
@@ -730,7 +750,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                                               .add(
                                                                 SubscriptionOrWarrantyDeleted(
                                                                   userId:
-                                                                      user.id,
+                                                                      userId,
                                                                   itemId:
                                                                       item.id,
                                                                 ),
@@ -764,7 +784,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
                                     : 'Thêm gói đăng ký theo dõi',
                                 onPressed: () => _showSaveDialog(
                                   context,
-                                  user.id,
+                                  userId,
                                   defaultWarranty: _showWarranties,
                                 ),
                               ),
@@ -789,7 +809,6 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
     required SubscriptionWarrantyEntity item,
     required List<WalletEntity> wallets,
     required String? activeWalletId,
-    required DateFormat dateFmt,
   }) async {
     if (wallets.isEmpty || activeWalletId == null) {
       LifeOsTopToast.show(
@@ -850,7 +869,7 @@ class _SubscriptionsWarrantyPageState extends State<SubscriptionsWarrantyPage> {
     );
     LifeOsTopToast.show(
       context,
-      'Đã ghi gia hạn "${item.title}" vào Ví và dời hạn tới ${dateFmt.format(nextDate)}.',
+      'Đã ghi gia hạn "${item.title}" vào Ví và dời hạn tới ${_dateFmt.format(nextDate)}.',
       kind: LifeOsToastKind.success,
     );
   }
@@ -894,6 +913,8 @@ class _SaveSubscriptionWarrantyDialog extends StatefulWidget {
 
 class _SaveSubscriptionWarrantyDialogState
     extends State<_SaveSubscriptionWarrantyDialog> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _titleCtrl = TextEditingController(
     text: widget.existing?.title ?? '',
   );
@@ -1013,7 +1034,7 @@ class _SaveSubscriptionWarrantyDialogState
               },
               icon: const Icon(Icons.event_rounded, size: 18),
               label: Text(
-                'Ngày gia hạn / hết hạn: ${DateFormat('dd/MM/yyyy').format(_targetDate)}',
+                'Ngày gia hạn / hết hạn: ${_dateFmt.format(_targetDate)}',
               ),
             ),
           ],

@@ -72,6 +72,8 @@ class ActivityNotificationsPage extends StatefulWidget {
 }
 
 class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
+  static final DateFormat _timeFmt = DateFormat('dd/MM · HH:mm');
+
   String _selectedFilter = 'all';
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
@@ -448,12 +450,15 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final notifState = context.watch<NotificationIngestionBloc>().state;
-    final txState = context.watch<TransactionListBloc>().state;
-    final calState = context.watch<CalendarBloc>().state;
-    final taskState = context.watch<TaskBloc>().state;
-    final vehicleState = context.watch<VehicleBloc>().state;
-    final timeFmt = DateFormat('dd/MM · HH:mm');
+    final financialNotifications = context.select(
+      (NotificationIngestionBloc b) => b.state.financialNotifications,
+    );
+    final allTransactions = context.select(
+      (TransactionListBloc b) => b.state.allTransactions,
+    );
+    final calendarEvents = context.select((CalendarBloc b) => b.state.events);
+    final tasks = context.select((TaskBloc b) => b.state.tasks);
+    final vehicles = context.select((VehicleBloc b) => b.state.vehicles);
     final now = DateTime.now();
 
     final seenTxIds = <String>{};
@@ -461,7 +466,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
 
     // 1. Real-time Financial Notifications (excluding internal test items)
     for (final fn
-        in notifState.financialNotifications
+        in financialNotifications
             .where((f) => !f.isTestNotification)
             .take(30)) {
       final hasTx = fn.transactionId.isNotEmpty;
@@ -491,7 +496,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
           subtitle: '$amountText\n${fn.content}',
           amountMinor: fn.amountMinor,
           metaBadge: '${fn.statusLabel} · ${fn.sourceLabel}',
-          timeLabel: timeFmt.format(fn.occurredAt),
+          timeLabel: _timeFmt.format(fn.occurredAt),
           icon: fn.direction == 'credit'
               ? Icons.south_west_rounded
               : Icons.north_east_rounded,
@@ -515,7 +520,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
     }
 
     // 2. Remaining Transactions not yet represented in financialNotifications
-    for (final tx in txState.allTransactions.take(20)) {
+    for (final tx in allTransactions.take(20)) {
       if (seenTxIds.contains(tx.id)) continue;
       final isCredit = tx.direction == 'credit';
       final srcLabel = switch (tx.sourceKind.name) {
@@ -549,7 +554,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
               '${isCredit ? "+" : "-"}${VndAmount.format(tx.amountMinor)} · ${tx.merchant}',
           amountMinor: tx.amountMinor,
           metaBadge: '$verificationLabel · $srcLabel',
-          timeLabel: timeFmt.format(tx.occurredAt),
+          timeLabel: _timeFmt.format(tx.occurredAt),
           icon: Icons.account_balance_wallet_outlined,
           tone: isCredit ? LifeOsAccentTone.emerald : LifeOsAccentTone.coral,
           targetRoute: '/auto-tx-review',
@@ -560,7 +565,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
 
     // 3. Upcoming Calendar, Open Tasks & Vehicle Reminders
     for (final ev
-        in calState.events
+        in calendarEvents
             .where(
               (e) => !e.endsAt.isBefore(now.subtract(const Duration(days: 1))),
             )
@@ -575,7 +580,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
           title: 'Sự kiện lịch: ${ev.title}',
           subtitle: ev.location ?? 'Lịch hẹn đã đồng bộ',
           metaBadge: 'Lịch trình',
-          timeLabel: timeFmt.format(ev.startsAt),
+          timeLabel: _timeFmt.format(ev.startsAt),
           icon: Icons.calendar_today_rounded,
           tone: LifeOsAccentTone.blue,
           targetRoute: '/event-detail',
@@ -584,7 +589,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
       );
     }
     for (final t
-        in taskState.tasks
+        in tasks
             .where(
               (t) => t.status.name != 'done' && t.status.name != 'declined',
             )
@@ -602,7 +607,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
           title: 'Công việc: ${t.title}',
           subtitle: 'Giao cho ${t.assigneeName}',
           metaBadge: isUrgent ? 'Quá hạn' : 'Việc cần làm',
-          timeLabel: t.dueAt != null ? timeFmt.format(t.dueAt!) : 'Hôm nay',
+          timeLabel: t.dueAt != null ? _timeFmt.format(t.dueAt!) : 'Hôm nay',
           icon: Icons.task_alt_rounded,
           tone: isUrgent ? LifeOsAccentTone.coral : LifeOsAccentTone.amber,
           targetRoute: '/tasks-board',
@@ -610,7 +615,7 @@ class _ActivityNotificationsPageState extends State<ActivityNotificationsPage> {
         ),
       );
     }
-    for (final v in vehicleState.vehicles.take(2)) {
+    for (final v in vehicles.take(2)) {
       final isOverdue = v.remainingKm < 0;
       items.add(
         _ActivityFeedMeta(
@@ -1306,25 +1311,31 @@ class _SettingsHubPageState extends State<SettingsHubPage>
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
+    final user = context.select((AuthBloc b) => b.state.user);
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final c = TammySemanticColors.of(context);
-    final notifState = context.watch<NotificationIngestionBloc>().state;
-    final bankConsentEnabled = notifState.consent?.enabled ?? false;
-    final calState = context.watch<CalendarBloc>().state;
-    final calendarSyncEnabled = calState.isGoogleAuthorized;
-    final themeState = context.watch<ThemeBloc>().state;
-    final isDark = themeState.themeMode == ThemeMode.dark;
+    final bankConsentEnabled = context.select(
+      (NotificationIngestionBloc b) => b.state.consent?.enabled ?? false,
+    );
+    final calendarSyncEnabled = context.select(
+      (CalendarBloc b) => b.state.isGoogleAuthorized,
+    );
+    final themeSummary = context.select(
+      (ThemeBloc b) => (
+        isDark: b.state.themeMode == ThemeMode.dark,
+        modeLabel: b.state.themeModeLabel,
+        textScalePercent: b.state.textScalePercent,
+      ),
+    );
+    final isDark = themeSummary.isDark;
 
     var geminiReady = false;
     try {
-      geminiReady = context
-          .watch<GeminiCopilotBloc>()
-          .state
-          .config
-          .isReadyForCloud;
+      geminiReady = context.select(
+        (GeminiCopilotBloc b) => b.state.config.isReadyForCloud,
+      );
     } catch (_) {}
 
     final allItems = <_SettingsItemSpec>[
@@ -1414,8 +1425,12 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         trailing: Switch(
           value: bankConsentEnabled,
           onChanged: (v) {
-            final pkgs = notifState.consent?.allowedPackages.isNotEmpty == true
-                ? notifState.consent!.allowedPackages
+            final consent = context
+                .read<NotificationIngestionBloc>()
+                .state
+                .consent;
+            final pkgs = consent?.allowedPackages.isNotEmpty == true
+                ? consent!.allowedPackages
                 : kSupportedVnBanks.map((b) => b.packageName).toList();
             context.read<NotificationIngestionBloc>().add(
               ConsentConfigUpdated(
@@ -1463,7 +1478,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         subtitle: 'Chỉnh tỷ lệ chữ & mật độ hiển thị',
         keywords: 'co chu aa bo cuc phong to thu nho',
         statusPillLabel:
-            '${themeState.themeModeLabel} · ${themeState.textScalePercent}%',
+            '${themeSummary.modeLabel} · ${themeSummary.textScalePercent}%',
         statusPillTone: LifeOsAccentTone.emerald,
         onTap: () => showLifeOsAppearanceSheet(context),
       ),

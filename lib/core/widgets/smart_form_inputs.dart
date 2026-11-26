@@ -632,6 +632,9 @@ enum VietnameseRelativeTimePreset {
 /// Pure-Dart deterministic Vietnamese relative date/time resolver with explicit
 /// human-readable disambiguation labels (e.g., `'Hiểu là: Thứ Hai, 30/11 lúc 09:00'`).
 abstract final class VietnameseRelativeTimeResolver {
+  static final DateFormat _ddMmFmt = DateFormat('dd/MM');
+  static final DateFormat _hhMmFmt = DateFormat('HH:mm');
+
   static String weekdayVi(DateTime dt) => switch (dt.weekday) {
     DateTime.monday => 'Thứ Hai',
     DateTime.tuesday => 'Thứ Ba',
@@ -644,8 +647,8 @@ abstract final class VietnameseRelativeTimeResolver {
   };
 
   static String formatExplanation(DateTime dt) {
-    final ddMm = DateFormat('dd/MM').format(dt);
-    final hhMm = DateFormat('HH:mm').format(dt);
+    final ddMm = _ddMmFmt.format(dt);
+    final hhMm = _hhMmFmt.format(dt);
     return 'Hiểu là: ${weekdayVi(dt)}, $ddMm lúc $hhMm';
   }
 
