@@ -36,7 +36,9 @@ Widget _wrapApp(Widget child, {bool dark = false, double textScale = 1.0}) {
   return MaterialApp(
     theme: dark ? AppTheme.dark() : AppTheme.light(),
     builder: (ctx, inner) => MediaQuery(
-      data: MediaQuery.of(ctx).copyWith(textScaler: TextScaler.linear(textScale)),
+      data: MediaQuery.of(
+        ctx,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
       child: LifeOsTopToastHost(child: inner!),
     ),
     home: child,
@@ -245,7 +247,9 @@ void main() {
         // Raw JSON preview is masked by PrivacyMaskFormatter until revealed
         expect(find.textContaining('••••••••••••••••••••'), findsOneWidget);
         expect(find.textContaining('Nhấn biểu tượng mắt'), findsOneWidget);
-        await tester.tap(find.byKey(const Key('backup_toggle_raw_preview_btn')));
+        await tester.tap(
+          find.byKey(const Key('backup_toggle_raw_preview_btn')),
+        );
         await tester.pumpAndSettle();
         expect(find.textContaining('LIFEOS_BACKUP_V3'), findsOneWidget);
 
@@ -407,9 +411,7 @@ void main() {
         // Expand Chi tiết on report card -> see per-wallet matched balance verification
         await tester.drag(sheetList, const Offset(0, -420));
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const Key('backup_report_details_toggle')),
-        );
+        await tester.tap(find.byKey(const Key('backup_report_details_toggle')));
         await tester.pumpAndSettle();
         await tester.drag(sheetList, const Offset(0, -240));
         await tester.pumpAndSettle();
@@ -688,8 +690,14 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(bloc.state.lastExportedArchive, isNotNull);
-        expect(bloc.state.lastExportedArchive!.contains('PBKDF2-HMAC-SHA256'), isTrue);
-        expect(bloc.state.lastExportedArchive!.contains('Bí mật riêng tư'), isFalse);
+        expect(
+          bloc.state.lastExportedArchive!.contains('PBKDF2-HMAC-SHA256'),
+          isTrue,
+        );
+        expect(
+          bloc.state.lastExportedArchive!.contains('Bí mật riêng tư'),
+          isFalse,
+        );
         expect(clipboardSetCalls, 0);
 
         await tester.pump(const Duration(seconds: 4));

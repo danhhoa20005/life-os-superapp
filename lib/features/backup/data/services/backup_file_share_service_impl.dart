@@ -41,15 +41,12 @@ class MethodChannelBackupFileShareService implements BackupFileShareService {
         defaultTargetPlatform == TargetPlatform.android) {
       try {
         final sharedPath = await _channel
-            .invokeMethod<String>(
-              'shareTextFile',
-              <String, dynamic>{
-                'fileName': fileName,
-                'content': content,
-                'mimeType': mimeType,
-                'title': title,
-              },
-            )
+            .invokeMethod<String>('shareTextFile', <String, dynamic>{
+              'fileName': fileName,
+              'content': content,
+              'mimeType': mimeType,
+              'title': title,
+            })
             .timeout(_platformTimeout);
         if (sharedPath != null && sharedPath.trim().isNotEmpty) {
           return BackupShareOutcome(

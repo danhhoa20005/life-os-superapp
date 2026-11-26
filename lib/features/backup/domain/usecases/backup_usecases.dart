@@ -113,7 +113,8 @@ final class RestoreBackupArchiveParams {
 }
 
 class RestoreBackupArchiveUseCase
-    implements UseCase<BackupRestoreExecutionReport, RestoreBackupArchiveParams> {
+    implements
+        UseCase<BackupRestoreExecutionReport, RestoreBackupArchiveParams> {
   final BackupRepository _repository;
   const RestoreBackupArchiveUseCase(this._repository);
 

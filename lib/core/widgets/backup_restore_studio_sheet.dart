@@ -197,8 +197,12 @@ class _BackupServiceUnavailableSheetState
                         enabled: false,
                         decoration: InputDecoration(
                           isDense: true,
-                          labelText: 'Mật khẩu mã hóa bản sao lưu (khuyên dùng)',
-                          prefixIcon: Icon(Icons.lock_outline_rounded, size: 18),
+                          labelText:
+                              'Mật khẩu mã hóa bản sao lưu (khuyên dùng)',
+                          prefixIcon: Icon(
+                            Icons.lock_outline_rounded,
+                            size: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -224,7 +228,10 @@ class _BackupServiceUnavailableSheetState
                               minimumSize: const Size(48, 48),
                             ),
                             onPressed: null,
-                            icon: const Icon(Icons.table_view_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.table_view_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Xuất giao dịch CSV'),
                           ),
                         ],
@@ -260,7 +267,8 @@ class _BackupServiceUnavailableSheetState
                         maxLines: 3,
                         decoration: InputDecoration(
                           isDense: true,
-                          hintText: 'Dán nội dung JSON / .lfbk sao lưu tại đây...',
+                          hintText:
+                              'Dán nội dung JSON / .lfbk sao lưu tại đây...',
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -383,11 +391,7 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
       listener: (ctx, state) {
         final fb = state.toastFeedback;
         if (fb == null) return;
-        LifeOsTopToast.show(
-          ctx,
-          fb.messageVi,
-          kind: _mapToastKind(fb.tone),
-        );
+        LifeOsTopToast.show(ctx, fb.messageVi, kind: _mapToastKind(fb.tone));
       },
       builder: (context, state) {
         final summary = state.summary;
@@ -572,7 +576,10 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                             ),
                           );
                         },
-                  icon: const Icon(Icons.enhanced_encryption_outlined, size: 18),
+                  icon: const Icon(
+                    Icons.enhanced_encryption_outlined,
+                    size: 18,
+                  ),
                   label: const Text('Tạo bản sao lưu đầy đủ'),
                 ),
                 OutlinedButton.icon(
@@ -618,13 +625,17 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                     ),
                   ],
                   const SizedBox(height: 6),
-                  for (final limit in BackupCollectionCatalog.defaultLimitationsVi)
+                  for (final limit
+                      in BackupCollectionCatalog.defaultLimitationsVi)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3),
                       child: Text(
                         '• $limit',
                         softWrap: true,
-                        style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: c.textSecondary,
+                        ),
                       ),
                     ),
                 ],

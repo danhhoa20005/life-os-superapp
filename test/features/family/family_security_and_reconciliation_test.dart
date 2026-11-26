@@ -31,11 +31,7 @@ class _PermissionDeniedWriteBatch extends Fake implements WriteBatch {
   void update<T>(DocumentReference<T> document, T data) {}
 
   @override
-  void set<T>(
-    DocumentReference<T> document,
-    T data, [
-    SetOptions? options,
-  ]) {}
+  void set<T>(DocumentReference<T> document, T data, [SetOptions? options]) {}
 
   @override
   Future<void> commit() async {
@@ -182,45 +178,47 @@ void main() {
           ),
           'createdAt': Timestamp.fromDate(DateTime.now()),
         });
-        final maiUnverified = await FamilyRepositoryImpl(
-          FamilyRemoteDataSource(
-            fs,
-            firebaseAuth: MockFirebaseAuth(
-              signedIn: true,
-              mockUser: MockUser(
-                uid: 'u_mai',
-                email: 'mai@lifeos.vn',
-                isEmailVerified: false,
+        final maiUnverified =
+            await FamilyRepositoryImpl(
+              FamilyRemoteDataSource(
+                fs,
+                firebaseAuth: MockFirebaseAuth(
+                  signedIn: true,
+                  mockUser: MockUser(
+                    uid: 'u_mai',
+                    email: 'mai@lifeos.vn',
+                    isEmailVerified: false,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ).joinFamilyByInvite(
-          userId: 'u_mai',
-          userName: 'Mai',
-          inviteCode: emailCode,
-        );
+            ).joinFamilyByInvite(
+              userId: 'u_mai',
+              userName: 'Mai',
+              inviteCode: emailCode,
+            );
         expect(maiUnverified, isA<Err<FamilyEntity>>());
         expect(
           (maiUnverified as Err<FamilyEntity>).failure.message,
           contains('Cần xác minh email trước khi tham gia nhóm'),
         );
-        final maiVerified = await FamilyRepositoryImpl(
-          FamilyRemoteDataSource(
-            fs,
-            firebaseAuth: MockFirebaseAuth(
-              signedIn: true,
-              mockUser: MockUser(
-                uid: 'u_mai',
-                email: 'mai@lifeos.vn',
-                isEmailVerified: true,
+        final maiVerified =
+            await FamilyRepositoryImpl(
+              FamilyRemoteDataSource(
+                fs,
+                firebaseAuth: MockFirebaseAuth(
+                  signedIn: true,
+                  mockUser: MockUser(
+                    uid: 'u_mai',
+                    email: 'mai@lifeos.vn',
+                    isEmailVerified: true,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ).joinFamilyByInvite(
-          userId: 'u_mai',
-          userName: 'Mai',
-          inviteCode: emailCode,
-        );
+            ).joinFamilyByInvite(
+              userId: 'u_mai',
+              userName: 'Mai',
+              inviteCode: emailCode,
+            );
         expect(maiVerified, isA<Success<FamilyEntity>>());
 
         // 3. Targeted invite with inviteeUid: only matching UID joins
@@ -246,33 +244,35 @@ void main() {
           ),
           'createdAt': Timestamp.fromDate(DateTime.now()),
         });
-        final wrongUidRes = await FamilyRepositoryImpl(
-          FamilyRemoteDataSource(
-            fs,
-            firebaseAuth: MockFirebaseAuth(
-              signedIn: true,
-              mockUser: MockUser(uid: 'u_not_bob', isEmailVerified: true),
-            ),
-          ),
-        ).joinFamilyByInvite(
-          userId: 'u_not_bob',
-          userName: 'Fake Bob',
-          inviteCode: uidCode,
-        );
+        final wrongUidRes =
+            await FamilyRepositoryImpl(
+              FamilyRemoteDataSource(
+                fs,
+                firebaseAuth: MockFirebaseAuth(
+                  signedIn: true,
+                  mockUser: MockUser(uid: 'u_not_bob', isEmailVerified: true),
+                ),
+              ),
+            ).joinFamilyByInvite(
+              userId: 'u_not_bob',
+              userName: 'Fake Bob',
+              inviteCode: uidCode,
+            );
         expect(wrongUidRes, isA<Err<FamilyEntity>>());
-        final rightUidRes = await FamilyRepositoryImpl(
-          FamilyRemoteDataSource(
-            fs,
-            firebaseAuth: MockFirebaseAuth(
-              signedIn: true,
-              mockUser: MockUser(uid: 'u_bob_exact'),
-            ),
-          ),
-        ).joinFamilyByInvite(
-          userId: 'u_bob_exact',
-          userName: 'Bob',
-          inviteCode: uidCode,
-        );
+        final rightUidRes =
+            await FamilyRepositoryImpl(
+              FamilyRemoteDataSource(
+                fs,
+                firebaseAuth: MockFirebaseAuth(
+                  signedIn: true,
+                  mockUser: MockUser(uid: 'u_bob_exact'),
+                ),
+              ),
+            ).joinFamilyByInvite(
+              userId: 'u_bob_exact',
+              userName: 'Bob',
+              inviteCode: uidCode,
+            );
         expect(rightUidRes, isA<Success<FamilyEntity>>());
 
         // 4. Open invite still works without verified email
@@ -307,7 +307,9 @@ void main() {
 
         // 5. Rules permission-denied on batch commit maps to clear Vietnamese prompt
         final deniedFs = _PermissionDeniedBatchFirestore();
-        final seedOwner = FamilyRepositoryImpl(FamilyRemoteDataSource(deniedFs));
+        final seedOwner = FamilyRepositoryImpl(
+          FamilyRemoteDataSource(deniedFs),
+        );
         final deniedFam =
             (await seedOwner.createFamily(
                       userId: 'u_owner',
@@ -396,16 +398,16 @@ void main() {
             totalAmountMinor: 100000,
             splitMethod: SplitMethod.equal,
             participantIds: const ['u_1', 'u_2', 'u_3'],
-            participantNames: const {
-              'u_1': 'An',
-              'u_2': 'Bình',
-              'u_3': 'Chi',
-            },
+            participantNames: const {'u_1': 'An', 'u_2': 'Bình', 'u_3': 'Chi'},
           ),
         );
         expect(exact3Res, isA<Success<SharedBillSplitEntity>>());
         final bill3 = (exact3Res as Success<SharedBillSplitEntity>).value;
-        expect(bill3.sharesByUserId, {'u_1': 33334, 'u_2': 33333, 'u_3': 33333});
+        expect(bill3.sharesByUserId, {
+          'u_1': 33334,
+          'u_2': 33333,
+          'u_3': 33333,
+        });
         expect(bill3.sharesSumMinor, 100000);
         expect(bill3.isSharesBalanced, isTrue);
         expect(bill3.needsReconciliation, isFalse);
@@ -448,7 +450,9 @@ void main() {
 
         // 3. Exceeding 20 participants rejected in both UseCase and DataSource
         final tooManyIds = List.generate(21, (i) => 'u_${i + 1}');
-        final tooManyNames = {for (final id in tooManyIds) id: 'Thành viên $id'};
+        final tooManyNames = {
+          for (final id in tooManyIds) id: 'Thành viên $id',
+        };
         final tooManyUseCase = await useCase(
           CreateSharedBillSplitParams(
             familyId: fam.id,
@@ -494,10 +498,7 @@ void main() {
           createdAt: DateTime(2026, 11, 1),
         );
         expect(legacyBroken.needsReconciliation, isTrue);
-        expect(
-          legacyBroken.reconciliationStatus.displayLabel,
-          'Cần đối soát',
-        );
+        expect(legacyBroken.reconciliationStatus.displayLabel, 'Cần đối soát');
         expect(legacyBroken.discrepancyMinor, 50000);
 
         final summary = DebtSimplifier.summarize(
@@ -687,7 +688,10 @@ void main() {
         await tester.tap(find.text('Chi tiết sổ chung'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.textContaining('Tổng chi đã đối soát: 90.000'), findsOneWidget);
+        expect(
+          find.textContaining('Tổng chi đã đối soát: 90.000'),
+          findsOneWidget,
+        );
         await tester.scrollUntilVisible(
           find.text('Cân đối chi tiêu thành viên'),
           250,
@@ -721,14 +725,8 @@ void main() {
         );
         await tester.pump();
         expect(find.text('Cần đối soát'), findsWidgets);
-        expect(
-          find.textContaining('Tổng hóa đơn 100.000'),
-          findsOneWidget,
-        );
-        expect(
-          find.textContaining('Tổng phần chia 70.000'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('Tổng hóa đơn 100.000'), findsOneWidget);
+        expect(find.textContaining('Tổng phần chia 70.000'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();

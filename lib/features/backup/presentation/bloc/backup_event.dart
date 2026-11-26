@@ -21,10 +21,7 @@ final class BackupExportJsonRequested extends BackupEvent {
   final String userId;
   final String passphrase;
 
-  const BackupExportJsonRequested({
-    required this.userId,
-    this.passphrase = '',
-  });
+  const BackupExportJsonRequested({required this.userId, this.passphrase = ''});
 
   @override
   List<Object?> get props => [userId, passphrase];
@@ -63,11 +60,7 @@ final class BackupRestoreSubmitted extends BackupEvent {
   });
 
   @override
-  List<Object?> get props => [
-    targetUserId,
-    mode,
-    explicitReplaceConfirmation,
-  ];
+  List<Object?> get props => [targetUserId, mode, explicitReplaceConfirmation];
 }
 
 final class BackupFeedbackCleared extends BackupEvent {

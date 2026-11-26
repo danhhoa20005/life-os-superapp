@@ -22,11 +22,43 @@ class BackupArchiveCodec {
   static const int maxV3DecodeIterations = 2000000;
 
   static const List<int> _hkdfEncInfo = <int>[
-    108, 105, 102, 101, 111, 115, 45, 98, 97, 99, 107, 117, 112, 45, 118, 51, 45,
+    108,
+    105,
+    102,
+    101,
+    111,
+    115,
+    45,
+    98,
+    97,
+    99,
+    107,
+    117,
+    112,
+    45,
+    118,
+    51,
+    45,
     101, 110, 99, // "lifeos-backup-v3-enc"
   ];
   static const List<int> _hkdfMacInfo = <int>[
-    108, 105, 102, 101, 111, 115, 45, 98, 97, 99, 107, 117, 112, 45, 118, 51, 45,
+    108,
+    105,
+    102,
+    101,
+    111,
+    115,
+    45,
+    98,
+    97,
+    99,
+    107,
+    117,
+    112,
+    45,
+    118,
+    51,
+    45,
     109, 97, 99, // "lifeos-backup-v3-mac"
   ];
 
@@ -64,7 +96,9 @@ class BackupArchiveCodec {
     }
     final clonedCollections = <String, List<Map<String, dynamic>>>{
       for (final entry in collections.entries)
-        entry.key: entry.value.map((m) => Map<String, dynamic>.from(m)).toList(),
+        entry.key: entry.value
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList(),
     };
     final codec = this;
     return runBackupCryptoTask(
@@ -91,10 +125,8 @@ class BackupArchiveCodec {
     }
     final codec = this;
     return runBackupCryptoTask(
-      () => codec.previewAndValidateSync(
-        rawArchiveText,
-        passphrase: passphrase,
-      ),
+      () =>
+          codec.previewAndValidateSync(rawArchiveText, passphrase: passphrase),
     );
   }
 
@@ -192,7 +224,8 @@ class BackupArchiveCodec {
 
     if (root['encrypted'] != true &&
         format != LifeOsBackupRestoreEngine.magicEnvelope) {
-      if ((normalizedCols[BackupCollectionCatalog.events] ?? const []).isEmpty &&
+      if ((normalizedCols[BackupCollectionCatalog.events] ?? const [])
+              .isEmpty &&
           root['privateEvents'] is List) {
         normalizedCols[BackupCollectionCatalog.events] =
             (root['privateEvents'] as List)
@@ -332,7 +365,9 @@ class BackupArchiveCodec {
       sha256Hex = actualSha;
       final decoded = jsonDecode(utf8.decode(plainBytes));
       if (decoded is! Map) {
-        throw const FormatException('Dữ liệu sao lưu sau giải mã không hợp lệ.');
+        throw const FormatException(
+          'Dữ liệu sao lưu sau giải mã không hợp lệ.',
+        );
       }
       payloadMap = Map<String, dynamic>.from(decoded);
     } else {

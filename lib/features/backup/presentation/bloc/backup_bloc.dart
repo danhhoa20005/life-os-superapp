@@ -282,7 +282,8 @@ class BackupBloc extends Bloc<BackupEvent, BackupState> {
     final report = (res as Success<BackupRestoreExecutionReport>).value;
     // Refresh live owner summary after commit so counts reflect actual persisted state.
     final refreshedSummaryRes = await _loadSummary(event.targetUserId);
-    final refreshedSummary = refreshedSummaryRes is Success<BackupOwnerDataSummary>
+    final refreshedSummary =
+        refreshedSummaryRes is Success<BackupOwnerDataSummary>
         ? refreshedSummaryRes.value
         : state.summary;
 

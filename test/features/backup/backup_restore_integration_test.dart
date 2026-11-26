@@ -25,13 +25,16 @@ import 'package:life_os/features/transactions/domain/usecases/transaction_usecas
 import 'package:life_os/features/vehicles/data/repositories/vehicle_repository_impl.dart';
 import 'package:life_os/features/vehicles/domain/entities/vehicle_entities.dart';
 
-Future<({
-  int bankBalanceMinor,
-  int cardBalanceMinor,
-  int totalTxCount,
-  String bankWalletId,
-  String cardWalletId,
-})> _seedRichOwnerAccount({
+Future<
+  ({
+    int bankBalanceMinor,
+    int cardBalanceMinor,
+    int totalTxCount,
+    String bankWalletId,
+    String cardWalletId,
+  })
+>
+_seedRichOwnerAccount({
   required FakeFirebaseFirestore db,
   required String userId,
 }) async {
@@ -324,10 +327,7 @@ Future<({
               as Success<List<WalletEntity>>)
           .value;
   final finalTxs =
-      (await txRepo.fetchAllTransactionsPaginated(
-                userId: userId,
-                pageSize: 25,
-              )
+      (await txRepo.fetchAllTransactionsPaginated(userId: userId, pageSize: 25)
               as Success<List<TransactionEntity>>)
           .value;
 
@@ -479,9 +479,7 @@ void main() {
                 .value;
         expect(dstTxs.length, 122);
 
-        final transferTx = dstTxs.firstWhere(
-          (t) => t.id == 'tx_m2_transfer_1',
-        );
+        final transferTx = dstTxs.firstWhere((t) => t.id == 'tx_m2_transfer_1');
         expect(transferTx.kind, TransactionKind.transfer);
         expect(transferTx.walletId, seeded.bankWalletId);
         expect(transferTx.targetWalletId, seeded.cardWalletId);
@@ -552,9 +550,9 @@ void main() {
         expect(dstVehicles.single.name, 'Honda Vision');
 
         final dstMaint =
-            (await VehicleRepositoryImpl(VehicleRemoteDataSource(db))
-                        .watchMaintenanceHistory(vehicle: dstVehicles.single)
-                        .first
+            (await VehicleRepositoryImpl(
+                      VehicleRemoteDataSource(db),
+                    ).watchMaintenanceHistory(vehicle: dstVehicles.single).first
                     as Success<List<MaintenanceRecordEntity>>)
                 .value;
         expect(dstMaint.length, 1);
@@ -658,11 +656,15 @@ void main() {
                 .value;
         expect(dstWallets.length, 2);
         expect(
-          dstWallets.firstWhere((w) => w.id == seeded.bankWalletId).balanceMinor,
+          dstWallets
+              .firstWhere((w) => w.id == seeded.bankWalletId)
+              .balanceMinor,
           seeded.bankBalanceMinor,
         );
         expect(
-          dstWallets.firstWhere((w) => w.id == seeded.cardWalletId).balanceMinor,
+          dstWallets
+              .firstWhere((w) => w.id == seeded.cardWalletId)
+              .balanceMinor,
           seeded.cardBalanceMinor,
         );
 

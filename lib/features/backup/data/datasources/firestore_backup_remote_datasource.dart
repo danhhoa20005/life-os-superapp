@@ -44,39 +44,37 @@ class FirestoreBackupRemoteDataSource {
     String colName,
   ) => _userRef(userId).collection(colName);
 
-  static const Map<String, String> _firestoreCollectionByBackupKey =
-      <String, String>{
-        BackupCollectionCatalog.wallets: 'wallets',
-        BackupCollectionCatalog.categories: 'categories',
-        BackupCollectionCatalog.transactions: 'transactions',
-        BackupCollectionCatalog.budgets: 'budgets',
-        BackupCollectionCatalog.personalFunds: 'personal_funds',
-        BackupCollectionCatalog.calendars: 'calendars',
-        BackupCollectionCatalog.tasks: 'personal_tasks',
-        BackupCollectionCatalog.events: 'private_events',
-        BackupCollectionCatalog.vehicles: 'vehicles',
-        BackupCollectionCatalog.bills: 'bills',
-        BackupCollectionCatalog.notes: 'life_notes',
-        BackupCollectionCatalog.documents: 'documents',
-        BackupCollectionCatalog.medications: 'medications',
-        BackupCollectionCatalog.healthLogs: 'health_logs',
-        BackupCollectionCatalog.medicalProfiles: 'medical_profiles',
-        BackupCollectionCatalog.groceryItems: 'grocery_items',
-        BackupCollectionCatalog.mealPlans: 'meal_plans',
-        BackupCollectionCatalog.utilityReadings: 'utility_readings',
-        BackupCollectionCatalog.homeContracts: 'home_contracts',
-        BackupCollectionCatalog.subscriptionsWarranties:
-            'subscriptions_warranties',
-        BackupCollectionCatalog.habits: 'habits',
-        BackupCollectionCatalog.wellnessDaily: 'wellness_daily',
-        BackupCollectionCatalog.giftLedger: 'gift_ledger',
-        BackupCollectionCatalog.packingItems: 'packing_items',
-        BackupCollectionCatalog.automationRules: 'automation_rules',
-        BackupCollectionCatalog.merchantRules: 'merchant_rules',
-        BackupCollectionCatalog.aiPersonalizationRules:
-            'ai_personalization_rules',
-        BackupCollectionCatalog.bankAccounts: 'bank_accounts',
-      };
+  static const Map<String, String>
+  _firestoreCollectionByBackupKey = <String, String>{
+    BackupCollectionCatalog.wallets: 'wallets',
+    BackupCollectionCatalog.categories: 'categories',
+    BackupCollectionCatalog.transactions: 'transactions',
+    BackupCollectionCatalog.budgets: 'budgets',
+    BackupCollectionCatalog.personalFunds: 'personal_funds',
+    BackupCollectionCatalog.calendars: 'calendars',
+    BackupCollectionCatalog.tasks: 'personal_tasks',
+    BackupCollectionCatalog.events: 'private_events',
+    BackupCollectionCatalog.vehicles: 'vehicles',
+    BackupCollectionCatalog.bills: 'bills',
+    BackupCollectionCatalog.notes: 'life_notes',
+    BackupCollectionCatalog.documents: 'documents',
+    BackupCollectionCatalog.medications: 'medications',
+    BackupCollectionCatalog.healthLogs: 'health_logs',
+    BackupCollectionCatalog.medicalProfiles: 'medical_profiles',
+    BackupCollectionCatalog.groceryItems: 'grocery_items',
+    BackupCollectionCatalog.mealPlans: 'meal_plans',
+    BackupCollectionCatalog.utilityReadings: 'utility_readings',
+    BackupCollectionCatalog.homeContracts: 'home_contracts',
+    BackupCollectionCatalog.subscriptionsWarranties: 'subscriptions_warranties',
+    BackupCollectionCatalog.habits: 'habits',
+    BackupCollectionCatalog.wellnessDaily: 'wellness_daily',
+    BackupCollectionCatalog.giftLedger: 'gift_ledger',
+    BackupCollectionCatalog.packingItems: 'packing_items',
+    BackupCollectionCatalog.automationRules: 'automation_rules',
+    BackupCollectionCatalog.merchantRules: 'merchant_rules',
+    BackupCollectionCatalog.aiPersonalizationRules: 'ai_personalization_rules',
+    BackupCollectionCatalog.bankAccounts: 'bank_accounts',
+  };
 
   static const Map<String, Set<String>> _defaultTimestampFields =
       <String, Set<String>>{
@@ -194,10 +192,7 @@ class FirestoreBackupRemoteDataSource {
       );
       if (key == BackupCollectionCatalog.events) {
         result[key] = colDocs
-            .where(
-              (d) =>
-                  d.data()['syncStatus']?.toString() != 'pendingDelete',
-            )
+            .where((d) => d.data()['syncStatus']?.toString() != 'pendingDelete')
             .map((d) => _sanitizeFirestoreDoc(d.id, d.data()))
             .toList();
       } else if (key == BackupCollectionCatalog.documents) {
@@ -314,14 +309,18 @@ class FirestoreBackupRemoteDataSource {
     };
 
     final existingTxRes = await _transactionRepository
-        .fetchAllTransactionsPaginated(userId: targetUserId, pageSize: _pageSize);
+        .fetchAllTransactionsPaginated(
+          userId: targetUserId,
+          pageSize: _pageSize,
+        );
     if (existingTxRes is Err<List<TransactionEntity>>) {
       throw AppException(
         code: existingTxRes.failure.code,
         message: existingTxRes.failure.message,
       );
     }
-    final existingTxs = (existingTxRes as Success<List<TransactionEntity>>).value;
+    final existingTxs =
+        (existingTxRes as Success<List<TransactionEntity>>).value;
     final existingTxById = <String, TransactionEntity>{
       for (final tx in existingTxs) tx.id: tx,
     };
@@ -449,9 +448,7 @@ class FirestoreBackupRemoteDataSource {
           ? resolveWalletId(rawTargetWallet)
           : null;
 
-      final verification = _parseVerification(
-        raw['verification']?.toString(),
-      );
+      final verification = _parseVerification(raw['verification']?.toString());
       final direction = _resolveDirection(
         kind: kind,
         rawDirection: raw['direction']?.toString(),
@@ -799,28 +796,28 @@ class FirestoreBackupRemoteDataSource {
         failureMessages.add('Gián đoạn khi tạo ví "${w.name}": $e');
       }
       completedUnits++;
-      reportProgress('Đang khôi phục ví (${statsFor(BackupCollectionCatalog.wallets).committedCount}/${incomingWallets.length})...');
+      reportProgress(
+        'Đang khôi phục ví (${statsFor(BackupCollectionCatalog.wallets).committedCount}/${incomingWallets.length})...',
+      );
     }
 
     // 7. Replay transactions: Pass 1 = non-reversals; Pass 2 = reversals.
     if (!aborted) {
       reportProgress('Đang khôi phục lịch sử giao dịch...');
     }
-    final nonReversals = incomingTxs
-        .where((t) => t.kind != TransactionKind.reversal)
-        .toList()
-      ..sort((a, b) {
-        final cmp = a.occurredAt.compareTo(b.occurredAt);
-        return cmp != 0 ? cmp : a.targetId.compareTo(b.targetId);
-      });
+    final nonReversals =
+        incomingTxs.where((t) => t.kind != TransactionKind.reversal).toList()
+          ..sort((a, b) {
+            final cmp = a.occurredAt.compareTo(b.occurredAt);
+            return cmp != 0 ? cmp : a.targetId.compareTo(b.targetId);
+          });
 
-    final reversals = incomingTxs
-        .where((t) => t.kind == TransactionKind.reversal)
-        .toList()
-      ..sort((a, b) {
-        final cmp = a.occurredAt.compareTo(b.occurredAt);
-        return cmp != 0 ? cmp : a.targetId.compareTo(b.targetId);
-      });
+    final reversals =
+        incomingTxs.where((t) => t.kind == TransactionKind.reversal).toList()
+          ..sort((a, b) {
+            final cmp = a.occurredAt.compareTo(b.occurredAt);
+            return cmp != 0 ? cmp : a.targetId.compareTo(b.targetId);
+          });
 
     for (final tx in nonReversals) {
       if (aborted) break;
@@ -876,7 +873,9 @@ class FirestoreBackupRemoteDataSource {
       }
       completedUnits++;
       if (completedUnits % 10 == 0 || completedUnits == totalPlannedUnits) {
-        reportProgress('Đang khôi phục giao dịch ($completedUnits/$totalPlannedUnits)...');
+        reportProgress(
+          'Đang khôi phục giao dịch ($completedUnits/$totalPlannedUnits)...',
+        );
       }
     }
 
@@ -922,7 +921,9 @@ class FirestoreBackupRemoteDataSource {
       }
       completedUnits++;
       if (completedUnits % 10 == 0 || completedUnits == totalPlannedUnits) {
-        reportProgress('Đang khôi phục giao dịch ($completedUnits/$totalPlannedUnits)...');
+        reportProgress(
+          'Đang khôi phục giao dịch ($completedUnits/$totalPlannedUnits)...',
+        );
       }
     }
 
@@ -932,7 +933,8 @@ class FirestoreBackupRemoteDataSource {
 
     for (final colKey in otherCollectionsOrder) {
       if (aborted) break;
-      final rows = preview.collections[colKey] ?? const <Map<String, dynamic>>[];
+      final rows =
+          preview.collections[colKey] ?? const <Map<String, dynamic>>[];
       if (rows.isEmpty) continue;
 
       reportProgress(
@@ -1066,8 +1068,9 @@ class FirestoreBackupRemoteDataSource {
     );
     final hasMismatches = balanceChecks.any((c) => !c.matched);
 
-    final migratedCount =
-        preview.schemaVersion < 3 ? preview.totalRecordCount : 0;
+    final migratedCount = preview.schemaVersion < 3
+        ? preview.totalRecordCount
+        : 0;
 
     final detailsVi = <String>[];
     if (failedTotal == 0 && !hasMismatches) {
@@ -1084,7 +1087,9 @@ class FirestoreBackupRemoteDataSource {
       );
     }
     if (skippedTotal > 0) {
-      detailsVi.add('Đã bỏ qua $skippedTotal bản ghi đã tồn tại (tránh trùng lặp).');
+      detailsVi.add(
+        'Đã bỏ qua $skippedTotal bản ghi đã tồn tại (tránh trùng lặp).',
+      );
     }
     if (balanceChecks.isNotEmpty) {
       if (!hasMismatches) {
@@ -1275,10 +1280,7 @@ class FirestoreBackupRemoteDataSource {
       ),
     );
     if (res is Err<TransactionEntity>) {
-      throw AppException(
-        code: res.failure.code,
-        message: res.failure.message,
-      );
+      throw AppException(code: res.failure.code, message: res.failure.message);
     }
     var created = (res as Success<TransactionEntity>).value;
 
@@ -1307,7 +1309,8 @@ class FirestoreBackupRemoteDataSource {
         tx.sourceEventKey != null ||
         tx.receivedAt != null;
 
-    if (needsMetadataMerge && !LedgerIntegrityEngine.isImmutableVerified(created)) {
+    if (needsMetadataMerge &&
+        !LedgerIntegrityEngine.isImmutableVerified(created)) {
       final txRef = _userCol(targetUserId, 'transactions').doc(tx.targetId);
       final updates = <String, dynamic>{
         if (needsMonthKeyRestore) 'monthKey': rawMonthKey,
@@ -1410,8 +1413,7 @@ class FirestoreBackupRemoteDataSource {
       // Preserve the backup's historical occurredAt / monthKey / merchant on the reversal record.
       final revRef = _userCol(targetUserId, 'transactions').doc(rev.targetId);
       final rawRevMonthKey = rev.raw['monthKey']?.toString().trim();
-      final monthKey =
-          (rawRevMonthKey != null && rawRevMonthKey.isNotEmpty)
+      final monthKey = (rawRevMonthKey != null && rawRevMonthKey.isNotEmpty)
           ? rawRevMonthKey
           : '${rev.occurredAt.year.toString().padLeft(4, '0')}-${rev.occurredAt.month.toString().padLeft(2, '0')}';
       await revRef.update({
@@ -1425,8 +1427,10 @@ class FirestoreBackupRemoteDataSource {
 
     // Fallback atomic reversal for orphan reversals or non-canonical reversal doc IDs.
     final revRef = _userCol(targetUserId, 'transactions').doc(rev.targetId);
-    final srcWalletRef =
-        _userCol(targetUserId, 'wallets').doc(rev.mappedWalletId);
+    final srcWalletRef = _userCol(
+      targetUserId,
+      'wallets',
+    ).doc(rev.mappedWalletId);
     final targetWalletRef =
         (rev.mappedTargetWalletId != null &&
             rev.mappedTargetWalletId!.isNotEmpty)
@@ -1561,9 +1565,7 @@ class FirestoreBackupRemoteDataSource {
           kind: TransactionKind.reversal,
           direction: rev.direction,
           amountMinor: rev.amountMinor,
-          merchant: rev.merchant.isEmpty
-              ? '[Đảo bút toán]'
-              : rev.merchant,
+          merchant: rev.merchant.isEmpty ? '[Đảo bút toán]' : rev.merchant,
           note: rev.note,
           occurredAt: rev.occurredAt,
           sourceKind: rev.sourceKind,
@@ -1765,8 +1767,14 @@ class FirestoreBackupRemoteDataSource {
         payload.putIfAbsent('priority', () => 'medium');
         payload.putIfAbsent('status', () => 'accepted');
         payload.putIfAbsent('recurrence', () => 'none');
-        payload.putIfAbsent('createdAt', () => Timestamp.fromDate(DateTime.now()));
-        payload.putIfAbsent('updatedAt', () => Timestamp.fromDate(DateTime.now()));
+        payload.putIfAbsent(
+          'createdAt',
+          () => Timestamp.fromDate(DateTime.now()),
+        );
+        payload.putIfAbsent(
+          'updatedAt',
+          () => Timestamp.fromDate(DateTime.now()),
+        );
       case BackupCollectionCatalog.events:
         payload['ownerId'] = targetUserId;
         payload['familyId'] = null;
@@ -1774,9 +1782,15 @@ class FirestoreBackupRemoteDataSource {
         payload.putIfAbsent('calendarId', () => 'primary');
         payload.putIfAbsent('ownerName', () => 'Cá nhân');
         payload.putIfAbsent('syncStatus', () => 'localOnly');
-        payload.putIfAbsent('startsAt', () => Timestamp.fromDate(DateTime.now()));
+        payload.putIfAbsent(
+          'startsAt',
+          () => Timestamp.fromDate(DateTime.now()),
+        );
         payload.putIfAbsent('endsAt', () => Timestamp.fromDate(DateTime.now()));
-        payload.putIfAbsent('updatedAt', () => Timestamp.fromDate(DateTime.now()));
+        payload.putIfAbsent(
+          'updatedAt',
+          () => Timestamp.fromDate(DateTime.now()),
+        );
       case BackupCollectionCatalog.vehicles:
         payload['ownerId'] = targetUserId;
         payload.remove('familyId');

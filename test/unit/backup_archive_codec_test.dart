@@ -319,7 +319,9 @@ void main() {
         expect(v1Preview.walletCount, 1);
         expect(v1Preview.transactionCount, 1);
         expect(
-          v1Preview.collections[BackupCollectionCatalog.transactions]!.first['amountMinor'],
+          v1Preview
+              .collections[BackupCollectionCatalog.transactions]!
+              .first['amountMinor'],
           30000,
         );
         expect(v1Preview.eventCount, 1);
@@ -330,24 +332,19 @@ void main() {
       },
     );
 
-    test(
-      'rejects v3 archive with corrupted plaintextSha256',
-      () {
-        final raw = BackupArchiveCodec.createArchive(
-          ownerId: 'u_tamper',
-          collections: const {},
-        );
-        final decoded = jsonDecode(raw) as Map<String, dynamic>;
-        decoded['sha256'] = sha256.convert(utf8.encode('other')).toString();
+    test('rejects v3 archive with corrupted plaintextSha256', () {
+      final raw = BackupArchiveCodec.createArchive(
+        ownerId: 'u_tamper',
+        collections: const {},
+      );
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      decoded['sha256'] = sha256.convert(utf8.encode('other')).toString();
 
-        expect(
-          () => BackupArchiveCodec.previewAndValidateArchive(
-            jsonEncode(decoded),
-          ),
-          throwsFormatException,
-        );
-      },
-    );
+      expect(
+        () => BackupArchiveCodec.previewAndValidateArchive(jsonEncode(decoded)),
+        throwsFormatException,
+      );
+    });
 
     test(
       'exportTransactionsCsv sanitizes formula-injection cells and includes wallet/note columns',
