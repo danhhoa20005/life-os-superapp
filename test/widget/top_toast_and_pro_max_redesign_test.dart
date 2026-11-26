@@ -689,6 +689,7 @@ void main() {
           mockUser: MockUser(
             uid: inviteeUid,
             email: 'lan@lifeos.vn',
+            isEmailVerified: true,
             displayName: 'Trần Lan',
           ),
         );
