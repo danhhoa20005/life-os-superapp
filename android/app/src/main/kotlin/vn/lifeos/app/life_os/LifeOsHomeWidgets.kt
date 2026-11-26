@@ -14,6 +14,8 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -45,12 +47,77 @@ object LifeOsWidgetStore {
     const val PREFS_NAME = "lifeos_home_widgets_prefs"
     const val KEY_QUEUED_COMMANDS_JSON = "queued_widget_commands_json"
     const val KEY_IS_SIGNED_OUT = "is_signed_out"
+    const val KEY_VOICE_ENGINE_MODE = "preferred_voice_engine_mode"
+    const val KEY_ACTIVE_USER_ID = "active_voice_user_id"
+    const val FLUTTER_SHARED_PREFS_NAME = "FlutterSharedPreferences"
     private const val KEY_LAST_UNDOABLE_JSON = "last_undoable_widget_cmd_json"
 
     fun isSignedOut(context: Context): Boolean {
         return context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(KEY_IS_SIGNED_OUT, false)
+    }
+
+    fun getActiveUserId(context: Context): String? {
+        return context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_ACTIVE_USER_ID, null)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    }
+
+    fun syncPreferredVoiceEngineMode(
+        context: Context,
+        modeWire: String?,
+        userId: String? = null
+    ) {
+        val appCtx = context.applicationContext
+        val editor = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        val normalized = if (modeWire.isNullOrBlank()) {
+            LifeOsWidgetVoicePolicy.DEFAULT_MODE_WIRE
+        } else {
+            LifeOsWidgetVoicePolicy.normalizeEngineMode(modeWire)
+        }
+        editor.putString(KEY_VOICE_ENGINE_MODE, normalized)
+        if (!userId.isNullOrBlank()) {
+            editor.putString(KEY_ACTIVE_USER_ID, userId.trim())
+        }
+        editor.apply()
+    }
+
+    fun clearPreferredVoiceEngineMode(context: Context) {
+        context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_VOICE_ENGINE_MODE)
+            .remove(KEY_ACTIVE_USER_ID)
+            .apply()
+    }
+
+    fun readPreferredVoiceEngineMode(context: Context): String {
+        val appCtx = context.applicationContext
+        val widgetPrefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val activeUid = widgetPrefs.getString(KEY_ACTIVE_USER_ID, null)?.trim()?.takeIf { it.isNotEmpty() }
+        val vaultScopedValue = if (activeUid != null) {
+            LifeOsSecureVault.readSecret(appCtx, LifeOsWidgetVoicePolicy.scopedVaultKey(activeUid))
+        } else {
+            null
+        }
+        val widgetPrefsValue = widgetPrefs.getString(KEY_VOICE_ENGINE_MODE, null)
+        val vaultDefaultValue = LifeOsSecureVault.readSecret(
+            appCtx,
+            LifeOsWidgetVoicePolicy.PREF_BASE_KEY_VOICE_MODE
+        )
+        val flutterSharedPrefsValue = appCtx
+            .getSharedPreferences(FLUTTER_SHARED_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(LifeOsWidgetVoicePolicy.FLUTTER_PREF_KEY_VOICE_MODE, null)
+
+        return LifeOsWidgetVoicePolicy.resolveStoredVoiceMode(
+            vaultScopedValue = vaultScopedValue,
+            widgetPrefsValue = widgetPrefsValue,
+            vaultDefaultValue = vaultDefaultValue,
+            flutterSharedPrefsValue = flutterSharedPrefsValue
+        )
     }
 
     // Legacy / Explicit Open-App Actions (bound ONLY to small corner brand icons)
@@ -634,6 +701,8 @@ object LifeOsWidgetStore {
             .putInt("daily_used_pct", 0)
             .putInt("pending_auto_signals", 0)
             .putBoolean("hide_balances", true)
+            .remove(KEY_VOICE_ENGINE_MODE)
+            .remove(KEY_ACTIVE_USER_ID)
             .apply()
         refreshAllWidgets(appCtx)
     }
@@ -769,6 +838,8 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
     private var overlayDialogGeneration: Long = -1L
 
     private var pendingResumeAfterFocus: Runnable? = null
+    private var cachedVietnameseOnDeviceInstalled: Boolean? = null
+    private var activeDecisionStrictOffline: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -1035,6 +1106,10 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                 if (inputField.text.isNullOrBlank()) {
                     statusLabel.text = msg
                 }
+                if (activeDecisionStrictOffline) {
+                    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+                    inputField.requestFocus()
+                }
             },
             onLaunchSystemDialog = { dialogIntent, sessionId, attemptId ->
                 try {
@@ -1068,6 +1143,141 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
         return created
     }
 
+    private fun isNetworkCurrentlyAvailable(): Boolean {
+        return try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val net = cm.activeNetwork ?: return false
+                val caps = cm.getNetworkCapabilities(net) ?: return false
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            } else {
+                @Suppress("DEPRECATION")
+                cm.activeNetworkInfo?.isConnected == true
+            }
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun resolveWidgetVoiceInput(
+        vietnameseInstalledOverride: Boolean? = null
+    ): WidgetVoiceCapabilityInput {
+        val storedMode = LifeOsWidgetStore.readPreferredVoiceEngineMode(applicationContext)
+        return WidgetVoiceCapabilityInput(
+            storedModeWire = storedMode,
+            sdkInt = Build.VERSION.SDK_INT,
+            isOnDeviceRecognitionAvailable = LifeOsSpeechRecognizerHelper.isOnDeviceRecognitionAvailable(
+                applicationContext
+            ),
+            vietnameseOnDeviceInstalled = vietnameseInstalledOverride ?: cachedVietnameseOnDeviceInstalled,
+            isNetworkAvailable = isNetworkCurrentlyAvailable()
+        )
+    }
+
+    private fun showManualInputGuidance(messageVi: String) {
+        isOverlayListening = false
+        micBtnView.text = "Nói mic tiếng Việt"
+        overlaySessionId = null
+        statusLabel.text = messageVi
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        inputField.requestFocus()
+    }
+
+    private fun buildOverlayVoiceGateway(generation: Long): WidgetVoiceRecognizerGateway {
+        return object : WidgetVoiceRecognizerGateway {
+            override fun startOnDevice(sessionId: String, attemptId: Int, locale: String) {
+                if (isFinishing || isDestroyed || overlaySessionId != sessionId || overlayGeneration != generation) {
+                    return
+                }
+                activeDecisionStrictOffline = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && cachedVietnameseOnDeviceInstalled == null) {
+                    statusLabel.text = "Đang kiểm tra gói tiếng Việt ngoại tuyến trên thiết bị..."
+                    LifeOsSpeechRecognizerHelper.checkVietnameseOnDeviceSupport(applicationContext, locale) { info ->
+                        if (isFinishing || isDestroyed || overlaySessionId != sessionId || overlayGeneration != generation) {
+                            return@checkVietnameseOnDeviceSupport
+                        }
+                        val installed = (info["vietnameseInstalled"] as? Boolean) ?: false
+                        cachedVietnameseOnDeviceInstalled = installed
+                        val verifiedDecision = LifeOsWidgetVoicePolicy.decide(
+                            resolveWidgetVoiceInput(vietnameseInstalledOverride = installed)
+                        )
+                        if (verifiedDecision.choice == WidgetVoiceEngineChoice.ON_DEVICE_ONLY) {
+                            statusLabel.text = verifiedDecision.statusMessageVi
+                            ensureOverlaySpeechHelper().startListening(
+                                sessionId = sessionId,
+                                attemptId = attemptId,
+                                preferSystemDialog = false,
+                                engineMode = "offline_strict",
+                                strictOffline = true,
+                                locale = locale
+                            )
+                        } else {
+                            showManualInputGuidance(verifiedDecision.statusMessageVi)
+                        }
+                    }
+                    return
+                }
+
+                statusLabel.text = "Đang khởi động nhận diện Offline tiếng Việt (Chỉ trên máy)..."
+                ensureOverlaySpeechHelper().startListening(
+                    sessionId = sessionId,
+                    attemptId = attemptId,
+                    preferSystemDialog = false,
+                    engineMode = "offline_strict",
+                    strictOffline = true,
+                    locale = locale
+                )
+            }
+
+            override fun startNetworkSpeech(
+                sessionId: String,
+                attemptId: Int,
+                engineMode: String,
+                locale: String
+            ) {
+                if (isFinishing || isDestroyed || overlaySessionId != sessionId || overlayGeneration != generation) {
+                    return
+                }
+                activeDecisionStrictOffline = false
+                statusLabel.text = if (engineMode == "hybrid_auto") {
+                    "Đang khởi động nhận diện giọng nói tự động..."
+                } else {
+                    "Đang khởi động Google Speech tiếng Việt..."
+                }
+                ensureOverlaySpeechHelper().startListening(
+                    sessionId = sessionId,
+                    attemptId = attemptId,
+                    preferSystemDialog = false,
+                    engineMode = engineMode,
+                    strictOffline = false,
+                    locale = locale
+                )
+            }
+
+            override fun launchSystemDialog(sessionId: String, attemptId: Int, locale: String) {
+                if (isFinishing || isDestroyed || overlaySessionId != sessionId || overlayGeneration != generation) {
+                    return
+                }
+                activeDecisionStrictOffline = false
+                statusLabel.text = "Đang mở Hộp thoại Google tiếng Việt..."
+                ensureOverlaySpeechHelper().startListening(
+                    sessionId = sessionId,
+                    attemptId = attemptId,
+                    preferSystemDialog = true,
+                    engineMode = "system_dialog",
+                    strictOffline = false,
+                    locale = locale
+                )
+            }
+
+            override fun showOfflineManualInput(messageVi: String) {
+                activeDecisionStrictOffline = true
+                showManualInputGuidance(messageVi)
+            }
+        }
+    }
+
     private fun startVoiceListening() {
         overlaySessionPrefix = inputField.text?.toString().orEmpty().trim()
             .trimEnd(',', ';', '.')
@@ -1085,33 +1295,36 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
             this,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
-
-        if (!hasAudioPerm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            VoiceSessionCoordinatorNative.preemptIfOwnedByOther(
-                VoiceSessionCoordinatorNative.OWNER_WIDGET_OVERLAY
-            )
-            speechHelper?.cancelListening(null)
-            overlayPermissionPending = true
-            overlayPermissionSessionId = sessionId
-            overlayPermissionAttemptId = attemptId
-            overlayPermissionGeneration = generation
-            isAwaitingSystemDialog = true
-            statusLabel.text = "Vui lòng cho phép quyền Micro để thu âm..."
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_OVERLAY_RECORD_AUDIO)
-            return
-        }
+        val voiceInput = resolveWidgetVoiceInput()
+        activeDecisionStrictOffline = LifeOsWidgetVoicePolicy.decide(voiceInput).strictOffline
 
         overlayPermissionPending = false
         overlayPermissionSessionId = null
         overlayPermissionGeneration = -1L
-        statusLabel.text = "Đang khởi động Google Speech tiếng Việt..."
-        ensureOverlaySpeechHelper().startListening(
+
+        LifeOsWidgetVoicePolicy.executeBeforePermission(
+            hasAudioPermission = hasAudioPerm || Build.VERSION.SDK_INT < Build.VERSION_CODES.M,
+            input = voiceInput,
             sessionId = sessionId,
             attemptId = attemptId,
-            preferSystemDialog = false,
-            engineMode = "google_service",
-            strictOffline = false,
-            locale = "vi-VN"
+            locale = "vi-VN",
+            requestMicPermission = {
+                VoiceSessionCoordinatorNative.preemptIfOwnedByOther(
+                    VoiceSessionCoordinatorNative.OWNER_WIDGET_OVERLAY
+                )
+                speechHelper?.cancelListening(null)
+                overlayPermissionPending = true
+                overlayPermissionSessionId = sessionId
+                overlayPermissionAttemptId = attemptId
+                overlayPermissionGeneration = generation
+                isAwaitingSystemDialog = true
+                statusLabel.text = "Vui lòng cho phép quyền Micro để thu âm..."
+                requestPermissions(
+                    arrayOf(Manifest.permission.RECORD_AUDIO),
+                    REQ_OVERLAY_RECORD_AUDIO
+                )
+            },
+            gateway = buildOverlayVoiceGateway(generation)
         )
     }
 
@@ -1172,33 +1385,33 @@ class LifeOsWidgetQuickOverlayActivity : Activity() {
                     Manifest.permission.RECORD_AUDIO
                 ) == PackageManager.PERMISSION_GRANTED
 
-            if (!granted) {
-                // Denied permission must NOT auto-launch system dialog!
-                isOverlayListening = false
-                micBtnView.text = "Nói mic tiếng Việt"
-                overlaySessionId = null
-                statusLabel.text = "Chưa có quyền Micro. Hãy gõ nội dung bên dưới hoặc bật quyền Micro trong Cài đặt."
-                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-                inputField.requestFocus()
-                return
-            }
-
             val startTask = Runnable {
                 if (!isFinishing &&
                     !isDestroyed &&
                     overlaySessionId == reqSessionId &&
                     overlayGeneration == reqGen
                 ) {
-                    statusLabel.text = "Đang khởi động Google Speech tiếng Việt..."
-                    ensureOverlaySpeechHelper().startListening(
+                    val voiceInput = resolveWidgetVoiceInput()
+                    activeDecisionStrictOffline = LifeOsWidgetVoicePolicy.decide(voiceInput).strictOffline
+                    LifeOsWidgetVoicePolicy.executeAfterPermission(
+                        permissionGranted = granted,
+                        input = voiceInput,
                         sessionId = reqSessionId,
                         attemptId = reqAttemptId,
-                        preferSystemDialog = false,
-                        engineMode = "google_service",
-                        strictOffline = false,
-                        locale = "vi-VN"
+                        locale = "vi-VN",
+                        onPermissionDenied = {
+                            // Denied permission must NOT auto-launch system dialog!
+                            showManualInputGuidance(
+                                "Chưa có quyền Micro. Hãy gõ nội dung bên dưới hoặc bật quyền Micro trong Cài đặt."
+                            )
+                        },
+                        gateway = buildOverlayVoiceGateway(reqGen)
                     )
                 }
+            }
+            if (!granted) {
+                startTask.run()
+                return
             }
             if (hasWindowFocus() && isOverlayResumed) {
                 startTask.run()

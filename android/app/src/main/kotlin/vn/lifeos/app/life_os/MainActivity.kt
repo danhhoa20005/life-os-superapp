@@ -682,6 +682,48 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(allowed)
                     }
+                    "verifyApkSignature" -> {
+                        val filePath = call.argument<String>("filePath")
+                        if (filePath.isNullOrBlank()) {
+                            result.success(
+                                mapOf(
+                                    "signatureStatus" to ApkSignatureStatus.UNREADABLE.name,
+                                    "status" to ApkSignatureStatus.UNREADABLE.name,
+                                    "valid" to false,
+                                    "errorCode" to "INVALID_PATH",
+                                    "reason" to "Đường dẫn tệp APK trống."
+                                )
+                            )
+                            return@setMethodCallHandler
+                        }
+                        val apkFile = File(filePath)
+                        if (!apkFile.exists()) {
+                            result.success(
+                                mapOf(
+                                    "signatureStatus" to ApkSignatureStatus.UNREADABLE.name,
+                                    "status" to ApkSignatureStatus.UNREADABLE.name,
+                                    "valid" to false,
+                                    "errorCode" to "FILE_NOT_FOUND",
+                                    "reason" to "Không tìm thấy tệp APK đã tải."
+                                )
+                            )
+                            return@setMethodCallHandler
+                        }
+                        val verification = LifeOsApkSignatureVerifier.verifyApk(
+                            context = this,
+                            apkFile = apkFile,
+                            distributionFlavor = BuildConfig.DISTRIBUTION_FLAVOR
+                        )
+                        result.success(
+                            mapOf(
+                                "signatureStatus" to verification.status.name,
+                                "status" to verification.status.name,
+                                "valid" to verification.isMatch,
+                                "errorCode" to verification.errorCode,
+                                "reason" to verification.reasonVi
+                            )
+                        )
+                    }
                     "installApk" -> {
                         if (!BuildConfig.ENABLE_GITHUB_OTA) {
                             result.error(
@@ -701,14 +743,35 @@ class MainActivity : FlutterActivity() {
                             result.error("FILE_NOT_FOUND", "Không tìm thấy tệp APK đã tải.", null)
                             return@setMethodCallHandler
                         }
-                        // APP-03: Verify APK packageName & signing certificate lineage BEFORE launching installer!
-                        val certError = LifeOsApkSignatureVerifier.verifyApkPackageAndSigningCert(this, apkFile)
-                        if (certError != null) {
+                        // APP-03: Tri-state APK signature check (MATCH / MISMATCH / UNREADABLE).
+                        // Only MATCH may proceed to PackageInstaller!
+                        val verification = LifeOsApkSignatureVerifier.verifyApk(
+                            context = this,
+                            apkFile = apkFile,
+                            distributionFlavor = BuildConfig.DISTRIBUTION_FLAVOR
+                        )
+                        if (verification.status != ApkSignatureStatus.MATCH) {
                             try {
                                 apkFile.delete()
                             } catch (_: Exception) {
                             }
-                            result.error("CERT_MISMATCH", certError, null)
+                            val errCode = verification.errorCode ?: if (verification.status == ApkSignatureStatus.UNREADABLE) {
+                                "CERT_UNREADABLE"
+                            } else {
+                                "CERT_MISMATCH"
+                            }
+                            val errReason = verification.reasonVi
+                                ?: "Không thể xác minh chữ ký số của tệp APK mới (APP-03)."
+                            result.error(
+                                errCode,
+                                errReason,
+                                mapOf(
+                                    "signatureStatus" to verification.status.name,
+                                    "status" to verification.status.name,
+                                    "reason" to errReason,
+                                    "errorCode" to errCode
+                                )
+                            )
                             return@setMethodCallHandler
                         }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
@@ -806,22 +869,58 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_KEY", "Key trống", null)
                         } else {
                             LifeOsSecureVault.writeSecret(applicationContext, key, value)
+                            if (LifeOsWidgetVoicePolicy.isVoiceEngineModeVaultKey(key)) {
+                                LifeOsWidgetStore.syncPreferredVoiceEngineMode(
+                                    context = applicationContext,
+                                    modeWire = value,
+                                    userId = LifeOsWidgetVoicePolicy.extractUserIdFromScopedKey(key)
+                                )
+                            }
                             result.success(true)
                         }
                     }
                     "readSecret" -> {
                         val key = call.argument<String>("key") ?: ""
-                        result.success(if (key.isBlank()) null else LifeOsSecureVault.readSecret(applicationContext, key))
+                        val value = if (key.isBlank()) null else LifeOsSecureVault.readSecret(applicationContext, key)
+                        if (key.isNotBlank() && LifeOsWidgetVoicePolicy.isVoiceEngineModeVaultKey(key)) {
+                            LifeOsWidgetStore.syncPreferredVoiceEngineMode(
+                                context = applicationContext,
+                                modeWire = value,
+                                userId = LifeOsWidgetVoicePolicy.extractUserIdFromScopedKey(key)
+                            )
+                        } else if (key.isNotBlank()) {
+                            val uid = LifeOsWidgetVoicePolicy.extractUserIdFromScopedKey(key)
+                            if (uid != null && LifeOsWidgetStore.getActiveUserId(applicationContext) != uid) {
+                                val userVoiceMode = LifeOsSecureVault.readSecret(
+                                    applicationContext,
+                                    LifeOsWidgetVoicePolicy.scopedVaultKey(uid)
+                                )
+                                LifeOsWidgetStore.syncPreferredVoiceEngineMode(
+                                    context = applicationContext,
+                                    modeWire = userVoiceMode,
+                                    userId = uid
+                                )
+                            }
+                        }
+                        result.success(value)
                     }
                     "deleteSecret" -> {
                         val key = call.argument<String>("key") ?: ""
                         if (key.isNotBlank()) {
                             LifeOsSecureVault.deleteSecret(applicationContext, key)
+                            if (LifeOsWidgetVoicePolicy.isVoiceEngineModeVaultKey(key)) {
+                                LifeOsWidgetStore.syncPreferredVoiceEngineMode(
+                                    context = applicationContext,
+                                    modeWire = null,
+                                    userId = LifeOsWidgetVoicePolicy.extractUserIdFromScopedKey(key)
+                                )
+                            }
                         }
                         result.success(true)
                     }
                     "clearAllSecrets" -> {
                         LifeOsSecureVault.clearAll(applicationContext)
+                        LifeOsWidgetStore.clearPreferredVoiceEngineMode(applicationContext)
                         result.success(true)
                     }
                     "getVaultDirectoryPath" -> {

@@ -14,7 +14,21 @@ class AppUpdateBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AppUpdateBloc, AppUpdateState>(
+    return BlocConsumer<AppUpdateBloc, AppUpdateState>(
+      listenWhen: (p, n) =>
+          p.failure != n.failure || p.infoMessage != n.infoMessage,
+      listener: (context, state) {
+        if (!TickerMode.valuesOf(context).enabled) return;
+        if (state.failure != null) {
+          LifeOsTopToast.show(
+            context,
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
+          );
+        } else if (state.infoMessage != null) {
+          LifeOsTopToast.show(context, state.infoMessage!);
+        }
+      },
       builder: (context, state) {
         if (!state.hasUpdate || state.manifest == null) {
           return const SizedBox.shrink();
@@ -162,6 +176,45 @@ class AppUpdateBanner extends StatelessWidget {
                     ),
                   ),
                 ] else ...[
+                  if (state.status == AppUpdateStatus.failure &&
+                      state.failure != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      key: const Key('ota_banner_error_message'),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7F1D1D).withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(
+                            0xFFFCA5A5,
+                          ).withValues(alpha: 0.55),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.gpp_bad_rounded,
+                            color: Color(0xFFFECACA),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              state.failure!.message,
+                              softWrap: true,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -333,6 +386,37 @@ class AppUpdateSettingsCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
+              if (state.status == AppUpdateStatus.failure &&
+                  state.failure != null) ...[
+                Container(
+                  key: const Key('ota_settings_error_message'),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: c.errorSubtle,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: c.error.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.gpp_bad_rounded, color: c.error, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          state.failure!.message,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: c.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.xs,

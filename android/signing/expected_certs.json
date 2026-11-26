@@ -1,0 +1,22 @@
+{
+  "package_name": "vn.lifeos.app.life_os",
+  "rejected_signer_dn_substrings": [
+    "CN=Android Debug"
+  ],
+  "rejected_cert_sha256s": [
+    "3c1738043f4ed47e6f5f5724ab3e9fd0b24e89fde667af43670cb630e4d5176b"
+  ],
+  "channels": {
+    "github": {
+      "description": "GitHub Direct OTA release APK signing certificate SHA-256 (64 lowercase hex chars, no colons). Replace placeholder before publishing.",
+      "cert_sha256": "REPLACE_WITH_GITHUB_RELEASE_CERT_SHA256_64_HEX",
+      "lineage_cert_sha256s": []
+    },
+    "play": {
+      "description": "Google Play App Signing certificate SHA-256 (64 lowercase hex chars, no colons). Replace placeholders before publishing.",
+      "cert_sha256": "REPLACE_WITH_PLAY_RELEASE_CERT_SHA256_64_HEX",
+      "upload_cert_sha256": "REPLACE_WITH_PLAY_UPLOAD_CERT_SHA256_64_HEX",
+      "lineage_cert_sha256s": []
+    }
+  }
+}

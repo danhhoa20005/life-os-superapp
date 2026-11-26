@@ -300,13 +300,14 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
     if (!mounted) return;
     final pref = preferSystemDialog
         ? VoiceRecognitionPreference.systemDialog
-        : (savedModeWire ==
-                      VoiceRecognitionPreference.offlineStrict.wireValue ||
-                  savedModeWire == VoiceEngineMode.onDevice.wireValue
-              ? VoiceRecognitionPreference.offlineStrict
-              : (savedModeWire == VoiceEngineMode.systemDialog.wireValue
-                    ? VoiceRecognitionPreference.systemDialog
-                    : VoiceRecognitionPreference.onlineGoogle));
+        : switch (savedModeWire.trim().toLowerCase()) {
+            'offline_strict' ||
+            'on_device' => VoiceRecognitionPreference.offlineStrict,
+            'system_dialog' ||
+            'system_speech_dialog' => VoiceRecognitionPreference.systemDialog,
+            'hybrid_auto' || 'auto' => VoiceRecognitionPreference.hybridAuto,
+            _ => VoiceRecognitionPreference.onlineGoogle,
+          };
 
     _voiceBloc.add(
       VoiceStartRequested(

@@ -216,18 +216,17 @@ class _VoiceSmartCaptureSheetBodyState
   }
 
   VoiceRecognitionPreference _preferenceFromWire(String wire) {
-    if (wire == VoiceRecognitionPreference.offlineStrict.wireValue ||
-        wire == VoiceEngineMode.onDevice.wireValue) {
-      return VoiceRecognitionPreference.offlineStrict;
-    }
-    if (wire == VoiceRecognitionPreference.systemDialog.wireValue ||
-        wire == VoiceEngineMode.systemDialog.wireValue) {
-      return VoiceRecognitionPreference.systemDialog;
-    }
-    if (wire == VoiceRecognitionPreference.hybridAuto.wireValue) {
-      return VoiceRecognitionPreference.hybridAuto;
-    }
-    return VoiceRecognitionPreference.onlineGoogle;
+    final norm = wire.trim().toLowerCase();
+    return switch (norm) {
+      'offline_strict' ||
+      'on_device' => VoiceRecognitionPreference.offlineStrict,
+      'system_dialog' ||
+      'system_speech_dialog' => VoiceRecognitionPreference.systemDialog,
+      'hybrid_auto' || 'auto' => VoiceRecognitionPreference.hybridAuto,
+      'online_google' ||
+      'google_service' => VoiceRecognitionPreference.onlineGoogle,
+      _ => VoiceRecognitionPreference.onlineGoogle,
+    };
   }
 
   String _wireFromPreference(VoiceRecognitionPreference pref) {
