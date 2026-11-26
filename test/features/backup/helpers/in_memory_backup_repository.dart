@@ -1,18 +1,21 @@
-import '../../../../core/backup/lifeos_backup_restore_engine.dart';
-import '../../../../core/error/app_exception.dart';
-import '../../../../core/error/failure.dart';
-import '../../domain/entities/backup_entities.dart';
-import '../../domain/repositories/backup_repository.dart';
-import '../../domain/services/backup_archive_codec.dart';
+import 'package:life_os/core/backup/lifeos_backup_restore_engine.dart';
+import 'package:life_os/core/error/app_exception.dart';
+import 'package:life_os/core/error/failure.dart';
+import 'package:life_os/features/backup/domain/entities/backup_entities.dart';
+import 'package:life_os/features/backup/domain/repositories/backup_repository.dart';
+import 'package:life_os/features/backup/domain/services/backup_archive_codec.dart';
 
-/// Fallback in-memory [BackupRepository] used ONLY when `sl<BackupRepository>()`
-/// is not registered (e.g. isolated widget tests without Firebase/GetIt).
+/// Test-only in-memory [BackupRepository] for widget tests that inject a
+/// [BackupBloc] via `backupBlocOverride` without Firebase/GetIt.
 class InMemorySnapshotBackupRepository implements BackupRepository {
   final Map<String, List<Map<String, dynamic>>> _store;
+  final BackupArchiveCodec _codec;
 
   InMemorySnapshotBackupRepository({
     Map<String, List<Map<String, dynamic>>> initialCollections = const {},
-  }) : _store = <String, List<Map<String, dynamic>>>{
+    BackupArchiveCodec codec = const BackupArchiveCodec.forTesting(),
+  }) : _codec = codec,
+       _store = <String, List<Map<String, dynamic>>>{
          for (final key in BackupCollectionCatalog.allKeys)
            key: (initialCollections[key] ?? const <Map<String, dynamic>>[])
                .map((m) => Map<String, dynamic>.from(m))
@@ -41,7 +44,7 @@ class InMemorySnapshotBackupRepository implements BackupRepository {
   }) async {
     final cleanPass = (passphrase ?? '').trim();
     final encrypted = cleanPass.isNotEmpty;
-    final archive = BackupArchiveCodec.createArchive(
+    final archive = await _codec.createArchiveAsync(
       ownerId: ownerId,
       collections: _store,
       passphrase: cleanPass,
@@ -112,7 +115,7 @@ class InMemorySnapshotBackupRepository implements BackupRepository {
     String? passphrase,
   }) async {
     try {
-      final preview = BackupArchiveCodec.previewAndValidateArchive(
+      final preview = await _codec.previewAndValidateAsync(
         rawArchiveText,
         passphrase: passphrase,
       );

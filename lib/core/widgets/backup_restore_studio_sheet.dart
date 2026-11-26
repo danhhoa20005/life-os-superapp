@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../features/authentication/presentation/bloc/auth_bloc.dart';
-import '../../features/backup/data/repositories/in_memory_backup_repository.dart';
 import '../../features/backup/data/services/backup_file_share_service_impl.dart';
 import '../../features/backup/domain/entities/backup_entities.dart';
 import '../../features/backup/domain/repositories/backup_file_share_service.dart';
@@ -14,18 +13,14 @@ import '../../features/backup/domain/usecases/backup_usecases.dart';
 import '../../features/backup/presentation/bloc/backup_bloc.dart';
 import '../../features/backup/presentation/bloc/backup_event.dart';
 import '../../features/backup/presentation/bloc/backup_state.dart';
-import '../../features/budgets/presentation/bloc/budget_bloc.dart';
-import '../../features/calendar/presentation/bloc/calendar_bloc.dart';
-import '../../features/daily_life/presentation/bloc/daily_life_bloc.dart';
-import '../../features/tasks/presentation/bloc/task_bloc.dart';
-import '../../features/transactions/domain/entities/transaction_entities.dart';
-import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
-import '../../features/vehicles/presentation/bloc/vehicle_bloc.dart';
 import '../backup/lifeos_backup_restore_engine.dart';
 import '../di/dependency_injection.dart';
 import '../utils/privacy_mask_formatter.dart';
 import '../utils/vnd_amount.dart';
 import 'lifeos_design_system.dart';
+
+const String _backupServiceUnavailableMessageVi =
+    'Chưa thể sao lưu: dịch vụ sao lưu chưa sẵn sàng';
 
 T? _tryBloc<T extends StateStreamableSource<Object?>>(BuildContext context) {
   try {
@@ -35,131 +30,25 @@ T? _tryBloc<T extends StateStreamableSource<Object?>>(BuildContext context) {
   }
 }
 
-Map<String, List<Map<String, dynamic>>> _collectFallbackSnapshot(
-  BuildContext context,
-) {
-  final txListBloc = _tryBloc<TransactionListBloc>(context);
-  final budgetBloc = _tryBloc<BudgetBloc>(context);
-  final taskBloc = _tryBloc<TaskBloc>(context);
-  final calBloc = _tryBloc<CalendarBloc>(context);
-  final vehicleBloc = _tryBloc<VehicleBloc>(context);
-  final dailyBloc = _tryBloc<DailyLifeBloc>(context);
-
-  final txs =
-      txListBloc?.state.allTransactions ?? const <TransactionEntity>[];
-  final wallets = txListBloc?.state.wallets ?? const <WalletEntity>[];
-  final budgets = budgetBloc?.state.budgets ?? const [];
-  final tasks = taskBloc?.state.tasks ?? const [];
-  final events = calBloc?.state.events ?? const [];
-  final vehicles = vehicleBloc?.state.vehicles ?? const [];
-  final notes = dailyBloc?.state.snapshot.notes ?? const [];
-
-  return <String, List<Map<String, dynamic>>>{
-    BackupCollectionCatalog.wallets: wallets
-        .map(
-          (w) => <String, dynamic>{
-            'id': w.id,
-            'ownerId': w.ownerId,
-            'name': w.name,
-            'type': w.type.name,
-            'balanceMinor': w.balanceMinor,
-          },
-        )
-        .toList(),
-    BackupCollectionCatalog.transactions: txs
-        .map(
-          (t) => <String, dynamic>{
-            'id': t.id,
-            'ownerId': t.ownerId,
-            'walletId': t.walletId,
-            if (t.targetWalletId != null) 'targetWalletId': t.targetWalletId,
-            'kind': t.kind.name,
-            'direction': t.direction,
-            'categoryName': t.categoryName,
-            'merchant': t.merchant,
-            'amountMinor': t.amountMinor,
-            'currencyCode': t.currencyCode,
-            'verification': t.verification.name,
-            'occurredAt': t.occurredAt.toUtc().toIso8601String(),
-          },
-        )
-        .toList(),
-    BackupCollectionCatalog.budgets: budgets
-        .map(
-          (b) => <String, dynamic>{
-            'id': b.id,
-            'ownerId': b.ownerId,
-            'categoryId': b.categoryId,
-            'categoryName': b.categoryName,
-            'monthKey': b.monthKey,
-            'limitMinor': b.limitMinor,
-          },
-        )
-        .toList(),
-    BackupCollectionCatalog.tasks: tasks
-        .map(
-          (t) => <String, dynamic>{
-            'id': t.id,
-            'title': t.title,
-            'status': t.status.name,
-          },
-        )
-        .toList(),
-    BackupCollectionCatalog.events: events
-        .map(
-          (e) => <String, dynamic>{
-            'id': e.id,
-            'title': e.title,
-            'startsAt': e.startsAt.toUtc().toIso8601String(),
-            'endsAt': e.endsAt.toUtc().toIso8601String(),
-          },
-        )
-        .toList(),
-    BackupCollectionCatalog.vehicles: vehicles
-        .map(
-          (v) => <String, dynamic>{
-            'id': v.id,
-            'name': v.name,
-            'plateNumber': v.plateNumber,
-            'currentOdometerKm': v.currentOdometerKm,
-          },
-        )
-        .toList(),
-    BackupCollectionCatalog.notes: notes
-        .map(
-          (n) => <String, dynamic>{
-            'id': n.id,
-            'title': n.title,
-            'content': n.content,
-          },
-        )
-        .toList(),
-  };
-}
-
-BackupBloc _resolveBackupBloc(BuildContext context) {
+BackupBloc? _resolveRegisteredBackupBloc() {
   if (sl.isRegistered<BackupBloc>()) {
     return sl<BackupBloc>();
   }
-  final hasBackupDi =
-      sl.isRegistered<BackupRepository>() ||
-      sl.isRegistered<BackupFileShareService>();
-  final shareService = sl.isRegistered<BackupFileShareService>()
-      ? sl<BackupFileShareService>()
-      : MethodChannelBackupFileShareService(invokePlatformShare: hasBackupDi);
-  final repository = sl.isRegistered<BackupRepository>()
-      ? sl<BackupRepository>()
-      : InMemorySnapshotBackupRepository(
-          initialCollections: _collectFallbackSnapshot(context),
-        );
-  return BackupBloc(
-    loadSummary: LoadBackupOwnerSummaryUseCase(repository),
-    exportFullBackup: ExportFullBackupUseCase(repository),
-    exportTransactionsCsv: ExportTransactionsCsvUseCase(repository),
-    previewArchive: PreviewBackupArchiveUseCase(repository),
-    restoreArchive: RestoreBackupArchiveUseCase(repository),
-    fileShareService: shareService,
-  );
+  if (sl.isRegistered<BackupRepository>()) {
+    final shareService = sl.isRegistered<BackupFileShareService>()
+        ? sl<BackupFileShareService>()
+        : const MethodChannelBackupFileShareService();
+    final repository = sl<BackupRepository>();
+    return BackupBloc(
+      loadSummary: LoadBackupOwnerSummaryUseCase(repository),
+      exportFullBackup: ExportFullBackupUseCase(repository),
+      exportTransactionsCsv: ExportTransactionsCsvUseCase(repository),
+      previewArchive: PreviewBackupArchiveUseCase(repository),
+      restoreArchive: RestoreBackupArchiveUseCase(repository),
+      fileShareService: shareService,
+    );
+  }
+  return null;
 }
 
 /// Complete Encrypted & Checksummed Backup & Restore Studio Sheet.
@@ -173,28 +62,244 @@ Future<void> showLifeOsBackupRestoreSheet(
 }) async {
   final authUser = _tryBloc<AuthBloc>(context)?.state.user;
   final userId = userIdOverride ?? authUser?.id ?? 'local_user';
-  final ownsBloc = backupBlocOverride == null;
-  final bloc =
-      (backupBlocOverride ?? _resolveBackupBloc(context))
-        ..add(BackupSummaryRequested(userId));
+  final resolvedBloc = backupBlocOverride ?? _resolveRegisteredBackupBloc();
+  final ownsBloc = backupBlocOverride == null && resolvedBloc != null;
+
+  if (resolvedBloc != null) {
+    resolvedBloc.add(BackupSummaryRequested(userId));
+  }
 
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (sheetCtx) => ownsBloc
-        ? BlocProvider<BackupBloc>.value(
-            value: bloc,
-            child: _BackupRestoreStudioBody(userId: userId),
-          )
-        : BlocProvider<BackupBloc>.value(
-            value: bloc,
-            child: _BackupRestoreStudioBody(userId: userId),
-          ),
+    builder: (sheetCtx) {
+      if (resolvedBloc == null) {
+        return const _BackupServiceUnavailableSheet();
+      }
+      return BlocProvider<BackupBloc>.value(
+        value: resolvedBloc,
+        child: _BackupRestoreStudioBody(userId: userId),
+      );
+    },
   );
   if (ownsBloc) {
-    await bloc.close();
+    await resolvedBloc.close();
+  }
+}
+
+class _BackupServiceUnavailableSheet extends StatefulWidget {
+  const _BackupServiceUnavailableSheet();
+
+  @override
+  State<_BackupServiceUnavailableSheet> createState() =>
+      _BackupServiceUnavailableSheetState();
+}
+
+class _BackupServiceUnavailableSheetState
+    extends State<_BackupServiceUnavailableSheet> {
+  bool _isRestoreTab = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = TammySemanticColors.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        maxChildSize: 0.92,
+        minChildSize: 0.48,
+        builder: (_, scrollCtrl) => LiquidGlassSheetFrame(
+          showHandle: true,
+          child: ListView(
+            key: const Key('backup_restore_unavailable_list_view'),
+            controller: scrollCtrl,
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
+            children: [
+              Row(
+                children: [
+                  const LifeOsIconSquircle(
+                    icon: Icons.backup_outlined,
+                    tone: LifeOsAccentTone.coral,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sao lưu & Khôi phục Toàn vẹn',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w800,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Yêu cầu dịch vụ sao lưu dữ liệu đầy đủ đã được đăng ký',
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              LifeOsSoftCard(
+                key: const Key('backup_service_unavailable_card'),
+                borderColor: c.error,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.error_outline_rounded, color: c.error, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _backupServiceUnavailableMessageVi,
+                        softWrap: true,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: c.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              LifeOsSegmentedPills<bool>(
+                selected: _isRestoreTab,
+                options: const [
+                  (false, 'Xuất sao lưu', Icons.upload_file_rounded),
+                  (true, 'Khôi phục dữ liệu', Icons.restore_page_outlined),
+                ],
+                onChanged: (v) => setState(() => _isRestoreTab = v),
+              ),
+              const SizedBox(height: 12),
+              if (!_isRestoreTab) ...[
+                LifeOsSoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const TextField(
+                        key: Key('backup_export_passphrase_field'),
+                        enabled: false,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          labelText: 'Mật khẩu mã hóa bản sao lưu (khuyên dùng)',
+                          prefixIcon: Icon(Icons.lock_outline_rounded, size: 18),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            key: const Key('backup_export_json_btn'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                            ),
+                            onPressed: null,
+                            icon: const Icon(
+                              Icons.enhanced_encryption_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Tạo bản sao lưu đầy đủ'),
+                          ),
+                          OutlinedButton.icon(
+                            key: const Key('backup_export_csv_btn'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                            ),
+                            onPressed: null,
+                            icon: const Icon(Icons.table_view_rounded, size: 18),
+                            label: const Text('Xuất giao dịch CSV'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                LifeOsSoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          ActionChip(
+                            key: const Key('backup_paste_clipboard_chip'),
+                            avatar: Icon(
+                              Icons.content_paste_rounded,
+                              size: 16,
+                              color: c.textSecondary,
+                            ),
+                            label: const Text('Dán từ bộ nhớ tạm'),
+                            onPressed: null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const TextField(
+                        key: Key('backup_import_payload_field'),
+                        enabled: false,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'Dán nội dung JSON / .lfbk sao lưu tại đây...',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const TextField(
+                        key: Key('backup_import_passphrase_field'),
+                        enabled: false,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          labelText: 'Mật khẩu giải mã (nếu tệp có khóa)',
+                          prefixIcon: Icon(Icons.key_rounded, size: 18),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        key: const Key('backup_preview_validate_btn'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
+                        onPressed: null,
+                        icon: const Icon(Icons.verified_outlined, size: 18),
+                        label: const Text('Kiểm tra toàn vẹn & Xem trước'),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        key: const Key('backup_apply_restore_btn'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
+                        onPressed: null,
+                        icon: const Icon(Icons.restore_rounded, size: 18),
+                        label: const Text('Thực hiện khôi phục'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -494,7 +599,7 @@ class _BackupRestoreStudioBodyState extends State<_BackupRestoreStudioBody> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Định dạng Schema v3 · Kiểm tra toàn vẹn SHA-256 · Mã hóa luồng HMAC-SHA256-4096 EtM khi có mật khẩu · Xuất trực tiếp thành tệp (không lưu vào bộ nhớ tạm).',
+                    'Định dạng Schema v3 · Kiểm tra toàn vẹn SHA-256 · Mã hóa PBKDF2-HMAC-SHA256 (120.000 vòng) & STREAM-SHA256-ETM khi có mật khẩu · Xuất trực tiếp thành tệp (không lưu vào bộ nhớ tạm).',
                     softWrap: true,
                     style: TextStyle(fontSize: 12, color: c.textSecondary),
                   ),

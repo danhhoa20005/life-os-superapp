@@ -18,6 +18,7 @@ import 'package:life_os/features/backup/data/services/backup_file_share_service_
 import 'package:life_os/features/backup/domain/entities/backup_entities.dart';
 import 'package:life_os/features/backup/domain/repositories/backup_file_share_service.dart';
 import 'package:life_os/features/backup/domain/repositories/backup_repository.dart';
+import 'package:life_os/features/backup/domain/services/backup_archive_codec.dart';
 import 'package:life_os/features/backup/domain/usecases/backup_usecases.dart';
 import 'package:life_os/features/backup/presentation/bloc/backup_bloc.dart';
 import 'package:life_os/features/calendar/data/repositories/calendar_repository_impl.dart';
@@ -27,6 +28,8 @@ import 'package:life_os/features/transactions/data/datasources/transaction_remot
 import 'package:life_os/features/transactions/data/repositories/transaction_repository_impl.dart';
 import 'package:life_os/features/transactions/domain/entities/transaction_entities.dart';
 import 'package:life_os/features/transactions/domain/usecases/transaction_usecases.dart';
+
+import 'helpers/in_memory_backup_repository.dart';
 
 Widget _wrapApp(Widget child, {bool dark = false, double textScale = 1.0}) {
   return MaterialApp(
@@ -524,6 +527,169 @@ void main() {
         expect(find.text('Khôi phục hoàn tất'), findsNothing);
         expect(find.textContaining('Đã ghi thật: 9'), findsOneWidget);
         expect(find.text('Thử lại khôi phục tiếp'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'DI missing shows Vietnamese error state with export & restore buttons disabled and zero fallback export',
+      (tester) async {
+        // GetIt is reset in setUp -> neither BackupBloc nor BackupRepository is registered.
+        tester.view.physicalSize = const Size(360, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          _wrapApp(
+            Scaffold(
+              body: Builder(
+                builder: (ctx) => Center(
+                  child: FilledButton(
+                    key: const Key('open_missing_di_sheet'),
+                    onPressed: () => showLifeOsBackupRestoreSheet(
+                      ctx,
+                      userIdOverride: 'u_no_di',
+                    ),
+                    child: const Text('Mở'),
+                  ),
+                ),
+              ),
+            ),
+            dark: true,
+            textScale: 1.25,
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('open_missing_di_sheet')));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        expect(
+          find.text('Chưa thể sao lưu: dịch vụ sao lưu chưa sẵn sàng'),
+          findsOneWidget,
+        );
+        final jsonBtn = tester.widget<FilledButton>(
+          find.byKey(const Key('backup_export_json_btn')),
+        );
+        final csvBtn = tester.widget<OutlinedButton>(
+          find.byKey(const Key('backup_export_csv_btn')),
+        );
+        expect(jsonBtn.onPressed, isNull);
+        expect(csvBtn.onPressed, isNull);
+        expect(shareCalls, isEmpty);
+        expect(clipboardSetCalls, 0);
+
+        // Switch to Restore tab -> verify restore controls are also disabled
+        await tester.tap(find.text('Khôi phục dữ liệu'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Chưa thể sao lưu: dịch vụ sao lưu chưa sẵn sàng'),
+          findsOneWidget,
+        );
+        final pasteChip = tester.widget<ActionChip>(
+          find.byKey(const Key('backup_paste_clipboard_chip')),
+        );
+        final previewBtn = tester.widget<OutlinedButton>(
+          find.byKey(const Key('backup_preview_validate_btn')),
+        );
+        final applyBtn = tester.widget<FilledButton>(
+          find.byKey(const Key('backup_apply_restore_btn')),
+        );
+        expect(pasteChip.onPressed, isNull);
+        expect(previewBtn.onPressed, isNull);
+        expect(applyBtn.onPressed, isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'backupBlocOverride supports InMemorySnapshotBackupRepository with off-isolate encrypted PBKDF2 roundtrip',
+      (tester) async {
+        final tempExportDir = Directory(
+          '${Directory.systemTemp.path}/lifeos_enc_widget_test_${DateTime.now().microsecondsSinceEpoch}',
+        );
+        addTearDown(() async {
+          if (tempExportDir.existsSync()) {
+            await tempExportDir.delete(recursive: true);
+          }
+        });
+
+        final inMemoryRepo = InMemorySnapshotBackupRepository(
+          codec: const BackupArchiveCodec.forTesting(kdfIterations: 12000),
+          initialCollections: {
+            BackupCollectionCatalog.wallets: [
+              {'id': 'w1', 'name': 'Ví thử nghiệm', 'balanceMinor': 2500000},
+            ],
+            BackupCollectionCatalog.notes: [
+              {'id': 'n1', 'title': 'Ghi chú', 'content': 'Bí mật riêng tư'},
+            ],
+          },
+        );
+        final bloc = BackupBloc(
+          loadSummary: LoadBackupOwnerSummaryUseCase(inMemoryRepo),
+          exportFullBackup: ExportFullBackupUseCase(inMemoryRepo),
+          exportTransactionsCsv: ExportTransactionsCsvUseCase(inMemoryRepo),
+          previewArchive: PreviewBackupArchiveUseCase(inMemoryRepo),
+          restoreArchive: RestoreBackupArchiveUseCase(inMemoryRepo),
+          fileShareService: MethodChannelBackupFileShareService(
+            fallbackDirectoryOverride: tempExportDir,
+            invokePlatformShare: false,
+          ),
+        );
+        addTearDown(bloc.close);
+
+        tester.view.physicalSize = const Size(430, 932);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          _wrapApp(
+            Scaffold(
+              body: Builder(
+                builder: (ctx) => Center(
+                  child: FilledButton(
+                    key: const Key('open_override_sheet'),
+                    onPressed: () => showLifeOsBackupRestoreSheet(
+                      ctx,
+                      userIdOverride: 'u_override',
+                      backupBlocOverride: bloc,
+                    ),
+                    child: const Text('Mở'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('open_override_sheet')));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('backup_export_passphrase_field')),
+          'PassTest#123',
+        );
+        await tester.tap(find.byKey(const Key('backup_export_json_btn')));
+        // Wait for Isolate.run off-isolate PBKDF2 completion
+        await tester.runAsync(() async {
+          for (var i = 0; i < 40 && bloc.state.isBusy; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 25));
+          }
+        });
+        await tester.pumpAndSettle();
+
+        expect(bloc.state.lastExportedArchive, isNotNull);
+        expect(bloc.state.lastExportedArchive!.contains('PBKDF2-HMAC-SHA256'), isTrue);
+        expect(bloc.state.lastExportedArchive!.contains('Bí mật riêng tư'), isFalse);
+        expect(clipboardSetCalls, 0);
 
         await tester.pump(const Duration(seconds: 4));
         await tester.pumpAndSettle();

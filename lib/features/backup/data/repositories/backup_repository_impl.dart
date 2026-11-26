@@ -9,10 +9,13 @@ import '../datasources/firestore_backup_remote_datasource.dart';
 
 class BackupRepositoryImpl implements BackupRepository {
   final FirestoreBackupRemoteDataSource _remoteDataSource;
+  final BackupArchiveCodec _codec;
 
   const BackupRepositoryImpl({
     required FirestoreBackupRemoteDataSource remoteDataSource,
-  }) : _remoteDataSource = remoteDataSource;
+    BackupArchiveCodec codec = const BackupArchiveCodec(),
+  }) : _remoteDataSource = remoteDataSource,
+       _codec = codec;
 
   @override
   Future<Result<BackupOwnerDataSummary>> loadOwnerSummary({
@@ -39,7 +42,7 @@ class BackupRepositoryImpl implements BackupRepository {
       );
       final cleanPass = (passphrase ?? '').trim();
       final encrypted = cleanPass.isNotEmpty;
-      final archive = BackupArchiveCodec.createArchive(
+      final archive = await _codec.createArchiveAsync(
         ownerId: ownerId,
         collections: collections,
         passphrase: cleanPass,
@@ -124,7 +127,7 @@ class BackupRepositoryImpl implements BackupRepository {
     String? passphrase,
   }) async {
     try {
-      final preview = BackupArchiveCodec.previewAndValidateArchive(
+      final preview = await _codec.previewAndValidateAsync(
         rawArchiveText,
         passphrase: passphrase,
       );

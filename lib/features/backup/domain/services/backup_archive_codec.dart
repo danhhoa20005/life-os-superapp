@@ -7,17 +7,98 @@ import 'package:crypto/crypto.dart';
 import '../../../../core/backup/lifeos_backup_restore_engine.dart';
 import '../../../../core/utils/csv_sanitizer.dart';
 import '../entities/backup_entities.dart';
+import 'backup_isolate_runner.dart';
 
-/// Pure-Dart versioned (`v3`) backup archive serializer, authenticated encryptor,
-/// and backward-compatible (`v1`/`v2`/`v3`) validator.
-abstract final class BackupArchiveCodec {
+/// Pure-Dart versioned (`v3`) backup archive serializer, PBKDF2-HMAC-SHA256
+/// authenticated encryptor, and backward-compatible (`v1`/`v2`/`v3`) validator.
+class BackupArchiveCodec {
   static const int currentSchemaVersion = 3;
   static const int minSupportedSchemaVersion = 1;
   static const String magicEnvelopeV3 = 'LIFEOS_BACKUP_V3';
-  static const String kdfLabel = 'HMAC-SHA256-4096';
+  static const String kdfLabel = 'PBKDF2-HMAC-SHA256';
   static const String cipherLabel = 'STREAM-SHA256-ETM';
+  static const int defaultKdfIterations = 120000;
+  static const int minV3DecodeIterations = 12000;
+  static const int maxV3DecodeIterations = 2000000;
 
-  static String createArchive({
+  static const List<int> _hkdfEncInfo = <int>[
+    108, 105, 102, 101, 111, 115, 45, 98, 97, 99, 107, 117, 112, 45, 118, 51, 45,
+    101, 110, 99, // "lifeos-backup-v3-enc"
+  ];
+  static const List<int> _hkdfMacInfo = <int>[
+    108, 105, 102, 101, 111, 115, 45, 98, 97, 99, 107, 117, 112, 45, 118, 51, 45,
+    109, 97, 99, // "lifeos-backup-v3-mac"
+  ];
+
+  final int encryptIterations;
+  final int minDecodeIterations;
+
+  const BackupArchiveCodec()
+    : encryptIterations = defaultKdfIterations,
+      minDecodeIterations = minV3DecodeIterations;
+
+  /// Test-only constructor allowing lower iteration counts inside fast unit/widget
+  /// tests without ever permitting an archive file to weaken production bounds.
+  const BackupArchiveCodec.forTesting({
+    int kdfIterations = minV3DecodeIterations,
+    int minDecodeIterations = minV3DecodeIterations,
+  }) : assert(kdfIterations >= 1),
+       assert(minDecodeIterations >= 1),
+       encryptIterations = kdfIterations,
+       minDecodeIterations = minDecodeIterations;
+
+  Future<String> createArchiveAsync({
+    required String ownerId,
+    required Map<String, List<Map<String, dynamic>>> collections,
+    String? passphrase,
+    DateTime? exportedAtOverride,
+  }) async {
+    final cleanPass = (passphrase ?? '').trim();
+    if (cleanPass.isEmpty) {
+      return createArchiveSync(
+        ownerId: ownerId,
+        collections: collections,
+        passphrase: cleanPass,
+        exportedAtOverride: exportedAtOverride,
+      );
+    }
+    final clonedCollections = <String, List<Map<String, dynamic>>>{
+      for (final entry in collections.entries)
+        entry.key: entry.value.map((m) => Map<String, dynamic>.from(m)).toList(),
+    };
+    final codec = this;
+    return runBackupCryptoTask(
+      () => codec.createArchiveSync(
+        ownerId: ownerId,
+        collections: clonedCollections,
+        passphrase: cleanPass,
+        exportedAtOverride: exportedAtOverride,
+      ),
+    );
+  }
+
+  Future<BackupArchivePreview> previewAndValidateAsync(
+    String rawArchiveText, {
+    String? passphrase,
+  }) async {
+    final dynamic rootDecoded = jsonDecode(rawArchiveText);
+    if (rootDecoded is! Map) {
+      throw const FormatException('Định dạng tệp sao lưu không hợp lệ.');
+    }
+    final isEncrypted = rootDecoded['encrypted'] == true;
+    if (!isEncrypted) {
+      return previewAndValidateSync(rawArchiveText, passphrase: passphrase);
+    }
+    final codec = this;
+    return runBackupCryptoTask(
+      () => codec.previewAndValidateSync(
+        rawArchiveText,
+        passphrase: passphrase,
+      ),
+    );
+  }
+
+  String createArchiveSync({
     required String ownerId,
     required Map<String, List<Map<String, dynamic>>> collections,
     String? passphrase,
@@ -62,11 +143,16 @@ abstract final class BackupArchiveCodec {
       });
     }
 
-    final encryptedPack = _encryptPortablePayload(payloadBytes, cleanPass);
+    final encryptedPack = _encryptPortablePayload(
+      payloadBytes,
+      cleanPass,
+      encryptIterations,
+    );
     return const JsonEncoder.withIndent('  ').convert(<String, dynamic>{
       'format': magicEnvelopeV3,
       'encrypted': true,
       'kdf': kdfLabel,
+      'iterations': encryptIterations,
       'cipher': cipherLabel,
       'saltB64': base64Encode(encryptedPack.salt),
       'nonceB64': base64Encode(encryptedPack.nonce),
@@ -76,7 +162,7 @@ abstract final class BackupArchiveCodec {
     });
   }
 
-  static BackupArchivePreview previewAndValidateArchive(
+  BackupArchivePreview previewAndValidateSync(
     String rawArchiveText, {
     String? passphrase,
   }) {
@@ -91,7 +177,8 @@ abstract final class BackupArchiveCodec {
       return _decodeV3Archive(root, passphrase: passphrase);
     }
 
-    // Backward compatibility with v2 (`LIFEOS_BACKUP_V2`) and v1 (`PersonalDataExport`).
+    // Backward compatibility with v2 (`LIFEOS_BACKUP_V2`, PBKDF2-HMAC-SHA256-12000)
+    // and v1 (`PersonalDataExport`).
     final legacy = LifeOsBackupRestoreEngine.previewAndValidateArchive(
       rawArchiveText,
       passphrase: passphrase,
@@ -103,8 +190,8 @@ abstract final class BackupArchiveCodec {
         ),
     };
 
-    // Preserve any extra v1 PersonalDataExport collections (`privateEvents`, `bankAccounts`, etc.)
-    if (root['encrypted'] != true && format != LifeOsBackupRestoreEngine.magicEnvelope) {
+    if (root['encrypted'] != true &&
+        format != LifeOsBackupRestoreEngine.magicEnvelope) {
       if ((normalizedCols[BackupCollectionCatalog.events] ?? const []).isEmpty &&
           root['privateEvents'] is List) {
         normalizedCols[BackupCollectionCatalog.events] =
@@ -129,9 +216,7 @@ abstract final class BackupArchiveCodec {
         .toString();
 
     final warnings = <String>[
-      ...legacy.summary.warnings.where(
-        (w) => !w.contains('v2'),
-      ),
+      ...legacy.summary.warnings.where((w) => !w.contains('v2')),
       if (legacy.summary.schemaVersion < currentSchemaVersion)
         'Đã tự động nâng cấp cấu trúc dữ liệu từ v${legacy.summary.schemaVersion} lên v$currentSchemaVersion.',
     ];
@@ -148,7 +233,27 @@ abstract final class BackupArchiveCodec {
     );
   }
 
-  static BackupArchivePreview _decodeV3Archive(
+  static String createArchive({
+    required String ownerId,
+    required Map<String, List<Map<String, dynamic>>> collections,
+    String? passphrase,
+    DateTime? exportedAtOverride,
+  }) => const BackupArchiveCodec().createArchiveSync(
+    ownerId: ownerId,
+    collections: collections,
+    passphrase: passphrase,
+    exportedAtOverride: exportedAtOverride,
+  );
+
+  static BackupArchivePreview previewAndValidateArchive(
+    String rawArchiveText, {
+    String? passphrase,
+  }) => const BackupArchiveCodec().previewAndValidateSync(
+    rawArchiveText,
+    passphrase: passphrase,
+  );
+
+  BackupArchivePreview _decodeV3Archive(
     Map<String, dynamic> root, {
     String? passphrase,
   }) {
@@ -163,16 +268,59 @@ abstract final class BackupArchiveCodec {
           'Bản sao lưu được mã hóa — vui lòng nhập mật khẩu giải mã.',
         );
       }
-      final salt = base64Decode((root['saltB64'] ?? '').toString());
-      final nonce = base64Decode((root['nonceB64'] ?? '').toString());
-      final mac = base64Decode((root['macB64'] ?? '').toString());
-      final ciphertext = base64Decode((root['ciphertextB64'] ?? '').toString());
+      final kdf = (root['kdf'] ?? '').toString();
+      if (kdf != kdfLabel) {
+        throw FormatException(
+          'Thuật toán KDF không được hỗ trợ cho bản sao lưu v3: $kdf.',
+        );
+      }
+      final cipher = (root['cipher'] ?? '').toString();
+      if (cipher != cipherLabel) {
+        throw FormatException(
+          'Thuật toán mã hóa không được hỗ trợ cho bản sao lưu v3: $cipher.',
+        );
+      }
+      final rawIter = root['iterations'];
+      if (rawIter is! num || !rawIter.isFinite || rawIter != rawIter.toInt()) {
+        throw const FormatException(
+          'Thiếu hoặc sai số vòng lặp KDF trong tệp sao lưu v3.',
+        );
+      }
+      final iterations = rawIter.toInt();
+      if (iterations < minDecodeIterations ||
+          iterations > maxV3DecodeIterations) {
+        throw FormatException(
+          'Số vòng lặp KDF ($iterations) không đạt ngưỡng an toàn tối thiểu ($minDecodeIterations).',
+        );
+      }
+
+      late final Uint8List salt;
+      late final Uint8List nonce;
+      late final Uint8List mac;
+      late final Uint8List ciphertext;
+      try {
+        salt = base64Decode((root['saltB64'] ?? '').toString());
+        nonce = base64Decode((root['nonceB64'] ?? '').toString());
+        mac = base64Decode((root['macB64'] ?? '').toString());
+        ciphertext = base64Decode((root['ciphertextB64'] ?? '').toString());
+      } on FormatException {
+        throw const FormatException(
+          'Cấu trúc mã hóa Base64 không hợp lệ hoặc tệp bị hỏng.',
+        );
+      }
+      if (salt.isEmpty || nonce.isEmpty || mac.length != 32) {
+        throw const FormatException(
+          'Tham số mã hóa không hợp lệ hoặc tệp bị cắt xén.',
+        );
+      }
+
       final plainBytes = _decryptPortablePayload(
         ciphertext: ciphertext,
         salt: salt,
         nonce: nonce,
         expectedMac: mac,
         passphrase: cleanPass,
+        iterations: iterations,
       );
       final expectedSha = (root['plaintextSha256'] ?? '').toString();
       final actualSha = sha256.convert(plainBytes).toString();
@@ -314,13 +462,54 @@ abstract final class BackupArchiveCodec {
   static String computeArchiveSha256(String archiveContent) =>
       sha256.convert(utf8.encode(archiveContent)).toString();
 
+  /// RFC 2898 / NIST SP 800-132 PBKDF2-HMAC-SHA256 key derivation.
+  static Uint8List pbkdf2HmacSha256({
+    required List<int> passwordBytes,
+    required List<int> salt,
+    required int iterations,
+    int dkLen = 32,
+  }) {
+    final hmac = Hmac(sha256, passwordBytes);
+    final numBlocks = (dkLen + 31) ~/ 32;
+    final out = Uint8List(dkLen);
+    final blockInput = Uint8List(salt.length + 4);
+    blockInput.setAll(0, salt);
+
+    for (var blockIdx = 1; blockIdx <= numBlocks; blockIdx++) {
+      blockInput[salt.length] = (blockIdx >> 24) & 0xFF;
+      blockInput[salt.length + 1] = (blockIdx >> 16) & 0xFF;
+      blockInput[salt.length + 2] = (blockIdx >> 8) & 0xFF;
+      blockInput[salt.length + 3] = blockIdx & 0xFF;
+
+      var u = hmac.convert(blockInput).bytes;
+      final t = Uint8List.fromList(u);
+      for (var i = 1; i < iterations; i++) {
+        u = hmac.convert(u).bytes;
+        for (var j = 0; j < 32; j++) {
+          t[j] ^= u[j];
+        }
+      }
+      final offset = (blockIdx - 1) * 32;
+      final toCopy = math.min(32, dkLen - offset);
+      out.setRange(offset, offset + toCopy, t);
+    }
+    return out;
+  }
+
+  static List<int> _buildMacContextPrefix(int iterations) =>
+      utf8.encode('$kdfLabel|$iterations|$cipherLabel|');
+
   static ({
     Uint8List salt,
     Uint8List nonce,
     Uint8List ciphertext,
     Uint8List mac,
   })
-  _encryptPortablePayload(List<int> plainBytes, String passphrase) {
+  _encryptPortablePayload(
+    List<int> plainBytes,
+    String passphrase,
+    int iterations,
+  ) {
     final rng = math.Random.secure();
     final salt = Uint8List.fromList(
       List<int>.generate(16, (_) => rng.nextInt(256)),
@@ -328,9 +517,14 @@ abstract final class BackupArchiveCodec {
     final nonce = Uint8List.fromList(
       List<int>.generate(16, (_) => rng.nextInt(256)),
     );
-    final keys = _deriveEncAndMacKeys(passphrase, salt);
+    final keys = _deriveEncAndMacKeys(passphrase, salt, iterations);
     final ciphertext = _xorKeystream(plainBytes, keys.encKey, nonce);
-    final macInput = <int>[...salt, ...nonce, ...ciphertext];
+    final macInput = <int>[
+      ..._buildMacContextPrefix(iterations),
+      ...salt,
+      ...nonce,
+      ...ciphertext,
+    ];
     final mac = Uint8List.fromList(
       Hmac(sha256, keys.macKey).convert(macInput).bytes,
     );
@@ -343,12 +537,15 @@ abstract final class BackupArchiveCodec {
     required Uint8List nonce,
     required Uint8List expectedMac,
     required String passphrase,
+    required int iterations,
   }) {
-    final keys = _deriveEncAndMacKeys(passphrase, salt);
-    final actualMac = Hmac(
-      sha256,
-      keys.macKey,
-    ).convert(<int>[...salt, ...nonce, ...ciphertext]).bytes;
+    final keys = _deriveEncAndMacKeys(passphrase, salt, iterations);
+    final actualMac = Hmac(sha256, keys.macKey).convert(<int>[
+      ..._buildMacContextPrefix(iterations),
+      ...salt,
+      ...nonce,
+      ...ciphertext,
+    ]).bytes;
     if (actualMac.length != expectedMac.length) {
       throw const FormatException(
         'Mật khẩu giải mã không đúng hoặc tệp bị sửa đổi.',
@@ -369,26 +566,18 @@ abstract final class BackupArchiveCodec {
   static ({List<int> encKey, List<int> macKey}) _deriveEncAndMacKeys(
     String passphrase,
     Uint8List salt,
+    int iterations,
   ) {
-    final passBytes = utf8.encode(passphrase);
-    final hmac = Hmac(sha256, passBytes);
-    var block1 = hmac.convert(<int>[...salt, 0, 0, 0, 1]).bytes;
-    final acc1 = List<int>.from(block1);
-    for (var i = 1; i < 4096; i++) {
-      block1 = hmac.convert(block1).bytes;
-      for (var j = 0; j < acc1.length; j++) {
-        acc1[j] ^= block1[j];
-      }
-    }
-    var block2 = hmac.convert(<int>[...salt, 0, 0, 0, 2]).bytes;
-    final acc2 = List<int>.from(block2);
-    for (var i = 1; i < 4096; i++) {
-      block2 = hmac.convert(block2).bytes;
-      for (var j = 0; j < acc2.length; j++) {
-        acc2[j] ^= block2[j];
-      }
-    }
-    return (encKey: acc1, macKey: acc2);
+    final masterKey = pbkdf2HmacSha256(
+      passwordBytes: utf8.encode(passphrase),
+      salt: salt,
+      iterations: iterations,
+      dkLen: 32,
+    );
+    final expand = Hmac(sha256, masterKey);
+    final encKey = expand.convert(const <int>[..._hkdfEncInfo, 0x01]).bytes;
+    final macKey = expand.convert(const <int>[..._hkdfMacInfo, 0x01]).bytes;
+    return (encKey: encKey, macKey: macKey);
   }
 
   static Uint8List _xorKeystream(
