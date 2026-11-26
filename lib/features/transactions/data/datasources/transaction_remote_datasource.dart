@@ -126,6 +126,79 @@ class TransactionRemoteDataSource {
         .map((snap) => snap.docs.map(TransactionModel.fromFirestore).toList());
   }
 
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _fetchAllDocsPaginated(
+    Query<Map<String, dynamic>> baseQuery, {
+    int pageSize = 200,
+  }) async {
+    final safePageSize = pageSize < 1 ? 1 : pageSize;
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    DocumentSnapshot<Map<String, dynamic>>? cursor;
+    while (true) {
+      var query = baseQuery.orderBy(FieldPath.documentId);
+      if (cursor != null) {
+        query = query.startAfterDocument(cursor);
+      }
+      final snap = await query.limit(safePageSize).get();
+      if (snap.docs.isEmpty) break;
+      docs.addAll(snap.docs);
+      if (snap.docs.length < safePageSize) break;
+      cursor = snap.docs.last;
+    }
+    return docs;
+  }
+
+  /// Reads ALL wallets for [userId] across cursor pages without artificial limits.
+  Future<List<WalletModel>> fetchAllWalletsPaginated({
+    required String userId,
+    int pageSize = 200,
+  }) async {
+    final docs = await _fetchAllDocsPaginated(
+      _walletsCol(userId),
+      pageSize: pageSize,
+    );
+    final list = docs.map(WalletModel.fromFirestore).toList();
+    list.sort((a, b) {
+      if (a.id == 'wallet_cash_default') return -1;
+      if (b.id == 'wallet_cash_default') return 1;
+      final r = _walletTypeRank(a.type).compareTo(_walletTypeRank(b.type));
+      return r != 0 ? r : a.name.compareTo(b.name);
+    });
+    return list;
+  }
+
+  /// Reads ALL categories for [userId] across cursor pages without artificial limits.
+  Future<List<CategoryModel>> fetchAllCategoriesPaginated({
+    required String userId,
+    int pageSize = 200,
+  }) async {
+    final docs = await _fetchAllDocsPaginated(
+      _categoriesCol(userId),
+      pageSize: pageSize,
+    );
+    final list = docs.map(CategoryModel.fromFirestore).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return list;
+  }
+
+  /// Reads ALL transactions for [userId] across all months using cursor pagination
+  /// (no 100-item cap and no `monthKey` filter).
+  Future<List<TransactionModel>> fetchAllTransactionsPaginated({
+    required String userId,
+    int pageSize = 200,
+  }) async {
+    final docs = await _fetchAllDocsPaginated(
+      _txCol(userId),
+      pageSize: pageSize,
+    );
+    final list = docs.map(TransactionModel.fromFirestore).toList();
+    list.sort((a, b) {
+      final cmp = b.entity.occurredAt.compareTo(a.entity.occurredAt);
+      return cmp != 0 ? cmp : a.entity.id.compareTo(b.entity.id);
+    });
+    return list;
+  }
+
   Future<WalletModel> createWallet({
     required String userId,
     required String name,

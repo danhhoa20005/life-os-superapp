@@ -175,6 +175,54 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<Result<List<WalletEntity>>> fetchAllWalletsPaginated({
+    required String userId,
+    int pageSize = 200,
+  }) async {
+    try {
+      final models = await _remoteDataSource.fetchAllWalletsPaginated(
+        userId: userId,
+        pageSize: pageSize,
+      );
+      return Success(models.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<List<CategoryEntity>>> fetchAllCategoriesPaginated({
+    required String userId,
+    int pageSize = 200,
+  }) async {
+    try {
+      final models = await _remoteDataSource.fetchAllCategoriesPaginated(
+        userId: userId,
+        pageSize: pageSize,
+      );
+      return Success(models.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Future<Result<List<TransactionEntity>>> fetchAllTransactionsPaginated({
+    required String userId,
+    int pageSize = 200,
+  }) async {
+    try {
+      final models = await _remoteDataSource.fetchAllTransactionsPaginated(
+        userId: userId,
+        pageSize: pageSize,
+      );
+      return Success(models.map((m) => m.entity).toList());
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  @override
   Future<Result<WalletEntity>> createWallet({
     required String userId,
     required String name,

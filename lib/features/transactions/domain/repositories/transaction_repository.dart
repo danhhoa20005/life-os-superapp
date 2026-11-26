@@ -31,6 +31,21 @@ abstract interface class TransactionRepository {
     required DateTime endExclusive,
   });
 
+  Future<Result<List<WalletEntity>>> fetchAllWalletsPaginated({
+    required String userId,
+    int pageSize = 200,
+  });
+
+  Future<Result<List<CategoryEntity>>> fetchAllCategoriesPaginated({
+    required String userId,
+    int pageSize = 200,
+  });
+
+  Future<Result<List<TransactionEntity>>> fetchAllTransactionsPaginated({
+    required String userId,
+    int pageSize = 200,
+  });
+
   Future<Result<WalletEntity>> createWallet({
     required String userId,
     required String name,
