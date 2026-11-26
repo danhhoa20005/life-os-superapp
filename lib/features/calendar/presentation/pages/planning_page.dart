@@ -76,8 +76,8 @@ class _PlanningPageState extends State<PlanningPage>
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    final activeFamily = context.watch<FamilyBloc>().state.activeFamily;
+    final user = context.select((AuthBloc b) => b.state.user);
+    final familyId = context.select((FamilyBloc b) => b.state.activeFamily?.id);
     final isSyncingCal = context.select<CalendarBloc, bool>(
       (b) => b.state.isSyncingGoogle,
     );
@@ -95,14 +95,16 @@ class _PlanningPageState extends State<PlanningPage>
               (c.message != null && p.message != c.message),
           listener: (context, state) {
             if (state.failure != null) {
-              LifeOsTopToast.fromSnackBar(
+              LifeOsTopToast.show(
                 context,
-                SnackBar(content: Text('⚠ ${state.failure!.message}')),
+                state.failure!.message,
+                kind: LifeOsToastKind.error,
               );
             } else if (state.message != null) {
-              LifeOsTopToast.fromSnackBar(
+              LifeOsTopToast.show(
                 context,
-                SnackBar(content: Text('✓ ${state.message!}')),
+                state.message!,
+                kind: LifeOsToastKind.success,
               );
             }
           },
@@ -113,14 +115,16 @@ class _PlanningPageState extends State<PlanningPage>
               (c.message != null && p.message != c.message),
           listener: (context, state) {
             if (state.failure != null) {
-              LifeOsTopToast.fromSnackBar(
+              LifeOsTopToast.show(
                 context,
-                SnackBar(content: Text('⚠ ${state.failure!.message}')),
+                state.failure!.message,
+                kind: LifeOsToastKind.error,
               );
             } else if (state.message != null) {
-              LifeOsTopToast.fromSnackBar(
+              LifeOsTopToast.show(
                 context,
-                SnackBar(content: Text('✓ ${state.message!}')),
+                state.message!,
+                kind: LifeOsToastKind.success,
               );
             }
           },
@@ -160,7 +164,7 @@ class _PlanningPageState extends State<PlanningPage>
                           context,
                           userId: user.id,
                           userName: user.fullName,
-                          familyId: activeFamily?.id,
+                          familyId: familyId,
                           availabilityOptIn: user.availabilityOptIn,
                         ),
                       ),
@@ -172,7 +176,7 @@ class _PlanningPageState extends State<PlanningPage>
                             context,
                             userId: user.id,
                             userName: user.fullName,
-                            familyId: activeFamily?.id,
+                            familyId: familyId,
                             availabilityOptIn: user.availabilityOptIn,
                           ),
                           icon: const Icon(Icons.add_rounded, size: 18),
@@ -180,13 +184,22 @@ class _PlanningPageState extends State<PlanningPage>
                         )
                       : FilledButton.icon(
                           key: const Key('open_create_task_header_button'),
-                          onPressed: () => showUnifiedCreateTaskDialog(
-                            context,
-                            userId: user.id,
-                            userName: user.fullName,
-                            familyId: activeFamily?.id,
-                            members: activeFamily?.members ?? const [],
-                          ),
+                          onPressed: () {
+                            final members =
+                                context
+                                    .read<FamilyBloc>()
+                                    .state
+                                    .activeFamily
+                                    ?.members ??
+                                const [];
+                            showUnifiedCreateTaskDialog(
+                              context,
+                              userId: user.id,
+                              userName: user.fullName,
+                              familyId: familyId,
+                              members: members,
+                            );
+                          },
                           icon: const Icon(Icons.add_task_rounded, size: 18),
                           label: const Text('Thêm việc'),
                         ),
@@ -212,8 +225,7 @@ class _PlanningPageState extends State<PlanningPage>
                       _UnifiedWorkScheduleTab(
                         userId: user.id,
                         userName: user.fullName,
-                        familyId: activeFamily?.id,
-                        familyMembers: activeFamily?.members ?? const [],
+                        familyId: familyId,
                         availabilityOptIn: user.availabilityOptIn,
                         initialViewMode: widget.initialViewMode,
                       ),
@@ -421,6 +433,9 @@ class _ManageCalendarsBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     return BlocBuilder<CalendarBloc, CalendarState>(
+      buildWhen: (p, n) =>
+          p.calendars != n.calendars ||
+          p.selectedCalendarId != n.selectedCalendarId,
       builder: (context, state) {
         final groups = state.deduplicatedCalendars;
         final userGroups = groups.where((g) => !g.isSystemFeed).toList();
@@ -681,7 +696,6 @@ class _UnifiedWorkScheduleTab extends StatefulWidget {
   final String userId;
   final String userName;
   final String? familyId;
-  final List<dynamic> familyMembers;
   final bool availabilityOptIn;
   final String? initialViewMode;
 
@@ -689,7 +703,6 @@ class _UnifiedWorkScheduleTab extends StatefulWidget {
     required this.userId,
     required this.userName,
     required this.familyId,
-    required this.familyMembers,
     required this.availabilityOptIn,
     this.initialViewMode,
   });
@@ -702,6 +715,8 @@ class _UnifiedWorkScheduleTab extends StatefulWidget {
 class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
     with WidgetsBindingObserver {
   static const Set<String> _validModes = {'day', 'week', 'month', 'year'};
+  static final DateFormat _timeFmt = DateFormat('HH:mm');
+  static final DateFormat _shortDateFmt = DateFormat('dd/MM');
 
   String _viewMode = 'day';
   late DateTime _focusedMonth;
@@ -852,9 +867,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final taskState = context.watch<TaskBloc>().state;
-    final timeFmt = DateFormat('HH:mm');
-    final shortDateFmt = DateFormat('dd/MM');
+    final tasks = context.select((TaskBloc b) => b.state.tasks);
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
 
@@ -865,6 +878,13 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
           _searchCtrl.clear();
         }
       },
+      buildWhen: (p, n) =>
+          p.events != n.events ||
+          p.calendars != n.calendars ||
+          p.selectedCalendarId != n.selectedCalendarId ||
+          p.searchQuery != n.searchQuery ||
+          p.isSyncingGoogle != n.isSyncingGoogle ||
+          p.lastSyncReport != n.lastSyncReport,
       builder: (context, state) {
         final dedupedGroups = state.deduplicatedCalendars;
         final groupByCalId = <String, DeduplicatedCalendarGroup>{
@@ -935,7 +955,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                   return (
                     start,
                     end,
-                    'Tuần ${shortDateFmt.format(start)} – ${shortDateFmt.format(sunday)}',
+                    'Tuần ${_shortDateFmt.format(start)} – ${_shortDateFmt.format(sunday)}',
                   );
                 }(),
                 'month' => () {
@@ -992,7 +1012,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
 
         final periodEvents = _eventsInWindow(events, winStart, winEnd);
         final searchTrimmed = state.searchQuery.trim();
-        final dueTasks = taskState.tasks.where((t) {
+        final dueTasks = tasks.where((t) {
           if (t.status == TaskWorkflowStatus.declined) return false;
           if (state.selectedCalendarId == '__family__' && t.isPersonal) {
             return false;
@@ -1019,7 +1039,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
         }
 
         bool dateHasTask(DateTime day) {
-          return taskState.tasks.any(
+          return tasks.any(
             (t) =>
                 t.status != TaskWorkflowStatus.done &&
                 t.status != TaskWorkflowStatus.declined &&
@@ -1347,10 +1367,10 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                           );
                           final datePrefix = _viewMode == 'day'
                               ? ''
-                              : '${shortDateFmt.format(ev.startsAt)} · ';
+                              : '${_shortDateFmt.format(ev.startsAt)} · ';
                           final timeLabel = ev.isAllDay
                               ? '${datePrefix}Cả ngày'
-                              : '$datePrefix${timeFmt.format(ev.startsAt)} – ${timeFmt.format(ev.endsAt)}';
+                              : '$datePrefix${_timeFmt.format(ev.startsAt)} – ${_timeFmt.format(ev.endsAt)}';
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
@@ -1439,6 +1459,9 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                                       fontSize: 13,
                                       fontWeight: FontWeight.w800,
                                       color: c.textSecondary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -1449,8 +1472,8 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                             final isDone =
                                 task.status == TaskWorkflowStatus.done;
                             final dueText = _viewMode == 'day'
-                                ? timeFmt.format(task.dueAt!)
-                                : '${shortDateFmt.format(task.dueAt!)} ${timeFmt.format(task.dueAt!)}';
+                                ? _timeFmt.format(task.dueAt!)
+                                : '${_shortDateFmt.format(task.dueAt!)} ${_timeFmt.format(task.dueAt!)}';
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: InkWell(
@@ -1547,7 +1570,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                     userName: widget.userName,
                     familyId: widget.familyId,
                     dayEvents: periodEvents,
-                    openTasks: taskState.tasks,
+                    openTasks: tasks,
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -1594,7 +1617,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                                 ),
                                 Text(
                                   state.lastSyncReport != null
-                                      ? 'Đã đồng bộ lúc ${timeFmt.format(state.lastSyncReport!.syncedAt)}'
+                                      ? 'Đã đồng bộ lúc ${_timeFmt.format(state.lastSyncReport!.syncedAt)}'
                                       : (syncedCount > 0
                                             ? '$syncedCount sự kiện đã kết nối'
                                             : 'Chưa đồng bộ sự kiện nào'),
@@ -1602,6 +1625,9 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     color: c.textSecondary,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -1851,24 +1877,30 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      labels[idx],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? Colors.white.withValues(alpha: 0.88)
-                            : c.textSecondary,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        labels[idx],
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.88)
+                              : c.textSecondary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '${cellDate.day}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: isSelected ? Colors.white : c.textPrimary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '${cellDate.day}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: isSelected ? Colors.white : c.textPrimary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2031,12 +2063,15 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
               .map(
                 (lbl) => Expanded(
                   child: Center(
-                    child: Text(
-                      lbl,
-                      style: TextStyle(
-                        fontSize: 11.8,
-                        fontWeight: FontWeight.w700,
-                        color: c.textSecondary,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        lbl,
+                        style: TextStyle(
+                          fontSize: 11.8,
+                          fontWeight: FontWeight.w700,
+                          color: c.textSecondary,
+                        ),
                       ),
                     ),
                   ),
@@ -2072,7 +2107,7 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                       }
                     }),
                     child: Container(
-                      height: 39,
+                      height: 42,
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       decoration: BoxDecoration(
                         color: isSelected ? c.primary : Colors.transparent,
@@ -2084,21 +2119,24 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '${cellDate.day}',
-                            style: TextStyle(
-                              fontSize: 13.2,
-                              fontWeight: (isSelected || isToday)
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.white
-                                  : inMonth
-                                  ? (isToday ? c.primary : c.textPrimary)
-                                  : c.textSecondary.withValues(alpha: 0.42),
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '${cellDate.day}',
+                              style: TextStyle(
+                                fontSize: 13.2,
+                                fontWeight: (isSelected || isToday)
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : inMonth
+                                    ? (isToday ? c.primary : c.textPrimary)
+                                    : c.textSecondary.withValues(alpha: 0.42),
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
                             ),
                           ),
                           if (hasEv || hasTk) ...[
@@ -2223,14 +2261,19 @@ class _UnifiedWorkScheduleTabState extends State<_UnifiedWorkScheduleTab>
                 label: const Text('Thêm lịch hẹn'),
               ),
               OutlinedButton.icon(
-                onPressed: () => showUnifiedCreateTaskDialog(
-                  context,
-                  userId: widget.userId,
-                  userName: widget.userName,
-                  familyId: widget.familyId,
-                  members: widget.familyMembers,
-                  initialDueDate: _selectedDate,
-                ),
+                onPressed: () {
+                  final members =
+                      context.read<FamilyBloc>().state.activeFamily?.members ??
+                      const [];
+                  showUnifiedCreateTaskDialog(
+                    context,
+                    userId: widget.userId,
+                    userName: widget.userName,
+                    familyId: widget.familyId,
+                    members: members,
+                    initialDueDate: _selectedDate,
+                  );
+                },
                 icon: const Icon(Icons.add_task_rounded, size: 17),
                 label: const Text('Giao việc ngày này'),
               ),
@@ -2492,6 +2535,9 @@ class _UpsertCalendarEventDialog extends StatefulWidget {
 
 class _UpsertCalendarEventDialogState
     extends State<_UpsertCalendarEventDialog> {
+  static final DateFormat _dtLabelFmt = DateFormat('dd/MM HH:mm');
+  static final DateFormat _dLabelFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _titleCtrl;
   late final TextEditingController _locCtrl;
   late final TextEditingController _descCtrl;
@@ -2658,8 +2704,6 @@ class _UpsertCalendarEventDialogState
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingEvent != null;
-    final dtLabelFmt = DateFormat('dd/MM HH:mm');
-    final dLabelFmt = DateFormat('dd/MM/yyyy');
 
     const quickReminders = <(int mins, String label)>[
       (0, 'Không nhắc'),
@@ -2704,8 +2748,8 @@ class _UpsertCalendarEventDialogState
                       fit: BoxFit.scaleDown,
                       child: Text(
                         _isAllDay
-                            ? dLabelFmt.format(_startsAt)
-                            : dtLabelFmt.format(_startsAt),
+                            ? _dLabelFmt.format(_startsAt)
+                            : _dtLabelFmt.format(_startsAt),
                         style: const TextStyle(
                           fontSize: 12.2,
                           fontFeatures: [FontFeature.tabularFigures()],
@@ -2723,8 +2767,8 @@ class _UpsertCalendarEventDialogState
                       fit: BoxFit.scaleDown,
                       child: Text(
                         _isAllDay
-                            ? dLabelFmt.format(_endsAt)
-                            : dtLabelFmt.format(_endsAt),
+                            ? _dLabelFmt.format(_endsAt)
+                            : _dtLabelFmt.format(_endsAt),
                         style: const TextStyle(
                           fontSize: 12.2,
                           fontFeatures: [FontFeature.tabularFigures()],

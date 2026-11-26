@@ -29,10 +29,11 @@ class DailyTimeblockPlannerCard extends StatelessWidget {
     required this.openTasks,
   });
 
+  static final DateFormat _timeFmt = DateFormat('HH:mm');
+
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final timeFmt = DateFormat('HH:mm');
 
     final slots = dayEvents.map((e) {
       final isShared = e.visibility != CalendarEventVisibility.privateEvent;
@@ -133,7 +134,7 @@ class DailyTimeblockPlannerCard extends StatelessWidget {
               runSpacing: 6,
               children: vm.freeFocusWindows.take(3).map((w) {
                 final label =
-                    'Trống ${timeFmt.format(w.startsAt)}–${timeFmt.format(w.endsAt)}';
+                    'Trống ${_timeFmt.format(w.startsAt)}–${_timeFmt.format(w.endsAt)}';
                 return ActionChip(
                   visualDensity: VisualDensity.compact,
                   avatar: Icon(Icons.bolt_rounded, size: 15, color: c.primary),
@@ -170,7 +171,7 @@ class DailyTimeblockPlannerCard extends StatelessWidget {
                           );
                           LifeOsTopToast.show(
                             context,
-                            'Đã xếp việc "${candidateTask.title}" vào khung ${timeFmt.format(w.startsAt)}–${timeFmt.format(endSlot)}.',
+                            'Đã xếp việc "${candidateTask.title}" vào khung ${_timeFmt.format(w.startsAt)}–${_timeFmt.format(endSlot)}.',
                             kind: LifeOsToastKind.success,
                           );
                         },

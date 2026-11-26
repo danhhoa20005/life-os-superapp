@@ -6,7 +6,7 @@
   "language": "vi",
   "assetPath": "assets/models/vn_financial_fasttext_v1.ftq",
   "sizeBytes": 1007991,
-  "sha256": "0ced8b3dd1270cdb136a03871b16b64ecac3a867118c3c55c05672c9ebde45dd",
+  "sha256": "10aac86ae5fcb5459ec9946ebbad2c7c8590a98c0ef15e95129a6ab8bff19128",
   "numClasses": 30,
   "totalOutputClasses": 31,
   "hasExplicitOodClass": true,
@@ -48,16 +48,18 @@
     "num_buckets": 28672,
     "dim": 31,
     "lr": 0.45,
-    "epochs": 26,
-    "qat_epochs": 6,
+    "epochs": 30,
+    "qat_epochs": 7,
     "word_ngrams": 2,
     "min_sub": 4,
     "max_sub": 5,
-    "l2": 1e-05,
+    "l2": 8e-06,
     "l2_bias": 0.014,
-    "logit_gain": 26.0
+    "logit_gain": 26.0,
+    "ood_weight": 0.68,
+    "ood_bias_target": 1.72
   },
-  "calibratedTemperature": 0.92,
+  "calibratedTemperature": 0.88,
   "thresholds": {
     "highConfidence": 0.87,
     "mediumConfidence": 0.52,
@@ -65,14 +67,14 @@
     "oodReject": 0.4
   },
   "metrics": {
-    "testAccuracy": 0.9938,
-    "testMacroF1": 0.9939,
-    "expectedCalibrationError": 0.0438,
-    "falseAutoAssignmentRate": 0.0012,
-    "oodUnknownRejectionRate": 0.9823,
-    "oodAuroc": 0.9986,
+    "testAccuracy": 0.9961,
+    "testMacroF1": 0.9949,
+    "expectedCalibrationError": 0.0364,
+    "falseAutoAssignmentRate": 0.0006,
+    "oodUnknownRejectionRate": 0.9853,
+    "oodAuroc": 0.9993,
     "heldOutTestSamples": 1297,
     "heldOutOodTestSamples": 339
   },
-  "exportedAtUtc": "2026-11-26T04:06:17Z"
+  "exportedAtUtc": "2026-11-26T21:57:53Z"
 }

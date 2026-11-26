@@ -154,10 +154,176 @@ abstract final class VoiceFinancialNlpEngine {
   };
 
   static const String _tokenAlt =
-      r'(?:không|khong|một|mot|mốt|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|lam|nhăm|nham|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|mươi|muoi|trăm|tram|linh|lẻ|le)';
+      r'(?:không|khong|một|mot|mốt|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|lam|nhăm|nham|sáu|sau|xáu|bảy|bay|bẩy|tám|tam|chín|chin|mười|mươi|muoi|trăm|tram|linh|lẻ|le)';
   static const String _spokenSeq3 = '$_tokenAlt(?:\\s+$_tokenAlt){0,2}';
   static const String _spokenSeq4 = '$_tokenAlt(?:\\s+$_tokenAlt){0,3}';
   static const String _spokenSeq6 = '$_tokenAlt(?:\\s+$_tokenAlt){0,5}';
+
+  static final RegExp _asrTaiKhoangRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(tài)\s+khoảng(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrTaiKhoangAsciiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(tai)\s+khoang(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrCuoiTuonRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(cuối\s+)tuồn(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrTuonWindowRegex = RegExp(
+    r'(?<![\p{L}\p{N}])tuồn(?=\s+(?:này|nầy|nay|sau|tới|toi|trước|truoc)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrCuoiTuonAsciiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(cuoi\s+)tuon(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrTuonAsciiWindowRegex = RegExp(
+    r'(?<![\p{L}\p{N}])tuon(?=\s+(?:nay|sau|toi|truoc)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrTemporalNayRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(tuần|tuan|tháng|thang|năm|nam|ngày|ngay|hôm|hom|chiều|chieu|sáng|sang|tối|toi|lần|lan|đợt|dot)\s+nầy(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrDurationNuaRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(phút|phut|tiếng|tieng|giờ|gio|ngày|ngay|tuần|tuan|tháng|thang|năm|nam)\s+nửa(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrMiLiLitRegex = RegExp(
+    r'(?<![\p{L}\p{N}])mi[\s-]?li[\s-]?(?:lít|lit)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLuoiRuoiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(triệu|trieu|tr|củ|cu|nghìn|nghin|ngàn|ngan|k|trăm|tram|chục|chuc|xị|xi|lít|lit|tỷ|tỉ|ty|ti|giờ|gio|tiếng|tieng)\s+(?:lưỡi|luoi)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrXiToneRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(\d{1,2}|nửa|nua|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|sáu|sau|xáu|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi)\s+(?:xỉ|xĩ)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLuaHalfRegex = RegExp(
+    r'(?<![\p{L}\p{N}])lửa\s+(triệu|trieu|củ|cu|tỷ|tỉ|ty|ti|xị|xi)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrXauLeadRegex = RegExp(
+    r'(?<![\p{L}\p{N}])xáu(?=\s+(?:mươi|muoi|trăm|tram|nghìn|nghin|ngàn|ngan|triệu|trieu|củ|cu|chục|chuc|cành|canh|nhành|nhanh|xị|xi|lít|lit|tỷ|tỉ|ty|ti|k|người|nguoi|bạn|ban|giờ|gio|phút|phut|tiếng|tieng|ml)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrXauTrailRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(mười|muoi|mươi|muoi|linh|lẻ|le|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|thứ|thu)\s+xáu(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLamMuoiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])lăm\s+(mươi|muoi)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLamMuoiAsciiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])lam\s+muoi(?=\s+(?:nghìn|nghin|ngàn|ngan|triệu|trieu|củ|cu|cành|canh|nhành|nhanh|xị|xi|lít|lit|tỷ|tỉ|ty|ti|k|người|nguoi|bạn|ban|phút|phut|giờ|gio|tiếng|tieng|ml)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLeadingLamRegex = RegExp(
+    r'(?<![\p{L}\p{N}])lăm(?=\s+(?:trăm|tram|nghìn|nghin|ngàn|ngan|triệu|trieu|củ|cu|chục|chuc|cành|canh|nhành|nhanh|xị|xi|lít|lit|tỷ|tỉ|ty|ti|k|người|nguoi|bạn|ban|giờ|gio|phút|phut|tiếng|tieng|ml)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _numberBeforeLamGuardRegex = RegExp(
+    r'(?:hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi|mươi|linh|lẻ|le|trăm|tram|thứ|thu|\d)\s+$',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrChuaSplitModeRegex = RegExp(
+    r'(?<![\p{L}\p{N}])chưa\s+(đều|deu|đôi|doi)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrChuaCountRegex = RegExp(
+    r'(?<![\p{L}\p{N}])chưa\s+(\d{1,2}|hai|ba|bốn|bon|tư|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi)\s+(người|nguoi|bạn|ban|đứa|dua|phần|phan|suất|suat|nhóm|nhom|anh\s+em|chị\s+em|thành\s+viên)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrChuaChoRegex = RegExp(
+    r'(?<![\p{L}\p{N}])chưa\s+cho\s+(?!(?:vay|mượn|muon|lại|lai|đi|di|tiền|tien|ai|gì|gi|hết|het|xong|được|duoc|biết|biet|thấy|thay|mà|ma)\b)',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _hasBillHintBeforeRegex = RegExp(
+    r'(?:\d|triệu|trieu|củ|cu|nghìn|nghin|ngàn|ngan|trăm|tram|chục|chuc|xị|xi|lít|lit|cành|canh)',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrBankPhoneticsRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(?:(zalo\s+pay)|(mô\s+mô)|(việt\s+com\s+bank)|(mờ\s+bê\s+bank)|(tách\s+com\s+bank)|(vi\s+pi\s+bank)|(bi\s+ai\s+đi\s+vi)|(sóp\s+pi)|(grap\s+fut)|(nét\s+flix)|(ai\s+clao))(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _unaccentedConLaiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])con\s+lai(?=\s+(?:chia|cưa|cua|\d|[A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+){0,2}\s+(?:chịu|chiu|trả|tra|đóng|dong)))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _unaccentedChiuRegex = RegExp(
+    r'(?<![\p{L}\p{N}])chiu(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _unaccentedSuatRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(\d{1,2})\s+suat(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _halfXiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(?:nửa|nua)\s+(?:xị|xi)(?![\p{L}\p{N}])(?!(?:\s+(?:măng|mang|giày|giay)(?![\p{L}\p{N}])))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _halfLitRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(?:nửa|nua)\s+(?:lít|lit)(?![\p{L}\p{N}])(?!(?:\s+(?:xăng|xang|dầu|dau|nước|nuoc|sữa|sua|bia|rượu|ruou|nhớt|nhot|gas)(?![\p{L}\p{N}])))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _spokenHourRuoiNoGioRegex = RegExp(
+    '(?<![\\p{L}\\p{N}])($_spokenSeq3)\\s+rưỡi(?=\\s+(?:sáng|sang|trưa|trua|chiều|chieu|tối|toi|đêm|dem)(?![\\p{L}\\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _comTamPrefixGuardRegex = RegExp(
+    r'(?:cơm|com|bánh|banh)\s+$',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _tuTransferGuardAfterRegex = RegExp(
+    r'^\s+(?:ví|vi|tài\s+khoản|tai\s+khoan|thẻ|the|ngân\s+hàng|ngan\s+hang|vcb|tcb|mb|mbbank|acb|bidv|tpb|tpbank|vpb|vpbank|stb|sacombank|vib|msb|hdb|hdbank|ocb|timo|cake|momo|zalopay|vietcombank|techcombank|vietinbank|công\s+ty|cong\s+ty|bạn|ban|mẹ|me|bố|bo|quỹ|quy|sổ|so|nhà|nha|hôm|hom|ngày|ngay|tháng|thang|tuần|tuan|năm|nam)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _tuTransferContextAfterRegex = RegExp(
+    r'\b(?:sang|vào|vao|qua|đến|den)\b',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _namYearAfterRegex = RegExp(
+    r'^\s+(?:nay|ngoái|ngoai|sau|tới|toi|trước|truoc|\d{4})(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
 
   static final RegExp _halfBillionRegex = RegExp(
     r'(?<![\p{L}\p{N}])nửa\s+(?:tỷ|tỉ)|(?<![\p{L}\p{N}])nua\s+(?:ty|ti)(?![\p{L}\p{N}])',
@@ -220,7 +386,7 @@ abstract final class VoiceFinancialNlpEngine {
     unicode: true,
   );
   static final RegExp _spokenTramRuoiRegex = RegExp(
-    r'(?<![\p{L}\p{N}])(một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm|tram)\s+(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
+    r'(?<![\p{L}\p{N}])(một|mot|hai|ba|bốn|bon|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan|cành|canh|nhành|nhanh|k))?(?![\p{L}\p{N}])',
     caseSensitive: false,
     unicode: true,
   );
@@ -270,12 +436,12 @@ abstract final class VoiceFinancialNlpEngine {
     unicode: true,
   );
   static final RegExp _spokenBeforeCurrencyUnitRegex = RegExp(
-    '(?<![\\p{L}\\p{N}])($_spokenSeq6)\\s+(triệu|trieu|nghìn|nghin|ngàn|ngan|củ|cu|người|nguoi|chục|chuc|cành|canh|lít|lit|xị|xi|tỷ|tỉ|ty|ti|k)(?![\\p{L}\\p{N}])',
+    '(?<![\\p{L}\\p{N}])($_spokenSeq6)\\s+(triệu|trieu|nghìn|nghin|ngàn|ngan|củ|cu|người|nguoi|chục|chuc|cành|canh|lít|lit|xị|xi|tỷ|tỉ|ty|ti|k|ml)(?![\\p{L}\\p{N}])',
     caseSensitive: false,
     unicode: true,
   );
   static final RegExp _liquidAfterRegex = RegExp(
-    r'^\s+(?:xăng|xang|dầu|dau|nước|nuoc|sữa|sua|bia|rượu|ruou|nhớt|nhot|gas)(?![\p{L}\p{N}])',
+    r'^\s+(?:(?:rưỡi|ruoi)\s+)?(?:xăng|xang|dầu|dau|nước|nuoc|sữa|sua|bia|rượu|ruou|nhớt|nhot|gas)(?![\p{L}\p{N}])',
     caseSensitive: false,
     unicode: true,
   );
@@ -340,7 +506,7 @@ abstract final class VoiceFinancialNlpEngine {
     unicode: true,
   );
   static final RegExp _digitLitRegex = RegExp(
-    r'(?<![\p{L}\p{N}])(\d+)\s*(?:lít|lit)(?![\p{L}\p{N}])(?!(?:\s+(?:xăng|xang|dầu|dau|nước|nuoc|sữa|sua|bia|rượu|ruou|nhớt|nhot|gas)(?![\p{L}\p{N}])))',
+    r'(?<![\p{L}\p{N}])(\d+)\s*(?:lít|lit)(?![\p{L}\p{N}])(?!(?:\s+(?:(?:rưỡi|ruoi)\s+)?(?:xăng|xang|dầu|dau|nước|nuoc|sữa|sua|bia|rượu|ruou|nhớt|nhot|gas)(?![\p{L}\p{N}])))',
     caseSensitive: false,
     unicode: true,
   );
@@ -350,7 +516,7 @@ abstract final class VoiceFinancialNlpEngine {
     unicode: true,
   );
   static final RegExp _digitTramRuoiRegex = RegExp(
-    r'(?<![\p{L}\p{N}])(\d+)\s*(?:trăm|tram)\s*(?:rưỡi|ruoi)(?![\p{L}\p{N}])',
+    r'(?<![\p{L}\p{N}])(\d+)\s*(?:trăm|tram)\s*(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan|cành|canh|nhành|nhanh|k))?(?![\p{L}\p{N}])',
     caseSensitive: false,
     unicode: true,
   );
@@ -409,32 +575,176 @@ abstract final class VoiceFinancialNlpEngine {
   );
   static final RegExp _whitespaceSplitRegex = RegExp(r'\s+');
 
+  static String _normalizeAsrPhonetics(String input) {
+    final lower = input.toLowerCase();
+    var s = input;
+
+    if (lower.contains('tài khoảng') || lower.contains('tai khoang')) {
+      s = s
+          .replaceAllMapped(_asrTaiKhoangRegex, (m) => '${m.group(1)} khoản')
+          .replaceAllMapped(
+            _asrTaiKhoangAsciiRegex,
+            (m) => '${m.group(1)} khoan',
+          );
+    }
+    if (lower.contains('tuồn') || lower.contains('tuon')) {
+      s = s
+          .replaceAllMapped(_asrCuoiTuonRegex, (m) => '${m.group(1)}tuần')
+          .replaceAll(_asrTuonWindowRegex, 'tuần')
+          .replaceAllMapped(_asrCuoiTuonAsciiRegex, (m) => '${m.group(1)}tuan')
+          .replaceAll(_asrTuonAsciiWindowRegex, 'tuan');
+    }
+    if (lower.contains('nầy')) {
+      s = s.replaceAllMapped(_asrTemporalNayRegex, (m) => '${m.group(1)} này');
+    }
+    if (lower.contains('nửa')) {
+      s = s.replaceAllMapped(_asrDurationNuaRegex, (m) => '${m.group(1)} nữa');
+    }
+    if (lower.contains('mi li') ||
+        lower.contains('mili') ||
+        lower.contains('mi-li')) {
+      s = s.replaceAll(_asrMiLiLitRegex, 'ml');
+    }
+    if (lower.contains('lưỡi') || lower.contains('luoi')) {
+      s = s.replaceAllMapped(_asrLuoiRuoiRegex, (m) => '${m.group(1)} rưỡi');
+    }
+    if (lower.contains('xỉ') || lower.contains('xĩ')) {
+      s = s.replaceAllMapped(_asrXiToneRegex, (m) => '${m.group(1)} xị');
+    }
+    if (lower.contains('lửa')) {
+      s = s.replaceAllMapped(_asrLuaHalfRegex, (m) => 'nửa ${m.group(1)}');
+    }
+    if (lower.contains('xáu')) {
+      s = s
+          .replaceAll(_asrXauLeadRegex, 'sáu')
+          .replaceAllMapped(_asrXauTrailRegex, (m) => '${m.group(1)} sáu');
+    }
+    if (lower.contains('lăm') || lower.contains('lam muoi')) {
+      s = s
+          .replaceAllMapped(_asrLamMuoiRegex, (m) => 'năm ${m.group(1)}')
+          .replaceAll(_asrLamMuoiAsciiRegex, 'nam muoi')
+          .replaceAllMapped(_asrLeadingLamRegex, (m) {
+            final before = s.substring(0, m.start).toLowerCase();
+            if (_numberBeforeLamGuardRegex.hasMatch(before)) {
+              return m.group(0) ?? '';
+            }
+            return 'năm';
+          });
+    }
+    if (lower.contains('chưa')) {
+      s = s
+          .replaceAllMapped(_asrChuaSplitModeRegex, (m) => 'chia ${m.group(1)}')
+          .replaceAllMapped(
+            _asrChuaCountRegex,
+            (m) => 'chia ${m.group(1)} ${m.group(2)}',
+          )
+          .replaceAllMapped(_asrChuaChoRegex, (m) {
+            final before = s.substring(0, m.start);
+            return _hasBillHintBeforeRegex.hasMatch(before)
+                ? 'chia cho '
+                : (m.group(0) ?? '');
+          });
+    }
+    if (lower.contains('zalo pay') ||
+        lower.contains('mô mô') ||
+        lower.contains('com bank') ||
+        lower.contains('bê bank') ||
+        lower.contains('pi bank') ||
+        lower.contains('đi vi') ||
+        lower.contains('sóp pi') ||
+        lower.contains('grap fut') ||
+        lower.contains('nét flix') ||
+        lower.contains('ai clao')) {
+      s = s.replaceAllMapped(_asrBankPhoneticsRegex, (m) {
+        if (m.group(1) != null) return 'ZaloPay';
+        if (m.group(2) != null) return 'MoMo';
+        if (m.group(3) != null) return 'Vietcombank';
+        if (m.group(4) != null) return 'MB Bank';
+        if (m.group(5) != null) return 'Techcombank';
+        if (m.group(6) != null) return 'VPBank';
+        if (m.group(7) != null) return 'BIDV';
+        if (m.group(8) != null) return 'Shopee';
+        if (m.group(9) != null) return 'Grab food';
+        if (m.group(10) != null) return 'Netflix';
+        if (m.group(11) != null) return 'iCloud';
+        return m.group(0) ?? '';
+      });
+    }
+
+    return s;
+  }
+
+  static String? _lastNormInput;
+  static String? _lastNormOutput;
+
   /// Converts common spoken Vietnamese currency, range, split, and temporal phrases
   /// into numeric shorthand so downstream regexes parse spoken ASR transcripts accurately.
   static String normalizeSpokenVietnamese(String raw) {
     var s = raw.trim();
     if (s.isEmpty) return s;
+    if (s == _lastNormInput || s == _lastNormOutput) {
+      return _lastNormOutput!;
+    }
+    final originalTrimmed = s;
+
+    // 0. General ASR phonetic & dialectal normalization
+    s = _normalizeAsrPhonetics(s);
 
     // 1. Fixed slang, half-unit idioms & split-keyword normalization (accented + unaccented).
-    s = s
-        .replaceAll(_halfBillionRegex, '500tr')
-        .replaceAll(_halfMillionRegex, '500k')
-        .replaceAll(_oneHalfMillionRegex, '1tr5')
-        .replaceAll(_percentPhraseRegex, '%')
-        .replaceAll(_chiaDoiRegex, 'chia đều 2 người')
-        .replaceAll(_cuaDoiRegex, 'cưa đôi')
-        .replaceAllMapped(
-          _splitWithUnaccentedVoiRegex,
-          (m) => '${m.group(1)} với',
-        )
-        .replaceAll(_chiaDeuRegex, 'chia đều')
-        .replaceAll(_toiTraTruocRegex, 'tôi trả trước')
-        .replaceAll(_traTruocRegex, 'trả trước')
-        .replaceAll(_ungTruocRegex, 'ứng trước')
-        .replaceAll(_campuchiaRegex, 'chia đều');
+    final lowerInit = s.toLowerCase();
+    if (lowerInit.contains('nửa') || lowerInit.contains('nua')) {
+      s = s
+          .replaceAll(_halfBillionRegex, '500tr')
+          .replaceAll(_halfMillionRegex, '500k')
+          .replaceAll(_halfXiRegex, '50k')
+          .replaceAll(_halfLitRegex, '50k');
+    }
+    if (lowerInit.contains('rưỡi') || lowerInit.contains('ruoi')) {
+      s = s.replaceAll(_oneHalfMillionRegex, '1tr5');
+    }
+    if (lowerInit.contains('phần trăm') || lowerInit.contains('phan tram')) {
+      s = s.replaceAll(_percentPhraseRegex, '%');
+    }
+    if (lowerInit.contains('chia')) {
+      s = s
+          .replaceAll(_chiaDoiRegex, 'chia đều 2 người')
+          .replaceAll(_chiaDeuRegex, 'chia đều');
+    }
+    if (lowerInit.contains('cua doi')) {
+      s = s.replaceAll(_cuaDoiRegex, 'cưa đôi');
+    }
+    if (lowerInit.contains(' voi')) {
+      s = s.replaceAllMapped(
+        _splitWithUnaccentedVoiRegex,
+        (m) => '${m.group(1)} với',
+      );
+    }
+    if (lowerInit.contains('tra truoc')) {
+      s = s
+          .replaceAll(_toiTraTruocRegex, 'tôi trả trước')
+          .replaceAll(_traTruocRegex, 'trả trước');
+    }
+    if (lowerInit.contains('ung truoc')) {
+      s = s.replaceAll(_ungTruocRegex, 'ứng trước');
+    }
+    if (lowerInit.contains('campuchia')) {
+      s = s.replaceAll(_campuchiaRegex, 'chia đều');
+    }
+    if (lowerInit.contains('con lai')) {
+      s = s.replaceAll(_unaccentedConLaiRegex, 'còn lại');
+    }
 
-    final lower1 = s.toLowerCase();
-    if (lower1.contains('rưỡi') || lower1.contains('ruoi')) {
+    final lowerAfterSplit = s.toLowerCase();
+    if (lowerAfterSplit.contains('chiu') &&
+        (lowerAfterSplit.contains('còn lại') ||
+            lowerAfterSplit.contains('chia'))) {
+      s = s.replaceAll(_unaccentedChiuRegex, 'chịu');
+    }
+    if (lowerAfterSplit.contains('suat')) {
+      s = s.replaceAllMapped(_unaccentedSuatRegex, (m) => '${m.group(1)} suất');
+    }
+
+    if (lowerAfterSplit.contains('rưỡi') || lowerAfterSplit.contains('ruoi')) {
       s = s.replaceAllMapped(_spokenTramRuoiRegex, (m) {
         final d = _vnDigitWords[(m.group(1) ?? '').toLowerCase()];
         return d == null || d <= 0 ? (m.group(0) ?? '') : '${d}50k';
@@ -463,6 +773,8 @@ abstract final class VoiceFinancialNlpEngine {
     // 5. Collapse numeric money ranges ("40 đến 60k", "150-250k", "ba mươi đến 50 nghìn")
     s = _collapseMoneyRanges(s);
 
+    _lastNormInput = originalTrimmed;
+    _lastNormOutput = s;
     return s;
   }
 
@@ -476,12 +788,13 @@ abstract final class VoiceFinancialNlpEngine {
         lower.contains('tháng') ||
         lower.contains('thang');
     final hasHour = lower.contains('giờ') || lower.contains('gio');
+    final hasHalfPeriod = lower.contains('rưỡi') || lower.contains('ruoi');
     final hasDur =
         lower.contains('phút') ||
         lower.contains('phut') ||
         lower.contains('tiếng') ||
         lower.contains('tieng');
-    if (!hasDateAnchor && !hasHour && !hasDur) return input;
+    if (!hasDateAnchor && !hasHour && !hasHalfPeriod && !hasDur) return input;
 
     var out = input;
 
@@ -582,6 +895,15 @@ abstract final class VoiceFinancialNlpEngine {
       }
     }
 
+    if (hasHalfPeriod) {
+      out = out.replaceAllMapped(_spokenHourRuoiNoGioRegex, (m) {
+        final phrase = (m.group(1) ?? '').trim().toLowerCase();
+        final h = _parseSpokenSmallNumber(phrase);
+        if (h == null || h < 1 || h > 12) return m.group(0) ?? '';
+        return '$h rưỡi';
+      });
+    }
+
     if (hasDur) {
       out = out.replaceAllMapped(_spokenDurationUnitRegex, (m) {
         var phrase = (m.group(1) ?? '').trim().toLowerCase();
@@ -631,16 +953,22 @@ abstract final class VoiceFinancialNlpEngine {
         return match.group(0) ?? '';
       }
 
+      final allowOmittedMuoi = lowerUnit != 'chục' && lowerUnit != 'chuc';
       var preservedPrefix = '';
       final firstSpace = wordsStr.indexOf(' ');
       if (firstSpace > 0) {
         final firstWord = wordsStr.substring(0, firstSpace);
         final rest = wordsStr.substring(firstSpace + 1).trim();
+        final isComTamGuard =
+            (firstWord == 'tam' || firstWord == 'tấm') &&
+            _comTamPrefixGuardRegex.hasMatch(beforeText);
         if ((firstWord == 'linh' ||
                 firstWord == 'lẻ' ||
                 firstWord == 'le' ||
-                firstWord == 'sau') &&
-            _parseSpokenSmallNumber(rest) != null) {
+                firstWord == 'sau' ||
+                isComTamGuard) &&
+            _parseSpokenSmallNumber(rest, allowOmittedMuoi: allowOmittedMuoi) !=
+                null) {
           preservedPrefix = rawWords.substring(0, firstSpace + 1);
           wordsStr = rest;
         }
@@ -650,7 +978,10 @@ abstract final class VoiceFinancialNlpEngine {
         return match.group(0) ?? '';
       }
 
-      final val = _parseSpokenSmallNumber(wordsStr);
+      final val = _parseSpokenSmallNumber(
+        wordsStr,
+        allowOmittedMuoi: allowOmittedMuoi,
+      );
       if (val == null || val <= 0) return match.group(0) ?? '';
       if (lowerUnit == 'k') return '$preservedPrefix${val}k';
       return '$preservedPrefix$val $unit';
@@ -725,8 +1056,18 @@ abstract final class VoiceFinancialNlpEngine {
       return '${b * 1000 + 500}tr';
     });
     s = s.replaceAllMapped(_tyDigitWordRegex, (m) {
+      final rawTail = (m.group(2) ?? '').toLowerCase();
+      final afterText = s.substring(m.end);
+      if (rawTail == 'tu' &&
+          (_tuTransferGuardAfterRegex.hasMatch(afterText) ||
+              _tuTransferContextAfterRegex.hasMatch(afterText))) {
+        return m.group(0) ?? '';
+      }
+      if (rawTail == 'nam' && _namYearAfterRegex.hasMatch(afterText)) {
+        return m.group(0) ?? '';
+      }
       final b = int.tryParse(m.group(1) ?? '0') ?? 0;
-      final d = _vnDigitWords[(m.group(2) ?? '').toLowerCase()];
+      final d = _vnDigitWords[rawTail];
       if (d == null) return m.group(0) ?? '';
       return '${b * 1000 + d * 100}tr';
     });
@@ -771,8 +1112,18 @@ abstract final class VoiceFinancialNlpEngine {
     });
     s = s.replaceAllMapped(_trieuRuoiRegex, (m) => '${m.group(1)}tr5');
     s = s.replaceAllMapped(_trieuDigitWordRegex, (m) {
+      final rawTail = (m.group(2) ?? '').toLowerCase();
+      final afterText = s.substring(m.end);
+      if (rawTail == 'tu' &&
+          (_tuTransferGuardAfterRegex.hasMatch(afterText) ||
+              _tuTransferContextAfterRegex.hasMatch(afterText))) {
+        return m.group(0) ?? '';
+      }
+      if (rawTail == 'nam' && _namYearAfterRegex.hasMatch(afterText)) {
+        return m.group(0) ?? '';
+      }
       final whole = m.group(1) ?? '';
-      final fracDigit = _vnDigitWords[(m.group(2) ?? '').toLowerCase()];
+      final fracDigit = _vnDigitWords[rawTail];
       if (fracDigit == null || fracDigit <= 0 || fracDigit >= 10) {
         return m.group(0) ?? '';
       }
@@ -873,7 +1224,10 @@ abstract final class VoiceFinancialNlpEngine {
     return '$vndđ';
   }
 
-  static int? _parseSpokenSmallNumber(String phrase) {
+  static int? _parseSpokenSmallNumber(
+    String phrase, {
+    bool allowOmittedMuoi = true,
+  }) {
     final tokens = phrase
         .split(_whitespaceSplitRegex)
         .where((t) => t.isNotEmpty)
@@ -892,7 +1246,8 @@ abstract final class VoiceFinancialNlpEngine {
     if (i + 1 < tokens.length &&
         (tokens[i + 1] == 'trăm' || tokens[i + 1] == 'tram')) {
       final h = _vnDigitWords[tokens[i]];
-      if (h == null || h <= 0 || h >= 10) return null;
+      final allowZeroHundred = h == 0 && i + 2 < tokens.length;
+      if (h == null || (h <= 0 && !allowZeroHundred) || h >= 10) return null;
       hundreds = h * 100;
       i += 2;
       if (i < tokens.length &&
@@ -930,7 +1285,8 @@ abstract final class VoiceFinancialNlpEngine {
           ones = o;
           i += 1;
         }
-      } else if (i + 1 < tokens.length &&
+      } else if (allowOmittedMuoi &&
+          i + 1 < tokens.length &&
           cur != 'sau' &&
           _vnDigitWords.containsKey(cur) &&
           _vnDigitWords.containsKey(tokens[i + 1]) &&
@@ -1007,6 +1363,9 @@ abstract final class VoiceFinancialNlpEngine {
     return SharedExpenseTopic.other;
   }
 
+  static List<RegExpMatch> extractMoneyMatchesForOmni(String text) =>
+      _extractValidMoneyMatches(text);
+
   static List<RegExpMatch> _extractValidMoneyMatches(String text) {
     final matches = <RegExpMatch>[];
     for (final m in _amountTokenRegex.allMatches(text)) {
@@ -1065,7 +1424,7 @@ abstract final class VoiceFinancialNlpEngine {
 
     // 2. Check Group / Family / Roommate Bill Split ("chia đều", "chia cho", "%", per-person shares)
     if (_looksLikeGroupSplit(lower)) {
-      if (!ClauseSafetyScreener.screenClause(raw).isBlocked) {
+      if (!ClauseSafetyScreener.screenClause(normalized).isBlocked) {
         final split = _tryParseGroupSplit(
           normalized,
           currentUserId: currentUserId,
@@ -1107,7 +1466,9 @@ abstract final class VoiceFinancialNlpEngine {
       if (ClauseSafetyScreener.screenClause(rawClause).isBlocked) {
         continue;
       }
-      final normClause = normalizeSpokenVietnamese(rawClause);
+      final normClause = (clauses.length == 1 && rawClause == raw)
+          ? normalized
+          : normalizeSpokenVietnamese(rawClause);
       final amountMatches = _extractValidMoneyMatches(normClause);
       if (amountMatches.isEmpty) continue;
 
@@ -1301,14 +1662,92 @@ abstract final class VoiceFinancialNlpEngine {
       }
     }
 
-    if (paidById == null &&
-        RegExp(
-          r'(?<![\p{L}\p{N}])(?:tôi|toi|mình|minh|em)\s+(?:đã\s+)?(?:trả\s+trước|tra\s+truoc|ứng\s+trước|ung\s+truoc|thanh\s+toán\s+trước|bao\s+trước|trả\s+hộ|ứng\s+hộ)(?![\p{L}\p{N}])',
-          caseSensitive: false,
-          unicode: true,
-        ).hasMatch(normalized)) {
-      paidById = currentUserId;
-      paidByName = currentUserName;
+    if (paidById == null) {
+      final payerMatch = RegExp(
+        r'(?:^|[,;\s])([A-Za-zÀ-ỹ]+(?:\s+[A-Za-zÀ-ỹ]+)?)\s+(?:đã\s+)?(?:trả\s+trước|tra\s+truoc|ứng\s+trước|ung\s+truoc|thanh\s+toán\s+trước|bao\s+trước|trả\s+hộ|ứng\s+hộ)(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ).firstMatch(normalized);
+      if (payerMatch != null) {
+        const stopTokens = <String>{
+          'người',
+          'nguoi',
+          'bạn',
+          'ban',
+          'đứa',
+          'dua',
+          'anh',
+          'chị',
+          'chi',
+          'em',
+          'nhà',
+          'nha',
+          'phòng',
+          'phong',
+          'tiền',
+          'tien',
+          'chia',
+          'đều',
+          'deu',
+          'cho',
+          'với',
+          'voi',
+          'còn',
+          'con',
+          'lại',
+          'lai',
+          'và',
+          'va',
+          'do',
+          'thì',
+          'thi',
+          'là',
+          'la',
+          'hôm',
+          'hom',
+          'nay',
+          'qua',
+          'này',
+          'rồi',
+          'roi',
+          'đã',
+          'da',
+        };
+        var tokens = (payerMatch.group(1) ?? '')
+            .trim()
+            .split(_whitespaceSplitRegex)
+            .where((t) => t.isNotEmpty)
+            .toList();
+        while (tokens.isNotEmpty &&
+            stopTokens.contains(tokens.first.toLowerCase())) {
+          tokens = tokens.sublist(1);
+        }
+        if (tokens.isNotEmpty) {
+          final candidate = tokens.join(' ');
+          final candLower = candidate.toLowerCase();
+          if (candLower == 'tôi' ||
+              candLower == 'toi' ||
+              candLower == 'mình' ||
+              candLower == 'em') {
+            paidById = currentUserId;
+            paidByName = currentUserName;
+          } else {
+            final resolvedPayer = ParticipantResolutionEngine.resolve(
+              spokenName: candidate,
+              index: 0,
+              currentUserId: currentUserId,
+              currentUserName: currentUserName,
+              knownMembers: knownMembers,
+              nicknamesByUserId: nicknamesByUserId,
+              explicitOverridesBySpoken: explicitParticipantOverrides,
+            );
+            paidById = resolvedPayer.participantId;
+            paidByName = resolvedPayer.displayName.isNotEmpty
+                ? resolvedPayer.displayName
+                : candidate;
+          }
+        }
+      }
     }
 
     return ParsedGroupSplitIntent(

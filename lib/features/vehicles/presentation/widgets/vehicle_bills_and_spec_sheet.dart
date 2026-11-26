@@ -11,6 +11,8 @@ import '../../domain/entities/vehicle_entities.dart';
 import '../bloc/vehicle_bloc.dart';
 
 class UnifiedRecurringBillsTab extends StatelessWidget {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   final String userId;
   final List<RecurringBillEntity> bills;
   final String? defaultWalletId;
@@ -27,7 +29,6 @@ class UnifiedRecurringBillsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final fmt = DateFormat('dd/MM/yyyy');
 
     return Center(
       child: ConstrainedBox(
@@ -74,183 +75,198 @@ class UnifiedRecurringBillsTab extends StatelessWidget {
                 (b) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: LifeOsSoftCard(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const LifeOsIconSquircle(
-                          icon: Icons.electric_bolt_rounded,
-                          tone: LifeOsAccentTone.purple,
-                          size: 42,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${b.title} · ${VndAmount.format(b.estimatedAmountMinor)}',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14.5,
-                                  color: c.textPrimary,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const LifeOsIconSquircle(
+                              icon: Icons.electric_bolt_rounded,
+                              tone: LifeOsAccentTone.purple,
+                              size: 42,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${b.title} · ${VndAmount.format(b.estimatedAmountMinor)}',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14.5,
+                                      color: c.textPrimary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    'Kỳ hạn kế tiếp: ${_dateFmt.format(b.nextDueDate)}',
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                  if (b.hasAbnormalSpike) ...[
+                                    const SizedBox(height: 4),
+                                    const LifeOsStatusPill(
+                                      icon: Icons.warning_amber_rounded,
+                                      label: 'Tăng >= 25%',
+                                      tone: LifeOsAccentTone.amber,
+                                    ),
                                   ],
-                                ),
+                                ],
                               ),
-                              Text(
-                                'Kỳ hạn kế tiếp: ${fmt.format(b.nextDueDate)}',
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: c.textSecondary,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                              ),
-                              if (b.hasAbnormalSpike) ...[
-                                const SizedBox(height: 4),
-                                const LifeOsStatusPill(
-                                  icon: Icons.warning_amber_rounded,
-                                  label: 'Tăng >= 25%',
-                                  tone: LifeOsAccentTone.amber,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (defaultWalletId != null)
-                          FilledButton.tonal(
-                            key: Key('bill_pay_btn_${b.id}'),
-                            onPressed: () async {
-                              final bloc = context.read<VehicleBloc>();
-                              final paidCtrl = TextEditingController(
-                                text: '${b.estimatedAmountMinor}',
-                              );
-                              final confirmedAmount = await showDialog<int>(
-                                context: context,
-                                builder: (dCtx) => AlertDialog(
-                                  title: Text('Thanh toán: ${b.title}'),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Text(
-                                        'Dự kiến hằng tháng: ${VndAmount.format(b.estimatedAmountMinor)}. Nhập số tiền thực đóng kỳ này (hệ thống tự cảnh báo nếu tăng bất thường >= 25%):',
-                                        style: Theme.of(
-                                          dCtx,
-                                        ).textTheme.bodySmall,
+                            ),
+                            if (b.familyId == null ||
+                                b.ownerId.isEmpty ||
+                                b.ownerId == userId)
+                              IconButton(
+                                key: Key('bill_delete_btn_${b.id}'),
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Xóa hóa đơn',
+                                onPressed: () async {
+                                  final bloc = context.read<VehicleBloc>();
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dCtx) => AlertDialog(
+                                      title: Text('Xóa "${b.title}"?'),
+                                      content: const Text(
+                                        'Hóa đơn định kỳ này sẽ được gỡ khỏi danh sách nhắc hạn hằng tháng.',
                                       ),
-                                      const SizedBox(height: 10),
-                                      TextField(
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(dCtx).pop(false),
+                                          child: const Text('Giữ lại'),
+                                        ),
+                                        FilledButton(
+                                          key: const Key(
+                                            'confirm_delete_bill_dialog_btn',
+                                          ),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFFDC2626,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.of(dCtx).pop(true),
+                                          child: const Text('Xóa'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) {
+                                    bloc.add(
+                                      RecurringBillDeleted(
+                                        actorUserId: userId,
+                                        bill: b,
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 19,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (defaultWalletId != null) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.tonal(
+                              key: Key('bill_pay_btn_${b.id}'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () async {
+                                final bloc = context.read<VehicleBloc>();
+                                final paidCtrl = TextEditingController(
+                                  text: '${b.estimatedAmountMinor}',
+                                );
+                                final confirmedAmount = await showDialog<int>(
+                                  context: context,
+                                  builder: (dCtx) => AlertDialog(
+                                    title: Text('Thanh toán: ${b.title}'),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          'Dự kiến hằng tháng: ${VndAmount.format(b.estimatedAmountMinor)}. Nhập số tiền thực đóng kỳ này (hệ thống tự cảnh báo nếu tăng bất thường >= 25%):',
+                                          style: Theme.of(
+                                            dCtx,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        TextField(
+                                          key: const Key(
+                                            'recurring_bill_paid_amount_input',
+                                          ),
+                                          controller: paidCtrl,
+                                          keyboardType: TextInputType.number,
+                                          decoration: const InputDecoration(
+                                            labelText:
+                                                'Số tiền thực đóng kỳ này (VND)',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(dCtx).pop(),
+                                        child: const Text('Hủy'),
+                                      ),
+                                      FilledButton(
                                         key: const Key(
-                                          'recurring_bill_paid_amount_input',
+                                          'confirm_pay_recurring_bill_btn',
                                         ),
-                                        controller: paidCtrl,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText:
-                                              'Số tiền thực đóng kỳ này (VND)',
-                                        ),
+                                        onPressed: () {
+                                          final parsed =
+                                              VndAmount.tryParseInput(
+                                                paidCtrl.text,
+                                              ) ??
+                                              b.estimatedAmountMinor;
+                                          Navigator.of(dCtx).pop(
+                                            parsed > 0
+                                                ? parsed
+                                                : b.estimatedAmountMinor,
+                                          );
+                                        },
+                                        child: const Text('Xác nhận & Trừ ví'),
                                       ),
                                     ],
                                   ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.of(dCtx).pop(),
-                                      child: const Text('Hủy'),
-                                    ),
-                                    FilledButton(
-                                      key: const Key(
-                                        'confirm_pay_recurring_bill_btn',
-                                      ),
-                                      onPressed: () {
-                                        final parsed =
-                                            VndAmount.tryParseInput(
-                                              paidCtrl.text,
-                                            ) ??
-                                            b.estimatedAmountMinor;
-                                        Navigator.of(dCtx).pop(
-                                          parsed > 0
-                                              ? parsed
-                                              : b.estimatedAmountMinor,
-                                        );
-                                      },
-                                      child: const Text('Xác nhận & Trừ ví'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              paidCtrl.dispose();
-                              if (confirmedAmount != null) {
-                                bloc.add(
-                                  RecurringBillPaid(
-                                    userId: userId,
-                                    bill: b,
-                                    paidAmountMinor: confirmedAmount,
-                                    walletId: defaultWalletId!,
-                                  ),
                                 );
-                              }
-                            },
-                            child: const Text('Thanh toán'),
-                          ),
-                        if (b.familyId == null ||
-                            b.ownerId.isEmpty ||
-                            b.ownerId == userId)
-                          IconButton(
-                            key: Key('bill_delete_btn_${b.id}'),
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Xóa hóa đơn',
-                            onPressed: () async {
-                              final bloc = context.read<VehicleBloc>();
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (dCtx) => AlertDialog(
-                                  title: Text('Xóa "${b.title}"?'),
-                                  content: const Text(
-                                    'Hóa đơn định kỳ này sẽ được gỡ khỏi danh sách nhắc hạn hằng tháng.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(dCtx).pop(false),
-                                      child: const Text('Giữ lại'),
+                                paidCtrl.dispose();
+                                if (confirmedAmount != null) {
+                                  bloc.add(
+                                    RecurringBillPaid(
+                                      userId: userId,
+                                      bill: b,
+                                      paidAmountMinor: confirmedAmount,
+                                      walletId: defaultWalletId!,
                                     ),
-                                    FilledButton(
-                                      key: const Key(
-                                        'confirm_delete_bill_dialog_btn',
-                                      ),
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFFDC2626,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      onPressed: () =>
-                                          Navigator.of(dCtx).pop(true),
-                                      child: const Text('Xóa'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (ok == true) {
-                                bloc.add(
-                                  RecurringBillDeleted(
-                                    actorUserId: userId,
-                                    bill: b,
-                                  ),
-                                );
-                              }
-                            },
-                            icon: Icon(
-                              Icons.delete_outline_rounded,
-                              size: 19,
-                              color: c.textSecondary,
+                                  );
+                                }
+                              },
+                              child: const Text('Thanh toán'),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -278,6 +294,8 @@ class VehicleSpecEncyclopediaSheetBody extends StatefulWidget {
 
 class _VehicleSpecEncyclopediaSheetBodyState
     extends State<VehicleSpecEncyclopediaSheetBody> {
+  static final NumberFormat _numFmt = NumberFormat('#,###', 'vi_VN');
+
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   VehicleCategory? _selectedCategory;
@@ -298,6 +316,7 @@ class _VehicleSpecEncyclopediaSheetBodyState
             fontSize: 12.4,
             height: 1.35,
             color: c.textSecondary,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
           children: [
             TextSpan(
@@ -317,7 +336,6 @@ class _VehicleSpecEncyclopediaSheetBodyState
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final numFmt = NumberFormat('#,###', 'vi_VN');
     final hasActiveFilter =
         _selectedCategory != null || _searchQuery.trim().isNotEmpty;
     final filteredProfiles = MotorcycleSpecCatalog.allProfiles.where((p) {
@@ -475,7 +493,7 @@ class _VehicleSpecEncyclopediaSheetBodyState
                     _kvLine(
                       context,
                       'Chu kỳ chính',
-                      'Mỗi ${numFmt.format(p.recommendedOilIntervalKm)} km (${p.recommendedIntervalDays} ngày)',
+                      'Mỗi ${_numFmt.format(p.recommendedOilIntervalKm)} km (${p.recommendedIntervalDays} ngày)',
                     ),
                     const SizedBox(height: 6),
                     Text(

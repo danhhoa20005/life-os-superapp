@@ -27,6 +27,8 @@ class VehicleFuelAndTcoCard extends StatefulWidget {
 }
 
 class _VehicleFuelAndTcoCardState extends State<VehicleFuelAndTcoCard> {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+
   List<FuelOrChargeLog> _logs = const <FuelOrChargeLog>[];
 
   String get _vaultKey => 'fuel_logs_v1_${widget.vehicle.id}';
@@ -208,7 +210,6 @@ class _VehicleFuelAndTcoCardState extends State<VehicleFuelAndTcoCard> {
       nextOilDueOdoKm: isElectric ? null : widget.vehicle.nextDueKm,
       referenceNow: DateTime.now(),
     );
-    final dateFmt = DateFormat('dd/MM/yyyy');
 
     return LifeOsSoftCard(
       key: const Key('vehicle_fuel_and_tco_card'),
@@ -332,7 +333,7 @@ class _VehicleFuelAndTcoCardState extends State<VehicleFuelAndTcoCard> {
           if (analytics.predictedNextOilDueDate != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Dự kiến chạm mốc thay nhớt kế tiếp vào khoảng ${dateFmt.format(analytics.predictedNextOilDueDate!)} (trung bình ${analytics.averageDailyKm ?? 0} km/ngày).',
+              'Dự kiến chạm mốc thay nhớt kế tiếp vào khoảng ${_dateFmt.format(analytics.predictedNextOilDueDate!)} (trung bình ${analytics.averageDailyKm ?? 0} km/ngày).',
               softWrap: true,
               style: TextStyle(
                 fontSize: 11.8,

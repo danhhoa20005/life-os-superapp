@@ -19,12 +19,17 @@ import '../widgets/vehicle_fuel_tco_card.dart';
 /// Motorcycle-first Vehicle Maintenance, OEM Technical Spec Sheet & Recurring Bills screen
 /// crafted in Apple Liquid Glass for Vietnamese riders and households.
 class AssetsPage extends StatelessWidget {
+  static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
+  static final NumberFormat _numFmt = NumberFormat('#,###', 'vi_VN');
+
   const AssetsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    final wallets = context.watch<TransactionListBloc>().state.wallets;
+    final user = context.select((AuthBloc b) => b.state.user);
+    final defaultWalletId = context.select(
+      (TransactionListBloc b) => b.state.wallets.firstOrNull?.id,
+    );
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -92,42 +97,47 @@ class AssetsPage extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: BlocBuilder<VehicleBloc, VehicleState>(
-                      builder: (context, state) {
-                        return TabBarView(
-                          children: [
-                            _UnifiedVehiclesTab(
-                              userId: user.id,
-                              familyId: user.activeFamilyId,
-                              vehicles: state.vehicles,
-                              maintenanceHistoryByVehicleId:
-                                  state.maintenanceHistoryByVehicleId,
-                              defaultWalletId: wallets.isNotEmpty
-                                  ? wallets.first.id
-                                  : null,
-                              onAddVehicle: ({String? presetProfileKey}) =>
-                                  _showAddVehicleSheet(
-                                    context,
-                                    user.id,
-                                    user.activeFamilyId,
-                                    presetProfileKey: presetProfileKey,
-                                  ),
+                    child: TabBarView(
+                      children: [
+                        BlocBuilder<VehicleBloc, VehicleState>(
+                          buildWhen: (p, n) =>
+                              p.vehicles != n.vehicles ||
+                              p.maintenanceHistoryByVehicleId !=
+                                  n.maintenanceHistoryByVehicleId,
+                          builder: (context, state) => _UnifiedVehiclesTab(
+                            userId: user.id,
+                            familyId: user.activeFamilyId,
+                            vehicles: state.vehicles,
+                            maintenanceHistoryByVehicleId:
+                                state.maintenanceHistoryByVehicleId,
+                            defaultWalletId: defaultWalletId,
+                            onAddVehicle: ({String? presetProfileKey}) =>
+                                _showAddVehicleSheet(
+                                  context,
+                                  user.id,
+                                  user.activeFamilyId,
+                                  presetProfileKey: presetProfileKey,
+                                ),
+                          ),
+                        ),
+                        BlocSelector<
+                          VehicleBloc,
+                          VehicleState,
+                          List<RecurringBillEntity>
+                        >(
+                          selector: (s) => s.bills,
+                          builder: (context, bills) => UnifiedRecurringBillsTab(
+                            userId: user.id,
+                            bills: bills,
+                            defaultWalletId: defaultWalletId,
+                            onAddBill: () => _showAddBillSheet(
+                              context,
+                              user.id,
+                              user.activeFamilyId,
                             ),
-                            UnifiedRecurringBillsTab(
-                              userId: user.id,
-                              bills: state.bills,
-                              defaultWalletId: wallets.isNotEmpty
-                                  ? wallets.first.id
-                                  : null,
-                              onAddBill: () => _showAddBillSheet(
-                                context,
-                                user.id,
-                                user.activeFamilyId,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -161,8 +171,6 @@ class AssetsPage extends StatelessWidget {
     DateTime? inspectionExpiry;
     var shared = false;
     final bloc = context.read<VehicleBloc>();
-    final dateFmt = DateFormat('dd/MM/yyyy');
-    final numFmt = NumberFormat('#,###', 'vi_VN');
 
     await showModalBottomSheet<void>(
       context: context,
@@ -284,7 +292,7 @@ class AssetsPage extends StatelessWidget {
                     const SizedBox(height: 12),
                     _OemCompactPreviewBanner(
                       profile: selectedProfile,
-                      numFmt: numFmt,
+                      numFmt: AssetsPage._numFmt,
                     ),
                     const SizedBox(height: 14),
                     TextField(
@@ -348,10 +356,13 @@ class AssetsPage extends StatelessWidget {
                             Icons.verified_user_outlined,
                             size: 17,
                           ),
-                          label: Text(
-                            insuranceExpiry != null
-                                ? 'BH TNDS: ${dateFmt.format(insuranceExpiry!)}'
-                                : 'Hạn BH TNDS (~${VndAmount.format(selectedCategory.mandatoryInsuranceReferenceMinor)}/năm)',
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              insuranceExpiry != null
+                                  ? 'BH TNDS: ${_dateFmt.format(insuranceExpiry!)}'
+                                  : 'Hạn BH TNDS (~${VndAmount.format(selectedCategory.mandatoryInsuranceReferenceMinor)}/năm)',
+                            ),
                           ),
                         ),
                         if (selectedCategory.requiresPeriodicInspection)
@@ -375,10 +386,13 @@ class AssetsPage extends StatelessWidget {
                               Icons.fact_check_outlined,
                               size: 17,
                             ),
-                            label: Text(
-                              inspectionExpiry != null
-                                  ? 'Đăng kiểm: ${dateFmt.format(inspectionExpiry!)}'
-                                  : 'Chọn hạn Đăng kiểm ô tô',
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                inspectionExpiry != null
+                                    ? 'Đăng kiểm: ${_dateFmt.format(inspectionExpiry!)}'
+                                    : 'Chọn hạn Đăng kiểm ô tô',
+                              ),
                             ),
                           ),
                       ],
@@ -447,7 +461,10 @@ class AssetsPage extends StatelessWidget {
                               Navigator.of(ctx).pop();
                             },
                             icon: const Icon(Icons.check_rounded, size: 18),
-                            label: const Text('Lưu xe & Áp dụng chuẩn hãng'),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Lưu xe & Áp dụng chuẩn hãng'),
+                            ),
                           ),
                         ),
                       ],
@@ -492,7 +509,6 @@ class AssetsPage extends StatelessWidget {
     final providerCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     var nextDueDate = DateTime.now().add(const Duration(days: 5));
-    final dateFmt = DateFormat('dd/MM/yyyy');
     final bloc = context.read<VehicleBloc>();
 
     await showModalBottomSheet<void>(
@@ -563,7 +579,10 @@ class AssetsPage extends StatelessWidget {
                       },
                       icon: const Icon(Icons.event_available_rounded, size: 18),
                       label: Text(
-                        'Kỳ hạn thanh toán: ${dateFmt.format(nextDueDate)}',
+                        'Kỳ hạn thanh toán: ${_dateFmt.format(nextDueDate)}',
+                        style: const TextStyle(
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -673,6 +692,7 @@ class _SpecKeyValueLine extends StatelessWidget {
             fontSize: 12.4,
             height: 1.35,
             color: c.textSecondary,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
           children: [
             TextSpan(
@@ -730,8 +750,8 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
     final now = DateTime.now();
-    final numFmt = NumberFormat('#,###', 'vi_VN');
-    final dateFmt = DateFormat('dd/MM/yyyy');
+    final numFmt = AssetsPage._numFmt;
+    final dateFmt = AssetsPage._dateFmt;
 
     final activeVehicle = widget.vehicles.isNotEmpty
         ? widget.vehicles[_selectedIdx.clamp(0, widget.vehicles.length - 1)]
@@ -1105,6 +1125,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                                           0
                                                   ? const Color(0xFFC92A2A)
                                                   : c.textSecondary,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -1166,6 +1189,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                             style: TextStyle(
                                               fontSize: 11.4,
                                               color: c.textSecondary,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                             ),
                                           ),
                                         ],
@@ -1218,6 +1244,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                                 fontSize: 13.5,
                                                 fontWeight: FontWeight.w800,
                                                 color: c.textPrimary,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
                                               ),
                                             ),
                                           ),
@@ -1233,6 +1262,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                               style: TextStyle(
                                                 fontSize: 11.4,
                                                 color: c.textSecondary,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
                                               ),
                                             ),
                                           ),
@@ -1530,6 +1562,9 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
                                                   style: TextStyle(
                                                     fontSize: 11.8,
                                                     color: c.textSecondary,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
                                                   ),
                                                 ),
                                               ],
@@ -1709,8 +1744,8 @@ class _UnifiedVehiclesTabState extends State<_UnifiedVehiclesTab> {
     DateTime? insuranceExpiry = vehicle.insuranceExpiryDate;
     DateTime? inspectionExpiry = vehicle.inspectionExpiryDate;
     final bloc = context.read<VehicleBloc>();
-    final dateFmt = DateFormat('dd/MM/yyyy');
-    final numFmt = NumberFormat('#,###', 'vi_VN');
+    final dateFmt = AssetsPage._dateFmt;
+    final numFmt = AssetsPage._numFmt;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -2357,31 +2392,45 @@ class _CarInspectionChecklistRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Hạn đăng kiểm định kỳ (Ô tô)',
-                  softWrap: true,
-                  style: TextStyle(
-                    fontSize: 14.2,
-                    fontWeight: FontWeight.w800,
-                    color: c.textPrimary,
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Hạn đăng kiểm định kỳ (Ô tô)',
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 14.2,
+                        fontWeight: FontWeight.w800,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    LifeOsStatusPill(
+                      icon: Icons.calendar_today_outlined,
+                      label: remDays != null
+                          ? (remDays >= 0
+                                ? 'Còn $remDays ngày'
+                                : 'Quá hạn ${-remDays}n')
+                          : 'Cập nhật',
+                      tone: tone,
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 4),
                 Text(
                   inspectionExpiryDate != null
                       ? 'Hạn đăng kiểm: ${dateFmt.format(inspectionExpiryDate!)}'
                       : 'Chạm để cập nhật ngày hết hạn đăng kiểm ô tô',
                   softWrap: true,
-                  style: TextStyle(fontSize: 12, color: c.textSecondary),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: c.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
-          ),
-          LifeOsStatusPill(
-            icon: Icons.calendar_today_outlined,
-            label: remDays != null
-                ? (remDays >= 0 ? 'Còn $remDays ngày' : 'Quá hạn ${-remDays}n')
-                : 'Cập nhật',
-            tone: tone,
           ),
         ],
       ),

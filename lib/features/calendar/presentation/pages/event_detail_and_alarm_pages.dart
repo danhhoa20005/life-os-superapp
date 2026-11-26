@@ -13,10 +13,32 @@ import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/personal_alarm_service.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../family/presentation/bloc/family_bloc.dart';
 import '../../domain/entities/calendar_entities.dart';
 import '../bloc/calendar_bloc.dart';
 import 'planning_page.dart';
+
+B? _tryReadOptionalBloc<B extends StateStreamableSource<Object?>>(
+  BuildContext context,
+) {
+  try {
+    return context.read<B>();
+  } catch (_) {
+    return null;
+  }
+}
+
+T? _trySelectOptionalBloc<B extends StateStreamableSource<S>, S, T>(
+  BuildContext context,
+  T Function(S state) selector,
+) {
+  try {
+    return context.select<B, T>((bloc) => selector(bloc.state));
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Screen 03: "Chi tiết sự kiện" with real OS Alarm scheduling & past-event guard.
 class EventDetailPage extends StatefulWidget {
@@ -29,6 +51,10 @@ class EventDetailPage extends StatefulWidget {
 }
 
 class _EventDetailPageState extends State<EventDetailPage> {
+  static final DateFormat _dateLabelFmt = DateFormat('dd \'tháng\' MM, yyyy');
+  static final DateFormat _hmFmt = DateFormat('HH:mm');
+  static final DateFormat _hmDmFmt = DateFormat('HH:mm dd/MM');
+
   int _selectedReminderMinutes = 15;
   bool _enableFullScreenAlarm = true;
   ScheduledEventAlarmInfo? _scheduledAlarm;
@@ -53,64 +79,78 @@ class _EventDetailPageState extends State<EventDetailPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    CalendarBloc? maybeCalBloc;
-    try {
-      maybeCalBloc = context.watch<CalendarBloc>();
-    } catch (_) {
-      maybeCalBloc = null;
-    }
-    FamilyBloc? maybeFamilyBloc;
-    try {
-      maybeFamilyBloc = context.watch<FamilyBloc>();
-    } catch (_) {
-      maybeFamilyBloc = null;
-    }
-
-    AuthBloc? maybeAuthBloc;
-    try {
-      maybeAuthBloc = context.watch<AuthBloc>();
-    } catch (_) {
-      maybeAuthBloc = null;
-    }
-
-    final calEvents =
-        maybeCalBloc?.state.events ?? const <CalendarEventEntity>[];
-    final family = maybeFamilyBloc?.state.activeFamily;
-    final authUser = maybeAuthBloc?.state.user;
+    final maybeCalBloc = _tryReadOptionalBloc<CalendarBloc>(context);
+    final selectedCalEvent =
+        _trySelectOptionalBloc<
+          CalendarBloc,
+          CalendarState,
+          CalendarEventEntity?
+        >(context, (s) {
+          if (widget.initialEvent != null) {
+            for (final item in s.events) {
+              if (item.id == widget.initialEvent!.id) {
+                return item;
+              }
+            }
+            return null;
+          }
+          return s.events.isNotEmpty ? s.events.first : null;
+        });
+    final familyInfo =
+        _trySelectOptionalBloc<
+          FamilyBloc,
+          FamilyState,
+          ({String id, List<String> memberNames})?
+        >(context, (s) {
+          final fam = s.activeFamily;
+          if (fam == null) return null;
+          return (
+            id: fam.id,
+            memberNames: fam.members.map((m) => m.fullName).take(4).toList(),
+          );
+        });
+    final authInfo =
+        _trySelectOptionalBloc<
+          AuthBloc,
+          AuthState,
+          ({String id, String fullName, bool availabilityOptIn})?
+        >(context, (s) {
+          final u = s.user;
+          if (u == null) return null;
+          return (
+            id: u.id,
+            fullName: u.fullName,
+            availabilityOptIn: u.availabilityOptIn,
+          );
+        });
 
     CalendarEventEntity? latestFromState;
-    if (widget.initialEvent != null) {
-      for (final item in calEvents) {
-        if (item.id == widget.initialEvent!.id) {
-          if (item.isRecurring &&
-              widget.initialEvent!.startsAt != item.startsAt) {
-            final dur = item.endsAt.isAfter(item.startsAt)
-                ? item.endsAt.difference(item.startsAt)
-                : widget.initialEvent!.endsAt.difference(
-                    widget.initialEvent!.startsAt,
-                  );
-            final occStart = DateTime(
-              widget.initialEvent!.startsAt.year,
-              widget.initialEvent!.startsAt.month,
-              widget.initialEvent!.startsAt.day,
-              item.startsAt.hour,
-              item.startsAt.minute,
-            );
-            latestFromState = item.copyWith(
-              startsAt: occStart,
-              endsAt: occStart.add(dur),
-            );
-          } else {
-            latestFromState = item;
-          }
-          break;
-        }
+    if (widget.initialEvent != null && selectedCalEvent != null) {
+      if (selectedCalEvent.isRecurring &&
+          widget.initialEvent!.startsAt != selectedCalEvent.startsAt) {
+        final dur = selectedCalEvent.endsAt.isAfter(selectedCalEvent.startsAt)
+            ? selectedCalEvent.endsAt.difference(selectedCalEvent.startsAt)
+            : widget.initialEvent!.endsAt.difference(
+                widget.initialEvent!.startsAt,
+              );
+        final occStart = DateTime(
+          widget.initialEvent!.startsAt.year,
+          widget.initialEvent!.startsAt.month,
+          widget.initialEvent!.startsAt.day,
+          selectedCalEvent.startsAt.hour,
+          selectedCalEvent.startsAt.minute,
+        );
+        latestFromState = selectedCalEvent.copyWith(
+          startsAt: occStart,
+          endsAt: occStart.add(dur),
+        );
+      } else {
+        latestFromState = selectedCalEvent;
       }
+    } else if (widget.initialEvent == null) {
+      latestFromState = selectedCalEvent;
     }
-    final event =
-        latestFromState ??
-        widget.initialEvent ??
-        (calEvents.isNotEmpty ? calEvents.first : null);
+    final event = latestFromState ?? widget.initialEvent;
     if (event == null) {
       return Scaffold(
         body: LifeOsMintWaveCanvas(
@@ -188,14 +228,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
     };
     _loadExistingAlarm(event.id);
     final dateLabel =
-        '${weekdayNames[event.startsAt.weekday]}, ${DateFormat('dd \'tháng\' MM, yyyy').format(event.startsAt)}';
+        '${weekdayNames[event.startsAt.weekday]}, ${_dateLabelFmt.format(event.startsAt)}';
     final timeLabel = event.isAllDay
         ? 'Cả ngày'
-        : '${DateFormat('HH:mm').format(event.startsAt)} – ${DateFormat('HH:mm').format(event.endsAt)}';
+        : '${_hmFmt.format(event.startsAt)} – ${_hmFmt.format(event.endsAt)}';
 
     String reminderClock(int minsBefore) {
       final t = event.startsAt.subtract(Duration(minutes: minsBefore));
-      return DateFormat('HH:mm').format(t);
+      return _hmFmt.format(t);
     }
 
     final reminderOptions = <(int mins, String title, String subtitle)>[
@@ -208,9 +248,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
     final memberNames =
         (event.visibility == CalendarEventVisibility.sharedEvent &&
-            family != null &&
-            family.members.isNotEmpty)
-        ? family.members.map((m) => m.fullName).take(4).toList()
+            familyInfo != null &&
+            familyInfo.memberNames.isNotEmpty)
+        ? familyInfo.memberNames
         : const <String>[];
 
     final isPastEvent = event.startsAt.isBefore(DateTime.now());
@@ -224,17 +264,17 @@ class _EventDetailPageState extends State<EventDetailPage> {
                 title: 'Chi tiết sự kiện',
                 showBackButton: true,
                 extraBrandActions: [
-                  if (maybeCalBloc != null && authUser != null) ...[
+                  if (maybeCalBloc != null && authInfo != null) ...[
                     LifeOsHeaderCircleButton(
                       buttonKey: const Key('event_detail_edit_button'),
                       icon: Icons.edit_outlined,
                       tooltip: 'Chỉnh sửa lịch hẹn',
                       onTap: () => showUpsertCalendarEventDialog(
                         context,
-                        userId: authUser.id,
-                        userName: authUser.fullName,
-                        familyId: family?.id,
-                        availabilityOptIn: authUser.availabilityOptIn,
+                        userId: authInfo.id,
+                        userName: authInfo.fullName,
+                        familyId: familyInfo?.id,
+                        availabilityOptIn: authInfo.availabilityOptIn,
                         existingEvent: event,
                       ),
                     ),
@@ -267,10 +307,10 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           ),
                         );
                         if (ok == true && context.mounted) {
-                          maybeCalBloc!.add(
+                          maybeCalBloc.add(
                             CalendarEventDeleted(
-                              userId: authUser.id,
-                              familyId: family?.id,
+                              userId: authInfo.id,
+                              familyId: familyInfo?.id,
                               visibility: event.visibility,
                               eventId: event.id,
                               googleCalendarId: event.googleCalendarId,
@@ -426,6 +466,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w600,
                                         color: c.textSecondary,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -456,12 +499,15 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        Text(
-                                          name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13.5,
-                                            color: c.textPrimary,
+                                        Flexible(
+                                          child: Text(
+                                            name,
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13.5,
+                                              color: c.textPrimary,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -568,6 +614,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: c.textSecondary,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
                                                   ),
                                                 ),
                                               ],
@@ -623,11 +672,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Đã hẹn chuông lúc ${DateFormat('HH:mm dd/MM').format(_scheduledAlarm!.triggerAt)}',
+                                    'Đã hẹn chuông lúc ${_hmDmFmt.format(_scheduledAlarm!.triggerAt)}',
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w700,
                                       color: c.textPrimary,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -680,9 +732,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 );
                             if (!context.mounted) return;
                             setState(() => _scheduledAlarm = info);
-                            final triggerFmt = DateFormat(
-                              'HH:mm dd/MM',
-                            ).format(info.triggerAt);
+                            final triggerFmt = _hmDmFmt.format(info.triggerAt);
                             LifeOsTopToast.show(
                               context,
                               '✓ Đã đặt báo thức lúc $triggerFmt cho "${event.title}".',
@@ -804,6 +854,9 @@ class _AlarmClockStudioHubView extends StatefulWidget {
 }
 
 class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
+  static final DateFormat _hmFmt = DateFormat('HH:mm');
+  static final DateFormat _dmFmt = DateFormat('HH:mm · dd/MM');
+
   List<PersonalAlarmItem> _personalAlarms = const <PersonalAlarmItem>[];
   Map<String, ScheduledEventAlarmInfo> _osAlarmsById =
       const <String, ScheduledEventAlarmInfo>{};
@@ -929,21 +982,20 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
 
-    List<CalendarEventEntity> upcomingEvents = const <CalendarEventEntity>[];
-    try {
-      upcomingEvents =
-          context
-              .watch<CalendarBloc>()
-              .state
-              .events
-              .where((e) => !e.isAllDay && e.startsAt.isAfter(now))
-              .toList()
-            ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
-    } catch (_) {}
+    final calendarEvents =
+        _trySelectOptionalBloc<
+          CalendarBloc,
+          CalendarState,
+          List<CalendarEventEntity>
+        >(context, (s) => s.events) ??
+        const <CalendarEventEntity>[];
+    final upcomingEvents =
+        calendarEvents
+            .where((e) => !e.isAllDay && e.startsAt.isAfter(now))
+            .toList()
+          ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
     final nearest = _computeNearestActiveAlarm(now);
-    final hmFmt = DateFormat('HH:mm');
-    final dmFmt = DateFormat('HH:mm · dd/MM');
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -1088,7 +1140,7 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
                                           Text(
-                                            hmFmt.format(nearest.triggerAt),
+                                            _hmFmt.format(nearest.triggerAt),
                                             style: TextStyle(
                                               fontSize: 36,
                                               fontWeight: FontWeight.w800,
@@ -1123,6 +1175,9 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                           color: c.primary,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
                                         ),
                                       ),
                                     ] else ...[
@@ -1460,14 +1515,17 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                                 ),
                                                 Text(
                                                   isArmed
-                                                      ? 'Chuông lúc ${dmFmt.format(scheduled.triggerAt)}'
-                                                      : 'Bắt đầu ${dmFmt.format(ev.startsAt)} · Nhắc trước ${leadMins}p',
+                                                      ? 'Chuông lúc ${_dmFmt.format(scheduled.triggerAt)}'
+                                                      : 'Bắt đầu ${_dmFmt.format(ev.startsAt)} · Nhắc trước ${leadMins}p',
                                                   softWrap: true,
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: isArmed
                                                         ? c.primary
                                                         : c.textSecondary,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
                                                   ),
                                                 ),
                                               ],
@@ -1835,6 +1893,9 @@ class _AlarmRingingFullScreenView extends StatefulWidget {
 class _AlarmRingingFullScreenViewState
     extends State<_AlarmRingingFullScreenView>
     with SingleTickerProviderStateMixin {
+  static final DateFormat _hmFmt = DateFormat('HH:mm');
+  static final DateFormat _dmyFmt = DateFormat('dd/MM/yyyy');
+
   late final AnimationController _pulseCtrl;
 
   @override
@@ -1918,12 +1979,12 @@ class _AlarmRingingFullScreenViewState
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ev = widget.event;
-    final alarmTime = DateFormat(
-      'HH:mm',
-    ).format(ev.startsAt.subtract(Duration(minutes: ev.reminderMinutesBefore)));
+    final alarmTime = _hmFmt.format(
+      ev.startsAt.subtract(Duration(minutes: ev.reminderMinutesBefore)),
+    );
     final eventTitle = ev.title;
     final eventTimeLine =
-        '${DateFormat('dd/MM/yyyy').format(ev.startsAt)} • ${DateFormat('HH:mm').format(ev.startsAt)}';
+        '${_dmyFmt.format(ev.startsAt)} • ${_hmFmt.format(ev.startsAt)}';
     final eventLocation = (ev.location ?? '').trim().isNotEmpty
         ? ev.location!
         : 'Báo thức hệ thống LifeOS';
@@ -2011,13 +2072,9 @@ class _AlarmRingingFullScreenViewState
                                 SizedBox(
                                   width: 184,
                                   height: 184,
-                                  child: AnimatedBuilder(
-                                    animation: _pulseCtrl,
-                                    builder: (_, __) => CustomPaint(
-                                      painter: _AlarmRadarRingsPainter(
-                                        progress: _pulseCtrl.value,
-                                        ringColor: c.primary,
-                                      ),
+                                  child: RepaintBoundary(
+                                    child: AnimatedBuilder(
+                                      animation: _pulseCtrl,
                                       child: Center(
                                         child: Container(
                                           width: 78,
@@ -2057,6 +2114,13 @@ class _AlarmRingingFullScreenViewState
                                             size: 36,
                                           ),
                                         ),
+                                      ),
+                                      builder: (_, child) => CustomPaint(
+                                        painter: _AlarmRadarRingsPainter(
+                                          progress: _pulseCtrl.value,
+                                          ringColor: c.primary,
+                                        ),
+                                        child: child,
                                       ),
                                     ),
                                   ),
@@ -2135,6 +2199,9 @@ class _AlarmRingingFullScreenViewState
                                                 color: c.textSecondary,
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
                                               ),
                                             ),
                                             Text(

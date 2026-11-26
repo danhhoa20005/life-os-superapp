@@ -15,9 +15,9 @@ import '../../../dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../../../pro_utilities/presentation/bloc/pro_utilities_bloc.dart';
 import '../bloc/daily_life_bloc.dart';
 
-UserEntity? _maybeReadAuthUser(BuildContext context) {
+UserEntity? _maybeSelectAuthUser(BuildContext context) {
   try {
-    return BlocProvider.of<AuthBloc>(context, listen: true).state.user;
+    return context.select((AuthBloc b) => b.state.user);
   } catch (_) {
     return null;
   }
@@ -310,9 +310,6 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final dash = context.watch<DashboardBloc>().state.data;
-    final dailySnap = context.watch<DailyLifeBloc>().state.snapshot;
-    final proSnap = context.watch<ProUtilitiesBloc>().state;
 
     final q = _query.trim();
     final hasActiveFilters = _domainFilter != 'all' || q.isNotEmpty;
@@ -334,10 +331,6 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
     for (final item in filtered) {
       grouped.putIfAbsent(item.domainTitle, () => []).add(item);
     }
-
-    final authUser = widget.isEmbeddedShellTab
-        ? _maybeReadAuthUser(context)
-        : null;
 
     return Scaffold(
       body: LifeOsMintWaveCanvas(
@@ -375,7 +368,7 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                       ),
                       children: [
                         if (widget.isEmbeddedShellTab) ...[
-                          _FacebookMenuProfileCard(user: authUser),
+                          const _FacebookMenuProfileSection(),
                           const SizedBox(height: 10),
                         ],
 
@@ -456,42 +449,8 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
                           ),
                           label: 'Chi tiết số liệu',
                           contentPadding: const EdgeInsets.only(top: 8),
-                          child: LifeOsMintHeroCard(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                LifeOsStatusPill(
-                                  icon: Icons.account_balance_wallet_outlined,
-                                  label: _hideBalances
-                                      ? 'Ví: •••••• ₫'
-                                      : 'Ví: ${VndAmount.format(dash.netWorthMinor)}',
-                                  tone: LifeOsAccentTone.emerald,
-                                ),
-                                LifeOsStatusPill(
-                                  icon: Icons.medication_outlined,
-                                  label:
-                                      'Thuốc: ${dailySnap.medications.length}',
-                                  tone: LifeOsAccentTone.coral,
-                                ),
-                                LifeOsStatusPill(
-                                  icon: Icons.shopping_cart_outlined,
-                                  label:
-                                      'Chợ: ${dailySnap.pendingGroceriesCount}',
-                                  tone: LifeOsAccentTone.blue,
-                                ),
-                                LifeOsStatusPill(
-                                  icon: Icons.radar_rounded,
-                                  label:
-                                      'Thuê bao: ${proSnap.subscriptionsAndWarranties.length}',
-                                  tone: LifeOsAccentTone.purple,
-                                ),
-                              ],
-                            ),
+                          child: _DirectoryLiveStatsCard(
+                            hideBalances: _hideBalances,
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -592,6 +551,70 @@ class _SuperAppDirectoryPageState extends State<SuperAppDirectoryPage> {
         ),
       ),
     );
+  }
+}
+
+class _DirectoryLiveStatsCard extends StatelessWidget {
+  final bool hideBalances;
+
+  const _DirectoryLiveStatsCard({required this.hideBalances});
+
+  @override
+  Widget build(BuildContext context) {
+    final netWorthMinor = context.select(
+      (DashboardBloc b) => b.state.data.netWorthMinor,
+    );
+    final medsCount = context.select(
+      (DailyLifeBloc b) => b.state.snapshot.medications.length,
+    );
+    final pendingGroceriesCount = context.select(
+      (DailyLifeBloc b) => b.state.snapshot.pendingGroceriesCount,
+    );
+    final subsCount = context.select(
+      (ProUtilitiesBloc b) => b.state.subscriptionsAndWarranties.length,
+    );
+
+    return LifeOsMintHeroCard(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          LifeOsStatusPill(
+            icon: Icons.account_balance_wallet_outlined,
+            label: hideBalances
+                ? 'Ví: •••••• ₫'
+                : 'Ví: ${VndAmount.format(netWorthMinor)}',
+            tone: LifeOsAccentTone.emerald,
+          ),
+          LifeOsStatusPill(
+            icon: Icons.medication_outlined,
+            label: 'Thuốc: $medsCount',
+            tone: LifeOsAccentTone.coral,
+          ),
+          LifeOsStatusPill(
+            icon: Icons.shopping_cart_outlined,
+            label: 'Chợ: $pendingGroceriesCount',
+            tone: LifeOsAccentTone.blue,
+          ),
+          LifeOsStatusPill(
+            icon: Icons.radar_rounded,
+            label: 'Thuê bao: $subsCount',
+            tone: LifeOsAccentTone.purple,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FacebookMenuProfileSection extends StatelessWidget {
+  const _FacebookMenuProfileSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final authUser = _maybeSelectAuthUser(context);
+    return _FacebookMenuProfileCard(user: authUser);
   }
 }
 

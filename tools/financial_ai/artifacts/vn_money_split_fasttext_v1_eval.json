@@ -1,11 +1,11 @@
 {
-  "calibratedTemperature": 0.88,
-  "testAccuracy": 0.9784,
-  "testMacroF1": 0.968,
-  "expectedCalibrationError": 0.0439,
-  "falseAutoAssignmentRate": 0.0104,
-  "oodUnknownRejectionRate": 0.9773,
-  "oodAuroc": 0.9931,
+  "calibratedTemperature": 0.86,
+  "testAccuracy": 0.9957,
+  "testMacroF1": 0.9938,
+  "expectedCalibrationError": 0.0419,
+  "falseAutoAssignmentRate": 0.0015,
+  "oodUnknownRejectionRate": 0.9955,
+  "oodAuroc": 0.9992,
   "perStratumOodRejection": {
     "a_chatter_homonyms": {
       "total": 101,
@@ -19,8 +19,8 @@
     },
     "c_english_gibberish_code_fragments": {
       "total": 53,
-      "rejected": 52,
-      "rejection_rate": 0.9811
+      "rejected": 53,
+      "rejection_rate": 1.0
     },
     "d_negated_hypothetical_balance_otp": {
       "total": 88,
@@ -29,8 +29,8 @@
     },
     "e_single_person_near_ood": {
       "total": 110,
-      "rejected": 102,
-      "rejection_rate": 0.9273
+      "rejected": 109,
+      "rejection_rate": 0.9909
     }
   },
   "heldOutTestSamples": 232,
@@ -52,7 +52,7 @@
   ],
   "confusionMatrix": [
     [
-      30,
+      32,
       0,
       0,
       0,
@@ -64,7 +64,7 @@
       0,
       0,
       0,
-      2
+      0
     ],
     [
       0,
@@ -132,14 +132,14 @@
       0,
       0,
       0,
-      20,
+      19,
       0,
       0,
       0,
       0,
       0,
       0,
-      0
+      1
     ],
     [
       0,
@@ -164,94 +164,94 @@
       0,
       0,
       0,
-      11,
+      12,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
       1,
       0,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      20,
-      0,
-      0,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      18,
-      0,
-      0,
-      2
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      20,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      20,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      1,
-      0,
-      2,
-      0,
-      0,
-      0,
-      1,
-      5,
-      1,
-      431
+      439
     ]
   ],
   "perClass": {
     "split.equal": {
       "precision": 1.0,
-      "recall": 0.9375,
-      "f1": 0.9677,
+      "recall": 1.0,
+      "f1": 1.0,
       "support": 32
     },
     "split.percentage": {
@@ -267,9 +267,9 @@
       "support": 16
     },
     "split.itemized_remainder": {
-      "precision": 0.9524,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1": 0.9756,
+      "f1": 1.0,
       "support": 20
     },
     "split.exact_custom": {
@@ -279,9 +279,9 @@
       "support": 12
     },
     "split.multi_category_receipt": {
-      "precision": 0.9091,
-      "recall": 1.0,
-      "f1": 0.9524,
+      "precision": 1.0,
+      "recall": 0.95,
+      "f1": 0.9744,
       "support": 20
     },
     "split.settle_repayment": {
@@ -292,38 +292,38 @@
     },
     "alloc.rule_50_30_20": {
       "precision": 1.0,
-      "recall": 0.9167,
-      "f1": 0.9565,
+      "recall": 1.0,
+      "f1": 1.0,
       "support": 12
     },
     "alloc.six_jars": {
-      "precision": 0.9524,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1": 0.9756,
+      "f1": 1.0,
       "support": 20
     },
     "alloc.family_household": {
-      "precision": 0.9474,
-      "recall": 0.9,
-      "f1": 0.9231,
-      "support": 20
-    },
-    "alloc.debt_payoff": {
-      "precision": 0.8,
-      "recall": 1.0,
-      "f1": 0.8889,
-      "support": 20
-    },
-    "alloc.fire_high_savings": {
       "precision": 0.9524,
       "recall": 1.0,
       "f1": 0.9756,
       "support": 20
     },
+    "alloc.debt_payoff": {
+      "precision": 0.9524,
+      "recall": 1.0,
+      "f1": 0.9756,
+      "support": 20
+    },
+    "alloc.fire_high_savings": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 20
+    },
     "__ood__": {
-      "precision": 0.9908,
-      "recall": 0.9773,
-      "f1": 0.984,
+      "precision": 0.9977,
+      "recall": 0.9955,
+      "f1": 0.9966,
       "support": 441
     }
   }

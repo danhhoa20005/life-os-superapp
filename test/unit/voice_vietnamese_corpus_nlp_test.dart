@@ -339,8 +339,13 @@ void main() {
 
         var variantFinTotal = 0;
         var variantFinExact = 0;
+        var variantIntentTotal = 0;
+        var variantIntentExact = 0;
+        var variantDtTotal = 0;
+        var variantDtExact = 0;
 
         final gaps = <String>[];
+        final variantGaps = <String>[];
 
         for (final u in utterances) {
           final spokenNorm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
@@ -393,8 +398,6 @@ void main() {
 
           // Also evaluate robustness across mild ASR simulated variants
           for (final variant in u.asrSimulatedVariants) {
-            if (!u.expectsFinancialAmount) continue;
-            variantFinTotal++;
             final vNorm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
               variant,
             );
@@ -412,8 +415,30 @@ void main() {
               vFin,
               u.expectedIntentKind,
             );
-            if (_listEqualsInt(vAmounts, u.expectedAmountsMinor)) {
-              variantFinExact++;
+            final vAmtOk =
+                !u.expectsFinancialAmount ||
+                _listEqualsInt(vAmounts, u.expectedAmountsMinor);
+            if (u.expectsFinancialAmount) {
+              variantFinTotal++;
+              if (vAmtOk) variantFinExact++;
+            }
+            variantIntentTotal++;
+            final vIntentOk = _matchesExpectedIntent(u, vEnv, vFin);
+            if (vIntentOk) variantIntentExact++;
+
+            final vDtOk = _matchesExpectedDateTimeCue(u, vEnv, fixedNow);
+            if (u.expectedDateTimeCue != null) {
+              variantDtTotal++;
+              if (vDtOk) variantDtExact++;
+            }
+
+            if (!vAmtOk || !vIntentOk || !vDtOk) {
+              variantGaps.add(
+                '${u.id}[amt=$vAmtOk, intent=$vIntentOk, dt=$vDtOk] '
+                '("$variant") -> norm="$vNorm" | '
+                'parsedAmounts=$vAmounts (exp=${u.expectedAmountsMinor}) | '
+                'drafts=${vEnv.drafts.map((d) => "${d.kind.name}:${d.resolvedSubtype.name}:${d.amountMinor}:${d.scheduledAt}").toList()}',
+              );
             }
           }
         }
@@ -470,6 +495,8 @@ void main() {
         final intentAcc = intentExact / utterances.length;
         final dtAcc = dtExact / dtTotal;
         final variantAcc = variantFinExact / variantFinTotal;
+        final variantIntentAcc = variantIntentExact / variantIntentTotal;
+        final variantDtAcc = variantDtExact / variantDtTotal;
         final normP50 = _percentile(normLatenciesMs, 50);
         final normP95 = _percentile(normLatenciesMs, 95);
         final omniP50 = _percentile(omniLatenciesMs, 50);
@@ -485,18 +512,24 @@ void main() {
           '  Intent Accuracy            : $intentExact/${utterances.length} (${(intentAcc * 100).toStringAsFixed(2)}%)\n'
           '  Date/Time Cue Recognition  : $dtExact/$dtTotal (${(dtAcc * 100).toStringAsFixed(2)}%)\n'
           '  ASR Variant Amount Acc     : $variantFinExact/$variantFinTotal (${(variantAcc * 100).toStringAsFixed(2)}%)\n'
+          '  ASR Variant Intent Acc     : $variantIntentExact/$variantIntentTotal (${(variantIntentAcc * 100).toStringAsFixed(2)}%)\n'
+          '  ASR Variant Date/Time Acc  : $variantDtExact/$variantDtTotal (${(variantDtAcc * 100).toStringAsFixed(2)}%)\n'
           '  Spoken Norm Latency P50/P95: ${normP50.toStringAsFixed(3)} ms / ${normP95.toStringAsFixed(3)} ms\n'
           '  Omni Parse Latency P50/P95 : ${omniP50.toStringAsFixed(3)} ms / ${omniP95.toStringAsFixed(3)} ms\n'
           '  Fin Analyzer P50/P95       : ${finP50.toStringAsFixed(3)} ms / ${finP95.toStringAsFixed(3)} ms\n'
-          '  Gaps (${gaps.length}):\n    - ${gaps.join('\n    - ')}\n',
+          '  Gaps (${gaps.length}):\n    - ${gaps.join('\n    - ')}\n'
+          '  Variant Gaps (${variantGaps.length}):\n    - ${variantGaps.join('\n    - ')}\n',
         );
 
         expect(finTotal, greaterThanOrEqualTo(20));
-        expect(amountAcc, greaterThanOrEqualTo(0.95));
-        expect(intentAcc, greaterThanOrEqualTo(0.95));
-        expect(dtAcc, greaterThanOrEqualTo(0.95));
+        expect(amountAcc, 1.0);
+        expect(intentAcc, 1.0);
+        expect(dtAcc, 1.0);
+        expect(variantAcc, 1.0);
+        expect(variantIntentAcc, 1.0);
+        expect(variantDtAcc, 1.0);
         expect(normP95, lessThan(10.0));
-        expect(omniP95, lessThan(25.0));
+        expect(omniP95, lessThan(15.0));
       },
     );
   });
@@ -564,10 +597,6 @@ void main() {
       expect(s5Omni.drafts.first.scheduledAt!.isAfter(fixedNow), isTrue);
 
       // 6. "Chuyển một triệu hai từ ví tiền mặt sang tài khoản ngân hàng." -> 1.200.000 ₫ transfer
-      // Baseline Gap Audit: Spoken trailing fractional unit word ("một triệu hai" without digit "2")
-      // currently normalizes to "1 triệu hai" and parses as 1,000,000 VND instead of 1,200,000 VND!
-      // Wave 2 Lead Action: Teach VoiceFinancialNlpEngine & SmartQuickEntryParser trailing spoken unit words
-      // after "triệu/nghìn/ngàn" (e.g. "1 triệu hai" -> "1tr2").
       final s6Norm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
         'Chuyển một triệu hai từ ví tiền mặt sang tài khoản ngân hàng.',
       );
@@ -575,12 +604,7 @@ void main() {
       expect(s6Omni.drafts.length, 1);
       expect(s6Omni.drafts.first.kind, OmniActionKind.transaction);
       expect(s6Omni.drafts.first.transactionKind, TransactionKind.transfer);
-      expect(
-        s6Omni.drafts.first.amountMinor,
-        anyOf(1200000, 1000000),
-        reason:
-            'Expected 1,200,000 VND once Wave 2 fixes "một triệu hai"; baseline currently extracts 1,000,000 VND.',
-      );
+      expect(s6Omni.drafts.first.amountMinor, 1200000);
 
       // 7. "Ăn sáng năm mươi nghìn... và đổ xăng bảy mươi nghìn." -> 50.000 ₫ & 70.000 ₫
       final s7Norm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
@@ -593,9 +617,9 @@ void main() {
     });
   });
 
-  group('4. Hard Spoken Amounts, Temporal & Split Corpus v2 (>=100 Utterances)', () {
+  group('4. Hard Spoken Amounts, Temporal & Split Corpus v2 (>=200 Utterances)', () {
     test(
-      'evaluates >=100 hard spoken Vietnamese utterances (>=95% exact amount + intent)',
+      'evaluates >=200 hard spoken Vietnamese utterances (100% exact amount + intent, P95 < 15ms)',
       () {
         final v2File = File(
           'tools/voice_asr_poc/corpus/vi_financial_corpus_v2_hard.json',
@@ -608,17 +632,13 @@ void main() {
               (e) => _HardCorpusV2Utterance.fromJson(e as Map<String, dynamic>),
             )
             .toList();
-        expect(v2List.length, greaterThanOrEqualTo(100));
+        expect(v2List.length, greaterThanOrEqualTo(200));
 
         var passed = 0;
         final failures = <String>[];
-        final sw = Stopwatch();
-        final latenciesMs = <double>[];
 
+        // 1. Validate accuracy across all >=200 utterances (also warms up Dart JIT)
         for (final u in v2List) {
-          sw
-            ..reset()
-            ..start();
           final norm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
             u.referenceTranscript,
           );
@@ -631,8 +651,6 @@ void main() {
             norm,
             now: fixedNow,
           );
-          sw.stop();
-          latenciesMs.add(sw.elapsedMicroseconds / 1000.0);
 
           final parsedAmounts = _extractParsedAmounts(
             envelope,
@@ -705,6 +723,28 @@ void main() {
           }
         }
 
+        // 2. Measure warm steady-state latency across 5 passes over all 210 utterances
+        final sw = Stopwatch();
+        final latenciesMs = <double>[];
+        for (var r = 0; r < 5; r++) {
+          for (final u in v2List) {
+            sw
+              ..reset()
+              ..start();
+            final norm = VoiceFinancialNlpEngine.normalizeSpokenVietnamese(
+              u.referenceTranscript,
+            );
+            VoiceFinancialNlpEngine.analyze(
+              u.referenceTranscript,
+              currentUserId: 'u_hoa',
+              currentUserName: 'Hòa',
+            );
+            SmartOmniIntentParser.parseDetailed(norm, now: fixedNow);
+            sw.stop();
+            latenciesMs.add(sw.elapsedMicroseconds / 1000.0);
+          }
+        }
+
         latenciesMs.sort();
         final p50 = _percentile(latenciesMs, 50);
         final p95 = _percentile(latenciesMs, 95);
@@ -718,8 +758,8 @@ void main() {
           '  Failures (${failures.length}):\n    - ${failures.join('\n    - ')}\n',
         );
 
-        expect(exactRate, greaterThanOrEqualTo(0.95));
-        expect(p95, lessThan(25.0));
+        expect(exactRate, 1.0);
+        expect(p95, lessThan(15.0));
       },
     );
   });

@@ -21,8 +21,7 @@ class TasksBoardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthBloc>().state.user;
-    final family = context.watch<FamilyBloc>().state.activeFamily;
+    final user = context.select((AuthBloc b) => b.state.user);
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -31,14 +30,16 @@ class TasksBoardPage extends StatelessWidget {
       listenWhen: (p, c) => p.failure != c.failure || p.message != c.message,
       listener: (context, state) {
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+            state.failure!.message,
+            kind: LifeOsToastKind.error,
           );
         } else if (state.message != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('✓ ${state.message!}')),
+            state.message!,
+            kind: LifeOsToastKind.success,
           );
         }
       },
@@ -52,13 +53,19 @@ class TasksBoardPage extends StatelessWidget {
                   showBackButton: true,
                   trailingAction: FilledButton.icon(
                     key: const Key('tasks_page_add_button'),
-                    onPressed: () => showUnifiedCreateTaskDialog(
-                      context,
-                      userId: user.id,
-                      userName: user.fullName,
-                      familyId: family?.id,
-                      members: family?.members ?? const [],
-                    ),
+                    onPressed: () {
+                      final family = context
+                          .read<FamilyBloc>()
+                          .state
+                          .activeFamily;
+                      showUnifiedCreateTaskDialog(
+                        context,
+                        userId: user.id,
+                        userName: user.fullName,
+                        familyId: family?.id,
+                        members: family?.members ?? const [],
+                      );
+                    },
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: const Text('Thêm việc'),
                   ),
@@ -142,12 +149,14 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final family = context.watch<FamilyBloc>().state.activeFamily;
-    final members = family?.members ?? const [];
+    final user = context.select((AuthBloc b) => b.state.user);
+    final members = context.select(
+      (FamilyBloc b) => b.state.activeFamily?.members ?? const [],
+    );
     final now = widget.referenceDate ?? DateTime.now();
 
     return BlocBuilder<TaskBloc, TaskState>(
+      buildWhen: (p, n) => p.tasks != n.tasks,
       builder: (context, state) {
         final allTasks = state.tasks;
         final openCount = allTasks
@@ -578,13 +587,20 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                           label: 'Thêm việc mới',
                           onPressed: user == null
                               ? null
-                              : () => showUnifiedCreateTaskDialog(
-                                  context,
-                                  userId: user.id,
-                                  userName: user.fullName,
-                                  familyId: family?.id,
-                                  members: members,
-                                ),
+                              : () {
+                                  final familyId = context
+                                      .read<FamilyBloc>()
+                                      .state
+                                      .activeFamily
+                                      ?.id;
+                                  showUnifiedCreateTaskDialog(
+                                    context,
+                                    userId: user.id,
+                                    userName: user.fullName,
+                                    familyId: familyId,
+                                    members: members,
+                                  );
+                                },
                         ),
                       ],
                     ),
@@ -635,13 +651,20 @@ class _UnifiedTasksBoardViewState extends State<UnifiedTasksBoardView> {
                     label: 'Thêm việc mới',
                     onPressed: user == null
                         ? null
-                        : () => showUnifiedCreateTaskDialog(
-                            context,
-                            userId: user.id,
-                            userName: user.fullName,
-                            familyId: family?.id,
-                            members: members,
-                          ),
+                        : () {
+                            final familyId = context
+                                .read<FamilyBloc>()
+                                .state
+                                .activeFamily
+                                ?.id;
+                            showUnifiedCreateTaskDialog(
+                              context,
+                              userId: user.id,
+                              userName: user.fullName,
+                              familyId: familyId,
+                              members: members,
+                            );
+                          },
                   ),
                 ],
               ],
@@ -737,16 +760,19 @@ class _UnifiedTaskRowCard extends StatelessWidget {
     this.showAssignee = false,
   });
 
+  static final DateFormat _hmFmt = DateFormat('HH:mm');
+  static final DateFormat _dmHmFmt = DateFormat('dd/MM, HH:mm');
+
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   String _formatDeadlineLabel(DateTime? due) {
     if (due == null) return 'Trong ngày (linh hoạt)';
-    final hm = DateFormat('HH:mm').format(due);
+    final hm = _hmFmt.format(due);
     if (_sameDay(due, referenceNow)) return 'Hôm nay, $hm';
     final tomorrow = referenceNow.add(const Duration(days: 1));
     if (_sameDay(due, tomorrow)) return 'Ngày mai, $hm';
-    return DateFormat('dd/MM, HH:mm').format(due);
+    return _dmHmFmt.format(due);
   }
 
   @override
@@ -1156,8 +1182,11 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                     color: c.textSecondary,
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton(
                       style: TextButton.styleFrom(
@@ -1175,7 +1204,6 @@ class _UnifiedTaskRowCard extends StatelessWidget {
                       ),
                       child: const Text('Từ chối'),
                     ),
-                    const SizedBox(width: 4),
                     FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         visualDensity: VisualDensity.compact,
@@ -1346,6 +1374,8 @@ class _UnifiedCreateTaskDialog extends StatefulWidget {
 }
 
 class _UnifiedCreateTaskDialogState extends State<_UnifiedCreateTaskDialog> {
+  static final DateFormat _dtFmt = DateFormat('dd/MM/yyyy HH:mm');
+
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _descCtrl = TextEditingController();
   late String _assigneeId;
@@ -1430,7 +1460,6 @@ class _UnifiedCreateTaskDialogState extends State<_UnifiedCreateTaskDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final dtFmt = DateFormat('dd/MM/yyyy HH:mm');
     return AlertDialog(
       title: const Text('Thêm công việc mới'),
       content: SingleChildScrollView(
@@ -1500,7 +1529,7 @@ class _UnifiedCreateTaskDialogState extends State<_UnifiedCreateTaskDialog> {
                   avatar: const Icon(Icons.schedule_rounded, size: 16),
                   label: Text(
                     _duePreset == 'custom' && _selectedDueAt != null
-                        ? dtFmt.format(_selectedDueAt!)
+                        ? _dtFmt.format(_selectedDueAt!)
                         : 'Chọn ngày giờ...',
                   ),
                   visualDensity: VisualDensity.compact,

@@ -771,6 +771,18 @@ __label__education đóng tiền học lớp tiếng nhật sơ cấp buổi t�
 __label__education dong tien hoc lop tieng nhat so cap buoi toi
 __label__education mới chi đóng tiền học lớp tiếng nhật sơ cấp buổi tối
 __label__education trả đóng tiền học lớp tiếng nhật sơ cấp buổi tối
+__label__education học phí khóa học thiết kế ui ux
+__label__education hoc phi khoa hoc thiet ke ui ux
+__label__education mới chi học phí khóa học thiết kế ui ux
+__label__education trả học phí khóa học thiết kế ui ux
+__label__education lệ phí đăng ký dự thi đánh giá năng lực
+__label__education le phi dang ky du thi danh gia nang luc
+__label__education mới chi lệ phí đăng ký dự thi đánh giá năng lực
+__label__education trả lệ phí đăng ký dự thi đánh giá năng lực
+__label__education tiền học thêm tiếng anh giao tiếp cuối tuần
+__label__education tien hoc them tieng anh giao tiep cuoi tuan
+__label__education mới chi tiền học thêm tiếng anh giao tiếp cuối tuần
+__label__education trả tiền học thêm tiếng anh giao tiếp cuối tuần
 __label__shopping.general nhận đơn hàng mua sắm ship cod từ lazada
 __label__shopping.general nhan don hang mua sam ship cod tu lazada
 __label__shopping.general mới chi nhận đơn hàng mua sắm ship cod từ lazada
@@ -851,6 +863,14 @@ __label__other chi phí đánh chìa khóa dự phòng và photocopy
 __label__other chi phi danh chia khoa du phong va photocopy
 __label__other mới chi chi phí đánh chìa khóa dự phòng và photocopy
 __label__other trả chi phí đánh chìa khóa dự phòng và photocopy
+__label__other nộp tiền phạt nguội vi phạm giao thông
+__label__other nop tien phat nguoi vi pham giao thong
+__label__other mới chi nộp tiền phạt nguội vi phạm giao thông
+__label__other trả nộp tiền phạt nguội vi phạm giao thông
+__label__other tiền đánh rơi mất tiền lẻ phát sinh khác
+__label__other tien danh roi mat tien le phat sinh khac
+__label__other mới chi tiền đánh rơi mất tiền lẻ phát sinh khác
+__label__other trả tiền đánh rơi mất tiền lẻ phát sinh khác
 __label__food.groceries đi chợ đầu mối mua thịt cá rau tươi nấu tối
 __label__food.groceries di cho dau moi mua thit ca rau tuoi nau toi
 __label__food.groceries mới chi đi chợ đầu mối mua thịt cá rau tươi nấu tối
@@ -867,6 +887,12 @@ __label__shopping.clothes mua chân váy công sở và áo sơ mi trắng
 __label__shopping.clothes mua chan vay cong so va ao so mi trang
 __label__shopping.clothes mới chi mua chân váy công sở và áo sơ mi trắng
 __label__shopping.clothes trả mua chân váy công sở và áo sơ mi trắng
+__label__shopping.clothes mua quan jean ao thun va giay sneaker
+__label__shopping.clothes mới chi mua quan jean ao thun va giay sneaker
+__label__shopping.clothes trả mua quan jean ao thun va giay sneaker
+__label__shopping.clothes sam tui xach da va ao khoac chong nang
+__label__shopping.clothes mới chi sam tui xach da va ao khoac chong nang
+__label__shopping.clothes trả sam tui xach da va ao khoac chong nang
 __label__shopping.electronics mua cáp chuyển đổi hdmi và ổ cứng ssd di động
 __label__shopping.electronics mua cap chuyen doi hdmi va o cung ssd di dong
 __label__shopping.electronics mới chi mua cáp chuyển đổi hdmi và ổ cứng ssd di động
@@ -883,6 +909,10 @@ __label__health.medicine mua men vi sinh và vitamin c ở nhà thuốc pharmaci
 __label__health.medicine mua men vi sinh va vitamin c o nhà thuốc pharmacity
 __label__health.medicine mới chi mua men vi sinh và vitamin c ở nhà thuốc pharmacity
 __label__health.medicine trả mua men vi sinh và vitamin c ở nhà thuốc pharmacity
+__label__health.medicine mua thuốc hạ sốt giảm đau và vitamin c nhà thuốc
+__label__health.medicine mua thuoc ha sot giam dau va vitamin c nha thuoc
+__label__health.medicine mới chi mua thuốc hạ sốt giảm đau và vitamin c nhà thuốc
+__label__health.medicine trả mua thuốc hạ sốt giảm đau và vitamin c nhà thuốc
 __label__transport.maintenance đem xe ô tô đi bảo dưỡng kiểm tra định kỳ tại gara
 __label__transport.maintenance dem xe o to di bao duong kiem tra dinh ky tai gara
 __label__transport.maintenance mới chi đem xe ô tô đi bảo dưỡng kiểm tra định kỳ tại gara
@@ -899,7 +929,89 @@ __label__income.bonus nhận tiền phụ cấp chuyên cần và ăn trưa thá
 __label__income.bonus nhan tien phu cap chuyen can va an trua thang nay
 __label__income.bonus mới chi nhận tiền phụ cấp chuyên cần và ăn trưa tháng này
 __label__income.bonus trả nhận tiền phụ cấp chuyên cần và ăn trưa tháng này
+__label__income.business doanh thu khách mua đơn hàng bán lẻ của shop
+__label__income.business doanh thu khach mua don hang ban le cua shop
+__label__income.business mới chi doanh thu khách mua đơn hàng bán lẻ của shop
+__label__income.business trả doanh thu khách mua đơn hàng bán lẻ của shop
 __label__income.other thu hồi lại tiền đặt cọc thuê thiết bị cũ
 __label__income.other thu hoi lai tien dat coc thue thiet bi cu
 __label__income.other mới chi thu hồi lại tiền đặt cọc thuê thiết bị cũ
 __label__income.other trả thu hồi lại tiền đặt cọc thuê thiết bị cũ
+__label__housing.rent chuyển khoản tiền thuê phòng trọ tháng này cho chủ nhà
+__label__housing.rent chuyen khoan tien thue phong tro thang nay cho chu nha
+__label__housing.rent mới chi chuyển khoản tiền thuê phòng trọ tháng này cho chủ nhà
+__label__housing.rent trả chuyển khoản tiền thuê phòng trọ tháng này cho chủ nhà
+__label__debt.interest thanh toán tiền lãi vay thẻ tín dụng ngân hàng
+__label__debt.interest thanh toan tien lai vay the tin dung ngan hang
+__label__debt.interest mới chi thanh toán tiền lãi vay thẻ tín dụng ngân hàng
+__label__debt.interest trả thanh toán tiền lãi vay thẻ tín dụng ngân hàng
+__label__debt.interest trả bớt khoản nợ vay tiêu dùng tháng này
+__label__debt.interest tra bot khoan no vay tieu dung thang nay
+__label__debt.interest mới chi trả bớt khoản nợ vay tiêu dùng tháng này
+__label__debt.interest trả trả bớt khoản nợ vay tiêu dùng tháng này
+__label__education nộp hp kỳ này
+__label__education nop hp ky nay
+__label__education tiền học thêm tối
+__label__education tien hoc them toi
+__label__education mua giáo trình ôn thi
+__label__education mua giao trinh on thi
+__label__education lệ phí thi chứng chỉ
+__label__education le phi thi chung chi
+__label__other nộp phạt vi phạm
+__label__other nop phat vi pham
+__label__other photocopy giấy tờ
+__label__other photocopy giay to
+__label__other công chứng hồ sơ
+__label__other cong chung ho so
+__label__other tiền tip phục vụ
+__label__other tien tip phuc vu
+__label__other ủng hộ thiện nguyện
+__label__other ung ho thien nguyen
+__label__shopping.clothes mua quần áo mới
+__label__shopping.clothes mua quan ao moi
+__label__shopping.clothes mua áo khoác gió
+__label__shopping.clothes mua ao khoac gio
+__label__shopping.clothes mua chân váy áo sơ mi
+__label__shopping.clothes mua chan vay ao so mi
+__label__housing.utilities đóng tiền điện t11
+__label__housing.utilities dong tien dien t11
+__label__housing.utilities đóng tiền nước tháng
+__label__housing.utilities dong tien nuoc thang
+__label__housing.utilities nạp tiền mạng wifi
+__label__housing.utilities nap tien mang wifi
+__label__health.hospital nộp viện phí
+__label__health.hospital nop vien phi
+__label__health.hospital khám răng nha khoa
+__label__health.hospital kham rang nha khoa
+__label__shopping.general thanh toán đơn shopee
+__label__shopping.general thanh toan don shopee
+__label__shopping.general mua mỹ phẩm skincare
+__label__shopping.general mua my pham skincare
+__label__shopping.general nhận hàng ship cod
+__label__shopping.general nhan hang ship cod
+__label__food.drinks uống cà phê sáng
+__label__food.drinks uong cà phê sang
+__label__food.drinks mua ly trà sữa
+__label__food.drinks mua ly tra sua
+__label__food.drinks uống nước ép hoa quả
+__label__food.drinks uong nuoc ep hoa qua
+__label__food.drinks trà dâu tằm pha lê đá
+__label__food.drinks tra dau tam pha le da
+__label__food.meals ăn trưa cơm văn phòng
+__label__food.meals an trua com van phong
+__label__food.meals ăn tối lẩu nướng
+__label__food.meals an toi lau nuong
+__label__housing.housework thuê giúp việc dọn nhà
+__label__housing.housework thue giup viec don nha
+__label__housing.housework mua nước giặt xả vải
+__label__housing.housework mua nuoc giat xa vai
+__label__income.other nhận tiền hoàn đơn hàng
+__label__income.other nhan tien hoan don hang
+__label__income.other bán thanh lý đồ dùng cũ
+__label__income.other ban thanh ly do dung cu
+__label__income.other nhận hoàn ứng công tác
+__label__income.other nhan hoan ung cong tac
+__label__transport.fuel sạc xe máy điện vinfast
+__label__transport.fuel sac xe may dien vinfast
+__label__gifts tặng bó hoa hồng ngày lễ
+__label__gifts tang bo hoa hong ngay le

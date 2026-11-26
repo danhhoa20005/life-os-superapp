@@ -95,6 +95,8 @@ class _FinancialAiAssistantBody extends StatefulWidget {
 
 class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
     with WidgetsBindingObserver {
+  static final DateFormat _dateOnlyFmt = DateFormat('dd/MM/yyyy');
+
   late final TextEditingController _inputCtrl;
   late final VoiceAssistantBloc _voiceBloc;
   bool _ownsLocalVoiceBloc = false;
@@ -179,42 +181,56 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
     final prevPhase = _lastOwnedPhase;
     _lastOwnedPhase = phase;
     final nextText = vState.effectiveText;
+    final nextListening = phase.isActiveCapture;
+    final nextFinalizing = phase == VoiceSessionPhase.finalizing;
+    final nextErrorKind = phase == VoiceSessionPhase.error
+        ? vState.session.lastErrorKind
+        : null;
+    final textChanged =
+        nextText.isNotEmpty &&
+        nextText != _inputCtrl.text &&
+        (phase.isActiveCapture || phase == VoiceSessionPhase.review);
+    final nextHint = switch (phase) {
+      VoiceSessionPhase.requestingPermission =>
+        'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...',
+      VoiceSessionPhase.preparing => 'Đang mở kênh Micro tiếng Việt...',
+      VoiceSessionPhase.listening =>
+        'Đang nghe tiếng Việt — bấm Dừng khi nói xong để hệ thống xử lý.',
+      VoiceSessionPhase.finalizing => 'Đang hoàn tất câu vừa nói...',
+      VoiceSessionPhase.review =>
+        nextText.isNotEmpty
+            ? '✓ Đã nhận diện giọng nói — kiểm tra các thẻ xác nhận bên dưới!'
+            : null,
+      VoiceSessionPhase.error =>
+        vState.session.lastErrorMessageVi ??
+            vState.session.lastErrorKind?.friendlyMessageVi ??
+            'Tạm gián đoạn thu âm — mời bạn thử lại.',
+      VoiceSessionPhase.cancelled =>
+        nextText.isNotEmpty
+            ? '✓ Đã giữ câu vừa nói — kiểm tra & xác nhận bên dưới.'
+            : 'Đã dừng phiên thu âm.',
+      _ => vState.actionableHintVi,
+    };
 
-    setState(() {
-      _isListening = phase.isActiveCapture;
-      _isFinalizing = phase == VoiceSessionPhase.finalizing;
-      _lastVoiceErrorKind = phase == VoiceSessionPhase.error
-          ? vState.session.lastErrorKind
-          : null;
-      if (nextText.isNotEmpty &&
-          nextText != _inputCtrl.text &&
-          (phase.isActiveCapture || phase == VoiceSessionPhase.review)) {
-        _inputCtrl.text = nextText;
-        _inputCtrl.selection = TextSelection.collapsed(offset: nextText.length);
-        _activeSource = FinancialInputSource.voiceTranscript;
-      }
-      _voiceHint = switch (phase) {
-        VoiceSessionPhase.requestingPermission =>
-          'Vui lòng bấm Cho phép quyền Micro trên hộp thoại hệ thống...',
-        VoiceSessionPhase.preparing => 'Đang mở kênh Micro tiếng Việt...',
-        VoiceSessionPhase.listening =>
-          'Đang nghe tiếng Việt — bấm Dừng khi nói xong để hệ thống xử lý.',
-        VoiceSessionPhase.finalizing => 'Đang hoàn tất câu vừa nói...',
-        VoiceSessionPhase.review =>
-          nextText.isNotEmpty
-              ? '✓ Đã nhận diện giọng nói — kiểm tra các thẻ xác nhận bên dưới!'
-              : null,
-        VoiceSessionPhase.error =>
-          vState.session.lastErrorMessageVi ??
-              vState.session.lastErrorKind?.friendlyMessageVi ??
-              'Tạm gián đoạn thu âm — mời bạn thử lại.',
-        VoiceSessionPhase.cancelled =>
-          nextText.isNotEmpty
-              ? '✓ Đã giữ câu vừa nói — kiểm tra & xác nhận bên dưới.'
-              : 'Đã dừng phiên thu âm.',
-        _ => vState.actionableHintVi,
-      };
-    });
+    if (nextListening != _isListening ||
+        nextFinalizing != _isFinalizing ||
+        nextErrorKind != _lastVoiceErrorKind ||
+        nextHint != _voiceHint ||
+        textChanged) {
+      setState(() {
+        _isListening = nextListening;
+        _isFinalizing = nextFinalizing;
+        _lastVoiceErrorKind = nextErrorKind;
+        if (textChanged) {
+          _inputCtrl.text = nextText;
+          _inputCtrl.selection = TextSelection.collapsed(
+            offset: nextText.length,
+          );
+          _activeSource = FinancialInputSource.voiceTranscript;
+        }
+        _voiceHint = nextHint;
+      });
+    }
 
     if (phase == VoiceSessionPhase.review &&
         prevPhase != VoiceSessionPhase.review &&
@@ -374,8 +390,11 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final user = context.watch<AuthBloc>().state.user;
-    final txState = context.watch<TransactionListBloc>().state;
+    final user = context.select((AuthBloc b) => b.state.user);
+    final wallets = context.select((TransactionListBloc b) => b.state.wallets);
+    final categories = context.select(
+      (TransactionListBloc b) => b.state.categories,
+    );
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -417,12 +436,23 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                 ),
                 Expanded(
                   child: BlocBuilder<GeminiCopilotBloc, GeminiCopilotState>(
+                    buildWhen: (p, n) =>
+                        p.config.isReadyForCloud != n.config.isReadyForCloud ||
+                        p.status != n.status ||
+                        p.lastResult != n.lastResult,
                     builder: (context, geminiState) {
                       final geminiReady = geminiState.config.isReadyForCloud;
                       final geminiBusy =
                           geminiState.status == GeminiCopilotStatus.analyzing;
 
                       return BlocBuilder<FinancialAiBloc, FinancialAiState>(
+                        buildWhen: (p, n) =>
+                            p.status != n.status ||
+                            p.isConfirming != n.isConfirming ||
+                            p.currentAnalysis != n.currentAnalysis ||
+                            p.activeCandidates != n.activeCandidates ||
+                            p.personalizationRules != n.personalizationRules ||
+                            p.modelMetadata != n.modelMetadata,
                         builder: (context, aiState) {
                           final meta = aiState.modelMetadata;
                           final isAnalyzing =
@@ -912,8 +942,8 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                                     geminiState: geminiState,
                                     hasFinancialAiCandidates:
                                         aiState.activeCandidates.isNotEmpty,
-                                    defaultWalletId: txState.wallets.isNotEmpty
-                                        ? txState.wallets.first.id
+                                    defaultWalletId: wallets.isNotEmpty
+                                        ? wallets.first.id
                                         : 'wallet_cash_default',
                                   ),
 
@@ -988,15 +1018,15 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                                         ),
                                         child: _AiTransactionDraftPreviewCard(
                                           draft: draft,
-                                          wallets: txState.wallets,
-                                          categories: txState.categories,
+                                          wallets: wallets,
+                                          categories: categories,
                                           isConfirming: aiState.isConfirming,
                                           onEdit: () => _showEditDraftSheet(
                                             context,
                                             userId: user.id,
                                             draft: draft,
-                                            wallets: txState.wallets,
-                                            categories: txState.categories,
+                                            wallets: wallets,
+                                            categories: categories,
                                           ),
                                           onConfirm: () => context
                                               .read<FinancialAiBloc>()
@@ -1073,7 +1103,6 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
     var selectedDstWallet = draft.destinationWalletId;
     var selectedDate = draft.occurredAt;
     var learnMerchantRule = true;
-    final dateFmt = DateFormat('dd/MM/yyyy');
     final bloc = context.read<FinancialAiBloc>();
 
     const editableTypes = <FinancialTransactionType>[
@@ -1184,10 +1213,13 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                             Icons.calendar_today_rounded,
                             size: 16,
                           ),
-                          label: Text(
-                            dateFmt.format(selectedDate),
-                            style: const TextStyle(
-                              fontFeatures: [FontFeature.tabularFigures()],
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _dateOnlyFmt.format(selectedDate),
+                              style: const TextStyle(
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
                             ),
                           ),
                         ),
@@ -1368,6 +1400,8 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
 }
 
 class _AiTransactionDraftPreviewCard extends StatelessWidget {
+  static final DateFormat _dateTimeFmt = DateFormat('dd/MM/yyyy HH:mm');
+
   final TransactionCandidate draft;
   final List<WalletEntity> wallets;
   final List<CategoryEntity> categories;
@@ -1389,7 +1423,6 @@ class _AiTransactionDraftPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
-    final dateFmt = DateFormat('dd/MM/yyyy HH:mm');
     final isCredit =
         draft.transactionType == FinancialTransactionType.income ||
         draft.transactionType == FinancialTransactionType.refund;
@@ -1465,13 +1498,35 @@ class _AiTransactionDraftPreviewCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      draft.description,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: c.textPrimary,
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            draft.description,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            '${isCredit ? "+" : (isTransfer ? "" : "-")}${VndAmount.format(draft.amountMinor)}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: isCredit ? c.primary : c.textPrimary,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1483,7 +1538,7 @@ class _AiTransactionDraftPreviewCard extends StatelessWidget {
                       style: TextStyle(fontSize: 12.4, color: c.textSecondary),
                     ),
                     Text(
-                      'Thời gian: ${dateFmt.format(draft.occurredAt)}',
+                      'Thời gian: ${_dateTimeFmt.format(draft.occurredAt)}',
                       softWrap: true,
                       style: TextStyle(
                         fontSize: 12,
@@ -1492,18 +1547,6 @@ class _AiTransactionDraftPreviewCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-              ),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '${isCredit ? "+" : (isTransfer ? "" : "-")}${VndAmount.format(draft.amountMinor)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isCredit ? c.primary : c.textPrimary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
                 ),
               ),
             ],
@@ -1587,6 +1630,9 @@ class _GeminiHybridInsightAndOmniActionsSection extends StatefulWidget {
 
 class _GeminiHybridInsightAndOmniActionsSectionState
     extends State<_GeminiHybridInsightAndOmniActionsSection> {
+  static final DateFormat _dateOnlyFmt = DateFormat('dd/MM/yyyy');
+  static final DateFormat _timeOnlyFmt = DateFormat('HH:mm');
+
   final Set<String> _executingOmniIds = <String>{};
   final Map<String, OmniActionDraft> _editedOmniOverrides =
       <String, OmniActionDraft>{};
@@ -1647,8 +1693,6 @@ class _GeminiHybridInsightAndOmniActionsSectionState
     var scheduledAt = draft.scheduledAt ?? DateTime.now();
     final showAmount = _supportsAmount(draft);
     final showSchedule = _supportsSchedule(draft);
-    final dtFmt = DateFormat('dd/MM/yyyy');
-    final tmFmt = DateFormat('HH:mm');
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1736,7 +1780,7 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                                 size: 16,
                               ),
                               label: Text(
-                                dtFmt.format(scheduledAt),
+                                _dateOnlyFmt.format(scheduledAt),
                                 style: const TextStyle(
                                   fontFeatures: [FontFeature.tabularFigures()],
                                 ),
@@ -1765,7 +1809,7 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                             },
                             icon: const Icon(Icons.schedule_rounded, size: 16),
                             label: Text(
-                              'Giờ hẹn: ${tmFmt.format(scheduledAt)}',
+                              'Giờ hẹn: ${_timeOnlyFmt.format(scheduledAt)}',
                               style: const TextStyle(
                                 fontFeatures: [FontFeature.tabularFigures()],
                               ),
@@ -1916,14 +1960,17 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                           color: c.primary,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          result.usedGeminiCloud
-                              ? 'Góc nhìn Cố vấn Gemini'
-                              : 'Gợi ý Thông minh Trên máy',
-                          style: TextStyle(
-                            fontSize: 13.8,
-                            fontWeight: FontWeight.w800,
-                            color: c.textPrimary,
+                        Flexible(
+                          child: Text(
+                            result.usedGeminiCloud
+                                ? 'Góc nhìn Cố vấn Gemini'
+                                : 'Gợi ý Thông minh Trên máy',
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 13.8,
+                              fontWeight: FontWeight.w800,
+                              color: c.textPrimary,
+                            ),
                           ),
                         ),
                       ],

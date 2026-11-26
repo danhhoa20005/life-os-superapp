@@ -235,7 +235,9 @@ class FinancialTextNormalizer {
   String normalizeText(String rawText) {
     if (rawText.trim().isEmpty) return '';
     var s = OtpRedactor.redact(rawText.trim());
+    s = _normalizeAsrPhoneticsForMoney(s);
     s = _normalizeSpokenNumbers(s);
+    s = _normalizeMillionDigitTails(s);
 
     // Expand standalone banking shorthand while keeping amounts intact
     s = s.replaceAllMapped(
@@ -253,6 +255,101 @@ class FinancialTextNormalizer {
 
     s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     return s;
+  }
+
+  static final RegExp _asrTaiKhoangRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(tài)\s+khoảng(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLuoiRuoiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(triệu|trieu|tr|củ|cu|nghìn|nghin|ngàn|ngan|k|trăm|tram|chục|chuc|xị|xi|lít|lit|tỷ|tỉ|ty|ti)\s+(?:lưỡi|luoi)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrXiToneRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(\d{1,2}|nửa|nua|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|sáu|sau|xáu|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi)\s+(?:xỉ|xĩ)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrXauLeadRegex = RegExp(
+    r'(?<![\p{L}\p{N}])xáu(?=\s+(?:mươi|muoi|trăm|tram|nghìn|nghin|ngàn|ngan|triệu|trieu|củ|cu|chục|chuc|cành|canh|nhành|nhanh|xị|xi|lít|lit|tỷ|tỉ|ty|ti|k)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLamMuoiRegex = RegExp(
+    r'(?<![\p{L}\p{N}])lăm\s+(mươi|muoi)(?![\p{L}\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _asrLeadingLamRegex = RegExp(
+    r'(?<![\p{L}\p{N}])lăm(?=\s+(?:trăm|tram|nghìn|nghin|ngàn|ngan|triệu|trieu|củ|cu|chục|chuc|cành|canh|nhành|nhanh|xị|xi|lít|lit|tỷ|tỉ|ty|ti|k)(?![\p{L}\p{N}]))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _numberBeforeLamGuardRegex = RegExp(
+    r'(?:hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin|mười|muoi|mươi|linh|lẻ|le|trăm|tram|thứ|thu|\d)\s+$',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _millionDigitTailRegex = RegExp(
+    r'(?<![\p{L}\p{N}])(\d+)\s*(?:triệu|trieu|tr|củ|cu)\s+(một|mot|mốt|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|lam|nhăm|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)(?![\p{L}\p{N}])(?!(?:\s+(?:người|nguoi|tháng|thang|năm|nam|tuần|tuan|ngày|ngay|giờ|gio|cái|cai|chiếc|chiec|lần|lan|đứa|dua|bạn|ban|trăm|tram|nghìn|nghin|ngàn|ngan|k|củ|cu|tỷ|tỉ|ty|ti)))',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static final RegExp _tuTransferAfterRegex = RegExp(
+    r'^\s+(?:ví|vi|tài\s+khoản|tai\s+khoan|thẻ|the|ngân\s+hàng|ngan\s+hang|vcb|tcb|mb|mbbank|acb|bidv|tpb|tpbank|vpb|vpbank|momo|zalopay|vietcombank|techcombank|vietinbank)|\b(?:sang|vào|vao|qua|đến|den)\b',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  static String _normalizeAsrPhoneticsForMoney(String input) {
+    final lower = input.toLowerCase();
+    var s = input;
+    if (lower.contains('tài khoảng')) {
+      s = s.replaceAllMapped(_asrTaiKhoangRegex, (m) => '${m.group(1)} khoản');
+    }
+    if (lower.contains('lưỡi') || lower.contains('luoi')) {
+      s = s.replaceAllMapped(_asrLuoiRuoiRegex, (m) => '${m.group(1)} rưỡi');
+    }
+    if (lower.contains('xỉ') || lower.contains('xĩ')) {
+      s = s.replaceAllMapped(_asrXiToneRegex, (m) => '${m.group(1)} xị');
+    }
+    if (lower.contains('xáu')) {
+      s = s.replaceAll(_asrXauLeadRegex, 'sáu');
+    }
+    if (lower.contains('lăm')) {
+      s = s
+          .replaceAllMapped(_asrLamMuoiRegex, (m) => 'năm ${m.group(1)}')
+          .replaceAllMapped(_asrLeadingLamRegex, (m) {
+            final before = s.substring(0, m.start).toLowerCase();
+            return _numberBeforeLamGuardRegex.hasMatch(before)
+                ? (m.group(0) ?? '')
+                : 'năm';
+          });
+    }
+    return s;
+  }
+
+  static String _normalizeMillionDigitTails(String input) {
+    final lower = input.toLowerCase();
+    if (!lower.contains('triệu') &&
+        !lower.contains('trieu') &&
+        !lower.contains('củ') &&
+        !lower.contains('cu')) {
+      return input;
+    }
+    return input.replaceAllMapped(_millionDigitTailRegex, (m) {
+      final rawTail = (m.group(2) ?? '').toLowerCase();
+      final after = input.substring(m.end);
+      if (rawTail == 'tu' && _tuTransferAfterRegex.hasMatch(after)) {
+        return m.group(0) ?? '';
+      }
+      final whole = m.group(1) ?? '';
+      final digit = _vnDigitWords[rawTail];
+      if (digit == null || digit <= 0 || digit >= 10) return m.group(0) ?? '';
+      return '${whole}tr$digit';
+    });
   }
 
   static const Set<String> kCarrierStopwords = <String>{
@@ -367,7 +464,7 @@ class FinancialTextNormalizer {
   };
 
   static final RegExp _liquidNounFollowRegex = RegExp(
-    r'^(?:nước|nuoc|xăng|xang|dầu|dau|sữa|sua|bia|rượu|ruou|cồn|ml)(?![\p{L}\p{N}])',
+    r'^(?:(?:rưỡi|ruoi)\s+)?(?:nước|nuoc|xăng|xang|dầu|dau|sữa|sua|bia|rượu|ruou|cồn|ml|gas)(?![\p{L}\p{N}])',
     caseSensitive: false,
     unicode: true,
   );
@@ -393,7 +490,7 @@ class FinancialTextNormalizer {
   String _normalizeSpokenNumbers(String input) {
     var s = input;
 
-    // 1. "nửa triệu" / "nửa củ" -> 500 nghìn; "nửa xị" -> 50k
+    // 1. "nửa triệu" / "nửa củ" -> 500 nghìn; "nửa xị" / "nửa lít" -> 50k
     s = s
         .replaceAll(
           RegExp(
@@ -410,12 +507,20 @@ class FinancialTextNormalizer {
             unicode: true,
           ),
           '50k',
+        )
+        .replaceAll(
+          RegExp(
+            r'(?<![\p{L}\p{N}])(?:nửa|nua)\s+(?:lít|lit)(?![\p{L}\p{N}])(?!(?:\s+(?:xăng|xang|dầu|dau|nước|nuoc|sữa|sua|bia|rượu|ruou|cồn|ml|gas)(?![\p{L}\p{N}])))',
+            caseSensitive: false,
+            unicode: true,
+          ),
+          '50k',
         );
 
     // 2. "<1..9 | một..chín> trăm rưỡi" -> 150k..950k & bare "trăm rưỡi" -> 150k
     s = s.replaceAllMapped(
       RegExp(
-        r'(?<![\p{L}\p{N}])(1|2|3|4|5|6|7|8|9|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan))?(?![\p{L}\p{N}])',
+        r'(?<![\p{L}\p{N}])(1|2|3|4|5|6|7|8|9|một|mot|hai|ba|bốn|bon|tư|tu|năm|nam|sáu|sau|bảy|bay|bẩy|tám|tam|chín|chin)\s+(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan|cành|canh|nhành|nhanh))?(?![\p{L}\p{N}])',
         caseSensitive: false,
         unicode: true,
       ),
@@ -428,7 +533,7 @@ class FinancialTextNormalizer {
     );
     s = s.replaceAll(
       RegExp(
-        r'(?<![\p{L}\p{N}])(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan))?(?![\p{L}\p{N}])',
+        r'(?<![\p{L}\p{N}])(?:trăm|tram)\s+(?:rưỡi|ruoi)(?:\s*(?:nghìn|nghin|ngàn|ngan|cành|canh|nhành|nhanh))?(?![\p{L}\p{N}])',
         caseSensitive: false,
         unicode: true,
       ),
@@ -443,7 +548,7 @@ class FinancialTextNormalizer {
     );
     final snapshotSpoken = s;
     s = snapshotSpoken.replaceAllMapped(unitWordPattern, (m) {
-      final rawSpoken = m.group(1) ?? '';
+      var rawSpoken = m.group(1) ?? '';
       final unit = m.group(2) ?? '';
       final unitLower = unit.toLowerCase();
       final after = snapshotSpoken.substring(m.end).trimLeft();
@@ -469,9 +574,24 @@ class FinancialTextNormalizer {
         return m.group(0)!;
       }
 
+      var prefix = '';
+      final trimmedSpoken = rawSpoken.trimLeft();
+      final firstSpace = trimmedSpoken.indexOf(' ');
+      if (firstSpace > 0) {
+        final firstWord = trimmedSpoken.substring(0, firstSpace).toLowerCase();
+        if ((firstWord == 'tam' || firstWord == 'tấm') &&
+            (before.endsWith('cơm') ||
+                before.endsWith('com') ||
+                before.endsWith('bánh') ||
+                before.endsWith('banh'))) {
+          prefix = '${trimmedSpoken.substring(0, firstSpace)} ';
+          rawSpoken = trimmedSpoken.substring(firstSpace + 1);
+        }
+      }
+
       final parsed = _parseSmallSpokenInt(rawSpoken);
       if (parsed == null || parsed <= 0) return m.group(0) ?? '';
-      return '$parsed $unit';
+      return '$prefix$parsed $unit';
     });
 
     // 4. "<N> triệu/củ rưỡi" -> "<N>tr5" & bare "củ rưỡi" / "triệu rưỡi" -> "1tr5"
@@ -614,7 +734,8 @@ class FinancialTextNormalizer {
     if (i + 1 < tokens.length &&
         (tokens[i + 1] == 'trăm' || tokens[i + 1] == 'tram')) {
       final h = _vnDigitWords[tokens[i]];
-      if (h == null || h <= 0 || h > 9) return null;
+      final allowZeroHundred = h == 0 && i + 2 < tokens.length;
+      if (h == null || (h <= 0 && !allowZeroHundred) || h > 9) return null;
       hundreds = h * 100;
       i += 2;
       if (i < tokens.length &&

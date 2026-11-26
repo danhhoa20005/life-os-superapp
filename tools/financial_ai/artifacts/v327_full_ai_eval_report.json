@@ -9,23 +9,23 @@
     "moneySplitOodVsIdLeakagePct": 0.0,
     "counts": {
       "financialId": {
-        "train": 5202,
-        "val": 905,
+        "train": 5704,
+        "val": 1017,
         "test": 1297
       },
       "financialOod": {
-        "train": 1569,
-        "val": 250,
+        "train": 1870,
+        "val": 265,
         "test": 339
       },
       "moneySplitId": {
-        "train": 2828,
-        "val": 242,
+        "train": 3734,
+        "val": 450,
         "test": 232
       },
       "moneySplitOod": {
-        "train": 1774,
-        "val": 268,
+        "train": 2328,
+        "val": 317,
         "test": 441
       }
     }
@@ -35,46 +35,46 @@
       "runtime": {
         "sizeBytes": 1007991,
         "sizeKb": 984.37,
-        "sha256": "0ced8b3dd1270cdb136a03871b16b64ecac3a867118c3c55c05672c9ebde45dd",
-        "temperature": 0.92,
+        "sha256": "10aac86ae5fcb5459ec9946ebbad2c7c8590a98c0ef15e95129a6ab8bff19128",
+        "temperature": 0.88,
         "totalOutputClasses": 31,
-        "coldStartMs": 18.23,
-        "warmLatencyMeanMs": 0.5816,
-        "warmLatencyP50Ms": 0.5677,
-        "warmLatencyP95Ms": 1.0118,
+        "coldStartMs": 13.346,
+        "warmLatencyMeanMs": 0.4909,
+        "warmLatencyP50Ms": 0.4172,
+        "warmLatencyP95Ms": 0.8107,
         "iterations": 800
       },
       "evaluation": {
         "test_samples": 1297,
         "ood_test_samples": 339,
-        "accuracy": 0.9938,
-        "macro_f1": 0.9939,
-        "ece": 0.0438,
-        "ece_in_domain_only": 0.0429,
+        "accuracy": 0.9961,
+        "macro_f1": 0.9949,
+        "ece": 0.0364,
+        "ece_in_domain_only": 0.0357,
         "high_confidence_threshold": 0.87,
         "low_confidence_threshold": 0.34,
         "ood_reject_threshold": 0.4,
-        "false_auto_assignment_rate": 0.0012,
+        "false_auto_assignment_rate": 0.0006,
         "id_false_auto_assignments": 0,
-        "ood_false_auto_assignments": 2,
-        "in_domain_false_ood_rejection_rate": 0.0054,
-        "ood_unknown_rejection_rate": 0.9823,
-        "ood_auroc": 0.9986,
+        "ood_false_auto_assignments": 1,
+        "in_domain_false_ood_rejection_rate": 0.0039,
+        "ood_unknown_rejection_rate": 0.9853,
+        "ood_auroc": 0.9993,
         "per_stratum_ood_rejection": {
           "a_chatter_homonyms": {
             "total": 106,
-            "rejected": 105,
-            "rejection_rate": 0.9906
+            "rejected": 104,
+            "rejection_rate": 0.9811
           },
           "b_non_financial_lifeos": {
             "total": 90,
-            "rejected": 89,
-            "rejection_rate": 0.9889
+            "rejected": 90,
+            "rejection_rate": 1.0
           },
           "c_english_gibberish_code_fragments": {
             "total": 53,
-            "rejected": 50,
-            "rejection_rate": 0.9434
+            "rejected": 51,
+            "rejection_rate": 0.9623
           },
           "d_negated_hypothetical_balance_otp": {
             "total": 90,
@@ -85,8 +85,8 @@
         "per_category": {
           "food.meals": {
             "precision": 1.0,
-            "recall": 0.9857,
-            "f1": 0.9928,
+            "recall": 1.0,
+            "f1": 1.0,
             "support": 70
           },
           "food.drinks": {
@@ -96,9 +96,9 @@
             "support": 66
           },
           "food.groceries": {
-            "precision": 0.9839,
+            "precision": 1.0,
             "recall": 1.0,
-            "f1": 0.9919,
+            "f1": 1.0,
             "support": 61
           },
           "transport.fuel": {
@@ -126,9 +126,9 @@
             "support": 54
           },
           "housing.rent": {
-            "precision": 0.9796,
+            "precision": 1.0,
             "recall": 1.0,
-            "f1": 0.9897,
+            "f1": 1.0,
             "support": 48
           },
           "housing.utilities": {
@@ -138,15 +138,15 @@
             "support": 49
           },
           "housing.housework": {
-            "precision": 0.9615,
-            "recall": 0.9804,
-            "f1": 0.9709,
+            "precision": 0.9808,
+            "recall": 1.0,
+            "f1": 0.9903,
             "support": 51
           },
           "shopping.clothes": {
             "precision": 1.0,
-            "recall": 0.96,
-            "f1": 0.9796,
+            "recall": 1.0,
+            "f1": 1.0,
             "support": 50
           },
           "shopping.electronics": {
@@ -169,8 +169,8 @@
           },
           "health.hospital": {
             "precision": 1.0,
-            "recall": 1.0,
-            "f1": 1.0,
+            "recall": 0.9773,
+            "f1": 0.9885,
             "support": 44
           },
           "education": {
@@ -216,9 +216,9 @@
             "support": 38
           },
           "other": {
-            "precision": 0.9722,
-            "recall": 0.9459,
-            "f1": 0.9589,
+            "precision": 0.9474,
+            "recall": 0.973,
+            "f1": 0.96,
             "support": 37
           },
           "income.salary": {
@@ -258,15 +258,15 @@
             "support": 16
           },
           "income.other": {
-            "precision": 0.913,
-            "recall": 1.0,
-            "f1": 0.9545,
+            "precision": 0.9091,
+            "recall": 0.9524,
+            "f1": 0.9302,
             "support": 21
           },
           "__ood__": {
-            "precision": 0.9794,
-            "recall": 0.9823,
-            "f1": 0.9809,
+            "precision": 0.9853,
+            "recall": 0.9853,
+            "f1": 0.9853,
             "support": 339
           }
         },
@@ -305,9 +305,9 @@
         ],
         "confusion_matrix": [
           [
-            69,
+            70,
             0,
-            1,
+            0,
             0,
             0,
             0,
@@ -611,6 +611,40 @@
             0,
             0,
             0,
+            51,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
             50,
             0,
             0,
@@ -631,41 +665,7 @@
             0,
             0,
             0,
-            0,
-            1
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            48,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2
+            0
           ],
           [
             0,
@@ -781,7 +781,7 @@
             0,
             0,
             0,
-            44,
+            43,
             0,
             0,
             0,
@@ -797,7 +797,7 @@
             0,
             0,
             0,
-            0
+            1
           ],
           [
             0,
@@ -1053,7 +1053,7 @@
             0,
             0,
             0,
-            35,
+            36,
             0,
             0,
             0,
@@ -1061,7 +1061,7 @@
             0,
             0,
             0,
-            2
+            1
           ],
           [
             0,
@@ -1291,8 +1291,8 @@
             0,
             0,
             0,
-            21,
-            0
+            20,
+            1
           ],
           [
             0,
@@ -1302,19 +1302,6 @@
             0,
             0,
             0,
-            1,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
             0,
             0,
             1,
@@ -1324,16 +1311,29 @@
             0,
             0,
             0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
             2,
-            333
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            334
           ]
         ]
       },
       "dartRuntimeBenchmark": {
         "measuredOn": "Dart VM Worker Isolate (Windows x64 Host)",
-        "coldStartMs": 35.89,
-        "warmIsolateRoundtripP50Ms": 0.655,
-        "warmIsolateRoundtripP95Ms": 2.259,
+        "coldStartMs": 28.857,
+        "warmIsolateRoundtripP50Ms": 0.453,
+        "warmIsolateRoundtripP95Ms": 0.959,
         "totalWarmIterations": 100,
         "colloquialSuiteSize": 20,
         "ruleOnlySuiteAccuracy": 0.75,
@@ -1344,31 +1344,31 @@
       "runtime": {
         "sizeBytes": 418817,
         "sizeKb": 409.0,
-        "sha256": "6f0daa594f6f5766edc193361c25aaaf6483f0ced023423fa5d1b2b6bb6dc4b6",
-        "temperature": 0.88,
+        "sha256": "570cd0296740cffacb164dcf60b0058fa86e17f43b94f074a0ce42052df7416b",
+        "temperature": 0.86,
         "totalOutputClasses": 13,
-        "coldStartMs": 7.401,
-        "warmLatencyMeanMs": 0.5177,
-        "warmLatencyP50Ms": 0.4832,
-        "warmLatencyP95Ms": 0.8047,
+        "coldStartMs": 5.822,
+        "warmLatencyMeanMs": 0.3626,
+        "warmLatencyP50Ms": 0.3518,
+        "warmLatencyP95Ms": 0.6158,
         "iterations": 800
       },
       "evaluation": {
         "test_samples": 232,
         "ood_test_samples": 441,
-        "accuracy": 0.9784,
-        "macro_f1": 0.968,
-        "ece": 0.0439,
-        "ece_in_domain_only": 0.0499,
+        "accuracy": 0.9957,
+        "macro_f1": 0.9938,
+        "ece": 0.0419,
+        "ece_in_domain_only": 0.0471,
         "high_confidence_threshold": 0.87,
         "low_confidence_threshold": 0.36,
         "ood_reject_threshold": 0.44,
-        "false_auto_assignment_rate": 0.0104,
+        "false_auto_assignment_rate": 0.0015,
         "id_false_auto_assignments": 0,
-        "ood_false_auto_assignments": 7,
-        "in_domain_false_ood_rejection_rate": 0.0172,
-        "ood_unknown_rejection_rate": 0.9773,
-        "ood_auroc": 0.9931,
+        "ood_false_auto_assignments": 1,
+        "in_domain_false_ood_rejection_rate": 0.0043,
+        "ood_unknown_rejection_rate": 0.9955,
+        "ood_auroc": 0.9992,
         "per_stratum_ood_rejection": {
           "a_chatter_homonyms": {
             "total": 101,
@@ -1382,8 +1382,8 @@
           },
           "c_english_gibberish_code_fragments": {
             "total": 53,
-            "rejected": 52,
-            "rejection_rate": 0.9811
+            "rejected": 53,
+            "rejection_rate": 1.0
           },
           "d_negated_hypothetical_balance_otp": {
             "total": 88,
@@ -1392,15 +1392,15 @@
           },
           "e_single_person_near_ood": {
             "total": 110,
-            "rejected": 102,
-            "rejection_rate": 0.9273
+            "rejected": 109,
+            "rejection_rate": 0.9909
           }
         },
         "per_category": {
           "split.equal": {
             "precision": 1.0,
-            "recall": 0.9375,
-            "f1": 0.9677,
+            "recall": 1.0,
+            "f1": 1.0,
             "support": 32
           },
           "split.percentage": {
@@ -1416,9 +1416,9 @@
             "support": 16
           },
           "split.itemized_remainder": {
-            "precision": 0.9524,
+            "precision": 1.0,
             "recall": 1.0,
-            "f1": 0.9756,
+            "f1": 1.0,
             "support": 20
           },
           "split.exact_custom": {
@@ -1428,9 +1428,9 @@
             "support": 12
           },
           "split.multi_category_receipt": {
-            "precision": 0.9091,
-            "recall": 1.0,
-            "f1": 0.9524,
+            "precision": 1.0,
+            "recall": 0.95,
+            "f1": 0.9744,
             "support": 20
           },
           "split.settle_repayment": {
@@ -1441,38 +1441,38 @@
           },
           "alloc.rule_50_30_20": {
             "precision": 1.0,
-            "recall": 0.9167,
-            "f1": 0.9565,
+            "recall": 1.0,
+            "f1": 1.0,
             "support": 12
           },
           "alloc.six_jars": {
-            "precision": 0.9524,
+            "precision": 1.0,
             "recall": 1.0,
-            "f1": 0.9756,
+            "f1": 1.0,
             "support": 20
           },
           "alloc.family_household": {
-            "precision": 0.9474,
-            "recall": 0.9,
-            "f1": 0.9231,
-            "support": 20
-          },
-          "alloc.debt_payoff": {
-            "precision": 0.8,
-            "recall": 1.0,
-            "f1": 0.8889,
-            "support": 20
-          },
-          "alloc.fire_high_savings": {
             "precision": 0.9524,
             "recall": 1.0,
             "f1": 0.9756,
             "support": 20
           },
+          "alloc.debt_payoff": {
+            "precision": 0.9524,
+            "recall": 1.0,
+            "f1": 0.9756,
+            "support": 20
+          },
+          "alloc.fire_high_savings": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 20
+          },
           "__ood__": {
-            "precision": 0.9908,
-            "recall": 0.9773,
-            "f1": 0.984,
+            "precision": 0.9977,
+            "recall": 0.9955,
+            "f1": 0.9966,
             "support": 441
           }
         },
@@ -1493,7 +1493,7 @@
         ],
         "confusion_matrix": [
           [
-            30,
+            32,
             0,
             0,
             0,
@@ -1505,7 +1505,7 @@
             0,
             0,
             0,
-            2
+            0
           ],
           [
             0,
@@ -1573,14 +1573,14 @@
             0,
             0,
             0,
-            20,
+            19,
             0,
             0,
             0,
             0,
             0,
             0,
-            0
+            1
           ],
           [
             0,
@@ -1605,87 +1605,87 @@
             0,
             0,
             0,
-            11,
+            12,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            20,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            20,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            20,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            20,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
             1,
             0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            20,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            18,
-            0,
-            0,
-            2
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            20,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            20,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            1,
-            0,
-            2,
-            0,
-            0,
-            0,
-            1,
-            5,
-            1,
-            431
+            439
           ]
         ]
       }

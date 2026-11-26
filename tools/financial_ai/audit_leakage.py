@@ -130,6 +130,13 @@ def run_audit(strict_near_dups: bool = True) -> dict[str, object]:
     hard_v2_id = [r for r in hard_v2 if r.get("label") != "__ood__"]
     hard_v2_ood = [r for r in hard_v2 if r.get("label") == "__ood__"]
 
+    ms_tr = _read_jsonl(DATA_DIR / "money_split_train.jsonl")
+    ms_va = _read_jsonl(DATA_DIR / "money_split_val.jsonl")
+    ms_te = _read_jsonl(DATA_DIR / "money_split_test.jsonl")
+    ms_ood_tr = _read_jsonl(DATA_DIR / "ood_money_split_train.jsonl")
+    ms_ood_va = _read_jsonl(DATA_DIR / "ood_money_split_val.jsonl")
+    ms_ood_te = _read_jsonl(DATA_DIR / "ood_money_split_test.jsonl")
+
     def norm_set(rows: list[dict[str, str]]) -> set[str]:
         return {_norm_of(r) for r in rows if _norm_of(r)}
 
@@ -158,6 +165,16 @@ def run_audit(strict_near_dups: bool = True) -> dict[str, object]:
         "tpl_ood_train_vs_val": len(tpl_set(ood_tr) & tpl_set(ood_va)),
         "tpl_ood_train_vs_test": len(tpl_set(ood_tr) & tpl_set(ood_te)),
         "tpl_ood_val_vs_test": len(tpl_set(ood_va) & tpl_set(ood_te)),
+        "ms_id_train_vs_val": len(norm_set(ms_tr) & norm_set(ms_va)),
+        "ms_id_train_vs_test": len(norm_set(ms_tr) & norm_set(ms_te)),
+        "ms_id_val_vs_test": len(norm_set(ms_va) & norm_set(ms_te)),
+        "ms_ood_train_vs_val": len(norm_set(ms_ood_tr) & norm_set(ms_ood_va)),
+        "ms_ood_train_vs_test": len(norm_set(ms_ood_tr) & norm_set(ms_ood_te)),
+        "ms_ood_val_vs_test": len(norm_set(ms_ood_va) & norm_set(ms_ood_te)),
+        "ms_ood_vs_id_all": len(
+            (norm_set(ms_ood_tr) | norm_set(ms_ood_va) | norm_set(ms_ood_te))
+            & (norm_set(ms_tr) | norm_set(ms_va) | norm_set(ms_te))
+        ),
     }
 
     # Filter augmented rows (template_id starts with aug_) vs all held-out test rows for strict near-dup check
@@ -165,6 +182,8 @@ def run_audit(strict_near_dups: bool = True) -> dict[str, object]:
     aug_fin_va = [r for r in fin_va if str(r.get("template_id", "")).startswith("aug_")]
     aug_ood_tr = [r for r in ood_tr if str(r.get("template_id", "")).startswith("aug_")]
     aug_ood_va = [r for r in ood_va if str(r.get("template_id", "")).startswith("aug_")]
+    aug_ms_ood_tr = [r for r in ms_ood_tr if str(r.get("template_id", "")).startswith("aug_ms_")]
+    aug_ms_ood_va = [r for r in ms_ood_va if str(r.get("template_id", "")).startswith("aug_ms_")]
 
     held_out_all = fin_te + ood_te + hard_v2
     aug_near_dups = find_near_duplicates(
@@ -174,6 +193,15 @@ def run_audit(strict_near_dups: bool = True) -> dict[str, object]:
     all_tr_va_vs_hard_v2 = find_near_duplicates(
         fin_tr + fin_va + ood_tr + ood_va,
         hard_v2,
+    )
+    ms_held_out_all = ms_te + ms_ood_te
+    ms_aug_near_dups = find_near_duplicates(
+        ms_tr + ms_va + aug_ms_ood_tr + aug_ms_ood_va,
+        ms_held_out_all,
+    )
+    ms_all_near_dups = find_near_duplicates(
+        ms_tr + ms_va + ms_ood_tr + ms_ood_va,
+        ms_held_out_all,
     )
 
     report = {
@@ -189,10 +217,22 @@ def run_audit(strict_near_dups: bool = True) -> dict[str, object]:
             "aug_val": len(aug_fin_va),
             "aug_ood_train": len(aug_ood_tr),
             "aug_ood_val": len(aug_ood_va),
+            "money_split_train": len(ms_tr),
+            "money_split_val": len(ms_va),
+            "money_split_test": len(ms_te),
+            "ood_money_split_train": len(ms_ood_tr),
+            "ood_money_split_val": len(ms_ood_va),
+            "ood_money_split_test": len(ms_ood_te),
+            "aug_ms_ood_train": len(aug_ms_ood_tr),
+            "aug_ms_ood_val": len(aug_ms_ood_va),
         },
         "exactChecks": exact_checks,
         "augNearDupCount": len(aug_near_dups),
         "augNearDupSamples": aug_near_dups[:10],
+        "msAugNearDupCount": len(ms_aug_near_dups),
+        "msAugNearDupSamples": ms_aug_near_dups[:10],
+        "msAllTrainValNearDupCount": len(ms_all_near_dups),
+        "msAllTrainValNearDupSamples": ms_all_near_dups[:10],
         "allTrainValVsHardV2NearDupCount": len(all_tr_va_vs_hard_v2),
         "allTrainValVsHardV2NearDupSamples": all_tr_va_vs_hard_v2[:10],
     }
@@ -200,9 +240,9 @@ def run_audit(strict_near_dups: bool = True) -> dict[str, object]:
     failed_exact = {k: v for k, v in exact_checks.items() if v > 0}
     if failed_exact:
         raise AssertionError(f"Exact leakage detected: {failed_exact}")
-    if strict_near_dups and (aug_near_dups or all_tr_va_vs_hard_v2):
+    if strict_near_dups and (aug_near_dups or ms_aug_near_dups or all_tr_va_vs_hard_v2):
         raise AssertionError(
-            f"Near-duplicate leakage detected: aug={len(aug_near_dups)}, hard_v2={len(all_tr_va_vs_hard_v2)}"
+            f"Near-duplicate leakage detected: aug={len(aug_near_dups)}, ms_aug={len(ms_aug_near_dups)}, hard_v2={len(all_tr_va_vs_hard_v2)}"
         )
     return report
 
