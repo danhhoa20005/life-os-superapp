@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -469,7 +470,7 @@ void main() {
           restoreArchive: RestoreBackupArchiveUseCase(faultyRepo),
           fileShareService: const MethodChannelBackupFileShareService(),
         );
-        addTearDown(bloc.close);
+        addTearDown(() => unawaited(bloc.close()));
 
         tester.view.physicalSize = const Size(430, 932);
         tester.view.devicePixelRatio = 1.0;
@@ -641,7 +642,7 @@ void main() {
             invokePlatformShare: false,
           ),
         );
-        addTearDown(bloc.close);
+        addTearDown(() => unawaited(bloc.close()));
 
         tester.view.physicalSize = const Size(430, 932);
         tester.view.devicePixelRatio = 1.0;

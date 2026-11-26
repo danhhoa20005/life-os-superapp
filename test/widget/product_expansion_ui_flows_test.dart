@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -233,8 +236,14 @@ void main() {
           tester.view.resetDevicePixelRatio();
         });
 
-        // The sheet no longer rebuilds a partial backup from BLoC state when DI is
-        // missing, so this flow injects an explicit in-memory backup repository.
+        final tempDir = Directory(
+          '${Directory.systemTemp.path}/lifeos_ui_flows_backup_${DateTime.now().microsecondsSinceEpoch}',
+        );
+        addTearDown(() async {
+          if (tempDir.existsSync()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
         final repo = InMemorySnapshotBackupRepository(
           initialCollections: const {
             'transactions': [
@@ -248,9 +257,12 @@ void main() {
           exportTransactionsCsv: ExportTransactionsCsvUseCase(repo),
           previewArchive: PreviewBackupArchiveUseCase(repo),
           restoreArchive: RestoreBackupArchiveUseCase(repo),
-          fileShareService: const MethodChannelBackupFileShareService(),
+          fileShareService: MethodChannelBackupFileShareService(
+            fallbackDirectoryOverride: tempDir,
+            invokePlatformShare: false,
+          ),
         );
-        addTearDown(backupBloc.close);
+        addTearDown(() => unawaited(backupBloc.close()));
 
         await tester.pumpWidget(
           _wrapWithToastAndTheme(

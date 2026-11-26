@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -16,14 +17,17 @@ class MethodChannelBackupFileShareService implements BackupFileShareService {
   final MethodChannel _channel;
   final Directory? _fallbackDirectoryOverride;
   final bool _invokePlatformShare;
+  final Duration _platformTimeout;
 
   const MethodChannelBackupFileShareService({
     MethodChannel channel = _defaultChannel,
     Directory? fallbackDirectoryOverride,
     bool invokePlatformShare = true,
+    Duration platformTimeout = const Duration(seconds: 5),
   }) : _channel = channel,
        _fallbackDirectoryOverride = fallbackDirectoryOverride,
-       _invokePlatformShare = invokePlatformShare;
+       _invokePlatformShare = invokePlatformShare,
+       _platformTimeout = platformTimeout;
 
   @override
   Future<BackupShareOutcome> shareTextFile({
@@ -36,15 +40,17 @@ class MethodChannelBackupFileShareService implements BackupFileShareService {
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android) {
       try {
-        final sharedPath = await _channel.invokeMethod<String>(
-          'shareTextFile',
-          <String, dynamic>{
-            'fileName': fileName,
-            'content': content,
-            'mimeType': mimeType,
-            'title': title,
-          },
-        );
+        final sharedPath = await _channel
+            .invokeMethod<String>(
+              'shareTextFile',
+              <String, dynamic>{
+                'fileName': fileName,
+                'content': content,
+                'mimeType': mimeType,
+                'title': title,
+              },
+            )
+            .timeout(_platformTimeout);
         if (sharedPath != null && sharedPath.trim().isNotEmpty) {
           return BackupShareOutcome(
             status: BackupShareStatus.shared,
@@ -60,6 +66,12 @@ class MethodChannelBackupFileShareService implements BackupFileShareService {
               'Đã hủy chia sẻ tệp $fileName. Dữ liệu không được sao chép vào bộ nhớ tạm.',
         );
       } on MissingPluginException {
+        return _writeLocalExportFileFallback(
+          fileName: fileName,
+          content: content,
+          mimeType: mimeType,
+        );
+      } on TimeoutException {
         return _writeLocalExportFileFallback(
           fileName: fileName,
           content: content,
