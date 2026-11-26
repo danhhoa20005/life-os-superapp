@@ -240,5 +240,30 @@ void main() {
         );
       },
     );
+
+    test(
+      'auto-preloads all default bundled audio and ASR models with verified SHA-256 without requiring manual download',
+      () async {
+        final client = MockClient(
+          (_) async => http.Response('offline_no_network_needed', 500),
+        );
+        final manager = LocalAsrModelManager(
+          rootDirectory: tempDir,
+          httpClient: client,
+        );
+
+        final models = await manager.listModels();
+        expect(models.length, LocalAsrModelCatalog.defaults.length);
+        for (final m in models) {
+          expect(
+            m.status,
+            LocalAsrModelStatus.installed,
+            reason: 'Expected ${m.spec.id} to be pre-installed automatically',
+          );
+          expect(await manager.verifyModelIntegrity(m.spec.id), isTrue);
+        }
+        expect(await manager.hasVerifiedInstalledAsrModel(), isTrue);
+      },
+    );
   });
 }

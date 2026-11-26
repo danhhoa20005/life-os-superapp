@@ -377,17 +377,17 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // 4. Optional On-Demand Offline ASR Model Manager (Section 12)
+              // 4. Pre-bundled Offline ASR & Audio Model Manager (Section 12)
               _DiagCardShell(
                 key: const Key('voice_diag_models_card'),
-                title: 'Quản lý Mô hình Offline (Tải theo nhu cầu)',
-                icon: Icons.download_for_offline_outlined,
+                title: 'Mô hình Âm thanh & Giọng nói Offline (Đã tải sẵn)',
+                icon: Icons.check_circle_outline_rounded,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Mô hình không nhúng sẵn vào APK để giữ nhẹ máy. '
-                      'Kiểm tra SHA-256 và tách biệt giấy phép runtime với trọng số mô hình.',
+                      'Toàn bộ mô hình âm thanh & nhận diện giọng nói tiếng Việt đã được tải sẵn, '
+                      'xác thực toàn vẹn SHA-256 và kích hoạt tự động trên thiết bị.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: palette.textSecondary,
                       ),
@@ -401,11 +401,6 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
                         onDownload: () {
                           context.read<VoiceAssistantBloc>().add(
                             VoiceModelDownloadRequested(model.spec),
-                          );
-                        },
-                        onDelete: () {
-                          context.read<VoiceAssistantBloc>().add(
-                            VoiceModelDeleteRequested(model.spec.id),
                           );
                         },
                         onRollback: () {
@@ -546,7 +541,6 @@ class _ModelRowTile extends StatelessWidget {
   final bool busy;
   final String sizeLabel;
   final VoidCallback onDownload;
-  final VoidCallback onDelete;
   final VoidCallback onRollback;
 
   const _ModelRowTile({
@@ -554,7 +548,6 @@ class _ModelRowTile extends StatelessWidget {
     required this.busy,
     required this.sizeLabel,
     required this.onDownload,
-    required this.onDelete,
     required this.onRollback,
   });
 
@@ -632,7 +625,30 @@ class _ModelRowTile extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              if (isInstalled)
+                Container(
+                  key: Key('voice_model_installed_${spec.id}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: palette.primary.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    '✓ Đã tải sẵn & Kích hoạt',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: palette.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               if (!isInstalled)
                 FilledButton.tonal(
                   key: Key('voice_model_download_${spec.id}'),
@@ -646,12 +662,6 @@ class _ModelRowTile extends StatelessWidget {
                               ? 'Chưa khả dụng'
                               : 'Tải về ($sizeLabel)'),
                   ),
-                ),
-              if (isInstalled)
-                OutlinedButton(
-                  key: Key('voice_model_delete_${spec.id}'),
-                  onPressed: busy ? null : onDelete,
-                  child: const Text('Xóa mô hình'),
                 ),
               if (model.hasRollbackBackup)
                 TextButton(

@@ -100,7 +100,8 @@ class LifeOsSpeechRecognizerHelper(
         fun buildVietnameseSpeechIntent(
             context: Context,
             forSystemDialog: Boolean = false,
-            localeTag: String = "vi-VN"
+            localeTag: String = "vi-VN",
+            preferOffline: Boolean = false
         ): Intent {
             val callingPkg = context.applicationInfo?.packageName ?: context.packageName
             val normalizedLocale = localeTag.ifBlank { "vi-VN" }
@@ -113,6 +114,9 @@ class LifeOsSpeechRecognizerHelper(
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, callingPkg)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, !forSystemDialog)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                if (preferOffline) {
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                }
                 if (forSystemDialog) {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, normalizedLocale)
                     putExtra(
@@ -294,12 +298,18 @@ class LifeOsSpeechRecognizerHelper(
                                 val vnPending = pending.any { isVietnameseTag(it) }
                                 lastKnownVietnameseOnDeviceSupported = vnSupported
 
+                                // Auto-trigger on-device Vietnamese model download in the background
+                                // so the user never has to manually download the language pack.
+                                if (!vnInstalled && vnSupported && !vnPending) {
+                                    triggerVietnameseOfflineModelDownload(appCtx, localeTag)
+                                }
+
                                 callback(
                                     mapOf(
                                         "isOnDeviceAvailable" to true,
                                         "vietnameseInstalled" to vnInstalled,
                                         "vietnameseSupported" to vnSupported,
-                                        "pendingDownload" to vnPending,
+                                        "pendingDownload" to (vnPending || (!vnInstalled && vnSupported)),
                                         "installedLanguages" to installed,
                                         "supportedLanguages" to supported,
                                         "pendingLanguages" to pending,
@@ -361,6 +371,51 @@ class LifeOsSpeechRecognizerHelper(
             return norm == "vi" || norm.startsWith("vi-")
         }
 
+        /**
+         * Proactively checks and triggers background download of the Android 13+ on-device
+         * Vietnamese speech model (`vi-VN`) at app startup so offline recognition is ready
+         * without requiring user intervention.
+         */
+        fun preloadVietnameseOfflineModel(
+            context: Context,
+            localeTag: String = "vi-VN"
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+            val appCtx = context.applicationContext
+            if (!isOnDeviceRecognitionAvailable(appCtx)) return
+            checkVietnameseOnDeviceSupport(appCtx, localeTag) { _ -> }
+        }
+
+        private fun triggerVietnameseOfflineModelDownload(
+            context: Context,
+            localeTag: String = "vi-VN"
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+            val appCtx = context.applicationContext
+            val mainHandler = Handler(Looper.getMainLooper())
+            postMain(mainHandler) {
+                var downloader: SpeechRecognizer? = null
+                try {
+                    downloader = SpeechRecognizer.createOnDeviceSpeechRecognizer(appCtx)
+                    val intent = buildVietnameseSpeechIntent(
+                        context = appCtx,
+                        forSystemDialog = false,
+                        localeTag = localeTag,
+                        preferOffline = true
+                    )
+                    downloader.triggerModelDownload(intent)
+                } catch (_: Exception) {
+                } finally {
+                    mainHandler.postDelayed({
+                        try {
+                            downloader?.destroy()
+                        } catch (_: Exception) {
+                        }
+                    }, 1500L)
+                }
+            }
+        }
+
         private fun postMain(handler: Handler, block: () -> Unit) {
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 block()
@@ -381,11 +436,20 @@ class LifeOsSpeechRecognizerHelper(
             val appCtx = context.applicationContext
             val offlineOnly = strictOffline ||
                 engineMode == "on_device" ||
-                engineMode == "offline_strict"
+                engineMode == "offline_strict" ||
+                engineMode == "local_asr"
 
             if (offlineOnly) {
-                return if (isOnDeviceRecognitionAvailable(appCtx)) {
-                    listOf(EngineCandidate.OnDevice)
+                if (isOnDeviceRecognitionAvailable(appCtx)) {
+                    return listOf(EngineCandidate.OnDevice)
+                }
+                val isSysAvail = try {
+                    SpeechRecognizer.isRecognitionAvailable(appCtx)
+                } catch (_: Exception) {
+                    false
+                }
+                return if (isSysAvail) {
+                    listOf(EngineCandidate.SystemBrokerDefault)
                 } else {
                     emptyList()
                 }
@@ -571,12 +635,14 @@ class LifeOsSpeechRecognizerHelper(
             val effectiveLocale = locale.ifBlank { "vi-VN" }
             val effectiveStrictOffline = strictOffline ||
                 engineMode == "on_device" ||
-                engineMode == "offline_strict"
+                engineMode == "offline_strict" ||
+                engineMode == "local_asr"
             val useSystemDialog = !effectiveStrictOffline &&
                 (preferSystemDialog || engineMode == "system_dialog")
 
             val initialEngineId = when {
                 useSystemDialog -> "system_speech_dialog"
+                engineMode == "local_asr" -> "local_asr"
                 effectiveStrictOffline -> "on_device_speech_recognizer"
                 else -> "system_default"
             }
@@ -628,9 +694,14 @@ class LifeOsSpeechRecognizerHelper(
                 return@runOnMain
             }
 
-            // Strict offline / API 31+ On-Device path (NEVER falls back to online!)
+            // Strict offline / API 31+ On-Device or Local ASR path (NEVER falls back to online!)
             if (effectiveStrictOffline) {
-                if (!isOnDeviceRecognitionAvailable(appContext)) {
+                val offlineCandidates = discoverCandidates(
+                    context = appContext,
+                    engineMode = engineMode,
+                    strictOffline = true
+                )
+                if (offlineCandidates.isEmpty()) {
                     terminateWithError(
                         sessionId = resolvedSessionId,
                         attemptId = resolvedAttemptId,
@@ -660,7 +731,7 @@ class LifeOsSpeechRecognizerHelper(
                     sessionId = resolvedSessionId,
                     attemptId = resolvedAttemptId,
                     generation = gen,
-                    candidates = listOf(EngineCandidate.OnDevice),
+                    candidates = offlineCandidates,
                     candidateIndex = 0,
                     retriedBusy = false,
                     strictOffline = true
@@ -1186,7 +1257,8 @@ class LifeOsSpeechRecognizerHelper(
             val recIntent = buildVietnameseSpeechIntent(
                 context = appContext,
                 forSystemDialog = false,
-                localeTag = currentLocale
+                localeTag = currentLocale,
+                preferOffline = strictOffline
             )
             sr.startListening(recIntent)
         } catch (_: Exception) {

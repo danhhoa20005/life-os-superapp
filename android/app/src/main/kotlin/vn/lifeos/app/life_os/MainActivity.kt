@@ -92,6 +92,8 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ensureBankingNotificationChannel()
+        LifeOsSpeechRecognizerHelper.preloadVietnameseOfflineModel(applicationContext)
+        LifeOsSoundboxSpeaker.warmUp(applicationContext)
         captureWidgetIntent(intent)
         captureAlarmIntent(intent)
     }

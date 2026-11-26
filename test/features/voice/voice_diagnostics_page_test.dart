@@ -148,19 +148,19 @@ void main() {
       expect(find.byKey(const Key('voice_diag_models_card')), findsOneWidget);
       expect(
         find.byKey(
-          Key('voice_model_download_${LocalAsrModelCatalog.voskSmallVn.id}'),
+          Key('voice_model_installed_${LocalAsrModelCatalog.voskSmallVn.id}'),
         ),
         findsOneWidget,
       );
       expect(
         find.byKey(
           Key(
-            'voice_model_download_${LocalAsrModelCatalog.sherpaZipformerViNc.id}',
+            'voice_model_installed_${LocalAsrModelCatalog.sherpaZipformerViInt8.id}',
           ),
         ),
         findsOneWidget,
       );
-      expect(find.text('Hạn chế giấy phép'), findsOneWidget);
+      expect(find.text('✓ Đã tải sẵn & Kích hoạt'), findsWidgets);
 
       expect(tester.takeException(), isNull);
     },

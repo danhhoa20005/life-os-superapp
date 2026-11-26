@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
 import '../../domain/entities/voice_model_package.dart';
@@ -71,9 +72,11 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
   final List<LocalAsrModelSpec> _catalog;
   final Future<int> Function(Directory dir)? _freeSpaceBytesProvider;
   final int _minFreeSpaceBufferBytes;
+  final bool _autoPreloadBundled;
 
   final Map<String, LocalAsrModelInstallState> _transientStates =
       <String, LocalAsrModelInstallState>{};
+  final Set<String> _explicitlyDeletedIds = <String>{};
 
   LocalAsrModelManager({
     required Directory rootDirectory,
@@ -81,11 +84,13 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     List<LocalAsrModelSpec> catalog = LocalAsrModelCatalog.defaults,
     Future<int> Function(Directory dir)? freeSpaceBytesProvider,
     int minFreeSpaceBufferBytes = 1024 * 1024,
+    bool autoPreloadBundled = true,
   }) : _rootDirectoryProvider = (() async => rootDirectory),
        _httpClient = httpClient ?? http.Client(),
        _catalog = catalog,
        _freeSpaceBytesProvider = freeSpaceBytesProvider,
-       _minFreeSpaceBufferBytes = minFreeSpaceBufferBytes;
+       _minFreeSpaceBufferBytes = minFreeSpaceBufferBytes,
+       _autoPreloadBundled = autoPreloadBundled;
 
   LocalAsrModelManager.lazy({
     required Future<Directory> Function() rootDirectoryProvider,
@@ -93,11 +98,13 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     List<LocalAsrModelSpec> catalog = LocalAsrModelCatalog.defaults,
     Future<int> Function(Directory dir)? freeSpaceBytesProvider,
     int minFreeSpaceBufferBytes = 1024 * 1024,
+    bool autoPreloadBundled = true,
   }) : _rootDirectoryProvider = rootDirectoryProvider,
        _httpClient = httpClient ?? http.Client(),
        _catalog = catalog,
        _freeSpaceBytesProvider = freeSpaceBytesProvider,
-       _minFreeSpaceBufferBytes = minFreeSpaceBufferBytes;
+       _minFreeSpaceBufferBytes = minFreeSpaceBufferBytes,
+       _autoPreloadBundled = autoPreloadBundled;
 
   @override
   Future<List<LocalAsrModelInstallState>> listModels() async {
@@ -180,6 +187,20 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
       );
       _transientStates[spec.id] = unavailable;
       throw LocalAsrRuntimeUnavailableException(spec.id, spec.runtimeName);
+    }
+
+    _explicitlyDeletedIds.remove(spec.id);
+
+    // Fast path: if pre-bundled asset is packaged with the app and matches SHA-256,
+    // install directly without waiting for network download.
+    if (spec.bundledAssetPath != null) {
+      final prebundledState = await _tryInstallFromBundledAsset(
+        spec,
+        onProgress: onProgress,
+      );
+      if (prebundledState != null) {
+        return prebundledState;
+      }
     }
 
     final uri = Uri.tryParse(spec.downloadUrl.trim());
@@ -480,12 +501,106 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
 
   @override
   Future<void> deleteModel(String modelId) async {
+    _explicitlyDeletedIds.add(modelId);
     _transientStates.remove(modelId);
     final root = await _rootDirectoryProvider();
     final modelRoot = _modelRootDir(root, modelId);
     if (await modelRoot.exists()) {
       await modelRoot.delete(recursive: true);
     }
+  }
+
+  Future<List<int>?> _loadBundledAssetBytes(String assetPath) async {
+    try {
+      final localFile = File(assetPath);
+      if (await localFile.exists()) {
+        return await localFile.readAsBytes();
+      }
+    } catch (_) {}
+    try {
+      final data = await rootBundle.load(assetPath);
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<LocalAsrModelInstallState?> _tryInstallFromBundledAsset(
+    LocalAsrModelSpec spec, {
+    void Function(LocalAsrDownloadProgress progress)? onProgress,
+  }) async {
+    final assetPath = spec.bundledAssetPath;
+    if (assetPath == null ||
+        !spec.commercialAllowed ||
+        !spec.runtimeIntegrated) {
+      return null;
+    }
+    final bytes = await _loadBundledAssetBytes(assetPath);
+    if (bytes == null || bytes.isEmpty) return null;
+
+    final expectedHash = spec.sha256Hex.trim().toLowerCase();
+    final actualHash = sha256.convert(bytes).toString().toLowerCase();
+    if (actualHash != expectedHash) return null;
+
+    onProgress?.call(
+      LocalAsrDownloadProgress(
+        modelId: spec.id,
+        downloadedBytes: bytes.length,
+        totalBytes: bytes.length,
+        status: LocalAsrModelStatus.downloading,
+      ),
+    );
+    onProgress?.call(
+      LocalAsrDownloadProgress(
+        modelId: spec.id,
+        downloadedBytes: bytes.length,
+        totalBytes: bytes.length,
+        status: LocalAsrModelStatus.verifying,
+      ),
+    );
+
+    final root = await _rootDirectoryProvider();
+    final currentDir = _currentDir(root, spec.id);
+    if (!await currentDir.exists()) {
+      await currentDir.create(recursive: true);
+    }
+    final payloadFile = File('${currentDir.path}/${spec.primaryFileName}');
+    await payloadFile.writeAsBytes(bytes, flush: true);
+
+    final manifestFile = File('${currentDir.path}/manifest.json');
+    await manifestFile.writeAsString(
+      jsonEncode(<String, Object?>{
+        'id': spec.id,
+        'version': spec.version,
+        'sha256Hex': expectedHash,
+        'sizeBytes': bytes.length,
+        'primaryFileName': spec.primaryFileName,
+        'requiredFiles': spec.requiredFiles,
+        'commercialAllowed': spec.commercialAllowed,
+        'prebundled': true,
+        'installedAtEpochMs': DateTime.now().millisecondsSinceEpoch,
+      }),
+      flush: true,
+    );
+
+    final state = LocalAsrModelInstallState(
+      spec: spec,
+      status: LocalAsrModelStatus.installed,
+      downloadedBytes: bytes.length,
+      installedVersion: spec.version,
+      installedPath: currentDir.path,
+      hasRollbackBackup: await _backupDir(root, spec.id).exists(),
+    );
+    _transientStates[spec.id] = state;
+    onProgress?.call(
+      LocalAsrDownloadProgress(
+        modelId: spec.id,
+        downloadedBytes: bytes.length,
+        totalBytes: bytes.length,
+        status: LocalAsrModelStatus.installed,
+      ),
+    );
+    return state;
   }
 
   Future<LocalAsrModelInstallState> _inspectSpecState(
@@ -501,6 +616,17 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
 
     final root = await _rootDirectoryProvider();
     final currentDir = _currentDir(root, spec.id);
+    if (!currentDir.existsSync() &&
+        _autoPreloadBundled &&
+        spec.commercialAllowed &&
+        spec.runtimeIntegrated &&
+        spec.bundledAssetPath != null &&
+        !_explicitlyDeletedIds.contains(spec.id)) {
+      final preloaded = await _tryInstallFromBundledAsset(spec);
+      if (preloaded != null) {
+        return preloaded;
+      }
+    }
     final backupDir = _backupDir(root, spec.id);
     final hasBackup = backupDir.existsSync();
 

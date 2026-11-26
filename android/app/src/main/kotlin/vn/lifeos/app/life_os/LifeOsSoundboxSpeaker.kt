@@ -94,6 +94,58 @@ object LifeOsSoundboxSpeaker {
 
     fun isMicrophoneActive(): Boolean = microphoneActive
 
+    /**
+     * Pre-warms Android TextToSpeech and binds the Vietnamese (`vi-VN`) voice model
+     * at app startup so there is zero cold-start latency when speaking.
+     */
+    fun warmUp(context: Context) {
+        if (microphoneActive) return
+        val appCtx = context.applicationContext
+        val shouldCreateTts: Boolean
+        val generation: Long
+        synchronized(lock) {
+            appContext = appCtx
+            if (tts != null || isInitializing) return
+            initGeneration += 1L
+            generation = initGeneration
+            isInitializing = true
+            isReady = false
+            initCompleted = false
+            pendingInitStatus = null
+            shouldCreateTts = true
+        }
+        if (!shouldCreateTts) return
+        val created = try {
+            TextToSpeech(appCtx) { status ->
+                handleInitCallback(generation, status)
+            }
+        } catch (_: Exception) {
+            synchronized(lock) {
+                if (initGeneration == generation) {
+                    tts = null
+                    isReady = false
+                    isInitializing = false
+                    initCompleted = false
+                    pendingInitStatus = null
+                }
+            }
+            return
+        }
+        synchronized(lock) {
+            if (initGeneration != generation) {
+                try {
+                    created.shutdown()
+                } catch (_: Exception) {
+                }
+                return
+            }
+            tts = created
+            if (initCompleted) {
+                finalizeInitLocked(created, pendingInitStatus ?: TextToSpeech.ERROR)
+            }
+        }
+    }
+
     fun onBankNotificationCaptured(context: Context, packageName: String, combinedText: String) {
         if (microphoneActive) return
         var rawAmount: String? = CREDIT_SIGNED_REGEX.find(combinedText)?.groupValues?.getOrNull(1)

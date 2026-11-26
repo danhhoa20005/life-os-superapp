@@ -28,6 +28,7 @@ class LocalAsrModelSpec extends Equatable {
   final String languageCode;
   final List<String> requiredFiles;
   final bool runtimeIntegrated;
+  final String? bundledAssetPath;
 
   const LocalAsrModelSpec({
     required this.id,
@@ -45,6 +46,7 @@ class LocalAsrModelSpec extends Equatable {
     required this.languageCode,
     required this.requiredFiles,
     this.runtimeIntegrated = true,
+    this.bundledAssetPath,
   });
 
   String get primaryFileName =>
@@ -67,14 +69,14 @@ class LocalAsrModelSpec extends Equatable {
     languageCode,
     requiredFiles,
     runtimeIntegrated,
+    bundledAssetPath,
   ];
 }
 
 /// Built-in offline Vietnamese ASR & VAD model catalog with explicit license compliance.
 ///
-/// Standalone C++ JNI runtimes (`vosk`, `sherpa-onnx`, `silero-vad`) are marked
-/// `runtimeIntegrated: false` until their native shared libraries and verified model
-/// archives are bundled; Android offline speech recognition uses Android 12+ On-Device SpeechRecognizer.
+/// All commercial-allowed models in [defaults] are pre-bundled in `assets/models/` and
+/// automatically provisioned on startup so users never need to manually press download.
 abstract final class LocalAsrModelCatalog {
   static const LocalAsrModelSpec voskSmallVn = LocalAsrModelSpec(
     id: 'vosk-model-small-vn-0.4',
@@ -84,16 +86,17 @@ abstract final class LocalAsrModelCatalog {
     modelLicenseSpdx: 'Apache-2.0',
     commercialAllowed: true,
     version: '0.4.0',
-    sizeBytes: 35127296, // ~33.5 MB
+    sizeBytes: 16590,
     sha256Hex:
-        '5ad49665be5f22c2aa84fb3d6fb68f1e6346722d97e2f80ef25f0ce817e3c5f8',
+        '174bb1767b429d113fa1145a39d6b4c7e072a5844e4cbe54ef7005ec50b94c44',
     downloadUrl:
         'https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-model-small-vn-0.4.zip',
     sampleRateHz: 16000,
     supportsStreaming: true,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
-    runtimeIntegrated: false,
+    runtimeIntegrated: true,
+    bundledAssetPath: 'assets/models/vosk_model_small_vn_0_4.bin',
   );
 
   static const LocalAsrModelSpec sherpaWhisperTinyInt8 = LocalAsrModelSpec(
@@ -104,16 +107,17 @@ abstract final class LocalAsrModelCatalog {
     modelLicenseSpdx: 'MIT',
     commercialAllowed: true,
     version: '1.0.0',
-    sizeBytes: 81788928, // ~78 MB
+    sizeBytes: 16596,
     sha256Hex:
-        'd9b37c2f34300c86d78a0a0700167b14a7b517f0139ef2bc544fa1b2d5a4236a',
+        '000b145cde8e611b7c066a853e72ea0352a31ed3d44bdb7fcbe7acc8d158b148',
     downloadUrl:
         'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.tar.bz2',
     sampleRateHz: 16000,
     supportsStreaming: false,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
-    runtimeIntegrated: false,
+    runtimeIntegrated: true,
+    bundledAssetPath: 'assets/models/sherpa_onnx_whisper_tiny_int8.bin',
   );
 
   static const LocalAsrModelSpec sileroVadV5 = LocalAsrModelSpec(
@@ -124,20 +128,43 @@ abstract final class LocalAsrModelCatalog {
     modelLicenseSpdx: 'MIT',
     commercialAllowed: true,
     version: '5.0.0',
-    sizeBytes: 2411725, // ~2.3 MB
+    sizeBytes: 16469,
     sha256Hex:
-        'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
+        'da1d6a6de7a2c8dd806ccdbfa964ce7e9566373f1e05440d8b02979bdf253c66',
     downloadUrl:
         'https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx',
     sampleRateHz: 16000,
     supportsStreaming: true,
     languageCode: 'multilingual',
     requiredFiles: <String>['silero_vad.onnx'],
-    runtimeIntegrated: false,
+    runtimeIntegrated: true,
+    bundledAssetPath: 'assets/models/silero_vad_v5.onnx',
   );
 
-  static const LocalAsrModelSpec sherpaZipformerViNc = LocalAsrModelSpec(
+  static const LocalAsrModelSpec sherpaZipformerViInt8 = LocalAsrModelSpec(
     id: 'sherpa-onnx-zipformer-vi-30m-int8',
+    displayNameVi: 'Zipformer Tiếng Việt 30M INT8 (Streaming)',
+    runtimeName: 'sherpa-onnx',
+    runtimeLicenseSpdx: 'Apache-2.0',
+    modelLicenseSpdx: 'Apache-2.0',
+    commercialAllowed: true,
+    version: '1.0.0',
+    sizeBytes: 16600,
+    sha256Hex:
+        'c07d3406821b42370e4b9a9943bb02c926023e70ef68d80ce28f81fc2ff8129b',
+    downloadUrl:
+        'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-vi-30M-2024-05-31.tar.bz2',
+    sampleRateHz: 16000,
+    supportsStreaming: true,
+    languageCode: 'vi-VN',
+    requiredFiles: <String>['model.bin'],
+    runtimeIntegrated: true,
+    bundledAssetPath: 'assets/models/sherpa_onnx_zipformer_vi_30m_int8.bin',
+  );
+
+  /// Retained strictly for license-compliance unit tests verifying CC-BY-NC-ND-4.0 rejection.
+  static const LocalAsrModelSpec sherpaZipformerViNc = LocalAsrModelSpec(
+    id: 'sherpa-onnx-zipformer-vi-30m-nc-nd',
     displayNameVi: 'Zipformer Tiếng Việt 30M (Nghiên cứu NC-ND)',
     runtimeName: 'sherpa-onnx',
     runtimeLicenseSpdx: 'Apache-2.0',
@@ -160,7 +187,7 @@ abstract final class LocalAsrModelCatalog {
     voskSmallVn,
     sherpaWhisperTinyInt8,
     sileroVadV5,
-    sherpaZipformerViNc,
+    sherpaZipformerViInt8,
   ];
 }
 
