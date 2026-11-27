@@ -24,8 +24,13 @@ class LoadBackupOwnerSummaryUseCase
 final class ExportFullBackupParams {
   final String ownerId;
   final String? passphrase;
+  final bool allowPlaintextExport;
 
-  const ExportFullBackupParams({required this.ownerId, this.passphrase});
+  const ExportFullBackupParams({
+    required this.ownerId,
+    this.passphrase,
+    this.allowPlaintextExport = false,
+  });
 }
 
 class ExportFullBackupUseCase
@@ -43,6 +48,7 @@ class ExportFullBackupUseCase
     return _repository.exportOwnerData(
       ownerId: params.ownerId.trim(),
       passphrase: params.passphrase,
+      allowPlaintextExport: params.allowPlaintextExport,
     );
   }
 }

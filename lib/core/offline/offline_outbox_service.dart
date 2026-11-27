@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:equatable/equatable.dart';
+import 'package:uuid/uuid.dart';
 
 import '../services/native_secure_vault_bridge.dart';
 
@@ -49,6 +50,8 @@ class OutboxRecord extends Equatable {
   final int attemptCount;
   final int baseUpdatedAtEpochMs;
   final int nextRetryAtEpochMs;
+  final int? inFlightAtMs;
+  final bool isDeadLetter;
   final String? lastError;
 
   const OutboxRecord({
@@ -62,18 +65,24 @@ class OutboxRecord extends Equatable {
     this.attemptCount = 0,
     required this.baseUpdatedAtEpochMs,
     this.nextRetryAtEpochMs = 0,
+    this.inFlightAtMs,
+    this.isDeadLetter = false,
     this.lastError,
   });
 
   OutboxRecord copyWith({
+    String? operationId,
     OfflineSyncStage? stage,
     int? attemptCount,
     int? nextRetryAtEpochMs,
+    int? inFlightAtMs,
+    bool clearInFlightAtMs = false,
+    bool? isDeadLetter,
     String? lastError,
     bool clearError = false,
   }) {
     return OutboxRecord(
-      operationId: operationId,
+      operationId: operationId ?? this.operationId,
       ownerId: ownerId,
       entityType: entityType,
       entityId: entityId,
@@ -83,6 +92,10 @@ class OutboxRecord extends Equatable {
       attemptCount: attemptCount ?? this.attemptCount,
       baseUpdatedAtEpochMs: baseUpdatedAtEpochMs,
       nextRetryAtEpochMs: nextRetryAtEpochMs ?? this.nextRetryAtEpochMs,
+      inFlightAtMs: clearInFlightAtMs
+          ? null
+          : (inFlightAtMs ?? this.inFlightAtMs),
+      isDeadLetter: isDeadLetter ?? this.isDeadLetter,
       lastError: clearError ? null : (lastError ?? this.lastError),
     );
   }
@@ -98,6 +111,8 @@ class OutboxRecord extends Equatable {
     'attemptCount': attemptCount,
     'baseUpdatedAtEpochMs': baseUpdatedAtEpochMs,
     'nextRetryAtEpochMs': nextRetryAtEpochMs,
+    if (inFlightAtMs != null) 'inFlightAtMs': inFlightAtMs,
+    'isDeadLetter': isDeadLetter,
     if (lastError != null) 'lastError': lastError,
   };
 
@@ -117,6 +132,8 @@ class OutboxRecord extends Equatable {
       attemptCount: (map['attemptCount'] as num?)?.toInt() ?? 0,
       baseUpdatedAtEpochMs: (map['baseUpdatedAtEpochMs'] as num?)?.toInt() ?? 0,
       nextRetryAtEpochMs: (map['nextRetryAtEpochMs'] as num?)?.toInt() ?? 0,
+      inFlightAtMs: (map['inFlightAtMs'] as num?)?.toInt(),
+      isDeadLetter: map['isDeadLetter'] == true,
       lastError: map['lastError']?.toString(),
     );
   }
@@ -133,6 +150,8 @@ class OutboxRecord extends Equatable {
     attemptCount,
     baseUpdatedAtEpochMs,
     nextRetryAtEpochMs,
+    inFlightAtMs,
+    isDeadLetter,
     lastError,
   ];
 }
@@ -142,6 +161,7 @@ class OfflineSyncTelemetry extends Equatable {
   final int pendingCount;
   final int conflictCount;
   final int failedCount;
+  final int deadLetterCount;
   final DateTime? lastSuccessfulSyncAt;
 
   const OfflineSyncTelemetry({
@@ -149,6 +169,7 @@ class OfflineSyncTelemetry extends Equatable {
     required this.pendingCount,
     required this.conflictCount,
     required this.failedCount,
+    this.deadLetterCount = 0,
     this.lastSuccessfulSyncAt,
   });
 
@@ -157,6 +178,7 @@ class OfflineSyncTelemetry extends Equatable {
     pendingCount: 0,
     conflictCount: 0,
     failedCount: 0,
+    deadLetterCount: 0,
   );
 
   @override
@@ -165,6 +187,7 @@ class OfflineSyncTelemetry extends Equatable {
     pendingCount,
     conflictCount,
     failedCount,
+    deadLetterCount,
     lastSuccessfulSyncAt,
   ];
 }
@@ -178,40 +201,134 @@ enum OutboxRemoteOutcome {
 
 /// Persistent, Idempotent Offline Outbox & Sync Recovery Coordinator (Section 36).
 ///
-/// Supports:
-/// - Scoped per-user storage in `NativeSecureVaultBridge` (encrypted Android Keystore on device).
-/// - `operationId` idempotency so retries never duplicate mutations.
-/// - Exponential backoff (`baseBackoffMs * 2^attempt`, capped at 5 minutes).
-/// - Tombstone deletes & deterministic version/timestamp conflict detection.
+/// Guarantees:
+/// - FIFO async operation serialization (`_opChain`) across ALL read/write/enqueue/
+///   flush/remove/clear mutations so concurrent calls never clobber each other.
+/// - Lease-based in-flight isolation (`inFlightAtMs`) so concurrent flushes never
+///   double-execute an item, while stale crashed leases expire automatically.
+/// - Dead-letter isolation (`isDeadLetter`) after `maxAttempts` or permanent failures.
+/// - Corruption quarantine (`${storageKey}__corrupted_${nowMs}`) instead of silently
+///   wiping corrupted persisted JSON queues.
+/// - Strict UID-scoped storage & session isolation (`setActiveUserId` / `clearSessionOnSignOut`).
 class OfflineOutboxService {
   static const String _keyPrefix = 'offline_outbox_queue_v1__u_';
   static const String _keyLastSyncPrefix = 'offline_outbox_last_sync__u_';
   static const int maxAttempts = 6;
   static const int baseBackoffMs = 1500;
   static const int maxBackoffMs = 300000;
+  static const int defaultLeaseDurationMs = 60000;
+  static const Uuid _uuid = Uuid();
 
   final NativeSecureVaultBridge _vault;
+  final int leaseDurationMs;
   final StreamController<OfflineSyncTelemetry> _telemetryCtrl =
       StreamController<OfflineSyncTelemetry>.broadcast();
   final Map<String, List<OutboxRecord>> _cacheByUser =
       <String, List<OutboxRecord>>{};
   final Map<String, DateTime?> _lastSyncByUser = <String, DateTime?>{};
 
-  OfflineOutboxService({NativeSecureVaultBridge? vault})
-    : _vault = vault ?? NativeSecureVaultBridge.instance;
+  Future<void> _opChain = Future<void>.value();
+  String? _activeUserId;
+  int _quarantinedCorruptionCount = 0;
+  String? _lastCorruptionError;
+  final List<String> _quarantinedKeys = <String>[];
+
+  OfflineOutboxService({
+    NativeSecureVaultBridge? vault,
+    this.leaseDurationMs = defaultLeaseDurationMs,
+  }) : _vault = vault ?? NativeSecureVaultBridge.instance;
 
   Stream<OfflineSyncTelemetry> watchTelemetry() => _telemetryCtrl.stream;
+
+  String? get activeUserId => _activeUserId;
+  int get quarantinedCorruptionCount => _quarantinedCorruptionCount;
+  String? get lastCorruptionError => _lastCorruptionError;
+  List<String> get quarantinedKeys =>
+      List<String>.unmodifiable(_quarantinedKeys);
+
+  static String storageKeyForUser(String userId) =>
+      '$_keyPrefix${userId.trim()}';
 
   static int computeBackoffDelayMs(int attemptCount) {
     final shift = attemptCount.clamp(0, 10);
     return math.min(maxBackoffMs, baseBackoffMs * (1 << shift));
   }
 
-  Future<List<OutboxRecord>> loadQueue(String userId) async {
+  Future<T> _runSerialized<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _opChain = _opChain.then((_) async {
+      try {
+        final result = await action();
+        if (!completer.isCompleted) {
+          completer.complete(result);
+        }
+      } catch (e, st) {
+        if (!completer.isCompleted) {
+          completer.completeError(e, st);
+        }
+      }
+    });
+    return completer.future;
+  }
+
+  /// Binds the active signed-in UID and clears previous in-memory session state
+  /// so account switches never leak or mix pending outbox commands across users.
+  Future<void> setActiveUserId(String? userId) {
+    return _runSerialized(() async {
+      final clean = userId?.trim();
+      final nextUid = (clean == null || clean.isEmpty) ? null : clean;
+      if (_activeUserId != nextUid) {
+        _cacheByUser.clear();
+        _lastSyncByUser.clear();
+      }
+      _activeUserId = nextUid;
+      if (nextUid != null) {
+        final queue = await _loadQueueLocked(nextUid);
+        _emit(_buildTelemetry(nextUid, queue));
+      } else {
+        _emit(OfflineSyncTelemetry.idleSynced);
+      }
+    });
+  }
+
+  /// Clears in-memory outbox session caches on sign-out without deleting
+  /// persisted user-scoped vault records (so re-login preserves offline mutations).
+  Future<void> clearSessionOnSignOut() {
+    return _runSerialized(() async {
+      _activeUserId = null;
+      _cacheByUser.clear();
+      _lastSyncByUser.clear();
+      _emit(OfflineSyncTelemetry.idleSynced);
+    });
+  }
+
+  void _assertAllowedUserScope(String userId) {
+    final cleanUid = userId.trim();
+    if (cleanUid.isEmpty) {
+      throw ArgumentError.value(userId, 'userId', 'userId must not be empty');
+    }
+    if (_activeUserId != null && _activeUserId != cleanUid) {
+      throw StateError(
+        'Từ chối thao tác hàng đợi ngoại tuyến cho "$cleanUid" khi đang đăng nhập "$_activeUserId".',
+      );
+    }
+  }
+
+  Future<List<OutboxRecord>> loadQueue(String userId) {
+    return _runSerialized(() async {
+      final cleanUid = userId.trim();
+      if (cleanUid.isEmpty) return const <OutboxRecord>[];
+      _assertAllowedUserScope(cleanUid);
+      return _loadQueueLocked(cleanUid);
+    });
+  }
+
+  Future<List<OutboxRecord>> _loadQueueLocked(String userId) async {
     if (_cacheByUser.containsKey(userId)) {
       return List<OutboxRecord>.unmodifiable(_cacheByUser[userId]!);
     }
-    final raw = await _vault.readSecret('$_keyPrefix$userId');
+    final storageKey = storageKeyForUser(userId);
+    final raw = await _vault.readSecret(storageKey);
     final syncRaw = await _vault.readSecret('$_keyLastSyncPrefix$userId');
     if (syncRaw != null) {
       final ms = int.tryParse(syncRaw);
@@ -225,85 +342,200 @@ class OfflineOutboxService {
     }
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is List) {
-        final list = decoded
-            .whereType<Map<dynamic, dynamic>>()
-            .map((e) => OutboxRecord.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-        _cacheByUser[userId] = list;
-        return List<OutboxRecord>.unmodifiable(list);
+      if (decoded is! List) {
+        throw const FormatException('Outbox payload root is not a JSON List.');
       }
-    } catch (_) {}
-    _cacheByUser[userId] = <OutboxRecord>[];
-    return const <OutboxRecord>[];
+      final list = <OutboxRecord>[];
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          throw const FormatException('Outbox item is not a JSON object.');
+        }
+        final rec = OutboxRecord.fromJson(Map<String, dynamic>.from(entry));
+        if (rec.operationId.trim().isEmpty ||
+            rec.ownerId.trim().isEmpty ||
+            rec.entityType.trim().isEmpty ||
+            rec.entityId.trim().isEmpty) {
+          throw const FormatException(
+            'Outbox item is missing required fields.',
+          );
+        }
+        list.add(rec);
+      }
+      _cacheByUser[userId] = list;
+      return List<OutboxRecord>.unmodifiable(list);
+    } catch (e) {
+      await _quarantineCorruptedPayload(
+        userId: userId,
+        storageKey: storageKey,
+        rawPayload: raw,
+        error: e,
+      );
+      _cacheByUser[userId] = <OutboxRecord>[];
+      return const <OutboxRecord>[];
+    }
+  }
+
+  Future<void> _quarantineCorruptedPayload({
+    required String userId,
+    required String storageKey,
+    required String rawPayload,
+    required Object error,
+  }) async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    var quarantineKey = '${storageKey}__corrupted_$nowMs';
+    if (await _vault.readSecret(quarantineKey) != null) {
+      quarantineKey =
+          '${storageKey}__corrupted_${nowMs}_${_quarantinedCorruptionCount + 1}';
+    }
+    await _vault.writeSecret(key: quarantineKey, value: rawPayload);
+    await _vault.deleteSecret(storageKey);
+    _quarantinedCorruptionCount += 1;
+    _quarantinedKeys.add(quarantineKey);
+    _lastCorruptionError =
+        'Dữ liệu hàng đợi ngoại tuyến bị hỏng ($userId) đã được cách ly tại $quarantineKey: $error';
   }
 
   /// Idempotently enqueues a mutation or tombstone when offline or when a remote write times out.
-  Future<OutboxRecord> enqueue(OutboxRecord record) async {
-    final queue = List<OutboxRecord>.from(await loadQueue(record.ownerId));
-    final existingIdx = queue.indexWhere(
-      (r) => r.operationId == record.operationId,
-    );
-    if (existingIdx >= 0) {
-      return queue[existingIdx];
-    }
-    // Coalesce superseded uncommitted upserts/tombstones on the same entity when appropriate
-    if (record.mutationKind == OutboxMutationKind.tombstoneDelete) {
-      queue.removeWhere(
-        (r) =>
-            r.entityType == record.entityType &&
-            r.entityId == record.entityId &&
-            r.stage == OfflineSyncStage.pendingSync,
+  Future<OutboxRecord> enqueue(OutboxRecord record) {
+    return _runSerialized(() async {
+      final ownerId = record.ownerId.trim();
+      _assertAllowedUserScope(ownerId);
+
+      final stableOpId = record.operationId.trim().isNotEmpty
+          ? record.operationId.trim()
+          : _uuid.v4();
+      final normalized = OutboxRecord(
+        operationId: stableOpId,
+        ownerId: ownerId,
+        entityType: record.entityType,
+        entityId: record.entityId,
+        mutationKind: record.mutationKind,
+        payload: record.payload,
+        stage: record.stage,
+        attemptCount: record.attemptCount,
+        baseUpdatedAtEpochMs: record.baseUpdatedAtEpochMs,
+        nextRetryAtEpochMs: record.nextRetryAtEpochMs,
+        inFlightAtMs: record.inFlightAtMs,
+        isDeadLetter: record.isDeadLetter,
+        lastError: record.lastError,
       );
-    }
-    queue.add(record);
-    await _persistQueue(record.ownerId, queue);
-    return record;
+
+      final queue = List<OutboxRecord>.from(await _loadQueueLocked(ownerId));
+      final existingIdx = queue.indexWhere(
+        (r) => r.operationId == normalized.operationId,
+      );
+      if (existingIdx >= 0) {
+        return queue[existingIdx];
+      }
+
+      // Coalesce superseded uncommitted non-leased upserts on the same entity when deleting
+      if (normalized.mutationKind == OutboxMutationKind.tombstoneDelete) {
+        queue.removeWhere(
+          (r) =>
+              r.entityType == normalized.entityType &&
+              r.entityId == normalized.entityId &&
+              r.stage == OfflineSyncStage.pendingSync &&
+              r.inFlightAtMs == null,
+        );
+      }
+
+      queue.add(normalized);
+      await _persistQueueLocked(ownerId, queue);
+      return normalized;
+    });
   }
 
-  /// Flushes due outbox items using [executor], applying exponential backoff and conflict isolation.
+  /// Flushes due outbox items using [executor], applying atomic in-flight leases,
+  /// exponential backoff, conflict isolation, and dead-letter quarantine.
   Future<OfflineSyncTelemetry> flushDue({
     required String userId,
     required Future<OutboxRemoteOutcome> Function(OutboxRecord record) executor,
     DateTime? nowOverride,
   }) async {
+    final cleanUid = userId.trim();
     final now = nowOverride ?? DateTime.now();
     final nowMs = now.millisecondsSinceEpoch;
-    final queue = List<OutboxRecord>.from(await loadQueue(userId));
-    if (queue.isEmpty) {
-      final snap = _buildTelemetry(userId, queue);
-      _emit(snap);
-      return snap;
+
+    // Phase 1: Under _opChain, acquire atomic in-flight leases on due records.
+    final leasedItems = await _runSerialized<List<OutboxRecord>>(() async {
+      _assertAllowedUserScope(cleanUid);
+      final queue = List<OutboxRecord>.from(await _loadQueueLocked(cleanUid));
+      if (queue.isEmpty) {
+        final snap = _buildTelemetry(cleanUid, queue);
+        _emit(snap);
+        return const <OutboxRecord>[];
+      }
+
+      final toLease = <OutboxRecord>[];
+      var mutated = false;
+      for (var i = 0; i < queue.length; i++) {
+        final item = queue[i];
+        if (item.isDeadLetter ||
+            item.stage == OfflineSyncStage.conflict ||
+            item.stage == OfflineSyncStage.failed) {
+          continue;
+        }
+        if (item.nextRetryAtEpochMs > nowMs) {
+          continue;
+        }
+        final activeLease =
+            item.inFlightAtMs != null &&
+            (nowMs - item.inFlightAtMs!) < leaseDurationMs;
+        if (activeLease) {
+          continue;
+        }
+        final leased = item.copyWith(
+          stage: OfflineSyncStage.syncing,
+          inFlightAtMs: nowMs,
+        );
+        queue[i] = leased;
+        toLease.add(leased);
+        mutated = true;
+      }
+
+      if (mutated) {
+        await _persistQueueLocked(cleanUid, queue);
+        _emit(
+          OfflineSyncTelemetry(
+            overallStage: OfflineSyncStage.syncing,
+            pendingCount: queue
+                .where(
+                  (r) =>
+                      !r.isDeadLetter &&
+                      (r.stage == OfflineSyncStage.pendingSync ||
+                          r.stage == OfflineSyncStage.syncing),
+                )
+                .length,
+            conflictCount: queue
+                .where((r) => r.stage == OfflineSyncStage.conflict)
+                .length,
+            failedCount: queue
+                .where(
+                  (r) => r.isDeadLetter || r.stage == OfflineSyncStage.failed,
+                )
+                .length,
+            deadLetterCount: queue.where((r) => r.isDeadLetter).length,
+            lastSuccessfulSyncAt: _lastSyncByUser[cleanUid],
+          ),
+        );
+      } else {
+        _emit(_buildTelemetry(cleanUid, queue));
+      }
+      return toLease;
+    });
+
+    if (leasedItems.isEmpty) {
+      return _runSerialized(() async {
+        final q = await _loadQueueLocked(cleanUid);
+        return _buildTelemetry(cleanUid, q);
+      });
     }
 
-    _emit(
-      OfflineSyncTelemetry(
-        overallStage: OfflineSyncStage.syncing,
-        pendingCount: queue.length,
-        conflictCount: queue
-            .where((r) => r.stage == OfflineSyncStage.conflict)
-            .length,
-        failedCount: queue
-            .where((r) => r.stage == OfflineSyncStage.failed)
-            .length,
-        lastSuccessfulSyncAt: _lastSyncByUser[userId],
-      ),
-    );
-
-    final remaining = <OutboxRecord>[];
-    var anySynced = false;
-
-    for (final item in queue) {
-      if (item.stage == OfflineSyncStage.conflict ||
-          item.stage == OfflineSyncStage.failed) {
-        remaining.add(item);
-        continue;
-      }
-      if (item.nextRetryAtEpochMs > nowMs) {
-        remaining.add(item);
-        continue;
-      }
-
+    // Phase 2: Execute remote mutations outside _opChain so concurrent enqueues
+    // are never blocked or dropped while network calls are in flight.
+    final results =
+        <String, ({OutboxRemoteOutcome outcome, String? errText})>{};
+    for (final item in leasedItems) {
       OutboxRemoteOutcome outcome;
       String? errText;
       try {
@@ -312,82 +544,176 @@ class OfflineOutboxService {
         outcome = OutboxRemoteOutcome.transientFailure;
         errText = e.toString();
       }
+      results[item.operationId] = (outcome: outcome, errText: errText);
+    }
 
-      switch (outcome) {
-        case OutboxRemoteOutcome.synced:
-          anySynced = true;
-        case OutboxRemoteOutcome.conflict:
-          remaining.add(
-            item.copyWith(
+    // Phase 3: Under _opChain, reconcile outcomes into the latest queue by operationId.
+    return _runSerialized(() async {
+      final latestQueue = List<OutboxRecord>.from(
+        await _loadQueueLocked(cleanUid),
+      );
+      var anySynced = false;
+
+      for (final entry in results.entries) {
+        final opId = entry.key;
+        final idx = latestQueue.indexWhere((r) => r.operationId == opId);
+        if (idx < 0) continue;
+
+        final item = latestQueue[idx];
+        // Ensure we still own the active lease token for this item.
+        if (item.inFlightAtMs != nowMs) continue;
+
+        switch (entry.value.outcome) {
+          case OutboxRemoteOutcome.synced:
+            latestQueue.removeAt(idx);
+            anySynced = true;
+          case OutboxRemoteOutcome.conflict:
+            latestQueue[idx] = item.copyWith(
               stage: OfflineSyncStage.conflict,
+              clearInFlightAtMs: true,
               lastError: 'Phát hiện phiên bản mới hơn từ thiết bị khác.',
-            ),
-          );
-        case OutboxRemoteOutcome.permanentFailure:
-          remaining.add(
-            item.copyWith(
-              stage: OfflineSyncStage.failed,
-              lastError: errText ?? 'Dữ liệu không hợp lệ với máy chủ.',
-            ),
-          );
-        case OutboxRemoteOutcome.transientFailure:
-          final nextAttempt = item.attemptCount + 1;
-          if (nextAttempt >= maxAttempts) {
-            remaining.add(
-              item.copyWith(
-                stage: OfflineSyncStage.failed,
-                attemptCount: nextAttempt,
-                lastError: errText ?? 'Vượt quá số lần thử đồng bộ tự động.',
-              ),
             );
-          } else {
-            final delay = computeBackoffDelayMs(item.attemptCount);
-            remaining.add(
-              item.copyWith(
+          case OutboxRemoteOutcome.permanentFailure:
+            latestQueue[idx] = item.copyWith(
+              stage: OfflineSyncStage.failed,
+              isDeadLetter: true,
+              clearInFlightAtMs: true,
+              lastError:
+                  entry.value.errText ?? 'Dữ liệu không hợp lệ với máy chủ.',
+            );
+          case OutboxRemoteOutcome.transientFailure:
+            final nextAttempt = item.attemptCount + 1;
+            if (nextAttempt >= maxAttempts) {
+              latestQueue[idx] = item.copyWith(
+                stage: OfflineSyncStage.failed,
+                isDeadLetter: true,
+                attemptCount: nextAttempt,
+                clearInFlightAtMs: true,
+                lastError:
+                    entry.value.errText ??
+                    'Vượt quá số lần thử đồng bộ tự động (chuyển vào Dead-Letter).',
+              );
+            } else {
+              final delay = computeBackoffDelayMs(item.attemptCount);
+              latestQueue[idx] = item.copyWith(
                 stage: OfflineSyncStage.pendingSync,
+                isDeadLetter: false,
                 attemptCount: nextAttempt,
                 nextRetryAtEpochMs: nowMs + delay,
-                lastError: errText,
-              ),
-            );
-          }
+                clearInFlightAtMs: true,
+                lastError: entry.value.errText,
+              );
+            }
+        }
       }
-    }
 
-    if (anySynced) {
-      _lastSyncByUser[userId] = now;
-      await _vault.writeSecret(
-        key: '$_keyLastSyncPrefix$userId',
-        value: nowMs.toString(),
-      );
-    }
+      if (anySynced) {
+        _lastSyncByUser[cleanUid] = now;
+        await _vault.writeSecret(
+          key: '$_keyLastSyncPrefix$cleanUid',
+          value: nowMs.toString(),
+        );
+      }
 
-    await _persistQueue(userId, remaining);
-    return _buildTelemetry(userId, remaining);
+      await _persistQueueLocked(cleanUid, latestQueue);
+      return _buildTelemetry(cleanUid, latestQueue);
+    });
   }
 
-  /// Resolves a conflicted record either by keeping local (`retryLocal = true`) or discarding local (`retryLocal = false`).
+  /// Resolves a conflicted record either by keeping local (`keepLocalAndRetry = true`) or discarding local.
   Future<OfflineSyncTelemetry> resolveConflict({
     required String userId,
     required String operationId,
     required bool keepLocalAndRetry,
-  }) async {
-    final queue = List<OutboxRecord>.from(await loadQueue(userId));
-    final idx = queue.indexWhere((r) => r.operationId == operationId);
-    if (idx >= 0) {
-      if (keepLocalAndRetry) {
+  }) {
+    return _runSerialized(() async {
+      final cleanUid = userId.trim();
+      _assertAllowedUserScope(cleanUid);
+      final queue = List<OutboxRecord>.from(await _loadQueueLocked(cleanUid));
+      final idx = queue.indexWhere((r) => r.operationId == operationId);
+      if (idx >= 0) {
+        if (keepLocalAndRetry) {
+          queue[idx] = queue[idx].copyWith(
+            stage: OfflineSyncStage.pendingSync,
+            attemptCount: 0,
+            nextRetryAtEpochMs: 0,
+            clearInFlightAtMs: true,
+            isDeadLetter: false,
+            clearError: true,
+          );
+        } else {
+          queue.removeAt(idx);
+        }
+        await _persistQueueLocked(cleanUid, queue);
+      }
+      return _buildTelemetry(cleanUid, queue);
+    });
+  }
+
+  /// Removes a single entry by [operationId] under serialized queue lock.
+  Future<bool> remove({required String userId, required String operationId}) {
+    return _runSerialized(() async {
+      final cleanUid = userId.trim();
+      _assertAllowedUserScope(cleanUid);
+      final queue = List<OutboxRecord>.from(await _loadQueueLocked(cleanUid));
+      final before = queue.length;
+      queue.removeWhere((r) => r.operationId == operationId);
+      if (queue.length != before) {
+        await _persistQueueLocked(cleanUid, queue);
+        return true;
+      }
+      return false;
+    });
+  }
+
+  /// Clears all active outbox items for [userId] under serialized lock.
+  Future<void> clear(String userId) {
+    return _runSerialized(() async {
+      final cleanUid = userId.trim();
+      _assertAllowedUserScope(cleanUid);
+      _cacheByUser[cleanUid] = <OutboxRecord>[];
+      _lastSyncByUser.remove(cleanUid);
+      await _vault.deleteSecret(storageKeyForUser(cleanUid));
+      await _vault.deleteSecret('$_keyLastSyncPrefix$cleanUid');
+      _emit(_buildTelemetry(cleanUid, const <OutboxRecord>[]));
+    });
+  }
+
+  Future<List<OutboxRecord>> getDeadLetters(String userId) {
+    return _runSerialized(() async {
+      final cleanUid = userId.trim();
+      _assertAllowedUserScope(cleanUid);
+      final queue = await _loadQueueLocked(cleanUid);
+      return List<OutboxRecord>.unmodifiable(
+        queue.where(
+          (r) => r.isDeadLetter || r.stage == OfflineSyncStage.failed,
+        ),
+      );
+    });
+  }
+
+  Future<OfflineSyncTelemetry> retryDeadLetter({
+    required String userId,
+    required String operationId,
+  }) {
+    return _runSerialized(() async {
+      final cleanUid = userId.trim();
+      _assertAllowedUserScope(cleanUid);
+      final queue = List<OutboxRecord>.from(await _loadQueueLocked(cleanUid));
+      final idx = queue.indexWhere((r) => r.operationId == operationId);
+      if (idx >= 0) {
         queue[idx] = queue[idx].copyWith(
           stage: OfflineSyncStage.pendingSync,
+          isDeadLetter: false,
           attemptCount: 0,
           nextRetryAtEpochMs: 0,
+          clearInFlightAtMs: true,
           clearError: true,
         );
-      } else {
-        queue.removeAt(idx);
+        await _persistQueueLocked(cleanUid, queue);
       }
-      await _persistQueue(userId, queue);
-    }
-    return _buildTelemetry(userId, queue);
+      return _buildTelemetry(cleanUid, queue);
+    });
   }
 
   OfflineSyncTelemetry currentTelemetry(String userId) {
@@ -395,13 +721,17 @@ class OfflineOutboxService {
     return _buildTelemetry(userId, queue);
   }
 
-  Future<void> _persistQueue(String userId, List<OutboxRecord> queue) async {
+  Future<void> _persistQueueLocked(
+    String userId,
+    List<OutboxRecord> queue,
+  ) async {
     _cacheByUser[userId] = queue;
+    final storageKey = storageKeyForUser(userId);
     if (queue.isEmpty) {
-      await _vault.deleteSecret('$_keyPrefix$userId');
+      await _vault.deleteSecret(storageKey);
     } else {
       await _vault.writeSecret(
-        key: '$_keyPrefix$userId',
+        key: storageKey,
         value: jsonEncode(queue.map((e) => e.toJson()).toList()),
       );
     }
@@ -416,10 +746,16 @@ class OfflineOutboxService {
         .where((r) => r.stage == OfflineSyncStage.conflict)
         .length;
     final failed = queue
-        .where((r) => r.stage == OfflineSyncStage.failed)
+        .where((r) => r.isDeadLetter || r.stage == OfflineSyncStage.failed)
         .length;
+    final deadLetters = queue.where((r) => r.isDeadLetter).length;
     final pending = queue
-        .where((r) => r.stage == OfflineSyncStage.pendingSync)
+        .where(
+          (r) =>
+              !r.isDeadLetter &&
+              (r.stage == OfflineSyncStage.pendingSync ||
+                  r.stage == OfflineSyncStage.syncing),
+        )
         .length;
 
     final overall = conflicts > 0
@@ -435,6 +771,7 @@ class OfflineOutboxService {
       pendingCount: pending,
       conflictCount: conflicts,
       failedCount: failed,
+      deadLetterCount: deadLetters,
       lastSuccessfulSyncAt: _lastSyncByUser[userId],
     );
   }
@@ -446,6 +783,9 @@ class OfflineOutboxService {
   }
 
   Future<void> dispose() async {
+    try {
+      await _opChain;
+    } catch (_) {}
     await _telemetryCtrl.close();
   }
 }

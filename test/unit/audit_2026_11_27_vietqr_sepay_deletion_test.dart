@@ -636,8 +636,22 @@ void main() {
           firestore: db,
           firebaseAuth: MockFirebaseAuth(),
           bridge: AndroidNotificationBridge(),
-          functionsInvokerOverride: (fnName, payload) async =>
-              <String, dynamic>{'ok': true},
+          functionsInvokerOverride: (fnName, payload) async {
+            // Simulate authoritative server transaction updating the mirror atomically
+            await db
+                .collection('users')
+                .doc(uid)
+                .collection('bank_connections')
+                .doc(connId)
+                .set({
+                  'id': connId,
+                  'ownerId': uid,
+                  'status': 'disconnected',
+                  'consentStatus': 'revoked',
+                  'consentEnabled': false,
+                }, SetOptions(merge: true));
+            return <String, dynamic>{'ok': true};
+          },
         );
 
         await remoteOk.disconnectBankConnection(
@@ -653,6 +667,7 @@ void main() {
             .get();
         expect(connDoc.data()?['status'], 'disconnected');
         expect(connDoc.data()?['consentStatus'], 'revoked');
+        expect(connDoc.data()?['consentEnabled'], isFalse);
       },
     );
 
@@ -896,7 +911,7 @@ void main() {
     );
 
     test(
-      'Invokes deleteUserAccountData BEFORE wiping data, purges legacy medications/health_logs/medical_profiles, daily_preferences, personal_funds/*/fund_audits, and calls user-scoped vault clear',
+      'Invokes deleteUserAccountData BEFORE wiping local vault, relies solely on backend to delete cloud docs/families, NEVER recreates users/{uid}, and NEVER throws when solo family was deleted by backend',
       () async {
         final db = FakeFirebaseFirestore();
         const uid = 'u_h5_full';
@@ -922,6 +937,15 @@ void main() {
         await fundRef.collection('expenses').doc('e1').set({'amt': 50});
         await fundRef.collection('fund_audits').doc('fa1').set({'delta': 100});
 
+        final soloFamRef = db.collection('families').doc('fam_solo_h5');
+        await soloFamRef.set({
+          'id': 'fam_solo_h5',
+          'name': 'Solo Space',
+          'createdBy': uid,
+          'memberIds': [uid],
+          'memberRoles': {uid: 'owner'},
+        });
+
         final remote = NotificationsRemoteDataSource(
           firestore: db,
           firebaseAuth: MockFirebaseAuth(
@@ -933,7 +957,40 @@ void main() {
             events.add('server:$fnName');
             final wSnap = await uRef.collection('wallets').get();
             walletsExistedDuringServerCall = wSnap.docs.isNotEmpty;
-            return <String, dynamic>{'ok': true};
+
+            // Simulate authoritative server-side recursiveDelete of cloud data & solo family
+            for (final sub in const [
+              'wallets',
+              'transactions',
+              'daily_preferences',
+              'medications',
+              'health_logs',
+              'medical_profiles',
+            ]) {
+              final snap = await uRef.collection(sub).get();
+              for (final d in snap.docs) {
+                await d.reference.delete();
+              }
+            }
+            for (final sub in const [
+              'contributions',
+              'expenses',
+              'fund_audits',
+            ]) {
+              final snap = await fundRef.collection(sub).get();
+              for (final d in snap.docs) {
+                await d.reference.delete();
+              }
+            }
+            await fundRef.delete();
+            await uRef.delete();
+            await soloFamRef.delete();
+            return <String, dynamic>{
+              'ok': true,
+              'verifiedClean': true,
+              'status': 'completed',
+              'deletedCount': 12,
+            };
           },
           clearUserVaultOverride: (clearedUid) async {
             events.add('vault:$clearedUid');
@@ -944,7 +1001,9 @@ void main() {
 
         expect(walletsExistedDuringServerCall, isTrue);
         expect(events, equals(['server:deleteUserAccountData', 'vault:$uid']));
+        // Client MUST NEVER recreate users/{uid} with deletionInProgress: true!
         expect((await uRef.get()).exists, isFalse);
+        expect((await soloFamRef.get()).exists, isFalse);
         expect((await uRef.collection('wallets').get()).docs, isEmpty);
         expect((await uRef.collection('transactions').get()).docs, isEmpty);
         expect(

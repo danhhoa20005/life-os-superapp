@@ -7,19 +7,33 @@ import 'package:crypto/crypto.dart';
 import '../../../../core/backup/lifeos_backup_restore_engine.dart';
 import '../../../../core/utils/csv_sanitizer.dart';
 import '../entities/backup_entities.dart';
+import 'aes_gcm_256.dart';
 import 'backup_isolate_runner.dart';
 
-/// Pure-Dart versioned (`v3`) backup archive serializer, PBKDF2-HMAC-SHA256
-/// authenticated encryptor, and backward-compatible (`v1`/`v2`/`v3`) validator.
+/// Pure-Dart versioned (`v4`) backup archive serializer, PBKDF2-HMAC-SHA256 +
+/// NIST AES-256-GCM authenticated encryptor, and backward-compatible
+/// (`v1`/`v2`/`v3`/`v4`) validator.
 class BackupArchiveCodec {
-  static const int currentSchemaVersion = 3;
+  static const int currentSchemaVersion = 4;
+  static const int currentFormatVersion = 4;
   static const int minSupportedSchemaVersion = 1;
+
+  static const String magicEnvelopeV4 = 'LIFEOS_BACKUP_V4';
   static const String magicEnvelopeV3 = 'LIFEOS_BACKUP_V3';
   static const String kdfLabel = 'PBKDF2-HMAC-SHA256';
-  static const String cipherLabel = 'STREAM-SHA256-ETM';
-  static const int defaultKdfIterations = 120000;
+  static const String cipherLabelV4 = 'AES-256-GCM';
+  static const String cipherLabelV3 = 'STREAM-SHA256-ETM';
+  static const String cipherLabel = cipherLabelV4;
+
+  static const int defaultKdfIterations = 210000;
+  static const int minV4DecodeIterations = 100000;
+  static const int maxV4DecodeIterations = 1000000;
   static const int minV3DecodeIterations = 12000;
   static const int maxV3DecodeIterations = 2000000;
+  static const int maxArchiveBytes = 25 * 1024 * 1024; // 25 MB
+
+  static const String plaintextExportWarningVi =
+      'CẢNH BÁO BẢO MẬT: Tệp sao lưu này KHÔNG được mã hóa — dữ liệu nhạy cảm lưu ở dạng văn bản thuần.';
 
   static const List<int> _hkdfEncInfo = <int>[
     108,
@@ -39,7 +53,9 @@ class BackupArchiveCodec {
     118,
     51,
     45,
-    101, 110, 99, // "lifeos-backup-v3-enc"
+    101,
+    110,
+    99, // "lifeos-backup-v3-enc"
   ];
   static const List<int> _hkdfMacInfo = <int>[
     108,
@@ -59,31 +75,76 @@ class BackupArchiveCodec {
     118,
     51,
     45,
-    109, 97, 99, // "lifeos-backup-v3-mac"
+    109,
+    97,
+    99, // "lifeos-backup-v3-mac"
   ];
 
   final int encryptIterations;
   final int minDecodeIterations;
+  final int maxDecodeIterations;
 
   const BackupArchiveCodec()
     : encryptIterations = defaultKdfIterations,
-      minDecodeIterations = minV3DecodeIterations;
+      minDecodeIterations = minV4DecodeIterations,
+      maxDecodeIterations = maxV4DecodeIterations;
 
   /// Test-only constructor allowing lower iteration counts inside fast unit/widget
   /// tests without ever permitting an archive file to weaken production bounds.
   const BackupArchiveCodec.forTesting({
-    int kdfIterations = minV3DecodeIterations,
-    int minDecodeIterations = minV3DecodeIterations,
+    int kdfIterations = minV4DecodeIterations,
+    int? minDecodeIterations,
+    int maxDecodeIterations = maxV4DecodeIterations,
   }) : assert(kdfIterations >= 1),
-       assert(minDecodeIterations >= 1),
+       assert((minDecodeIterations ?? kdfIterations) >= 1),
+       assert(maxDecodeIterations >= (minDecodeIterations ?? kdfIterations)),
        encryptIterations = kdfIterations,
-       minDecodeIterations = minDecodeIterations;
+       minDecodeIterations = minDecodeIterations ?? kdfIterations,
+       maxDecodeIterations = maxDecodeIterations;
+
+  static String buildV4Aad({
+    required String format,
+    required int formatVersion,
+    required int schemaVersion,
+    required String kdf,
+    required int iterations,
+    required String cipher,
+  }) => '$format|$formatVersion|$schemaVersion|$kdf|$iterations|$cipher';
+
+  Future<String> encodeArchiveAsync({
+    required String ownerId,
+    required Map<String, List<Map<String, dynamic>>> collections,
+    String? passphrase,
+    DateTime? exportedAtOverride,
+    bool allowPlaintextExport = false,
+  }) => createArchiveAsync(
+    ownerId: ownerId,
+    collections: collections,
+    passphrase: passphrase,
+    exportedAtOverride: exportedAtOverride,
+    allowPlaintextExport: allowPlaintextExport,
+  );
+
+  String encodeArchive({
+    required String ownerId,
+    required Map<String, List<Map<String, dynamic>>> collections,
+    String? passphrase,
+    DateTime? exportedAtOverride,
+    bool allowPlaintextExport = false,
+  }) => createArchiveSync(
+    ownerId: ownerId,
+    collections: collections,
+    passphrase: passphrase,
+    exportedAtOverride: exportedAtOverride,
+    allowPlaintextExport: allowPlaintextExport,
+  );
 
   Future<String> createArchiveAsync({
     required String ownerId,
     required Map<String, List<Map<String, dynamic>>> collections,
     String? passphrase,
     DateTime? exportedAtOverride,
+    bool allowPlaintextExport = false,
   }) async {
     final cleanPass = (passphrase ?? '').trim();
     if (cleanPass.isEmpty) {
@@ -92,6 +153,7 @@ class BackupArchiveCodec {
         collections: collections,
         passphrase: cleanPass,
         exportedAtOverride: exportedAtOverride,
+        allowPlaintextExport: allowPlaintextExport,
       );
     }
     final clonedCollections = <String, List<Map<String, dynamic>>>{
@@ -107,6 +169,7 @@ class BackupArchiveCodec {
         collections: clonedCollections,
         passphrase: cleanPass,
         exportedAtOverride: exportedAtOverride,
+        allowPlaintextExport: allowPlaintextExport,
       ),
     );
   }
@@ -115,6 +178,7 @@ class BackupArchiveCodec {
     String rawArchiveText, {
     String? passphrase,
   }) async {
+    _enforceMaxArchiveBytes(rawArchiveText);
     final dynamic rootDecoded = jsonDecode(rawArchiveText);
     if (rootDecoded is! Map) {
       throw const FormatException('Định dạng tệp sao lưu không hợp lệ.');
@@ -135,7 +199,15 @@ class BackupArchiveCodec {
     required Map<String, List<Map<String, dynamic>>> collections,
     String? passphrase,
     DateTime? exportedAtOverride,
+    bool allowPlaintextExport = false,
   }) {
+    final cleanPass = (passphrase ?? '').trim();
+    if (cleanPass.isEmpty && !allowPlaintextExport) {
+      throw const FormatException(
+        'Xuất sao lưu bắt buộc phải nhập mật khẩu mã hóa AES-256-GCM (hoặc bật allowPlaintextExport cho bản kiểm tra).',
+      );
+    }
+
     final exportedAt = (exportedAtOverride ?? DateTime.now()).toUtc();
     final canonicalCollections = <String, dynamic>{};
 
@@ -163,41 +235,58 @@ class BackupArchiveCodec {
     };
     final payloadJson = jsonEncode(canonicalData);
     final payloadBytes = utf8.encode(payloadJson);
+    if (payloadBytes.length > maxArchiveBytes) {
+      throw const FormatException(
+        'Dữ liệu sao lưu vượt quá giới hạn tối đa 25 MB.',
+      );
+    }
     final sha256Hex = sha256.convert(payloadBytes).toString();
 
-    final cleanPass = (passphrase ?? '').trim();
     if (cleanPass.isEmpty) {
-      return const JsonEncoder.withIndent('  ').convert(<String, dynamic>{
-        'format': magicEnvelopeV3,
-        'encrypted': false,
-        'sha256': sha256Hex,
-        'payload': canonicalData,
-      });
+      final encodedPlain = const JsonEncoder.withIndent('  ')
+          .convert(<String, dynamic>{
+            'format': magicEnvelopeV4,
+            'formatVersion': currentFormatVersion,
+            'schemaVersion': currentSchemaVersion,
+            'encrypted': false,
+            'plaintextWarning': plaintextExportWarningVi,
+            'sha256': sha256Hex,
+            'payload': canonicalData,
+          });
+      _enforceMaxArchiveBytes(encodedPlain);
+      return encodedPlain;
     }
 
-    final encryptedPack = _encryptPortablePayload(
-      payloadBytes,
-      cleanPass,
-      encryptIterations,
+    final encryptedPack = _encryptV4AesGcmPayload(
+      plainBytes: Uint8List.fromList(payloadBytes),
+      passphrase: cleanPass,
+      iterations: encryptIterations,
     );
-    return const JsonEncoder.withIndent('  ').convert(<String, dynamic>{
-      'format': magicEnvelopeV3,
-      'encrypted': true,
-      'kdf': kdfLabel,
-      'iterations': encryptIterations,
-      'cipher': cipherLabel,
-      'saltB64': base64Encode(encryptedPack.salt),
-      'nonceB64': base64Encode(encryptedPack.nonce),
-      'macB64': base64Encode(encryptedPack.mac),
-      'ciphertextB64': base64Encode(encryptedPack.ciphertext),
-      'plaintextSha256': sha256Hex,
-    });
+    final encodedEncrypted = const JsonEncoder.withIndent('  ')
+        .convert(<String, dynamic>{
+          'format': magicEnvelopeV4,
+          'formatVersion': currentFormatVersion,
+          'schemaVersion': currentSchemaVersion,
+          'encrypted': true,
+          'kdf': kdfLabel,
+          'iterations': encryptIterations,
+          'cipher': cipherLabelV4,
+          'aad': encryptedPack.aad,
+          'saltB64': base64Encode(encryptedPack.salt),
+          'nonceB64': base64Encode(encryptedPack.nonce),
+          'tagB64': base64Encode(encryptedPack.tag),
+          'ciphertextB64': base64Encode(encryptedPack.ciphertext),
+          'plaintextSha256': sha256Hex,
+        });
+    _enforceMaxArchiveBytes(encodedEncrypted);
+    return encodedEncrypted;
   }
 
   BackupArchivePreview previewAndValidateSync(
     String rawArchiveText, {
     String? passphrase,
   }) {
+    _enforceMaxArchiveBytes(rawArchiveText);
     final dynamic rootDecoded = jsonDecode(rawArchiveText);
     if (rootDecoded is! Map) {
       throw const FormatException('Định dạng tệp sao lưu không hợp lệ.');
@@ -205,11 +294,15 @@ class BackupArchiveCodec {
     final root = Map<String, dynamic>.from(rootDecoded);
     final format = root['format']?.toString() ?? '';
 
+    if (format == magicEnvelopeV4) {
+      return _decodeV4Archive(root, passphrase: passphrase);
+    }
+
     if (format == magicEnvelopeV3) {
       return _decodeV3Archive(root, passphrase: passphrase);
     }
 
-    // Backward compatibility with v2 (`LIFEOS_BACKUP_V2`, PBKDF2-HMAC-SHA256-12000)
+    // Read-only backward compatibility with v2 (`LIFEOS_BACKUP_V2`, PBKDF2-HMAC-SHA256-4096)
     // and v1 (`PersonalDataExport`).
     final legacy = LifeOsBackupRestoreEngine.previewAndValidateArchive(
       rawArchiveText,
@@ -249,7 +342,8 @@ class BackupArchiveCodec {
         .toString();
 
     final warnings = <String>[
-      ...legacy.summary.warnings.where((w) => !w.contains('v2')),
+      'Định dạng sao lưu cũ (v${legacy.summary.schemaVersion}) — chỉ hỗ trợ đọc để khôi phục; hãy xuất lại bản sao lưu v$currentFormatVersion (AES-256-GCM).',
+      if (!legacy.summary.wasEncrypted) plaintextExportWarningVi,
       if (legacy.summary.schemaVersion < currentSchemaVersion)
         'Đã tự động nâng cấp cấu trúc dữ liệu từ v${legacy.summary.schemaVersion} lên v$currentSchemaVersion.',
     ];
@@ -260,6 +354,7 @@ class BackupArchiveCodec {
       exportedAt: legacy.summary.exportedAt,
       checksumVerified: legacy.summary.checksumVerified,
       wasEncrypted: legacy.summary.wasEncrypted,
+      isLegacyFormat: true,
       archiveSha256: legacyPayloadSha,
       collections: normalizedCols,
       warnings: warnings,
@@ -271,11 +366,13 @@ class BackupArchiveCodec {
     required Map<String, List<Map<String, dynamic>>> collections,
     String? passphrase,
     DateTime? exportedAtOverride,
+    bool allowPlaintextExport = false,
   }) => const BackupArchiveCodec().createArchiveSync(
     ownerId: ownerId,
     collections: collections,
     passphrase: passphrase,
     exportedAtOverride: exportedAtOverride,
+    allowPlaintextExport: allowPlaintextExport,
   );
 
   static BackupArchivePreview previewAndValidateArchive(
@@ -286,6 +383,179 @@ class BackupArchiveCodec {
     passphrase: passphrase,
   );
 
+  static void _enforceMaxArchiveBytes(String rawArchiveText) {
+    if (rawArchiveText.length > maxArchiveBytes ||
+        utf8.encode(rawArchiveText).length > maxArchiveBytes) {
+      throw const FormatException(
+        'Kích thước tệp sao lưu vượt quá giới hạn tối đa 25 MB.',
+      );
+    }
+  }
+
+  BackupArchivePreview _decodeV4Archive(
+    Map<String, dynamic> root, {
+    String? passphrase,
+  }) {
+    final rawFormatVer = root['formatVersion'];
+    if (rawFormatVer is! num ||
+        !rawFormatVer.isFinite ||
+        rawFormatVer.toInt() != currentFormatVersion) {
+      throw FormatException(
+        'Phiên bản định dạng v4 không hợp lệ: $rawFormatVer.',
+      );
+    }
+    final rawHeaderSchemaVer = root['schemaVersion'];
+    if (rawHeaderSchemaVer is! num ||
+        !rawHeaderSchemaVer.isFinite ||
+        rawHeaderSchemaVer.toInt() != currentSchemaVersion) {
+      throw FormatException(
+        'Phiên bản schema header v4 không hợp lệ: $rawHeaderSchemaVer.',
+      );
+    }
+    final headerSchemaVer = rawHeaderSchemaVer.toInt();
+
+    final isEncrypted = root['encrypted'] == true;
+    late final Map<String, dynamic> payloadMap;
+    late final String sha256Hex;
+    final warnings = <String>[];
+
+    if (isEncrypted) {
+      final cleanPass = (passphrase ?? '').trim();
+      if (cleanPass.isEmpty) {
+        throw const FormatException(
+          'Bản sao lưu được mã hóa — vui lòng nhập mật khẩu giải mã.',
+        );
+      }
+      final kdf = (root['kdf'] ?? '').toString();
+      if (kdf != kdfLabel) {
+        throw FormatException(
+          'Thuật toán KDF không được hỗ trợ cho bản sao lưu v4: $kdf.',
+        );
+      }
+      final cipher = (root['cipher'] ?? '').toString();
+      if (cipher != cipherLabelV4) {
+        throw FormatException(
+          'Thuật toán mã hóa không được hỗ trợ cho bản sao lưu v4: $cipher.',
+        );
+      }
+      final rawIter = root['iterations'];
+      if (rawIter is! num || !rawIter.isFinite || rawIter != rawIter.toInt()) {
+        throw const FormatException(
+          'Thiếu hoặc sai số vòng lặp KDF trong tệp sao lưu v4.',
+        );
+      }
+      final iterations = rawIter.toInt();
+      if (iterations < minDecodeIterations ||
+          iterations > maxDecodeIterations) {
+        throw FormatException(
+          'Số vòng lặp KDF ($iterations) nằm ngoài ngưỡng an toàn ($minDecodeIterations..$maxDecodeIterations).',
+        );
+      }
+
+      final expectedAad = buildV4Aad(
+        format: magicEnvelopeV4,
+        formatVersion: currentFormatVersion,
+        schemaVersion: headerSchemaVer,
+        kdf: kdf,
+        iterations: iterations,
+        cipher: cipher,
+      );
+      if (root.containsKey('aad') && root['aad']?.toString() != expectedAad) {
+        throw const FormatException(
+          'Thông tin AAD trên tiêu đề tệp sao lưu không khớp — từ chối giải mã.',
+        );
+      }
+
+      late final Uint8List salt;
+      late final Uint8List nonce;
+      late final Uint8List tag;
+      late final Uint8List ciphertext;
+      try {
+        salt = base64Decode((root['saltB64'] ?? '').toString());
+        nonce = base64Decode((root['nonceB64'] ?? '').toString());
+        tag = base64Decode((root['tagB64'] ?? '').toString());
+        ciphertext = base64Decode((root['ciphertextB64'] ?? '').toString());
+      } on FormatException {
+        throw const FormatException(
+          'Cấu trúc mã hóa Base64 không hợp lệ hoặc tệp bị hỏng.',
+        );
+      }
+      if (salt.length != 16 ||
+          nonce.length != Aes256Gcm.recommendedNonceLengthBytes ||
+          tag.length != Aes256Gcm.tagLengthBytes) {
+        throw const FormatException(
+          'Tham số mã hóa AES-256-GCM không hợp lệ hoặc tệp bị cắt xén.',
+        );
+      }
+      if (ciphertext.length > maxArchiveBytes) {
+        throw const FormatException(
+          'Kích thước dữ liệu giải mã vượt quá giới hạn 25 MB.',
+        );
+      }
+
+      final key = pbkdf2HmacSha256(
+        passwordBytes: utf8.encode(cleanPass),
+        salt: salt,
+        iterations: iterations,
+        dkLen: Aes256Gcm.keyLengthBytes,
+      );
+      final plainBytes = Aes256Gcm.decrypt(
+        key: key,
+        nonce: nonce,
+        ciphertext: ciphertext,
+        tag: tag,
+        aad: Uint8List.fromList(utf8.encode(expectedAad)),
+      );
+
+      final expectedSha = (root['plaintextSha256'] ?? '').toString();
+      final actualSha = sha256.convert(plainBytes).toString();
+      if (expectedSha.isEmpty || expectedSha != actualSha) {
+        throw const FormatException(
+          'Checksum SHA-256 sau giải mã không khớp — tệp bị hỏng.',
+        );
+      }
+      sha256Hex = actualSha;
+      final decoded = jsonDecode(utf8.decode(plainBytes));
+      if (decoded is! Map) {
+        throw const FormatException(
+          'Dữ liệu sao lưu sau giải mã không hợp lệ.',
+        );
+      }
+      payloadMap = Map<String, dynamic>.from(decoded);
+      if ((payloadMap['schemaVersion'] as num?)?.toInt() != headerSchemaVer) {
+        throw const FormatException(
+          'Phiên bản schema bên trong payload không khớp tiêu đề tệp sao lưu.',
+        );
+      }
+    } else {
+      final rawPayload = root['payload'];
+      if (rawPayload is! Map) {
+        throw const FormatException('Thiếu payload trong tệp sao lưu v4.');
+      }
+      final mapPayload = Map<String, dynamic>.from(rawPayload);
+      final expectedSha = (root['sha256'] ?? '').toString();
+      final actualSha = sha256
+          .convert(utf8.encode(jsonEncode(mapPayload)))
+          .toString();
+      if (expectedSha.isEmpty || expectedSha != actualSha) {
+        throw const FormatException(
+          'Mã kiểm tra toàn vẹn SHA-256 không khớp — từ chối nhập dữ liệu bị sửa đổi.',
+        );
+      }
+      sha256Hex = actualSha;
+      payloadMap = mapPayload;
+      warnings.add(plaintextExportWarningVi);
+    }
+
+    return _buildPreviewFromPayload(
+      payloadMap: payloadMap,
+      sha256Hex: sha256Hex,
+      isEncrypted: isEncrypted,
+      isLegacyFormat: false,
+      extraWarnings: warnings,
+    );
+  }
+
   BackupArchivePreview _decodeV3Archive(
     Map<String, dynamic> root, {
     String? passphrase,
@@ -293,6 +563,7 @@ class BackupArchiveCodec {
     final isEncrypted = root['encrypted'] == true;
     late final Map<String, dynamic> payloadMap;
     late final String sha256Hex;
+    final minV3Iter = math.min(minDecodeIterations, minV3DecodeIterations);
 
     if (isEncrypted) {
       final cleanPass = (passphrase ?? '').trim();
@@ -308,7 +579,7 @@ class BackupArchiveCodec {
         );
       }
       final cipher = (root['cipher'] ?? '').toString();
-      if (cipher != cipherLabel) {
+      if (cipher != cipherLabelV3) {
         throw FormatException(
           'Thuật toán mã hóa không được hỗ trợ cho bản sao lưu v3: $cipher.',
         );
@@ -320,10 +591,9 @@ class BackupArchiveCodec {
         );
       }
       final iterations = rawIter.toInt();
-      if (iterations < minDecodeIterations ||
-          iterations > maxV3DecodeIterations) {
+      if (iterations < minV3Iter || iterations > maxV3DecodeIterations) {
         throw FormatException(
-          'Số vòng lặp KDF ($iterations) không đạt ngưỡng an toàn tối thiểu ($minDecodeIterations).',
+          'Số vòng lặp KDF ($iterations) không đạt ngưỡng an toàn tối thiểu ($minV3Iter).',
         );
       }
 
@@ -347,7 +617,7 @@ class BackupArchiveCodec {
         );
       }
 
-      final plainBytes = _decryptPortablePayload(
+      final plainBytes = _decryptLegacyV3PortablePayload(
         ciphertext: ciphertext,
         salt: salt,
         nonce: nonce,
@@ -389,6 +659,25 @@ class BackupArchiveCodec {
       payloadMap = mapPayload;
     }
 
+    return _buildPreviewFromPayload(
+      payloadMap: payloadMap,
+      sha256Hex: sha256Hex,
+      isEncrypted: isEncrypted,
+      isLegacyFormat: true,
+      extraWarnings: <String>[
+        'Định dạng sao lưu cũ (v3) — chỉ hỗ trợ đọc để khôi phục; hãy xuất lại bản sao lưu v$currentFormatVersion (AES-256-GCM).',
+        if (!isEncrypted) plaintextExportWarningVi,
+      ],
+    );
+  }
+
+  BackupArchivePreview _buildPreviewFromPayload({
+    required Map<String, dynamic> payloadMap,
+    required String sha256Hex,
+    required bool isEncrypted,
+    required bool isLegacyFormat,
+    List<String> extraWarnings = const <String>[],
+  }) {
     final schemaVer =
         (payloadMap['schemaVersion'] as num?)?.toInt() ?? currentSchemaVersion;
     if (schemaVer < minSupportedSchemaVersion ||
@@ -423,19 +712,22 @@ class BackupArchiveCodec {
         DateTime.tryParse((payloadMap['exportedAtUtc'] ?? '').toString()) ??
         DateTime.fromMillisecondsSinceEpoch(0);
 
+    final warnings = <String>[
+      ...extraWarnings,
+      if (schemaVer < currentSchemaVersion)
+        'Đã tự động nâng cấp cấu trúc dữ liệu từ v$schemaVer lên v$currentSchemaVersion.',
+    ];
+
     return BackupArchivePreview(
       schemaVersion: schemaVer,
       ownerId: (payloadMap['ownerId'] ?? '').toString(),
       exportedAt: exportedAt,
       checksumVerified: true,
       wasEncrypted: isEncrypted,
+      isLegacyFormat: isLegacyFormat,
       archiveSha256: sha256Hex,
       collections: collections,
-      warnings: schemaVer < currentSchemaVersion
-          ? <String>[
-              'Đã tự động nâng cấp cấu trúc dữ liệu từ v$schemaVer lên v$currentSchemaVersion.',
-            ]
-          : const <String>[],
+      warnings: warnings,
       limitationsVi: limitations.isEmpty
           ? BackupCollectionCatalog.defaultLimitationsVi
           : limitations,
@@ -531,42 +823,61 @@ class BackupArchiveCodec {
     return out;
   }
 
-  static List<int> _buildMacContextPrefix(int iterations) =>
-      utf8.encode('$kdfLabel|$iterations|$cipherLabel|');
-
   static ({
     Uint8List salt,
     Uint8List nonce,
+    String aad,
     Uint8List ciphertext,
-    Uint8List mac,
+    Uint8List tag,
   })
-  _encryptPortablePayload(
-    List<int> plainBytes,
-    String passphrase,
-    int iterations,
-  ) {
+  _encryptV4AesGcmPayload({
+    required Uint8List plainBytes,
+    required String passphrase,
+    required int iterations,
+  }) {
     final rng = math.Random.secure();
     final salt = Uint8List.fromList(
       List<int>.generate(16, (_) => rng.nextInt(256)),
     );
     final nonce = Uint8List.fromList(
-      List<int>.generate(16, (_) => rng.nextInt(256)),
+      List<int>.generate(
+        Aes256Gcm.recommendedNonceLengthBytes,
+        (_) => rng.nextInt(256),
+      ),
     );
-    final keys = _deriveEncAndMacKeys(passphrase, salt, iterations);
-    final ciphertext = _xorKeystream(plainBytes, keys.encKey, nonce);
-    final macInput = <int>[
-      ..._buildMacContextPrefix(iterations),
-      ...salt,
-      ...nonce,
-      ...ciphertext,
-    ];
-    final mac = Uint8List.fromList(
-      Hmac(sha256, keys.macKey).convert(macInput).bytes,
+    final aad = buildV4Aad(
+      format: magicEnvelopeV4,
+      formatVersion: currentFormatVersion,
+      schemaVersion: currentSchemaVersion,
+      kdf: kdfLabel,
+      iterations: iterations,
+      cipher: cipherLabelV4,
     );
-    return (salt: salt, nonce: nonce, ciphertext: ciphertext, mac: mac);
+    final key = pbkdf2HmacSha256(
+      passwordBytes: utf8.encode(passphrase),
+      salt: salt,
+      iterations: iterations,
+      dkLen: Aes256Gcm.keyLengthBytes,
+    );
+    final sealed = Aes256Gcm.encrypt(
+      key: key,
+      nonce: nonce,
+      plaintext: plainBytes,
+      aad: Uint8List.fromList(utf8.encode(aad)),
+    );
+    return (
+      salt: salt,
+      nonce: nonce,
+      aad: aad,
+      ciphertext: sealed.ciphertext,
+      tag: sealed.tag,
+    );
   }
 
-  static Uint8List _decryptPortablePayload({
+  static List<int> _buildLegacyV3MacContextPrefix(int iterations) =>
+      utf8.encode('$kdfLabel|$iterations|$cipherLabelV3|');
+
+  static Uint8List _decryptLegacyV3PortablePayload({
     required Uint8List ciphertext,
     required Uint8List salt,
     required Uint8List nonce,
@@ -574,9 +885,9 @@ class BackupArchiveCodec {
     required String passphrase,
     required int iterations,
   }) {
-    final keys = _deriveEncAndMacKeys(passphrase, salt, iterations);
+    final keys = _deriveLegacyV3EncAndMacKeys(passphrase, salt, iterations);
     final actualMac = Hmac(sha256, keys.macKey).convert(<int>[
-      ..._buildMacContextPrefix(iterations),
+      ..._buildLegacyV3MacContextPrefix(iterations),
       ...salt,
       ...nonce,
       ...ciphertext,
@@ -595,10 +906,10 @@ class BackupArchiveCodec {
         'Mật khẩu giải mã không đúng hoặc tệp bị sửa đổi.',
       );
     }
-    return _xorKeystream(ciphertext, keys.encKey, nonce);
+    return _xorLegacyV3Keystream(ciphertext, keys.encKey, nonce);
   }
 
-  static ({List<int> encKey, List<int> macKey}) _deriveEncAndMacKeys(
+  static ({List<int> encKey, List<int> macKey}) _deriveLegacyV3EncAndMacKeys(
     String passphrase,
     Uint8List salt,
     int iterations,
@@ -615,7 +926,7 @@ class BackupArchiveCodec {
     return (encKey: encKey, macKey: macKey);
   }
 
-  static Uint8List _xorKeystream(
+  static Uint8List _xorLegacyV3Keystream(
     List<int> input,
     List<int> encKey,
     Uint8List nonce,

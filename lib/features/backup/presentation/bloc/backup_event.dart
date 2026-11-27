@@ -20,11 +20,16 @@ final class BackupSummaryRequested extends BackupEvent {
 final class BackupExportJsonRequested extends BackupEvent {
   final String userId;
   final String passphrase;
+  final bool allowPlaintextExport;
 
-  const BackupExportJsonRequested({required this.userId, this.passphrase = ''});
+  const BackupExportJsonRequested({
+    required this.userId,
+    this.passphrase = '',
+    this.allowPlaintextExport = false,
+  });
 
   @override
-  List<Object?> get props => [userId, passphrase];
+  List<Object?> get props => [userId, passphrase, allowPlaintextExport];
 }
 
 final class BackupExportCsvRequested extends BackupEvent {

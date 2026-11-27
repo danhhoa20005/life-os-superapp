@@ -10,6 +10,7 @@ abstract interface class BackupRepository {
   Future<Result<BackupExportBundle>> exportOwnerData({
     required String ownerId,
     String? passphrase,
+    bool allowPlaintextExport = false,
   });
 
   Future<Result<BackupExportBundle>> exportTransactionsCsv({

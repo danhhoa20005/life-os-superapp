@@ -584,11 +584,15 @@ void main() {
           pageSize: 25,
         );
         final cleanRepo = BackupRepositoryImpl(remoteDataSource: cleanDs);
-        final exportRes = await cleanRepo.exportOwnerData(ownerId: srcUser);
+        final exportRes = await cleanRepo.exportOwnerData(
+          ownerId: srcUser,
+          passphrase: 'InterruptPass#2026',
+        );
         final bundle = (exportRes as Success<BackupExportBundle>).value;
         final preview =
             (await cleanRepo.previewAndValidateArchive(
                       rawArchiveText: bundle.archiveContent,
+                      passphrase: 'InterruptPass#2026',
                     )
                     as Success<BackupArchivePreview>)
                 .value;
@@ -876,12 +880,16 @@ void main() {
         );
 
         final bundle =
-            (await backupRepo.exportOwnerData(ownerId: srcUser)
+            (await backupRepo.exportOwnerData(
+                      ownerId: srcUser,
+                      passphrase: 'ModesPass#2026',
+                    )
                     as Success<BackupExportBundle>)
                 .value;
         final preview =
             (await backupRepo.previewAndValidateArchive(
                       rawArchiveText: bundle.archiveContent,
+                      passphrase: 'ModesPass#2026',
                     )
                     as Success<BackupArchivePreview>)
                 .value;

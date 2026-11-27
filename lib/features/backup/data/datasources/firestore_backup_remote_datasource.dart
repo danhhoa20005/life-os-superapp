@@ -10,6 +10,7 @@ import '../../../transactions/domain/entities/transaction_entities.dart';
 import '../../../transactions/domain/repositories/transaction_repository.dart';
 import '../../../transactions/domain/usecases/transaction_usecases.dart';
 import '../../domain/entities/backup_entities.dart';
+import '../../domain/services/backup_archive_codec.dart';
 
 typedef BackupWriteHook =
     Future<void> Function(String collectionKey, String docId, int writeIndex);
@@ -279,6 +280,31 @@ class FirestoreBackupRemoteDataSource {
     );
   }
 
+  static bool _isImmutableVerifiedBankTx(
+    TransactionEntity tx, [
+    Map<String, dynamic>? rawData,
+  ]) {
+    final verStatusUpper =
+        (tx.verificationStatus ??
+                rawData?['verificationStatus']?.toString() ??
+                '')
+            .toUpperCase();
+    final rawVerLower = (rawData?['verification']?.toString() ?? '')
+        .toLowerCase();
+    final rawSource = rawData?['sourceKind']?.toString() ?? '';
+    return tx.verification == TransactionVerification.verified ||
+        rawVerLower == 'verified' ||
+        rawVerLower == 'verifiedbybank' ||
+        rawVerLower == 'verified_by_bank' ||
+        verStatusUpper == 'VERIFIED' ||
+        verStatusUpper == 'VERIFIEDBYBANK' ||
+        verStatusUpper == 'VERIFIED_BY_BANK' ||
+        tx.sourceKind == TransactionSourceKind.bankWebhook ||
+        tx.sourceKind == TransactionSourceKind.bankApi ||
+        rawSource == 'bankWebhook' ||
+        rawSource == 'bankApi';
+  }
+
   Future<BackupRestoreExecutionReport> restoreAllOwnerCollections({
     required String targetUserId,
     required BackupArchivePreview preview,
@@ -289,6 +315,22 @@ class FirestoreBackupRemoteDataSource {
     if (mode == BackupRestoreMode.replaceConfirmed &&
         !explicitReplaceConfirmation) {
       throw StateError('Chế độ ghi đè yêu cầu người dùng xác nhận tường minh.');
+    }
+
+    // Step 1 (DATA-02): Dry-run validation BEFORE touching any Firestore records.
+    if (!preview.checksumVerified) {
+      throw const AppException(
+        code: 'VALIDATION_FAILURE',
+        message: 'Bản sao lưu chưa được xác thực toàn vẹn SHA-256.',
+      );
+    }
+    if (preview.schemaVersion < BackupArchiveCodec.minSupportedSchemaVersion ||
+        preview.schemaVersion > BackupArchiveCodec.currentSchemaVersion) {
+      throw AppException(
+        code: 'VALIDATION_FAILURE',
+        message:
+            'Phiên bản schema sao lưu v${preview.schemaVersion} không được hỗ trợ.',
+      );
     }
 
     final existingWalletsRes = await _transactionRepository
@@ -321,10 +363,31 @@ class FirestoreBackupRemoteDataSource {
     final existingTxById = <String, TransactionEntity>{
       for (final tx in existingTxs) tx.id: tx,
     };
+    final rawExistingTxDocs = await _fetchCollectionPaginated(
+      _userCol(targetUserId, 'transactions'),
+    );
+    final rawExistingTxById = <String, Map<String, dynamic>>{
+      for (final d in rawExistingTxDocs) d.id: d.data(),
+    };
+    final immutableVerifiedTxIds = <String>{};
+    final verifiedProtectedWalletIds = <String>{};
+    for (final tx in existingTxs) {
+      if (_isImmutableVerifiedBankTx(tx, rawExistingTxById[tx.id])) {
+        immutableVerifiedTxIds.add(tx.id);
+        if (tx.walletId.isNotEmpty) {
+          verifiedProtectedWalletIds.add(tx.walletId);
+        }
+        if (tx.targetWalletId != null && tx.targetWalletId!.isNotEmpty) {
+          verifiedProtectedWalletIds.add(tx.targetWalletId!);
+        }
+      }
+    }
 
     final archiveTag = preview.archiveSha256.length >= 6
         ? preview.archiveSha256.substring(0, 6)
         : 'imp';
+    final importSessionId =
+        'imp_${DateTime.now().microsecondsSinceEpoch}_$archiveTag';
 
     String mapDocId(String colKey, String origId, int index) {
       final cleanOrig = origId.trim();
@@ -384,10 +447,46 @@ class FirestoreBackupRemoteDataSource {
               : clean);
     }
 
-    // 2. Parse transactions & build deterministic transaction ID remap (preserving `rev_<origId>`).
+    // 2. Parse transactions, validate wallet references & build deterministic ID remap.
     final rawTxs =
         preview.collections[BackupCollectionCatalog.transactions] ??
         const <Map<String, dynamic>>[];
+    final enforceStrictWalletRefs =
+        rawWallets.isNotEmpty || preview.schemaVersion >= 3;
+    if (enforceStrictWalletRefs && rawTxs.isNotEmpty) {
+      for (var i = 0; i < rawTxs.length; i++) {
+        final raw = rawTxs[i];
+        final rawWalletId = (raw['walletId'] ?? '').toString().trim();
+        final rawTargetWalletId = (raw['targetWalletId'] ?? '')
+            .toString()
+            .trim();
+        bool isKnownWalletRef(String wId) {
+          if (wId.isEmpty) return true;
+          if (walletIdMap.containsKey(wId)) return true;
+          if (mode != BackupRestoreMode.replaceConfirmed &&
+              existingWalletsById.containsKey(wId)) {
+            return true;
+          }
+          return false;
+        }
+
+        if (!isKnownWalletRef(rawWalletId)) {
+          throw AppException(
+            code: 'VALIDATION_FAILURE',
+            message:
+                'Bản sao lưu không nhất quán: giao dịch "${raw['id'] ?? i}" tham chiếu ví "$rawWalletId" không tồn tại.',
+          );
+        }
+        if (!isKnownWalletRef(rawTargetWalletId)) {
+          throw AppException(
+            code: 'VALIDATION_FAILURE',
+            message:
+                'Bản sao lưu không nhất quán: giao dịch "${raw['id'] ?? i}" tham chiếu ví đích "$rawTargetWalletId" không tồn tại.',
+          );
+        }
+      }
+    }
+
     final txIdMap = <String, String>{};
     for (var i = 0; i < rawTxs.length; i++) {
       final raw = rawTxs[i];
@@ -500,92 +599,60 @@ class FirestoreBackupRemoteDataSource {
       );
     }
 
-    // 3. Ensure every wallet referenced by incoming transactions exists in incomingWallets
-    // (critical for fresh installs or legacy v1/v2 archives missing `wallets`).
+    // 3. For legacy v1/v2 archives missing `wallets`, synthesize referenced wallets safely.
     final knownIncomingWalletIds = <String>{
       for (final w in incomingWallets) w.targetId,
     };
-    for (final tx in incomingTxs) {
-      for (final wId in [tx.mappedWalletId, tx.mappedTargetWalletId]) {
-        if (wId == null || wId.isEmpty) continue;
-        if (!knownIncomingWalletIds.contains(wId) &&
-            !existingWalletsById.containsKey(wId)) {
-          knownIncomingWalletIds.add(wId);
-          incomingWallets.add(
-            _IncomingWalletSpec(
-              origId: wId,
-              targetId: wId,
-              name: tx.raw['walletName']?.toString().trim().isNotEmpty == true
-                  ? tx.raw['walletName'].toString().trim()
-                  : (wId.contains('wallet_cash_default')
-                        ? 'Ví tiền mặt'
-                        : 'Ví khôi phục'),
-              type: WalletType.cash,
-              recordedBalanceMinor: 0,
-              hasRecordedBalance: false,
-              raw: const <String, dynamic>{},
-            ),
-          );
+    if (!enforceStrictWalletRefs) {
+      for (final tx in incomingTxs) {
+        for (final wId in [tx.mappedWalletId, tx.mappedTargetWalletId]) {
+          if (wId == null || wId.isEmpty) continue;
+          if (!knownIncomingWalletIds.contains(wId) &&
+              !existingWalletsById.containsKey(wId)) {
+            knownIncomingWalletIds.add(wId);
+            incomingWallets.add(
+              _IncomingWalletSpec(
+                origId: wId,
+                targetId: wId,
+                name: tx.raw['walletName']?.toString().trim().isNotEmpty == true
+                    ? tx.raw['walletName'].toString().trim()
+                    : (wId.contains('wallet_cash_default')
+                          ? 'Ví tiền mặt'
+                          : 'Ví khôi phục'),
+                type: WalletType.cash,
+                recordedBalanceMinor: 0,
+                hasRecordedBalance: false,
+                raw: const <String, dynamic>{},
+              ),
+            );
+          }
         }
       }
     }
 
     final warnings = <String>[...preview.warnings];
     final failureMessages = <String>[];
-
-    // 4. In replaceConfirmed mode, idempotently remove records NOT in the incoming set.
     final incomingWalletIdSet = <String>{
       for (final w in incomingWallets) w.targetId,
     };
     final incomingTxIdSet = <String>{for (final t in incomingTxs) t.targetId};
 
-    if (mode == BackupRestoreMode.replaceConfirmed) {
-      for (final colEntry in _firestoreCollectionByBackupKey.entries) {
-        final colKey = colEntry.key;
-        if (colKey == BackupCollectionCatalog.wallets ||
-            colKey == BackupCollectionCatalog.transactions) {
-          continue;
-        }
-        final incomingRows =
-            preview.collections[colKey] ?? const <Map<String, dynamic>>[];
-        final incomingIds = <String>{
-          for (var i = 0; i < incomingRows.length; i++)
-            mapDocId(colKey, (incomingRows[i]['id'] ?? '').toString(), i),
-        };
-        final existingDocs = await _fetchCollectionPaginated(
-          _userCol(targetUserId, colEntry.value),
-        );
-        for (final doc in existingDocs) {
-          if (!incomingIds.contains(doc.id)) {
-            await doc.reference.delete();
-          }
-        }
-      }
-
-      for (final tx in existingTxs) {
-        if (!incomingTxIdSet.contains(tx.id)) {
-          try {
-            await _userCol(targetUserId, 'transactions').doc(tx.id).delete();
-            existingTxById.remove(tx.id);
-          } catch (_) {
-            warnings.add(
-              'Không thể xóa giao dịch cũ "${tx.id}" do quy tắc sổ cái bất biến.',
-            );
-          }
-        }
-      }
-
-      for (final w in existingWallets) {
-        if (!incomingWalletIdSet.contains(w.id)) {
-          try {
-            await _userCol(targetUserId, 'wallets').doc(w.id).delete();
-            existingWalletsById.remove(w.id);
-          } catch (_) {
-            warnings.add('Không thể xóa ví cũ "${w.name}".');
-          }
-        }
-      }
-    }
+    // Step 2 (DATA-02): Record import checkpoint session BEFORE staging writes.
+    // In `replaceConfirmed` mode, NEVER pre-delete existing records prior to restore!
+    final checkpointRef = _userCol(
+      targetUserId,
+      'daily_preferences',
+    ).doc('backup_restore_checkpoint');
+    await checkpointRef.set({
+      'id': 'backup_restore_checkpoint',
+      'ownerId': targetUserId,
+      'importSessionId': importSessionId,
+      'mode': mode.code,
+      'status': 'staging',
+      'archiveSha256': preview.archiveSha256,
+      'startedAt': Timestamp.fromDate(DateTime.now()),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
 
     // Index incoming transactions by targetId so reversal deltas know original kind.
     final incomingTxByTargetId = <String, _IncomingTxSpec>{
@@ -737,7 +804,11 @@ class FirestoreBackupRemoteDataSource {
               incomingTxIdSet.contains(t.id) &&
               (t.walletId == w.targetId || t.targetWalletId == w.targetId),
         );
+        final isVerifiedProtectedWallet = verifiedProtectedWalletIds.contains(
+          w.targetId,
+        );
         if (mode == BackupRestoreMode.replaceConfirmed &&
+            !isVerifiedProtectedWallet &&
             !hasAnyCommittedTxForWallet &&
             existingWallet.balanceMinor != initialBalance) {
           try {
@@ -754,6 +825,7 @@ class FirestoreBackupRemoteDataSource {
               wallet: existingWallet,
               targetBalanceMinor: initialBalance,
               operationTag: 'restore_reset_${w.targetId}_$writeIndex',
+              lastRestoredSessionId: importSessionId,
             );
             statsFor(BackupCollectionCatalog.wallets).committedCount++;
           } catch (e) {
@@ -782,6 +854,7 @@ class FirestoreBackupRemoteDataSource {
           userId: targetUserId,
           spec: w,
           openingBalanceMinor: initialBalance,
+          lastRestoredSessionId: importSessionId,
         );
         existingWalletsById[w.targetId] = createdWallet;
         statsFor(BackupCollectionCatalog.wallets).committedCount++;
@@ -856,6 +929,7 @@ class FirestoreBackupRemoteDataSource {
         final committedTx = await _restoreNonReversalTransaction(
           targetUserId: targetUserId,
           tx: tx,
+          lastRestoredSessionId: importSessionId,
         );
         existingTxById[tx.targetId] = committedTx;
         statsFor(BackupCollectionCatalog.transactions).committedCount++;
@@ -964,7 +1038,8 @@ class FirestoreBackupRemoteDataSource {
           fundIdMap: fundIdMap,
         );
 
-        if (existingIds.contains(compositeExistingKey)) {
+        if (mode != BackupRestoreMode.replaceConfirmed &&
+            existingIds.contains(compositeExistingKey)) {
           statsFor(colKey).skippedCount++;
           completedUnits++;
           continue;
@@ -997,6 +1072,8 @@ class FirestoreBackupRemoteDataSource {
             resolveWalletId: resolveWalletId,
             vehicleIdMap: vehicleIdMap,
             fundIdMap: fundIdMap,
+            overwriteExisting: mode == BackupRestoreMode.replaceConfirmed,
+            lastRestoredSessionId: importSessionId,
           );
           existingIds.add(compositeExistingKey);
           statsFor(colKey).committedCount++;
@@ -1017,6 +1094,49 @@ class FirestoreBackupRemoteDataSource {
       if (accounted < stat.plannedCount) {
         stat.failedCount += (stat.plannedCount - accounted);
       }
+    }
+
+    // Step 3 (DATA-02): In `replaceConfirmed` mode, ONLY AFTER 100% of restore writes
+    // succeed with ZERO errors, prune obsolete non-verified user-created records!
+    // NEVER delete immutable verified bank transactions or wallets containing them!
+    final canPruneAfterFullRestore =
+        mode == BackupRestoreMode.replaceConfirmed &&
+        !aborted &&
+        failureMessages.isEmpty &&
+        statsAcc.values.every((s) => s.failedCount == 0);
+
+    if (canPruneAfterFullRestore) {
+      await _pruneObsoleteRecordsAfterReplaceRestore(
+        targetUserId: targetUserId,
+        preview: preview,
+        mapDocId: mapDocId,
+        importSessionId: importSessionId,
+        existingWallets: existingWallets,
+        existingTxs: existingTxs,
+        incomingWalletIdSet: incomingWalletIdSet,
+        incomingTxIdSet: incomingTxIdSet,
+        immutableVerifiedTxIds: immutableVerifiedTxIds,
+        verifiedProtectedWalletIds: verifiedProtectedWalletIds,
+        warnings: warnings,
+      );
+      await checkpointRef.set({
+        'status': 'completed',
+        'completedAt': Timestamp.fromDate(DateTime.now()),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
+    } else if (mode == BackupRestoreMode.replaceConfirmed) {
+      warnings.add(
+        'Khôi phục chế độ Ghi đè bị gián đoạn trước khi hoàn tất — dữ liệu cũ được giữ nguyên an toàn.',
+      );
+      await checkpointRef.set({
+        'status': 'aborted_before_prune',
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
+    } else {
+      await checkpointRef.set({
+        'status': aborted ? 'partial' : 'completed',
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
     }
 
     // 9. Post-restore per-wallet balance verification against backup recorded balances!
@@ -1117,10 +1237,116 @@ class FirestoreBackupRemoteDataSource {
     );
   }
 
+  Future<void> _pruneObsoleteRecordsAfterReplaceRestore({
+    required String targetUserId,
+    required BackupArchivePreview preview,
+    required String Function(String colKey, String origId, int index) mapDocId,
+    required String importSessionId,
+    required List<WalletEntity> existingWallets,
+    required List<TransactionEntity> existingTxs,
+    required Set<String> incomingWalletIdSet,
+    required Set<String> incomingTxIdSet,
+    required Set<String> immutableVerifiedTxIds,
+    required Set<String> verifiedProtectedWalletIds,
+    required List<String> warnings,
+  }) async {
+    for (final colEntry in _firestoreCollectionByBackupKey.entries) {
+      final colKey = colEntry.key;
+      if (colKey == BackupCollectionCatalog.wallets ||
+          colKey == BackupCollectionCatalog.transactions) {
+        continue;
+      }
+      final incomingRows =
+          preview.collections[colKey] ?? const <Map<String, dynamic>>[];
+      final incomingIds = <String>{
+        for (var i = 0; i < incomingRows.length; i++)
+          mapDocId(colKey, (incomingRows[i]['id'] ?? '').toString(), i),
+      };
+      final existingDocs = await _fetchCollectionPaginated(
+        _userCol(targetUserId, colEntry.value),
+      );
+      for (final doc in existingDocs) {
+        if (incomingIds.contains(doc.id)) continue;
+        if (doc.data()['lastRestoredSessionId'] == importSessionId) continue;
+
+        if (colKey == BackupCollectionCatalog.vehicles) {
+          for (final sub in const ['maintenances', 'fuel_logs']) {
+            try {
+              final subDocs = await _fetchCollectionPaginated(
+                doc.reference.collection(sub),
+              );
+              for (final s in subDocs) {
+                await s.reference.delete();
+              }
+            } catch (_) {}
+          }
+        } else if (colKey == BackupCollectionCatalog.personalFunds) {
+          for (final sub in const [
+            'contributions',
+            'expenses',
+            'fund_audits',
+          ]) {
+            try {
+              final subDocs = await _fetchCollectionPaginated(
+                doc.reference.collection(sub),
+              );
+              for (final s in subDocs) {
+                await s.reference.delete();
+              }
+            } catch (_) {}
+          }
+        }
+        try {
+          await doc.reference.delete();
+        } catch (_) {}
+      }
+    }
+
+    for (final tx in existingTxs) {
+      if (incomingTxIdSet.contains(tx.id)) continue;
+      if (immutableVerifiedTxIds.contains(tx.id)) {
+        warnings.add(
+          'Đã giữ nguyên giao dịch ngân hàng xác thực "${tx.id}" (bất biến).',
+        );
+        continue;
+      }
+      try {
+        await _userCol(targetUserId, 'transactions').doc(tx.id).delete();
+      } catch (_) {
+        warnings.add(
+          'Không thể xóa giao dịch cũ "${tx.id}" do quy tắc sổ cái bất biến.',
+        );
+      }
+    }
+
+    for (final w in existingWallets) {
+      if (incomingWalletIdSet.contains(w.id)) continue;
+      if (verifiedProtectedWalletIds.contains(w.id)) {
+        try {
+          await _userCol(targetUserId, 'wallets').doc(w.id).update({
+            'isArchived': true,
+            'archivedByRestoreSessionId': importSessionId,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+        } catch (_) {}
+        warnings.add(
+          'Đã giữ lại ví "${w.name}" (chuyển sang lưu trữ) vì còn giao dịch ngân hàng đã xác thực.',
+        );
+        continue;
+      }
+      try {
+        await _userCol(targetUserId, 'wallets').doc(w.id).delete();
+      } catch (_) {
+        warnings.add('Không thể xóa ví cũ "${w.name}".');
+      }
+    }
+  }
+
   Future<WalletEntity> _createMissingWalletDeterministic({
     required String userId,
     required _IncomingWalletSpec spec,
     required int openingBalanceMinor,
+    String? lastRestoredSessionId,
   }) async {
     final docRef = _userCol(userId, 'wallets').doc(spec.targetId);
     final now = DateTime.now();
@@ -1138,6 +1364,8 @@ class FirestoreBackupRemoteDataSource {
         if (spec.creditLimitMinor != null)
           'creditLimitMinor': spec.creditLimitMinor,
         'isEstimatedBalance': spec.isEstimatedBalance,
+        if (lastRestoredSessionId != null)
+          'lastRestoredSessionId': lastRestoredSessionId,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
       });
@@ -1151,6 +1379,7 @@ class FirestoreBackupRemoteDataSource {
     required WalletEntity wallet,
     required int targetBalanceMinor,
     required String operationTag,
+    String? lastRestoredSessionId,
   }) async {
     final walletRef = _userCol(userId, 'wallets').doc(wallet.id);
     final auditId = 'aud_$operationTag';
@@ -1194,6 +1423,8 @@ class FirestoreBackupRemoteDataSource {
       tx.update(walletRef, {
         'balanceMinor': targetBalanceMinor,
         'lastAuditId': auditId,
+        if (lastRestoredSessionId != null)
+          'lastRestoredSessionId': lastRestoredSessionId,
         'updatedAt': ts,
       });
     });
@@ -1202,6 +1433,7 @@ class FirestoreBackupRemoteDataSource {
   Future<TransactionEntity> _restoreNonReversalTransaction({
     required String targetUserId,
     required _IncomingTxSpec tx,
+    String? lastRestoredSessionId,
   }) async {
     if (!tx.ledgerApplied) {
       // Provisional / needsReview / rejected transactions do NOT mutate wallet balance.
@@ -1241,6 +1473,9 @@ class FirestoreBackupRemoteDataSource {
           now: now,
         );
         payload['ledgerApplied'] = false;
+        if (lastRestoredSessionId != null) {
+          payload['lastRestoredSessionId'] = lastRestoredSessionId;
+        }
         fTx.set(txRef, payload);
       });
       final snap = await txRef.get();
@@ -1661,6 +1896,8 @@ class FirestoreBackupRemoteDataSource {
     required String Function(String? origWalletId) resolveWalletId,
     required Map<String, String> vehicleIdMap,
     required Map<String, String> fundIdMap,
+    bool overwriteExisting = false,
+    String? lastRestoredSessionId,
   }) async {
     late final DocumentReference<Map<String, dynamic>> docRef;
     if (colKey == BackupCollectionCatalog.vehicleMaintenances) {
@@ -1711,10 +1948,13 @@ class FirestoreBackupRemoteDataSource {
       vehicleIdMap: vehicleIdMap,
       fundIdMap: fundIdMap,
     );
+    if (lastRestoredSessionId != null) {
+      payload['lastRestoredSessionId'] = lastRestoredSessionId;
+    }
 
     await _firestore.runTransaction((tx) async {
       final snap = await tx.get(docRef);
-      if (snap.exists) return;
+      if (snap.exists && !overwriteExisting) return;
       tx.set(docRef, payload);
     });
   }
