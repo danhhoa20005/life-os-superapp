@@ -564,7 +564,10 @@ void main() {
           expect((res as Err<void>).failure, isA<PermissionDeniedFailure>());
           // Local file MUST NOT have been deleted because Firestore threw permission-denied!
           expect(encFile.existsSync(), isTrue);
-          expect(File('${encFile.path}.meta').existsSync(), isTrue);
+          final metaJsonFile = File(
+            encFile.path.replaceFirst(RegExp(r'\.enc$'), '.meta.json'),
+          );
+          expect(metaJsonFile.existsSync(), isTrue);
 
           // Now allow Firestore delete to succeed -> local file IS deleted afterwards
           when(() => mockTargetDoc.delete()).thenAnswer((_) async {});
@@ -574,7 +577,7 @@ void main() {
           );
           expect(okRes, isA<Success<void>>());
           expect(encFile.existsSync(), isFalse);
-          expect(File('${encFile.path}.meta').existsSync(), isFalse);
+          expect(metaJsonFile.existsSync(), isFalse);
         },
       );
     },
@@ -613,10 +616,13 @@ void main() {
           ]),
         );
 
-        // 1. User A signs in -> legacy key purged, User A starts empty, creates alarm
+        // 1. User A signs in -> legacy key moved to quarantine, User A starts empty, creates alarm
         store.setActiveUserId('user_a');
         expect(await store.loadAlarms(), isEmpty);
         expect(await vault.readSecret('lifeos_personal_alarms_v1'), isNull);
+        expect((await store.loadQuarantinedLegacyAlarms()).map((e) => e.id), [
+          'palarm_legacy',
+        ]);
 
         final alarmA = await store.upsertAlarm(
           hour: 6,
@@ -631,7 +637,7 @@ void main() {
         );
         expect(
           await NativeAlarmSchedulerBridge.instance.getScheduledAlarm(
-            alarmA.id,
+            PersonalAlarmStore.osAlarmIdFor('user_a', alarmA.id),
           ),
           isNotNull,
         );
@@ -694,13 +700,13 @@ void main() {
         expect(restoredA.single.label, 'Báo thức của A');
         expect(
           await NativeAlarmSchedulerBridge.instance.getScheduledAlarm(
-            alarmA.id,
+            PersonalAlarmStore.osAlarmIdFor('user_a', alarmA.id),
           ),
           isNotNull,
         );
         expect(
           await NativeAlarmSchedulerBridge.instance.getScheduledAlarm(
-            alarmB.id,
+            PersonalAlarmStore.osAlarmIdFor('user_b', alarmB.id),
           ),
           isNull,
         );

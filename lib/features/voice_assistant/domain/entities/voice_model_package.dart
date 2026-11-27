@@ -8,6 +8,7 @@ enum LocalAsrModelStatus {
   installed,
   corrupted,
   licenseBlocked,
+  runtimeUnavailable,
   error,
 }
 
@@ -28,6 +29,7 @@ class LocalAsrModelSpec extends Equatable {
   final String languageCode;
   final List<String> requiredFiles;
   final bool runtimeIntegrated;
+  final bool verifiedInferenceCapable;
   final String? bundledAssetPath;
 
   const LocalAsrModelSpec({
@@ -45,7 +47,8 @@ class LocalAsrModelSpec extends Equatable {
     required this.supportsStreaming,
     required this.languageCode,
     required this.requiredFiles,
-    this.runtimeIntegrated = true,
+    this.runtimeIntegrated = false,
+    this.verifiedInferenceCapable = false,
     this.bundledAssetPath,
   });
 
@@ -69,14 +72,18 @@ class LocalAsrModelSpec extends Equatable {
     languageCode,
     requiredFiles,
     runtimeIntegrated,
+    verifiedInferenceCapable,
     bundledAssetPath,
   ];
 }
 
-/// Built-in offline Vietnamese ASR & VAD model catalog with explicit license compliance.
+/// Optional offline Vietnamese ASR & VAD model catalog with explicit license
+/// and runtime-integration truthfulness flags.
 ///
-/// All commercial-allowed models in [defaults] are pre-bundled in `assets/models/` and
-/// automatically provisioned on startup so users never need to manually press download.
+/// Native Vosk / Sherpa-ONNX / Silero inference runtimes are NOT integrated in
+/// this build yet (`runtimeIntegrated: false, verifiedInferenceCapable: false`),
+/// so strict offline voice capture relies solely on Android 13+ On-Device
+/// SpeechRecognizer (when available on the device) or manual text entry.
 abstract final class LocalAsrModelCatalog {
   static const LocalAsrModelSpec voskSmallVn = LocalAsrModelSpec(
     id: 'vosk-model-small-vn-0.4',
@@ -95,7 +102,8 @@ abstract final class LocalAsrModelCatalog {
     supportsStreaming: true,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
-    runtimeIntegrated: true,
+    runtimeIntegrated: false,
+    verifiedInferenceCapable: false,
     bundledAssetPath: 'assets/models/vosk_model_small_vn_0_4.bin',
   );
 
@@ -116,7 +124,8 @@ abstract final class LocalAsrModelCatalog {
     supportsStreaming: false,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
-    runtimeIntegrated: true,
+    runtimeIntegrated: false,
+    verifiedInferenceCapable: false,
     bundledAssetPath: 'assets/models/sherpa_onnx_whisper_tiny_int8.bin',
   );
 
@@ -137,7 +146,8 @@ abstract final class LocalAsrModelCatalog {
     supportsStreaming: true,
     languageCode: 'multilingual',
     requiredFiles: <String>['silero_vad.onnx'],
-    runtimeIntegrated: true,
+    runtimeIntegrated: false,
+    verifiedInferenceCapable: false,
     bundledAssetPath: 'assets/models/silero_vad_v5.onnx',
   );
 
@@ -158,7 +168,8 @@ abstract final class LocalAsrModelCatalog {
     supportsStreaming: true,
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
-    runtimeIntegrated: true,
+    runtimeIntegrated: false,
+    verifiedInferenceCapable: false,
     bundledAssetPath: 'assets/models/sherpa_onnx_zipformer_vi_30m_int8.bin',
   );
 
@@ -181,6 +192,7 @@ abstract final class LocalAsrModelCatalog {
     languageCode: 'vi-VN',
     requiredFiles: <String>['model.bin'],
     runtimeIntegrated: false,
+    verifiedInferenceCapable: false,
   );
 
   static const List<LocalAsrModelSpec> defaults = <LocalAsrModelSpec>[
@@ -242,7 +254,10 @@ class LocalAsrModelInstallState extends Equatable {
     this.errorMessageVi,
   });
 
-  bool get isUsableOffline => status == LocalAsrModelStatus.installed;
+  bool get isUsableOffline =>
+      status == LocalAsrModelStatus.installed &&
+      spec.runtimeIntegrated &&
+      spec.verifiedInferenceCapable;
 
   @override
   List<Object?> get props => <Object?>[

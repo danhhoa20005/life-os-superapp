@@ -239,17 +239,23 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // 2. Pre-bundled Offline ASR & Audio Model Manager (Section 12)
+              // 2. Offline ASR & Audio Model Status (AI-01 Truthful Reporting)
               _DiagCardShell(
                 key: const Key('voice_diag_models_card'),
-                title: 'Mô hình Âm thanh & Giọng nói Offline (Đã tải sẵn)',
-                icon: Icons.check_circle_outline_rounded,
+                title: state.models.any((m) => m.isUsableOffline)
+                    ? 'Mô hình Âm thanh & Giọng nói Offline'
+                    : 'Bộ chạy Giọng nói Offline (Trạng thái thực tế)',
+                icon: state.models.any((m) => m.isUsableOffline)
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.info_outline_rounded,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Toàn bộ mô hình âm thanh & nhận diện giọng nói tiếng Việt đã được tải sẵn, '
-                      'xác thực toàn vẹn SHA-256 và kích hoạt tự động trên thiết bị.',
+                      state.models.any((m) => m.isUsableOffline)
+                          ? 'Các mô hình âm thanh & nhận diện giọng nói tiếng Việt đã được xác thực SHA-256 và sẵn sàng trên thiết bị.'
+                          : 'Các bộ chạy Vosk / Sherpa-ONNX / Silero VAD chưa được tích hợp bộ suy luận gốc trong bản dựng này. '
+                                'Chế độ Chỉ Offline sử dụng Android 13+ On-Device SpeechRecognizer (khi thiết bị hỗ trợ) hoặc nhập văn bản trực tiếp.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: palette.textSecondary,
                       ),
@@ -599,9 +605,12 @@ class _ModelRowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = TammySemanticColors.of(context);
     final spec = model.spec;
-    final isInstalled = model.status == LocalAsrModelStatus.installed;
+    final isInstalled = model.isUsableOffline;
     final isBlocked = !spec.commercialAllowed;
-    final isRuntimeUnavailable = !spec.runtimeIntegrated;
+    final isRuntimeUnavailable =
+        model.status == LocalAsrModelStatus.runtimeUnavailable ||
+        !spec.runtimeIntegrated ||
+        !spec.verifiedInferenceCapable;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -657,63 +666,84 @@ class _ModelRowTile extends StatelessWidget {
               ),
             ),
           ] else if (isRuntimeUnavailable) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Chưa khả dụng trong bản dựng này (chưa nhúng bộ chạy ${spec.runtimeName} gốc). Chế độ Chỉ Offline hiện dùng trực tiếp Android On-Device.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: palette.textSecondary),
+            const SizedBox(height: 6),
+            Container(
+              key: Key('voice_model_unavailable_${spec.id}'),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: palette.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: palette.warning.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: palette.warning,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Chưa tích hợp bộ chạy offline (Dùng Android trên máy hoặc nhập tay)',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: palette.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (isInstalled)
-                Container(
-                  key: Key('voice_model_installed_${spec.id}'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: palette.primary.withValues(alpha: 0.35),
+          if (isInstalled || isBlocked || model.hasRollbackBackup) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (isInstalled)
+                  Container(
+                    key: Key('voice_model_installed_${spec.id}'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: palette.primary.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Text(
+                      '✓ Đã tải sẵn & Kích hoạt',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: palette.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    '✓ Đã tải sẵn & Kích hoạt',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: palette.primary,
-                      fontWeight: FontWeight.w700,
+                if (!isInstalled && !isRuntimeUnavailable)
+                  FilledButton.tonal(
+                    key: Key('voice_model_download_${spec.id}'),
+                    onPressed: (busy || isBlocked) ? null : onDownload,
+                    child: Text(
+                      isBlocked ? 'Hạn chế giấy phép' : 'Tải về ($sizeLabel)',
                     ),
                   ),
-                ),
-              if (!isInstalled)
-                FilledButton.tonal(
-                  key: Key('voice_model_download_${spec.id}'),
-                  onPressed: (busy || isBlocked || isRuntimeUnavailable)
-                      ? null
-                      : onDownload,
-                  child: Text(
-                    isBlocked
-                        ? 'Hạn chế giấy phép'
-                        : (isRuntimeUnavailable
-                              ? 'Chưa khả dụng'
-                              : 'Tải về ($sizeLabel)'),
+                if (model.hasRollbackBackup)
+                  TextButton(
+                    onPressed: busy ? null : onRollback,
+                    child: const Text('Khôi phục bản cũ'),
                   ),
-                ),
-              if (model.hasRollbackBackup)
-                TextButton(
-                  onPressed: busy ? null : onRollback,
-                  child: const Text('Khôi phục bản cũ'),
-                ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );

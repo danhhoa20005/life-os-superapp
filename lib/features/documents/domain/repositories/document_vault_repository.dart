@@ -1,5 +1,20 @@
 import '../../../../core/error/app_exception.dart';
+import '../../../../core/error/failure.dart';
 import '../entities/document_vault_entity.dart';
+
+/// Shared failure code and factory for non-silent pending local attachment cleanup.
+abstract final class DocumentCleanupFailureCodes {
+  static const String pendingLocalCleanup = 'PENDING_LOCAL_CLEANUP';
+
+  static Failure createPendingLocalCleanupFailure() => const UnexpectedFailure(
+    code: pendingLocalCleanup,
+    message:
+        'Đã xóa hồ sơ trên đám mây, nhưng tệp mã hóa cục bộ chưa thể xóa ngay và đã được xếp hàng dọn lại.',
+  );
+
+  static bool isPendingLocalCleanup(Failure? failure) =>
+      failure != null && failure.code == pendingLocalCleanup;
+}
 
 class CreateDocumentVaultParams {
   final String userId;

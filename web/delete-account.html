@@ -66,14 +66,16 @@
   <div class="card">
     <h1>Yêu cầu Xóa Tài khoản &amp; Dữ liệu Cá nhân LifeOS</h1>
     <div class="notice">
-      Trang này dành cho người dùng <strong>LifeOS (vn.lifeos.app.life_os)</strong> muốn yêu cầu xóa tài khoản và toàn bộ dữ liệu cá nhân trực tiếp từ trình duyệt Web mà không cần cài lại ứng dụng.
+      <strong>Cách nhanh nhất (Tức thì):</strong> Mở ứng dụng <strong>LifeOS (vn.lifeos.app.life_os)</strong> &rarr; vào <strong>Hồ sơ &amp; Bảo mật Tài khoản &rarr; Xóa tài khoản</strong> để tự xóa vĩnh viễn tài khoản và toàn bộ dữ liệu ngay lập tức.
+      <br />
+      Trang Web này hỗ trợ người dùng không còn cài ứng dụng tạo <strong>email xác nhận chính chủ</strong> gửi tới <code>support@lifeos.vn</code>.
     </div>
 
-    <h2>1. Cách xác minh và xử lý yêu cầu</h2>
+    <h2>1. Phương thức xóa và thời hạn xử lý (SLA)</h2>
     <ul>
-      <li>Nhập địa chỉ Email đã đăng ký tài khoản LifeOS (và Mã tài khoản UID nếu có) vào biểu mẫu bên dưới.</li>
-      <li>Để bảo vệ tài khoản khỏi yêu cầu xóa trái phép, hệ thống/bộ phận bảo vệ dữ liệu sẽ gửi một liên kết hoặc email xác nhận tới đúng địa chỉ Email đăng ký của bạn.</li>
-      <li>Sau khi xác nhận chủ tài khoản, toàn bộ dữ liệu sẽ bị xóa vĩnh viễn trong vòng tối đa <strong>7 ngày làm việc</strong> (hoặc bị xóa ngay lập tức nếu bạn bấm nút <em>Xóa tài khoản</em> bên trong ứng dụng LifeOS).</li>
+      <li><strong>Xóa tức thì trong ứng dụng (Khuyên dùng):</strong> Vào <strong>Hồ sơ &amp; Bảo mật Tài khoản &rarr; Xóa tài khoản</strong>. Hệ thống xác thực lại phiên đăng nhập và xóa vĩnh viễn dữ liệu ngay lập tức.</li>
+      <li><strong>Yêu cầu qua biểu mẫu Web (Tạo email xác minh tới support@lifeos.vn):</strong> Biểu mẫu bên dưới <em>không tự động gửi ngầm lên máy chủ</em>, mà sẽ mở trình gửi email sẵn nội dung xác minh tới <strong>support@lifeos.vn</strong> từ đúng địa chỉ Email đã đăng ký của bạn để chống giả mạo yêu cầu xóa trái phép.</li>
+      <li><strong>Thời hạn hoàn tất qua Web/Email:</strong> Tối đa <strong>7 ngày làm việc</strong> kể từ khi bộ phận bảo vệ dữ liệu xác nhận thành công quyền sở hữu tài khoản qua email.</li>
     </ul>
 
     <h2>2. Danh mục dữ liệu bị xóa và thời hạn lưu giữ</h2>
@@ -100,12 +102,12 @@
       <label for="reason">Ghi chú bổ sung (Tùy chọn)</label>
       <textarea id="reason" rows="3" placeholder="Ghi chú xác minh hoặc yêu cầu cụ thể..."></textarea>
 
-      <button type="submit">Gửi yêu cầu xóa dữ liệu</button>
+      <button type="submit">Mở email xác nhận gửi support@lifeos.vn</button>
     </form>
 
     <div id="statusBox"></div>
     <p style="margin-top: 20px; font-size: 0.92rem;">
-      Hoặc liên hệ trực tiếp qua email: <a href="mailto:support@lifeos.vn?subject=Yeu%20cau%20xoa%20tai%20khoan%20LifeOS">support@lifeos.vn</a> &middot;
+      Hoặc gửi email trực tiếp từ email đăng ký tới: <a href="mailto:support@lifeos.vn?subject=Yeu%20cau%20xoa%20tai%20khoan%20LifeOS">support@lifeos.vn</a> &middot;
       <a href="/privacy-policy.html">Xem Chính sách Quyền riêng tư</a>
     </p>
   </div>
@@ -126,7 +128,10 @@
       );
       var box = document.getElementById('statusBox');
       box.style.display = 'block';
-      box.innerHTML = 'Đã tạo yêu cầu xóa cho tài khoản <strong>' + email + '</strong>. Trình gửi email đang mở để bạn xác nhận chính chủ gửi tới <strong>support@lifeos.vn</strong> (hoặc gửi trực tiếp tới support@lifeos.vn từ email đăng ký của bạn).';
+      box.textContent =
+        'Đã chuẩn bị sẵn nội dung email xác minh chính chủ cho tài khoản ' +
+        email +
+        '. Vui lòng hoàn tất gửi email tới support@lifeos.vn từ đúng địa chỉ đăng ký (thời hạn xử lý tối đa 7 ngày làm việc sau khi xác nhận quyền sở hữu). Để xóa ngay lập tức, hãy mở ứng dụng LifeOS -> Hồ sơ & Bảo mật Tài khoản -> Xóa tài khoản.';
       window.location.href = 'mailto:support@lifeos.vn?subject=' + subject + '&body=' + body;
     }
   </script>

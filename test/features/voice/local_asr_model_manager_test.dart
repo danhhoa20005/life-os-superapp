@@ -29,6 +29,8 @@ void main() {
       String? overrideSha256,
       bool commercialAllowed = true,
       String license = 'Apache-2.0',
+      bool runtimeIntegrated = true,
+      bool verifiedInferenceCapable = true,
     }) {
       final hash = overrideSha256 ?? sha256.convert(bytes).toString();
       return LocalAsrModelSpec(
@@ -46,6 +48,8 @@ void main() {
         supportsStreaming: true,
         languageCode: 'vi-VN',
         requiredFiles: const <String>['model.bin'],
+        runtimeIntegrated: runtimeIntegrated,
+        verifiedInferenceCapable: verifiedInferenceCapable,
       );
     }
 
@@ -242,7 +246,7 @@ void main() {
     );
 
     test(
-      'auto-preloads all default bundled audio and ASR models with verified SHA-256 without requiring manual download',
+      'AI-01: default 16KB placeholder catalog specs report runtimeUnavailable and NEVER claim hasVerifiedInstalledAsrModel',
       () async {
         final client = MockClient(
           (_) async => http.Response('offline_no_network_needed', 500),
@@ -255,14 +259,70 @@ void main() {
         final models = await manager.listModels();
         expect(models.length, LocalAsrModelCatalog.defaults.length);
         for (final m in models) {
+          expect(m.spec.runtimeIntegrated, isFalse);
+          expect(m.spec.verifiedInferenceCapable, isFalse);
+          expect(m.isUsableOffline, isFalse);
           expect(
             m.status,
-            LocalAsrModelStatus.installed,
-            reason: 'Expected ${m.spec.id} to be pre-installed automatically',
+            LocalAsrModelStatus.runtimeUnavailable,
+            reason:
+                'Expected placeholder ${m.spec.id} to report runtimeUnavailable',
           );
-          expect(await manager.verifyModelIntegrity(m.spec.id), isTrue);
+          expect(
+            m.errorMessageVi,
+            'Chưa tích hợp bộ chạy offline (Dùng Android trên máy hoặc nhập tay)',
+          );
         }
-        expect(await manager.hasVerifiedInstalledAsrModel(), isTrue);
+        expect(await manager.hasVerifiedInstalledAsrModel(), isFalse);
+
+        await expectLater(
+          manager.downloadModel(LocalAsrModelCatalog.voskSmallVn),
+          throwsA(isA<LocalAsrRuntimeUnavailableException>()),
+        );
+        expect(await manager.hasVerifiedInstalledAsrModel(), isFalse);
+      },
+    );
+
+    test(
+      'hasVerifiedInstalledAsrModel returns true ONLY when injected spec has runtimeIntegrated=true and verifiedInferenceCapable=true',
+      () async {
+        final payload = utf8.encode('REAL_NATIVE_ASR_MODEL_WEIGHTS');
+        final unverifiedSpec = makeSpec(
+          id: 'unverified-runtime-model',
+          bytes: payload,
+          runtimeIntegrated: true,
+          verifiedInferenceCapable: false,
+        );
+        final verifiedSpec = makeSpec(
+          id: 'verified-runtime-model',
+          bytes: payload,
+          runtimeIntegrated: true,
+          verifiedInferenceCapable: true,
+        );
+        final client = MockClient(
+          (_) async => http.Response.bytes(payload, 200),
+        );
+
+        final unverifiedManager = LocalAsrModelManager(
+          rootDirectory: tempDir,
+          httpClient: client,
+          catalog: <LocalAsrModelSpec>[unverifiedSpec],
+        );
+        expect(
+          (await unverifiedManager.listModels()).single.status,
+          LocalAsrModelStatus.runtimeUnavailable,
+        );
+        expect(await unverifiedManager.hasVerifiedInstalledAsrModel(), isFalse);
+
+        final verifiedManager = LocalAsrModelManager(
+          rootDirectory: tempDir,
+          httpClient: client,
+          catalog: <LocalAsrModelSpec>[verifiedSpec],
+        );
+        final installed = await verifiedManager.downloadModel(verifiedSpec);
+        expect(installed.status, LocalAsrModelStatus.installed);
+        expect(installed.isUsableOffline, isTrue);
+        expect(await verifiedManager.hasVerifiedInstalledAsrModel(), isTrue);
       },
     );
   });

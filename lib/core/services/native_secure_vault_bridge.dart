@@ -15,10 +15,36 @@ class VaultSecurityException extends FormatException {
   String toString() => 'VaultSecurityException: $message';
 }
 
+/// Status of reading a secret from [NativeSecureVaultBridge], allowing callers
+/// to distinguish key invalidation (`KEY_INVALIDATED`) or native platform failure
+/// from a normal missing key.
+enum VaultReadStatus { found, missing, keyInvalidated, platformError }
+
+/// Structured outcome of a fail-closed secret read.
+final class VaultReadOutcome {
+  final String? value;
+  final VaultReadStatus status;
+  final String? errorCode;
+
+  const VaultReadOutcome({
+    required this.value,
+    required this.status,
+    this.errorCode,
+  });
+
+  bool get isKeyInvalidated => status == VaultReadStatus.keyInvalidated;
+}
+
 /// Hardware-backed Android Keystore (AES-256-GCM) Secret & Document Vault Bridge.
 /// Ensures sensitive credentials (such as SePay API tokens) and private document
 /// attachments are protected locally on device and NEVER written in plaintext to
 /// disk or Cloud Firestore.
+///
+/// NOTE: On non-Android platforms (unit/widget test VMs, desktop, Web),
+/// [_memoryFallback] is STRICTLY ephemeral / test-only RAM storage and does NOT
+/// provide persistent hardware-backed storage. On Android runtime, reads are
+/// fail-closed: if native Keystore returns `null` or `KEY_INVALIDATED`, any
+/// stale RAM cache entry is purged and `null` is returned.
 class NativeSecureVaultBridge {
   static const MethodChannel _channel = MethodChannel(
     'vn.lifeos.app/secure_vault',
@@ -33,15 +59,56 @@ class NativeSecureVaultBridge {
 
   static final NativeSecureVaultBridge instance = NativeSecureVaultBridge._();
 
+  /// Ephemeral/test-only RAM store for non-Android host VMs and test harnesses.
+  /// Never trusted as fallback when native Android returns `null` or key invalidation.
   final Map<String, String> _memoryFallback = <String, String>{};
   final Random _secureRandom = Random.secure();
+  final bool? _forceNativeAndroidOverride;
 
-  NativeSecureVaultBridge._();
+  bool _lastReadWasKeyInvalidated = false;
+  String? _lastPlatformErrorCode;
+
+  NativeSecureVaultBridge._() : _forceNativeAndroidOverride = null;
 
   @visibleForTesting
-  NativeSecureVaultBridge.testable();
+  NativeSecureVaultBridge.testable({bool? forceNativeAndroidOverride})
+    : _forceNativeAndroidOverride = forceNativeAndroidOverride;
 
-  bool get _useNativeAndroid => !kIsWeb && Platform.isAndroid;
+  /// Whether persistent hardware-backed Android Keystore storage is active on
+  /// this runtime platform.
+  bool get isPersistentHardwareStorageSupported =>
+      !kIsWeb && Platform.isAndroid;
+
+  bool get _useNativeAndroid =>
+      _forceNativeAndroidOverride ?? isPersistentHardwareStorageSupported;
+
+  /// True when the most recent [readSecret] / [readSecretOutcome] observed a
+  /// native Keystore key invalidation (`KEY_INVALIDATED` / `UnrecoverableKey`).
+  bool get lastReadWasKeyInvalidated => _lastReadWasKeyInvalidated;
+
+  String? get lastPlatformErrorCode => _lastPlatformErrorCode;
+
+  @visibleForTesting
+  bool debugHasMemoryCacheEntry(String key) => _memoryFallback.containsKey(key);
+
+  @visibleForTesting
+  void debugSeedMemoryFallback(String key, String value) {
+    _memoryFallback[key] = value;
+  }
+
+  static bool _isKeyInvalidatedCode(String code, String? message) {
+    final upperCode = code.trim().toUpperCase();
+    if (upperCode == 'KEY_INVALIDATED' ||
+        upperCode == 'KEY_PERMANENTLY_INVALIDATED' ||
+        upperCode == 'VAULT_KEY_INVALIDATED' ||
+        upperCode == 'UNRECOVERABLE_KEY') {
+      return true;
+    }
+    final upperMsg = (message ?? '').toUpperCase();
+    return upperMsg.contains('KEY_INVALIDATED') ||
+        upperMsg.contains('KEYPERMANENTLYINVALIDATED') ||
+        upperMsg.contains('UNRECOVERABLEKEY');
+  }
 
   Future<void> writeSecret({required String key, required String value}) async {
     final trimmed = value.trim();
@@ -49,20 +116,30 @@ class NativeSecureVaultBridge {
       await deleteSecret(key);
       return;
     }
-    _memoryFallback[key] = trimmed;
     if (_useNativeAndroid) {
       try {
         await _channel.invokeMethod<bool>('writeSecret', <String, dynamic>{
           'key': key,
           'value': trimmed,
         });
+        _memoryFallback[key] = trimmed;
       } on MissingPluginException {
         // Running inside unit/widget test harness without Android Activity
+        _memoryFallback[key] = trimmed;
+      } on PlatformException catch (e) {
+        _memoryFallback.remove(key);
+        throw VaultSecurityException(
+          'Native hardware vault write failed (${e.code}): ${e.message ?? e.code}',
+        );
       }
+      return;
     }
+    _memoryFallback[key] = trimmed;
   }
 
-  Future<String?> readSecret(String key) async {
+  Future<VaultReadOutcome> readSecretOutcome(String key) async {
+    _lastReadWasKeyInvalidated = false;
+    _lastPlatformErrorCode = null;
     if (_useNativeAndroid) {
       try {
         final res = await _channel.invokeMethod<String>(
@@ -71,13 +148,44 @@ class NativeSecureVaultBridge {
         );
         if (res != null && res.isNotEmpty) {
           _memoryFallback[key] = res;
-          return res;
+          return VaultReadOutcome(value: res, status: VaultReadStatus.found);
         }
+        // Fail-closed: NEVER fall back to stale RAM cache when native Android
+        // returns null/empty (missing or invalidated key)!
+        _memoryFallback.remove(key);
+        return const VaultReadOutcome(
+          value: null,
+          status: VaultReadStatus.missing,
+        );
+      } on PlatformException catch (e) {
+        // Fail-closed: purge any stale RAM entry and surface invalidation status.
+        _memoryFallback.remove(key);
+        _lastPlatformErrorCode = e.code;
+        final invalidated = _isKeyInvalidatedCode(e.code, e.message);
+        _lastReadWasKeyInvalidated = invalidated;
+        return VaultReadOutcome(
+          value: null,
+          status: invalidated
+              ? VaultReadStatus.keyInvalidated
+              : VaultReadStatus.platformError,
+          errorCode: e.code,
+        );
       } on MissingPluginException {
-        // Fallback to in-memory test store
+        // Fallback to ephemeral in-memory test store ONLY in unbridged test harness
       }
     }
-    return _memoryFallback[key];
+    final mem = _memoryFallback[key];
+    return VaultReadOutcome(
+      value: mem,
+      status: (mem != null && mem.isNotEmpty)
+          ? VaultReadStatus.found
+          : VaultReadStatus.missing,
+    );
+  }
+
+  Future<String?> readSecret(String key) async {
+    final outcome = await readSecretOutcome(key);
+    return outcome.value;
   }
 
   Future<void> deleteSecret(String key) async {
@@ -93,8 +201,22 @@ class NativeSecureVaultBridge {
     }
   }
 
+  /// Clears ephemeral RAM cache on sign-out / session reset so stale user secrets
+  /// never persist in memory across accounts.
+  void clearMemoryFallbackOnSessionReset({bool includeAeadMasterKey = false}) {
+    _lastReadWasKeyInvalidated = false;
+    _lastPlatformErrorCode = null;
+    if (_useNativeAndroid || includeAeadMasterKey) {
+      _memoryFallback.clear();
+      return;
+    }
+    _memoryFallback.removeWhere((key, _) => key != _dartAeadMasterKeySlot);
+  }
+
   Future<void> clearAllSecrets() async {
     _memoryFallback.clear();
+    _lastReadWasKeyInvalidated = false;
+    _lastPlatformErrorCode = null;
     if (_useNativeAndroid) {
       try {
         await _channel.invokeMethod<bool>('clearAllSecrets');
@@ -145,11 +267,13 @@ class NativeSecureVaultBridge {
     );
   }
 
-  /// Account-scoped secret purge (H4): deletes ONLY secrets belonging to [userId]
-  /// (never calling `clearAllSecrets` or touching another user's credentials).
-  Future<void> clearSecretsForUser(String userId) async {
+  /// Account-scoped secret purge (H4 + VAULT-03): deletes ONLY secrets belonging
+  /// to [userId] (never calling `clearAllSecrets` or touching another user's credentials).
+  /// Returns `true` when all target user secrets/directories/export caches were
+  /// verified removed, or `false` if native cleanup failed or [userId] is invalid.
+  Future<bool> clearSecretsForUser(String userId) async {
     final cleanUid = userId.trim();
-    if (_sanitizeUidOrNull(cleanUid) == null) return;
+    if (_sanitizeUidOrNull(cleanUid) == null) return false;
 
     final keysToRemove = _memoryFallback.keys
         .where(
@@ -162,13 +286,19 @@ class NativeSecureVaultBridge {
 
     if (_useNativeAndroid) {
       try {
-        await _channel.invokeMethod<bool>('clearUserSecrets', <String, dynamic>{
-          'userId': cleanUid,
-        });
+        final cleared = await _channel.invokeMethod<bool>(
+          'clearUserSecrets',
+          <String, dynamic>{'userId': cleanUid},
+        );
+        return cleared ?? false;
       } on MissingPluginException {
         // Ignore in test harness
+        return true;
+      } on PlatformException {
+        return false;
       }
     }
+    return true;
   }
 
   Future<String?> getVaultDirectoryPath() async {

@@ -123,6 +123,12 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     if (spec != null) {
       return _inspectSpecState(spec);
     }
+    final transient = _transientStates[modelId];
+    if (transient != null &&
+        (transient.status == LocalAsrModelStatus.licenseBlocked ||
+            transient.status == LocalAsrModelStatus.corrupted)) {
+      return transient;
+    }
     final root = await _rootDirectoryProvider();
     final manifest = await _readManifest(_currentDir(root, modelId));
     final fallbackSpec = LocalAsrModelSpec(
@@ -151,7 +157,9 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     final models = await listModels();
     for (final item in models) {
       if (item.spec.runtimeName == 'silero-vad') continue;
-      if (item.status == LocalAsrModelStatus.installed &&
+      if (item.spec.runtimeIntegrated &&
+          item.spec.verifiedInferenceCapable &&
+          item.status == LocalAsrModelStatus.installed &&
           item.spec.commercialAllowed) {
         final ok = await verifyModelIntegrity(
           item.spec.id,
@@ -180,12 +188,12 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
       throw LocalAsrLicenseBlockedException(spec.id, spec.modelLicenseSpdx);
     }
 
-    if (!spec.runtimeIntegrated) {
+    if (!spec.runtimeIntegrated || !spec.verifiedInferenceCapable) {
       final unavailable = LocalAsrModelInstallState(
         spec: spec,
-        status: LocalAsrModelStatus.error,
+        status: LocalAsrModelStatus.runtimeUnavailable,
         errorMessageVi:
-            'Bộ chạy ${spec.runtimeName} cho ${spec.displayNameVi} chưa khả dụng trong bản dựng này.',
+            'Chưa tích hợp bộ chạy offline (Dùng Android trên máy hoặc nhập tay)',
       );
       _transientStates[spec.id] = unavailable;
       throw LocalAsrRuntimeUnavailableException(spec.id, spec.runtimeName);
@@ -542,7 +550,8 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     final assetPath = spec.bundledAssetPath;
     if (assetPath == null ||
         !spec.commercialAllowed ||
-        !spec.runtimeIntegrated) {
+        !spec.runtimeIntegrated ||
+        !spec.verifiedInferenceCapable) {
       return null;
     }
     final bytes = await _loadBundledAssetBytes(assetPath);
@@ -622,6 +631,23 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
           transient.status == LocalAsrModelStatus.licenseBlocked) {
         return transient;
       }
+      return LocalAsrModelInstallState(
+        spec: spec,
+        status: LocalAsrModelStatus.licenseBlocked,
+        errorMessageVi:
+            'Mô hình ${spec.id} (${spec.modelLicenseSpdx}) bị chặn ở bản phát hành thương mại.',
+      );
+    }
+
+    // AI-01: Truthful offline ASR reporting. Never auto-extract 16KB placeholder
+    // blobs or report `installed` when the native inference runtime is not integrated.
+    if (!spec.runtimeIntegrated || !spec.verifiedInferenceCapable) {
+      return LocalAsrModelInstallState(
+        spec: spec,
+        status: LocalAsrModelStatus.runtimeUnavailable,
+        errorMessageVi:
+            'Chưa tích hợp bộ chạy offline (Dùng Android trên máy hoặc nhập tay)',
+      );
     }
 
     final root = await _rootDirectoryProvider();
@@ -630,6 +656,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
         _autoPreloadBundled &&
         spec.commercialAllowed &&
         spec.runtimeIntegrated &&
+        spec.verifiedInferenceCapable &&
         spec.bundledAssetPath != null &&
         !_explicitlyDeletedIds.contains(spec.id)) {
       final preloaded = await _tryInstallFromBundledAsset(spec);
@@ -755,6 +782,9 @@ extension _LocalAsrModelSpecCopy on LocalAsrModelSpec {
       supportsStreaming: supportsStreaming,
       languageCode: languageCode,
       requiredFiles: requiredFiles,
+      runtimeIntegrated: runtimeIntegrated,
+      verifiedInferenceCapable: verifiedInferenceCapable,
+      bundledAssetPath: bundledAssetPath,
     );
   }
 }

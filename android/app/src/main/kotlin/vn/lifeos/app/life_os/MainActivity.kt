@@ -948,11 +948,11 @@ class MainActivity : FlutterActivity() {
                         if (userId.isEmpty() || userId == "." || userId == "..") {
                             result.success(false)
                         } else {
-                            LifeOsSecureVault.clearForUser(applicationContext, userId)
+                            val cleared = LifeOsSecureVault.clearForUser(applicationContext, userId)
                             if (LifeOsWidgetStore.getActiveUserId(applicationContext) == userId) {
                                 LifeOsWidgetStore.clearPreferredVoiceEngineMode(applicationContext)
                             }
-                            result.success(true)
+                            result.success(cleared)
                         }
                     }
                     "getVaultDirectoryPath" -> {

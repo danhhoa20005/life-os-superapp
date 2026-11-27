@@ -85,6 +85,7 @@ final class DocumentVaultState extends Equatable {
   final String searchQuery;
   final Failure? failure;
   final String? message;
+  final bool pendingLocalCleanup;
 
   const DocumentVaultState({
     this.isLoading = false,
@@ -93,6 +94,7 @@ final class DocumentVaultState extends Equatable {
     this.searchQuery = '',
     this.failure,
     this.message,
+    this.pendingLocalCleanup = false,
   });
 
   bool get hasActiveFilters =>
@@ -129,6 +131,7 @@ final class DocumentVaultState extends Equatable {
     bool clearFailure = false,
     String? message,
     bool clearMessage = false,
+    bool? pendingLocalCleanup,
   }) {
     return DocumentVaultState(
       isLoading: isLoading ?? this.isLoading,
@@ -139,6 +142,7 @@ final class DocumentVaultState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       failure: clearFailure ? null : (failure ?? this.failure),
       message: clearMessage ? null : (message ?? this.message),
+      pendingLocalCleanup: pendingLocalCleanup ?? this.pendingLocalCleanup,
     );
   }
 
@@ -150,6 +154,7 @@ final class DocumentVaultState extends Equatable {
     searchQuery,
     failure,
     message,
+    pendingLocalCleanup,
   ];
 }
 
@@ -261,14 +266,32 @@ class DocumentVaultBloc extends Bloc<DocumentVaultEvent, DocumentVaultState> {
     DocumentVaultDeleteRequested event,
     Emitter<DocumentVaultState> emit,
   ) async {
-    emit(state.copyWith(clearFailure: true, clearMessage: true));
+    emit(
+      state.copyWith(
+        clearFailure: true,
+        clearMessage: true,
+        pendingLocalCleanup: false,
+      ),
+    );
     final res = await _repository.deleteDocument(
       userId: event.userId,
       document: event.document,
     );
     res.fold(
-      (f) => emit(state.copyWith(failure: f, clearMessage: true)),
-      (_) => emit(state.copyWith(message: 'Đã xóa "${event.document.title}".')),
+      (f) => emit(
+        state.copyWith(
+          failure: f,
+          pendingLocalCleanup:
+              DocumentCleanupFailureCodes.isPendingLocalCleanup(f),
+          clearMessage: true,
+        ),
+      ),
+      (_) => emit(
+        state.copyWith(
+          pendingLocalCleanup: false,
+          message: 'Đã xóa "${event.document.title}".',
+        ),
+      ),
     );
   }
 }
