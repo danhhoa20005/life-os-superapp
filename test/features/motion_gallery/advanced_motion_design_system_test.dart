@@ -768,7 +768,19 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
 
-        // 2. Tap Key('settings_motion_studio_row') -> opens /motion-gallery
+        // 2. Expand 'Chế độ nâng cao & Kỹ thuật', then tap Key('settings_motion_studio_row') -> opens /motion-gallery
+        final advToggle = find.byKey(
+          const Key('settings_advanced_mode_toggle'),
+        );
+        await tester.scrollUntilVisible(
+          advToggle,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(advToggle);
+        await tester.pumpAndSettle();
+
         final motionStudioRow = find.byKey(
           const Key('settings_motion_studio_row'),
         );

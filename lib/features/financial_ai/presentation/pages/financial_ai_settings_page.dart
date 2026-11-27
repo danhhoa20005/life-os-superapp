@@ -272,11 +272,13 @@ class _FinancialAiSettingsView extends StatelessWidget {
                               const _GeminiConnectionStudioCard(),
                               const SizedBox(height: 14),
 
-                              // 2. Offline On-Device Agent Local Studio + Interactive Sandbox Card
+                              // 2. Offline On-Device Agent Local Studio + Advanced Technical Sandbox Card
                               _LocalAiEngineStudioCard(
                                 userId: userId,
                                 meta: meta,
                                 rulesCount: rules.length,
+                                prefs: prefs,
+                                onPrefsChanged: updatePrefs,
                               ),
                               const SizedBox(height: 14),
 
@@ -364,11 +366,6 @@ class _FinancialAiSettingsView extends StatelessWidget {
                                           requireConfirmationBeforeSave: v,
                                         ),
                                       ),
-                                    ),
-                                    const Divider(height: 16),
-                                    _ConfidenceThresholdSliderSection(
-                                      prefs: prefs,
-                                      onChanged: updatePrefs,
                                     ),
                                   ],
                                 ),
@@ -658,11 +655,15 @@ class _LocalAiEngineStudioCard extends StatefulWidget {
   final String userId;
   final FinancialModelMetadata meta;
   final int rulesCount;
+  final UserAiClassificationPreferences prefs;
+  final ValueChanged<UserAiClassificationPreferences> onPrefsChanged;
 
   const _LocalAiEngineStudioCard({
     required this.userId,
     required this.meta,
     required this.rulesCount,
+    required this.prefs,
+    required this.onPrefsChanged,
   });
 
   @override
@@ -812,11 +813,11 @@ class _LocalAiEngineStudioCardState extends State<_LocalAiEngineStudioCard> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.memory_rounded, color: c.primary, size: 22),
+                  Icon(Icons.check_circle_rounded, color: c.primary, size: 22),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Mô hình AI Trên Thiết bị (Agent Local)',
+                      'Trợ lý Tiếng Việt tự động (Đã bật sẵn)',
                       softWrap: true,
                       style: TextStyle(
                         fontSize: 15.2,
@@ -829,10 +830,20 @@ class _LocalAiEngineStudioCardState extends State<_LocalAiEngineStudioCard> {
               ),
               const LifeOsStatusPill(
                 icon: Icons.bolt_rounded,
-                label: 'Offline · < 2ms',
+                label: 'Luôn sẵn sàng',
                 tone: LifeOsAccentTone.emerald,
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Bạn chỉ cần nói hoặc gõ tự nhiên (VD: Phở 45k, cf 25k), ứng dụng tự động hiểu và phân loại ngay trên máy mà không cần học hay cài đặt thêm.',
+            softWrap: true,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.35,
+              color: c.textSecondary,
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -840,26 +851,28 @@ class _LocalAiEngineStudioCardState extends State<_LocalAiEngineStudioCard> {
             runSpacing: 6,
             children: [
               _TabularMetricChip(
-                icon: Icons.category_outlined,
-                label: '${meta.numClasses} nhóm ngữ nghĩa',
-              ),
-              _TabularMetricChip(
                 icon: Icons.psychology_outlined,
-                label: '${widget.rulesCount} quy tắc tự học',
+                label: '${widget.rulesCount} thói quen đã nhớ',
               ),
               const _TabularMetricChip(
                 icon: Icons.shield_outlined,
-                label: 'Độc lập 100% trên máy',
+                label: 'Tự động 100% trên máy',
               ),
             ],
           ),
           const SizedBox(height: 10),
           LifeOsDetailsDiscloseSection(
             toggleKey: const Key('toggle_local_ai_model_details'),
-            label: 'Chi tiết & Kiểm thử mô hình',
+            label: 'Chế độ nâng cao & Kiểm thử kỹ thuật',
+            expandedLabel: 'Thu gọn chế độ nâng cao',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _ConfidenceThresholdSliderSection(
+                  prefs: widget.prefs,
+                  onChanged: widget.onPrefsChanged,
+                ),
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(11),

@@ -14,7 +14,7 @@ import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_app_updater_bridge.dart';
 import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
-import '../../../../core/widgets/lifeos_top_toast.dart';
+import '../../../../core/widgets/lifeos_design_system.dart';
 import '../../../../core/widgets/offline_qr_code_view.dart';
 import '../../../../core/widgets/pro_max_widgets.dart';
 import '../../../../core/widgets/status_widgets.dart';
@@ -1246,20 +1246,6 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                   ),
                                 );
                               }),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                key: const Key(
-                                  'open_sepay_server_connect_button',
-                                ),
-                                onPressed: () => _showConnectSePayServerSheet(
-                                  context: context,
-                                  userId: user.id,
-                                  wallets: wallets,
-                                  defaultWalletId: activeWalletId,
-                                ),
-                                icon: const Icon(Icons.add_link_rounded),
-                                label: const Text('+ Liên kết đồng bộ tự động'),
-                              ),
                             ],
                           ),
                         ),
@@ -1767,49 +1753,69 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 4. Bank CSV Statement Import (Clean Consumer Tool — Zero Debug Sandbox)
-                      Card(
-                        child: ExpansionTile(
-                          shape: const Border(),
-                          collapsedShape: const Border(),
-                          leading: Icon(
-                            Icons.upload_file_rounded,
-                            color: c.primary,
-                          ),
-                          title: const Text('Nhập sao kê ngân hàng (CSV)'),
-                          subtitle: const Text(
-                            'Bổ sung lịch sử giao dịch từ tệp sao kê ngân hàng',
-                          ),
-                          childrenPadding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg,
-                            0,
-                            AppSpacing.lg,
-                            AppSpacing.lg,
-                          ),
-                          children: [
-                            TextField(
-                              controller: _csvCtrl,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: 'Dán nội dung sao kê CSV',
-                                hintText: 'date,direction,amount,description',
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            FilledButton.tonalIcon(
-                              onPressed: () {
-                                context.read<NotificationIngestionBloc>().add(
-                                  CsvStatementImportSubmitted(
-                                    userId: user.id,
-                                    walletId: activeWalletId,
-                                    csvContent: _csvCtrl.text,
+                      // 4. Advanced Technical Options (CSV Statement Import & Server Webhook Link)
+                      LifeOsDetailsDiscloseSection(
+                        toggleKey: const Key(
+                          'bank_privacy_advanced_mode_toggle',
+                        ),
+                        label:
+                            'Chế độ nâng cao (Nhập sao kê CSV & Liên kết Server)',
+                        expandedLabel: 'Thu gọn chế độ nâng cao',
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                OutlinedButton.icon(
+                                  key: const Key(
+                                    'open_sepay_server_connect_button',
                                   ),
-                                );
-                              },
-                              icon: const Icon(Icons.upload_file_rounded),
-                              label: const Text('Nhập sao kê vào ví'),
+                                  onPressed: () => _showConnectSePayServerSheet(
+                                    context: context,
+                                    userId: user.id,
+                                    wallets: wallets,
+                                    defaultWalletId: activeWalletId,
+                                  ),
+                                  icon: const Icon(Icons.add_link_rounded),
+                                  label: const Text(
+                                    '+ Liên kết đồng bộ Server tự động',
+                                  ),
+                                ),
+                                const Divider(height: 22),
+                                Text(
+                                  'Nhập sao kê ngân hàng (CSV)',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _csvCtrl,
+                                  maxLines: 3,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Dán nội dung sao kê CSV',
+                                    hintText:
+                                        'date,direction,amount,description',
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                FilledButton.tonalIcon(
+                                  onPressed: () {
+                                    context
+                                        .read<NotificationIngestionBloc>()
+                                        .add(
+                                          CsvStatementImportSubmitted(
+                                            userId: user.id,
+                                            walletId: activeWalletId,
+                                            csvContent: _csvCtrl.text,
+                                          ),
+                                        );
+                                  },
+                                  icon: const Icon(Icons.upload_file_rounded),
+                                  label: const Text('Nhập sao kê vào ví'),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),

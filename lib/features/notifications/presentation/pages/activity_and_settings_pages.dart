@@ -1222,6 +1222,7 @@ class _SettingsItemSpec {
   final LifeOsAccentTone statusPillTone;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final bool isAdvanced;
 
   const _SettingsItemSpec({
     this.itemKey,
@@ -1236,6 +1237,7 @@ class _SettingsItemSpec {
     this.statusPillTone = LifeOsAccentTone.emerald,
     this.trailing,
     this.onTap,
+    this.isAdvanced = false,
   });
 }
 
@@ -1355,15 +1357,16 @@ class _SettingsHubPageState extends State<SettingsHubPage>
       ),
       _SettingsItemSpec(
         itemKey: const Key('settings_voice_diagnostics_row'),
-        sectionTitle: 'Tài khoản & Kết nối tự động',
-        sectionTone: LifeOsAccentTone.emerald,
+        sectionTitle: 'Chế độ nâng cao & Kỹ thuật',
+        sectionTone: LifeOsAccentTone.neutral,
         icon: Icons.graphic_eq_rounded,
         tone: LifeOsAccentTone.blue,
-        title: 'Chẩn đoán Giọng nói & Mô hình Offline',
+        title: 'Kiểm tra Micro & Mô hình âm thanh',
         subtitle:
-            'Kiểm tra Micro, chế độ Offline/Online, độ trễ & xuất báo cáo ẩn PII',
+            'Tự kiểm tra tín hiệu thu âm, gói giọng nói tải sẵn & thông số kỹ thuật',
         keywords:
             'giong noi voice micro mic offline asr chan doan diagnostics speech',
+        isAdvanced: true,
         onTap: () => context.push('/voice-diagnostics'),
       ),
       _SettingsItemSpec(
@@ -1484,16 +1487,17 @@ class _SettingsHubPageState extends State<SettingsHubPage>
       ),
       _SettingsItemSpec(
         itemKey: const Key('settings_motion_studio_row'),
-        sectionTitle: 'Nhà phát triển & Chẩn đoán',
+        sectionTitle: 'Chế độ nâng cao & Kỹ thuật',
         sectionTone: LifeOsAccentTone.neutral,
         icon: Icons.auto_awesome_motion_rounded,
         tone: LifeOsAccentTone.emerald,
         title: 'Motion Studio & Hiệu ứng',
-        subtitle: 'Phòng thử nghiệm 66 mẫu vật lý lò xo, Shader & Lottie',
+        subtitle: 'Phòng thử nghiệm chuyển động & hiệu ứng giao diện',
         keywords:
             'motion studio gallery hieu ung chuyen dong lo xo shader lottie dev',
-        statusPillLabel: 'Dev · 66 mẫu',
+        statusPillLabel: 'Kỹ thuật',
         statusPillTone: LifeOsAccentTone.neutral,
+        isAdvanced: true,
         onTap: () => context.push('/motion-gallery'),
       ),
       _SettingsItemSpec(
@@ -1563,17 +1567,17 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         sectionTone: LifeOsAccentTone.blue,
         icon: Icons.bolt_rounded,
         tone: LifeOsAccentTone.emerald,
-        title: 'Trợ lý thông minh & Kết nối Gemini',
-        subtitle: 'Xử lý tiếng Việt trên máy & liên kết đám mây',
+        title: 'Trợ lý Tiếng Việt thông minh',
+        subtitle: 'Tự động hiểu câu nói & học thói quen chi tiêu của bạn',
         keywords: 'tro ly thong minh gemini nhap nhanh',
-        statusPillLabel: geminiReady ? 'Đã nối Gemini' : '100% trên máy',
+        statusPillLabel: geminiReady ? 'Đã nối Gemini' : 'Đã bật sẵn',
         statusPillTone: LifeOsAccentTone.emerald,
         onTap: () => context.push('/financial-ai-settings'),
       ),
       _SettingsItemSpec(
         itemKey: const Key('settings_automation_studio_row'),
-        sectionTitle: 'Thông báo ngầm & Trợ lý thông minh',
-        sectionTone: LifeOsAccentTone.blue,
+        sectionTitle: 'Chế độ nâng cao & Kỹ thuật',
+        sectionTone: LifeOsAccentTone.neutral,
         icon: Icons.auto_awesome_rounded,
         tone: LifeOsAccentTone.emerald,
         title: 'Tự động hóa Thông minh',
@@ -1581,6 +1585,7 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         keywords: 'tu dong hoa quy tac goi y luong xang xe hoa don',
         statusPillLabel: '5 quy tắc an toàn',
         statusPillTone: LifeOsAccentTone.emerald,
+        isAdvanced: true,
         onTap: () => context.push('/automation-studio'),
       ),
       _SettingsItemSpec(
@@ -1589,10 +1594,10 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         sectionTone: LifeOsAccentTone.emerald,
         icon: Icons.backup_outlined,
         tone: LifeOsAccentTone.blue,
-        title: 'Sao lưu & Khôi phục Toàn vẹn',
-        subtitle: 'Xuất JSON mã hóa mật khẩu, CSV & khôi phục hợp nhất an toàn',
+        title: 'Sao lưu & Chuyển máy',
+        subtitle: 'Lưu trữ dữ liệu an toàn & khôi phục khi đổi điện thoại',
         keywords: 'sao luu khoi phuc backup restore ma hoa csv json',
-        statusPillLabel: 'Kiểm tra toàn vẹn',
+        statusPillLabel: 'An toàn',
         statusPillTone: LifeOsAccentTone.emerald,
         onTap: () => showLifeOsBackupRestoreSheet(context),
       ),
@@ -1640,13 +1645,14 @@ class _SettingsHubPageState extends State<SettingsHubPage>
       ),
       _SettingsItemSpec(
         itemKey: const Key('settings_brand_kit_row'),
-        sectionTitle: 'Gia đình & Tiện ích mở rộng',
-        sectionTone: LifeOsAccentTone.purple,
+        sectionTitle: 'Chế độ nâng cao & Kỹ thuật',
+        sectionTone: LifeOsAccentTone.neutral,
         icon: Icons.palette_outlined,
         tone: LifeOsAccentTone.emerald,
         title: 'Nhận diện thương hiệu LifeOS',
         subtitle: 'Biểu tượng & bảng màu chuẩn hệ thống',
         keywords: 'nhan dien thuong hieu logo bang mau',
+        isAdvanced: true,
         onTap: () => showLifeOsBrandIdentitySheet(context),
       ),
     ];
@@ -1664,9 +1670,16 @@ class _SettingsHubPageState extends State<SettingsHubPage>
             ]);
           }).toList();
 
+    final primaryFiltered = q.isEmpty
+        ? filtered.where((it) => !it.isAdvanced).toList()
+        : filtered;
+    final advancedItems = q.isEmpty
+        ? filtered.where((it) => it.isAdvanced).toList()
+        : const <_SettingsItemSpec>[];
+
     final grouped =
         <String, ({LifeOsAccentTone tone, List<_SettingsItemSpec> items})>{};
-    for (final it in filtered) {
+    for (final it in primaryFiltered) {
       final bucket = grouped.putIfAbsent(
         it.sectionTitle,
         () => (tone: it.sectionTone, items: <_SettingsItemSpec>[]),
@@ -1881,6 +1894,39 @@ class _SettingsHubPageState extends State<SettingsHubPage>
                                   ),
                                 ],
                               ],
+                            ),
+                          ),
+                        ],
+
+                        if (advancedItems.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          LifeOsDetailsDiscloseSection(
+                            toggleKey: const Key(
+                              'settings_advanced_mode_toggle',
+                            ),
+                            label: 'Chế độ nâng cao & Kỹ thuật',
+                            expandedLabel: 'Thu gọn chế độ nâng cao',
+                            child: LifeOsSoftCard(
+                              padding: EdgeInsets.zero,
+                              child: Column(
+                                children: [
+                                  for (
+                                    var i = 0;
+                                    i < advancedItems.length;
+                                    i++
+                                  ) ...[
+                                    if (i > 0)
+                                      Divider(
+                                        height: 1,
+                                        thickness: 0.7,
+                                        indent: 62,
+                                        endIndent: 14,
+                                        color: c.separator,
+                                      ),
+                                    _SettingsGroupedRow(spec: advancedItems[i]),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ],

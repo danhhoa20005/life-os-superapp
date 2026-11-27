@@ -454,7 +454,6 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                             p.personalizationRules != n.personalizationRules ||
                             p.modelMetadata != n.modelMetadata,
                         builder: (context, aiState) {
-                          final meta = aiState.modelMetadata;
                           final isAnalyzing =
                               aiState.status == FinancialAiStatus.analyzing ||
                               geminiBusy;
@@ -475,7 +474,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                                   AppSpacing.xxl,
                                 ),
                                 children: [
-                                  // 1. Hybrid Offline + Gemini AI Status Banner
+                                  // 1. Consumer-Friendly Smart Vietnamese Assistant Banner
                                   LifeOsSoftCard(
                                     key: const Key(
                                       'financial_ai_status_banner_card',
@@ -499,16 +498,14 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                                             Icon(
                                               geminiReady
                                                   ? Icons.auto_awesome_rounded
-                                                  : Icons.offline_bolt_rounded,
+                                                  : Icons.check_circle_rounded,
                                               size: 19,
                                               color: c.primary,
                                             ),
                                             const SizedBox(width: 8),
                                             Flexible(
                                               child: Text(
-                                                meta.usingRuleFallback
-                                                    ? 'Agent Local Nội bộ · < 2ms'
-                                                    : 'Agent Local Tiếng Việt · v${meta.modelVersion}',
+                                                'Trợ lý Tiếng Việt thông minh · Luôn sẵn sàng',
                                                 softWrap: true,
                                                 style: TextStyle(
                                                   fontSize: 12.5,
@@ -923,9 +920,7 @@ class _FinancialAiAssistantBodyState extends State<_FinancialAiAssistantBody>
                                                   child: Text(
                                                     isAnalyzing
                                                         ? 'Đang phân tích...'
-                                                        : (geminiReady
-                                                              ? 'Phân tích AI + Gemini'
-                                                              : 'Phân tích Offline AI'),
+                                                        : 'Tự động tách & Ghi sổ',
                                                   ),
                                                 ),
                                               ),
@@ -1972,8 +1967,8 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                     ),
                     LifeOsStatusPill(
                       label: result.usedGeminiCloud
-                          ? 'Gemini · ${result.latencyMs} ms'
-                          : 'Offline · ${result.latencyMs} ms',
+                          ? 'Cố vấn Gemini'
+                          : 'Tự động trên máy',
                       tone: result.usedGeminiCloud
                           ? LifeOsAccentTone.emerald
                           : LifeOsAccentTone.blue,

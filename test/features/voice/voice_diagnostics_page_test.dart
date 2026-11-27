@@ -128,20 +128,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('voice_diag_device_card')), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('voice_diag_session_card')),
-        200,
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('voice_diag_session_card')), findsOneWidget);
-      expect(find.text('Time to Ready'), findsOneWidget);
-      expect(find.text('Time to First Partial'), findsOneWidget);
-      expect(find.text('Time to Final'), findsOneWidget);
-
+      // 1. Pre-bundled audio models card is immediately visible without technical clutter
       await tester.scrollUntilVisible(
         find.byKey(const Key('voice_diag_models_card')),
-        240,
+        200,
       );
       await tester.pumpAndSettle();
 
@@ -161,6 +151,26 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('✓ Đã tải sẵn & Kích hoạt'), findsWidgets);
+
+      // 2. Expand 'Chế độ nâng cao & Thông số kỹ thuật (IT)' to inspect SDK & Monotonic latencies
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('voice_diag_advanced_toggle')),
+        200,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('voice_diag_advanced_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('voice_diag_device_card')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('voice_diag_session_card')),
+        200,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('voice_diag_session_card')), findsOneWidget);
+      expect(find.text('Time to Ready'), findsOneWidget);
+      expect(find.text('Time to First Partial'), findsOneWidget);
+      expect(find.text('Time to Final'), findsOneWidget);
 
       expect(tester.takeException(), isNull);
     },

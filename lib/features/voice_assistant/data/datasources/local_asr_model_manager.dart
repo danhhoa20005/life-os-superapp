@@ -66,6 +66,8 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     // SHA-256 of empty string ""
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   };
+  static final Map<String, List<int>> _bundledAssetBytesCache =
+      <String, List<int>>{};
 
   final Future<Directory> Function() _rootDirectoryProvider;
   final http.Client _httpClient;
@@ -401,7 +403,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
   }) async {
     final root = await _rootDirectoryProvider();
     final currentDir = _currentDir(root, modelId);
-    if (!await currentDir.exists()) return false;
+    if (!currentDir.existsSync()) return false;
 
     final manifest = await _readManifest(currentDir);
     if (manifest == null) return false;
@@ -416,7 +418,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
 
     for (final fileName in requiredFiles) {
       final f = File('${currentDir.path}/$fileName');
-      if (!await f.exists()) {
+      if (!f.existsSync()) {
         return false;
       }
     }
@@ -426,7 +428,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
         manifest['primaryFileName']?.toString() ??
         'model.bin';
     final primaryFile = File('${currentDir.path}/$primaryName');
-    if (!await primaryFile.exists()) return false;
+    if (!primaryFile.existsSync()) return false;
 
     final expectedHash =
         (specOverride?.sha256Hex ?? manifest['sha256Hex']?.toString() ?? '')
@@ -442,7 +444,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
         status: LocalAsrModelStatus.corrupted,
         installedVersion: manifest['version']?.toString(),
         installedPath: currentDir.path,
-        hasRollbackBackup: await _backupDir(root, modelId).exists(),
+        hasRollbackBackup: _backupDir(root, modelId).existsSync(),
         errorMessageVi: 'Phát hiện tệp mô hình $modelId bị thay đổi hoặc hỏng.',
       );
     }
@@ -454,7 +456,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     final root = await _rootDirectoryProvider();
     final backupDir = _backupDir(root, modelId);
     final currentDir = _currentDir(root, modelId);
-    if (!await backupDir.exists()) return false;
+    if (!backupDir.existsSync()) return false;
 
     final backupManifest = await _readManifest(backupDir);
     if (backupManifest == null) return false;
@@ -465,8 +467,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     final expectedHash = (backupManifest['sha256Hex']?.toString() ?? '')
         .trim()
         .toLowerCase();
-    if (!await primaryFile.exists() ||
-        !_sha256HexRegex.hasMatch(expectedHash)) {
+    if (!primaryFile.existsSync() || !_sha256HexRegex.hasMatch(expectedHash)) {
       return false;
     }
     final actualHash = await _computeFileSha256(primaryFile);
@@ -475,25 +476,23 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     }
 
     Directory? tempOld;
-    if (await currentDir.exists()) {
+    if (currentDir.existsSync()) {
       tempOld = Directory(
         '${_modelRootDir(root, modelId).path}/trash_${DateTime.now().microsecondsSinceEpoch}',
       );
-      await currentDir.rename(tempOld.path);
+      currentDir.renameSync(tempOld.path);
     }
 
     try {
-      await backupDir.rename(currentDir.path);
-      if (tempOld != null && await tempOld.exists()) {
-        await tempOld.delete(recursive: true);
+      backupDir.renameSync(currentDir.path);
+      if (tempOld != null && tempOld.existsSync()) {
+        tempOld.deleteSync(recursive: true);
       }
       _transientStates.remove(modelId);
       return true;
     } catch (_) {
-      if (tempOld != null &&
-          await tempOld.exists() &&
-          !await currentDir.exists()) {
-        await tempOld.rename(currentDir.path);
+      if (tempOld != null && tempOld.existsSync() && !currentDir.existsSync()) {
+        tempOld.renameSync(currentDir.path);
       }
       return false;
     }
@@ -505,21 +504,32 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
     _transientStates.remove(modelId);
     final root = await _rootDirectoryProvider();
     final modelRoot = _modelRootDir(root, modelId);
-    if (await modelRoot.exists()) {
-      await modelRoot.delete(recursive: true);
+    if (modelRoot.existsSync()) {
+      modelRoot.deleteSync(recursive: true);
     }
   }
 
   Future<List<int>?> _loadBundledAssetBytes(String assetPath) async {
+    final cached = _bundledAssetBytesCache[assetPath];
+    if (cached != null) {
+      return cached;
+    }
     try {
       final localFile = File(assetPath);
-      if (await localFile.exists()) {
-        return await localFile.readAsBytes();
+      if (localFile.existsSync()) {
+        final bytes = localFile.readAsBytesSync();
+        _bundledAssetBytesCache[assetPath] = bytes;
+        return bytes;
       }
     } catch (_) {}
     try {
       final data = await rootBundle.load(assetPath);
-      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      _bundledAssetBytesCache[assetPath] = bytes;
+      return bytes;
     } catch (_) {
       return null;
     }
@@ -561,14 +571,14 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
 
     final root = await _rootDirectoryProvider();
     final currentDir = _currentDir(root, spec.id);
-    if (!await currentDir.exists()) {
-      await currentDir.create(recursive: true);
+    if (!currentDir.existsSync()) {
+      currentDir.createSync(recursive: true);
     }
     final payloadFile = File('${currentDir.path}/${spec.primaryFileName}');
-    await payloadFile.writeAsBytes(bytes, flush: true);
+    payloadFile.writeAsBytesSync(bytes, flush: true);
 
     final manifestFile = File('${currentDir.path}/manifest.json');
-    await manifestFile.writeAsString(
+    manifestFile.writeAsStringSync(
       jsonEncode(<String, Object?>{
         'id': spec.id,
         'version': spec.version,
@@ -589,7 +599,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
       downloadedBytes: bytes.length,
       installedVersion: spec.version,
       installedPath: currentDir.path,
-      hasRollbackBackup: await _backupDir(root, spec.id).exists(),
+      hasRollbackBackup: _backupDir(root, spec.id).existsSync(),
     );
     _transientStates[spec.id] = state;
     onProgress?.call(
@@ -720,7 +730,7 @@ class LocalAsrModelManager implements LocalAsrModelRepository {
   }
 
   Future<String> _computeFileSha256(File file) async {
-    final digest = await sha256.bind(file.openRead()).first;
+    final digest = sha256.convert(file.readAsBytesSync());
     return digest.toString().toLowerCase();
   }
 }

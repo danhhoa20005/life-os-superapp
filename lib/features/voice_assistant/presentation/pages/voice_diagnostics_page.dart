@@ -169,140 +169,22 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
               ),
               const SizedBox(height: AppSpacing.lg),
 
-              // 1. Hardware, OS, Permission & Audio Route
-              _DiagSectionCard(
-                key: const Key('voice_diag_device_card'),
-                title: 'Thiết bị, Quyền & Đường âm thanh',
-                icon: Icons.smartphone_rounded,
-                rows: [
-                  _DiagRow(
-                    'Android SDK',
-                    diag.androidSdkInt > 0
-                        ? 'API ${diag.androidSdkInt}'
-                        : 'Không phải Android',
-                  ),
-                  _DiagRow(
-                    'Hãng / Thiết bị',
-                    '${diag.manufacturer} · ${diag.model}',
-                  ),
-                  _DiagRow(
-                    'Quyền Micro',
-                    diag.hasMicPermission ? 'Đã cấp' : 'Chưa cấp',
-                  ),
-                  _DiagRow(
-                    'Khóa riêng tư Micro OS',
-                    diag.isMicPrivacyBlocked == null
-                        ? 'Không xác định'
-                        : (diag.isMicPrivacyBlocked!
-                              ? 'Đang bật khóa'
-                              : 'Đang mở'),
-                  ),
-                  _DiagRow('Đường âm thanh', diag.currentAudioRoute.labelVi),
-                  _DiagRow('Hỗ trợ tiếng Việt', diag.vietnameseSupportStatus),
-                  _DiagRow(
-                    'Engine khả dụng',
-                    diag.availableEngines.isEmpty
-                        ? 'Chưa phát hiện'
-                        : diag.availableEngines.join(', '),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // 2. Active Session State Machine & Monotonic Latencies
-              _DiagSectionCard(
-                key: const Key('voice_diag_session_card'),
-                title: 'Trạng thái Phiên & Độ trễ (Monotonic)',
-                icon: Icons.timeline_rounded,
-                rows: [
-                  _DiagRow('Active Session ID', diag.activeSessionId ?? '—'),
-                  _DiagRow('Engine Attempt ID', '${diag.activeAttemptId}'),
-                  _DiagRow('Trạng thái FSM', diag.currentPhase.wireValue),
-                  _DiagRow(
-                    'Mã lỗi gần nhất',
-                    diag.lastErrorCode ??
-                        diag.lastErrorKind?.name ??
-                        'Không có',
-                  ),
-                  _DiagRow(
-                    'Time to Ready',
-                    diag.timeToReadyMs != null
-                        ? '${diag.timeToReadyMs} ms'
-                        : '—',
-                  ),
-                  _DiagRow(
-                    'Time to First Partial',
-                    diag.timeToFirstPartialMs != null
-                        ? '${diag.timeToFirstPartialMs} ms'
-                        : '—',
-                  ),
-                  _DiagRow(
-                    'Time to Final',
-                    diag.timeToFinalMs != null
-                        ? '${diag.timeToFinalMs} ms'
-                        : '—',
-                  ),
-                  _DiagRow(
-                    'Retry / Fallback',
-                    '${diag.retryCount} / ${diag.fallbackCount}',
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // 3. Engine Mode, Endpoint Policy & Microphone Self-Test
+              // 1. Simple 1-Tap Consumer Microphone Check & Ready Status
               _DiagCardShell(
-                title: 'Chế độ Nhận diện & Kiểm tra Micro',
-                icon: Icons.tune_rounded,
+                title: 'Trạng thái Micro & Giọng nói Tiếng Việt',
+                icon: Icons.mic_rounded,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Chế độ ưu tiên nhận diện',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      diag.hasMicPermission
+                          ? '✓ Micro và bộ nhận diện giọng nói tiếng Việt đã được kích hoạt tự động — bạn có thể bấm Mic nói ngay ở bất kỳ đâu trong ứng dụng.'
+                          : 'Ứng dụng cần quyền Micro để nghe câu nói của bạn. Bạn chỉ cần bấm nút kiểm tra bên dưới để bật.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: palette.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: VoiceRecognitionPreference.values.map((pref) {
-                        final selected = state.activePreference == pref;
-                        return ChoiceChip(
-                          key: Key('voice_diag_pref_${pref.wireValue}'),
-                          label: Text(pref.labelVi),
-                          selected: selected,
-                          onSelected: (_) {
-                            context.read<VoiceAssistantBloc>().add(
-                              VoicePreferenceChanged(pref),
-                            );
-                          },
-                        );
-                      }).toList(),
-                    ),
                     const SizedBox(height: AppSpacing.md),
-                    SwitchListTile.adaptive(
-                      key: const Key('voice_diag_auto_endpoint_switch'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Tự dừng thông minh (thử nghiệm)'),
-                      subtitle: const Text(
-                        'Mặc định tắt để ưu tiên bấm dừng chủ động, tránh cắt giữa câu.',
-                      ),
-                      value:
-                          state.endpointMode ==
-                          VoiceEndpointMode.smartAutoEndpoint,
-                      onChanged: (enabled) {
-                        context.read<VoiceAssistantBloc>().add(
-                          VoiceEndpointModeChanged(
-                            enabled
-                                ? VoiceEndpointMode.smartAutoEndpoint
-                                : VoiceEndpointMode.explicitStopOnly,
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -327,22 +209,6 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
                                 : 'Kiểm tra Microphone',
                           ),
                         ),
-                        OutlinedButton.icon(
-                          key: const Key('voice_diag_reset_caps_btn'),
-                          onPressed: () {
-                            context.read<VoiceAssistantBloc>().add(
-                              const VoiceCapabilitiesResetRequested(),
-                            );
-                          },
-                          icon: const Icon(Icons.restart_alt_rounded),
-                          label: const Text('Xóa bộ nhớ Engine'),
-                        ),
-                        FilledButton.icon(
-                          key: const Key('voice_diag_export_btn'),
-                          onPressed: () => _copySanitizedReport(diag),
-                          icon: const Icon(Icons.ios_share_rounded),
-                          label: const Text('Xuất báo cáo ẩn PII'),
-                        ),
                       ],
                     ),
                     if (_selfTestResult != null) ...[
@@ -355,14 +221,10 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'Kết quả tự kiểm tra PCM16: '
-                          '${(_selfTestResult!['passed'] == true && _selfTestResult!['hasSignal'] == true) ? "ĐẠT" : "CHƯA ĐẠT"}\n'
+                          'Kết quả kiểm tra Micro: '
+                          '${(_selfTestResult!['passed'] == true && _selfTestResult!['hasSignal'] == true) ? "HOẠT ĐỘNG TỐT" : "CHƯA CÓ TÍN HIỆU"}\n'
                           '• Mở được mic: ${_selfTestResult!['micOpened'] == true ? "Đạt" : "Chưa đạt"}\n'
-                          '• Có tín hiệu: ${_selfTestResult!['hasSignal'] == true ? "Đạt" : "Chưa có tín hiệu"}\n'
-                          '• Đã nhận được chữ: ${_selfTestResult!['speechRecognized'] == true ? "Đã xác nhận" : "Chưa kiểm tra chữ"}\n'
-                          'Peak: ${_selfTestResult!['peakDbfs'] ?? '—'} dBFS · '
-                          'Route: ${_selfTestResult!['audioRoute'] ?? '—'} · '
-                          'Status: ${_selfTestResult!['reason'] ?? _selfTestResult!['errorCode'] ?? 'OK'}',
+                          '• Thu được âm thanh: ${_selfTestResult!['hasSignal'] == true ? "Đạt" : "Chưa có tín hiệu"}',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 fontFeatures: const [
@@ -377,7 +239,7 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              // 4. Pre-bundled Offline ASR & Audio Model Manager (Section 12)
+              // 2. Pre-bundled Offline ASR & Audio Model Manager (Section 12)
               _DiagCardShell(
                 key: const Key('voice_diag_models_card'),
                 title: 'Mô hình Âm thanh & Giọng nói Offline (Đã tải sẵn)',
@@ -409,6 +271,188 @@ class _VoiceDiagnosticsPageState extends State<VoiceDiagnosticsPage> {
                           );
                         },
                       ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // 3. Collapsed Advanced Technical & IT Telemetry Mode
+              LifeOsDetailsDiscloseSection(
+                toggleKey: const Key('voice_diag_advanced_toggle'),
+                label: 'Chế độ nâng cao & Thông số kỹ thuật (IT)',
+                expandedLabel: 'Thu gọn thông số kỹ thuật',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _DiagSectionCard(
+                      key: const Key('voice_diag_device_card'),
+                      title: 'Thiết bị, Quyền & Đường âm thanh',
+                      icon: Icons.smartphone_rounded,
+                      rows: [
+                        _DiagRow(
+                          'Android SDK',
+                          diag.androidSdkInt > 0
+                              ? 'API ${diag.androidSdkInt}'
+                              : 'Không phải Android',
+                        ),
+                        _DiagRow(
+                          'Hãng / Thiết bị',
+                          '${diag.manufacturer} · ${diag.model}',
+                        ),
+                        _DiagRow(
+                          'Quyền Micro',
+                          diag.hasMicPermission ? 'Đã cấp' : 'Chưa cấp',
+                        ),
+                        _DiagRow(
+                          'Khóa riêng tư Micro OS',
+                          diag.isMicPrivacyBlocked == null
+                              ? 'Không xác định'
+                              : (diag.isMicPrivacyBlocked!
+                                    ? 'Đang bật khóa'
+                                    : 'Đang mở'),
+                        ),
+                        _DiagRow(
+                          'Đường âm thanh',
+                          diag.currentAudioRoute.labelVi,
+                        ),
+                        _DiagRow(
+                          'Hỗ trợ tiếng Việt',
+                          diag.vietnameseSupportStatus,
+                        ),
+                        _DiagRow(
+                          'Engine khả dụng',
+                          diag.availableEngines.isEmpty
+                              ? 'Chưa phát hiện'
+                              : diag.availableEngines.join(', '),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _DiagSectionCard(
+                      key: const Key('voice_diag_session_card'),
+                      title: 'Trạng thái Phiên & Độ trễ (Monotonic)',
+                      icon: Icons.timeline_rounded,
+                      rows: [
+                        _DiagRow(
+                          'Active Session ID',
+                          diag.activeSessionId ?? '—',
+                        ),
+                        _DiagRow(
+                          'Engine Attempt ID',
+                          '${diag.activeAttemptId}',
+                        ),
+                        _DiagRow('Trạng thái FSM', diag.currentPhase.wireValue),
+                        _DiagRow(
+                          'Mã lỗi gần nhất',
+                          diag.lastErrorCode ??
+                              diag.lastErrorKind?.name ??
+                              'Không có',
+                        ),
+                        _DiagRow(
+                          'Time to Ready',
+                          diag.timeToReadyMs != null
+                              ? '${diag.timeToReadyMs} ms'
+                              : '—',
+                        ),
+                        _DiagRow(
+                          'Time to First Partial',
+                          diag.timeToFirstPartialMs != null
+                              ? '${diag.timeToFirstPartialMs} ms'
+                              : '—',
+                        ),
+                        _DiagRow(
+                          'Time to Final',
+                          diag.timeToFinalMs != null
+                              ? '${diag.timeToFinalMs} ms'
+                              : '—',
+                        ),
+                        _DiagRow(
+                          'Retry / Fallback',
+                          '${diag.retryCount} / ${diag.fallbackCount}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _DiagCardShell(
+                      title: 'Tùy chỉnh Kênh Engine & Xuất báo cáo kỹ thuật',
+                      icon: Icons.tune_rounded,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Chế độ ưu tiên nhận diện',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: palette.textSecondary),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: VoiceRecognitionPreference.values.map((
+                              pref,
+                            ) {
+                              final selected = state.activePreference == pref;
+                              return ChoiceChip(
+                                key: Key('voice_diag_pref_${pref.wireValue}'),
+                                label: Text(pref.labelVi),
+                                selected: selected,
+                                onSelected: (_) {
+                                  context.read<VoiceAssistantBloc>().add(
+                                    VoicePreferenceChanged(pref),
+                                  );
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          SwitchListTile.adaptive(
+                            key: const Key('voice_diag_auto_endpoint_switch'),
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Tự dừng thông minh (thử nghiệm)',
+                            ),
+                            subtitle: const Text(
+                              'Mặc định tắt để ưu tiên bấm dừng chủ động, tránh cắt giữa câu.',
+                            ),
+                            value:
+                                state.endpointMode ==
+                                VoiceEndpointMode.smartAutoEndpoint,
+                            onChanged: (enabled) {
+                              context.read<VoiceAssistantBloc>().add(
+                                VoiceEndpointModeChanged(
+                                  enabled
+                                      ? VoiceEndpointMode.smartAutoEndpoint
+                                      : VoiceEndpointMode.explicitStopOnly,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                key: const Key('voice_diag_reset_caps_btn'),
+                                onPressed: () {
+                                  context.read<VoiceAssistantBloc>().add(
+                                    const VoiceCapabilitiesResetRequested(),
+                                  );
+                                },
+                                icon: const Icon(Icons.restart_alt_rounded),
+                                label: const Text('Xóa bộ nhớ Engine'),
+                              ),
+                              FilledButton.icon(
+                                key: const Key('voice_diag_export_btn'),
+                                onPressed: () => _copySanitizedReport(diag),
+                                icon: const Icon(Icons.ios_share_rounded),
+                                label: const Text('Xuất báo cáo ẩn PII'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

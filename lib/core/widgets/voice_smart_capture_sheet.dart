@@ -921,46 +921,8 @@ class _VoiceSmartCaptureSheetBodyState
                   builder: (context, voiceState) {
                     final phase = voiceState.phase;
                     final isActiveCapture = phase.isActiveCapture;
-                    final isFinalizing = phase == VoiceSessionPhase.finalizing;
-                    final isOfflineStrict =
-                        voiceState.activePreference ==
-                        VoiceRecognitionPreference.offlineStrict;
 
                     final headerActions = <Widget>[
-                      if (!isOfflineStrict)
-                        TextButton.icon(
-                          key: const Key('voice_quick_google_dialog_btn'),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          onPressed: isFinalizing
-                              ? null
-                              : () async {
-                                  if (!_consumeRapidTapDebounce()) return;
-                                  await UserBehaviorPrefs.savePreferredVoiceEngineMode(
-                                    VoiceEngineMode.systemDialog.wireValue,
-                                  );
-                                  if (!mounted) return;
-                                  _voiceBloc.add(
-                                    const VoicePreferenceChanged(
-                                      VoiceRecognitionPreference.systemDialog,
-                                    ),
-                                  );
-                                  _startListeningFresh(
-                                    overridePref:
-                                        VoiceRecognitionPreference.systemDialog,
-                                  );
-                                },
-                          icon: const Icon(
-                            Icons.record_voice_over_outlined,
-                            size: 15,
-                          ),
-                          label: const Text(
-                            'Google',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
                       TextButton.icon(
                         style: TextButton.styleFrom(
                           visualDensity: VisualDensity.compact,
@@ -1476,11 +1438,11 @@ class _VoiceSmartCaptureSheetBodyState
                 ),
                 const SizedBox(height: 8),
 
-                // 3b. Progressive Disclosure: Offline/Online Mode, Auto-Endpoint Opt-in & Diagnostics
+                // 3b. Progressive Disclosure: Advanced Voice Options & Diagnostics
                 LifeOsDetailsDiscloseSection(
                   toggleKey: const Key('voice_mic_details_toggle'),
-                  label: 'Chi tiết thu âm',
-                  expandedLabel: 'Thu gọn chi tiết',
+                  label: 'Tùy chọn nâng cao',
+                  expandedLabel: 'Thu gọn tùy chọn nâng cao',
                   child: BlocBuilder<VoiceAssistantBloc, VoiceAssistantState>(
                     buildWhen: (p, n) =>
                         p.activePreference != n.activePreference ||
