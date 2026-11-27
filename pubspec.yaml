@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Security P0 Hardened + OOD >=95% Offline AI + Flat 2D Icons + Center + Dock + Play/GitHub Flavors v3.27.0)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Google Play Compliant + Pre-bundled Offline ASR & Dual FastText INT8 + Consumer-First UX v3.27.1)"
 publish_to: 'none'
-version: 3.27.0+45
+version: 3.27.1+46
 
 environment:
   sdk: ^3.10.0
