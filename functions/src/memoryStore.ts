@@ -10,7 +10,8 @@ import {
   ServerBankConnectionRecord,
   UserDeviceRecord,
   UserNotificationPreferences,
-  WalletRecord
+  WalletRecord,
+  isConnectionActiveAndGranted
 } from "./bankingEngine";
 
 /**
@@ -41,6 +42,8 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
   async runAtomic<T>(fn: (ctx: BankingTxContext) => Promise<T>): Promise<T> {
     const run = async (): Promise<T> => {
       const ctx: BankingTxContext = {
+        getConnectionById: async (connectionId) =>
+          this.serverConnections.get(connectionId) ?? null,
         getInboxEvent: async (key) => this.inbox.get(key) ?? null,
         setInboxEvent: async (rec) => {
           this.inbox.set(rec.providerEventKey, rec);
@@ -107,17 +110,23 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
     return next;
   }
 
+  async getConnectionById(connectionId: string): Promise<ServerBankConnectionRecord | null> {
+    return this.serverConnections.get(connectionId) ?? null;
+  }
+
   async findActiveConnectionForAccount(params: {
     bankCode: string;
     gateway: string;
     accountNumber: string;
     subAccount: string;
   }): Promise<ServerBankConnectionRecord | null> {
+    const incomingSub = String(params.subAccount ?? "").trim();
     for (const c of this.serverConnections.values()) {
-      if (c.status !== "connected" || c.consentStatus !== "granted") continue;
+      if (!isConnectionActiveAndGranted(c)) continue;
       if (c.accountNumber !== params.accountNumber) continue;
       if (c.bankCode.toUpperCase() !== params.bankCode.toUpperCase()) continue;
-      if (params.subAccount && c.subAccount && c.subAccount !== params.subAccount) continue;
+      const expectedSub = String(c.subAccount ?? "").trim();
+      if (expectedSub !== incomingSub) continue;
       return c;
     }
     return null;
@@ -133,7 +142,7 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
       if (
         c.bankCode.toUpperCase() === bankCode.toUpperCase() &&
         c.accountNumber === accountNumber &&
-        c.status === "connected"
+        isConnectionActiveAndGranted(c)
       ) {
         const docSub = String(c.subAccount ?? "").trim().toUpperCase();
         if (expectedSub !== docSub) continue;
@@ -158,7 +167,11 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
       accountMasked: record.accountMasked,
       subAccount: record.subAccount,
       linkedWalletId: record.linkedWalletId,
-      status: record.status
+      consentStatus: record.consentStatus,
+      consentEnabled: record.consentEnabled !== false,
+      grantVersion: record.grantVersion ?? 1,
+      status: record.status,
+      updatedAtMs: record.updatedAtMs
     });
   }
 
@@ -168,14 +181,34 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
       if (c && c.ownerId !== ownerId) {
         throw new Error("FORBIDDEN_CONNECTION_OWNER");
       }
+      const nextGrantVersion =
+        (c && typeof c.grantVersion === "number" ? c.grantVersion : 1) + 1;
       if (c && c.ownerId === ownerId) {
         this.serverConnections.set(connectionId, {
           ...c,
-          status: "disconnected",
+          status: "revoked",
           consentStatus: "revoked",
+          consentEnabled: false,
+          grantVersion: nextGrantVersion,
+          revokedAtMs: nowMs,
           updatedAtMs: nowMs
         });
       }
+      if (!this.userConnections.has(ownerId)) {
+        this.userConnections.set(ownerId, new Map());
+      }
+      const existingUserMirror = this.userConnections.get(ownerId)!.get(connectionId) ?? {};
+      this.userConnections.get(ownerId)!.set(connectionId, {
+        ...existingUserMirror,
+        id: connectionId,
+        ownerId,
+        status: "disconnected",
+        consentStatus: "revoked",
+        consentEnabled: false,
+        grantVersion: nextGrantVersion,
+        revokedAtMs: nowMs,
+        updatedAtMs: nowMs
+      });
       for (const [claimId, claim] of this.bankAccountClaims.entries()) {
         if (claim.ownerId === ownerId && claim.connectionId === connectionId) {
           this.bankAccountClaims.set(claimId, {
@@ -186,6 +219,10 @@ export class SerializedMemoryBankingStore implements BankingBackendStore {
         }
       }
     });
+  }
+
+  async revokeConnection(ownerId: string, connectionId: string, nowMs: number = Date.now()): Promise<void> {
+    return this.disconnectConnection(ownerId, connectionId, nowMs);
   }
 
   async getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null> {

@@ -105,7 +105,7 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
       updatedAtMs: baseNowMs
     });
 
-    await coordinator.verifyAndConnectBankAccount({
+    const vcbLink = await coordinator.verifyAndConnectBankAccount({
       authenticatedUserId: "user_minh",
       bankCode: "VCB",
       accountNumber: "1017588888",
@@ -114,7 +114,7 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
       nowMs: baseNowMs
     });
 
-    await coordinator.verifyAndConnectBankAccount({
+    const tpbLink = await coordinator.verifyAndConnectBankAccount({
       authenticatedUserId: "user_minh",
       bankCode: "TPB",
       accountNumber: "0123499999",
@@ -135,7 +135,13 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
       }
     ]);
 
-    return { store, fcm, coordinator };
+    return {
+      store,
+      fcm,
+      coordinator,
+      vcbConnection: vcbLink.connection!,
+      tpbConnection: tpbLink.connection!
+    };
   }
 
   it("T01 & T12/T13 — Money-in webhook (500,000đ) creates 1 verified income transaction & dispatches FCM", async () => {
@@ -618,7 +624,7 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
   });
 
   it("BG-02 & FIN-05 — Retries FAILED_RETRYABLE outbox with exponential backoff & paginates 250+ SePay transactions idempotently", async () => {
-    const { store, fcm, coordinator } = await createHarness();
+    const { store, fcm, coordinator, vcbConnection } = await createHarness();
 
     // 1. BG-02: Transient FCM failure twice, then succeeds on scheduled retry sweep without duplicate financial_notifications
     fcm.shouldFail = true;
@@ -668,7 +674,7 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     await assert.rejects(() =>
       coordinator.reconcilePaginatedSePayPages({
         ownerId: "user_minh",
-        connectionId: "conn_vcb_1",
+        connectionId: vcbConnection.id,
         accountNumber: "1017588888",
         bankName: "Vietcombank",
         pageSize: 100,
@@ -687,7 +693,7 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     // Resume backfill from page 0: first 100 are skipped as DUPLICATE, remaining 150 process cleanly -> 250 total!
     const resumed = await coordinator.reconcilePaginatedSePayPages({
       ownerId: "user_minh",
-      connectionId: "conn_vcb_1",
+      connectionId: vcbConnection.id,
       accountNumber: "1017588888",
       bankName: "Vietcombank",
       pageSize: 100,
@@ -876,5 +882,542 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
     });
     assert.equal(relinkRes.ok, true);
     assert.equal(relinkRes.connection?.ownerId, loserOwner);
+  });
+
+  it("H2 — Atomic revocation updates server connection + user mirror + releases claims + rejects subsequent webhooks", async () => {
+    const { store, fcm, coordinator, vcbConnection } = await createHarness();
+    assert.equal(vcbConnection.grantVersion, 1);
+    assert.equal(vcbConnection.consentEnabled, true);
+
+    // Non-owner cannot revoke another user's connection
+    await assert.rejects(
+      () => coordinator.revokeConnection("u_intruder", vcbConnection.id, baseNowMs + 1000),
+      /FORBIDDEN_CONNECTION_OWNER/
+    );
+
+    // Owner revokes atomically
+    await coordinator.revokeConnection("user_minh", vcbConnection.id, baseNowMs + 2000);
+
+    const serverConn = store.serverConnections.get(vcbConnection.id);
+    assert.ok(serverConn);
+    assert.equal(serverConn.status, "revoked");
+    assert.equal(serverConn.consentStatus, "revoked");
+    assert.equal(serverConn.consentEnabled, false);
+    assert.equal(serverConn.grantVersion, 2);
+    assert.equal(serverConn.revokedAtMs, baseNowMs + 2000);
+
+    const userMirror = store.userConnections.get("user_minh")?.get(vcbConnection.id);
+    assert.ok(userMirror);
+    assert.equal(userMirror.status, "disconnected");
+    assert.equal(userMirror.consentStatus, "revoked");
+    assert.equal(userMirror.consentEnabled, false);
+    assert.equal(userMirror.revokedAtMs, baseNowMs + 2000);
+
+    // Claims are released
+    const claims = Array.from(store.bankAccountClaims.values()).filter(
+      (c) => c.connectionId === vcbConnection.id
+    );
+    assert.ok(claims.length >= 1);
+    for (const c of claims) {
+      assert.equal(c.status, "disconnected");
+    }
+
+    // Subsequent webhook after revocation MUST be ignored/rejected at ingestion and processing!
+    const postRevokeReq = buildSignedWebhookRequest(
+      {
+        id: 991001,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 09:35:00",
+        accountNumber: "1017588888",
+        content: "After revoke transfer",
+        transferType: "in",
+        transferAmount: 750000,
+        accumulated: 10750000,
+        referenceCode: "FT_AFTER_REVOKE"
+      },
+      baseNowMs + 3000
+    );
+    const httpRes = await coordinator.handleSePayWebhookHttp(postRevokeReq);
+    assert.equal(httpRes.statusCode, 200);
+    const inbox = await store.getInboxEvent(httpRes.providerEventKey!);
+    assert.equal(inbox?.state, "FAILED_PERMANENT");
+    assert.equal(inbox?.connectionId, null);
+    assert.equal(inbox?.ownerId, null);
+
+    const procRes = await coordinator.processInboxEvent(httpRes.providerEventKey!, baseNowMs + 3000);
+    assert.equal(procRes.state, "FAILED_PERMANENT");
+    assert.equal(store.transactions.size, 0);
+    assert.equal(store.wallets.get("user_minh::wallet_vcb")?.balanceMinor, 10000000);
+    assert.equal(fcm.calls.length, 0);
+
+    // Reconnecting increments grantVersion monotonically (2 -> 3)
+    const reconnectRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_minh",
+      bankCode: "VCB",
+      accountNumber: "1017588888",
+      linkedWalletId: "wallet_vcb",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_vcb_1" },
+      nowMs: baseNowMs + 4000
+    });
+    assert.equal(reconnectRes.ok, true);
+    assert.equal(reconnectRes.connection?.grantVersion, 3);
+    assert.equal(reconnectRes.connection?.status, "connected");
+    assert.equal(reconnectRes.connection?.consentEnabled, true);
+  });
+
+  it("H3 — Pending inbox event & queued outbox notification from User A / Grant v1 are SKIPPED after disconnect & re-link to User B (or reconnect v3)", async () => {
+    const store = new SerializedMemoryBankingStore();
+    const fcm = new RecordingFcmSender();
+    const coordinator = new RealtimeBankingCoordinator(store, fcm, () => TEST_SECRET);
+
+    store.wallets.set("user_a::w_a", {
+      id: "w_a",
+      ownerId: "user_a",
+      name: "VCB User A",
+      balanceMinor: 1000000,
+      isEstimatedBalance: true,
+      updatedAtMs: baseNowMs
+    });
+    store.wallets.set("user_b::w_b", {
+      id: "w_b",
+      ownerId: "user_b",
+      name: "VCB User B",
+      balanceMinor: 2000000,
+      isEstimatedBalance: true,
+      updatedAtMs: baseNowMs
+    });
+    store.userDevices.set("user_a", [
+      {
+        deviceId: "dev_a",
+        ownerId: "user_a",
+        fcmToken: "fcm_tok_user_a",
+        platform: "android",
+        pushEnabled: true,
+        updatedAtMs: baseNowMs
+      }
+    ]);
+    store.userDevices.set("user_b", [
+      {
+        deviceId: "dev_b",
+        ownerId: "user_b",
+        fcmToken: "fcm_tok_user_b",
+        platform: "android",
+        pushEnabled: true,
+        updatedAtMs: baseNowMs
+      }
+    ]);
+
+    const linkA = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_a",
+      bankCode: "VCB",
+      accountNumber: "1017599999",
+      linkedWalletId: "w_a",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_shared_1" },
+      nowMs: baseNowMs
+    });
+    assert.equal(linkA.ok, true);
+    assert.equal(linkA.connection?.grantVersion, 1);
+
+    // 1. Webhook #1 arrives & is ingested while User A / Grant v1 is active, BEFORE async worker runs
+    const pendingReq = buildSignedWebhookRequest(
+      {
+        id: 880101,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 09:30:00",
+        accountNumber: "1017599999",
+        content: "User A pending transfer",
+        transferType: "in",
+        transferAmount: 500000,
+        accumulated: 1500000,
+        referenceCode: "FT_H3_PENDING"
+      },
+      baseNowMs + 500
+    );
+    const httpPending = await coordinator.handleSePayWebhookHttp(pendingReq);
+    assert.equal(httpPending.statusCode, 200);
+    const inboxPending = await store.getInboxEvent(httpPending.providerEventKey!);
+    assert.equal(inboxPending?.ownerId, "user_a");
+    assert.equal(inboxPending?.connectionId, linkA.connection!.id);
+    assert.equal(inboxPending?.walletId, "w_a");
+    assert.equal(inboxPending?.grantVersion, 1);
+
+    // 2. Webhook #2 arrives AND finishes processing into User A's ledger & outbox, BEFORE FCM push runs
+    const queuedOutboxReq = buildSignedWebhookRequest(
+      {
+        id: 880102,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 09:30:10",
+        accountNumber: "1017599999",
+        content: "User A queued outbox transfer",
+        transferType: "in",
+        transferAmount: 250000,
+        accumulated: 1750000,
+        referenceCode: "FT_H3_OUTBOX"
+      },
+      baseNowMs + 600
+    );
+    const httpQueued = await coordinator.handleSePayWebhookHttp(queuedOutboxReq);
+    const procQueued = await coordinator.processInboxEvent(httpQueued.providerEventKey!, baseNowMs + 700);
+    assert.equal(procQueued.state, "PROCESSED");
+    const queuedOutbox = await store.getOutboxRecord(procQueued.notificationId!);
+    assert.equal(queuedOutbox?.ownerId, "user_a");
+    assert.equal(queuedOutbox?.connectionId, linkA.connection!.id);
+    assert.equal(queuedOutbox?.grantVersion, 1);
+
+    // 3. NOW User A disconnects and User B links the exact same bank account BEFORE pending inbox & queued outbox execute!
+    await coordinator.revokeConnection("user_a", linkA.connection!.id, baseNowMs + 1000);
+    const linkB = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_b",
+      bankCode: "VCB",
+      accountNumber: "1017599999",
+      linkedWalletId: "w_b",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_shared_1" },
+      nowMs: baseNowMs + 1500
+    });
+    assert.equal(linkB.ok, true);
+    assert.equal(linkB.connection?.ownerId, "user_b");
+
+    // Process User A's pending inbox event -> MUST skip and NEVER write to User B (or User A)!
+    const skippedInboxRes = await coordinator.processInboxEvent(httpPending.providerEventKey!, baseNowMs + 2000);
+    assert.equal(skippedInboxRes.state, "skipped_revoked_or_reassigned");
+    const finalInbox = await store.getInboxEvent(httpPending.providerEventKey!);
+    assert.equal(finalInbox?.status, "skipped_revoked_or_reassigned");
+    assert.ok(finalInbox?.reason);
+
+    // User B MUST have 0 transactions, 0 notifications, untouched balance 2,000,000!
+    assert.equal(store.wallets.get("user_b::w_b")?.balanceMinor, 2000000);
+    const userBTxs = Array.from(store.transactions.values()).filter((t) => t.ownerId === "user_b");
+    const userBNotifs = Array.from(store.financialNotifications.values()).filter((n) => n.ownerId === "user_b");
+    assert.equal(userBTxs.length, 0);
+    assert.equal(userBNotifs.length, 0);
+
+    // Dispatch User A's queued outbox notification -> MUST drop cleanly WITHOUT sending FCM!
+    const skippedOutboxRes = await coordinator.dispatchNotificationOutbox(procQueued.notificationId!, baseNowMs + 2500);
+    assert.equal(skippedOutboxRes?.state, "skipped_revoked_or_reassigned");
+    assert.equal(fcm.calls.length, 0);
+
+    // 4. Also verify grantVersion mismatch when SAME user reconnects (`v1 -> v2 (revoke) -> v3 (reconnect)`)
+    await coordinator.revokeConnection("user_b", linkB.connection!.id, baseNowMs + 3000);
+    const linkA2 = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_a",
+      bankCode: "VCB",
+      accountNumber: "1017599999",
+      linkedWalletId: "w_a",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_shared_1" },
+      nowMs: baseNowMs + 3500
+    });
+    assert.equal(linkA2.ok, true);
+    assert.equal(linkA2.connection?.grantVersion, 3);
+
+    const staleGrantReq = buildSignedWebhookRequest(
+      {
+        id: 880103,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 09:32:00",
+        accountNumber: "1017599999",
+        content: "Stale grant test",
+        transferType: "in",
+        transferAmount: 100000,
+        accumulated: 1850000
+      },
+      baseNowMs + 4000
+    );
+    const httpV3 = await coordinator.handleSePayWebhookHttp(staleGrantReq);
+    // Simulate stale grantVersion=1 inbox event created prior to reconnect
+    const injectedInbox = await store.getInboxEvent(httpV3.providerEventKey!);
+    store.inbox.set(httpV3.providerEventKey!, {
+      ...injectedInbox!,
+      grantVersion: 1
+    });
+    const staleProc = await coordinator.processInboxEvent(httpV3.providerEventKey!, baseNowMs + 4500);
+    assert.equal(staleProc.state, "skipped_revoked_or_reassigned");
+    assert.equal(fcm.calls.length, 0);
+  });
+
+  it("M8 — Two wallets of the same user with identical amount/direction within 15m without refCode do NOT cross-merge", async () => {
+    const { store, coordinator } = await createHarness();
+    const occMs = Date.parse("2026-11-23T09:30:00+07:00");
+
+    // Second VCB wallet for the SAME user & SAME bankCode, different account tail (`•••• 7777`)
+    store.wallets.set("user_minh::wallet_vcb_2", {
+      id: "wallet_vcb_2",
+      ownerId: "user_minh",
+      name: "Vietcombank Phụ",
+      balanceMinor: 3000000,
+      isEstimatedBalance: true,
+      bankCode: "VCB",
+      maskedAccount: "•••• 7777",
+      updatedAtMs: baseNowMs
+    });
+
+    const softFp = computeSoftWindowFingerprint({
+      ownerId: "user_minh",
+      direction: "credit",
+      amountMinor: 250000,
+      occurredAtMs: occMs
+    });
+
+    // Android notification arrived on DIFFERENT wallet (`wallet_tpb`, 250,000đ credit, NO refCode)
+    store.transactions.set("user_minh::android_tpb_250k", {
+      id: "android_tpb_250k",
+      ownerId: "user_minh",
+      walletId: "wallet_tpb",
+      sourceProvider: "android_device",
+      sourceKind: "androidNotification",
+      kind: "income",
+      direction: "credit",
+      amountMinor: 250000,
+      currencyCode: "VND",
+      bankCode: "TPB",
+      accountMasked: "•••• 9999",
+      accountTail: "9999",
+      merchant: "TPB: Chuyen khoan 250k",
+      description: "TPB: Chuyen khoan 250k",
+      categoryName: "Thu nhập khác",
+      occurredAtMs: occMs - 10_000,
+      receivedAtMs: occMs - 9_000,
+      monthKey: "2026-11",
+      verification: "provisional",
+      verificationStatus: "PROVISIONAL",
+      reconciliationStatus: "unreconciled_provisional",
+      sourceEventKey: "android_tpb_ev_1",
+      crossSourceFingerprint: "fp_tpb_250k",
+      softWindowFingerprint: softFp,
+      balanceAfterMinor: null,
+      balanceType: "unknownBalance",
+      ledgerApplied: false,
+      isVehicleMaintenanceHint: false,
+      isRecurringCandidate: false,
+      createdAtMs: occMs - 9_000,
+      updatedAtMs: occMs - 9_000
+    });
+
+    // Also add an Android notification on `wallet_vcb_2` (250,000đ credit, same VCB bank, NO refCode)
+    store.transactions.set("user_minh::android_vcb2_250k", {
+      id: "android_vcb2_250k",
+      ownerId: "user_minh",
+      walletId: "wallet_vcb_2",
+      sourceProvider: "android_device",
+      sourceKind: "androidNotification",
+      kind: "income",
+      direction: "credit",
+      amountMinor: 250000,
+      currencyCode: "VND",
+      bankCode: "VCB",
+      accountMasked: "•••• 7777",
+      accountTail: "7777",
+      merchant: "VCB 7777: Chuyen khoan 250k",
+      description: "VCB 7777: Chuyen khoan 250k",
+      categoryName: "Thu nhập khác",
+      occurredAtMs: occMs - 5_000,
+      receivedAtMs: occMs - 4_000,
+      monthKey: "2026-11",
+      verification: "provisional",
+      verificationStatus: "PROVISIONAL",
+      reconciliationStatus: "unreconciled_provisional",
+      sourceEventKey: "android_vcb2_ev_1",
+      crossSourceFingerprint: "fp_vcb2_250k",
+      softWindowFingerprint: softFp,
+      balanceAfterMinor: null,
+      balanceType: "unknownBalance",
+      ledgerApplied: false,
+      isVehicleMaintenanceHint: false,
+      isRecurringCandidate: false,
+      createdAtMs: occMs - 4_000,
+      updatedAtMs: occMs - 4_000
+    });
+
+    // Also add a same-wallet candidate with a CONFLICTING accountTail ("0000" vs VCB connection tail "8888")
+    store.transactions.set("user_minh::android_wrong_tail", {
+      id: "android_wrong_tail",
+      ownerId: "user_minh",
+      walletId: "wallet_vcb",
+      sourceProvider: "android_device",
+      sourceKind: "androidNotification",
+      kind: "income",
+      direction: "credit",
+      amountMinor: 250000,
+      currencyCode: "VND",
+      bankCode: "VCB",
+      accountMasked: "•••• 0000",
+      accountTail: "0000",
+      merchant: "VCB 0000: Chuyen khoan 250k",
+      description: "VCB 0000: Chuyen khoan 250k",
+      categoryName: "Thu nhập khác",
+      occurredAtMs: occMs - 3_000,
+      receivedAtMs: occMs - 2_000,
+      monthKey: "2026-11",
+      verification: "provisional",
+      verificationStatus: "PROVISIONAL",
+      reconciliationStatus: "unreconciled_provisional",
+      sourceEventKey: "android_tail_ev_1",
+      crossSourceFingerprint: "fp_tail_250k",
+      softWindowFingerprint: softFp,
+      balanceAfterMinor: null,
+      balanceType: "unknownBalance",
+      ledgerApplied: false,
+      isVehicleMaintenanceHint: false,
+      isRecurringCandidate: false,
+      createdAtMs: occMs - 2_000,
+      updatedAtMs: occMs - 2_000
+    });
+
+    // SePay webhook arrives for `wallet_vcb` (`1017588888`, 250,000đ credit, NO refCode)
+    const vcbWebhook = buildSignedWebhookRequest(
+      {
+        id: 770250,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 09:30:00",
+        accountNumber: "1017588888",
+        content: "Khach chuyen 250k",
+        transferType: "in",
+        transferAmount: 250000,
+        accumulated: 10250000,
+        referenceCode: ""
+      },
+      baseNowMs
+    );
+    const httpRes = await coordinator.handleSePayWebhookHttp(vcbWebhook);
+    const procRes = await coordinator.processInboxEvent(httpRes.providerEventKey!, baseNowMs);
+    assert.equal(procRes.state, "PROCESSED");
+
+    // Must create a NEW distinct verified transaction on `wallet_vcb`, leaving all 3 non-matching Android txs untouched!
+    assert.notEqual(procRes.transactionId, "android_tpb_250k");
+    assert.notEqual(procRes.transactionId, "android_vcb2_250k");
+    assert.notEqual(procRes.transactionId, "android_wrong_tail");
+    assert.equal(store.transactions.size, 4);
+    assert.equal(store.transactions.get("user_minh::android_tpb_250k")?.verification, "provisional");
+    assert.equal(store.transactions.get("user_minh::android_tpb_250k")?.walletId, "wallet_tpb");
+    assert.equal(store.transactions.get("user_minh::android_vcb2_250k")?.verification, "provisional");
+    assert.equal(store.transactions.get("user_minh::android_vcb2_250k")?.walletId, "wallet_vcb_2");
+    assert.equal(store.transactions.get("user_minh::android_wrong_tail")?.verification, "provisional");
+    assert.equal(store.wallets.get("user_minh::wallet_vcb")?.balanceMinor, 10250000);
+    assert.equal(store.wallets.get("user_minh::wallet_vcb_2")?.balanceMinor, 3000000);
+    assert.equal(store.wallets.get("user_minh::wallet_tpb")?.balanceMinor, 5000000);
+  });
+
+  it("M9 — Monotonic lastObservedBalanceAtEpochMs guard prevents stale webhook & historical sync from regressing wallet balance", async () => {
+    const { store, coordinator, vcbConnection } = await createHarness();
+
+    // 1. Newer live webhook arrives FIRST (10:30:00, observed balance = 12,000,000đ)
+    const newerReq = buildSignedWebhookRequest(
+      {
+        id: 660200,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 10:30:00",
+        accountNumber: "1017588888",
+        content: "Giao dich moi 10h30",
+        transferType: "in",
+        transferAmount: 2000000,
+        accumulated: 12000000,
+        referenceCode: "FT_M9_NEW"
+      },
+      baseNowMs + 3_600_000
+    );
+    const hNew = await coordinator.handleSePayWebhookHttp(newerReq);
+    const pNew = await coordinator.processInboxEvent(hNew.providerEventKey!, baseNowMs + 3_600_000);
+    assert.equal(pNew.state, "PROCESSED");
+    const walletAfterNew = store.wallets.get("user_minh::wallet_vcb")!;
+    assert.equal(walletAfterNew.balanceMinor, 12000000);
+    assert.equal(walletAfterNew.isEstimatedBalance, false);
+    assert.equal(
+      walletAfterNew.lastObservedBalanceAtEpochMs,
+      Date.parse("2026-11-23T10:30:00+07:00")
+    );
+    assert.equal(walletAfterNew.lastObservedBalanceEventId, hNew.providerEventKey);
+
+    // 2. Older out-of-order webhook arrives AFTER (10:15:00, stale observed balance = 10,500,000đ)
+    const olderReq = buildSignedWebhookRequest(
+      {
+        id: 660199,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 10:15:00",
+        accountNumber: "1017588888",
+        content: "Giao dich cu den tre 10h15",
+        transferType: "in",
+        transferAmount: 500000,
+        accumulated: 10500000,
+        referenceCode: "FT_M9_OLD"
+      },
+      baseNowMs + 3_605_000
+    );
+    const hOld = await coordinator.handleSePayWebhookHttp(olderReq);
+    const pOld = await coordinator.processInboxEvent(hOld.providerEventKey!, baseNowMs + 3_605_000);
+    assert.equal(pOld.state, "PROCESSED");
+
+    // Historical tx MUST be recorded idempotently and marked balanceObservationSkippedStale: true
+    const staleTx = store.transactions.get(`user_minh::${pOld.transactionId}`);
+    assert.ok(staleTx);
+    assert.equal(staleTx.balanceObservationSkippedStale, true);
+    assert.equal(staleTx.amountMinor, 500000);
+
+    // Wallet balance MUST NOT regress to 10,500,000đ (or add 500k onto 12,000,000đ)!
+    const walletAfterOld = store.wallets.get("user_minh::wallet_vcb")!;
+    assert.equal(walletAfterOld.balanceMinor, 12000000);
+    assert.equal(
+      walletAfterOld.lastObservedBalanceAtEpochMs,
+      Date.parse("2026-11-23T10:30:00+07:00")
+    );
+    assert.equal(walletAfterOld.lastObservedBalanceEventId, hNew.providerEventKey);
+
+    // 3. Historical API sync returns mixed-order items:
+    //    - 09:00 item with stale accumulated = 9,000,000 (MUST NOT regress!)
+    //    - 09:30 item with accumulated = 0 (MUST NOT double-add!)
+    //    - 10:45 item with newer accumulated = 13,500,000 (MUST advance monotonically!)
+    const syncSummary = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: "user_minh",
+      connectionId: vcbConnection.id,
+      accountNumber: "1017588888",
+      bankName: "Vietcombank",
+      pageSize: 100,
+      maxPages: 2,
+      nowMs: baseNowMs + 4_500_000,
+      fetchPage: async (pageIndex) => {
+        if (pageIndex > 0) return [];
+        return [
+          {
+            id: 660210,
+            bank_brand_name: "Vietcombank",
+            transaction_date: "2026-11-23 10:45:00",
+            transaction_content: "API sync newest 10h45",
+            amount_in: 1500000,
+            amount_out: 0,
+            accumulated: 13500000,
+            reference_number: "REF_M9_1045"
+          },
+          {
+            id: 660150,
+            bank_brand_name: "Vietcombank",
+            transaction_date: "2026-11-23 09:00:00",
+            transaction_content: "API sync historical 09h00",
+            amount_in: 1000000,
+            amount_out: 0,
+            accumulated: 9000000,
+            reference_number: "REF_M9_0900"
+          },
+          {
+            id: 660160,
+            bank_brand_name: "Vietcombank",
+            transaction_date: "2026-11-23 09:30:00",
+            transaction_content: "API sync historical no-acc 09h30",
+            amount_in: 400000,
+            amount_out: 0,
+            accumulated: 0,
+            reference_number: "REF_M9_0930"
+          }
+        ];
+      }
+    });
+    assert.equal(syncSummary.processedCount, 3);
+    assert.equal(store.transactions.size, 5);
+
+    // Because page was sorted chronologically (09:00 -> 09:30 -> 10:45):
+    // 09:00 & 09:30 were older than 10:30 so skipped stale; 10:45 advanced balance to 13,500,000!
+    const walletAfterSync = store.wallets.get("user_minh::wallet_vcb")!;
+    assert.equal(walletAfterSync.balanceMinor, 13500000);
+    assert.equal(
+      walletAfterSync.lastObservedBalanceAtEpochMs,
+      Date.parse("2026-11-23T10:45:00+07:00")
+    );
   });
 });

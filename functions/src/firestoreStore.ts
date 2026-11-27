@@ -14,7 +14,8 @@ import {
   UserDeviceRecord,
   UserNotificationPreferences,
   buildNormalizedAccountClaimId,
-  buildProviderAccountIdClaimId
+  buildProviderAccountIdClaimId,
+  isConnectionActiveAndGranted
 } from "./bankingEngine";
 import { resolveBankCapability } from "./capabilities";
 import { maskAccountNumber } from "./security";
@@ -100,12 +101,51 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): Record<strin
   return clean;
 }
 
+function mapServerConnectionDoc(
+  id: string,
+  d: Record<string, unknown>
+): ServerBankConnectionRecord {
+  return {
+    id: String(d.id ?? id),
+    ownerId: String(d.ownerId ?? ""),
+    provider: (d.provider as ServerBankConnectionRecord["provider"]) ?? "sepay",
+    providerConnectionId: String(d.providerConnectionId ?? ""),
+    bankCode: String(d.bankCode ?? ""),
+    bankName: String(d.bankName ?? ""),
+    accountNumber: String(d.accountNumber ?? ""),
+    accountMasked: String(d.accountMasked ?? ""),
+    subAccount: String(d.subAccount ?? ""),
+    linkedWalletId: String(d.linkedWalletId ?? ""),
+    consentStatus: d.consentStatus === "revoked" ? "revoked" : "granted",
+    consentEnabled: d.consentEnabled !== false,
+    status: (d.status as ServerBankConnectionRecord["status"]) ?? "pending_verification",
+    grantVersion: typeof d.grantVersion === "number" && Number.isFinite(d.grantVersion) ? d.grantVersion : 1,
+    webhookSecretHash: typeof d.webhookSecretHash === "string" ? d.webhookSecretHash : undefined,
+    encryptedApiToken: typeof d.encryptedApiToken === "string" ? d.encryptedApiToken : undefined,
+    capabilities: d.capabilities as ServerBankConnectionRecord["capabilities"],
+    lastSyncedAtMs: typeof d.lastSyncedAtMs === "number" ? d.lastSyncedAtMs : null,
+    revokedAtMs:
+      typeof d.revokedAtMs === "number"
+        ? d.revokedAtMs
+        : d.revokedAt instanceof Timestamp
+          ? d.revokedAt.toMillis()
+          : null,
+    createdAtMs: typeof d.createdAtMs === "number" ? d.createdAtMs : 0,
+    updatedAtMs: typeof d.updatedAtMs === "number" ? d.updatedAtMs : 0
+  };
+}
+
 export class FirestoreAdminBankingStore implements BankingBackendStore {
   constructor(private readonly db: admin.firestore.Firestore) {}
 
   async runAtomic<T>(fn: (ctx: BankingTxContext) => Promise<T>): Promise<T> {
     return this.db.runTransaction(async (tx) => {
       const ctx: BankingTxContext = {
+        getConnectionById: async (connectionId) => {
+          const snap = await tx.get(this.db.collection("server_bank_connections").doc(connectionId));
+          if (!snap.exists) return null;
+          return mapServerConnectionDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+        },
         getInboxEvent: async (providerEventKey) => {
           const snap = await tx.get(this.db.collection("sepay_webhook_inbox").doc(providerEventKey));
           return snap.exists ? (snap.data() as InboxEventRecord) : null;
@@ -164,6 +204,7 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
               currencyCode: "VND",
               bankCode: typeof d.bankCode === "string" ? d.bankCode : undefined,
               accountMasked: typeof d.accountMasked === "string" ? d.accountMasked : undefined,
+              accountTail: typeof d.accountTail === "string" ? d.accountTail : undefined,
               counterpartyDisplay: typeof d.counterpartyDisplay === "string" ? d.counterpartyDisplay : undefined,
               merchant: String(d.merchant ?? ""),
               description: String(d.description ?? d.merchant ?? ""),
@@ -180,6 +221,7 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
               softWindowFingerprint: String(d.softWindowFingerprint ?? ""),
               balanceAfterMinor: typeof d.balanceAfterMinor === "number" ? d.balanceAfterMinor : null,
               balanceType: (d.balanceType as CanonicalTransactionRecord["balanceType"]) ?? "unknownBalance",
+              balanceObservationSkippedStale: d.balanceObservationSkippedStale === true,
               ledgerApplied:
                 typeof d.ledgerApplied === "boolean"
                   ? d.ledgerApplied
@@ -203,6 +245,10 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
             balanceMinor: Number(d.balanceMinor ?? 0),
             isEstimatedBalance: d.isEstimatedBalance !== false,
             lastAuditId: typeof d.lastAuditId === "string" ? d.lastAuditId : undefined,
+            lastObservedBalanceAtEpochMs:
+              typeof d.lastObservedBalanceAtEpochMs === "number" ? d.lastObservedBalanceAtEpochMs : null,
+            lastObservedBalanceEventId:
+              typeof d.lastObservedBalanceEventId === "string" ? d.lastObservedBalanceEventId : null,
             bankCode: typeof d.bankCode === "string" ? d.bankCode : undefined,
             maskedAccount: typeof d.maskedAccount === "string" ? d.maskedAccount : undefined,
             updatedAtMs: Date.now()
@@ -220,6 +266,12 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
               balanceMinor: wallet.balanceMinor,
               isEstimatedBalance: wallet.isEstimatedBalance,
               ...(wallet.lastAuditId ? { lastAuditId: wallet.lastAuditId } : {}),
+              ...(wallet.lastObservedBalanceAtEpochMs !== undefined
+                ? { lastObservedBalanceAtEpochMs: wallet.lastObservedBalanceAtEpochMs }
+                : {}),
+              ...(wallet.lastObservedBalanceEventId !== undefined
+                ? { lastObservedBalanceEventId: wallet.lastObservedBalanceEventId }
+                : {}),
               bankCode: wallet.bankCode ?? null,
               maskedAccount: wallet.maskedAccount ?? null,
               updatedAt: Timestamp.fromMillis(wallet.updatedAtMs)
@@ -314,12 +366,16 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
     const ts = Timestamp.fromMillis(record.updatedAtMs);
     setDoc(
       this.db.collection("server_bank_connections").doc(record.id),
-      stripUndefined({ ...record })
+      stripUndefined({
+        ...record,
+        consentEnabled: record.consentEnabled !== false,
+        grantVersion: record.grantVersion ?? 1
+      })
     );
     // User-readable document NEVER stores full accountNumber or provider tokens (Section 7 & 14)
     setDoc(
       this.db.collection("users").doc(record.ownerId).collection("bank_connections").doc(record.id),
-      {
+      stripUndefined({
         id: record.id,
         ownerId: record.ownerId,
         provider: record.provider,
@@ -330,13 +386,22 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
         subAccount: record.subAccount,
         linkedWalletId: record.linkedWalletId,
         consentStatus: record.consentStatus,
+        consentEnabled: record.consentEnabled !== false,
+        grantVersion: record.grantVersion ?? 1,
         status: record.status,
         capabilities: record.capabilities,
         lastSyncedAt: ts,
+        revokedAt: record.revokedAtMs ? Timestamp.fromMillis(record.revokedAtMs) : null,
         createdAt: Timestamp.fromMillis(record.createdAtMs),
         updatedAt: ts
-      }
+      })
     );
+  }
+
+  async getConnectionById(connectionId: string): Promise<ServerBankConnectionRecord | null> {
+    const snap = await this.db.collection("server_bank_connections").doc(connectionId).get();
+    if (!snap.exists) return null;
+    return mapServerConnectionDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
   }
 
   async findActiveConnectionForAccount(params: {
@@ -348,12 +413,12 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
     const snap = await this.db
       .collection("server_bank_connections")
       .where("accountNumber", "==", params.accountNumber)
-      .where("status", "==", "connected")
+      .where("status", "in", ["connected", "active"])
       .get();
 
     for (const doc of snap.docs) {
-      const d = doc.data() as ServerBankConnectionRecord;
-      if (d.consentStatus !== "granted") continue;
+      const d = mapServerConnectionDoc(doc.id, (doc.data() ?? {}) as Record<string, unknown>);
+      if (!isConnectionActiveAndGranted(d)) continue;
       if (d.bankCode.toUpperCase() === params.bankCode.toUpperCase()) {
         const expectedSub = String(d.subAccount ?? "").trim();
         const incomingSub = String(params.subAccount ?? "").trim();
@@ -373,12 +438,13 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
       .collection("server_bank_connections")
       .where("bankCode", "==", bankCode)
       .where("accountNumber", "==", accountNumber)
-      .where("status", "==", "connected")
+      .where("status", "in", ["connected", "active"])
       .get();
     if (snap.empty) return null;
     const expectedSub = String(subAccount ?? "").trim().toUpperCase();
     for (const doc of snap.docs) {
-      const d = doc.data() as ServerBankConnectionRecord;
+      const d = mapServerConnectionDoc(doc.id, (doc.data() ?? {}) as Record<string, unknown>);
+      if (!isConnectionActiveAndGranted(d)) continue;
       const docSub = String(d.subAccount ?? "").trim().toUpperCase();
       if (expectedSub && docSub && docSub !== expectedSub) continue;
       if (expectedSub && !docSub) continue;
@@ -405,7 +471,9 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
         throw new Error("FORBIDDEN_CONNECTION_OWNER");
       }
 
-      const d = snap.exists ? (snap.data() as ServerBankConnectionRecord) : null;
+      const d = snap.exists
+        ? mapServerConnectionDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>)
+        : null;
       const claimRefsToRead: admin.firestore.DocumentReference[] = [];
       if (d) {
         claimRefsToRead.push(
@@ -425,20 +493,53 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
         }
       }
 
+      const claimQuerySnap = await tx.get(
+        this.db
+          .collection("server_bank_account_claims")
+          .where("ownerId", "==", ownerId)
+          .where("connectionId", "==", connectionId)
+      );
       const claimSnaps = await Promise.all(claimRefsToRead.map((ref) => tx.get(ref)));
 
-      tx.set(
-        serverRef,
-        { status: "disconnected", consentStatus: "revoked", updatedAtMs: nowMs },
-        { merge: true }
-      );
+      const nextGrantVersion = (d ? d.grantVersion : 1) + 1;
+
+      if (snap.exists) {
+        tx.set(
+          serverRef,
+          {
+            status: "revoked",
+            consentStatus: "revoked",
+            consentEnabled: false,
+            grantVersion: nextGrantVersion,
+            revokedAtMs: nowMs,
+            revokedAt: ts,
+            updatedAtMs: nowMs,
+            updatedAt: ts
+          },
+          { merge: true }
+        );
+      }
+
       tx.set(
         userConnRef,
-        { status: "disconnected", consentStatus: "revoked", updatedAt: ts },
+        {
+          id: connectionId,
+          ownerId,
+          status: "disconnected",
+          consentStatus: "revoked",
+          consentEnabled: false,
+          grantVersion: nextGrantVersion,
+          revokedAt: ts,
+          updatedAt: ts
+        },
         { merge: true }
       );
-      for (const claimSnap of claimSnaps) {
-        if (claimSnap.exists && claimSnap.data()?.ownerId === ownerId) {
+
+      const seenClaimPaths = new Set<string>();
+      for (const claimSnap of [...claimSnaps, ...claimQuerySnap.docs]) {
+        if (!claimSnap.exists || seenClaimPaths.has(claimSnap.ref.path)) continue;
+        seenClaimPaths.add(claimSnap.ref.path);
+        if (claimSnap.data()?.ownerId === ownerId) {
           tx.set(
             claimSnap.ref,
             { status: "disconnected", updatedAtMs: nowMs },
@@ -447,6 +548,10 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
         }
       }
     });
+  }
+
+  async revokeConnection(ownerId: string, connectionId: string, nowMs: number = Date.now()): Promise<void> {
+    return this.disconnectConnection(ownerId, connectionId, nowMs);
   }
 
   async getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null> {

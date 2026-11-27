@@ -43,15 +43,23 @@ class EmulatorMockFcm implements FcmPushSender {
   }
 }
 
+function resolveEmulatorEndpoint(): { host: string; port: number; raw: string } {
+  const raw = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8188";
+  const [host, portStr] = raw.split(":");
+  const port = Number.parseInt(portStr || "8188", 10) || 8188;
+  return { host: host || "127.0.0.1", port, raw: `${host || "127.0.0.1"}:${port}` };
+}
+
 describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingStore", () => {
   it("Executes atomic SePay Webhook -> Durable Inbox -> Canonical Ledger -> Outbox on real Firestore Emulator", async (t) => {
-    const reachable = await isPortOpen("127.0.0.1", 8188);
+    const emu = resolveEmulatorEndpoint();
+    const reachable = await isPortOpen(emu.host, emu.port);
     if (!reachable) {
-      t.skip("Firestore Emulator on 127.0.0.1:8188 is not running");
+      t.skip(`Firestore Emulator on ${emu.raw} is not running`);
       return;
     }
 
-    process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8188";
+    process.env.FIRESTORE_EMULATOR_HOST = emu.raw;
     const app = admin.initializeApp({ projectId: "demo-life-os" }, `emu_bank_test_${Date.now()}`);
     try {
       const db = app.firestore();
@@ -223,13 +231,14 @@ describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingSto
   });
 
   it("Finding 3 — Real Firestore transaction allows strictly one winner in concurrent bank account link race", async (t) => {
-    const reachable = await isPortOpen("127.0.0.1", 8188);
+    const emu = resolveEmulatorEndpoint();
+    const reachable = await isPortOpen(emu.host, emu.port);
     if (!reachable) {
-      t.skip("Firestore Emulator on 127.0.0.1:8188 is not running");
+      t.skip(`Firestore Emulator on ${emu.raw} is not running`);
       return;
     }
 
-    process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8188";
+    process.env.FIRESTORE_EMULATOR_HOST = emu.raw;
     const app = admin.initializeApp({ projectId: "demo-life-os" }, `emu_f3_race_${Date.now()}`);
     try {
       const db = app.firestore();
@@ -302,6 +311,234 @@ describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingSto
       assert.equal(losers.length, 1);
       assert.equal(losers[0].errorCode, "ACCOUNT_ALREADY_LINKED_OTHER_USER");
       assert.equal(winners[0].connection?.bankCode, "VCB");
+    } finally {
+      await app.delete();
+    }
+  });
+
+  it("H2 & H3 — Real Firestore atomic revocation increments grantVersion, updates user mirror & blocks stale inbox/outbox cross-user leak", async (t) => {
+    const emu = resolveEmulatorEndpoint();
+    const reachable = await isPortOpen(emu.host, emu.port);
+    if (!reachable) {
+      t.skip(`Firestore Emulator on ${emu.raw} is not running`);
+      return;
+    }
+
+    process.env.FIRESTORE_EMULATOR_HOST = emu.raw;
+    const app = admin.initializeApp({ projectId: "demo-life-os" }, `emu_h2_h3_${Date.now()}`);
+    try {
+      const db = app.firestore();
+      const store = new FirestoreAdminBankingStore(db);
+      const fcm = new EmulatorMockFcm();
+      const secret = "emulator_hmac_secret_2026_h2_h3_verified";
+      const coordinator = new RealtimeBankingCoordinator(store, fcm, () => secret);
+      const nowMs = Date.now();
+      const uA = `u_h2_a_${nowMs}`;
+      const uB = `u_h2_b_${nowMs}`;
+      const accNum = `077${nowMs.toString().slice(-7)}`;
+
+      await Promise.all([
+        db.collection("users").doc(uA).collection("wallets").doc("w_a").set({
+          id: "w_a",
+          ownerId: uA,
+          name: "VCB A",
+          type: "bank",
+          balanceMinor: 1000000,
+          isEstimatedBalance: true
+        }),
+        db.collection("users").doc(uB).collection("wallets").doc("w_b").set({
+          id: "w_b",
+          ownerId: uB,
+          name: "VCB B",
+          type: "bank",
+          balanceMinor: 5000000,
+          isEstimatedBalance: true
+        })
+      ]);
+
+      const linkA = await coordinator.verifyAndConnectBankAccount({
+        authenticatedUserId: uA,
+        bankCode: "VCB",
+        accountNumber: accNum,
+        linkedWalletId: "w_a",
+        sepayAccounts: [{ id: `ba_${nowMs}`, account_number: accNum, bank_short_name: "VCB", active: "1" }],
+        nowMs
+      });
+      assert.equal(linkA.ok, true);
+      assert.equal(linkA.connection?.grantVersion, 1);
+
+      const rawBody = Buffer.from(
+        JSON.stringify({
+          id: 999123,
+          gateway: "Vietcombank",
+          transactionDate: "2026-11-23 11:00:00",
+          accountNumber: accNum,
+          subAccount: "",
+          content: "Pending webhook before revoke",
+          transferType: "in",
+          transferAmount: 400000,
+          accumulated: 1400000,
+          referenceCode: "FT_EMU_H3"
+        }),
+        "utf8"
+      );
+      const tsSec = Math.floor(nowMs / 1000);
+      const sig = computeHmacSha256Hex(secret, `${tsSec}.${rawBody.toString("utf8")}`);
+      const httpRes = await coordinator.handleSePayWebhookHttp({
+        method: "POST",
+        rawBody,
+        nowMs,
+        headers: { "x-sepay-signature": `sha256=${sig}`, "x-sepay-timestamp": String(tsSec) }
+      });
+      assert.equal(httpRes.statusCode, 200);
+
+      // Revoke User A connection atomically and link account to User B BEFORE processing inbox
+      await coordinator.revokeConnection(uA, linkA.connection!.id, nowMs + 1000);
+      const serverConnSnap = await db.collection("server_bank_connections").doc(linkA.connection!.id).get();
+      assert.equal(serverConnSnap.data()?.status, "revoked");
+      assert.equal(serverConnSnap.data()?.consentStatus, "revoked");
+      assert.equal(serverConnSnap.data()?.consentEnabled, false);
+      assert.equal(serverConnSnap.data()?.grantVersion, 2);
+
+      const userMirrorSnap = await db.collection("users").doc(uA).collection("bank_connections").doc(linkA.connection!.id).get();
+      assert.equal(userMirrorSnap.data()?.status, "disconnected");
+      assert.equal(userMirrorSnap.data()?.consentStatus, "revoked");
+      assert.ok(userMirrorSnap.data()?.revokedAt);
+
+      const linkB = await coordinator.verifyAndConnectBankAccount({
+        authenticatedUserId: uB,
+        bankCode: "VCB",
+        accountNumber: accNum,
+        linkedWalletId: "w_b",
+        sepayAccounts: [{ id: `ba_${nowMs}`, account_number: accNum, bank_short_name: "VCB", active: "1" }],
+        nowMs: nowMs + 2000
+      });
+      assert.equal(linkB.ok, true);
+
+      // Process User A's pending inbox event -> MUST skip without writing to User B!
+      const procRes = await coordinator.processInboxEvent(httpRes.providerEventKey!, nowMs + 3000);
+      assert.equal(procRes.state, "skipped_revoked_or_reassigned");
+      const inboxSnap = await db.collection("sepay_webhook_inbox").doc(httpRes.providerEventKey!).get();
+      assert.equal(inboxSnap.data()?.status, "skipped_revoked_or_reassigned");
+      assert.equal((await db.collection("users").doc(uB).collection("wallets").doc("w_b").get()).data()?.balanceMinor, 5000000);
+      assert.equal((await db.collection("users").doc(uB).collection("transactions").get()).empty, true);
+    } finally {
+      await app.delete();
+    }
+  });
+
+  it("H5 — Authoritative resumable deleteServerOnlyUserAccountData enforces multi-member family owner guard, deletes nested subcollections recursively & completes job", async (t) => {
+    const emu = resolveEmulatorEndpoint();
+    const reachable = await isPortOpen(emu.host, emu.port);
+    if (!reachable) {
+      t.skip(`Firestore Emulator on ${emu.raw} is not running`);
+      return;
+    }
+
+    process.env.FIRESTORE_EMULATOR_HOST = emu.raw;
+    const app = admin.initializeApp({ projectId: "demo-life-os" }, `emu_h5_del_${Date.now()}`);
+    try {
+      const db = app.firestore();
+      const nowMs = Date.now();
+      const uid = `u_h5_${nowMs}`;
+      const memberUid = `u_h5_member_${nowMs}`;
+      const otherOwnerUid = `u_h5_other_owner_${nowMs}`;
+
+      // Seed nested personal subcollections including daily_preferences, legacy medical paths, personal_funds/*/fund_audits, vehicles/*/fuel_logs
+      await db.collection("users").doc(uid).set({ id: uid, email: "h5@lifeos.vn", deletionInProgress: true });
+      await db.collection("users").doc(uid).collection("daily_preferences").doc("hydration_reminder").set({ targetWaterMl: 2000 });
+      await db.collection("users").doc(uid).collection("medications").doc("m1").set({ name: "Legacy Med" });
+      await db.collection("users").doc(uid).collection("health_logs").doc("h1").set({ value: 120 });
+      await db.collection("users").doc(uid).collection("medical_profiles").doc("mp1").set({ bloodType: "O" });
+      await db.collection("users").doc(uid).collection("personal_funds").doc("pf1").set({ id: "pf1", balanceMinor: 500000 });
+      await db.collection("users").doc(uid).collection("personal_funds").doc("pf1").collection("fund_audits").doc("fa1").set({ id: "fa1", deltaMinor: 500000 });
+      await db.collection("users").doc(uid).collection("vehicles").doc("v1").set({ id: "v1", name: "Xe máy" });
+      await db.collection("users").doc(uid).collection("vehicles").doc("v1").collection("fuel_logs").doc("fl1").set({ id: "fl1", costMinor: 70000 });
+
+      // Seed server-only collections
+      await db.collection("server_bank_connections").doc(`conn_${uid}`).set({ id: `conn_${uid}`, ownerId: uid, status: "connected" });
+      await db.collection("family_invite_rate_limits").doc(uid).set({ failedCount: 2, windowStartMs: nowMs });
+
+      // 1. Multi-member family owned by uid MUST block deletion with failed-precondition!
+      const famOwnedMulti = `fam_owned_multi_${nowMs}`;
+      await db.collection("families").doc(famOwnedMulti).set({
+        id: famOwnedMulti,
+        createdBy: uid,
+        memberIds: [uid, memberUid],
+        memberRoles: { [uid]: "owner", [memberUid]: "member" },
+        memberNames: { [uid]: "Owner", [memberUid]: "Member" }
+      });
+
+      await assert.rejects(
+        () => deleteServerOnlyUserAccountData(db, uid),
+        (err: unknown) => (err as { code?: string })?.code === "failed-precondition"
+      );
+
+      // Update that family so uid transferred ownership (uid is now plain member), plus add solo family & availability slots
+      await db.collection("families").doc(famOwnedMulti).update({
+        memberRoles: { [uid]: "member", [memberUid]: "owner" }
+      });
+      await db.collection("families").doc(famOwnedMulti).collection("availability").doc(`av_${uid}`).set({ ownerId: uid });
+
+      const famSolo = `fam_solo_${nowMs}`;
+      await db.collection("families").doc(famSolo).set({
+        id: famSolo,
+        createdBy: uid,
+        memberIds: [uid],
+        memberRoles: { [uid]: "owner" }
+      });
+      await db.collection("families").doc(famSolo).collection("availability").doc(`av_solo_${uid}`).set({ ownerId: uid });
+      await db.collection("family_invites").doc(`FAM-SOLO-${nowMs}`).set({
+        inviteCode: `FAM-SOLO-${nowMs}`,
+        familyId: famSolo,
+        createdBy: uid
+      });
+
+      // Seed an unrelated user's data to confirm zero collateral damage
+      await db.collection("users").doc(otherOwnerUid).set({ id: otherOwnerUid });
+
+      // 2. Simulate interrupted job resuming mid-flow (`status: 'in_progress'`)
+      await db.collection("account_deletion_jobs").doc(uid).set({
+        uid,
+        status: "in_progress",
+        steps: {
+          families: "pending",
+          serverCollections: "pending",
+          userSubtree: "pending",
+          verification: "pending"
+        }
+      });
+
+      const res = await deleteServerOnlyUserAccountData(db, uid);
+      assert.equal(res.ok, true);
+      assert.equal(res.verifiedClean, true);
+      assert.ok(res.deletedCount >= 4);
+
+      // Verify user root + ALL nested subcollections deleted
+      assert.equal((await db.collection("users").doc(uid).get()).exists, false);
+      assert.equal((await db.collection("users").doc(uid).listCollections()).length, 0);
+      assert.equal((await db.collection("users").doc(uid).collection("personal_funds").doc("pf1").collection("fund_audits").doc("fa1").get()).exists, false);
+      assert.equal((await db.collection("users").doc(uid).collection("daily_preferences").doc("hydration_reminder").get()).exists, false);
+      assert.equal((await db.collection("users").doc(uid).collection("medications").doc("m1").get()).exists, false);
+
+      // Verify solo family & its invite deleted; multi-member family preserved with uid cleanly removed!
+      assert.equal((await db.collection("families").doc(famSolo).get()).exists, false);
+      assert.equal((await db.collection("family_invites").doc(`FAM-SOLO-${nowMs}`).get()).exists, false);
+      const multiFamSnap = await db.collection("families").doc(famOwnedMulti).get();
+      assert.equal(multiFamSnap.exists, true);
+      assert.deepEqual(multiFamSnap.data()?.memberIds, [memberUid]);
+      assert.equal((await db.collection("families").doc(famOwnedMulti).collection("availability").doc(`av_${uid}`).get()).exists, false);
+
+      // Verify job marker marked completed & unrelated user untouched
+      const jobSnap = await db.collection("account_deletion_jobs").doc(uid).get();
+      assert.equal(jobSnap.data()?.status, "completed");
+      assert.equal(jobSnap.data()?.verifiedClean, true);
+      assert.equal((await db.collection("users").doc(otherOwnerUid).get()).exists, true);
+
+      // Verify idempotent re-run succeeds cleanly
+      const rerun = await deleteServerOnlyUserAccountData(db, uid);
+      assert.equal(rerun.ok, true);
+      assert.equal(rerun.verifiedClean, true);
     } finally {
       await app.delete();
     }

@@ -1,3 +1,4 @@
+import { BankIntegrationCapability } from "./capabilities";
 import { containsOtpOrSecret, sha256Hex } from "./security";
 
 export type BalanceType = "observedBankBalance" | "estimatedWalletBalance" | "unknownBalance";
@@ -10,7 +11,8 @@ export type InboxProcessingState =
   | "DUPLICATE"
   | "NEEDS_REVIEW"
   | "FAILED_RETRYABLE"
-  | "FAILED_PERMANENT";
+  | "FAILED_PERMANENT"
+  | "skipped_revoked_or_reassigned";
 
 export type VerificationStatus =
   | "PROVISIONAL"
@@ -18,6 +20,86 @@ export type VerificationStatus =
   | "USER_CONFIRMED"
   | "REJECTED"
   | "NEEDS_REVIEW";
+
+export interface ServerBankConnectionRecord {
+  readonly id: string;
+  readonly ownerId: string;
+  readonly provider: "sepay" | "android_only";
+  readonly providerConnectionId: string;
+  readonly bankCode: string;
+  readonly bankName: string;
+  readonly accountNumber: string; // Stored ONLY in server_bank_connections
+  readonly accountMasked: string;
+  readonly subAccount: string;
+  readonly linkedWalletId: string;
+  readonly consentStatus: "granted" | "revoked";
+  readonly consentEnabled?: boolean;
+  readonly status: "pending_verification" | "connected" | "active" | "disconnected" | "revoked" | "error";
+  readonly grantVersion: number;
+  readonly webhookSecretHash?: string;
+  readonly encryptedApiToken?: string;
+  readonly capabilities: BankIntegrationCapability;
+  readonly lastSyncedAtMs: number | null;
+  readonly revokedAtMs?: number | null;
+  readonly createdAtMs: number;
+  readonly updatedAtMs: number;
+}
+
+export type ServerBankConnection = ServerBankConnectionRecord;
+
+export interface InboxEventRecord {
+  readonly providerEventKey: string;
+  readonly provider: "sepay";
+  readonly externalTransactionId: string;
+  readonly connectionId: string | null;
+  readonly ownerId: string | null;
+  readonly walletId?: string | null;
+  readonly grantVersion?: number | null;
+  readonly state: InboxProcessingState;
+  readonly status?: string;
+  readonly payload: ValidatedSePayWebhookPayload;
+  readonly linkedTransactionId?: string;
+  readonly balanceObservationSkippedStale?: boolean;
+  readonly errorReason?: string;
+  readonly reason?: string;
+  readonly receivedAtMs: number;
+  readonly updatedAtMs: number;
+}
+
+export type SepayWebhookInboxEvent = InboxEventRecord;
+
+export interface NotificationOutboxRecord {
+  readonly id: string;
+  readonly ownerId: string;
+  readonly transactionId: string;
+  readonly walletId: string;
+  readonly connectionId: string;
+  readonly grantVersion?: number;
+  readonly direction: "credit" | "debit";
+  readonly amountMinor: number;
+  readonly bankCode: string;
+  readonly bankName: string;
+  readonly accountMasked: string;
+  readonly content: string;
+  readonly occurredAtMs: number;
+  readonly verificationStatus: VerificationStatus;
+  readonly state:
+    | "PENDING_DELIVERY"
+    | "DISPATCHING"
+    | "DELIVERED"
+    | "SUPPRESSED_BY_PREFS"
+    | "NO_ACTIVE_DEVICES"
+    | "FAILED_RETRYABLE"
+    | "FAILED_PERMANENT"
+    | "skipped_revoked_or_reassigned";
+  readonly attemptCount: number;
+  readonly lastError?: string;
+  readonly nextRetryAtMs?: number;
+  readonly createdAtMs: number;
+  readonly updatedAtMs: number;
+}
+
+export type NotificationOutboxEvent = NotificationOutboxRecord;
 
 export interface ValidatedSePayWebhookPayload {
   readonly id: number;
@@ -262,4 +344,50 @@ export function formatVndCompactNotification(amountMinor: number): string {
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${formatted}đ`;
+}
+
+export function extractAccountTail(raw?: string | null): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").trim();
+  if (cleaned.length < 4) return null;
+  return cleaned.slice(-4).toUpperCase();
+}
+
+export function isConnectionActiveAndGranted(
+  conn: ServerBankConnectionRecord | null | undefined
+): conn is ServerBankConnectionRecord {
+  if (!conn) return false;
+  const activeStatus = conn.status === "connected" || conn.status === "active";
+  return activeStatus && conn.consentStatus === "granted" && conn.consentEnabled !== false;
+}
+
+export interface MonotonicBalanceDecision {
+  readonly shouldUpdateObservedBalance: boolean;
+  readonly balanceObservationSkippedStale: boolean;
+}
+
+export function evaluateMonotonicObservedBalance(params: {
+  observedBalanceMinor: number | null;
+  eventOccurredAtEpochMs: number;
+  existingLastObservedAtEpochMs?: number | null;
+}): MonotonicBalanceDecision {
+  if (params.observedBalanceMinor === null || params.observedBalanceMinor <= 0) {
+    return {
+      shouldUpdateObservedBalance: false,
+      balanceObservationSkippedStale: false
+    };
+  }
+  if (
+    params.existingLastObservedAtEpochMs == null ||
+    params.eventOccurredAtEpochMs >= params.existingLastObservedAtEpochMs
+  ) {
+    return {
+      shouldUpdateObservedBalance: true,
+      balanceObservationSkippedStale: false
+    };
+  }
+  return {
+    shouldUpdateObservedBalance: false,
+    balanceObservationSkippedStale: true
+  };
 }

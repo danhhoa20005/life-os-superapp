@@ -22,8 +22,12 @@ service cloud.firestore {
     }
 
     function isTxVerified(data) {
-      return (data.get('verification', '') is string && data.get('verification', '').lower() == 'verified')
-        || (data.get('verificationStatus', '') is string && data.get('verificationStatus', '').lower() == 'verified');
+      return (data.get('verification', '') is string && data.get('verification', '').lower() in ['verified', 'verifiedbybank', 'verified_by_bank'])
+        || (data.get('verificationStatus', '') is string && data.get('verificationStatus', '').lower() in ['verified', 'verifiedbybank', 'verified_by_bank']);
+    }
+
+    function isVerifiedByBankField(val) {
+      return val is string && val.lower() in ['verifiedbybank', 'verified_by_bank'];
     }
 
     function isTxReversed(data) {
@@ -282,10 +286,25 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && isPositiveInt(request.resource.data.amountMinor)
-          && request.resource.data.currencyCode == 'VND';
+          && request.resource.data.currencyCode == 'VND'
+          && !isVerifiedByBankField(request.resource.data.get('verification', ''))
+          && !isVerifiedByBankField(request.resource.data.get('verificationStatus', ''))
+          && !(request.resource.data.get('sourceKind', '') in ['bankWebhook', 'bankApi']);
         allow update: if isOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
           && isPositiveInt(request.resource.data.amountMinor)
+          && (
+            !isVerifiedByBankField(request.resource.data.get('verification', ''))
+            || isVerifiedByBankField(resource.data.get('verification', ''))
+          )
+          && (
+            !isVerifiedByBankField(request.resource.data.get('verificationStatus', ''))
+            || isVerifiedByBankField(resource.data.get('verificationStatus', ''))
+          )
+          && (
+            !(request.resource.data.get('sourceKind', '') in ['bankWebhook', 'bankApi'])
+            || request.resource.data.get('sourceKind', null) == resource.data.get('sourceKind', null)
+          )
           && (
             !isTxReversed(resource.data)
             || (
@@ -295,6 +314,8 @@ service cloud.firestore {
               && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
               && request.resource.data.get('kind', null) == resource.data.get('kind', null)
               && request.resource.data.get('direction', null) == resource.data.get('direction', null)
+              && request.resource.data.get('currencyCode', null) == resource.data.get('currencyCode', null)
+              && request.resource.data.get('currency', null) == resource.data.get('currency', null)
               && request.resource.data.get('isRefund', null) == resource.data.get('isRefund', null)
               && request.resource.data.get('occurredAt', null) == resource.data.get('occurredAt', null)
               && request.resource.data.get('monthKey', null) == resource.data.get('monthKey', null)
@@ -309,6 +330,8 @@ service cloud.firestore {
               && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
               && request.resource.data.get('kind', null) == resource.data.get('kind', null)
               && request.resource.data.get('direction', null) == resource.data.get('direction', null)
+              && request.resource.data.get('currencyCode', null) == resource.data.get('currencyCode', null)
+              && request.resource.data.get('currency', null) == resource.data.get('currency', null)
               && request.resource.data.get('verification', null) == resource.data.get('verification', null)
               && request.resource.data.get('sourceKind', null) == resource.data.get('sourceKind', null)
               && request.resource.data.get('externalTransactionId', null) == resource.data.get('externalTransactionId', null)
@@ -360,8 +383,8 @@ service cloud.firestore {
         }
 
         match /fund_audits/{auditId} {
-          allow read, create: if isOwner(userId);
-          allow delete: if isAccountDeletionActive(userId);
+          allow read, create, delete: if isOwner(userId);
+          allow update: if false;
         }
       }
 
@@ -524,17 +547,25 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
-      // 360° DAILY LIFE SUPER APP SUITE (Health, Kitchen/Groceries, Home/EVN Utilities, Smart Notes)
+      // 360° DAILY LIFE SUPER APP SUITE (Hydration Preferences, Kitchen/Groceries, Home/EVN Utilities, Smart Notes)
+      match /daily_preferences/{prefId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      // Legacy health/medical cleanup paths: owner read & delete ONLY (new client writes blocked for Play compliance)
       match /medications/{medId} {
-        allow read, write: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
+        allow create, update: if false;
       }
 
       match /health_logs/{logId} {
-        allow read, write: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
+        allow create, update: if false;
       }
 
       match /medical_profiles/{profileId} {
-        allow read, write: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
+        allow create, update: if false;
       }
 
       match /grocery_items/{itemId} {
@@ -1155,6 +1186,10 @@ service cloud.firestore {
     }
 
     match /family_invite_rate_limits/{userId} {
+      allow read, write: if false;
+    }
+
+    match /account_deletion_jobs/{userId} {
       allow read, write: if false;
     }
 

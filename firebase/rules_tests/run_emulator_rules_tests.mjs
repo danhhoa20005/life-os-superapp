@@ -66,6 +66,20 @@ async function firestoreRequest(method, docPath, { uid = null, data = null } = {
   return res.status;
 }
 
+async function firestoreAdminRequest(method, docPath, { data = null } = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer owner',
+  };
+  const url = `${BASE_URL}/${docPath}`;
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: data ? JSON.stringify({ fields: toFirestoreFields(data) }) : undefined,
+  });
+  return res.status;
+}
+
 async function firestoreCommitBatch(uid, writes) {
   const res = await firestoreCommitBatchResponse(uid, writes);
   return res.status;
@@ -1092,7 +1106,8 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       200,
     );
 
-    // Verified bank transaction: core financial & provenance fields are strictly immutable!
+    // Verified bank transaction: client CANNOT create bankApi/bankWebhook directly (M7),
+    // must be created by Admin SDK (Cloud Functions backend), and its core fields are strictly immutable!
     const verifiedTx = {
       id: 'tx_ver_1',
       ownerId: uid,
@@ -1113,6 +1128,12 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
     assert.equal(
       await firestoreRequest('PATCH', `users/${uid}/transactions/tx_ver_1`, {
         uid,
+        data: verifiedTx,
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/transactions/tx_ver_1`, {
         data: verifiedTx,
       }),
       200,
@@ -2804,6 +2825,285 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
         },
       }),
       200,
+    );
+  });
+
+  it('15. M7 — Blocks client-forged verifiedByBank / bankWebhook / bankApi on create & escalation on update while permitting metadata edits', async () => {
+    const uid = `m7_user_${Date.now()}`;
+    const otherUid = `m7_other_${Date.now()}`;
+
+    // Client create with verification: 'verifiedByBank' -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_forged_vbb`, {
+        uid,
+        data: {
+          id: 'tx_forged_vbb',
+          ownerId: uid,
+          walletId: 'w_1',
+          kind: 'income',
+          direction: 'credit',
+          amountMinor: 1000000,
+          currencyCode: 'VND',
+          verification: 'verifiedByBank',
+          sourceKind: 'manual',
+        },
+      }),
+      403,
+    );
+
+    // Client create with sourceKind: 'bankWebhook' or 'bankApi' -> DENIED (403)
+    for (const sk of ['bankWebhook', 'bankApi']) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/transactions/tx_forged_${sk}`, {
+          uid,
+          data: {
+            id: `tx_forged_${sk}`,
+            ownerId: uid,
+            walletId: 'w_1',
+            kind: 'income',
+            direction: 'credit',
+            amountMinor: 500000,
+            currencyCode: 'VND',
+            verification: 'provisional',
+            sourceKind: sk,
+          },
+        }),
+        403,
+        `Expected 403 when creating client tx with sourceKind='${sk}'`,
+      );
+    }
+
+    // Valid client manual transaction -> 200
+    const manualTx = {
+      id: 'tx_manual_m7',
+      ownerId: uid,
+      walletId: 'w_1',
+      kind: 'expense',
+      direction: 'debit',
+      amountMinor: 150000,
+      currencyCode: 'VND',
+      currency: 'VND',
+      verification: 'userConfirmed',
+      verificationStatus: 'USER_CONFIRMED',
+      sourceKind: 'manual',
+      categoryName: 'Ăn uống',
+      note: 'Cơm trưa',
+    };
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_manual_m7`, {
+        uid,
+        data: manualTx,
+      }),
+      200,
+    );
+
+    // Client update escalating manual tx to verification='verifiedByBank' -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_manual_m7`, {
+        uid,
+        data: { ...manualTx, verification: 'verifiedByBank' },
+      }),
+      403,
+    );
+
+    // Client update escalating sourceKind to 'bankWebhook' or 'bankApi' -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_manual_m7`, {
+        uid,
+        data: { ...manualTx, sourceKind: 'bankWebhook' },
+      }),
+      403,
+    );
+
+    // Admin SDK seeds a genuine `verifiedByBank` + `bankWebhook` transaction -> 200
+    const adminBankTx = {
+      id: 'tx_admin_vbb',
+      ownerId: uid,
+      walletId: 'w_bank_1',
+      kind: 'income',
+      direction: 'credit',
+      amountMinor: 2500000,
+      currencyCode: 'VND',
+      currency: 'VND',
+      verification: 'verifiedByBank',
+      verificationStatus: 'VERIFIED',
+      sourceKind: 'bankWebhook',
+      categoryId: 'cat_inc',
+      categoryName: 'Thu nhập khác',
+      merchant: 'VCB Chuyển khoản',
+      note: 'Từ Admin SDK',
+    };
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/transactions/tx_admin_vbb`, {
+        data: adminBankTx,
+      }),
+      200,
+    );
+
+    // Client CANNOT mutate protected core fields on verifiedByBank tx -> 403
+    for (const [field, badVal] of [
+      ['verification', 'userConfirmed'],
+      ['sourceKind', 'manual'],
+      ['amountMinor', 9999999],
+      ['direction', 'debit'],
+      ['walletId', 'w_other'],
+      ['currency', 'USD'],
+      ['currencyCode', 'USD'],
+    ]) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/transactions/tx_admin_vbb`, {
+          uid,
+          data: { ...adminBankTx, [field]: badVal },
+        }),
+        403,
+        `Expected 403 when mutating '${field}' on verifiedByBank tx`,
+      );
+    }
+
+    // Owner CAN update user-editable metadata (`categoryId`, `categoryName`, `merchant`, `note`, `updatedAt`) -> 200
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_admin_vbb`, {
+        uid,
+        data: {
+          ...adminBankTx,
+          categoryId: 'cat_salary',
+          categoryName: 'Lương & Thu nhập',
+          merchant: 'Công ty ABC',
+          note: 'Lương tháng 11',
+          updatedAt: new Date(),
+        },
+      }),
+      200,
+    );
+
+    // Other user still denied -> 403
+    assert.equal(
+      await firestoreRequest('GET', `users/${uid}/transactions/tx_admin_vbb`, { uid: otherUid }),
+      403,
+    );
+  });
+
+  it('16. H5 — Allows owner read/delete of daily_preferences, legacy medical cleanup paths & personal_funds/*/fund_audits while blocking other users and legacy writes', async () => {
+    const uid = `h5_owner_${Date.now()}`;
+    const otherUid = `h5_other_${Date.now()}`;
+
+    // 16a. daily_preferences: owner can create/read/update/delete; other user denied
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/daily_preferences/hydration_reminder`, {
+        uid,
+        data: { ownerId: uid, reminderEnabled: true, targetWaterMl: 2200 },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `users/${uid}/daily_preferences/hydration_reminder`, { uid }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `users/${uid}/daily_preferences/hydration_reminder`, { uid: otherUid }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/daily_preferences/hydration_reminder`, { uid: otherUid }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/daily_preferences/hydration_reminder`, { uid }),
+      200,
+    );
+
+    // 16b. Legacy medical cleanup paths (`medications`, `health_logs`, `medical_profiles`):
+    //      Client create/update blocked (403); Admin seeds legacy docs -> owner can read & delete (200); other user denied (403)
+    for (const col of ['medications', 'health_logs', 'medical_profiles']) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/${col}/legacy_doc_1`, {
+          uid,
+          data: { id: 'legacy_doc_1', ownerId: uid, note: 'legacy' },
+        }),
+        403,
+        `Expected client write to legacy path '${col}' to be denied (403)`,
+      );
+
+      assert.equal(
+        await firestoreAdminRequest('PATCH', `users/${uid}/${col}/legacy_doc_1`, {
+          data: { id: 'legacy_doc_1', ownerId: uid, note: 'legacy_seeded' },
+        }),
+        200,
+      );
+
+      assert.equal(
+        await firestoreRequest('GET', `users/${uid}/${col}/legacy_doc_1`, { uid }),
+        200,
+      );
+      assert.equal(
+        await firestoreRequest('GET', `users/${uid}/${col}/legacy_doc_1`, { uid: otherUid }),
+        403,
+      );
+      assert.equal(
+        await firestoreRequest('DELETE', `users/${uid}/${col}/legacy_doc_1`, { uid: otherUid }),
+        403,
+      );
+      assert.equal(
+        await firestoreRequest('DELETE', `users/${uid}/${col}/legacy_doc_1`, { uid }),
+        200,
+      );
+    }
+
+    // 16c. personal_funds/{fundId}/fund_audits/{auditId}: owner can create/read/delete; updates blocked; other user denied
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/personal_funds/pf_1`, {
+        uid,
+        data: { id: 'pf_1', ownerId: uid, name: 'Quỹ dự phòng', balanceMinor: 1000000 },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/personal_funds/pf_1/fund_audits/fa_1`, {
+        uid,
+        data: { id: 'fa_1', ownerId: uid, deltaMinor: 1000000, newBalanceMinor: 1000000 },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `users/${uid}/personal_funds/pf_1/fund_audits/fa_1`, { uid }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `users/${uid}/personal_funds/pf_1/fund_audits/fa_1`, { uid: otherUid }),
+      403,
+    );
+    // Audit update is immutable (403)
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/personal_funds/pf_1/fund_audits/fa_1`,
+          exists: true,
+          updateMask: ['deltaMinor'],
+          data: { deltaMinor: 999 },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/personal_funds/pf_1/fund_audits/fa_1`, { uid: otherUid }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/personal_funds/pf_1/fund_audits/fa_1`, { uid }),
+      200,
+    );
+
+    // 16d. Server-only account_deletion_jobs is locked from all client access -> 403
+    assert.equal(
+      await firestoreRequest('GET', `account_deletion_jobs/${uid}`, { uid }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `account_deletion_jobs/${uid}`, {
+        uid,
+        data: { status: 'completed' },
+      }),
+      403,
     );
   });
 });

@@ -5,15 +5,34 @@ import {
 } from "./capabilities";
 import {
   BalanceType,
+  InboxEventRecord,
   InboxProcessingState,
+  NotificationOutboxRecord,
+  ServerBankConnectionRecord,
   ValidatedSePayWebhookPayload,
   VerificationStatus,
   classifyVietnameseTransaction,
   computeCrossSourceFingerprint,
   computeOverlappingSoftWindowFingerprints,
   computeSoftWindowFingerprint,
+  evaluateMonotonicObservedBalance,
+  extractAccountTail,
   formatVndCompactNotification,
+  isConnectionActiveAndGranted,
   parseAndValidateSePayPayload
+} from "./schema";
+export type {
+  InboxEventRecord,
+  NotificationOutboxEvent,
+  NotificationOutboxRecord,
+  SepayWebhookInboxEvent,
+  ServerBankConnection,
+  ServerBankConnectionRecord
+} from "./schema";
+export {
+  evaluateMonotonicObservedBalance,
+  extractAccountTail,
+  isConnectionActiveAndGranted
 } from "./schema";
 import {
   MAX_WEBHOOK_BODY_BYTES,
@@ -221,41 +240,6 @@ export function matchVerifiedSePayAccount(params: {
   };
 }
 
-export interface ServerBankConnectionRecord {
-  readonly id: string;
-  readonly ownerId: string;
-  readonly provider: "sepay" | "android_only";
-  readonly providerConnectionId: string;
-  readonly bankCode: string;
-  readonly bankName: string;
-  readonly accountNumber: string; // Stored ONLY in server_bank_connections
-  readonly accountMasked: string;
-  readonly subAccount: string;
-  readonly linkedWalletId: string;
-  readonly consentStatus: "granted" | "revoked";
-  readonly status: "pending_verification" | "connected" | "disconnected" | "error";
-  readonly webhookSecretHash?: string;
-  readonly encryptedApiToken?: string;
-  readonly capabilities: BankIntegrationCapability;
-  readonly lastSyncedAtMs: number | null;
-  readonly createdAtMs: number;
-  readonly updatedAtMs: number;
-}
-
-export interface InboxEventRecord {
-  readonly providerEventKey: string;
-  readonly provider: "sepay";
-  readonly externalTransactionId: string;
-  readonly connectionId: string | null;
-  readonly ownerId: string | null;
-  readonly state: InboxProcessingState;
-  readonly payload: ValidatedSePayWebhookPayload;
-  readonly linkedTransactionId?: string;
-  readonly errorReason?: string;
-  readonly receivedAtMs: number;
-  readonly updatedAtMs: number;
-}
-
 export interface CanonicalTransactionRecord {
   readonly id: string;
   readonly ownerId: string;
@@ -272,6 +256,7 @@ export interface CanonicalTransactionRecord {
   readonly currencyCode: "VND";
   readonly bankCode?: string;
   readonly accountMasked?: string;
+  readonly accountTail?: string;
   readonly counterpartyDisplay?: string;
   readonly merchant: string;
   readonly description: string;
@@ -291,6 +276,7 @@ export interface CanonicalTransactionRecord {
   readonly softWindowFingerprint: string;
   readonly balanceAfterMinor: number | null;
   readonly balanceType: BalanceType;
+  readonly balanceObservationSkippedStale?: boolean;
   readonly ledgerApplied: boolean;
   readonly isVehicleMaintenanceHint: boolean;
   readonly isRecurringCandidate: boolean;
@@ -305,6 +291,8 @@ export interface WalletRecord {
   readonly balanceMinor: number;
   readonly isEstimatedBalance: boolean;
   readonly lastAuditId?: string;
+  readonly lastObservedBalanceAtEpochMs?: number | null;
+  readonly lastObservedBalanceEventId?: string | null;
   readonly bankCode?: string;
   readonly maskedAccount?: string;
   readonly updatedAtMs: number;
@@ -340,35 +328,6 @@ export const DEFAULT_NOTIFICATION_PREFS: UserNotificationPreferences = {
   mutedConnectionIds: [],
   notifyUnverified: true
 };
-
-export interface NotificationOutboxRecord {
-  readonly id: string;
-  readonly ownerId: string;
-  readonly transactionId: string;
-  readonly walletId: string;
-  readonly connectionId: string;
-  readonly direction: "credit" | "debit";
-  readonly amountMinor: number;
-  readonly bankCode: string;
-  readonly bankName: string;
-  readonly accountMasked: string;
-  readonly content: string;
-  readonly occurredAtMs: number;
-  readonly verificationStatus: VerificationStatus;
-  readonly state:
-    | "PENDING_DELIVERY"
-    | "DISPATCHING"
-    | "DELIVERED"
-    | "SUPPRESSED_BY_PREFS"
-    | "NO_ACTIVE_DEVICES"
-    | "FAILED_RETRYABLE"
-    | "FAILED_PERMANENT";
-  readonly attemptCount: number;
-  readonly lastError?: string;
-  readonly nextRetryAtMs?: number;
-  readonly createdAtMs: number;
-  readonly updatedAtMs: number;
-}
 
 export interface FinancialNotificationRecord {
   readonly id: string;
@@ -416,6 +375,7 @@ export interface FcmPushSender {
  * Transactional context executed atomically (maps 1:1 to Firestore Transaction).
  */
 export interface BankingTxContext {
+  getConnectionById(connectionId: string): Promise<ServerBankConnectionRecord | null>;
   getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null>;
   setInboxEvent(record: InboxEventRecord): Promise<void>;
   getSourceEvent(ownerId: string, eventKey: string): Promise<{ linkedTransactionId: string } | null>;
@@ -446,6 +406,7 @@ export interface BankingTxContext {
 
 export interface BankingBackendStore {
   runAtomic<T>(fn: (ctx: BankingTxContext) => Promise<T>): Promise<T>;
+  getConnectionById(connectionId: string): Promise<ServerBankConnectionRecord | null>;
   findActiveConnectionForAccount(params: {
     bankCode: string;
     gateway: string;
@@ -469,6 +430,65 @@ export interface BankingBackendStore {
   listActiveUserDevices(ownerId: string): Promise<UserDeviceRecord[]>;
   deactivateInvalidTokens(ownerId: string, invalidTokens: readonly string[]): Promise<void>;
   readAndDeleteLegacySePayConsent(ownerId: string): Promise<{ apiToken?: string; bankCode?: string; accountNumber?: string; walletId?: string } | null>;
+}
+
+function normalizeBankCodeForMatch(raw?: string | null): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return "";
+  return resolveBankCapability(trimmed)?.bankCode ?? trimmed.toUpperCase();
+}
+
+/**
+ * M8: Strictly scopes Android notification candidates to the exact linked wallet,
+ * bankCode (if present on candidate), and accountTail (if present on both).
+ * Prevents cross-wallet or cross-account reconciliation corruption.
+ */
+export function findCandidateAndroidTransactions(params: {
+  candidates: readonly CanonicalTransactionRecord[];
+  connection: ServerBankConnectionRecord;
+  incomingExternalTxId: string;
+  incomingOccurredAtMs: number;
+  incomingReferenceCode?: string;
+  windowMs?: number;
+}): CanonicalTransactionRecord[] {
+  const windowMs = params.windowMs ?? 15 * 60 * 1000;
+  const connBankCode = normalizeBankCodeForMatch(params.connection.bankCode);
+  const connTail =
+    extractAccountTail(params.connection.accountNumber) ??
+    extractAccountTail(params.connection.accountMasked);
+  const incomingRef = (params.incomingReferenceCode ?? "").trim().toUpperCase();
+
+  return params.candidates.filter((c) => {
+    if (c.verification === "rejected") return false;
+    if (c.sourceKind !== "androidNotification") return false;
+    if (Math.abs(c.occurredAtMs - params.incomingOccurredAtMs) > windowMs) return false;
+
+    // M8: Strict wallet isolation — never merge across different wallets!
+    if (c.walletId !== params.connection.linkedWalletId) return false;
+
+    // M8: If candidate has bankCode, it must match connection's bankCode
+    const candBankCode = normalizeBankCodeForMatch(c.bankCode);
+    if (candBankCode && connBankCode && candBankCode !== connBankCode) {
+      return false;
+    }
+
+    // M8: If both candidate and connection have account tail/suffix, they must match
+    const candTail = extractAccountTail(c.accountTail) ?? extractAccountTail(c.accountMasked);
+    if (candTail && connTail && candTail !== connTail) {
+      return false;
+    }
+
+    if (c.externalTransactionId && c.externalTransactionId !== params.incomingExternalTxId) {
+      return false;
+    }
+
+    const candRef = (c.referenceCode ?? "").trim().toUpperCase();
+    if (candRef && incomingRef && candRef !== incomingRef) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 export function formatVietnamTimeHm(epochMs: number): string {
@@ -626,9 +646,13 @@ export class RealtimeBankingCoordinator {
       externalTransactionId: String(p.id),
       connectionId: matchedConnection?.id ?? null,
       ownerId: matchedConnection?.ownerId ?? null,
+      walletId: matchedConnection?.linkedWalletId ?? null,
+      grantVersion: matchedConnection ? (matchedConnection.grantVersion ?? 1) : null,
       state: matchedConnection ? "PENDING_PROCESSING" : "FAILED_PERMANENT",
+      status: matchedConnection ? "pending_processing" : "ignored_unlinked_or_revoked",
       payload: p,
       errorReason: matchedConnection ? undefined : "UNLINKED_OR_INACTIVE_BANK_ACCOUNT",
+      reason: matchedConnection ? undefined : "UNLINKED_OR_INACTIVE_BANK_ACCOUNT",
       receivedAtMs: nowMs,
       updatedAtMs: nowMs
     };
@@ -653,6 +677,8 @@ export class RealtimeBankingCoordinator {
   /**
    * Stage 2: Asynchronous Worker — Processes a durable inbox record into a single Canonical Transaction
    * and enqueues Notification Outbox atomically.
+   * H3: Strictly loads exact connection by `inbox.connectionId` inside the transaction and validates
+   * `ownerId`, active consent, `grantVersion`, and `walletId` — never re-queries by bank account!
    */
   async processInboxEvent(
     providerEventKey: string,
@@ -661,6 +687,7 @@ export class RealtimeBankingCoordinator {
     state: InboxProcessingState;
     transactionId?: string;
     notificationId?: string;
+    reason?: string;
   }> {
     const outerInbox = await this.store.getInboxEvent(providerEventKey);
     if (!outerInbox) {
@@ -669,55 +696,20 @@ export class RealtimeBankingCoordinator {
     if (outerInbox.state === "PROCESSED" || outerInbox.state === "DUPLICATE") {
       return { state: "DUPLICATE", transactionId: outerInbox.linkedTransactionId };
     }
-
-    const p = outerInbox.payload;
-    const cap = resolveBankCapability(p.gateway);
-    const bankCode = cap?.bankCode ?? p.gateway.toUpperCase();
-
-    const connection = await this.store.findActiveConnectionForAccount({
-      bankCode,
-      gateway: p.gateway,
-      accountNumber: p.accountNumber,
-      subAccount: p.subAccount
-    });
-
-    if (!connection || connection.status !== "connected" || connection.consentStatus !== "granted") {
-      await this.store.runAtomic(async (ctx) => {
-        const cur = await ctx.getInboxEvent(providerEventKey);
-        if (cur && cur.state !== "PROCESSED") {
-          await ctx.setInboxEvent({
-            ...cur,
-            state: "FAILED_PERMANENT",
-            errorReason: "UNLINKED_OR_REVOKED_BANK_ACCOUNT",
-            updatedAtMs: nowMs
-          });
-        }
-      });
-      return { state: "FAILED_PERMANENT" };
+    if (outerInbox.state === "skipped_revoked_or_reassigned") {
+      return {
+        state: "skipped_revoked_or_reassigned",
+        reason: outerInbox.reason ?? outerInbox.errorReason
+      };
+    }
+    if (outerInbox.state === "FAILED_PERMANENT" || !outerInbox.connectionId || !outerInbox.ownerId) {
+      return { state: "FAILED_PERMANENT", reason: outerInbox.errorReason };
     }
 
-    // Section 5 & T22: Enforce real SePay bank capability rules (e.g. debit only on STB/TPB/CTG with TKP)
-    const dirSupport = checkWebhookDirectionSupport(cap, p.transferType, p.subAccount);
-    if (!dirSupport.supported) {
-      await this.store.runAtomic(async (ctx) => {
-        const cur = await ctx.getInboxEvent(providerEventKey);
-        if (cur && cur.state !== "PROCESSED") {
-          await ctx.setInboxEvent({
-            ...cur,
-            ownerId: connection.ownerId,
-            connectionId: connection.id,
-            state: "FAILED_PERMANENT",
-            errorReason: dirSupport.reason ?? "UNSUPPORTED_BANK_DIRECTION",
-            updatedAtMs: nowMs
-          });
-        }
-      });
-      return { state: "FAILED_PERMANENT" };
-    }
-
-    const prefs = await this.store.getUserNotificationPreferences(connection.ownerId);
+    const prefs = await this.store.getUserNotificationPreferences(outerInbox.ownerId);
 
     return this.store.runAtomic(async (ctx) => {
+      // 1. All transactional reads MUST occur before any writes (Cloud Firestore constraint)
       const inbox = await ctx.getInboxEvent(providerEventKey);
       if (!inbox) {
         return { state: "FAILED_PERMANENT" as const };
@@ -726,6 +718,71 @@ export class RealtimeBankingCoordinator {
         return {
           state: "DUPLICATE" as const,
           transactionId: inbox.linkedTransactionId
+        };
+      }
+      if (inbox.state === "skipped_revoked_or_reassigned") {
+        return {
+          state: "skipped_revoked_or_reassigned" as const,
+          reason: inbox.reason ?? inbox.errorReason
+        };
+      }
+      if (inbox.state === "FAILED_PERMANENT" || !inbox.connectionId || !inbox.ownerId) {
+        return { state: "FAILED_PERMANENT" as const, reason: inbox.errorReason };
+      }
+
+      // H3: Load exact connection by `inbox.connectionId` — NEVER re-query by bank account!
+      const connection = await ctx.getConnectionById(inbox.connectionId);
+      const expectedGrantVersion = inbox.grantVersion ?? 1;
+      let skipReason: string | null = null;
+      if (!connection) {
+        skipReason = "CONNECTION_NOT_FOUND";
+      } else if (connection.ownerId !== inbox.ownerId) {
+        skipReason = "CONNECTION_OWNER_MISMATCH";
+      } else if (!isConnectionActiveAndGranted(connection)) {
+        skipReason = "CONNECTION_REVOKED_OR_INACTIVE";
+      } else if ((connection.grantVersion ?? 1) !== expectedGrantVersion) {
+        skipReason = "CONNECTION_GRANT_VERSION_MISMATCH";
+      } else if (inbox.walletId && connection.linkedWalletId !== inbox.walletId) {
+        skipReason = "CONNECTION_WALLET_MISMATCH";
+      }
+
+      if (skipReason !== null || !connection) {
+        const finalReason = skipReason ?? "CONNECTION_REVOKED_OR_INACTIVE";
+        await ctx.setInboxEvent({
+          ...inbox,
+          state: "skipped_revoked_or_reassigned",
+          status: "skipped_revoked_or_reassigned",
+          errorReason: finalReason,
+          reason: finalReason,
+          updatedAtMs: nowMs
+        });
+        return {
+          state: "skipped_revoked_or_reassigned" as const,
+          reason: finalReason
+        };
+      }
+
+      const p = inbox.payload;
+      const cap = resolveBankCapability(p.gateway);
+
+      // Section 5 & T22: Enforce real SePay bank capability rules (e.g. debit only on STB/TPB/CTG with TKP)
+      const dirSupport = checkWebhookDirectionSupport(cap, p.transferType, p.subAccount);
+      if (!dirSupport.supported) {
+        await ctx.setInboxEvent({
+          ...inbox,
+          ownerId: connection.ownerId,
+          connectionId: connection.id,
+          walletId: connection.linkedWalletId,
+          grantVersion: connection.grantVersion ?? 1,
+          state: "FAILED_PERMANENT",
+          status: "failed_permanent",
+          errorReason: dirSupport.reason ?? "UNSUPPORTED_BANK_DIRECTION",
+          reason: dirSupport.reason ?? "UNSUPPORTED_BANK_DIRECTION",
+          updatedAtMs: nowMs
+        });
+        return {
+          state: "FAILED_PERMANENT" as const,
+          reason: dirSupport.reason ?? "UNSUPPORTED_BANK_DIRECTION"
         };
       }
 
@@ -737,7 +794,10 @@ export class RealtimeBankingCoordinator {
           ...inbox,
           ownerId,
           connectionId: connection.id,
+          walletId,
+          grantVersion: connection.grantVersion ?? 1,
           state: "DUPLICATE",
+          status: "duplicate",
           linkedTransactionId: existingSourceEv.linkedTransactionId,
           updatedAtMs: nowMs
         });
@@ -762,7 +822,6 @@ export class RealtimeBankingCoordinator {
 
       const rawCandidates = await ctx.findCandidateTransactions(ownerId, candidateWindowFps);
 
-      // Filter candidates within ±15m on the same wallet (or unrouted default wallet)
       const windowMs = 15 * 60 * 1000;
       const windowCandidates = rawCandidates.filter((c) => {
         if (c.verification === "rejected") return false;
@@ -770,9 +829,12 @@ export class RealtimeBankingCoordinator {
         return true;
       });
 
-      // Exact provider external ID duplicate check (e.g. REST API already synced this exact SePay ID — T21)
+      // Exact provider external ID duplicate check scoped to same wallet/connection (T21 + M8)
       const exactSameExternal = windowCandidates.find(
-        (c) => c.externalTransactionId && c.externalTransactionId === String(p.id)
+        (c) =>
+          c.walletId === walletId &&
+          c.externalTransactionId &&
+          c.externalTransactionId === String(p.id)
       );
       if (exactSameExternal) {
         await ctx.setSourceEvent(ownerId, providerEventKey, {
@@ -785,27 +847,24 @@ export class RealtimeBankingCoordinator {
           ...inbox,
           ownerId,
           connectionId: connection.id,
+          walletId,
+          grantVersion: connection.grantVersion ?? 1,
           state: "DUPLICATE",
+          status: "duplicate",
           linkedTransactionId: exactSameExternal.id,
           updatedAtMs: nowMs
         });
         return { state: "DUPLICATE" as const, transactionId: exactSameExternal.id };
       }
 
-      // Cross-source reconciliation candidates (e.g. Android Notification arrived earlier — T05, T06, T24):
-      // NEVER merge if candidate already has a DIFFERENT externalTransactionId or DIFFERENT non-empty referenceCode (T06)!
-      const reconcilableAndroidCandidates = windowCandidates.filter((c) => {
-        if (c.sourceKind !== "androidNotification") return false;
-        if (c.externalTransactionId && c.externalTransactionId !== String(p.id)) return false;
-        if (
-          c.referenceCode &&
-          c.referenceCode.trim().length > 0 &&
-          p.referenceCode.trim().length > 0 &&
-          c.referenceCode.trim().toUpperCase() !== p.referenceCode.trim().toUpperCase()
-        ) {
-          return false;
-        }
-        return true;
+      // M8: Strictly scope cross-source Android candidates to same wallet, bankCode & accountTail
+      const reconcilableAndroidCandidates = findCandidateAndroidTransactions({
+        candidates: windowCandidates,
+        connection,
+        incomingExternalTxId: String(p.id),
+        incomingOccurredAtMs: p.occurredAtMs,
+        incomingReferenceCode: p.referenceCode,
+        windowMs
       });
 
       const isAmbiguousCollision = reconcilableAndroidCandidates.length > 1;
@@ -818,6 +877,8 @@ export class RealtimeBankingCoordinator {
           name: `${connection.bankName} ${connection.accountMasked}`,
           balanceMinor: 0,
           isEstimatedBalance: true,
+          lastObservedBalanceAtEpochMs: null,
+          lastObservedBalanceEventId: null,
           bankCode: connection.bankCode,
           maskedAccount: connection.accountMasked,
           updatedAtMs: nowMs
@@ -826,23 +887,51 @@ export class RealtimeBankingCoordinator {
       const delta = p.direction === "credit" ? p.transferAmount : -p.transferAmount;
       const alreadyAppliedInLedger = matchedAndroidTx?.ledgerApplied === true;
 
-      // CRITICAL P0 INVARIANT (T05, T15, T24):
+      // M9: Monotonic observed balance guard & historical separation
+      const existingLastObservedAt = wallet.lastObservedBalanceAtEpochMs ?? null;
+      const isOlderThanLastObserved =
+        existingLastObservedAt !== null && p.occurredAtMs < existingLastObservedAt;
+      const balanceDecision = evaluateMonotonicObservedBalance({
+        observedBalanceMinor: p.accumulatedMinor,
+        eventOccurredAtEpochMs: p.occurredAtMs,
+        existingLastObservedAtEpochMs: existingLastObservedAt
+      });
+      const balanceObservationSkippedStale =
+        !isAmbiguousCollision &&
+        (balanceDecision.balanceObservationSkippedStale || isOlderThanLastObserved);
+
+      // CRITICAL P0 INVARIANT (T05, T15, T24, M9):
       // - If matchedAndroidTx already applied its delta (`ledgerApplied === true`), DO NOT apply `delta` a second time!
-      // - If `accumulatedMinor !== null && accumulatedMinor > 0`, record observedBankBalance; NEVER overwrite balance to 0 when accumulated == 0!
+      // - If `accumulatedMinor !== null && accumulatedMinor > 0`, ONLY update wallet balance if monotonic guard permits!
+      // - If event is older than `lastObservedBalanceAtEpochMs`, record transaction idempotently with `balanceObservationSkippedStale: true` without touching `wallet.balanceMinor`!
       // - If `isAmbiguousCollision`, mark NEEDS_REVIEW and do NOT mutate wallet balance until user resolves!
       let nextWalletBal = wallet.balanceMinor;
       let nextIsEstimated = wallet.isEstimatedBalance;
+      let nextLastObservedAt = wallet.lastObservedBalanceAtEpochMs ?? null;
+      let nextLastObservedEventId = wallet.lastObservedBalanceEventId ?? null;
       let txLedgerApplied = alreadyAppliedInLedger;
       let txBalanceAfter: number | null = null;
       let txBalanceType: BalanceType = p.balanceType;
 
       if (!isAmbiguousCollision) {
-        if (p.accumulatedMinor !== null && p.accumulatedMinor > 0) {
+        if (balanceDecision.shouldUpdateObservedBalance && p.accumulatedMinor !== null) {
           nextWalletBal = p.accumulatedMinor;
           nextIsEstimated = false;
+          nextLastObservedAt = p.occurredAtMs;
+          nextLastObservedEventId = providerEventKey;
           txLedgerApplied = true;
           txBalanceAfter = nextWalletBal;
           txBalanceType = "observedBankBalance";
+        } else if (balanceObservationSkippedStale) {
+          // Stale out-of-order webhook or historical backfill item older than newest observed balance:
+          // Preserve wallet.balanceMinor untouched and record transaction idempotently.
+          txLedgerApplied = true;
+          txBalanceAfter =
+            p.accumulatedMinor !== null && p.accumulatedMinor > 0 ? p.accumulatedMinor : null;
+          txBalanceType =
+            p.accumulatedMinor !== null && p.accumulatedMinor > 0
+              ? "observedBankBalance"
+              : "unknownBalance";
         } else if (!alreadyAppliedInLedger) {
           nextWalletBal = wallet.balanceMinor + delta;
           txLedgerApplied = true;
@@ -854,7 +943,13 @@ export class RealtimeBankingCoordinator {
           txBalanceType = wallet.isEstimatedBalance ? "estimatedWalletBalance" : "observedBankBalance";
         }
 
-        if (nextWalletBal !== wallet.balanceMinor || nextIsEstimated !== wallet.isEstimatedBalance) {
+        const shouldUpsertWallet =
+          nextWalletBal !== wallet.balanceMinor ||
+          nextIsEstimated !== wallet.isEstimatedBalance ||
+          nextLastObservedAt !== (wallet.lastObservedBalanceAtEpochMs ?? null) ||
+          nextLastObservedEventId !== (wallet.lastObservedBalanceEventId ?? null);
+
+        if (shouldUpsertWallet) {
           const auditId = `aud_${providerEventKey}`;
           const exactDeltaMinor = nextWalletBal - wallet.balanceMinor;
           const balanceChanged = exactDeltaMinor !== 0;
@@ -863,23 +958,27 @@ export class RealtimeBankingCoordinator {
             balanceMinor: nextWalletBal,
             isEstimatedBalance: nextIsEstimated,
             ...(balanceChanged ? { lastAuditId: auditId } : {}),
+            lastObservedBalanceAtEpochMs: nextLastObservedAt,
+            lastObservedBalanceEventId: nextLastObservedEventId,
             bankCode: connection.bankCode,
             maskedAccount: connection.accountMasked,
             updatedAtMs: nowMs
           });
-          await ctx.appendLedgerAudit(ownerId, auditId, {
-            id: auditId,
-            ownerId,
-            txId: matchedAndroidTx?.id ?? `ver_${sha256Hex(providerEventKey).slice(0, 20)}`,
-            walletId,
-            walletName: wallet.name,
-            previousBalanceMinor: wallet.balanceMinor,
-            deltaMinor: exactDeltaMinor,
-            newBalanceMinor: nextWalletBal,
-            balanceType: txBalanceType,
-            kind: p.direction === "credit" ? "income" : "expense",
-            createdAtMs: nowMs
-          });
+          if (balanceChanged || nextIsEstimated !== wallet.isEstimatedBalance) {
+            await ctx.appendLedgerAudit(ownerId, auditId, {
+              id: auditId,
+              ownerId,
+              txId: matchedAndroidTx?.id ?? `ver_${sha256Hex(providerEventKey).slice(0, 20)}`,
+              walletId,
+              walletName: wallet.name,
+              previousBalanceMinor: wallet.balanceMinor,
+              deltaMinor: exactDeltaMinor,
+              newBalanceMinor: nextWalletBal,
+              balanceType: txBalanceType,
+              kind: p.direction === "credit" ? "income" : "expense",
+              createdAtMs: nowMs
+            });
+          }
         }
       }
 
@@ -911,6 +1010,7 @@ export class RealtimeBankingCoordinator {
         currencyCode: "VND",
         bankCode: connection.bankCode,
         accountMasked: connection.accountMasked,
+        accountTail: extractAccountTail(connection.accountNumber) ?? undefined,
         counterpartyDisplay: p.content || p.description || connection.bankName,
         merchant: matchedAndroidTx?.merchant || p.content || p.description || `${connection.bankName} giao dịch`,
         description: combinedText,
@@ -936,6 +1036,7 @@ export class RealtimeBankingCoordinator {
         softWindowFingerprint: softFp,
         balanceAfterMinor: txBalanceAfter,
         balanceType: txBalanceType,
+        ...(balanceObservationSkippedStale ? { balanceObservationSkippedStale: true } : {}),
         ledgerApplied: txLedgerApplied,
         isVehicleMaintenanceHint:
           matchedAndroidTx?.isVehicleMaintenanceHint || classified.isVehicleMaintenanceHint,
@@ -993,6 +1094,7 @@ export class RealtimeBankingCoordinator {
         transactionId: canonicalTxId,
         walletId,
         connectionId: connection.id,
+        grantVersion: connection.grantVersion ?? 1,
         direction: p.direction,
         amountMinor: p.transferAmount,
         bankCode: connection.bankCode,
@@ -1014,8 +1116,12 @@ export class RealtimeBankingCoordinator {
         ...inbox,
         ownerId,
         connectionId: connection.id,
+        walletId,
+        grantVersion: connection.grantVersion ?? 1,
         state: finalState,
+        status: finalState === "NEEDS_REVIEW" ? "needs_review" : "processed",
         linkedTransactionId: canonicalTxId,
+        ...(balanceObservationSkippedStale ? { balanceObservationSkippedStale: true } : {}),
         updatedAtMs: nowMs
       });
 
@@ -1042,6 +1148,35 @@ export class RealtimeBankingCoordinator {
       return claim.record;
     }
     const outbox = claim.record;
+
+    // H3: Strictly verify connection ownerId, active consent, grantVersion & walletId before dispatching!
+    const connection = outbox.connectionId
+      ? await this.store.getConnectionById(outbox.connectionId)
+      : null;
+    const expectedGrantVersion = outbox.grantVersion ?? 1;
+    let dropReason: string | null = null;
+    if (!connection) {
+      dropReason = "CONNECTION_NOT_FOUND";
+    } else if (connection.ownerId !== outbox.ownerId) {
+      dropReason = "CONNECTION_OWNER_MISMATCH";
+    } else if (!isConnectionActiveAndGranted(connection)) {
+      dropReason = "CONNECTION_REVOKED_OR_INACTIVE";
+    } else if ((connection.grantVersion ?? 1) !== expectedGrantVersion) {
+      dropReason = "CONNECTION_GRANT_VERSION_MISMATCH";
+    } else if (outbox.walletId && connection.linkedWalletId !== outbox.walletId) {
+      dropReason = "CONNECTION_WALLET_MISMATCH";
+    }
+
+    if (dropReason !== null) {
+      const skipped: NotificationOutboxRecord = {
+        ...outbox,
+        state: "skipped_revoked_or_reassigned",
+        lastError: dropReason,
+        updatedAtMs: nowMs
+      };
+      await this.store.updateOutboxRecord(skipped);
+      return skipped;
+    }
 
     const prefs = await this.store.getUserNotificationPreferences(outbox.ownerId);
     const suppressed =
@@ -1201,8 +1336,8 @@ export class RealtimeBankingCoordinator {
   }
 
   /**
-   * F13 / FIN-05: Multi-page idempotent SePay REST reconciliation engine (supports 100-1,000+ transactions,
-   * watermark early-stop, and mid-flight network interruption resume without duplicate ledger entries).
+   * F13 / FIN-05 & M9: Multi-page idempotent SePay REST reconciliation engine (supports 100-1,000+ transactions,
+   * watermark early-stop, chronological page sorting, monotonic observed balance guard, and mid-flight resume).
    */
   async reconcilePaginatedSePayPages(params: {
     ownerId: string;
@@ -1226,6 +1361,11 @@ export class RealtimeBankingCoordinator {
     const maxPages = Math.max(1, Math.min(params.maxPages ?? 10, 25));
     const nowMs = params.nowMs ?? Date.now();
 
+    const conn = await this.store.getConnectionById(params.connectionId);
+    if (!conn || conn.ownerId !== params.ownerId || !isConnectionActiveAndGranted(conn)) {
+      throw new Error("CONNECTION_REVOKED_OR_INACTIVE");
+    }
+
     let pagesFetched = 0;
     let fetchedCount = 0;
     let processedCount = 0;
@@ -1240,6 +1380,7 @@ export class RealtimeBankingCoordinator {
       }
 
       let hitWatermark = false;
+      const parsedPageItems: ValidatedSePayWebhookPayload[] = [];
       for (const raw of items) {
         const extId = String(raw.id ?? "").trim();
         if (!newestExternalTxId && extId) {
@@ -1278,16 +1419,26 @@ export class RealtimeBankingCoordinator {
 
         const validated = parseAndValidateSePayPayload(normalizedPayload);
         if (!validated.valid || !validated.payload) continue;
+        parsedPageItems.push(validated.payload);
+      }
 
-        const providerEventKey = `sepay_${params.connectionId}_${validated.payload.id}`;
+      // M9: Sort each page chronologically (oldest -> newest) so observed balance advances monotonically
+      // and older historical items never regress wallet.balanceMinor.
+      parsedPageItems.sort((a, b) => a.occurredAtMs - b.occurredAtMs || a.id - b.id);
+
+      for (const validatedPayload of parsedPageItems) {
+        const providerEventKey = `sepay_${conn.id}_${validatedPayload.id}`;
         await this.store.createDurableInboxIfAbsent({
           providerEventKey,
           provider: "sepay",
-          externalTransactionId: String(validated.payload.id),
-          connectionId: params.connectionId,
-          ownerId: params.ownerId,
+          externalTransactionId: String(validatedPayload.id),
+          connectionId: conn.id,
+          ownerId: conn.ownerId,
+          walletId: conn.linkedWalletId,
+          grantVersion: conn.grantVersion ?? 1,
           state: "PENDING_PROCESSING",
-          payload: validated.payload,
+          status: "pending_processing",
+          payload: validatedPayload,
           receivedAtMs: nowMs,
           updatedAtMs: nowMs
         });
@@ -1315,6 +1466,17 @@ export class RealtimeBankingCoordinator {
       duplicateCount,
       newestExternalTxId
     };
+  }
+
+  /**
+   * H2: Atomically revokes bank connection consent, updates user mirror & releases claims.
+   */
+  async revokeConnection(
+    ownerId: string,
+    connectionId: string,
+    nowMs: number = Date.now()
+  ): Promise<void> {
+    await this.store.disconnectConnection(ownerId, connectionId, nowMs);
   }
 
   /**
@@ -1394,7 +1556,7 @@ export class RealtimeBankingCoordinator {
     if (
       existingLegacyConn &&
       existingLegacyConn.ownerId !== uid &&
-      existingLegacyConn.status === "connected"
+      isConnectionActiveAndGranted(existingLegacyConn)
     ) {
       return { ok: false, errorCode: "ACCOUNT_ALREADY_LINKED_OTHER_USER" };
     }
@@ -1405,30 +1567,13 @@ export class RealtimeBankingCoordinator {
       : null;
 
     const connId = `conn_${cap.bankCode.toLowerCase()}_${sha256Hex(`${uid}:${cleanAcc}:${verifiedSubAcc}`).slice(0, 14)}`;
-    const record: ServerBankConnectionRecord = {
-      id: connId,
-      ownerId: uid,
-      provider: "sepay",
-      providerConnectionId,
-      bankCode: cap.bankCode,
-      bankName: cap.bankName,
-      accountNumber: cleanAcc,
-      accountMasked: maskAccountNumber(cleanAcc),
-      subAccount: verifiedSubAcc,
-      linkedWalletId,
-      consentStatus: "granted",
-      status: "connected",
-      capabilities: cap,
-      lastSyncedAtMs: nowMs,
-      createdAtMs: nowMs,
-      updatedAtMs: nowMs
-    };
 
     return this.store.runAtomic(async (tx) => {
       // 1. All reads MUST occur before any writes (Cloud Firestore transaction constraint)
       const targetWallet = await tx.getWallet(uid, linkedWalletId);
       const acctClaim = await tx.getBankAccountClaim(acctClaimId);
       const idClaim = idClaimId ? await tx.getBankAccountClaim(idClaimId) : null;
+      const existingConn = await tx.getConnectionById(connId);
 
       if (!targetWallet || targetWallet.ownerId !== uid) {
         return { ok: false, errorCode: "WALLET_NOT_FOUND_OR_FORBIDDEN" };
@@ -1448,6 +1593,34 @@ export class RealtimeBankingCoordinator {
       ) {
         return { ok: false, errorCode: "ACCOUNT_ALREADY_LINKED_OTHER_USER" };
       }
+
+      const prevGrantVersion =
+        existingConn && typeof existingConn.grantVersion === "number" && existingConn.grantVersion >= 1
+          ? existingConn.grantVersion
+          : 0;
+      const nextGrantVersion = existingConn ? Math.max(1, prevGrantVersion) + 1 : 1;
+
+      const record: ServerBankConnectionRecord = {
+        id: connId,
+        ownerId: uid,
+        provider: "sepay",
+        providerConnectionId,
+        bankCode: cap.bankCode,
+        bankName: cap.bankName,
+        accountNumber: cleanAcc,
+        accountMasked: maskAccountNumber(cleanAcc),
+        subAccount: verifiedSubAcc,
+        linkedWalletId,
+        consentStatus: "granted",
+        consentEnabled: true,
+        status: "connected",
+        grantVersion: nextGrantVersion,
+        capabilities: cap,
+        lastSyncedAtMs: nowMs,
+        revokedAtMs: null,
+        createdAtMs: existingConn?.createdAtMs ?? nowMs,
+        updatedAtMs: nowMs
+      };
 
       // 2. Write ownership claims + connection atomically inside the SAME transaction
       await tx.upsertBankAccountClaim({
