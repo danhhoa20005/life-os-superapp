@@ -11,8 +11,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAccountFrozenForDeletion(userId) {
+      return exists(/databases/$(database)/documents/account_deletion_tombstones/$(userId));
+    }
+
+    function isActiveOwner(userId) {
+      return isOwner(userId) && !isAccountFrozenForDeletion(userId);
+    }
+
     function isAccountDeletionActive(userId) {
       return isOwner(userId)
+        && !isAccountFrozenForDeletion(userId)
         && exists(/databases/$(database)/documents/users/$(userId))
         && get(/databases/$(database)/documents/users/$(userId)).data.deletionInProgress == true;
     }
@@ -27,7 +36,23 @@ service cloud.firestore {
     }
 
     function isVerifiedByBankField(val) {
-      return val is string && val.lower() in ['verifiedbybank', 'verified_by_bank'];
+      return val is string && val.lower() in ['verified', 'verifiedbybank', 'verified_by_bank'];
+    }
+
+    function isClientAllowedTxVerification(v) {
+      return v is string && v in ['provisional', 'userConfirmed', 'matchedPaymentOrder', 'needsReview', 'rejected'];
+    }
+
+    function isClientAllowedTxVerificationStatus(vs) {
+      return vs is string && vs in ['PROVISIONAL', 'USER_CONFIRMED', 'NEEDS_REVIEW', 'REJECTED', 'MATCHED_PAYMENT_ORDER'];
+    }
+
+    function isClientAllowedTxSourceKind(s) {
+      return s is string && s in ['manual', 'csv', 'androidNotification', 'aiDraft'];
+    }
+
+    function isServerSourceEventName(s) {
+      return s is string && s.lower() in ['sepay_webhook', 'sepay_api', 'bank_webhook', 'bank_api'];
     }
 
     function isTxReversed(data) {
@@ -200,26 +225,26 @@ service cloud.firestore {
     // =========================================================================
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
+      allow create: if isActiveOwner(userId)
         && request.resource.data.id == userId
         && !('password' in request.resource.data);
-      allow update: if isOwner(userId)
+      allow update: if isActiveOwner(userId)
         && request.resource.data.id == resource.data.id
         && !('password' in request.resource.data)
         && (
           resource.data.get('deletionInProgress', false) != true
           || request.resource.data.get('deletionInProgress', false) == true
         );
-      allow delete: if isOwner(userId);
+      allow delete: if false;
 
       match /wallets/{walletId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.balanceMinor is int;
         // F06 / Section 40 / AUD-010: Balance updates must preserve identity, carry timestamp,
         // and prove a brand-new atomic ledger_audit entry with exact balance math!
-        allow update: if isOwner(userId)
+        allow update: if isActiveOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.get('id', walletId) == resource.data.get('id', walletId)
           && request.resource.data.balanceMinor is int
@@ -240,23 +265,31 @@ service cloud.firestore {
                 == getAfter(/databases/$(database)/documents/users/$(userId)/ledger_audits/$(request.resource.data.lastAuditId)).data.newBalanceMinor
             )
           );
-        allow delete: if isOwner(userId);
+        allow delete: if isActiveOwner(userId)
+          && !(resource.data.get('linkedBankConnectionId', '') is string && resource.data.get('linkedBankConnectionId', '').size() > 0)
+          && !(resource.data.get('archived', false) == false && resource.data.get('hasTransactions', false) == true);
       }
 
       // IMMUTABLE DOUBLE-ENTRY WALLET AUDIT TRAIL (APPEND-ONLY BANKING PASSBOOK)
       match /ledger_audits/{auditId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
-          && request.resource.data.newBalanceMinor is int;
-        allow update: if false;
-        allow delete: if isAccountDeletionActive(userId);
+          && request.resource.data.get('txId', '') is string
+          && request.resource.data.get('txId', '').size() > 0
+          && request.resource.data.get('walletId', '') is string
+          && request.resource.data.get('walletId', '').size() > 0
+          && request.resource.data.previousBalanceMinor is int
+          && request.resource.data.deltaMinor is int
+          && request.resource.data.newBalanceMinor is int
+          && request.resource.data.previousBalanceMinor + request.resource.data.deltaMinor == request.resource.data.newBalanceMinor;
+        allow update, delete: if false;
       }
 
       // MONTHLY NET WORTH & CASHFLOW SNAPSHOTS FOR HISTORICAL WEALTH ANALYTICS
       match /net_worth_snapshots/{monthKey} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create, update: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.netWorthMinor is int;
         allow delete: if isAccountDeletionActive(userId);
@@ -264,47 +297,43 @@ service cloud.firestore {
 
       // MONTHLY AGGREGATED FINANCIAL SUMMARIES (FIX-001: Unbounded monthly rollup cache)
       match /monthly_summaries/{monthKey} {
-        allow read, create, update: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create, update: if isActiveOwner(userId);
         allow delete: if isAccountDeletionActive(userId);
       }
 
       // SMART AUTOMATION ENGINE RULES & IMMUTABLE AUDIT LOGS (Section 20)
       match /automation_rules/{ruleId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /automation_audits/{auditId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isActiveOwner(userId);
+        allow update, delete: if false;
       }
 
       match /categories/{categoryId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /transactions/{txId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
           && isPositiveInt(request.resource.data.amountMinor)
           && request.resource.data.currencyCode == 'VND'
-          && !isVerifiedByBankField(request.resource.data.get('verification', ''))
-          && !isVerifiedByBankField(request.resource.data.get('verificationStatus', ''))
-          && !(request.resource.data.get('sourceKind', '') in ['bankWebhook', 'bankApi']);
-        allow update: if isOwner(userId)
+          && isClientAllowedTxVerification(request.resource.data.get('verification', null))
+          && (
+            !('verificationStatus' in request.resource.data)
+            || isClientAllowedTxVerificationStatus(request.resource.data.verificationStatus)
+          )
+          && isClientAllowedTxSourceKind(request.resource.data.get('sourceKind', null));
+        allow update: if isActiveOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
           && isPositiveInt(request.resource.data.amountMinor)
-          && (
-            !isVerifiedByBankField(request.resource.data.get('verification', ''))
-            || isVerifiedByBankField(resource.data.get('verification', ''))
-          )
-          && (
-            !isVerifiedByBankField(request.resource.data.get('verificationStatus', ''))
-            || isVerifiedByBankField(resource.data.get('verificationStatus', ''))
-          )
-          && (
-            !(request.resource.data.get('sourceKind', '') in ['bankWebhook', 'bankApi'])
-            || request.resource.data.get('sourceKind', null) == resource.data.get('sourceKind', null)
-          )
           && (
             !isTxReversed(resource.data)
             || (
@@ -324,35 +353,44 @@ service cloud.firestore {
             )
           )
           && (
-            !isTxVerified(resource.data)
-            || (
-              request.resource.data.amountMinor == resource.data.amountMinor
-              && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
-              && request.resource.data.get('kind', null) == resource.data.get('kind', null)
-              && request.resource.data.get('direction', null) == resource.data.get('direction', null)
-              && request.resource.data.get('currencyCode', null) == resource.data.get('currencyCode', null)
-              && request.resource.data.get('currency', null) == resource.data.get('currency', null)
+            (
+              (isTxVerified(resource.data) || resource.data.get('sourceKind', '') in ['bankWebhook', 'bankApi'])
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['categoryId', 'categoryName', 'merchant', 'note', 'updatedAt'])
               && request.resource.data.get('verification', null) == resource.data.get('verification', null)
+              && request.resource.data.get('verificationStatus', null) == resource.data.get('verificationStatus', null)
               && request.resource.data.get('sourceKind', null) == resource.data.get('sourceKind', null)
+              && request.resource.data.amountMinor == resource.data.amountMinor
+              && request.resource.data.get('direction', null) == resource.data.get('direction', null)
+              && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
+              && request.resource.data.get('currency', null) == resource.data.get('currency', null)
+              && request.resource.data.get('currencyCode', null) == resource.data.get('currencyCode', null)
+              && request.resource.data.get('kind', null) == resource.data.get('kind', null)
               && request.resource.data.get('externalTransactionId', null) == resource.data.get('externalTransactionId', null)
               && request.resource.data.get('referenceCode', null) == resource.data.get('referenceCode', null)
               && request.resource.data.get('observedBalanceMinor', null) == resource.data.get('observedBalanceMinor', null)
-              && request.resource.data.get('isRefund', null) == resource.data.get('isRefund', null)
               && request.resource.data.get('occurredAt', null) == resource.data.get('occurredAt', null)
               && request.resource.data.get('monthKey', null) == resource.data.get('monthKey', null)
               && request.resource.data.get('balanceAfterMinor', null) == resource.data.get('balanceAfterMinor', null)
               && request.resource.data.get('splitLines', null) == resource.data.get('splitLines', null)
+              && request.resource.data.get('isRefund', null) == resource.data.get('isRefund', null)
+              && request.resource.data.get('ledgerApplied', null) == resource.data.get('ledgerApplied', null)
+            )
+            || (
+              !(isTxVerified(resource.data) || resource.data.get('sourceKind', '') in ['bankWebhook', 'bankApi'])
+              && (!('verification' in request.resource.data) || isClientAllowedTxVerification(request.resource.data.verification))
+              && (!('verification' in resource.data) || isClientAllowedTxVerification(request.resource.data.get('verification', null)))
               && (
-                request.resource.data.get('verificationStatus', null) == resource.data.get('verificationStatus', null)
+                !('verificationStatus' in request.resource.data)
+                || isClientAllowedTxVerificationStatus(request.resource.data.verificationStatus)
                 || (
-                  resource.data.get('verificationStatus', '') != 'REVERSED'
-                  && !isTxReversed(resource.data)
+                  request.resource.data.verificationStatus == 'REVERSED'
                   && 'reversedById' in request.resource.data
                   && request.resource.data.reversedById is string
                   && request.resource.data.reversedById.size() > 0
-                  && request.resource.data.get('verificationStatus', '') in ['REVERSED', 'reversed']
                 )
               )
+              && (!('sourceKind' in request.resource.data) || isClientAllowedTxSourceKind(request.resource.data.sourceKind))
+              && (!('sourceKind' in resource.data) || isClientAllowedTxSourceKind(request.resource.data.get('sourceKind', null)))
             )
           );
         // Immutable during normal operation; purged cleanly only during verified right-to-erasure account deletion
@@ -361,231 +399,297 @@ service cloud.firestore {
 
       match /budgets/{budgetId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create, update: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
           && isPositiveInt(request.resource.data.limitMinor);
-        allow delete: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
       }
 
       match /personal_funds/{fundId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
 
         match /contributions/{contribId} {
-          allow read, create: if isOwner(userId)
+          allow read: if isOwner(userId);
+          allow create: if isActiveOwner(userId)
             && isPositiveInt(request.resource.data.amountMinor);
           allow delete: if isAccountDeletionActive(userId);
         }
 
         match /expenses/{expId} {
-          allow read, create, update: if isOwner(userId)
+          allow read: if isOwner(userId);
+          allow create, update: if isActiveOwner(userId)
             && isPositiveInt(request.resource.data.amountMinor);
           allow delete: if isAccountDeletionActive(userId);
         }
 
         match /fund_audits/{auditId} {
-          allow read, create, delete: if isOwner(userId);
+          allow read: if isOwner(userId);
+          allow create, delete: if isActiveOwner(userId);
           allow update: if false;
         }
       }
 
       // PRIVATE CALENDAR — Family Owners/Admins NEVER have access!
       match /calendars/{calId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /private_events/{eventId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId;
-        allow update: if isOwner(userId)
+        allow update: if isActiveOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId;
-        allow delete: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
       }
 
       match /personal_tasks/{taskId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /vehicles/{vehicleId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
 
         match /maintenances/{recordId} {
-          allow read, write: if isOwner(userId);
+          allow read: if isOwner(userId);
+          allow write: if isActiveOwner(userId);
         }
 
         match /fuel_logs/{logId} {
-          allow read, write: if isOwner(userId);
+          allow read: if isOwner(userId);
+          allow write: if isActiveOwner(userId);
         }
       }
 
       match /bills/{billId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /consents/{sourceId} {
-        allow read, delete: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
         // Never allow plaintext partner/banking API tokens (`apiToken`) to be persisted in Cloud Firestore!
-        allow create, update: if isOwner(userId)
+        allow create, update: if isActiveOwner(userId)
           && !('apiToken' in request.resource.data);
       }
 
       match /source_events/{eventKey} {
-        allow read, create, update: if isOwner(userId);
-        allow delete: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isActiveOwner(userId)
+          && request.resource.data.get('source', '') is string
+          && !isServerSourceEventName(request.resource.data.get('source', ''));
+        allow update: if isActiveOwner(userId)
+          && !isServerSourceEventName(resource.data.get('source', ''))
+          && request.resource.data.get('source', '') is string
+          && !isServerSourceEventName(request.resource.data.get('source', ''));
+        allow delete: if false;
       }
 
       match /source_claims/{claimId} {
-        allow read, create, update: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create, update: if isActiveOwner(userId);
         allow delete: if isAccountDeletionActive(userId);
       }
 
       // NATIVE IN-APP BANK RECEIVING ACCOUNTS & DYNAMIC VIETQR PAYMENT ORDERS
       match /bank_accounts/{accountId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /payment_orders/{orderId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isActiveOwner(userId)
+          && request.resource.data.ownerId == userId
+          && isPositiveInt(request.resource.data.amountMinor)
+          && !isVerifiedByBankField(request.resource.data.get('verification', ''))
+          && !(request.resource.data.get('status', '') is string && request.resource.data.get('status', '').lower() == 'verified');
+        allow update: if isActiveOwner(userId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.get('walletId', null) == resource.data.get('walletId', null)
+          && request.resource.data.get('bankBin', null) == resource.data.get('bankBin', null)
+          && request.resource.data.get('bankCode', null) == resource.data.get('bankCode', null)
+          && request.resource.data.get('accountNumber', null) == resource.data.get('accountNumber', null)
+          && request.resource.data.amountMinor == resource.data.amountMinor
+          && request.resource.data.get('paymentCode', null) == resource.data.get('paymentCode', null)
+          && request.resource.data.get('emvQrPayload', null) == resource.data.get('emvQrPayload', null)
+          && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+          && !isVerifiedByBankField(request.resource.data.get('verification', ''))
+          && !(request.resource.data.get('status', '') is string && request.resource.data.get('status', '').lower() == 'verified');
+        allow delete: if isActiveOwner(userId);
       }
 
       // REAL-TIME BANKING CONNECTIONS, FINANCIAL NOTIFICATIONS, FCM DEVICES & PRIVACY PREFERENCES
-      // Client can read own bank_connections or disconnect, NEVER forge `status == 'connected'` for `sepay`!
+      // Client can read own bank_connections or mark pendingRevocation, NEVER create or forge connected/granted!
       match /bank_connections/{connectionId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
-          && request.resource.data.ownerId == userId
-          && !(request.resource.data.provider == 'sepay' && request.resource.data.status == 'connected')
-          && !('accountNumber' in request.resource.data)
-          && !('apiToken' in request.resource.data);
-        allow update: if isOwner(userId)
+        allow create: if false;
+        allow update: if isActiveOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
-          && !(request.resource.data.provider == 'sepay' && request.resource.data.status == 'connected' && resource.data.status != 'connected')
           && !('accountNumber' in request.resource.data)
-          && !('apiToken' in request.resource.data);
-        allow delete: if isOwner(userId);
+          && !('apiToken' in request.resource.data)
+          && request.resource.data.status == 'pendingRevocation'
+          && request.resource.data.get('consentStatus', '') != 'granted'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'consentStatus',
+            'revocationRequestedAt',
+            'lastRevocationError',
+            'updatedAt'
+          ]);
+        allow delete: if false;
       }
 
       // Real-time financial notifications: server Admin SDK writes verified pushes;
-      // owner can read, mark `isRead`, delete during erasure, or create explicit `isTestNotification == true`.
+      // owner can read, mark read/dismiss (`isRead`, `readAt`, `dismissed`, `updatedAt`), delete during erasure,
+      // or create explicit `isTestNotification == true` / `androidNotification`.
       match /financial_notifications/{notificationId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
-          && (request.resource.data.isTestNotification == true || request.resource.data.sourceKind == 'androidNotification');
-        allow update: if isOwner(userId)
+          && (request.resource.data.isTestNotification == true || request.resource.data.sourceKind == 'androidNotification')
+          && (
+            request.resource.data.isTestNotification == true
+            || !isVerifiedByBankField(request.resource.data.get('verificationStatus', ''))
+          );
+        allow update: if isActiveOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.amountMinor == resource.data.amountMinor;
-        allow delete: if isOwner(userId);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt', 'dismissed', 'updatedAt']);
+        allow delete: if isActiveOwner(userId);
       }
 
       // Multi-device FCM registration strictly isolated per ownerId (T16, T20)
       match /devices/{deviceId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create, update: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.deviceId == deviceId;
-        allow delete: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
       }
 
       match /notification_preferences/{prefId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create, update: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId;
-        allow delete: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
       }
 
       // User-taught explainable merchant -> category mapping rules (Section 17)
       match /merchant_rules/{ruleId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       // OFFLINE FINANCIAL AI PERSONALIZATION, CORRECTIONS, DRAFTS & PREFERENCES (STRICT OWNER ISOLATION)
       match /ai_personalization_rules/{ruleId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /ai_category_corrections/{correctionId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /ai_pending_drafts/{draftId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /ai_preferences/{prefId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       // PERSONAL DOCUMENT VAULT (Contracts, Vehicle Papers, Insurance, IDs)
       match /documents/{docId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isActiveOwner(userId)
           && request.resource.data.ownerId == userId;
-        allow update: if isOwner(userId)
+        allow update: if isActiveOwner(userId)
           && request.resource.data.ownerId == resource.data.ownerId;
-        allow delete: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
       }
 
       // PRO UTILITIES SUITE (Subscriptions/Warranties, Habits/Focus, Gift Ledger, Travel Packing)
       match /subscriptions_warranties/{itemId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /habits/{habitId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /wellness_daily/{dayKey} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /gift_ledger/{entryId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /packing_items/{itemId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       // 360° DAILY LIFE SUPER APP SUITE (Hydration Preferences, Kitchen/Groceries, Home/EVN Utilities, Smart Notes)
       match /daily_preferences/{prefId} {
-        allow read, create, update, delete: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create, update, delete: if isActiveOwner(userId);
       }
 
       // Legacy health/medical cleanup paths: owner read & delete ONLY (new client writes blocked for Play compliance)
       match /medications/{medId} {
-        allow read, delete: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
         allow create, update: if false;
       }
 
       match /health_logs/{logId} {
-        allow read, delete: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
         allow create, update: if false;
       }
 
       match /medical_profiles/{profileId} {
-        allow read, delete: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow delete: if isActiveOwner(userId);
         allow create, update: if false;
       }
 
       match /grocery_items/{itemId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /meal_plans/{dayKey} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /utility_readings/{readingId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /home_contracts/{contractId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
 
       match /life_notes/{noteId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isActiveOwner(userId);
       }
     }
 
@@ -1190,6 +1294,14 @@ service cloud.firestore {
     }
 
     match /account_deletion_jobs/{userId} {
+      allow read, write: if false;
+    }
+
+    match /account_deletion_tombstones/{userId} {
+      allow read, write: if false;
+    }
+
+    match /api_rate_limits/{limitId} {
       allow read, write: if false;
     }
 

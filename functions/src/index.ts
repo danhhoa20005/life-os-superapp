@@ -13,6 +13,21 @@ import {
   InviteKind
 } from "./familyInvites";
 import { FirebaseAdminFcmSender, FirestoreAdminBankingStore } from "./firestoreStore";
+import {
+  assertAllowedKeys,
+  assertBoundedString,
+  assertOptionalBoolean,
+  assertPerUidRateLimit,
+  enforceAppCheckFlag,
+  fetchWithTimeout
+} from "./requestGuards";
+import {
+  DeleteAccountOptions,
+  DeleteAccountResult,
+  handleDeleteUserAccountDataCallable,
+  recoverStaleAccountDeletionJobs,
+  runAccountDeletion
+} from "./accountDeletion";
 import { sha256Hex } from "./security";
 
 if (admin.apps.length === 0) {
@@ -121,19 +136,44 @@ export const retryFailedNotificationOutboxWorker = onSchedule(
  *    (never storing raw token in user-readable Firestore!) and binds BankConnection -> Wallet.
  */
 export const verifyAndLinkBankConnection = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
       throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để liên kết ngân hàng.");
     }
 
-    const data = (request.data ?? {}) as Record<string, unknown>;
-    const bankCode = String(data.bankCode ?? "").trim();
-    const accountNumber = String(data.accountNumber ?? "").replace(/[^A-Za-z0-9]/g, "").trim();
-    const subAccount = String(data.subAccount ?? "").trim();
-    const linkedWalletId = String(data.linkedWalletId ?? "").trim();
-    const userSePayApiToken = String(data.sepayApiToken ?? "").trim();
+    const db = admin.firestore();
+    await assertPerUidRateLimit(db, uid, "verifyAndLinkBankConnection", 10, 60_000);
+
+    const data = assertAllowedKeys(request.data, [
+      "bankCode",
+      "accountNumber",
+      "subAccount",
+      "linkedWalletId",
+      "sepayApiToken"
+    ]);
+    const bankCode = assertBoundedString(data.bankCode, "bankCode", {
+      required: true,
+      minLength: 2,
+      maxLength: 32
+    });
+    const rawAccountNumber = assertBoundedString(data.accountNumber, "accountNumber", {
+      required: true,
+      maxLength: 64
+    });
+    const accountNumber = rawAccountNumber.replace(/[^A-Za-z0-9]/g, "").trim();
+    const subAccount = assertBoundedString(data.subAccount, "subAccount", {
+      maxLength: 64
+    });
+    const linkedWalletId = assertBoundedString(data.linkedWalletId, "linkedWalletId", {
+      required: true,
+      minLength: 1,
+      maxLength: 128
+    });
+    const userSePayApiToken = assertBoundedString(data.sepayApiToken, "sepayApiToken", {
+      maxLength: 512
+    });
 
     if (!bankCode || accountNumber.length < 6 || !linkedWalletId) {
       throw new HttpsError("invalid-argument", "Thiếu thông tin ngân hàng, số tài khoản hoặc ví liên kết.");
@@ -148,7 +188,7 @@ export const verifyAndLinkBankConnection = onCall(
 
     let sepayAccounts: SePayBankAccountApiItem[] = [];
     try {
-      const resp = await fetch("https://my.sepay.vn/userapi/bankaccounts/list", {
+      const resp = await fetchWithTimeout("https://my.sepay.vn/userapi/bankaccounts/list", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${userSePayApiToken}`,
@@ -240,17 +280,21 @@ export const verifyAndLinkBankConnection = onCall(
  * 5. Authenticated Callable: Revoke consent & disconnect bank connection.
  */
 export const disconnectBankConnection = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
       throw new HttpsError("unauthenticated", "Vui lòng đăng nhập.");
     }
-    const connectionId = String((request.data ?? {}).connectionId ?? "").trim();
-    if (!connectionId) {
-      throw new HttpsError("invalid-argument", "Thiếu connectionId.");
-    }
-    const store = new FirestoreAdminBankingStore(admin.firestore());
+    const db = admin.firestore();
+    await assertPerUidRateLimit(db, uid, "disconnectBankConnection", 10, 60_000);
+    const data = assertAllowedKeys(request.data, ["connectionId"]);
+    const connectionId = assertBoundedString(data.connectionId, "connectionId", {
+      required: true,
+      minLength: 1,
+      maxLength: 128
+    });
+    const store = new FirestoreAdminBankingStore(db);
     try {
       await store.disconnectConnection(uid, connectionId, Date.now());
     } catch (err) {
@@ -268,13 +312,15 @@ export const disconnectBankConnection = onCall(
  *    without exposing or logging plaintext tokens (Section 14 & Phase 4 Migration).
  */
 export const migrateLegacySePayToken = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
       throw new HttpsError("unauthenticated", "Vui lòng đăng nhập.");
     }
     const db = admin.firestore();
+    await assertPerUidRateLimit(db, uid, "migrateLegacySePayToken", 10, 60_000);
+    assertAllowedKeys(request.data, []);
     const store = new FirestoreAdminBankingStore(db);
     const legacy = await store.readAndDeleteLegacySePayConsent(uid);
     if (!legacy || !legacy.apiToken) {
@@ -298,24 +344,39 @@ export const migrateLegacySePayToken = onCall(
  *    and routes every item through the idempotent Canonical Ledger pipeline!
  */
 export const reconcileBankConnectionViaApi = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
       throw new HttpsError("unauthenticated", "Vui lòng đăng nhập.");
     }
-    const data = (request.data ?? {}) as Record<string, unknown>;
-    const connectionId = String(data.connectionId ?? "").trim();
-    const sepayApiToken = String(data.sepayApiToken ?? "").trim();
-    const dateMin = String(data.transactionDateMin ?? "").trim();
-    const dateMax = String(data.transactionDateMax ?? "").trim();
-    const ignoreWatermark = Boolean(data.ignoreWatermark);
-
-    if (!connectionId || sepayApiToken.length < 16) {
-      throw new HttpsError("invalid-argument", "Thiếu connectionId hoặc token đối soát.");
-    }
-
     const db = admin.firestore();
+    await assertPerUidRateLimit(db, uid, "reconcileBankConnectionViaApi", 10, 60_000);
+    const data = assertAllowedKeys(request.data, [
+      "connectionId",
+      "sepayApiToken",
+      "transactionDateMin",
+      "transactionDateMax",
+      "ignoreWatermark"
+    ]);
+    const connectionId = assertBoundedString(data.connectionId, "connectionId", {
+      required: true,
+      minLength: 1,
+      maxLength: 128
+    });
+    const sepayApiToken = assertBoundedString(data.sepayApiToken, "sepayApiToken", {
+      required: true,
+      minLength: 16,
+      maxLength: 512
+    });
+    const dateMin = assertBoundedString(data.transactionDateMin, "transactionDateMin", {
+      maxLength: 32
+    });
+    const dateMax = assertBoundedString(data.transactionDateMax, "transactionDateMax", {
+      maxLength: 32
+    });
+    const ignoreWatermark = assertOptionalBoolean(data.ignoreWatermark, "ignoreWatermark", false);
+
     const connRef = db.collection("server_bank_connections").doc(connectionId);
     const connSnap = await connRef.get();
     if (!connSnap.exists || connSnap.data()?.ownerId !== uid) {
@@ -355,7 +416,7 @@ export const reconcileBankConnectionViaApi = onCall(
         if (dateMin) params.set("transaction_date_min", dateMin);
         if (dateMax) params.set("transaction_date_max", dateMax);
 
-        const resp = await fetch(`https://my.sepay.vn/userapi/transactions/list?${params.toString()}`, {
+        const resp = await fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/list?${params.toString()}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${sepayApiToken}`,
@@ -432,7 +493,7 @@ function createFamilyInviteCoordinator(): FamilyInviteCoordinator {
  *    - `revokeFamilyInvite`: Manager-only atomic revocation across `family_invites` and `families.pendingInvites`.
  */
 export const createFamilyInvite = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
@@ -463,7 +524,7 @@ export const createFamilyInvite = onCall(
 );
 
 export const previewFamilyInvite = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
@@ -497,7 +558,7 @@ export const previewFamilyInvite = onCall(
 );
 
 export const joinFamilyByInvite = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
@@ -524,7 +585,7 @@ export const joinFamilyByInvite = onCall(
 );
 
 export const revokeFamilyInvite = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {
@@ -543,314 +604,23 @@ export const revokeFamilyInvite = onCall(
   }
 );
 
-const OWNER_SCOPED_SERVER_COLLECTIONS = [
-  "server_bank_connections",
-  "server_bank_account_claims",
-  "sepay_webhook_inbox",
-  "notification_outbox",
-  "bank_reconciliation_jobs",
-  "family_invite_rate_limits"
-] as const;
-
-async function deleteQueryInBatches(
-  db: admin.firestore.Firestore,
-  queryFactory: () => admin.firestore.Query
-): Promise<number> {
-  let deleted = 0;
-  while (true) {
-    const snap = await queryFactory().limit(400).get();
-    if (snap.empty) break;
-    const batch = db.batch();
-    for (const doc of snap.docs) {
-      batch.delete(doc.ref);
-    }
-    await batch.commit();
-    deleted += snap.size;
-    if (snap.size < 400) break;
-  }
-  return deleted;
-}
-
-async function purgeServerCollectionsForOwner(
-  db: admin.firestore.Firestore,
-  cleanUid: string
-): Promise<number> {
-  let deletedCount = 0;
-  for (const colName of OWNER_SCOPED_SERVER_COLLECTIONS) {
-    deletedCount += await deleteQueryInBatches(db, () =>
-      db.collection(colName).where("ownerId", "==", cleanUid)
-    );
-  }
-  const directRateLimitRef = db.collection("family_invite_rate_limits").doc(cleanUid);
-  const directRateLimitSnap = await directRateLimitRef.get();
-  if (directRateLimitSnap.exists) {
-    await directRateLimitRef.delete();
-    deletedCount += 1;
-  }
-  return deletedCount;
-}
-
-async function verifyOwnerAccountClean(
-  db: admin.firestore.Firestore,
-  cleanUid: string,
-  checkUserSubtree: boolean
-): Promise<boolean> {
-  if (checkUserSubtree) {
-    const userDocRef = db.collection("users").doc(cleanUid);
-    const [userSnap, subCols] = await Promise.all([
-      userDocRef.get(),
-      userDocRef.listCollections()
-    ]);
-    if (userSnap.exists || subCols.length > 0) {
-      return false;
-    }
-  }
-  for (const colName of OWNER_SCOPED_SERVER_COLLECTIONS) {
-    const snap = await db.collection(colName).where("ownerId", "==", cleanUid).limit(1).get();
-    if (!snap.empty) {
-      return false;
-    }
-  }
-  const directRateLimitSnap = await db.collection("family_invite_rate_limits").doc(cleanUid).get();
-  if (directRateLimitSnap.exists) {
-    return false;
-  }
-  return true;
-}
-
-export interface DeleteAccountOptions {
-  readonly skipFamilyOwnerPrecondition?: boolean;
-  readonly skipUserRecursiveDelete?: boolean;
-  readonly isTrigger?: boolean;
-}
-
 export async function deleteServerOnlyUserAccountData(
   db: admin.firestore.Firestore,
   uid: string,
   options: DeleteAccountOptions = {}
-): Promise<{ ok: true; deletedCount: number; verifiedClean: true }> {
-  const cleanUid = uid.trim();
-  if (!cleanUid) {
-    throw new HttpsError("invalid-argument", "Thiếu mã người dùng cần xóa dữ liệu.");
-  }
-
-  // H5: Enforce family ownership precondition before starting destructive steps
-  if (!options.skipFamilyOwnerPrecondition) {
-    const famSnap = await db.collection("families").where("memberIds", "array-contains", cleanUid).get();
-    for (const famDoc of famSnap.docs) {
-      const d = famDoc.data() ?? {};
-      const memberIds = Array.isArray(d.memberIds) ? d.memberIds.map(String) : [];
-      const memberRoles = (d.memberRoles ?? {}) as Record<string, unknown>;
-      const isOwnerRole =
-        memberRoles[cleanUid] === "owner" ||
-        (memberRoles[cleanUid] === undefined && String(d.createdBy ?? "") === cleanUid);
-      if (isOwnerRole && memberIds.length > 1) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Bạn đang là trưởng nhóm của một không gian chung có thành viên khác. Vui lòng chuyển quyền hoặc giải tán nhóm trước khi xóa tài khoản."
-        );
-      }
-    }
-  }
-
-  const jobRef = db.collection("account_deletion_jobs").doc(cleanUid);
-  const jobSnap = await jobRef.get();
-  const jobData = jobSnap.exists ? (jobSnap.data() ?? {}) : {};
-
-  if (options.isTrigger && jobData.status === "completed") {
-    const alreadyClean = await verifyOwnerAccountClean(db, cleanUid, false);
-    if (alreadyClean) {
-      return { ok: true, deletedCount: 0, verifiedClean: true };
-    }
-  }
-
-  const existingSteps = (jobData.steps ?? {}) as Record<string, unknown>;
-  const steps: {
-    families: string;
-    serverCollections: string;
-    userSubtree: string;
-    verification: string;
-  } = {
-    families: existingSteps.families === "completed" ? "completed" : "pending",
-    serverCollections: existingSteps.serverCollections === "completed" ? "completed" : "pending",
-    userSubtree: options.skipUserRecursiveDelete
-      ? existingSteps.userSubtree === "completed"
-        ? "completed"
-        : "skipped_trigger"
-      : existingSteps.userSubtree === "completed"
-        ? "completed"
-        : "pending",
-    verification: "pending"
-  };
-
-  const nowTs = admin.firestore.Timestamp.now();
-  await jobRef.set(
-    {
-      uid: cleanUid,
-      status: "in_progress",
-      steps,
-      ...(jobSnap.exists ? {} : { startedAt: nowTs }),
-      updatedAt: nowTs
-    },
-    { merge: true }
-  );
-
-  let deletedCount = 0;
-
-  // Step 1: Clean up family memberships, availability entries & solo-owned families
-  if (steps.families !== "completed") {
-    const famSnap = await db.collection("families").where("memberIds", "array-contains", cleanUid).get();
-    for (const famDoc of famSnap.docs) {
-      deletedCount += await deleteQueryInBatches(db, () =>
-        famDoc.ref.collection("availability").where("ownerId", "==", cleanUid)
-      );
-
-      const action = await db.runTransaction(async (tx) => {
-        const fresh = await tx.get(famDoc.ref);
-        if (!fresh.exists) return "none" as const;
-        const d = fresh.data() ?? {};
-        const memberIds = Array.isArray(d.memberIds) ? d.memberIds.map(String) : [];
-        if (!memberIds.includes(cleanUid)) return "none" as const;
-
-        const memberRoles = (d.memberRoles ?? {}) as Record<string, unknown>;
-        const isOwnerRole =
-          memberRoles[cleanUid] === "owner" ||
-          (memberRoles[cleanUid] === undefined && String(d.createdBy ?? "") === cleanUid);
-        if (!options.skipFamilyOwnerPrecondition && isOwnerRole && memberIds.length > 1) {
-          throw new HttpsError(
-            "failed-precondition",
-            "Bạn đang là trưởng nhóm của một không gian chung có thành viên khác. Vui lòng chuyển quyền hoặc giải tán nhóm trước khi xóa tài khoản."
-          );
-        }
-
-        const remaining = memberIds.filter((id) => id !== cleanUid);
-        if (remaining.length === 0) {
-          return "delete_solo" as const;
-        }
-
-        tx.update(famDoc.ref, {
-          memberIds: admin.firestore.FieldValue.arrayRemove(cleanUid),
-          [`memberRoles.${cleanUid}`]: admin.firestore.FieldValue.delete(),
-          [`memberNames.${cleanUid}`]: admin.firestore.FieldValue.delete(),
-          updatedAt: admin.firestore.Timestamp.now()
-        });
-        return "removed_member" as const;
-      });
-
-      if (action === "delete_solo") {
-        deletedCount += await deleteQueryInBatches(db, () =>
-          db.collection("family_invites").where("familyId", "==", famDoc.id)
-        );
-        await db.recursiveDelete(famDoc.ref);
-        deletedCount += 1;
-      } else if (action === "removed_member") {
-        deletedCount += 1;
-      }
-    }
-    steps.families = "completed";
-    await jobRef.set(
-      {
-        steps: { families: "completed" },
-        updatedAt: admin.firestore.Timestamp.now()
-      },
-      { merge: true }
-    );
-  }
-
-  // Step 2: Purge ALL server-only collections
-  if (steps.serverCollections !== "completed") {
-    deletedCount += await purgeServerCollectionsForOwner(db, cleanUid);
-    steps.serverCollections = "completed";
-    await jobRef.set(
-      {
-        steps: { serverCollections: "completed" },
-        updatedAt: admin.firestore.Timestamp.now()
-      },
-      { merge: true }
-    );
-  }
-
-  // Step 3: Complete recursive deletion of `users/{uid}` and ALL nested subcollections
-  // (daily_preferences, legacy medications, health_logs, medical_profiles, personal_funds/*/fund_audits, etc.)
-  if (!options.skipUserRecursiveDelete && steps.userSubtree !== "completed") {
-    const userDocRef = db.collection("users").doc(cleanUid);
-    const [userSnap, subCols] = await Promise.all([
-      userDocRef.get(),
-      userDocRef.listCollections()
-    ]);
-    if (userSnap.exists || subCols.length > 0) {
-      await db.recursiveDelete(userDocRef);
-      deletedCount += userSnap.exists ? 1 : subCols.length;
-    }
-    steps.userSubtree = "completed";
-    await jobRef.set(
-      {
-        steps: { userSubtree: "completed" },
-        updatedAt: admin.firestore.Timestamp.now()
-      },
-      { merge: true }
-    );
-  }
-
-  // Step 4: Verify clean state (and sweep stragglers if resumed after a prior partial state)
-  let clean = await verifyOwnerAccountClean(db, cleanUid, !options.skipUserRecursiveDelete);
-  if (!clean) {
-    deletedCount += await purgeServerCollectionsForOwner(db, cleanUid);
-    if (!options.skipUserRecursiveDelete) {
-      const userDocRef = db.collection("users").doc(cleanUid);
-      const [userSnap, subCols] = await Promise.all([
-        userDocRef.get(),
-        userDocRef.listCollections()
-      ]);
-      if (userSnap.exists || subCols.length > 0) {
-        await db.recursiveDelete(userDocRef);
-        deletedCount += 1;
-      }
-    }
-    clean = await verifyOwnerAccountClean(db, cleanUid, !options.skipUserRecursiveDelete);
-  }
-
-  if (!clean) {
-    throw new HttpsError("internal", "Không thể xác minh xóa sạch hoàn toàn dữ liệu tài khoản.");
-  }
-
-  const completedTs = admin.firestore.Timestamp.now();
-  await jobRef.set(
-    {
-      uid: cleanUid,
-      status: "completed",
-      steps: {
-        families: "completed",
-        serverCollections: "completed",
-        userSubtree: steps.userSubtree,
-        verification: "completed"
-      },
-      verifiedClean: true,
-      deletedCount,
-      completedAt: completedTs,
-      updatedAt: completedTs
-    },
-    { merge: true }
-  );
-
-  return { ok: true, deletedCount, verifiedClean: true };
+): Promise<DeleteAccountResult> {
+  return runAccountDeletion(db, uid, options);
 }
 
 export const deleteUserAccountData = onCall(
-  { region: "asia-southeast1" },
+  { region: "asia-southeast1", enforceAppCheck: enforceAppCheckFlag() },
   async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để xóa dữ liệu tài khoản.");
-    }
-    const requestedUid =
-      typeof (request.data as Record<string, unknown> | undefined)?.userId === "string"
-        ? String((request.data as Record<string, unknown>).userId).trim()
-        : "";
-    if (requestedUid && requestedUid !== uid) {
-      throw new HttpsError("permission-denied", "Không thể xóa dữ liệu của tài khoản khác.");
-    }
-    return deleteServerOnlyUserAccountData(admin.firestore(), uid);
+    return handleDeleteUserAccountDataCallable({
+      db: admin.firestore(),
+      authClient: admin.auth(),
+      auth: request.auth,
+      data: request.data
+    });
   }
 );
 
@@ -862,18 +632,45 @@ export const onUserAccountDocumentDeleted = onDocumentDeleted(
   async (event) => {
     const uid = event.params.uid;
     if (!uid) return;
-    await deleteServerOnlyUserAccountData(admin.firestore(), uid, {
-      skipFamilyOwnerPrecondition: true,
-      skipUserRecursiveDelete: true,
+    const db = admin.firestore();
+    const jobSnap = await db.collection("account_deletion_jobs").doc(uid).get();
+    if (jobSnap.exists) {
+      const job = jobSnap.data() ?? {};
+      if (job.status === "completed") {
+        return;
+      }
+      const leaseExpiresAtMs = typeof job.leaseExpiresAtMs === "number" ? job.leaseExpiresAtMs : 0;
+      if (job.status === "in_progress" && leaseExpiresAtMs > Date.now()) {
+        return;
+      }
+    }
+    await runAccountDeletion(db, uid, {
       isTrigger: true
     });
   }
 );
 
+export const recoverStaleAccountDeletions = onSchedule(
+  {
+    schedule: "every 15 minutes",
+    region: "asia-southeast1",
+    maxInstances: 1
+  },
+  async () => {
+    await recoverStaleAccountDeletionJobs({
+      db: admin.firestore(),
+      authClient: admin.auth(),
+      nowMs: Date.now()
+    });
+  }
+);
+
 export { BANK_CAPABILITY_CATALOG };
+export * from "./accountDeletion";
 export * from "./bankingEngine";
 export * from "./capabilities";
 export * from "./familyInvites";
+export * from "./requestGuards";
 export * from "./schema";
 export * from "./security";
 export * from "./memoryStore";

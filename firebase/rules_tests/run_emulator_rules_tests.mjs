@@ -172,7 +172,14 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
     assert.equal(
       await firestoreRequest('PATCH', 'users/member_a/transactions/tx_1', {
         uid: 'member_a',
-        data: { id: 'tx_1', ownerId: 'member_a', amountMinor: 85000, currencyCode: 'VND' },
+        data: {
+          id: 'tx_1',
+          ownerId: 'member_a',
+          amountMinor: 85000,
+          currencyCode: 'VND',
+          verification: 'userConfirmed',
+          sourceKind: 'manual',
+        },
       }),
       200,
     );
@@ -181,7 +188,14 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
     assert.equal(
       await firestoreRequest('PATCH', 'users/member_a/transactions/tx_zero', {
         uid: 'member_a',
-        data: { id: 'tx_zero', ownerId: 'member_a', amountMinor: 0, currencyCode: 'VND' },
+        data: {
+          id: 'tx_zero',
+          ownerId: 'member_a',
+          amountMinor: 0,
+          currencyCode: 'VND',
+          verification: 'userConfirmed',
+          sourceKind: 'manual',
+        },
       }),
       403,
     );
@@ -1068,6 +1082,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           exists: false,
           data: {
             id: 'aud_1',
+            txId: 'tx_aud_1',
             ownerId: uid,
             walletId: 'w_main',
             previousBalanceMinor: 1000000,
@@ -1173,7 +1188,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       200,
     );
 
-    // Attaching reversal link (`reversedById` + `verificationStatus: 'REVERSED'`) -> SUCCEEDS (200)!
+    // Client CANNOT mutate verificationStatus/reversedById on server-verified bankApi transaction -> DENIED (403)!
     assert.equal(
       await firestoreRequest('PATCH', `users/${uid}/transactions/tx_ver_1`, {
         uid,
@@ -1182,6 +1197,39 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           categoryName: 'Thưởng dự án',
           note: 'Đã phân loại lại',
           reversedById: 'rev_tx_ver_1',
+          verificationStatus: 'REVERSED',
+          updatedAt: new Date(),
+        },
+      }),
+      403,
+    );
+
+    // Client CAN reverse a manual userConfirmed transaction -> SUCCEEDS (200)!
+    const manualTxForRev = {
+      id: 'tx_man_rev_1',
+      ownerId: uid,
+      walletId: 'w_main',
+      kind: 'expense',
+      direction: 'debit',
+      amountMinor: 120000,
+      currencyCode: 'VND',
+      verification: 'userConfirmed',
+      verificationStatus: 'USER_CONFIRMED',
+      sourceKind: 'manual',
+    };
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_man_rev_1`, {
+        uid,
+        data: manualTxForRev,
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_man_rev_1`, {
+        uid,
+        data: {
+          ...manualTxForRev,
+          reversedById: 'rev_tx_man_rev_1',
           verificationStatus: 'REVERSED',
           updatedAt: new Date(),
         },
@@ -1973,6 +2021,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           exists: false,
           data: {
             id: 'aud_1',
+            txId: 'tx_aud_1',
             ownerId: uid,
             walletId: 'w_1',
             previousBalanceMinor: 1000000,
@@ -2011,6 +2060,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           exists: false,
           data: {
             id: 'aud_bad_math',
+            txId: 'tx_bad_math',
             ownerId: uid,
             walletId: 'w_1',
             previousBalanceMinor: 800000,
@@ -2037,14 +2087,21 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       kind: 'expense',
       amountMinor: 200000,
       currencyCode: 'VND',
+      verification: 'verified',
       verificationStatus: 'VERIFIED',
+      sourceKind: 'bankApi',
       monthKey: '2026-11',
       occurredAt: txTime,
       balanceAfterMinor: 800000,
       isRefund: false,
     };
+    // SEC-01: Client CANNOT create VERIFIED tx (403); Admin SDK seeds it (200)!
     assert.equal(
       await firestoreRequest('PATCH', `users/${uid}/transactions/tx_ext_lock`, { uid, data: verTx }),
+      403,
+    );
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/transactions/tx_ext_lock`, { data: verTx }),
       200,
     );
     assert.equal(
@@ -2070,7 +2127,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       403,
     );
 
-    // Attack 8 (AUD-021): Start deletion -> deletes audit -> cannot roll back deletionInProgress to false!
+    // Attack 8 (AUD-021 & SEC-02): Start deletion -> ledger_audits remains append-only (DELETE 403), cannot roll back deletionInProgress to false!
     assert.equal(
       await firestoreCommitBatch(uid, [
         {
@@ -2082,7 +2139,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       ]),
       200,
     );
-    assert.equal(await firestoreRequest('DELETE', `users/${uid}/ledger_audits/aud_1`, { uid }), 200);
+    assert.equal(await firestoreRequest('DELETE', `users/${uid}/ledger_audits/aud_1`, { uid }), 403);
     assert.equal(
       await firestoreCommitBatch(uid, [
         {
@@ -2255,6 +2312,7 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
           exists: false,
           data: {
             id: 'aud_wf_1',
+            txId: 'tx_wf_1',
             ownerId: memberId,
             walletId: 'w_src',
             previousBalanceMinor: 1000000,
@@ -2272,6 +2330,8 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
             amountMinor: 250000,
             currencyCode: 'VND',
             kind: 'expense',
+            verification: 'userConfirmed',
+            sourceKind: 'manual',
           },
         },
         {
@@ -3105,5 +3165,652 @@ describe('Real Firebase Firestore Emulator — Full firestore.rules Verification
       }),
       403,
     );
+  });
+
+  it('17. DEL-03 & DEL-04 — Blocks direct client DELETE /users/{uid} and freezes ALL client writes while account_deletion_tombstones/{uid} exists', async () => {
+    const suffix = Date.now();
+    const uid = `del_rules_${suffix}`;
+
+    // Create user profile + wallet + manual transaction
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}`, {
+        uid,
+        data: { id: uid, fullName: 'Minh', email: 'minh@lifeos.vn' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/wallets/w_1`, {
+        uid,
+        data: { id: 'w_1', ownerId: uid, name: 'Ví Chính', balanceMinor: 500000 },
+      }),
+      200,
+    );
+
+    // DEL-03: Direct client DELETE /users/{uid} MUST BE DENIED (403)
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}`, { uid }),
+      403,
+    );
+
+    // Server-only tombstones & api_rate_limits are locked from all client reads/writes -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `account_deletion_tombstones/${uid}`, {
+        uid,
+        data: { uid, status: 'deleting' },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `account_deletion_tombstones/${uid}`, { uid }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `api_rate_limits/deleteUserAccountData_${uid}`, { uid }),
+      403,
+    );
+
+    // DEL-04: Admin SDK writes deletion tombstone -> freezes ALL client writes on profile & subcollections!
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `account_deletion_tombstones/${uid}`, {
+        data: { uid, status: 'deleting', startedAtMs: Date.now(), expiresAtMs: Date.now() + 86400000 },
+      }),
+      200,
+    );
+
+    // Client write to wallets, transactions, daily_preferences, life_notes, or profile doc MUST BE DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/wallets/w_new`, {
+        uid,
+        data: { id: 'w_new', ownerId: uid, name: 'Ví mới', balanceMinor: 100000 },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_frozen`, {
+        uid,
+        data: {
+          id: 'tx_frozen',
+          ownerId: uid,
+          walletId: 'w_1',
+          amountMinor: 50000,
+          currencyCode: 'VND',
+          verification: 'userConfirmed',
+          sourceKind: 'manual',
+        },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/daily_preferences/pref_1`, {
+        uid,
+        data: { ownerId: uid, targetWaterMl: 2000 },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}`, {
+        uid,
+        data: { id: uid, fullName: 'Resurrected', email: 'minh@lifeos.vn' },
+      }),
+      403,
+    );
+
+    // Even after Admin deletes `users/{uid}` and sets tombstone to `deleted`, client CANNOT resurrect `users/{uid}` (403)!
+    assert.equal(
+      await firestoreAdminRequest('DELETE', `users/${uid}`),
+      200,
+    );
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `account_deletion_tombstones/${uid}`, {
+        data: { uid, status: 'deleted', completedAtMs: Date.now(), expiresAtMs: Date.now() + 86400000 },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}`, {
+        uid,
+        data: { id: uid, fullName: 'Ghost Resurrection' },
+      }),
+      403,
+    );
+  });
+
+  it('18. SEC-01 — Locks ALL verified/VERIFIED/verifiedByBank/verified_by_bank, wrong types & server sourceKinds on create and update', async () => {
+    const uid = `sec01_u_${Date.now()}`;
+
+    // Client create with every disallowed verification value/type -> ALL DENIED (403)
+    for (const badVerif of ['verified', 'VERIFIED', 'verifiedByBank', 'verified_by_bank', 'custom', 123, true]) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/transactions/tx_bad_v_${String(badVerif)}`, {
+          uid,
+          data: {
+            id: `tx_bad_v_${String(badVerif)}`,
+            ownerId: uid,
+            walletId: 'w_1',
+            amountMinor: 100000,
+            currencyCode: 'VND',
+            verification: badVerif,
+            sourceKind: 'manual',
+          },
+        }),
+        403,
+        `Expected 403 when creating tx with verification=${String(badVerif)}`,
+      );
+    }
+
+    // Client create with disallowed verificationStatus: 'VERIFIED' -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_bad_vs`, {
+        uid,
+        data: {
+          id: 'tx_bad_vs',
+          ownerId: uid,
+          walletId: 'w_1',
+          amountMinor: 100000,
+          currencyCode: 'VND',
+          verification: 'userConfirmed',
+          verificationStatus: 'VERIFIED',
+          sourceKind: 'manual',
+        },
+      }),
+      403,
+    );
+
+    // Client create with disallowed server sourceKinds -> ALL DENIED (403)
+    for (const badSource of ['bankWebhook', 'bankApi', 'sepayWebhook', 'sepayApi', 'unknown', 42]) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/transactions/tx_bad_sk_${String(badSource)}`, {
+          uid,
+          data: {
+            id: `tx_bad_sk_${String(badSource)}`,
+            ownerId: uid,
+            walletId: 'w_1',
+            amountMinor: 100000,
+            currencyCode: 'VND',
+            verification: 'userConfirmed',
+            sourceKind: badSource,
+          },
+        }),
+        403,
+        `Expected 403 when creating tx with sourceKind=${String(badSource)}`,
+      );
+    }
+
+    // Valid client create with 'userConfirmed' / 'manual' -> ALLOWED (200)
+    const manualTx = {
+      id: 'tx_sec01_ok',
+      ownerId: uid,
+      walletId: 'w_1',
+      kind: 'expense',
+      direction: 'debit',
+      amountMinor: 250000,
+      currencyCode: 'VND',
+      verification: 'userConfirmed',
+      verificationStatus: 'USER_CONFIRMED',
+      sourceKind: 'manual',
+      categoryName: 'Ăn uống',
+      note: 'Bún bò',
+    };
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_sec01_ok`, {
+        uid,
+        data: manualTx,
+      }),
+      200,
+    );
+
+    // Client update trying to escalate manual tx to 'verified' / 'VERIFIED' / 'verifiedByBank' / 'bankWebhook' -> ALL DENIED (403)
+    for (const patchData of [
+      { verification: 'verified' },
+      { verification: 'VERIFIED' },
+      { verification: 'verifiedByBank' },
+      { verification: 'verified_by_bank' },
+      { verificationStatus: 'VERIFIED' },
+      { sourceKind: 'bankWebhook' },
+      { sourceKind: 'bankApi' },
+      { sourceKind: 'sepayApi' },
+    ]) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/transactions/tx_sec01_ok`, {
+          uid,
+          data: { ...manualTx, ...patchData },
+        }),
+        403,
+        `Expected 403 when updating manual tx with ${JSON.stringify(patchData)}`,
+      );
+    }
+
+    // Admin SDK seeds server-verified transaction (`verification: 'verified'`, `sourceKind: 'bankWebhook'`)
+    const serverTx = {
+      id: 'tx_sec01_server',
+      ownerId: uid,
+      walletId: 'w_bank',
+      kind: 'income',
+      direction: 'credit',
+      amountMinor: 5000000,
+      currency: 'VND',
+      currencyCode: 'VND',
+      verification: 'verified',
+      verificationStatus: 'VERIFIED',
+      sourceKind: 'bankWebhook',
+      externalTransactionId: 'sepay_777',
+      referenceCode: 'FT777',
+      observedBalanceMinor: 15000000,
+      occurredAt: new Date(),
+      monthKey: '2026-11',
+      balanceAfterMinor: 15000000,
+      splitLines: [],
+      isRefund: false,
+      ledgerApplied: true,
+      categoryId: 'cat_1',
+      categoryName: 'Thu nhập',
+      merchant: 'VCB',
+      note: 'Nhận tiền',
+    };
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/transactions/tx_sec01_server`, {
+        data: serverTx,
+      }),
+      200,
+    );
+
+    // Mutating ANY non-metadata field on server-verified tx -> DENIED (403)
+    for (const [field, badVal] of [
+      ['amountMinor', 1],
+      ['direction', 'debit'],
+      ['walletId', 'w_hack'],
+      ['currencyCode', 'USD'],
+      ['isRefund', true],
+      ['ledgerApplied', false],
+      ['verificationStatus', 'REVERSED'],
+      ['sourceKind', 'manual'],
+    ]) {
+      assert.equal(
+        await firestoreRequest('PATCH', `users/${uid}/transactions/tx_sec01_server`, {
+          uid,
+          data: { ...serverTx, [field]: badVal },
+        }),
+        403,
+        `Expected 403 when mutating '${field}' on server-verified tx`,
+      );
+    }
+
+    // Mutating ONLY metadata (`categoryId`, `categoryName`, `merchant`, `note`, `updatedAt`) -> ALLOWED (200)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/transactions/tx_sec01_server`, {
+        uid,
+        data: {
+          ...serverTx,
+          categoryId: 'cat_salary',
+          categoryName: 'Lương',
+          merchant: 'Công ty XYZ',
+          note: 'Lương T11',
+          updatedAt: new Date(),
+        },
+      }),
+      200,
+    );
+  });
+
+  it('19. SEC-02 — Enforces ledger_audits txId/walletId/math, append-only automation_audits & wallet deletion guards', async () => {
+    const uid = `sec02_u_${Date.now()}`;
+
+    // ledger_audits: missing txId -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/ledger_audits/la_no_tx`, {
+        uid,
+        data: {
+          id: 'la_no_tx',
+          ownerId: uid,
+          walletId: 'w_1',
+          previousBalanceMinor: 1000,
+          deltaMinor: 500,
+          newBalanceMinor: 1500,
+        },
+      }),
+      403,
+    );
+    // ledger_audits: missing walletId -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/ledger_audits/la_no_w`, {
+        uid,
+        data: {
+          id: 'la_no_w',
+          ownerId: uid,
+          txId: 'tx_1',
+          previousBalanceMinor: 1000,
+          deltaMinor: 500,
+          newBalanceMinor: 1500,
+        },
+      }),
+      403,
+    );
+    // ledger_audits: math mismatch -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/ledger_audits/la_bad_math`, {
+        uid,
+        data: {
+          id: 'la_bad_math',
+          ownerId: uid,
+          txId: 'tx_1',
+          walletId: 'w_1',
+          previousBalanceMinor: 1000,
+          deltaMinor: 500,
+          newBalanceMinor: 2000,
+        },
+      }),
+      403,
+    );
+    // ledger_audits: valid -> 200; update & delete -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/ledger_audits/la_ok`, {
+        uid,
+        data: {
+          id: 'la_ok',
+          ownerId: uid,
+          txId: 'tx_1',
+          walletId: 'w_1',
+          previousBalanceMinor: 1000,
+          deltaMinor: 500,
+          newBalanceMinor: 1500,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/ledger_audits/la_ok`,
+          exists: true,
+          updateMask: ['deltaMinor'],
+          data: { deltaMinor: 999 },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/ledger_audits/la_ok`, { uid }),
+      403,
+    );
+
+    // automation_audits: create & read -> 200; update & delete -> DENIED (403)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/automation_audits/aa_1`, {
+        uid,
+        data: { auditId: 'aa_1', status: 'suggested', summaryVi: 'Cảnh báo chi tiêu' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('GET', `users/${uid}/automation_audits/aa_1`, { uid }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/automation_audits/aa_1`,
+          exists: true,
+          updateMask: ['status'],
+          data: { status: 'undone' },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/automation_audits/aa_1`, { uid }),
+      403,
+    );
+
+    // wallets: linked wallet rejects direct delete (403); active wallet with hasTransactions rejects delete (403); archived unlinked wallet allows delete (200)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/wallets/w_linked`, {
+        uid,
+        data: {
+          id: 'w_linked',
+          ownerId: uid,
+          name: 'VCB Liên kết',
+          balanceMinor: 0,
+          linkedBankConnectionId: 'conn_vcb_1',
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/wallets/w_linked`, { uid }),
+      403,
+    );
+
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/wallets/w_active_tx`, {
+        uid,
+        data: {
+          id: 'w_active_tx',
+          ownerId: uid,
+          name: 'Ví Có GD',
+          balanceMinor: 0,
+          hasTransactions: true,
+          archived: false,
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/wallets/w_active_tx`, { uid }),
+      403,
+    );
+    // Soft archive then delete -> 200
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/wallets/w_active_tx`,
+          exists: true,
+          updateMask: ['archived'],
+          data: { archived: true },
+        },
+      ]),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/wallets/w_active_tx`, { uid }),
+      200,
+    );
+  });
+
+  it('20. SEC-03 — Hardens financial_notifications, source_events, bank_connections & payment_orders', async () => {
+    const uid = `sec03_u_${Date.now()}`;
+
+    // 20a. financial_notifications: Admin seeds verified push -> client CAN mark isRead: true (200), DENIES tampering amountMinor/verificationStatus (403)
+    const notifData = {
+      id: 'notif_1',
+      ownerId: uid,
+      amountMinor: 500000,
+      bankCode: 'VCB',
+      direction: 'credit',
+      verificationStatus: 'VERIFIED',
+      sourceKind: 'bankWebhook',
+      isRead: false,
+      dismissed: false,
+    };
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/financial_notifications/notif_1`, {
+        data: notifData,
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/financial_notifications/notif_1`,
+          exists: true,
+          updateMask: ['isRead', 'readAt', 'updatedAt'],
+          data: { isRead: true, readAt: new Date(), updatedAt: new Date() },
+        },
+      ]),
+      200,
+    );
+    for (const [field, badVal] of [
+      ['amountMinor', 99999999],
+      ['bankCode', 'FAKE'],
+      ['direction', 'debit'],
+      ['verificationStatus', 'REJECTED'],
+    ]) {
+      assert.equal(
+        await firestoreCommitBatch(uid, [
+          {
+            path: `users/${uid}/financial_notifications/notif_1`,
+            exists: true,
+            updateMask: [field],
+            data: { [field]: badVal },
+          },
+        ]),
+        403,
+        `Expected 403 when updating financial_notifications.${field}`,
+      );
+    }
+
+    // 20b. source_events: client create android_notification -> 200; client delete -> 403; client create/overwrite sepay_webhook -> 403
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/source_events/ev_android_1`, {
+        uid,
+        data: { eventKey: 'ev_android_1', source: 'android_notification', status: 'provisional_created' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/source_events/ev_android_1`, { uid }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/source_events/ev_forged_srv`, {
+        uid,
+        data: { eventKey: 'ev_forged_srv', source: 'sepay_webhook', status: 'verified_processed' },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/source_events/ev_srv_1`, {
+        data: { eventKey: 'ev_srv_1', source: 'sepay_webhook', status: 'verified_processed' },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/source_events/ev_srv_1`, {
+        uid,
+        data: { eventKey: 'ev_srv_1', source: 'android_notification', status: 'hijacked' },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreRequest('DELETE', `users/${uid}/source_events/ev_srv_1`, { uid }),
+      403,
+    );
+
+    // 20c. bank_connections: client create -> 403; Admin seeds connected -> client CANNOT forge connected/granted (403); client CAN mark pendingRevocation (200)
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/bank_connections/conn_new`, {
+        uid,
+        data: { ownerId: uid, provider: 'sepay', status: 'connected', consentStatus: 'granted' },
+      }),
+      403,
+    );
+    assert.equal(
+      await firestoreAdminRequest('PATCH', `users/${uid}/bank_connections/conn_1`, {
+        data: {
+          id: 'conn_1',
+          ownerId: uid,
+          provider: 'sepay',
+          bankCode: 'VCB',
+          status: 'connected',
+          consentStatus: 'granted',
+        },
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/bank_connections/conn_1`,
+          exists: true,
+          updateMask: ['status', 'consentStatus'],
+          data: { status: 'connected', consentStatus: 'granted' },
+        },
+      ]),
+      403,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/bank_connections/conn_1`,
+          exists: true,
+          updateMask: ['status', 'consentStatus', 'revocationRequestedAt', 'lastRevocationError', 'updatedAt'],
+          data: {
+            status: 'pendingRevocation',
+            consentStatus: 'revocation_pending',
+            revocationRequestedAt: new Date(),
+            lastRevocationError: 'network-timeout',
+            updatedAt: new Date(),
+          },
+        },
+      ]),
+      200,
+    );
+
+    // 20d. payment_orders: valid create -> 200; partial update -> 200; immutable field mutation or status/verification 'verified' -> 403
+    const orderCreatedAt = new Date();
+    const orderBase = {
+      id: 'ord_1',
+      ownerId: uid,
+      walletId: 'w_vcb',
+      bankBin: '970436',
+      bankCode: 'VCB',
+      accountNumber: '0071000886868',
+      amountMinor: 300000,
+      receivedAmountMinor: 0,
+      paymentCode: 'LO123456',
+      emvQrPayload: '000201',
+      status: 'pending',
+      createdAt: orderCreatedAt,
+    };
+    assert.equal(
+      await firestoreRequest('PATCH', `users/${uid}/payment_orders/ord_1`, {
+        uid,
+        data: orderBase,
+      }),
+      200,
+    );
+    assert.equal(
+      await firestoreCommitBatch(uid, [
+        {
+          path: `users/${uid}/payment_orders/ord_1`,
+          exists: true,
+          updateMask: ['status', 'receivedAmountMinor', 'updatedAt'],
+          data: { status: 'partial', receivedAmountMinor: 100000, updatedAt: new Date() },
+        },
+      ]),
+      200,
+    );
+    for (const [field, badVal] of [
+      ['amountMinor', 1],
+      ['walletId', 'w_hack'],
+      ['bankCode', 'MB'],
+      ['accountNumber', '9999999'],
+      ['paymentCode', 'LOHACKED'],
+      ['status', 'verified'],
+      ['verification', 'verified'],
+    ]) {
+      assert.equal(
+        await firestoreCommitBatch(uid, [
+          {
+            path: `users/${uid}/payment_orders/ord_1`,
+            exists: true,
+            updateMask: [field],
+            data: { [field]: badVal },
+          },
+        ]),
+        403,
+        `Expected 403 when mutating payment_orders.${field}`,
+      );
+    }
   });
 });
