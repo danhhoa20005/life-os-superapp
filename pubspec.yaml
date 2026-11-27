@@ -1,7 +1,7 @@
 name: life_os
-description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Security Audit 10/10 Hardened + Google Play Compliant + Pre-bundled Offline ASR & Dual FastText INT8 v3.27.2)"
+description: "LifeOS — Một ứng dụng. Cả cuộc sống. (Re-Audit 28/28 Hardened + AES-256-GCM Backup v4 + Server Auth Deletion + Play Compliant v3.27.3)"
 publish_to: 'none'
-version: 3.27.2+47
+version: 3.27.3+48
 
 environment:
   sdk: ^3.10.0
