@@ -1013,12 +1013,13 @@ class NotificationIngestionBloc
     BankConnectionDisconnected event,
     Emitter<NotificationIngestionState> emit,
   ) async {
+    emit(state.copyWith(clearFailure: true, clearInfoMessage: true));
     final res = await _repository.disconnectBankConnection(
       userId: event.userId,
       connectionId: event.connectionId,
     );
     res.fold(
-      (f) => emit(state.copyWith(failure: f)),
+      (f) => emit(state.copyWith(failure: f, clearInfoMessage: true)),
       (_) => emit(
         state.copyWith(
           infoMessage:

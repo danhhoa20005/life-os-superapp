@@ -1320,12 +1320,37 @@ class _TransactionsTabViewState extends State<_TransactionsTabView> {
                               LifeOsAccentTone.amber,
                             )
                           : switch (tx.verification) {
-                              TransactionVerification.verified => (
-                                'verified',
-                                'Ngân hàng xác thực',
-                                Icons.verified_rounded,
-                                LifeOsAccentTone.emerald,
-                              ),
+                              TransactionVerification.verified =>
+                                (tx.sourceKind ==
+                                            TransactionSourceKind.bankWebhook ||
+                                        tx.sourceKind ==
+                                            TransactionSourceKind.bankApi)
+                                    ? (
+                                        'verified',
+                                        'Ngân hàng xác thực',
+                                        Icons.verified_rounded,
+                                        LifeOsAccentTone.emerald,
+                                      )
+                                    : (
+                                        'confirmed',
+                                        tx.sourceKind ==
+                                                TransactionSourceKind
+                                                    .androidNotification
+                                            ? 'Đã ghi nhận (Thông báo)'
+                                            : 'Đã ghi sổ cái',
+                                        tx.sourceKind ==
+                                                TransactionSourceKind
+                                                    .androidNotification
+                                            ? Icons
+                                                  .notifications_active_outlined
+                                            : Icons
+                                                  .check_circle_outline_rounded,
+                                        tx.sourceKind ==
+                                                TransactionSourceKind
+                                                    .androidNotification
+                                            ? LifeOsAccentTone.blue
+                                            : LifeOsAccentTone.emerald,
+                                      ),
                               TransactionVerification.matchedPaymentOrder => (
                                 'matched_qr',
                                 'Khớp đơn QR thiết bị',
@@ -2184,10 +2209,11 @@ class _FinanceStatementsSlot extends StatelessWidget {
                   tx.verification == TransactionVerification.needsReview,
               isDisputed: tx.reconciliationStatus == 'disputed',
               isVerified:
-                  tx.verification == TransactionVerification.verified ||
+                  (tx.verification == TransactionVerification.verified &&
+                      (tx.sourceKind == TransactionSourceKind.bankWebhook ||
+                          tx.sourceKind == TransactionSourceKind.bankApi)) ||
                   tx.verification ==
-                      TransactionVerification.matchedPaymentOrder ||
-                  tx.verification == TransactionVerification.userConfirmed,
+                      TransactionVerification.matchedPaymentOrder,
               hasPendingWrites: tx.hasPendingWrites,
               splitSummary: splitSummary,
               obscureAmounts: obscureBalances,
