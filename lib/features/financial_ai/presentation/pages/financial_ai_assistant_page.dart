@@ -1986,6 +1986,38 @@ class _GeminiHybridInsightAndOmniActionsSectionState
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: const Key('report_ai_insight_response_button'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                    ),
+                    onPressed: () {
+                      context.read<GeminiCopilotBloc>().add(
+                        const GeminiOmniReset(),
+                      );
+                      LifeOsTopToast.show(
+                        context,
+                        'Đã ghi nhận báo cáo phản hồi AI không phù hợp và ẩn nội dung.',
+                      );
+                    },
+                    icon: Icon(
+                      Icons.flag_outlined,
+                      size: 15,
+                      color: c.textSecondary,
+                    ),
+                    label: Text(
+                      'Báo cáo phản hồi AI',
+                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

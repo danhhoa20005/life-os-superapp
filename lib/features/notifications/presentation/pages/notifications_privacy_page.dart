@@ -667,6 +667,70 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
     );
   }
 
+  Future<void> _showNotificationAccessProminentDisclosure(
+    BuildContext context, {
+    required bool isAlreadyGranted,
+  }) async {
+    if (isAlreadyGranted) {
+      context.read<NotificationIngestionBloc>().add(
+        const OpenNativePermissionSettingsRequested(),
+      );
+      return;
+    }
+    final bloc = context.read<NotificationIngestionBloc>();
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          key: const Key('bank_notif_prominent_disclosure_dialog'),
+          title: const Text('Công bố quyền truy cập Thông báo Ngân hàng'),
+          content: const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Để tự động ghi nhận biến động số dư và phát loa báo tiền về, LifeOS cần bạn cấp quyền Đọc thông báo (Notification Access) trong Cài đặt Android:',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  '• Nguồn ứng dụng được đọc: Chỉ đọc thông báo từ các ứng dụng Ngân hàng và Ví điện tử (MoMo, ZaloPay) mà bạn chủ động bật bên dưới. Tuyệt đối KHÔNG đọc ứng dụng Tin nhắn SMS hoặc cuộc trò chuyện cá nhân.',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  '• Trường dữ liệu & Hoạt động chạy nền: Dịch vụ chạy nền ngay cả khi đóng LifeOS để đọc tiêu đề và nội dung biến động số dư. Mọi thông báo chứa mã OTP hoặc mật khẩu đều bị hủy ngay trên thiết bị và số thẻ được tự động che.',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  '• Lưu trữ, Đồng bộ & Cách tắt: Giao dịch đã phân tích được lưu mã hóa trên máy và đồng bộ vào sổ thu chi tài khoản LifeOS của bạn. Bạn có thể tắt quyền này bất cứ lúc nào trong Cài đặt.',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('bank_notif_disclosure_decline_button'),
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Từ chối & Ghi thủ công'),
+            ),
+            FilledButton(
+              key: const Key('bank_notif_disclosure_accept_button'),
+              onPressed: () => Navigator.of(dialogCtx).pop(true),
+              child: const Text('Đồng ý & Mở Cài đặt'),
+            ),
+          ],
+        );
+      },
+    );
+    if (accepted == true && mounted) {
+      bloc.add(const OpenNativePermissionSettingsRequested());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = TammySemanticColors.of(context);
@@ -1587,7 +1651,7 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Đọc thông báo từ 18 ngân hàng, MoMo, ZaloPay và SMS để tự cộng trừ ví, đồng bộ số dư và gạch nợ mã QR.',
+                                'Chỉ đọc thông báo biến động số dư từ ứng dụng Ngân hàng, Ví MoMo và ZaloPay bạn chọn (không đọc tin nhắn SMS). Tự động hủy mã OTP và che số thẻ trên thiết bị.',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               const SizedBox(height: 12),
@@ -1595,10 +1659,11 @@ class _NotificationsPrivacyPageState extends State<NotificationsPrivacyPage>
                                 key: const Key(
                                   'open_android_notif_settings_button',
                                 ),
-                                onPressed: () => context
-                                    .read<NotificationIngestionBloc>()
-                                    .add(
-                                      const OpenNativePermissionSettingsRequested(),
+                                onPressed: () =>
+                                    _showNotificationAccessProminentDisclosure(
+                                      context,
+                                      isAlreadyGranted:
+                                          state.isNativePermissionGranted,
                                     ),
                                 icon: Icon(
                                   state.isNativePermissionGranted

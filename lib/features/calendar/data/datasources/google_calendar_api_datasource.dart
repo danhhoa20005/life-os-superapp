@@ -61,8 +61,9 @@ typedef GoogleCalendarTokenProvider =
 /// Official Google Calendar REST API v3 client (`https://www.googleapis.com/calendar/v3`).
 class GoogleCalendarApiDataSource {
   static const String baseUrl = 'https://www.googleapis.com/calendar/v3';
+  // Google Play OAuth Scope Minimization: request only `calendar.events` (read/create/update events)
+  // rather than full `calendar` account settings administration.
   static const List<String> calendarScopes = <String>[
-    'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/calendar.events',
   ];
 

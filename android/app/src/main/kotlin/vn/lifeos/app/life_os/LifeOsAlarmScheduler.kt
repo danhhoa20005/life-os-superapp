@@ -235,6 +235,18 @@ object LifeOsAlarmScheduler {
 
     fun requestIgnoreBatteryOptimizations(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Google Play Policy: on Play distribution flavor, open general battery optimization settings
+            // rather than firing the restricted direct package exemption dialog.
+            if (!BuildConfig.ENABLE_GITHUB_OTA) {
+                try {
+                    val generalSettings = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(generalSettings)
+                    return
+                } catch (_: Exception) {
+                }
+            }
             try {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                     data = Uri.parse("package:${context.packageName}")
@@ -669,21 +681,25 @@ object LifeOsAlarmScheduler {
             flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val canUseFullScreen = fullScreen &&
+            BuildConfig.ENABLE_GITHUB_OTA &&
+            (Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent())
+
         val builder = NotificationCompat.Builder(appCtx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_widget_leaf)
             .setContentTitle(title)
             .setContentText(subtitle)
             .setStyle(NotificationCompat.BigTextStyle().bigText(subtitle))
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(if (canUseFullScreen) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(fullScreen)
-            .setAutoCancel(!fullScreen)
+            .setOngoing(canUseFullScreen)
+            .setAutoCancel(!canUseFullScreen)
             .setContentIntent(launchPi)
             .addAction(0, "Hoãn 5 phút", snoozePi)
             .addAction(0, "Tắt báo thức", dismissPi)
 
-        if (fullScreen) {
+        if (canUseFullScreen) {
             builder.setFullScreenIntent(launchPi, true)
         }
 

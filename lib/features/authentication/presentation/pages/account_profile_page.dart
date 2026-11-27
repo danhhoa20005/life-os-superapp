@@ -10,6 +10,7 @@ import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/utils/privacy_mask_formatter.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/lifeos_legal_policy_dialogs.dart';
 import '../../../../core/widgets/status_widgets.dart';
 import '../../../app_update/presentation/widgets/app_update_widgets.dart';
 import '../../../family/domain/repositories/family_repository.dart';
@@ -1671,6 +1672,22 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                                           ? 'Đang xóa dữ liệu...'
                                           : 'Xóa tài khoản & Dữ liệu cá nhân',
                                       softWrap: true,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextButton.icon(
+                                    key: const Key(
+                                      'profile_open_privacy_and_web_delete_button',
+                                    ),
+                                    onPressed: () =>
+                                        showLifeOsPrivacyPolicyDialog(context),
+                                    icon: const Icon(
+                                      Icons.privacy_tip_outlined,
+                                      size: 16,
+                                    ),
+                                    label: const Text(
+                                      'Chính sách quyền riêng tư & Yêu cầu xóa trên Web',
+                                      style: TextStyle(fontSize: 12),
                                     ),
                                   ),
                                 ],

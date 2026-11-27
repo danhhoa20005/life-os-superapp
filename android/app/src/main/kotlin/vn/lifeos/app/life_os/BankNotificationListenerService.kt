@@ -353,6 +353,32 @@ class BankNotificationListenerService : NotificationListenerService() {
                 !BALANCE_CUE_REGEX.containsMatchIn(text)
         }
 
+        private val BLOCKED_SMS_PACKAGES = setOf(
+            "com.google.android.apps.messaging",
+            "com.android.mms",
+            "com.android.messaging",
+            "com.samsung.android.messaging",
+            "com.miui.mms",
+            "com.coloros.mcs",
+            "com.facebook.orca",
+            "com.zing.zalo"
+        )
+
+        fun isBlockedSmsPackage(packageName: String?): Boolean {
+            val clean = packageName?.trim()?.lowercase().orEmpty()
+            if (clean.isEmpty()) return true
+            if (BLOCKED_SMS_PACKAGES.contains(clean)) return true
+            if (clean.endsWith(".mms") || clean.endsWith(".messaging")) return true
+            return false
+        }
+
+        fun sanitizeAllowedPackages(packages: Iterable<String>): Set<String> {
+            return packages
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !isBlockedSmsPackage(it) }
+                .toSet()
+        }
+
         fun clearListenerPreferences(context: Context) {
             try {
                 context.applicationContext
@@ -374,8 +400,11 @@ class BankNotificationListenerService : NotificationListenerService() {
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_ENABLED, false)) return
 
-        val allowed = prefs.getStringSet(KEY_PACKAGES, emptySet()) ?: emptySet()
         val pkg = sbn.packageName ?: return
+        // Google Play SMS Policy compliance: strictly block SMS/Messaging apps BEFORE reading notification title or extras
+        if (isBlockedSmsPackage(pkg)) return
+
+        val allowed = prefs.getStringSet(KEY_PACKAGES, emptySet()) ?: emptySet()
         if (!allowed.contains(pkg)) return
 
         val extras = sbn.notification?.extras ?: return

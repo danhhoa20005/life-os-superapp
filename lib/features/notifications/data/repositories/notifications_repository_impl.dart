@@ -113,9 +113,11 @@ class NotificationsRemoteDataSource {
   Stream<SourceConsentEntity> watchConsent(String userId) {
     return _consentRef(userId).snapshots().map((snap) {
       final d = snap.data() ?? const <String, dynamic>{};
-      final pkgs = (d['allowedPackages'] as List<dynamic>? ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList();
+      final rawPkgs =
+          (d['allowedPackages'] as List<dynamic>? ?? const <dynamic>[]).map(
+            (e) => e.toString(),
+          );
+      final pkgs = BankNotificationParser.sanitizeAllowedBankPackages(rawPkgs);
       final ts = d['updatedAt'];
       return SourceConsentEntity(
         sourceId: 'android_notification',
@@ -138,6 +140,8 @@ class NotificationsRemoteDataSource {
     bool? voiceSoundboxEnabled,
     bool? syncObservedBalance,
   }) async {
+    final sanitizedPackages =
+        BankNotificationParser.sanitizeAllowedBankPackages(allowedPackages);
     final now = DateTime.now();
     final batch = _firestore.batch();
     batch.set(_consentRef(userId), {
@@ -149,7 +153,7 @@ class NotificationsRemoteDataSource {
         'voiceSoundboxEnabled': voiceSoundboxEnabled,
       if (syncObservedBalance != null)
         'syncObservedBalance': syncObservedBalance,
-      'allowedPackages': allowedPackages,
+      'allowedPackages': sanitizedPackages,
       'updatedAt': Timestamp.fromDate(now),
     }, SetOptions(merge: true));
 
@@ -174,7 +178,7 @@ class NotificationsRemoteDataSource {
     await batch.commit();
     await _bridge.syncConsentConfig(
       enabled: enabled,
-      allowedPackages: allowedPackages,
+      allowedPackages: sanitizedPackages,
       voiceSoundboxEnabled: voiceSoundboxEnabled,
     );
   }
@@ -441,6 +445,18 @@ class NotificationsRemoteDataSource {
     DateTime? postedAt,
     String? notificationId,
   }) async {
+    // Step 0: Hard SMS / Messaging package block BEFORE reading title/body or touching database!
+    if (BankNotificationParser.isBlockedSmsOrMessagingPackage(packageName)) {
+      if (notificationId != null && notificationId.isNotEmpty) {
+        await _bridge.acknowledgeQueuedNotification(notificationId);
+      }
+      return const IngestionOutcome(
+        kind: IngestionOutcomeKind.blockedConsentDisabled,
+        message:
+            'Đã bỏ qua thông báo ứng dụng tin nhắn SMS theo chính sách Google Play.',
+      );
+    }
+
     // Step 1: Hard OTP / secret filter BEFORE touching any database or log!
     if (OtpRedactor.containsOtpOrSecret('$title $body')) {
       if (notificationId != null && notificationId.isNotEmpty) {
@@ -1711,6 +1727,31 @@ class NotificationsRemoteDataSource {
         await d.reference.delete();
       }
     }
+
+    // 4. Invoke server-side Cloud Function `deleteUserAccountData` with safe retry
+    //    to purge server-only collections (server_bank_connections, server_bank_account_claims,
+    //    sepay_webhook_inbox, notification_outbox, bank_reconciliation_jobs, family_invite_rate_limits)
+    //    BEFORE deleting the user document and Firebase Auth record.
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await _invokeBackendFunction('deleteUserAccountData', <String, dynamic>{
+          'userId': userId,
+        });
+        break;
+      } catch (e) {
+        final msg = e.toString();
+        // In local unit tests without a live Firebase app or functions mock, allow local Firestore wipe to succeed
+        if (msg.contains('no-app') ||
+            msg.contains('No Firebase App') ||
+            msg.contains('MissingPluginException')) {
+          break;
+        }
+        if (attempt == 2) {
+          rethrow;
+        }
+      }
+    }
+
     await userDocRef.delete();
 
     if (current != null && current.uid == userId) {

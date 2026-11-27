@@ -18,6 +18,8 @@ class AppUpdateRemoteDataSource {
       'https://github.com/$githubOwner/$githubRepo/releases';
   static const String githubLatestApiUrl =
       'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest';
+  static const String playStoreWebUrl =
+      'https://play.google.com/store/apps/details?id=vn.lifeos.app.life_os';
 
   static const Set<String> trustedOtaHosts = <String>{
     'github.com',
@@ -74,6 +76,13 @@ class AppUpdateRemoteDataSource {
       _updaterBridge.getInstalledAppVersion();
 
   Future<AppReleaseManifest?> fetchLatestManifest() async {
+    // Google Play Device & Network Abuse Policy compliance:
+    // When running in the `play` distribution flavor (ENABLE_GITHUB_OTA=false),
+    // never check or prompt for external GitHub APK updates.
+    if (!await _updaterBridge.isGitHubOtaEnabled()) {
+      return null;
+    }
+
     final results = await Future.wait<AppReleaseManifest?>([
       _fetchFromFirestore(),
       _fetchFromGithubReleases(),
@@ -254,6 +263,14 @@ class AppUpdateRemoteDataSource {
   Stream<OtaDownloadProgress> downloadAndInstall(
     AppReleaseManifest manifest,
   ) async* {
+    if (!await _updaterBridge.isGitHubOtaEnabled()) {
+      throw const AppException(
+        code: 'OTA_DISABLED_PLAY_FLAVOR',
+        message:
+            'Bản cài đặt từ Google Play chỉ cập nhật trực tiếp qua Google Play Store.',
+      );
+    }
+
     final apkUrl = manifest.apkDownloadUrl;
     if (kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android ||
@@ -411,6 +428,10 @@ class AppUpdateRemoteDataSource {
     );
   }
 
-  Future<bool> openReleasePage(String url) =>
-      _updaterBridge.openExternalUrl(url);
+  Future<bool> openReleasePage(String url) async {
+    if (!await _updaterBridge.isGitHubOtaEnabled()) {
+      return _updaterBridge.openExternalUrl(playStoreWebUrl);
+    }
+    return _updaterBridge.openExternalUrl(url);
+  }
 }

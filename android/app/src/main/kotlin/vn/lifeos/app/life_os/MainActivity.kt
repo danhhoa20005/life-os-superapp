@@ -205,13 +205,14 @@ class MainActivity : FlutterActivity() {
                         val enabled = call.argument<Boolean>("enabled") ?: false
                         val soundbox = call.argument<Boolean>("voiceSoundboxEnabled")
                         val packages = call.argument<List<String>>("allowedPackages") ?: emptyList()
+                        val sanitizedPackages = BankNotificationListenerService.sanitizeAllowedPackages(packages)
                         val prefs = applicationContext.getSharedPreferences(
                             BankNotificationListenerService.PREFS_NAME,
                             Context.MODE_PRIVATE
                         )
                         val editor = prefs.edit()
                             .putBoolean(BankNotificationListenerService.KEY_ENABLED, enabled)
-                            .putStringSet(BankNotificationListenerService.KEY_PACKAGES, packages.toSet())
+                            .putStringSet(BankNotificationListenerService.KEY_PACKAGES, sanitizedPackages)
                         if (soundbox != null) {
                             editor.putBoolean(BankNotificationListenerService.KEY_SOUNDBOX_ENABLED, soundbox)
                         }

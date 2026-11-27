@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yêu cầu Xóa Tài khoản & Dữ liệu Cá nhân — LifeOS</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+      line-height: 1.65;
+      color: #11221c;
+      background: #f6fbf8;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 4px 20px rgba(13, 122, 95, 0.08);
+      border: 1px solid #d9ece4;
+    }
+    h1 { color: #b42318; margin-top: 0; font-size: 1.65rem; }
+    h2 { color: #0f5e4a; margin-top: 22px; font-size: 1.15rem; }
+    label { display: block; font-weight: 600; margin-top: 14px; margin-bottom: 6px; }
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #bfd8ce;
+      font-size: 1rem;
+    }
+    button {
+      margin-top: 18px;
+      background: #b42318;
+      color: #ffffff;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 22px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .notice {
+      background: #fff4f2;
+      border: 1px solid #fecdca;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+    }
+    #statusBox {
+      display: none;
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #ecfdf3;
+      border: 1px solid #abefc6;
+      color: #067647;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Yêu cầu Xóa Tài khoản &amp; Dữ liệu Cá nhân LifeOS</h1>
+    <div class="notice">
+      Trang này dành cho người dùng <strong>LifeOS (vn.lifeos.app.life_os)</strong> muốn yêu cầu xóa tài khoản và toàn bộ dữ liệu cá nhân trực tiếp từ trình duyệt Web mà không cần cài lại ứng dụng.
+    </div>
+
+    <h2>1. Cách xác minh và xử lý yêu cầu</h2>
+    <ul>
+      <li>Nhập địa chỉ Email đã đăng ký tài khoản LifeOS (và Mã tài khoản UID nếu có) vào biểu mẫu bên dưới.</li>
+      <li>Để bảo vệ tài khoản khỏi yêu cầu xóa trái phép, hệ thống/bộ phận bảo vệ dữ liệu sẽ gửi một liên kết hoặc email xác nhận tới đúng địa chỉ Email đăng ký của bạn.</li>
+      <li>Sau khi xác nhận chủ tài khoản, toàn bộ dữ liệu sẽ bị xóa vĩnh viễn trong vòng tối đa <strong>7 ngày làm việc</strong> (hoặc bị xóa ngay lập tức nếu bạn bấm nút <em>Xóa tài khoản</em> bên trong ứng dụng LifeOS).</li>
+    </ul>
+
+    <h2>2. Danh mục dữ liệu bị xóa và thời hạn lưu giữ</h2>
+    <ul>
+      <li><strong>Dữ liệu bị xóa vĩnh viễn 100%:</strong> Hồ sơ Firebase Auth (Email, Họ tên, Số điện thoại, UID), toàn bộ ví, giao dịch thu chi, ngân sách, lịch hẹn, công việc, phương tiện, tài liệu cá nhân, cấu hình kết nối ngân hàng máy chủ (<code>server_bank_connections</code>, <code>server_bank_account_claims</code>), sự kiện webhook (<code>sepay_webhook_inbox</code>) và hàng đợi thông báo (<code>notification_outbox</code>).</li>
+      <li><strong>Dữ liệu trong nhóm gia đình chung:</strong> Tư cách thành viên của bạn sẽ bị gỡ khỏi nhóm gia đình. Nếu bạn đang là chủ sở hữu duy nhất của nhóm có nhiều thành viên, bạn cần chuyển quyền chủ sở hữu hoặc xác nhận giải tán nhóm khi xác minh.</li>
+      <li><strong>Dữ liệu buộc phải giữ:</strong> LifeOS <strong>không giữ lại bất kỳ dữ liệu cá nhân nào</strong> sau khi quá trình xóa hoàn tất. Nhật ký hệ thống ẩn danh không gắn với UID tự động hết hạn sau 30 ngày.</li>
+    </ul>
+
+    <h2>3. Biểu mẫu gửi yêu cầu xóa trực tuyến</h2>
+    <form id="deleteForm" onsubmit="handleDeletionRequest(event)">
+      <label for="email">Email đăng ký tài khoản LifeOS *</label>
+      <input type="email" id="email" required placeholder="vidu@email.com" />
+
+      <label for="uid">Mã định danh tài khoản (UID — tùy chọn)</label>
+      <input type="text" id="uid" placeholder="Nhập UID nếu bạn đã sao chép từ mục Hồ sơ" />
+
+      <label for="scope">Phạm vi yêu cầu *</label>
+      <select id="scope">
+        <option value="full_account">Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu cá nhân</option>
+        <option value="data_only">Chỉ xóa dữ liệu đồng bộ đám mây (giữ lại tài khoản đăng nhập)</option>
+      </select>
+
+      <label for="reason">Ghi chú bổ sung (Tùy chọn)</label>
+      <textarea id="reason" rows="3" placeholder="Ghi chú xác minh hoặc yêu cầu cụ thể..."></textarea>
+
+      <button type="submit">Gửi yêu cầu xóa dữ liệu</button>
+    </form>
+
+    <div id="statusBox"></div>
+    <p style="margin-top: 20px; font-size: 0.92rem;">
+      Hoặc liên hệ trực tiếp qua email: <a href="mailto:support@lifeos.vn?subject=Yeu%20cau%20xoa%20tai%20khoan%20LifeOS">support@lifeos.vn</a> &middot;
+      <a href="/privacy-policy.html">Xem Chính sách Quyền riêng tư</a>
+    </p>
+  </div>
+
+  <script>
+    function handleDeletionRequest(e) {
+      e.preventDefault();
+      var email = document.getElementById('email').value.trim();
+      var uid = document.getElementById('uid').value.trim();
+      var scope = document.getElementById('scope').value;
+      var reason = document.getElementById('reason').value.trim();
+      var subject = encodeURIComponent('[LifeOS] Yêu cầu xóa tài khoản: ' + email);
+      var body = encodeURIComponent(
+        'Email tài khoản: ' + email + '\n' +
+        'Mã UID (nếu có): ' + (uid || 'Không cung cấp') + '\n' +
+        'Phạm vi yêu cầu: ' + scope + '\n' +
+        'Ghi chú: ' + (reason || 'Không')
+      );
+      var box = document.getElementById('statusBox');
+      box.style.display = 'block';
+      box.innerHTML = 'Đã tạo yêu cầu xóa cho tài khoản <strong>' + email + '</strong>. Trình gửi email đang mở để bạn xác nhận chính chủ gửi tới <strong>support@lifeos.vn</strong> (hoặc gửi trực tiếp tới support@lifeos.vn từ email đăng ký của bạn).';
+      window.location.href = 'mailto:support@lifeos.vn?subject=' + subject + '&body=' + body;
+    }
+  </script>
+</body>
+</html>

@@ -211,15 +211,20 @@ const List<SupportedVnBank> kSupportedVnBanks = [
     supportsDebit: true,
     supportsVerifiedBalance: true,
   ),
-  SupportedVnBank(
-    packageName: 'com.google.android.apps.messaging',
-    bankCode: 'SMS',
-    displayName: 'SMS Ngân hàng',
-    supportsCredit: true,
-    supportsDebit: true,
-    supportsVerifiedBalance: true,
-  ),
 ];
+
+/// SMS and personal messaging packages strictly blocked from notification ingestion
+/// to comply with Google Play SMS / Call Log Data Policy.
+const Set<String> kBlockedSmsAndMessagingPackages = <String>{
+  'com.google.android.apps.messaging',
+  'com.android.mms',
+  'com.android.messaging',
+  'com.samsung.android.messaging',
+  'com.miui.mms',
+  'com.coloros.mcs',
+  'com.facebook.orca',
+  'com.zing.zalo',
+};
 
 final class ParsedBankSignal {
   final int amountMinor;
@@ -277,6 +282,22 @@ final class BankSignalParseOutcome {
 }
 
 abstract final class BankNotificationParser {
+  static bool isBlockedSmsOrMessagingPackage(String packageName) {
+    final clean = packageName.trim().toLowerCase();
+    if (clean.isEmpty) return true;
+    if (kBlockedSmsAndMessagingPackages.contains(clean)) return true;
+    if (clean.endsWith('.mms') || clean.endsWith('.messaging')) return true;
+    return false;
+  }
+
+  static List<String> sanitizeAllowedBankPackages(Iterable<String> packages) {
+    return packages
+        .map((e) => e.trim())
+        .where((pkg) => pkg.isNotEmpty && !isBlockedSmsOrMessagingPackage(pkg))
+        .toSet()
+        .toList(growable: false);
+  }
+
   static final RegExp _vehicleRegex = RegExp(
     r'\b(thay\s*nh[oớ]t|thay\s*d[aầ]u|b[aả]o\s*d[uư][oỡ]ng\s*xe|head\s*honda|yamaha\s*town|s[uử]a\s*xe|l[oố]p\s*xe|[aắ]c\s*quy|gara)\b',
     caseSensitive: false,
@@ -468,6 +489,11 @@ abstract final class BankNotificationParser {
     DateTime? postedAt,
     String? notificationId,
   }) {
+    if (isBlockedSmsOrMessagingPackage(packageName)) {
+      return const BankSignalParseOutcome.dropped(
+        BankSignalDropReason.nonFinancial,
+      );
+    }
     final combined = '$title $body'.trim();
     if (OtpRedactor.containsOtpOrSecret(combined)) {
       return const BankSignalParseOutcome.dropped(

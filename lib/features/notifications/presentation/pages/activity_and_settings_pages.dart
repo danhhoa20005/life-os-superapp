@@ -17,6 +17,7 @@ import '../../../../core/utils/vietnamese_search_matcher.dart';
 import '../../../../core/utils/vnd_amount.dart';
 import '../../../../core/widgets/backup_restore_studio_sheet.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/lifeos_legal_policy_dialogs.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/pages/account_profile_page.dart';
@@ -1600,6 +1601,17 @@ class _SettingsHubPageState extends State<SettingsHubPage>
         statusPillLabel: 'An toàn',
         statusPillTone: LifeOsAccentTone.emerald,
         onTap: () => showLifeOsBackupRestoreSheet(context),
+      ),
+      _SettingsItemSpec(
+        itemKey: const Key('settings_privacy_policy_row'),
+        sectionTitle: 'Tài khoản & Kết nối tự động',
+        sectionTone: LifeOsAccentTone.emerald,
+        icon: Icons.privacy_tip_outlined,
+        tone: LifeOsAccentTone.emerald,
+        title: 'Chính sách Quyền riêng tư & Xóa tài khoản',
+        subtitle: 'Xem điều khoản bảo mật dữ liệu & yêu cầu xóa trên Web',
+        keywords: 'chinh sach quyen rieng tu dieu khoan xoa tai khoan web',
+        onTap: () => showLifeOsPrivacyPolicyDialog(context),
       ),
 
       // Nhóm 4: Gia đình, Tiện ích & Hệ thống

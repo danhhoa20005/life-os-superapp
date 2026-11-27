@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 import { FunctionsErrorCode, HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { BANK_CAPABILITY_CATALOG } from "./capabilities";
@@ -590,6 +590,18 @@ export const deleteUserAccountData = onCall(
       throw new HttpsError("unauthenticated", "Vui lòng đăng nhập để xóa dữ liệu tài khoản.");
     }
     return deleteServerOnlyUserAccountData(admin.firestore(), uid);
+  }
+);
+
+export const onUserAccountDocumentDeleted = onDocumentDeleted(
+  {
+    document: "users/{uid}",
+    region: "asia-southeast1"
+  },
+  async (event) => {
+    const uid = event.params.uid;
+    if (!uid) return;
+    await deleteServerOnlyUserAccountData(admin.firestore(), uid);
   }
 );
 

@@ -12,6 +12,7 @@ import '../../../../core/constants/app_assets.dart';
 import '../../../../core/services/native_device_calendar_bridge.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
 import '../../../../core/widgets/lifeos_design_system.dart';
+import '../../../../core/widgets/lifeos_legal_policy_dialogs.dart';
 import '../../../../core/widgets/trust_ux_widgets.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -1025,6 +1026,33 @@ class _RegisterPageState extends State<RegisterPage> {
                                       style: Theme.of(
                                         context,
                                       ).textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      key: const Key(
+                                        'register_view_privacy_policy_button',
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          showLifeOsPrivacyPolicyDialog(
+                                            context,
+                                          ),
+                                      icon: const Icon(
+                                        Icons.privacy_tip_outlined,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'Xem Chính sách quyền riêng tư & Điều khoản đầy đủ',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 10),

@@ -25,6 +25,8 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
 
   late final TextEditingController _searchCtrl;
   final Set<String> _revealedDocIds = <String>{};
+  final Set<String> _reportedDocIds = <String>{};
+  final Set<String> _blockedOwnerIds = <String>{};
 
   @override
   void initState() {
@@ -87,7 +89,13 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
         }
       },
       builder: (context, state) {
-        final visible = state.visibleDocuments;
+        final visible = state.visibleDocuments
+            .where(
+              (d) =>
+                  !_reportedDocIds.contains(d.id) &&
+                  !_blockedOwnerIds.contains(d.ownerId),
+            )
+            .toList(growable: false);
         return Scaffold(
           body: LifeOsMintWaveCanvas(
             child: SafeArea(
@@ -532,6 +540,89 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
                                                   ? Icons
                                                         .visibility_off_outlined
                                                   : Icons.visibility_outlined,
+                                              size: 19,
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
+                                        if (doc.isFamilyShared)
+                                          IconButton(
+                                            key: Key(
+                                              'report_family_doc_btn_${doc.id}',
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            tooltip:
+                                                'Báo cáo nội dung hoặc chặn thành viên',
+                                            onPressed: () async {
+                                              final action = await showDialog<String>(
+                                                context: context,
+                                                builder: (dialogCtx) => AlertDialog(
+                                                  key: const Key(
+                                                    'family_ugc_report_block_dialog',
+                                                  ),
+                                                  title: const Text(
+                                                    'Báo cáo nội dung hoặc Chặn thành viên',
+                                                  ),
+                                                  content: Text(
+                                                    'Bạn muốn báo cáo tài liệu chia sẻ "${doc.title}" hay ẩn toàn bộ nội dung từ thành viên đăng tài liệu này?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(
+                                                            dialogCtx,
+                                                          ).pop(),
+                                                      child: const Text('Hủy'),
+                                                    ),
+                                                    OutlinedButton(
+                                                      key: const Key(
+                                                        'family_ugc_block_author_btn',
+                                                      ),
+                                                      onPressed: () =>
+                                                          Navigator.of(
+                                                            dialogCtx,
+                                                          ).pop('block_author'),
+                                                      child: const Text(
+                                                        'Chặn thành viên này',
+                                                      ),
+                                                    ),
+                                                    FilledButton(
+                                                      key: const Key(
+                                                        'family_ugc_report_content_btn',
+                                                      ),
+                                                      onPressed: () =>
+                                                          Navigator.of(
+                                                            dialogCtx,
+                                                          ).pop('report_doc'),
+                                                      child: const Text(
+                                                        'Báo cáo & Ẩn tài liệu',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                              if (!context.mounted ||
+                                                  action == null) {
+                                                return;
+                                              }
+                                              setState(() {
+                                                if (action == 'block_author' &&
+                                                    doc.ownerId != user.id) {
+                                                  _blockedOwnerIds.add(
+                                                    doc.ownerId,
+                                                  );
+                                                }
+                                                _reportedDocIds.add(doc.id);
+                                              });
+                                              LifeOsTopToast.show(
+                                                context,
+                                                action == 'block_author'
+                                                    ? 'Đã chặn thành viên và ẩn toàn bộ tài liệu chia sẻ từ người này.'
+                                                    : 'Đã ghi nhận báo cáo và ẩn tài liệu chia sẻ.',
+                                              );
+                                            },
+                                            icon: Icon(
+                                              Icons.flag_outlined,
                                               size: 19,
                                               color: c.textSecondary,
                                             ),
