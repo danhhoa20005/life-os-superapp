@@ -8,14 +8,14 @@
   ],
   "channels": {
     "github": {
-      "description": "GitHub Direct OTA release APK signing certificate SHA-256 (64 lowercase hex chars, no colons). Replace placeholder before publishing.",
-      "cert_sha256": "REPLACE_WITH_GITHUB_RELEASE_CERT_SHA256_64_HEX",
+      "description": "GitHub Direct OTA release APK signing certificate SHA-256 (64 lowercase hex chars, no colons).",
+      "cert_sha256": "41dacd832b321b7be6b7039c6fc8399656353a984ad21ec352b23def1080c999",
       "lineage_cert_sha256s": []
     },
     "play": {
-      "description": "Google Play App Signing certificate SHA-256 (64 lowercase hex chars, no colons). Replace placeholders before publishing.",
-      "cert_sha256": "REPLACE_WITH_PLAY_RELEASE_CERT_SHA256_64_HEX",
-      "upload_cert_sha256": "REPLACE_WITH_PLAY_UPLOAD_CERT_SHA256_64_HEX",
+      "description": "Google Play App Signing upload & release certificate SHA-256 (64 lowercase hex chars, no colons).",
+      "cert_sha256": "41dacd832b321b7be6b7039c6fc8399656353a984ad21ec352b23def1080c999",
+      "upload_cert_sha256": "41dacd832b321b7be6b7039c6fc8399656353a984ad21ec352b23def1080c999",
       "lineage_cert_sha256s": []
     }
   }
