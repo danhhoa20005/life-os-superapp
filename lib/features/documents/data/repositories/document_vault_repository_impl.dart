@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -60,9 +59,19 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
     }
 
     final rawLifecycle = d['storageLifecycle'] as String?;
-    final localPath = d['localAttachmentPath'] as String?;
+    final rawAttachmentId = d['attachmentId'] as String?;
+    final attachmentId =
+        SparkSafeFileStorageService.isValidAttachmentId(rawAttachmentId)
+        ? rawAttachmentId
+        : null;
+    final localPath =
+        (d['localAttachmentPath'] ??
+                d['localEncryptedPath'] ??
+                d['encryptedPath'])
+            as String?;
     final localKey = d['localAttachmentStorageKey'] as String?;
     final hasLocalAttachment =
+        attachmentId != null ||
         (localPath != null && localPath.isNotEmpty) ||
         (localKey != null && localKey.isNotEmpty);
 
@@ -100,6 +109,7 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
       createdAt: parseDt(d['createdAt'], DateTime.now()),
       storageLifecycle: lifecycle,
       storageScope: scope,
+      attachmentId: attachmentId,
       localAttachmentPath: localPath,
       localAttachmentStorageKey: localKey,
       attachmentSha256: d['attachmentSha256'] as String?,
@@ -225,7 +235,10 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
   }
 
   /// Encrypts and attaches a local binary file to [document] using [_fileStorage]
-  /// (`AES-256-GCM` / `"LOSV"` AEAD + SHA-256), storing only metadata + checksum in Firestore.
+  /// (`AES-256-GCM` / `"LOSV"` AEAD + SHA-256).
+  /// H6: Syncs ONLY an opaque `attachmentId` (`^[A-Za-z0-9_-]{8,96}$`) + checksum
+  /// to Firestore — NEVER writes raw local filesystem paths (`localAttachmentPath`,
+  /// `localEncryptedPath`, `encryptedPath`) to Firestore!
   Future<Result<DocumentVaultEntity>> attachEncryptedLocalFile({
     required String userId,
     required DocumentVaultEntity document,
@@ -233,11 +246,16 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
     required String mimeType,
     required Uint8List bytes,
   }) async {
-    final storageOwner = document.ownerId.isNotEmpty
-        ? document.ownerId
-        : userId;
+    if (document.ownerId.isNotEmpty && document.ownerId != userId) {
+      return const Err(
+        PermissionDeniedFailure(
+          message: 'Chỉ chủ sở hữu tài liệu mới có thể đính kèm tệp cục bộ.',
+        ),
+      );
+    }
+
     final uploadRes = await _fileStorage.uploadUserAttachment(
-      userId: storageOwner,
+      userId: userId,
       folder: document.folder.key,
       fileName: fileName,
       mimeType: mimeType,
@@ -247,6 +265,20 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
       return Err(uploadRes.failure);
     }
     final stored = (uploadRes as Success<StoredFileReference>).value;
+    final opaqueAttachmentId = stored.attachmentId;
+    if (!SparkSafeFileStorageService.isValidAttachmentId(opaqueAttachmentId)) {
+      await _fileStorage.deleteAttachmentForUser(
+        userId: userId,
+        legacyLocalPath: stored.localFilePath,
+        legacyStorageKey: stored.storageKey,
+      );
+      return const Err(
+        ValidationFailure(
+          code: 'INVALID_ATTACHMENT_ID',
+          message: 'Mã tệp đính kèm không hợp lệ.',
+        ),
+      );
+    }
 
     try {
       final updated = DocumentVaultEntity(
@@ -263,6 +295,7 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         createdAt: document.createdAt,
         storageLifecycle: DocumentStorageLifecycle.localDeviceOnlyBinary,
         storageScope: DocumentStorageScope.localEncryptedVault,
+        attachmentId: opaqueAttachmentId,
         localAttachmentPath: stored.localFilePath,
         localAttachmentStorageKey: stored.storageKey,
         attachmentSha256: stored.plaintextSha256,
@@ -275,19 +308,24 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
       ).update(<String, dynamic>{
         'storageLifecycle': updated.storageLifecycle.name,
         'storageScope': updated.storageScope.name,
-        'localAttachmentPath': updated.localAttachmentPath,
-        'localAttachmentStorageKey': updated.localAttachmentStorageKey,
+        'attachmentId': opaqueAttachmentId,
         'attachmentSha256': updated.attachmentSha256,
         if (updated.encryptedSizeBytes != null)
           'encryptedSizeBytes': updated.encryptedSizeBytes,
+        'localAttachmentPath': FieldValue.delete(),
+        'localEncryptedPath': FieldValue.delete(),
+        'encryptedPath': FieldValue.delete(),
+        'localAttachmentStorageKey': FieldValue.delete(),
         'updatedAt': DateTime.now().toIso8601String(),
       });
 
       return Success(updated);
     } catch (_) {
-      await _fileStorage.deleteUserAttachment(
-        userId: storageOwner,
-        storageKey: stored.storageKey,
+      await _fileStorage.deleteAttachmentForUser(
+        userId: userId,
+        attachmentId: opaqueAttachmentId,
+        legacyLocalPath: stored.localFilePath,
+        legacyStorageKey: stored.storageKey,
       );
       return const Err(
         UnexpectedFailure(
@@ -304,24 +342,35 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
     required String userId,
     required DocumentVaultEntity document,
   }) async {
-    final storageKey =
-        document.localAttachmentStorageKey ??
-        _extractFileName(document.localAttachmentPath);
-    if (storageKey == null || storageKey.isEmpty) {
+    if (document.ownerId.isNotEmpty && document.ownerId != userId) {
       return const Success(null);
     }
-    final ownerScope = document.ownerId.isNotEmpty ? document.ownerId : userId;
+    final validAttachmentId =
+        SparkSafeFileStorageService.isValidAttachmentId(document.attachmentId)
+        ? document.attachmentId
+        : null;
+    final legacyKey =
+        document.localAttachmentStorageKey ??
+        _extractSafeFileName(document.localAttachmentPath);
+    if (validAttachmentId == null && (legacyKey == null || legacyKey.isEmpty)) {
+      return const Success(null);
+    }
     return _fileStorage.readLocalAttachmentBytes(
-      userId: ownerScope,
-      storageKey: storageKey,
+      userId: userId,
+      attachmentId: validAttachmentId,
+      storageKey: legacyKey,
       expectedPlaintextSha256: document.attachmentSha256,
     );
   }
 
-  static String? _extractFileName(String? path) {
+  static String? _extractSafeFileName(String? path) {
     if (path == null || path.isEmpty) return null;
     final parts = path.split(RegExp(r'[\\/]'));
-    return parts.isEmpty ? null : parts.last;
+    if (parts.isEmpty) return null;
+    final candidate = parts.last;
+    return SparkSafeFileStorageService.isSingleSafeFileName(candidate)
+        ? candidate
+        : null;
   }
 
   @override
@@ -350,6 +399,7 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         createdAt: doc.createdAt,
         storageLifecycle: doc.storageLifecycle,
         storageScope: doc.storageScope,
+        attachmentId: doc.attachmentId,
         localAttachmentPath: doc.localAttachmentPath,
         localAttachmentStorageKey: doc.localAttachmentStorageKey,
         attachmentSha256: doc.attachmentSha256,
@@ -383,81 +433,20 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
     required DocumentVaultEntity document,
   }) async {
     try {
-      final storageOwner = document.ownerId.isNotEmpty
-          ? document.ownerId
-          : userId;
-      final storageKey =
-          document.localAttachmentStorageKey ??
-          _extractFileName(document.localAttachmentPath) ??
-          '';
-
-      // FIX-008: Delete real encrypted local attachment BEFORE deleting Firestore metadata.
-      if (storageKey.isNotEmpty ||
-          (document.localAttachmentPath != null &&
-              document.localAttachmentPath!.isNotEmpty)) {
-        if (_fileStorage is SparkSafeFileStorageService) {
-          final deletedPrimary = await _fileStorage.deleteAttachment(
-            userId: storageOwner,
-            storageKey: storageKey,
-            localFilePath: document.localAttachmentPath,
-          );
-          if (!deletedPrimary) {
-            return const Err(
-              UnexpectedFailure(
-                code: 'LOCAL_VAULT_DELETE_FAILED',
-                message:
-                    'Không thể xóa tệp đính kèm cục bộ của tài liệu khỏi thiết bị.',
-              ),
-            );
-          }
-          if (storageOwner != userId && storageKey.isNotEmpty) {
-            final deletedActorCopy = await _fileStorage.deleteAttachment(
-              userId: userId,
-              storageKey: storageKey,
-            );
-            if (!deletedActorCopy) {
-              return const Err(
-                UnexpectedFailure(
-                  code: 'LOCAL_VAULT_DELETE_FAILED',
-                  message:
-                      'Không thể xóa bản sao tệp đính kèm cục bộ của tài liệu.',
-                ),
-              );
-            }
-          }
-        } else {
-          if (storageKey.isNotEmpty) {
-            final res = await _fileStorage.deleteUserAttachment(
-              userId: storageOwner,
-              storageKey: storageKey,
-            );
-            if (res is Err<void>) return res;
-          }
-          if (!kIsWeb &&
-              document.localAttachmentPath != null &&
-              document.localAttachmentPath!.isNotEmpty) {
-            final f = File(document.localAttachmentPath!);
-            if (f.existsSync()) {
-              await f.delete();
-              if (f.existsSync()) {
-                return const Err(
-                  UnexpectedFailure(
-                    code: 'LOCAL_VAULT_DELETE_FAILED',
-                    message: 'Không thể xóa tệp đính kèm cục bộ trên ổ đĩa.',
-                  ),
-                );
-              }
-            }
-            final meta = File('${f.path}.meta');
-            if (meta.existsSync()) {
-              await meta.delete();
-            }
-          }
-        }
-      }
-
+      // H6: Execute Firestore document deletion FIRST!
+      // If Firestore throws permission-denied or any error, abort immediately
+      // and NEVER delete any local file.
       await _docRef(userId: userId, document: document).delete();
-      return const Success(null);
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' || e.code == 'unauthenticated') {
+        return const Err(PermissionDeniedFailure());
+      }
+      return const Err(
+        UnexpectedFailure(
+          message:
+              'Không thể xóa tài liệu lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+        ),
+      );
     } catch (_) {
       return const Err(
         UnexpectedFailure(
@@ -466,5 +455,23 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         ),
       );
     }
+
+    // ONLY AFTER Firestore confirms deletion succeeded, delete local attachment
+    // strictly inside the current user's own local vault directory.
+    final hasAttachmentRef =
+        (document.attachmentId != null && document.attachmentId!.isNotEmpty) ||
+        (document.localEncryptedPath != null &&
+            document.localEncryptedPath!.isNotEmpty) ||
+        (document.localAttachmentStorageKey != null &&
+            document.localAttachmentStorageKey!.isNotEmpty);
+    if (hasAttachmentRef) {
+      await _fileStorage.deleteAttachmentForUser(
+        userId: userId,
+        attachmentId: document.attachmentId,
+        legacyLocalPath: document.localEncryptedPath,
+        legacyStorageKey: document.localAttachmentStorageKey,
+      );
+    }
+    return const Success(null);
   }
 }
