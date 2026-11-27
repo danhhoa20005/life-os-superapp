@@ -104,6 +104,73 @@ class NativeSecureVaultBridge {
     }
   }
 
+  static String? _sanitizeUidOrNull(String? userId) {
+    final trimmed = (userId ?? '').trim();
+    if (trimmed.isEmpty || trimmed == '.' || trimmed == '..') return null;
+    final sanitized = trimmed.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+    if (sanitized.isEmpty || sanitized == '.' || sanitized == '..') return null;
+    return sanitized;
+  }
+
+  /// Returns true iff [key] is explicitly scoped to [userId] (or its sanitized
+  /// segment), ensuring other users' secrets & global AEAD keys stay intact.
+  @visibleForTesting
+  static bool isKeyScopedToUser(String key, String userId) {
+    final trimmed = userId.trim();
+    final safeUid = _sanitizeUidOrNull(trimmed);
+    if (safeUid == null ||
+        key.trim().isEmpty ||
+        key == _dartAeadMasterKeySlot) {
+      return false;
+    }
+    final candidates = <String>{trimmed, safeUid};
+
+    if (key.contains('__u_')) {
+      final afterMarker = key.split('__u_').skip(1).join('__u_');
+      return candidates.any(
+        (uid) =>
+            afterMarker == uid ||
+            afterMarker.startsWith('${uid}__') ||
+            afterMarker.startsWith('$uid:'),
+      );
+    }
+
+    return candidates.any(
+      (uid) =>
+          key.startsWith('${uid}_') ||
+          key.endsWith('_$uid') ||
+          key.contains(':$uid:') ||
+          key.startsWith('$uid:') ||
+          key.endsWith(':$uid'),
+    );
+  }
+
+  /// Account-scoped secret purge (H4): deletes ONLY secrets belonging to [userId]
+  /// (never calling `clearAllSecrets` or touching another user's credentials).
+  Future<void> clearSecretsForUser(String userId) async {
+    final cleanUid = userId.trim();
+    if (_sanitizeUidOrNull(cleanUid) == null) return;
+
+    final keysToRemove = _memoryFallback.keys
+        .where(
+          (k) => k != _dartAeadMasterKeySlot && isKeyScopedToUser(k, cleanUid),
+        )
+        .toList();
+    for (final key in keysToRemove) {
+      _memoryFallback.remove(key);
+    }
+
+    if (_useNativeAndroid) {
+      try {
+        await _channel.invokeMethod<bool>('clearUserSecrets', <String, dynamic>{
+          'userId': cleanUid,
+        });
+      } on MissingPluginException {
+        // Ignore in test harness
+      }
+    }
+  }
+
   Future<String?> getVaultDirectoryPath() async {
     if (_useNativeAndroid) {
       try {

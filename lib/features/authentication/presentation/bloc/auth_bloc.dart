@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 
@@ -7,6 +9,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_home_widget_bridge.dart';
+import '../../../../core/services/personal_alarm_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../voice_assistant/domain/services/voice_session_coordinator.dart';
@@ -115,6 +118,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       onData: (user) {
         if (user == null) {
           UserBehaviorPrefs.clearSessionOnSignOut();
+          unawaited(PersonalAlarmStore.instance.clearSessionOnSignOut());
           LocalDraftStore.clearAllInMemoryCaches();
           if (sl.isRegistered<VoiceSessionCoordinator>()) {
             sl<VoiceSessionCoordinator>().onUserAccountChangedOrSignedOut();
@@ -126,6 +130,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           );
         }
         UserBehaviorPrefs.bindActiveUser(user.id);
+        PersonalAlarmStore.instance.setActiveUserId(user.id);
         return state.copyWith(
           status: AuthStatus.authenticated,
           user: user,
@@ -150,6 +155,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
       (user) {
         UserBehaviorPrefs.bindActiveUser(user.id);
+        PersonalAlarmStore.instance.setActiveUserId(user.id);
         emit(
           state.copyWith(
             status: AuthStatus.authenticated,
@@ -183,6 +189,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
       (user) {
         UserBehaviorPrefs.bindActiveUser(user.id);
+        PersonalAlarmStore.instance.setActiveUserId(user.id);
         emit(
           state.copyWith(
             status: AuthStatus.authenticated,
@@ -207,6 +214,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       (failure) => emit(state.copyWith(isSubmitting: false, failure: failure)),
       (user) {
         UserBehaviorPrefs.bindActiveUser(user.id);
+        PersonalAlarmStore.instance.setActiveUserId(user.id);
         emit(
           state.copyWith(
             status: AuthStatus.authenticated,
@@ -456,6 +464,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
 
     UserBehaviorPrefs.clearSessionOnSignOut();
+    await PersonalAlarmStore.instance.clearSessionOnSignOut();
     LocalDraftStore.clearAllInMemoryCaches();
     if (sl.isRegistered<AndroidNotificationBridge>()) {
       await sl<AndroidNotificationBridge>().clearAllQueuedNotifications();

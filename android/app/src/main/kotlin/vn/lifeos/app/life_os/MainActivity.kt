@@ -943,6 +943,18 @@ class MainActivity : FlutterActivity() {
                         LifeOsWidgetStore.clearPreferredVoiceEngineMode(applicationContext)
                         result.success(true)
                     }
+                    "clearUserSecrets" -> {
+                        val userId = call.argument<String>("userId")?.trim() ?: ""
+                        if (userId.isEmpty() || userId == "." || userId == "..") {
+                            result.success(false)
+                        } else {
+                            LifeOsSecureVault.clearForUser(applicationContext, userId)
+                            if (LifeOsWidgetStore.getActiveUserId(applicationContext) == userId) {
+                                LifeOsWidgetStore.clearPreferredVoiceEngineMode(applicationContext)
+                            }
+                            result.success(true)
+                        }
+                    }
                     "getVaultDirectoryPath" -> {
                         result.success(LifeOsSecureVault.getVaultDirectory(applicationContext).absolutePath)
                     }

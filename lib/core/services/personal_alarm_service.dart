@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import 'native_alarm_scheduler_bridge.dart';
@@ -169,12 +171,111 @@ class PersonalAlarmItem extends Equatable {
 }
 
 /// Persistent manager synchronizing personal alarms with OS `AlarmManager.setAlarmClock`.
+/// Strictly partitioned per account UID (`lifeos_personal_alarms_v2__u_<uid>`) so
+/// shared devices never leak alarms across accounts (M10).
 class PersonalAlarmStore {
-  static const String _storageKey = 'lifeos_personal_alarms_v1';
+  static const String _legacyStorageKey = 'lifeos_personal_alarms_v1';
+  static const String _scopedKeyPrefix = 'lifeos_personal_alarms_v2__u_';
+  static const String _standaloneTestUser = '__standalone_test_user__';
   static const Uuid _uuid = Uuid();
 
   static final PersonalAlarmStore instance = PersonalAlarmStore._();
   PersonalAlarmStore._();
+
+  String? _activeUserId;
+  bool _userScopingConfigured = false;
+
+  String? get activeUserId => _activeUserId;
+
+  static String _scopedStorageKey(String uid) =>
+      '$_scopedKeyPrefix${uid.trim()}';
+
+  String? _resolveUid(String? userId) {
+    if (userId != null) {
+      final trimmed = userId.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    if (_userScopingConfigured) {
+      final active = _activeUserId?.trim();
+      return (active == null || active.isEmpty) ? null : active;
+    }
+    return _standaloneTestUser;
+  }
+
+  bool _isActiveOsScope(String uid) =>
+      !_userScopingConfigured || _activeUserId == uid;
+
+  Future<void> _purgeLegacyUnscopedKey() async {
+    final legacy = await NativeSecureVaultBridge.instance.readSecret(
+      _legacyStorageKey,
+    );
+    if (legacy != null) {
+      await NativeSecureVaultBridge.instance.deleteSecret(_legacyStorageKey);
+    }
+  }
+
+  Future<void> _cancelUserOsAlarms(String uid) async {
+    final alarms = await _readStoredAlarmsForUid(uid);
+    for (final alarm in alarms) {
+      await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(alarm.id);
+    }
+  }
+
+  Future<void> _resyncEnabledOsAlarms(String uid) async {
+    final alarms = await _readStoredAlarmsForUid(uid);
+    if (_activeUserId != uid) return;
+    final now = DateTime.now();
+    for (final alarm in alarms) {
+      if (_activeUserId != uid) return;
+      if (alarm.enabled) {
+        await _syncOsSchedule(alarm, now: now);
+      }
+    }
+  }
+
+  /// Binds personal alarm persistence to [userId] (or clears when null/empty)
+  /// and purges any legacy unscoped `lifeos_personal_alarms_v1` key.
+  void setActiveUserId(String? userId) {
+    _userScopingConfigured = true;
+    final cleaned = userId?.trim();
+    final nextUid = (cleaned == null || cleaned.isEmpty) ? null : cleaned;
+    final prevUid = _activeUserId;
+    _activeUserId = nextUid;
+    unawaited(_purgeLegacyUnscopedKey());
+    if (prevUid != null && prevUid != nextUid) {
+      unawaited(_cancelUserOsAlarms(prevUid));
+    }
+    if (nextUid != null && prevUid != nextUid) {
+      unawaited(_resyncEnabledOsAlarms(nextUid));
+    }
+  }
+
+  /// Clears active user session and cancels OS scheduled alarms on sign-out
+  /// while preserving the signed-out user's encrypted alarm list in vault.
+  Future<void> clearSessionOnSignOut() async {
+    _userScopingConfigured = true;
+    final prevUid = _activeUserId;
+    _activeUserId = null;
+    await _purgeLegacyUnscopedKey();
+    if (prevUid != null) {
+      await _cancelUserOsAlarms(prevUid);
+    }
+    final osAlarms = await NativeAlarmSchedulerBridge.instance
+        .listScheduledAlarms();
+    for (final osAlarm in osAlarms) {
+      if (osAlarm.eventId.startsWith('palarm_')) {
+        await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(
+          osAlarm.eventId,
+        );
+      }
+    }
+  }
+
+  @visibleForTesting
+  void resetScopingForTest() {
+    _activeUserId = null;
+    _userScopingConfigured = false;
+  }
 
   static String formatCountdownVi(DateTime target, DateTime now) {
     final diff = target.difference(now);
@@ -200,8 +301,10 @@ class PersonalAlarmStore {
     return 'Đổ chuông sau $mins phút';
   }
 
-  Future<List<PersonalAlarmItem>> loadAlarms() async {
-    final raw = await NativeSecureVaultBridge.instance.readSecret(_storageKey);
+  Future<List<PersonalAlarmItem>> _readStoredAlarmsForUid(String uid) async {
+    final raw = await NativeSecureVaultBridge.instance.readSecret(
+      _scopedStorageKey(uid),
+    );
     if (raw == null || raw.trim().isEmpty) {
       return const <PersonalAlarmItem>[];
     }
@@ -225,14 +328,28 @@ class PersonalAlarmStore {
     }
   }
 
-  Future<void> _persist(List<PersonalAlarmItem> items) async {
+  Future<List<PersonalAlarmItem>> loadAlarms({String? userId}) async {
+    await _purgeLegacyUnscopedKey();
+    final uid = _resolveUid(userId);
+    if (uid == null) {
+      return const <PersonalAlarmItem>[];
+    }
+    return _readStoredAlarmsForUid(uid);
+  }
+
+  Future<void> saveAlarms(
+    List<PersonalAlarmItem> items, {
+    String? userId,
+  }) async {
+    final uid = _resolveUid(userId);
+    if (uid == null) return;
     final sorted = List<PersonalAlarmItem>.from(items)
       ..sort((a, b) {
         final cmpH = a.hour.compareTo(b.hour);
         return cmpH != 0 ? cmpH : a.minute.compareTo(b.minute);
       });
     await NativeSecureVaultBridge.instance.writeSecret(
-      key: _storageKey,
+      key: _scopedStorageKey(uid),
       value: jsonEncode(sorted.map((e) => e.toJson()).toList()),
     );
   }
@@ -246,8 +363,8 @@ class PersonalAlarmStore {
     int snoozeMinutes = 5,
     bool enabled = true,
     DateTime? nowOverride,
+    String? userId,
   }) async {
-    final current = await loadAlarms();
     final id = existingId ?? 'palarm_${_uuid.v4().substring(0, 8)}';
     final cleanLabel = label.trim().isEmpty ? 'Báo thức' : label.trim();
     final days = repeatWeekdays.where((d) => d >= 1 && d <= 7).toSet().toList()
@@ -263,13 +380,21 @@ class PersonalAlarmStore {
       enabled: enabled,
     );
 
+    final uid = _resolveUid(userId);
+    if (uid == null) {
+      return item.copyWith(enabled: false);
+    }
+
+    final current = await loadAlarms(userId: uid);
     final updated = <PersonalAlarmItem>[
       for (final existing in current)
         if (existing.id != id) existing,
       item,
     ];
-    await _persist(updated);
-    await _syncOsSchedule(item, now: nowOverride ?? DateTime.now());
+    await saveAlarms(updated, userId: uid);
+    if (_isActiveOsScope(uid)) {
+      await _syncOsSchedule(item, now: nowOverride ?? DateTime.now());
+    }
     return item;
   }
 
@@ -277,8 +402,13 @@ class PersonalAlarmStore {
     String id,
     bool enabled, {
     DateTime? nowOverride,
+    String? userId,
   }) async {
-    final current = await loadAlarms();
+    final uid = _resolveUid(userId);
+    if (uid == null) {
+      return const <PersonalAlarmItem>[];
+    }
+    final current = await loadAlarms(userId: uid);
     final updated = <PersonalAlarmItem>[];
     PersonalAlarmItem? toggled;
     for (final item in current) {
@@ -289,28 +419,43 @@ class PersonalAlarmStore {
         updated.add(item);
       }
     }
-    await _persist(updated);
-    if (toggled != null) {
+    await saveAlarms(updated, userId: uid);
+    if (toggled != null && _isActiveOsScope(uid)) {
       await _syncOsSchedule(toggled, now: nowOverride ?? DateTime.now());
     }
-    return loadAlarms();
+    return loadAlarms(userId: uid);
   }
 
-  Future<List<PersonalAlarmItem>> deleteAlarm(String id) async {
-    final current = await loadAlarms();
+  Future<List<PersonalAlarmItem>> deleteAlarm(
+    String id, {
+    String? userId,
+  }) async {
+    final uid = _resolveUid(userId);
+    if (uid == null) {
+      return const <PersonalAlarmItem>[];
+    }
+    final current = await loadAlarms(userId: uid);
     final updated = current.where((a) => a.id != id).toList();
-    await _persist(updated);
-    await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(id);
+    await saveAlarms(updated, userId: uid);
+    if (_isActiveOsScope(uid)) {
+      await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(id);
+    }
     return updated;
   }
 
   /// Called when an alarm is dismissed on the ringing screen:
   /// - One-time alarms automatically turn off (`enabled = false`).
   /// - Recurring weekday alarms automatically schedule their next matching day!
-  Future<void> handleAlarmDismissed(String id, {DateTime? nowOverride}) async {
+  Future<void> handleAlarmDismissed(
+    String id, {
+    DateTime? nowOverride,
+    String? userId,
+  }) async {
     if (!id.startsWith('palarm_')) return;
+    final uid = _resolveUid(userId);
+    if (uid == null) return;
     final refNow = nowOverride ?? DateTime.now();
-    final current = await loadAlarms();
+    final current = await loadAlarms(userId: uid);
     final idx = current.indexWhere((a) => a.id == id);
     if (idx < 0) return;
 
@@ -318,9 +463,11 @@ class PersonalAlarmStore {
     if (!target.isRecurring) {
       final disabled = target.copyWith(enabled: false);
       final updated = List<PersonalAlarmItem>.from(current)..[idx] = disabled;
-      await _persist(updated);
-      await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(id);
-    } else if (target.enabled) {
+      await saveAlarms(updated, userId: uid);
+      if (_isActiveOsScope(uid)) {
+        await NativeAlarmSchedulerBridge.instance.cancelEventAlarm(id);
+      }
+    } else if (target.enabled && _isActiveOsScope(uid)) {
       await _syncOsSchedule(
         target,
         now: refNow.add(const Duration(minutes: 1)),

@@ -77,10 +77,13 @@ class DocumentVaultEntity extends Equatable {
   final DateTime createdAt;
   final DocumentStorageLifecycle storageLifecycle;
   final DocumentStorageScope storageScope;
+  final String? attachmentId;
   final String? localAttachmentPath;
   final String? localAttachmentStorageKey;
   final String? attachmentSha256;
   final int? encryptedSizeBytes;
+
+  String? get localEncryptedPath => localAttachmentPath;
 
   const DocumentVaultEntity({
     required this.id,
@@ -96,13 +99,15 @@ class DocumentVaultEntity extends Equatable {
     required this.createdAt,
     this.storageLifecycle = DocumentStorageLifecycle.metadataCloudSynced,
     DocumentStorageScope? storageScope,
+    this.attachmentId,
     this.localAttachmentPath,
     this.localAttachmentStorageKey,
     this.attachmentSha256,
     this.encryptedSizeBytes,
   }) : storageScope =
            storageScope ??
-           ((localAttachmentPath != null && localAttachmentPath != '') ||
+           ((attachmentId != null && attachmentId != '') ||
+                   (localAttachmentPath != null && localAttachmentPath != '') ||
                    storageLifecycle ==
                        DocumentStorageLifecycle.localDeviceOnlyBinary
                ? DocumentStorageScope.localEncryptedVault
@@ -147,6 +152,7 @@ class DocumentVaultEntity extends Equatable {
     createdAt,
     storageLifecycle,
     storageScope,
+    attachmentId,
     localAttachmentPath,
     localAttachmentStorageKey,
     attachmentSha256,

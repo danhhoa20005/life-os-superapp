@@ -863,14 +863,22 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
   bool _canExactAlarm = true;
   bool _loading = true;
   Timer? _minuteRefreshTimer;
+  String? _boundUserId;
+  bool _hasBoundUserScope = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _reloadAll();
     _minuteRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAuthUserAndReloadIfNeeded();
   }
 
   @override
@@ -879,13 +887,44 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
     super.dispose();
   }
 
-  Future<void> _reloadAll() async {
-    final personal = await PersonalAlarmStore.instance.loadAlarms();
+  String? _resolveEffectiveUserId(BuildContext context) {
+    final maybeAuth = _tryReadOptionalBloc<AuthBloc>(context);
+    if (maybeAuth != null) {
+      final uid = maybeAuth.state.user?.id.trim();
+      return (uid == null || uid.isEmpty) ? null : uid;
+    }
+    return PersonalAlarmStore.instance.activeUserId;
+  }
+
+  void _syncAuthUserAndReloadIfNeeded() {
+    final maybeAuth = _tryReadOptionalBloc<AuthBloc>(context);
+    if (maybeAuth != null) {
+      final rawUid = maybeAuth.state.user?.id.trim();
+      final normalizedUid = (rawUid == null || rawUid.isEmpty) ? null : rawUid;
+      if (!_hasBoundUserScope || _boundUserId != normalizedUid) {
+        _hasBoundUserScope = true;
+        _boundUserId = normalizedUid;
+        PersonalAlarmStore.instance.setActiveUserId(normalizedUid);
+        _reloadAll(userId: normalizedUid);
+      }
+    } else if (!_hasBoundUserScope) {
+      _hasBoundUserScope = true;
+      _boundUserId = PersonalAlarmStore.instance.activeUserId;
+      _reloadAll(userId: _boundUserId);
+    }
+  }
+
+  Future<void> _reloadAll({String? userId}) async {
+    final gen = ++_loadGeneration;
+    final effectiveUid = userId ?? _resolveEffectiveUserId(context);
+    final personal = await PersonalAlarmStore.instance.loadAlarms(
+      userId: effectiveUid,
+    );
     final osList = await NativeAlarmSchedulerBridge.instance
         .listScheduledAlarms();
     final exact = await NativeAlarmSchedulerBridge.instance
         .canScheduleExactAlarms();
-    if (!mounted) return;
+    if (!mounted || gen != _loadGeneration) return;
     setState(() {
       _personalAlarms = personal;
       _osAlarmsById = <String, ScheduledEventAlarmInfo>{
@@ -923,14 +962,27 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
   }
 
   Future<void> _showUpsertAlarmSheet({PersonalAlarmItem? existing}) async {
+    final hasAuthBloc = _tryReadOptionalBloc<AuthBloc>(context) != null;
+    final effectiveUid = _resolveEffectiveUserId(context);
+    if (hasAuthBloc && (effectiveUid == null || effectiveUid.isEmpty)) {
+      LifeOsTopToast.show(
+        context,
+        'Vui lòng đăng nhập để quản lý báo thức cá nhân.',
+        kind: LifeOsToastKind.warning,
+      );
+      return;
+    }
     final saved = await showModalBottomSheet<PersonalAlarmItem>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _UpsertPersonalAlarmBottomSheet(existing: existing),
+      builder: (_) => _UpsertPersonalAlarmBottomSheet(
+        existing: existing,
+        userId: effectiveUid,
+      ),
     );
     if (saved == null || !mounted) return;
-    await _reloadAll();
+    await _reloadAll(userId: effectiveUid);
     if (!mounted) return;
     final nextAt = saved.computeNextTriggerAt(DateTime.now());
     final countdown = PersonalAlarmStore.formatCountdownVi(
@@ -957,7 +1009,7 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
         : now;
     final syntheticEvent = CalendarEventEntity(
       id: activeFirst?.id ?? 'alarm_preview_test',
-      ownerId: 'self',
+      ownerId: _resolveEffectiveUserId(context) ?? 'self',
       ownerName: 'LifeOS',
       visibility: CalendarEventVisibility.privateEvent,
       title: activeFirst?.label ?? 'Báo thức buổi sáng',
@@ -981,6 +1033,31 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
     final c = TammySemanticColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
+
+    final hasAuthBloc = _tryReadOptionalBloc<AuthBloc>(context) != null;
+    final selectedAuthUid =
+        _trySelectOptionalBloc<AuthBloc, AuthState, String?>(
+          context,
+          (s) => s.user?.id,
+        );
+    final normalizedAuthUid =
+        (selectedAuthUid == null || selectedAuthUid.trim().isEmpty)
+        ? null
+        : selectedAuthUid.trim();
+    if (hasAuthBloc &&
+        (!_hasBoundUserScope || _boundUserId != normalizedAuthUid)) {
+      _hasBoundUserScope = true;
+      _boundUserId = normalizedAuthUid;
+      PersonalAlarmStore.instance.setActiveUserId(normalizedAuthUid);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _reloadAll(userId: normalizedAuthUid);
+        }
+      });
+    }
+    final effectiveUid = hasAuthBloc
+        ? normalizedAuthUid
+        : PersonalAlarmStore.instance.activeUserId;
 
     final calendarEvents =
         _trySelectOptionalBloc<
@@ -1278,6 +1355,16 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                             ),
                                           ),
                                           onPressed: () async {
+                                            if (hasAuthBloc &&
+                                                (effectiveUid == null ||
+                                                    effectiveUid.isEmpty)) {
+                                              LifeOsTopToast.show(
+                                                context,
+                                                'Vui lòng đăng nhập để đặt báo thức.',
+                                                kind: LifeOsToastKind.warning,
+                                              );
+                                              return;
+                                            }
                                             final saved =
                                                 await PersonalAlarmStore
                                                     .instance
@@ -1286,8 +1373,11 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                                       minute: preset.$2,
                                                       label: preset.$3,
                                                       repeatWeekdays: preset.$4,
+                                                      userId: effectiveUid,
                                                     );
-                                            await _reloadAll();
+                                            await _reloadAll(
+                                              userId: effectiveUid,
+                                            );
                                             if (!context.mounted) return;
                                             LifeOsTopToast.show(
                                               context,
@@ -1428,8 +1518,13 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                             ),
                                             onPressed: () async {
                                               await PersonalAlarmStore.instance
-                                                  .deleteAlarm(alarm.id);
-                                              await _reloadAll();
+                                                  .deleteAlarm(
+                                                    alarm.id,
+                                                    userId: effectiveUid,
+                                                  );
+                                              await _reloadAll(
+                                                userId: effectiveUid,
+                                              );
                                               if (!context.mounted) return;
                                               LifeOsTopToast.show(
                                                 context,
@@ -1446,8 +1541,14 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
                                             onChanged: (val) async {
                                               HapticFeedback.selectionClick();
                                               await PersonalAlarmStore.instance
-                                                  .toggleAlarm(alarm.id, val);
-                                              await _reloadAll();
+                                                  .toggleAlarm(
+                                                    alarm.id,
+                                                    val,
+                                                    userId: effectiveUid,
+                                                  );
+                                              await _reloadAll(
+                                                userId: effectiveUid,
+                                              );
                                             },
                                           ),
                                         ],
@@ -1581,8 +1682,9 @@ class _AlarmClockStudioHubViewState extends State<_AlarmClockStudioHubView> {
 
 class _UpsertPersonalAlarmBottomSheet extends StatefulWidget {
   final PersonalAlarmItem? existing;
+  final String? userId;
 
-  const _UpsertPersonalAlarmBottomSheet({this.existing});
+  const _UpsertPersonalAlarmBottomSheet({this.existing, this.userId});
 
   @override
   State<_UpsertPersonalAlarmBottomSheet> createState() =>
@@ -1852,6 +1954,7 @@ class _UpsertPersonalAlarmBottomSheetState
                                 repeatWeekdays: _selectedDays.toList(),
                                 snoozeMinutes: _snoozeMinutes,
                                 enabled: true,
+                                userId: widget.userId,
                               );
                           if (context.mounted) {
                             Navigator.of(context).pop(saved);
@@ -1958,8 +2061,17 @@ class _AlarmRingingFullScreenViewState
 
   Future<void> _dismissAlarm() async {
     final ev = widget.event;
+    final authUid = _tryReadOptionalBloc<AuthBloc>(context)?.state.user?.id;
     await NativeAlarmSchedulerBridge.instance.stopRingingAlarm(eventId: ev.id);
-    await PersonalAlarmStore.instance.handleAlarmDismissed(ev.id);
+    final effectiveUid = (authUid != null && authUid.trim().isNotEmpty)
+        ? authUid.trim()
+        : (ev.ownerId != 'self' && ev.ownerId.trim().isNotEmpty
+              ? ev.ownerId.trim()
+              : null);
+    await PersonalAlarmStore.instance.handleAlarmDismissed(
+      ev.id,
+      userId: effectiveUid,
+    );
     if (!mounted) return;
     _closeScreen();
   }

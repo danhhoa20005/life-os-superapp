@@ -239,6 +239,260 @@ object LifeOsSecureVault {
         }
     }
 
+    fun sanitizeUserIdSegment(userId: String): String {
+        val trimmed = userId.trim()
+        require(trimmed.isNotEmpty() && trimmed != "." && trimmed != "..") {
+            "User ID segment cannot be empty or relative traversal."
+        }
+        val sanitized = trimmed.replace(Regex("[^A-Za-z0-9_\\-]"), "_")
+        require(sanitized.isNotEmpty() && sanitized != "." && sanitized != "..") {
+            "Sanitized user ID segment cannot be empty or relative traversal."
+        }
+        return sanitized
+    }
+
+    private fun sanitizeUserIdSegmentOrNull(userId: String?): String? {
+        if (userId == null) return null
+        return try {
+            sanitizeUserIdSegment(userId)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    /**
+     * Returns true iff [key] is explicitly scoped to [userId] (or its sanitized
+     * segment), preventing cross-account secret deletion on shared devices.
+     */
+    fun isUserScopedSecretKey(key: String, userId: String): Boolean {
+        val trimmed = userId.trim()
+        val safeUid = sanitizeUserIdSegmentOrNull(trimmed) ?: return false
+        if (key.isBlank() || key == "__losv_dart_aead_master_v1__") {
+            return false
+        }
+        val candidates = listOf(trimmed, safeUid).distinct()
+
+        // Explicit __u_<uid> partition takes precedence so e.g. `u_1` never matches `u_10`
+        // and `<userA>_pref__u_<userB>` never matches `userA`.
+        if (key.contains("__u_")) {
+            val afterMarker = key.substringAfter("__u_")
+            return candidates.any { uid ->
+                afterMarker == uid ||
+                    afterMarker.startsWith("${uid}__") ||
+                    afterMarker.startsWith("${uid}:")
+            }
+        }
+
+        return candidates.any { uid ->
+            key.startsWith("${uid}_") ||
+                key.endsWith("_$uid") ||
+                key.contains(":$uid:") ||
+                key.startsWith("$uid:") ||
+                key.endsWith(":$uid")
+        }
+    }
+
+    private fun pathsEqualNormalized(a: File, b: File): Boolean {
+        return if (File.separatorChar == '\\') {
+            a.path.equals(b.path, ignoreCase = true)
+        } else {
+            a.path == b.path
+        }
+    }
+
+    private fun isCanonicalChildStrictlyInside(baseCanonical: File, targetCanonical: File): Boolean {
+        val basePath = baseCanonical.path.trimEnd(File.separatorChar)
+        val prefix = basePath + File.separatorChar
+        val targetPath = targetCanonical.path
+        return if (File.separatorChar == '\\') {
+            targetPath.length > prefix.length &&
+                targetPath.startsWith(prefix, ignoreCase = true)
+        } else {
+            targetPath.length > prefix.length &&
+                targetPath.startsWith(prefix)
+        }
+    }
+
+    private fun isSymbolicLinkOrAliased(parentCanonical: File, child: File): Boolean {
+        return try {
+            val expectedCanonical = File(parentCanonical, child.name).canonicalFile
+            val actualCanonical = child.canonicalFile
+            !pathsEqualNormalized(expectedCanonical, actualCanonical) ||
+                !isCanonicalChildStrictlyInside(parentCanonical, actualCanonical)
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun deleteDirectorySafely(dir: File, allowedBaseCanonical: File): Boolean {
+        val dirCanonical = try {
+            dir.canonicalFile
+        } catch (_: Exception) {
+            return false
+        }
+        if (!isCanonicalChildStrictlyInside(allowedBaseCanonical, dirCanonical)) {
+            return false
+        }
+        var allOk = true
+        val children = dir.listFiles() ?: emptyArray()
+        for (child in children) {
+            if (isSymbolicLinkOrAliased(dirCanonical, child)) {
+                // Never follow symlinks out of the user's directory; unlink only the link itself.
+                if (!child.delete() && child.exists()) {
+                    allOk = false
+                }
+            } else if (child.isDirectory) {
+                if (!deleteDirectorySafely(child, dirCanonical)) {
+                    allOk = false
+                }
+            } else {
+                if (!child.delete() && child.exists()) {
+                    allOk = false
+                }
+            }
+        }
+        if (!dir.delete() && dir.exists()) {
+            allOk = false
+        }
+        return allOk
+    }
+
+    internal fun extractExplicitOwnerIdFromMeta(metaContent: String): String? {
+        val jsonPatterns = listOf(
+            Regex("\"ownerId\"\\s*:\\s*\"([^\"]+)\""),
+            Regex("\"ownerUserId\"\\s*:\\s*\"([^\"]+)\""),
+            Regex("\"userId\"\\s*:\\s*\"([^\"]+)\"")
+        )
+        for (pattern in jsonPatterns) {
+            val match = pattern.find(metaContent)
+            val candidate = match?.groupValues?.getOrNull(1)?.trim()
+            if (!candidate.isNullOrEmpty()) {
+                return candidate
+            }
+        }
+        val markerMatch = Regex("(?:^|\\s)owner\\s*:\\s*([A-Za-z0-9_.@\\-]+)").find(metaContent)
+        return markerMatch?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * Deletes ONLY `<vaultBase>/<sanitizedUserId>` (verified via canonical containment)
+     * plus any legacy unscoped files directly under [vaultBase] whose `.meta` sidecar
+     * explicitly declares ownership by [userId]. Never deletes [vaultBase] or other users' data.
+     */
+    internal fun clearUserDirectoryInBase(vaultBase: File, userId: String): Boolean {
+        val trimmed = userId.trim()
+        val safeUid = sanitizeUserIdSegmentOrNull(trimmed) ?: return false
+        if (!vaultBase.exists() || !vaultBase.isDirectory) {
+            return true
+        }
+        val baseCanonical = try {
+            vaultBase.canonicalFile
+        } catch (_: Exception) {
+            return false
+        }
+
+        var allOk = true
+        val userDir = File(vaultBase, safeUid)
+        if (userDir.exists()) {
+            val targetCanonical = try {
+                userDir.canonicalFile
+            } catch (_: Exception) {
+                null
+            }
+            val expectedDir = File(baseCanonical, safeUid)
+            if (targetCanonical != null &&
+                pathsEqualNormalized(targetCanonical, expectedDir) &&
+                isCanonicalChildStrictlyInside(baseCanonical, targetCanonical)
+            ) {
+                if (userDir.isDirectory) {
+                    if (!deleteDirectorySafely(userDir, baseCanonical)) {
+                        allOk = false
+                    }
+                } else if (!userDir.delete() && userDir.exists()) {
+                    allOk = false
+                }
+            } else {
+                // Reject symlink / path escape without traversing target.
+                allOk = false
+            }
+        }
+
+        // Clean up legacy unscoped direct files ONLY when an explicit owner metadata marker matches.
+        val entries = vaultBase.listFiles() ?: emptyArray()
+        for (entry in entries) {
+            if (!entry.isFile) continue
+            if (isSymbolicLinkOrAliased(baseCanonical, entry)) continue
+            if (entry.name.endsWith(".meta")) {
+                val baseName = entry.name.removeSuffix(".meta")
+                val pairedDataFile = File(vaultBase, baseName)
+                if (!pairedDataFile.exists()) {
+                    val metaOwner = try {
+                        extractExplicitOwnerIdFromMeta(entry.readText(Charsets.UTF_8))
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (metaOwner != null &&
+                        (metaOwner == trimmed || sanitizeUserIdSegmentOrNull(metaOwner) == safeUid)
+                    ) {
+                        if (!entry.delete() && entry.exists()) {
+                            allOk = false
+                        }
+                    }
+                }
+                continue
+            }
+
+            val metaFile = File("${entry.path}.meta")
+            if (!metaFile.exists() || !metaFile.isFile || isSymbolicLinkOrAliased(baseCanonical, metaFile)) {
+                continue
+            }
+            val metaOwner = try {
+                extractExplicitOwnerIdFromMeta(metaFile.readText(Charsets.UTF_8))
+            } catch (_: Exception) {
+                null
+            }
+            if (metaOwner != null &&
+                (metaOwner == trimmed || sanitizeUserIdSegmentOrNull(metaOwner) == safeUid)
+            ) {
+                if (!entry.delete() && entry.exists()) {
+                    allOk = false
+                }
+                if (!metaFile.delete() && metaFile.exists()) {
+                    allOk = false
+                }
+            }
+        }
+        return allOk
+    }
+
+    /**
+     * Account-scoped secret & document vault cleanup (H4).
+     * Never wipes other users' SharedPreferences keys or vault subdirectories.
+     */
+    fun clearForUser(context: Context, userId: String) {
+        val trimmed = userId.trim()
+        if (sanitizeUserIdSegmentOrNull(trimmed) == null) {
+            return
+        }
+        val appCtx = context.applicationContext
+        val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val allKeys = prefs.all.keys.toList()
+        val editor = prefs.edit()
+        var removedAny = false
+        for (key in allKeys) {
+            if (isUserScopedSecretKey(key, trimmed)) {
+                editor.remove(key)
+                removedAny = true
+            }
+        }
+        if (removedAny) {
+            editor.apply()
+        }
+
+        clearUserDirectoryInBase(File(appCtx.noBackupFilesDir, VAULT_DIR_NAME), trimmed)
+        clearUserDirectoryInBase(File(appCtx.filesDir, VAULT_DIR_NAME), trimmed)
+    }
+
     fun clearAll(context: Context) {
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
