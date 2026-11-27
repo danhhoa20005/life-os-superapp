@@ -73,7 +73,7 @@ final class SupportedVnBank {
   });
 }
 
-/// Native LifeOS Vietnamese Bank & E-Wallet Notification Capability Matrix (18 supported apps + SMS).
+/// Native LifeOS Vietnamese Bank & E-Wallet Notification Capability Matrix (18 supported banking/e-wallet apps, zero SMS).
 const List<SupportedVnBank> kSupportedVnBanks = [
   SupportedVnBank(
     packageName: 'com.VCB',
@@ -175,6 +175,14 @@ const List<SupportedVnBank> kSupportedVnBanks = [
     packageName: 'vn.com.ocb.awe',
     bankCode: 'OCB',
     displayName: 'OCB OMNI',
+    supportsCredit: true,
+    supportsDebit: true,
+    supportsVerifiedBalance: true,
+  ),
+  SupportedVnBank(
+    packageName: 'vn.com.seabank.mb1',
+    bankCode: 'SEAB',
+    displayName: 'SeABank',
     supportsCredit: true,
     supportsDebit: true,
     supportsVerifiedBalance: true,

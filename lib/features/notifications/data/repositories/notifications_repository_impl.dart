@@ -33,6 +33,7 @@ class NotificationsRemoteDataSource {
   final AndroidNotificationBridge _bridge;
   final CloudFunctionsInvoker? _functionsInvokerOverride;
   final FinancialAiRepository? _financialAiRepository;
+  final Future<void> Function(String userId)? _clearUserVaultOverride;
 
   NotificationsRemoteDataSource({
     required FirebaseFirestore firestore,
@@ -40,11 +41,36 @@ class NotificationsRemoteDataSource {
     required AndroidNotificationBridge bridge,
     CloudFunctionsInvoker? functionsInvokerOverride,
     FinancialAiRepository? financialAiRepository,
+    Future<void> Function(String userId)? clearUserVaultOverride,
   }) : _firestore = firestore,
        _firebaseAuth = firebaseAuth,
        _bridge = bridge,
        _functionsInvokerOverride = functionsInvokerOverride,
-       _financialAiRepository = financialAiRepository;
+       _financialAiRepository = financialAiRepository,
+       _clearUserVaultOverride = clearUserVaultOverride;
+
+  Future<void> _txChain = Future<void>.value();
+
+  Future<T> _runSerializedTx<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _txChain = _txChain.then((_) async {
+      try {
+        final result = await action();
+        if (!completer.isCompleted) completer.complete(result);
+      } catch (e, st) {
+        if (!completer.isCompleted) completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _clearUserScopedLocalVault(String userId) async {
+    if (_clearUserVaultOverride != null) {
+      await _clearUserVaultOverride(userId);
+      return;
+    }
+    await NativeSecureVaultBridge.instance.clearAllSecrets();
+  }
 
   Future<Map<String, dynamic>> _invokeBackendFunction(
     String functionName,
@@ -305,6 +331,24 @@ class NotificationsRemoteDataSource {
       (s) => s.name == rawStatus,
       orElse: () => PaymentOrderStatus.pending,
     );
+    final rawContribs = d['receivedContributions'];
+    final contributions = <String, int>{};
+    if (rawContribs is Map) {
+      for (final entry in rawContribs.entries) {
+        final key = entry.key.toString();
+        final val = (entry.value as num?)?.toInt();
+        if (key.isNotEmpty && val != null && val > 0) {
+          contributions[key] = val;
+        }
+      }
+    }
+    final rawMatchedIds = d['matchedTransactionIds'];
+    final matchedIds = rawMatchedIds is List
+        ? rawMatchedIds
+              .map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList(growable: false)
+        : const <String>[];
     final cTs = d['createdAt'];
     final pTs = d['paidAt'];
     return PaymentOrderEntity(
@@ -318,11 +362,15 @@ class NotificationsRemoteDataSource {
       accountHolderName: (d['accountHolderName'] as String?) ?? '',
       amountMinor: (d['amountMinor'] as num?)?.toInt() ?? 0,
       receivedAmountMinor: (d['receivedAmountMinor'] as num?)?.toInt() ?? 0,
+      currency: (d['currency'] as String?) ?? 'VND',
+      receivedContributions: contributions,
       paymentCode: (d['paymentCode'] as String?) ?? '',
       description: (d['description'] as String?) ?? '',
       emvQrPayload: (d['emvQrPayload'] as String?) ?? '',
       status: status,
       matchedTransactionId: d['matchedTransactionId'] as String?,
+      matchedTransactionIds: matchedIds,
+      reviewReason: d['reviewReason'] as String?,
       createdAt: cTs is Timestamp ? cTs.toDate() : DateTime.now(),
       paidAt: pTs is Timestamp ? pTs.toDate() : null,
     );
@@ -412,6 +460,10 @@ class NotificationsRemoteDataSource {
       'accountHolderName': holder,
       'amountMinor': amountMinor,
       'receivedAmountMinor': 0,
+      'currency': 'VND',
+      'receivedContributions': const <String, int>{},
+      'matchedTransactionIds': const <String>[],
+      'reviewReason': null,
       'paymentCode': paymentCode,
       'description': cleanDesc,
       'emvQrPayload': emvQr,
@@ -522,6 +574,7 @@ class NotificationsRemoteDataSource {
 
     // Step 4 (F08 / FIN-03): Safe Multi-Account Bank -> Wallet Routing (NEVER guess when >= 2 accounts share bankCode!)
     var targetWalletId = defaultWalletId;
+    var resolvedSpecificBankWallet = false;
     var isAmbiguousWalletRouting = false;
     final bankAccSnap = await _bankAccountsCol(userId).get();
     final walletsSnap = await _firestore
@@ -540,9 +593,13 @@ class NotificationsRemoteDataSource {
 
     final tail = signal.accountTail?.trim() ?? '';
     if (tail.isNotEmpty) {
-      final matchingAccs = accounts
-          .where((a) => a.accountTail.endsWith(tail) && a.walletId.isNotEmpty)
-          .toList();
+      final matchingAccs = accounts.where((a) {
+        final bankOk =
+            signal.bankCode == 'BANK' ||
+            a.bankCode.isEmpty ||
+            a.bankCode.toUpperCase() == signal.bankCode.toUpperCase();
+        return bankOk && a.accountTail.endsWith(tail) && a.walletId.isNotEmpty;
+      }).toList();
       final matchingWalletIds = <String>{
         ...matchingAccs.map((a) => a.walletId),
         ...bankWalletsForCode
@@ -554,6 +611,7 @@ class NotificationsRemoteDataSource {
       };
       if (matchingWalletIds.length == 1) {
         targetWalletId = matchingWalletIds.first;
+        resolvedSpecificBankWallet = true;
       } else if (matchingWalletIds.length > 1) {
         isAmbiguousWalletRouting = true;
       }
@@ -570,6 +628,7 @@ class NotificationsRemoteDataSource {
       };
       if (candidateWalletIds.length == 1) {
         targetWalletId = candidateWalletIds.first;
+        resolvedSpecificBankWallet = true;
       } else if (candidateWalletIds.length > 1) {
         // FIN-03: Multiple accounts at the same bank and notification lacks accountTail -> require user review!
         isAmbiguousWalletRouting = true;
@@ -577,22 +636,29 @@ class NotificationsRemoteDataSource {
       }
     }
 
-    // Step 5: Check if incoming transfer matches a pending Dynamic VietQR Payment Order (`LO...`)
-    PaymentOrderEntity? matchedOrder;
+    // Step 5 (H1): Candidate lookup finds open orders (`pending` or `partial`) matching `paymentCode`.
+    // NEVER override `targetWalletId` before verifying bank, account tail & wallet match inside `runTransaction`!
+    DocumentReference<Map<String, dynamic>>? candidateOrderRef;
+    PaymentOrderEntity? candidateOrder;
     if (signal.direction == 'credit') {
       final upperCombined = '$title $body'.toUpperCase();
-      final pendingOrdersSnap = await _paymentOrdersCol(
-        userId,
-      ).where('status', isEqualTo: PaymentOrderStatus.pending.name).get();
-      for (final doc in pendingOrdersSnap.docs) {
+      final openOrdersSnap = await _paymentOrdersCol(userId)
+          .where(
+            'status',
+            whereIn: <String>[
+              PaymentOrderStatus.pending.name,
+              PaymentOrderStatus.partial.name,
+            ],
+          )
+          .get();
+      for (final doc in openOrdersSnap.docs) {
         final order = _mapPaymentOrder(doc.id, doc.data());
         final codeUpper = order.paymentCode.toUpperCase();
         if (codeUpper.isNotEmpty &&
             (signal.matchedPaymentCode?.toUpperCase() == codeUpper ||
                 upperCombined.contains(codeUpper))) {
-          matchedOrder = order;
-          targetWalletId = order.walletId;
-          isAmbiguousWalletRouting = false;
+          candidateOrderRef = doc.reference;
+          candidateOrder = order;
           break;
         }
       }
@@ -634,7 +700,7 @@ class NotificationsRemoteDataSource {
       final data = d.data();
       if (data['verification'] == 'rejected') return false;
       if (data['sourceEventKey'] == signal.sourceEventKey) return true;
-      if (matchedOrder != null) {
+      if (candidateOrder != null) {
         return data['crossSourceFingerprint'] ==
                 signal.crossSourceFingerprint &&
             (data['sourceKind'] == 'bankWebhook' ||
@@ -684,7 +750,7 @@ class NotificationsRemoteDataSource {
     String? resolvedCategoryId;
     var aiAllowsAutoConfirm = true;
 
-    if (matchedOrder == null && _financialAiRepository != null) {
+    if (candidateOrder == null && _financialAiRepository != null) {
       try {
         final prefsRes = await _financialAiRepository
             .watchPreferences(userId)
@@ -742,56 +808,232 @@ class NotificationsRemoteDataSource {
 
     final effectiveAutoConfirm =
         autoConfirm && aiAllowsAutoConfirm && !isAmbiguousWalletRouting;
-    final shouldAutoCommitToLedger =
-        effectiveAutoConfirm || matchedOrder != null;
     var isDuplicate = false;
-    final txId = matchedOrder != null
+    final txId = candidateOrder != null
         ? 'qr_${signal.sourceEventKey.substring(0, 20)}'
         : 'prov_${signal.sourceEventKey.substring(0, 20)}';
 
-    await _firestore.runTransaction((tx) async {
-      final existingEvent = await tx.get(eventRef);
-      if (existingEvent.exists) {
-        isDuplicate = true;
-        return;
-      }
+    PaymentOrderEntity? verifiedFreshOrder;
+    PaymentOrderStatus? nextOrderStatus;
+    String? orderReviewReason;
+    var orderWasApplied = false;
+    var orderMismatched = false;
+    int? orderNewReceivedTotal;
 
-      // F11 / FIN-04: Re-verify candidate inside transaction boundary for concurrency isolation
-      String? liveDuplicateTxId;
-      for (final cand in matchingExistingDocs) {
-        final liveSnap = await tx.get(cand.reference);
-        if (liveSnap.exists && liveSnap.data()?['verification'] != 'rejected') {
-          liveDuplicateTxId = liveSnap.id;
-          break;
+    await _runSerializedTx(
+      () => _firestore.runTransaction((tx) async {
+        final existingEvent = await tx.get(eventRef);
+        if (existingEvent.exists) {
+          isDuplicate = true;
+          return;
         }
-      }
 
-      final now = DateTime.now();
-      if (liveDuplicateTxId != null) {
-        isDuplicate = true;
-        tx.set(eventRef, {
-          'eventKey': signal.sourceEventKey,
-          'source': 'android_notification',
-          'status': 'duplicate_linked',
-          'linkedTransactionId': liveDuplicateTxId,
-          'receivedAt': Timestamp.fromDate(now),
-        });
-        return;
-      }
+        // F11 / FIN-04: Re-verify candidate inside transaction boundary for concurrency isolation
+        String? liveDuplicateTxId;
+        for (final cand in matchingExistingDocs) {
+          final liveSnap = await tx.get(cand.reference);
+          if (liveSnap.exists &&
+              liveSnap.data()?['verification'] != 'rejected') {
+            liveDuplicateTxId = liveSnap.id;
+            break;
+          }
+        }
 
-      final monthKey =
-          '${signal.occurredAt.year.toString().padLeft(4, '0')}-${signal.occurredAt.month.toString().padLeft(2, '0')}';
+        final now = DateTime.now();
+        if (liveDuplicateTxId != null) {
+          isDuplicate = true;
+          tx.set(eventRef, {
+            'eventKey': signal.sourceEventKey,
+            'source': 'android_notification',
+            'status': 'duplicate_linked',
+            'linkedTransactionId': liveDuplicateTxId,
+            'receivedAt': Timestamp.fromDate(now),
+          });
+          return;
+        }
 
-      int? newWalletBal;
-      String? resolvedWalletName;
-      if (shouldAutoCommitToLedger) {
-        final walletRef = _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('wallets')
-            .doc(targetWalletId);
-        final wSnap = await tx.get(walletRef);
-        if (wSnap.exists) {
+        var effectiveWalletId = targetWalletId;
+        var effectiveIsAmbiguousRouting = isAmbiguousWalletRouting;
+        var shouldCommitLedger =
+            effectiveAutoConfirm && !effectiveIsAmbiguousRouting;
+        Map<String, dynamic>? orderUpdatePayload;
+        Map<String, dynamic>? duplicateOrderEventPayload;
+
+        // ALL Firestore transaction reads MUST happen BEFORE any tx.set / tx.update writes!
+        final orderRef = candidateOrderRef;
+        if (orderRef != null) {
+          final freshOrderSnap = await tx.get(orderRef);
+          if (freshOrderSnap.exists && freshOrderSnap.data() != null) {
+            final freshOrder = _mapPaymentOrder(
+              freshOrderSnap.id,
+              freshOrderSnap.data()!,
+            );
+            final isOpenOrder =
+                freshOrder.status == PaymentOrderStatus.pending ||
+                freshOrder.status == PaymentOrderStatus.partial;
+            final isVndOrder = freshOrder.currency.toUpperCase() == 'VND';
+
+            if (isOpenOrder && isVndOrder) {
+              verifiedFreshOrder = freshOrder;
+
+              final bankMatches =
+                  signal.bankCode == 'BANK' ||
+                  freshOrder.bankCode.isEmpty ||
+                  signal.bankCode.toUpperCase() ==
+                      freshOrder.bankCode.toUpperCase();
+              final normalizedOrderAcc = freshOrder.accountNumber.replaceAll(
+                RegExp(r'[^0-9A-Za-z]'),
+                '',
+              );
+              final accountTailMatches =
+                  signal.accountTail == null ||
+                  signal.accountTail!.isEmpty ||
+                  normalizedOrderAcc.isEmpty ||
+                  normalizedOrderAcc.endsWith(signal.accountTail!);
+              final walletMatches =
+                  !resolvedSpecificBankWallet ||
+                  targetWalletId == freshOrder.walletId;
+
+              final isMismatch =
+                  !bankMatches || !accountTailMatches || !walletMatches;
+
+              final updatedMatchedIds = List<String>.from(
+                freshOrder.matchedTransactionIds,
+              );
+              if (updatedMatchedIds.isEmpty &&
+                  freshOrder.matchedTransactionId != null &&
+                  freshOrder.matchedTransactionId!.isNotEmpty) {
+                updatedMatchedIds.add(freshOrder.matchedTransactionId!);
+              }
+              if (!updatedMatchedIds.contains(txId)) {
+                updatedMatchedIds.add(txId);
+              }
+
+              if (isMismatch) {
+                orderMismatched = true;
+                nextOrderStatus = PaymentOrderStatus.needsReview;
+                orderReviewReason =
+                    'Sai ngân hàng hoặc tài khoản nhận tiền so với đơn VietQR.';
+                // Do NOT mark paid, do NOT redirect to freshOrder.walletId,
+                // and do NOT apply unverified mismatch to order totals or ledger!
+                shouldCommitLedger = false;
+                effectiveIsAmbiguousRouting = false;
+                orderUpdatePayload = {
+                  'status': PaymentOrderStatus.needsReview.name,
+                  'reviewReason': orderReviewReason,
+                  'matchedTransactionIds': updatedMatchedIds,
+                  'matchedTransactionId': txId,
+                  'updatedAt': Timestamp.fromDate(now),
+                };
+              } else {
+                effectiveWalletId = freshOrder.walletId;
+                effectiveIsAmbiguousRouting = false;
+
+                final contributions = Map<String, int>.from(
+                  freshOrder.receivedContributions,
+                );
+                if (contributions.isEmpty &&
+                    freshOrder.receivedAmountMinor > 0) {
+                  contributions['__legacy__'] = freshOrder.receivedAmountMinor;
+                }
+                if (contributions.containsKey(signal.sourceEventKey)) {
+                  isDuplicate = true;
+                  duplicateOrderEventPayload = {
+                    'eventKey': signal.sourceEventKey,
+                    'source': 'android_notification',
+                    'status': 'duplicate_order_contribution_ignored',
+                    'linkedTransactionId':
+                        freshOrder.matchedTransactionId ?? txId,
+                    'matchedOrderId': freshOrder.id,
+                    'receivedAt': Timestamp.fromDate(now),
+                  };
+                } else {
+                  contributions[signal.sourceEventKey] = signal.amountMinor;
+                  final newReceivedTotal = contributions.values.fold<int>(
+                    0,
+                    (acc, v) => acc + v,
+                  );
+                  orderNewReceivedTotal = newReceivedTotal;
+                  orderWasApplied = true;
+
+                  if (newReceivedTotal > freshOrder.amountMinor) {
+                    nextOrderStatus = PaymentOrderStatus.needsReview;
+                    orderReviewReason =
+                        'Thực nhận vượt số tiền yêu cầu (dư ${VndAmount.format(newReceivedTotal - freshOrder.amountMinor)}).';
+                    shouldCommitLedger = false;
+                    orderUpdatePayload = {
+                      'status': PaymentOrderStatus.needsReview.name,
+                      'receivedAmountMinor': newReceivedTotal,
+                      'receivedContributions': contributions,
+                      'matchedTransactionIds': updatedMatchedIds,
+                      'matchedTransactionId': txId,
+                      'reviewReason': orderReviewReason,
+                      'updatedAt': Timestamp.fromDate(now),
+                    };
+                  } else if (newReceivedTotal < freshOrder.amountMinor) {
+                    nextOrderStatus = PaymentOrderStatus.partial;
+                    orderReviewReason = null;
+                    shouldCommitLedger = true;
+                    orderUpdatePayload = {
+                      'status': PaymentOrderStatus.partial.name,
+                      'receivedAmountMinor': newReceivedTotal,
+                      'receivedContributions': contributions,
+                      'matchedTransactionIds': updatedMatchedIds,
+                      'matchedTransactionId': txId,
+                      'reviewReason': null,
+                      'updatedAt': Timestamp.fromDate(now),
+                    };
+                  } else {
+                    nextOrderStatus = PaymentOrderStatus.paid;
+                    orderReviewReason = null;
+                    shouldCommitLedger = true;
+                    orderUpdatePayload = {
+                      'status': PaymentOrderStatus.paid.name,
+                      'receivedAmountMinor': newReceivedTotal,
+                      'receivedContributions': contributions,
+                      'matchedTransactionIds': updatedMatchedIds,
+                      'matchedTransactionId': txId,
+                      'reviewReason': null,
+                      'paidAt': Timestamp.fromDate(now),
+                      'updatedAt': Timestamp.fromDate(now),
+                    };
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (duplicateOrderEventPayload != null) {
+          tx.set(eventRef, duplicateOrderEventPayload);
+          return;
+        }
+
+        DocumentReference<Map<String, dynamic>>? walletRef;
+        DocumentSnapshot<Map<String, dynamic>>? wSnap;
+        if (shouldCommitLedger) {
+          walletRef = _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('wallets')
+              .doc(effectiveWalletId);
+          wSnap = await tx.get(walletRef);
+        }
+
+        // All reads completed — perform all transactional writes below.
+        if (orderRef != null && orderUpdatePayload != null) {
+          tx.update(orderRef, orderUpdatePayload);
+        }
+
+        final monthKey =
+            '${signal.occurredAt.year.toString().padLeft(4, '0')}-${signal.occurredAt.month.toString().padLeft(2, '0')}';
+
+        int? newWalletBal;
+        String? resolvedWalletName;
+        if (shouldCommitLedger &&
+            walletRef != null &&
+            wSnap != null &&
+            wSnap.exists) {
           final curBal = (wSnap.data()?['balanceMinor'] as num?)?.toInt() ?? 0;
           final delta = signal.direction == 'credit'
               ? signal.amountMinor
@@ -820,7 +1062,7 @@ class NotificationsRemoteDataSource {
               'id': 'aud_$txId',
               'ownerId': userId,
               'txId': txId,
-              'walletId': targetWalletId,
+              'walletId': effectiveWalletId,
               'walletName': resolvedWalletName,
               'previousBalanceMinor': curBal,
               'deltaMinor': newWalletBal - curBal,
@@ -830,160 +1072,184 @@ class NotificationsRemoteDataSource {
             },
           );
         }
-      }
 
-      if (matchedOrder != null) {
-        tx.update(_paymentOrdersCol(userId).doc(matchedOrder.id), {
-          'status': PaymentOrderStatus.paid.name,
-          'receivedAmountMinor': signal.amountMinor,
-          'matchedTransactionId': txId,
-          'paidAt': Timestamp.fromDate(now),
-          'updatedAt': Timestamp.fromDate(now),
-        });
-      }
-
-      tx.set(eventRef, {
-        'eventKey': signal.sourceEventKey,
-        'source': 'android_notification',
-        'status': matchedOrder != null
+        final orderNeedsReview =
+            orderMismatched ||
+            nextOrderStatus == PaymentOrderStatus.needsReview;
+        final eventStatus = orderMismatched
+            ? 'qr_mismatch_needs_review'
+            : nextOrderStatus == PaymentOrderStatus.needsReview
+            ? 'qr_overpaid_needs_review'
+            : nextOrderStatus == PaymentOrderStatus.partial
+            ? 'qr_order_partial'
+            : nextOrderStatus == PaymentOrderStatus.paid
             ? 'qr_order_reconciled'
-            : isAmbiguousWalletRouting
+            : effectiveIsAmbiguousRouting
             ? 'ambiguous_wallet_needs_review'
-            : (effectiveAutoConfirm ? 'auto_confirmed' : 'provisional_created'),
-        'linkedTransactionId': txId,
-        if (matchedOrder != null) 'matchedOrderId': matchedOrder.id,
-        'receivedAt': Timestamp.fromDate(now),
-      });
+            : (effectiveAutoConfirm ? 'auto_confirmed' : 'provisional_created');
 
-      final hasObservedBankBal =
-          shouldAutoCommitToLedger &&
-          syncObservedBalance &&
-          signal.observedBalanceMinor != null &&
-          signal.observedBalanceMinor! > 0;
-      final balanceType = hasObservedBankBal
-          ? 'observedBankBalance'
-          : (shouldAutoCommitToLedger
-                ? 'estimatedWalletBalance'
-                : 'unknownBalance');
+        tx.set(eventRef, {
+          'eventKey': signal.sourceEventKey,
+          'source': 'android_notification',
+          'status': eventStatus,
+          'linkedTransactionId': txId,
+          if (verifiedFreshOrder != null)
+            'matchedOrderId': verifiedFreshOrder!.id,
+          'receivedAt': Timestamp.fromDate(now),
+        });
 
-      // F09 & F08: QR match from Android notification uses `matchedPaymentOrder` (NEVER claims bank-verified `VERIFIED`),
-      // and ambiguous multi-account bank routing uses `needsReview`!
-      final verifStr = matchedOrder != null
-          ? 'matchedPaymentOrder'
-          : isAmbiguousWalletRouting
-          ? 'needsReview'
-          : (effectiveAutoConfirm ? 'userConfirmed' : 'provisional');
-      final verifUpper = matchedOrder != null
-          ? 'MATCHED_PAYMENT_ORDER'
-          : isAmbiguousWalletRouting
-          ? 'NEEDS_REVIEW'
-          : (effectiveAutoConfirm ? 'USER_CONFIRMED' : 'PROVISIONAL');
+        final hasObservedBankBal =
+            shouldCommitLedger &&
+            syncObservedBalance &&
+            signal.observedBalanceMinor != null &&
+            signal.observedBalanceMinor! > 0;
+        final balanceType = hasObservedBankBal
+            ? 'observedBankBalance'
+            : (shouldCommitLedger
+                  ? 'estimatedWalletBalance'
+                  : 'unknownBalance');
 
-      tx.set(
-        _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('transactions')
-            .doc(txId),
-        {
-          'id': txId,
+        // F09 & F08 & H1: QR match from Android notification uses `matchedPaymentOrder`
+        // (NEVER claims bank-verified `VERIFIED`), while mismatches/overpays/ambiguous routing use `needsReview`!
+        final verifStr = orderNeedsReview
+            ? 'needsReview'
+            : orderWasApplied
+            ? 'matchedPaymentOrder'
+            : effectiveIsAmbiguousRouting
+            ? 'needsReview'
+            : (effectiveAutoConfirm ? 'userConfirmed' : 'provisional');
+        final verifUpper = orderNeedsReview
+            ? 'NEEDS_REVIEW'
+            : orderWasApplied
+            ? 'MATCHED_PAYMENT_ORDER'
+            : effectiveIsAmbiguousRouting
+            ? 'NEEDS_REVIEW'
+            : (effectiveAutoConfirm ? 'USER_CONFIRMED' : 'PROVISIONAL');
+        final reconciliationStatus = orderMismatched
+            ? 'qr_mismatch_needs_review'
+            : nextOrderStatus == PaymentOrderStatus.needsReview
+            ? 'qr_overpaid_needs_review'
+            : nextOrderStatus == PaymentOrderStatus.partial
+            ? 'matched_qr_partial'
+            : orderWasApplied
+            ? 'matched_qr_order'
+            : effectiveIsAmbiguousRouting
+            ? 'ambiguous_wallet_needs_review'
+            : 'unreconciled_provisional';
+
+        final txNote = orderNeedsReview && verifiedFreshOrder != null
+            ? 'Đơn QR ${verifiedFreshOrder!.paymentCode}: ${orderReviewReason ?? "Cần đối soát"}'
+            : orderWasApplied && verifiedFreshOrder != null
+            ? (nextOrderStatus == PaymentOrderStatus.partial
+                  ? 'Khớp một phần mã đơn QR ${verifiedFreshOrder!.paymentCode} (đã nhận ${VndAmount.format(orderNewReceivedTotal ?? signal.amountMinor)} / ${VndAmount.format(verifiedFreshOrder!.amountMinor)})'
+                  : 'Khớp mã đơn QR ${verifiedFreshOrder!.paymentCode} từ thông báo thiết bị')
+            : effectiveIsAmbiguousRouting
+            ? 'Có nhiều tài khoản ${signal.bankCode} nhưng thông báo thiếu số đuôi TK — vui lòng chọn đúng ví.'
+            : null;
+
+        tx.set(
+          _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('transactions')
+              .doc(txId),
+          {
+            'id': txId,
+            'ownerId': userId,
+            'walletId': effectiveWalletId,
+            if (resolvedWalletName != null) 'walletName': resolvedWalletName,
+            if (newWalletBal != null) 'balanceAfterMinor': newWalletBal,
+            if (signal.observedBalanceMinor != null)
+              'observedBalanceMinor': signal.observedBalanceMinor,
+            'balanceType': balanceType,
+            'ledgerApplied': shouldCommitLedger,
+            if (!orderWasApplied && resolvedCategoryId != null)
+              'categoryId': resolvedCategoryId,
+            'categoryName': orderWasApplied
+                ? 'Thu tiền QR'
+                : resolvedCategoryName,
+            'kind': signal.direction == 'credit' ? 'income' : 'expense',
+            'direction': signal.direction,
+            'amountMinor': signal.amountMinor,
+            'currencyCode': 'VND',
+            'bankCode': signal.bankCode,
+            if (signal.accountTail != null)
+              'accountMasked': '•••• ${signal.accountTail}',
+            if (signal.referenceCode != null &&
+                signal.referenceCode!.isNotEmpty)
+              'referenceCode': signal.referenceCode,
+            'merchant': orderWasApplied && verifiedFreshOrder != null
+                ? '${verifiedFreshOrder!.description} (${verifiedFreshOrder!.paymentCode})'
+                : '${signal.bankCode}: ${signal.merchant}',
+            if (txNote != null) 'note': txNote,
+            'occurredAt': Timestamp.fromDate(signal.occurredAt),
+            'receivedAt': Timestamp.fromDate(now),
+            'monthKey': monthKey,
+            'sourceProvider': 'android_device',
+            'sourceKind': 'androidNotification',
+            'verification': verifStr,
+            'verificationStatus': verifUpper,
+            'reconciliationStatus': reconciliationStatus,
+            'sourceEventKey': signal.sourceEventKey,
+            'crossSourceFingerprint': signal.crossSourceFingerprint,
+            'softWindowFingerprint': softFp,
+            'isVehicleMaintenanceHint': signal.isVehicleMaintenanceHint,
+            'isRecurringCandidate':
+                ExplainableBankingRuleEngine.detectRecurringSuggestionLabel(
+                  '$title $body',
+                  signal.direction,
+                ) !=
+                null,
+            'schemaVersion': 2,
+            'createdAt': Timestamp.fromDate(now),
+            'updatedAt': Timestamp.fromDate(now),
+          },
+        );
+
+        final notifId = 'notif_${signal.sourceEventKey.substring(0, 24)}';
+        final sign = signal.direction == 'credit' ? '+' : '-';
+        final notifTitle =
+            !orderNeedsReview && (orderWasApplied || effectiveAutoConfirm)
+            ? (signal.direction == 'credit'
+                  ? '💰 Life OS — Tiền vừa về!'
+                  : '💸 Life OS — Giao dịch chi tiêu')
+            : '🔔 Life OS — Phát hiện biến động ngân hàng';
+        final statusVi = orderNeedsReview
+            ? 'Cần đối soát'
+            : nextOrderStatus == PaymentOrderStatus.partial
+            ? 'Đã nhận một phần đơn QR'
+            : orderWasApplied
+            ? 'Đã khớp đơn QR'
+            : effectiveIsAmbiguousRouting
+            ? 'Cần chọn đúng ví'
+            : (effectiveAutoConfirm ? 'Đã xác nhận' : 'Tạm ghi nhận');
+        final notifBody =
+            '$sign${VndAmount.format(signal.amountMinor)}\nNguồn: Thông báo Android\nTrạng thái: $statusVi';
+        tx.set(_financialNotifsCol(userId).doc(notifId), {
+          'id': notifId,
           'ownerId': userId,
-          'walletId': targetWalletId,
-          if (resolvedWalletName != null) 'walletName': resolvedWalletName,
-          if (newWalletBal != null) 'balanceAfterMinor': newWalletBal,
-          if (signal.observedBalanceMinor != null)
-            'observedBalanceMinor': signal.observedBalanceMinor,
-          'balanceType': balanceType,
-          'ledgerApplied': shouldAutoCommitToLedger,
-          if (matchedOrder == null && resolvedCategoryId != null)
-            'categoryId': resolvedCategoryId,
-          'categoryName': matchedOrder != null
-              ? 'Thu tiền QR'
-              : resolvedCategoryName,
-          'kind': signal.direction == 'credit' ? 'income' : 'expense',
+          'transactionId': txId,
+          'walletId': effectiveWalletId,
+          'connectionId': '',
           'direction': signal.direction,
           'amountMinor': signal.amountMinor,
-          'currencyCode': 'VND',
           'bankCode': signal.bankCode,
-          if (signal.accountTail != null)
-            'accountMasked': '•••• ${signal.accountTail}',
-          if (signal.referenceCode != null && signal.referenceCode!.isNotEmpty)
-            'referenceCode': signal.referenceCode,
-          'merchant': matchedOrder != null
-              ? '${matchedOrder.description} (${matchedOrder.paymentCode})'
-              : '${signal.bankCode}: ${signal.merchant}',
-          if (matchedOrder != null)
-            'note':
-                'Khớp mã đơn QR ${matchedOrder.paymentCode} từ thông báo thiết bị',
-          if (isAmbiguousWalletRouting)
-            'note':
-                'Có nhiều tài khoản ${signal.bankCode} nhưng thông báo thiếu số đuôi TK — vui lòng chọn đúng ví.',
-          'occurredAt': Timestamp.fromDate(signal.occurredAt),
-          'receivedAt': Timestamp.fromDate(now),
-          'monthKey': monthKey,
-          'sourceProvider': 'android_device',
-          'sourceKind': 'androidNotification',
-          'verification': verifStr,
+          'bankName': signal.bankCode,
+          'accountMasked': signal.accountTail != null
+              ? '•••• ${signal.accountTail}'
+              : '••••',
+          'title': notifTitle,
+          'body': notifBody,
+          'content': signal.merchant,
           'verificationStatus': verifUpper,
-          'reconciliationStatus': matchedOrder != null
-              ? 'matched_qr_order'
-              : isAmbiguousWalletRouting
-              ? 'ambiguous_wallet_needs_review'
-              : 'unreconciled_provisional',
-          'sourceEventKey': signal.sourceEventKey,
-          'crossSourceFingerprint': signal.crossSourceFingerprint,
-          'softWindowFingerprint': softFp,
-          'isVehicleMaintenanceHint': signal.isVehicleMaintenanceHint,
-          'isRecurringCandidate':
-              ExplainableBankingRuleEngine.detectRecurringSuggestionLabel(
-                '$title $body',
-                signal.direction,
-              ) !=
-              null,
-          'schemaVersion': 2,
+          'sourceKind': 'androidNotification',
+          'isRead': false,
+          'isTestNotification': false,
+          'occurredAt': Timestamp.fromDate(signal.occurredAt),
           'createdAt': Timestamp.fromDate(now),
-          'updatedAt': Timestamp.fromDate(now),
-        },
-      );
-
-      final notifId = 'notif_${signal.sourceEventKey.substring(0, 24)}';
-      final sign = signal.direction == 'credit' ? '+' : '-';
-      final notifTitle = matchedOrder != null || effectiveAutoConfirm
-          ? (signal.direction == 'credit'
-                ? '💰 Life OS — Tiền vừa về!'
-                : '💸 Life OS — Giao dịch chi tiêu')
-          : '🔔 Life OS — Phát hiện biến động ngân hàng';
-      final statusVi = matchedOrder != null
-          ? 'Đã khớp đơn QR'
-          : isAmbiguousWalletRouting
-          ? 'Cần chọn đúng ví'
-          : (effectiveAutoConfirm ? 'Đã xác nhận' : 'Tạm ghi nhận');
-      final notifBody =
-          '$sign${VndAmount.format(signal.amountMinor)}\nNguồn: Thông báo Android\nTrạng thái: $statusVi';
-      tx.set(_financialNotifsCol(userId).doc(notifId), {
-        'id': notifId,
-        'ownerId': userId,
-        'transactionId': txId,
-        'walletId': targetWalletId,
-        'connectionId': '',
-        'direction': signal.direction,
-        'amountMinor': signal.amountMinor,
-        'bankCode': signal.bankCode,
-        'bankName': signal.bankCode,
-        'accountMasked': signal.accountTail != null
-            ? '•••• ${signal.accountTail}'
-            : '••••',
-        'title': notifTitle,
-        'body': notifBody,
-        'content': signal.merchant,
-        'verificationStatus': verifUpper,
-        'sourceKind': 'androidNotification',
-        'isRead': false,
-        'isTestNotification': false,
-        'occurredAt': Timestamp.fromDate(signal.occurredAt),
-        'createdAt': Timestamp.fromDate(now),
-      });
-    });
+        });
+      }),
+    );
 
     // F10 / BG-01: Explicitly ACK durable Android SQLite queue ONLY AFTER Firestore transaction succeeds!
     if (notificationId != null && notificationId.isNotEmpty) {
@@ -998,7 +1264,9 @@ class NotificationsRemoteDataSource {
     }
 
     // Step 6: Auto-settle Family / Group Split Debt if incoming memo carries `LIFEOS SPLIT...`!
-    if (signal.direction == 'credit' &&
+    if (!orderMismatched &&
+        nextOrderStatus != PaymentOrderStatus.needsReview &&
+        signal.direction == 'credit' &&
         signal.matchedPaymentCode != null &&
         signal.matchedPaymentCode!.startsWith('LIFEOS SPLIT')) {
       try {
@@ -1029,14 +1297,40 @@ class NotificationsRemoteDataSource {
       } catch (_) {}
     }
 
-    if (matchedOrder != null) {
+    if (verifiedFreshOrder != null &&
+        nextOrderStatus == PaymentOrderStatus.needsReview) {
+      return IngestionOutcome(
+        kind: IngestionOutcomeKind.createdProvisional,
+        transactionId: txId,
+        matchedOrderId: verifiedFreshOrder!.id,
+        matchedPaymentCode: verifiedFreshOrder!.paymentCode,
+        message:
+            orderReviewReason ??
+            'Giao dịch khớp mã ${verifiedFreshOrder!.paymentCode} cần đối soát.',
+      );
+    }
+
+    if (orderWasApplied && verifiedFreshOrder != null) {
+      if (nextOrderStatus == PaymentOrderStatus.partial) {
+        final remaining =
+            verifiedFreshOrder!.amountMinor -
+            (orderNewReceivedTotal ?? signal.amountMinor);
+        return IngestionOutcome(
+          kind: IngestionOutcomeKind.autoReconciledOrder,
+          transactionId: txId,
+          matchedOrderId: verifiedFreshOrder!.id,
+          matchedPaymentCode: verifiedFreshOrder!.paymentCode,
+          message:
+              'Đã nhận một phần ${VndAmount.format(signal.amountMinor)} cho mã ${verifiedFreshOrder!.paymentCode} (còn thiếu ${VndAmount.format(remaining)}).',
+        );
+      }
       return IngestionOutcome(
         kind: IngestionOutcomeKind.autoReconciledOrder,
         transactionId: txId,
-        matchedOrderId: matchedOrder.id,
-        matchedPaymentCode: matchedOrder.paymentCode,
+        matchedOrderId: verifiedFreshOrder!.id,
+        matchedPaymentCode: verifiedFreshOrder!.paymentCode,
         message:
-            'Đã nhận ${VndAmount.format(signal.amountMinor)} · Tự động gạch nợ mã ${matchedOrder.paymentCode}!',
+            'Đã nhận ${VndAmount.format(signal.amountMinor)} · Tự động gạch nợ mã ${verifiedFreshOrder!.paymentCode}!',
       );
     }
 
@@ -1608,22 +1902,41 @@ class NotificationsRemoteDataSource {
       }
     }
 
-    // 3. Purge ALL local native queues, secrets, alarms, widgets, behavior prefs & receipt/CSV caches
-    await _bridge.clearAllQueuedNotifications();
-    await _bridge.syncConsentConfig(
-      enabled: false,
-      allowedPackages: const [],
-      voiceSoundboxEnabled: false,
-    );
-    await NativeSecureVaultBridge.instance.clearAllSecrets();
-    await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
-    if (sl.isRegistered<NativeHomeWidgetBridge>()) {
-      await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
-    } else {
-      await NativeHomeWidgetBridge().clearWidgetsOnSignOut();
+    // 3. Invoke server-side Cloud Function `deleteUserAccountData` FIRST
+    //    (after pre-checks pass, BEFORE mutating/wiping partial client state!)
+    //    with safe retry (2 attempts) to purge server-only collections.
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final resp = await _invokeBackendFunction(
+          'deleteUserAccountData',
+          <String, dynamic>{'userId': userId},
+        );
+        if (resp['ok'] == false) {
+          throw AppException(
+            code: 'SERVER_ACCOUNT_DELETION_FAILED',
+            message:
+                (resp['message'] as String?) ??
+                'Không thể xóa dữ liệu tài khoản trên máy chủ.',
+          );
+        }
+        break;
+      } catch (e) {
+        final msg = e.toString();
+        // In local unit tests without a live Firebase app or functions mock,
+        // allow local Firestore wipe to proceed unless an override explicitly failed.
+        if (_functionsInvokerOverride == null &&
+            (msg.contains('no-app') ||
+                msg.contains('No Firebase App') ||
+                msg.contains('MissingPluginException'))) {
+          break;
+        }
+        if (attempt == 2) {
+          rethrow;
+        }
+      }
     }
-    UserBehaviorPrefs.clearSessionOnSignOut();
 
+    // 4. Purge Firestore personal subcollections, nested collections & family memberships
     final userDocRef = _firestore.collection('users').doc(userId);
     await userDocRef.set({
       'id': userId,
@@ -1661,7 +1974,7 @@ class NotificationsRemoteDataSource {
 
     final pFundsSnap = await userDocRef.collection('personal_funds').get();
     for (final fundDoc in pFundsSnap.docs) {
-      for (final nested in const ['contributions', 'expenses']) {
+      for (final nested in const ['contributions', 'expenses', 'fund_audits']) {
         final nSnap = await fundDoc.reference.collection(nested).get();
         for (final nDoc in nSnap.docs) {
           await nDoc.reference.delete();
@@ -1716,6 +2029,9 @@ class NotificationsRemoteDataSource {
       'utility_readings',
       'home_contracts',
       'life_notes',
+      'medications',
+      'health_logs',
+      'medical_profiles',
       'ai_personalization_rules',
       'ai_category_corrections',
       'ai_pending_drafts',
@@ -1728,31 +2044,25 @@ class NotificationsRemoteDataSource {
       }
     }
 
-    // 4. Invoke server-side Cloud Function `deleteUserAccountData` with safe retry
-    //    to purge server-only collections (server_bank_connections, server_bank_account_claims,
-    //    sepay_webhook_inbox, notification_outbox, bank_reconciliation_jobs, family_invite_rate_limits)
-    //    BEFORE deleting the user document and Firebase Auth record.
-    for (var attempt = 1; attempt <= 2; attempt++) {
-      try {
-        await _invokeBackendFunction('deleteUserAccountData', <String, dynamic>{
-          'userId': userId,
-        });
-        break;
-      } catch (e) {
-        final msg = e.toString();
-        // In local unit tests without a live Firebase app or functions mock, allow local Firestore wipe to succeed
-        if (msg.contains('no-app') ||
-            msg.contains('No Firebase App') ||
-            msg.contains('MissingPluginException')) {
-          break;
-        }
-        if (attempt == 2) {
-          rethrow;
-        }
-      }
-    }
-
     await userDocRef.delete();
+
+    // 5. Purge local native queues, user-scoped vault secrets, alarms, widgets & session prefs
+    await _bridge.clearAllQueuedNotifications();
+    await _bridge.syncConsentConfig(
+      enabled: false,
+      allowedPackages: const [],
+      voiceSoundboxEnabled: false,
+    );
+    await _clearUserScopedLocalVault(userId);
+    await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
+    if (sl.isRegistered<NativeHomeWidgetBridge>()) {
+      await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
+    } else {
+      await NativeHomeWidgetBridge().clearWidgetsOnSignOut();
+    }
+    UserBehaviorPrefs.clearSessionOnSignOut();
+
+    // 6. Delete Firebase Auth account (only after server & client cleanup succeed)
 
     if (current != null && current.uid == userId) {
       try {
@@ -1824,7 +2134,8 @@ class NotificationsRemoteDataSource {
       status: BankConnectionStatus.fromWire(d['status'] as String?),
       capabilities: cap,
       lastSyncedAt: syncTs is Timestamp ? syncTs.toDate() : null,
-      lastError: d['lastError'] as String?,
+      lastError:
+          (d['lastError'] as String?) ?? (d['lastRevocationError'] as String?),
     );
   }
 
@@ -1904,17 +2215,42 @@ class NotificationsRemoteDataSource {
     required String connectionId,
   }) async {
     try {
-      await _invokeBackendFunction('disconnectBankConnection', {
+      final resp = await _invokeBackendFunction('disconnectBankConnection', {
         'connectionId': connectionId,
       });
-    } catch (_) {
-      // Fallback: mark user-scoped connection revoked directly (permitted by firestore.rules)
+      if (resp['ok'] == false) {
+        throw AppException(
+          code: 'SERVER_REVOCATION_FAILED',
+          message:
+              (resp['message'] as String?) ??
+              'Máy chủ chưa xác nhận thu hồi kết nối ngân hàng.',
+        );
+      }
+      // Server succeeded: ensure client mirror reflects disconnected/revoked cleanly.
       await _bankConnectionsCol(userId).doc(connectionId).set({
         'ownerId': userId,
         'status': 'disconnected',
         'consentStatus': 'revoked',
+        'lastRevocationError': null,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       }, SetOptions(merge: true));
+    } catch (e) {
+      // NEVER write status='disconnected' or consentStatus='revoked' when server failed!
+      try {
+        await _bankConnectionsCol(userId).doc(connectionId).set({
+          'ownerId': userId,
+          'status': 'pendingRevocation',
+          'consentStatus': 'revocation_pending',
+          'revocationRequestedAt': Timestamp.fromDate(DateTime.now()),
+          'lastRevocationError': e.toString(),
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+      throw const AppException(
+        code: 'SERVER_REVOCATION_PENDING',
+        message:
+            'Chưa thể xác nhận ngắt kết nối trên máy chủ. Đã đánh dấu trạng thái chờ thu hồi — vui lòng bấm Thử ngắt lại để dừng hoàn toàn đồng bộ ngân hàng.',
+      );
     }
   }
 

@@ -92,18 +92,27 @@ class LinkedBankAccountEntity extends Equatable {
 
 enum PaymentOrderStatus {
   pending,
+  partial,
   paid,
+  needsReview,
+  expired,
   cancelled;
 
-  String get displayLabel => switch (this) {
-    PaymentOrderStatus.pending => 'Chờ nhận tiền',
+  String get statusLabelVi => switch (this) {
+    PaymentOrderStatus.pending => 'Chờ chuyển khoản',
+    PaymentOrderStatus.partial => 'Đã nhận một phần',
     PaymentOrderStatus.paid => 'Đã nhận đủ',
+    PaymentOrderStatus.needsReview => 'Cần đối soát',
+    PaymentOrderStatus.expired => 'Hết hạn',
     PaymentOrderStatus.cancelled => 'Đã hủy',
   };
+
+  String get displayLabel => statusLabelVi;
 }
 
 /// Native In-App Dynamic VietQR Payment Collection Order ("Mã QR Thu Tiền Tự Động").
-/// Automatically flips from `pending` to `paid` the instant a matching bank notification arrives!
+/// Automatically transitions through `pending` -> `partial` -> `paid` (or `needsReview`)
+/// inside transactional verification when matching bank notifications arrive.
 class PaymentOrderEntity extends Equatable {
   final String id;
   final String ownerId;
@@ -115,11 +124,15 @@ class PaymentOrderEntity extends Equatable {
   final String accountHolderName;
   final int amountMinor;
   final int receivedAmountMinor;
+  final String currency;
+  final Map<String, int> receivedContributions;
   final String paymentCode;
   final String description;
   final String emvQrPayload;
   final PaymentOrderStatus status;
   final String? matchedTransactionId;
+  final List<String> matchedTransactionIds;
+  final String? reviewReason;
   final DateTime createdAt;
   final DateTime? paidAt;
 
@@ -134,16 +147,26 @@ class PaymentOrderEntity extends Equatable {
     required this.accountHolderName,
     required this.amountMinor,
     this.receivedAmountMinor = 0,
+    this.currency = 'VND',
+    this.receivedContributions = const <String, int>{},
     required this.paymentCode,
     required this.description,
     required this.emvQrPayload,
     this.status = PaymentOrderStatus.pending,
     this.matchedTransactionId,
+    this.matchedTransactionIds = const <String>[],
+    this.reviewReason,
     required this.createdAt,
     this.paidAt,
   });
 
+  int get remainingAmountMinor => (amountMinor - receivedAmountMinor) > 0
+      ? (amountMinor - receivedAmountMinor)
+      : 0;
+
   bool get isPaid => status == PaymentOrderStatus.paid;
+  bool get isPartial => status == PaymentOrderStatus.partial;
+  bool get isNeedsReview => status == PaymentOrderStatus.needsReview;
 
   @override
   List<Object?> get props => [
@@ -157,11 +180,15 @@ class PaymentOrderEntity extends Equatable {
     accountHolderName,
     amountMinor,
     receivedAmountMinor,
+    currency,
+    receivedContributions,
     paymentCode,
     description,
     emvQrPayload,
     status,
     matchedTransactionId,
+    matchedTransactionIds,
+    reviewReason,
     createdAt,
     paidAt,
   ];

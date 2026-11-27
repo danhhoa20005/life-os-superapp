@@ -26,12 +26,15 @@ enum BankBalanceType {
 enum BankConnectionStatus {
   pendingVerification,
   connected,
+  pendingRevocation,
   disconnected,
   error;
 
   static BankConnectionStatus fromWire(String? raw) {
     return switch (raw) {
       'connected' => BankConnectionStatus.connected,
+      'pending_revocation' ||
+      'pendingRevocation' => BankConnectionStatus.pendingRevocation,
       'disconnected' => BankConnectionStatus.disconnected,
       'error' => BankConnectionStatus.error,
       _ => BankConnectionStatus.pendingVerification,
@@ -41,6 +44,7 @@ enum BankConnectionStatus {
   String get displayLabel => switch (this) {
     BankConnectionStatus.connected => 'Đã kết nối',
     BankConnectionStatus.pendingVerification => 'Chưa xác minh SePay',
+    BankConnectionStatus.pendingRevocation => 'Đang chờ thu hồi trên máy chủ',
     BankConnectionStatus.disconnected => 'Đã ngắt kết nối',
     BankConnectionStatus.error => 'Lỗi kết nối',
   };
