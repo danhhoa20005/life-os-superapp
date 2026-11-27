@@ -1,5 +1,5 @@
 import { BankIntegrationCapability } from "./capabilities";
-import { containsOtpOrSecret, sha256Hex } from "./security";
+import { containsOtpOrSecret, maskAccountNumber, sha256Hex } from "./security";
 
 export type BalanceType = "observedBankBalance" | "estimatedWalletBalance" | "unknownBalance";
 
@@ -12,7 +12,10 @@ export type InboxProcessingState =
   | "NEEDS_REVIEW"
   | "FAILED_RETRYABLE"
   | "FAILED_PERMANENT"
-  | "skipped_revoked_or_reassigned";
+  | "DEAD_LETTER"
+  | "skipped_revoked_or_reassigned"
+  | "skipped_account_deleting"
+  | "skipped_archived_wallet";
 
 export type VerificationStatus =
   | "PROVISIONAL"
@@ -20,6 +23,16 @@ export type VerificationStatus =
   | "USER_CONFIRMED"
   | "REJECTED"
   | "NEEDS_REVIEW";
+
+export interface BackfillCursorRecord {
+  readonly connectionId: string;
+  readonly grantVersion: number;
+  readonly nextPage: number;
+  readonly beforeExternalTxId?: string | null;
+  readonly pendingNewestValidExternalTxId?: string | null;
+  readonly previousWatermarkExternalTxId?: string | null;
+  readonly updatedAtMs: number;
+}
 
 export interface ServerBankConnectionRecord {
   readonly id: string;
@@ -40,6 +53,11 @@ export interface ServerBankConnectionRecord {
   readonly encryptedApiToken?: string;
   readonly capabilities: BankIntegrationCapability;
   readonly lastSyncedAtMs: number | null;
+  readonly lastSyncedExternalTxId?: string | null;
+  readonly lastReconciledExternalTxId?: string | null;
+  readonly lastReconciledAtMs?: number | null;
+  readonly backfillCursor?: BackfillCursorRecord | null;
+  readonly statusWarning?: string | null;
   readonly revokedAtMs?: number | null;
   readonly createdAtMs: number;
   readonly updatedAtMs: number;
@@ -62,11 +80,28 @@ export interface InboxEventRecord {
   readonly balanceObservationSkippedStale?: boolean;
   readonly errorReason?: string;
   readonly reason?: string;
+  readonly attemptCount?: number;
+  readonly leaseOwner?: string | null;
+  readonly leaseExpiresAtMs?: number | null;
+  readonly nextRetryAtMs?: number | null;
+  readonly expiresAtMs?: number | null;
+  readonly deadLetterReason?: string | null;
   readonly receivedAtMs: number;
   readonly updatedAtMs: number;
 }
 
 export type SepayWebhookInboxEvent = InboxEventRecord;
+
+export type NotificationOutboxState =
+  | "PENDING_DELIVERY"
+  | "PENDING"
+  | "DISPATCHING"
+  | "DELIVERED"
+  | "SUPPRESSED_BY_PREFS"
+  | "NO_ACTIVE_DEVICES"
+  | "FAILED_RETRYABLE"
+  | "FAILED_PERMANENT"
+  | "skipped_revoked_or_reassigned";
 
 export interface NotificationOutboxRecord {
   readonly id: string;
@@ -83,18 +118,16 @@ export interface NotificationOutboxRecord {
   readonly content: string;
   readonly occurredAtMs: number;
   readonly verificationStatus: VerificationStatus;
-  readonly state:
-    | "PENDING_DELIVERY"
-    | "DISPATCHING"
-    | "DELIVERED"
-    | "SUPPRESSED_BY_PREFS"
-    | "NO_ACTIVE_DEVICES"
-    | "FAILED_RETRYABLE"
-    | "FAILED_PERMANENT"
-    | "skipped_revoked_or_reassigned";
+  readonly state: NotificationOutboxState;
   readonly attemptCount: number;
-  readonly lastError?: string;
-  readonly nextRetryAtMs?: number;
+  readonly version: number;
+  readonly leaseOwner?: string | null;
+  readonly leaseExpiresAtMs?: number | null;
+  readonly deliveredTokens?: string[];
+  readonly failedTokens?: Record<string, string>;
+  readonly deadLetteredAtMs?: number | null;
+  readonly lastError?: string | null;
+  readonly nextRetryAtMs?: number | null;
   readonly createdAtMs: number;
   readonly updatedAtMs: number;
 }
@@ -389,5 +422,50 @@ export function evaluateMonotonicObservedBalance(params: {
   return {
     shouldUpdateObservedBalance: false,
     balanceObservationSkippedStale: true
+  };
+}
+
+export const INBOX_TERMINAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const INBOX_DEAD_LETTER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function redactSensitiveTextForInbox(raw: string): string {
+  if (!raw) return "";
+  if (containsOtpOrSecret(raw)) return "";
+  return raw
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[REDACTED_EMAIL]")
+    .replace(/\b(?:\+?84|0)\d{8,10}\b/g, "[REDACTED_PHONE]")
+    .trim()
+    .slice(0, 240);
+}
+
+/**
+ * BANK-02: Minimizes stored inbox payload so raw bank account numbers, OTP markers,
+ * emails/phones, and unredacted transaction memos are never retained after processing
+ * or on unlinked/skipped/dead-lettered records.
+ */
+export function minimizeInboxPayload(
+  payload: ValidatedSePayWebhookPayload,
+  opts: { readonly stripText: boolean }
+): ValidatedSePayWebhookPayload {
+  const maskedAccount = payload.accountNumber.startsWith("••••")
+    ? payload.accountNumber
+    : maskAccountNumber(payload.accountNumber);
+
+  if (opts.stripText) {
+    return {
+      ...payload,
+      accountNumber: maskedAccount,
+      code: null,
+      content: "",
+      description: "",
+      referenceCode: ""
+    };
+  }
+
+  return {
+    ...payload,
+    accountNumber: maskedAccount,
+    content: redactSensitiveTextForInbox(payload.content),
+    description: redactSensitiveTextForInbox(payload.description)
   };
 }

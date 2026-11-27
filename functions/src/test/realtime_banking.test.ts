@@ -22,6 +22,8 @@ class RecordingFcmSender implements FcmPushSender {
   }> = [];
   public shouldFail = false;
   public invalidTokensToReport: string[] = [];
+  public transientFailuresByToken = new Map<string, string>();
+  public onBeforeSend?: () => Promise<void> | void;
 
   async sendToUserDevices(params: {
     tokens: readonly string[];
@@ -32,6 +34,9 @@ class RecordingFcmSender implements FcmPushSender {
     soundEnabled: boolean;
     data: Record<string, string>;
   }): Promise<FcmMulticastResult> {
+    if (this.onBeforeSend) {
+      await this.onBeforeSend();
+    }
     this.calls.push({
       tokens: params.tokens,
       notificationId: params.notificationId,
@@ -47,10 +52,31 @@ class RecordingFcmSender implements FcmPushSender {
         retryableError: "messaging/internal-error"
       };
     }
+
+    const invalidTokens: string[] = [];
+    const succeededTokens: string[] = [];
+    const failedTokens: Record<string, string> = {};
+    let retryableError: string | undefined;
+
+    for (const tok of params.tokens) {
+      if (this.invalidTokensToReport.includes(tok)) {
+        invalidTokens.push(tok);
+      } else if (this.transientFailuresByToken.has(tok)) {
+        const errCode = this.transientFailuresByToken.get(tok)!;
+        failedTokens[tok] = errCode;
+        retryableError = errCode;
+      } else {
+        succeededTokens.push(tok);
+      }
+    }
+
     return {
-      successCount: params.tokens.length - this.invalidTokensToReport.length,
-      failureCount: this.invalidTokensToReport.length,
-      invalidTokens: this.invalidTokensToReport
+      successCount: succeededTokens.length,
+      failureCount: invalidTokens.length + Object.keys(failedTokens).length,
+      invalidTokens,
+      succeededTokens,
+      failedTokens,
+      retryableError
     };
   }
 }
@@ -1419,5 +1445,588 @@ describe("Life OS Real-Time Banking Backend — T01..T24 Verification Suite", ()
       walletAfterSync.lastObservedBalanceAtEpochMs,
       Date.parse("2026-11-23T10:45:00+07:00")
     );
+  });
+
+  it("BANK-01 — Outbox CAS lease, crashed DISPATCHING recovery, partial multi-device delivery, starvation-free sweep & targetUid payload", async () => {
+    const { store, fcm, coordinator, vcbConnection } = await createHarness();
+    store.userDevices.set("user_minh", [
+      {
+        deviceId: "dev_1",
+        ownerId: "user_minh",
+        fcmToken: "tok_device_1",
+        platform: "android",
+        pushEnabled: true,
+        updatedAtMs: baseNowMs
+      },
+      {
+        deviceId: "dev_2",
+        ownerId: "user_minh",
+        fcmToken: "tok_device_2",
+        platform: "ios",
+        pushEnabled: true,
+        updatedAtMs: baseNowMs
+      }
+    ]);
+
+    const req = buildSignedWebhookRequest(
+      {
+        id: 110101,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 11:00:00",
+        accountNumber: "1017588888",
+        content: "Multi device partial delivery",
+        transferType: "in",
+        transferAmount: 250000,
+        accumulated: 10250000,
+        referenceCode: "FT_BANK01_1"
+      },
+      baseNowMs
+    );
+    const httpRes = await coordinator.handleSePayWebhookHttp(req);
+    const procRes = await coordinator.processInboxEvent(httpRes.providerEventKey!, baseNowMs);
+    const notifId = procRes.notificationId!;
+
+    // 1. Partial multi-device failure: tok_device_1 succeeds, tok_device_2 gets transient 429/unavailable
+    fcm.transientFailuresByToken.set("tok_device_2", "messaging/unavailable");
+    const firstAttempt = await coordinator.dispatchNotificationOutbox(notifId, baseNowMs, "worker_a");
+    assert.equal(firstAttempt?.state, "FAILED_RETRYABLE");
+    assert.equal(firstAttempt?.attemptCount, 1);
+    assert.deepEqual(firstAttempt?.deliveredTokens, ["tok_device_1"]);
+    assert.deepEqual(firstAttempt?.failedTokens, { tok_device_2: "messaging/unavailable" });
+    assert.equal(firstAttempt?.leaseOwner, null);
+    assert.equal(fcm.calls.length, 1);
+    assert.deepEqual(fcm.calls[0].tokens, ["tok_device_1", "tok_device_2"]);
+    // BANK-06 audience binding: targetUid & notificationId in FCM data payload
+    assert.equal(fcm.calls[0].data.targetUid, "user_minh");
+    assert.equal(fcm.calls[0].data.notificationId, notifId);
+
+    // Next retry sends ONLY to tok_device_2 (NEVER re-sends to already-delivered tok_device_1!)
+    fcm.transientFailuresByToken.delete("tok_device_2");
+    const retryRes = await coordinator.recoverNotificationOutbox(baseNowMs + 31_000, 50);
+    assert.equal(retryRes.delivered, 1);
+    assert.equal(fcm.calls.length, 2);
+    assert.deepEqual(fcm.calls[1].tokens, ["tok_device_2"]);
+    const afterRetry = await store.getOutboxRecord(notifId);
+    assert.equal(afterRetry?.state, "DELIVERED");
+    assert.deepEqual(afterRetry?.deliveredTokens, ["tok_device_1", "tok_device_2"]);
+    assert.deepEqual(afterRetry?.failedTokens, {});
+
+    // 2. CAS conflict prevents duplicate parallel dispatch & crashed worker DISPATCHING lease is rescued after TTL
+    const crashOutboxId = "notif_bank01_crash_test";
+    await store.outbox.set(crashOutboxId, {
+      id: crashOutboxId,
+      ownerId: "user_minh",
+      transactionId: "tx_crash_1",
+      walletId: "wallet_vcb",
+      connectionId: vcbConnection.id,
+      grantVersion: vcbConnection.grantVersion,
+      direction: "credit",
+      amountMinor: 100000,
+      bankCode: "VCB",
+      bankName: "Vietcombank",
+      accountMasked: "•••• 8888",
+      content: "Crash lease test",
+      occurredAtMs: baseNowMs,
+      verificationStatus: "VERIFIED",
+      state: "PENDING",
+      attemptCount: 0,
+      version: 1,
+      deliveredTokens: [],
+      failedTokens: {},
+      createdAtMs: baseNowMs,
+      updatedAtMs: baseNowMs
+    });
+
+    const [claim1, claim2] = await Promise.all([
+      coordinator.claimNotificationOutbox(crashOutboxId, baseNowMs, "worker_crash_1", 60_000),
+      coordinator.claimNotificationOutbox(crashOutboxId, baseNowMs, "worker_rival_2", 60_000)
+    ]);
+    assert.equal([claim1.claimed, claim2.claimed].filter(Boolean).length, 1);
+
+    // Before lease TTL (60s), rescuer CANNOT steal active lease
+    const prematureClaim = await coordinator.claimNotificationOutbox(
+      crashOutboxId,
+      baseNowMs + 30_000,
+      "worker_early_steal",
+      60_000
+    );
+    assert.equal(prematureClaim.claimed, false);
+
+    // Simulate non-due FAILED_RETRYABLE records flooding the queue so starvation-free query is verified
+    for (let i = 0; i < 60; i++) {
+      const futureId = `notif_future_${i}`;
+      store.outbox.set(futureId, {
+        ...afterRetry!,
+        id: futureId,
+        state: "FAILED_RETRYABLE",
+        nextRetryAtMs: baseNowMs + 3_600_000 + i * 1000,
+        createdAtMs: baseNowMs - 10_000,
+        updatedAtMs: baseNowMs
+      });
+    }
+    // Also seed a stale PENDING item older than 30s
+    const stalePendingId = "notif_stale_pending_1";
+    store.outbox.set(stalePendingId, {
+      ...afterRetry!,
+      id: stalePendingId,
+      state: "PENDING",
+      attemptCount: 0,
+      version: 1,
+      deliveredTokens: [],
+      failedTokens: {},
+      createdAtMs: baseNowMs,
+      updatedAtMs: baseNowMs
+    });
+
+    // After 61s: both expired DISPATCHING (`crashOutboxId`) and stale PENDING (`stalePendingId`) are recovered without starvation!
+    const recoverableIds = await store.listRecoverableOutboxIds(baseNowMs + 61_000, 10);
+    assert.equal(recoverableIds.includes(crashOutboxId), true);
+    assert.equal(recoverableIds.includes(stalePendingId), true);
+    assert.equal(recoverableIds.some((id) => id.startsWith("notif_future_")), false);
+
+    const sweepRecover = await coordinator.recoverNotificationOutbox(baseNowMs + 61_000, 10);
+    assert.equal(sweepRecover.delivered, 2);
+    assert.equal((await store.getOutboxRecord(crashOutboxId))?.state, "DELIVERED");
+    assert.equal((await store.getOutboxRecord(stalePendingId))?.state, "DELIVERED");
+  });
+
+  it("BANK-02 & DEL-04 — Recovers untriggered inbox, retries to DEAD_LETTER after 6 attempts, minimizes payload, purges expired TTL & enforces deletion tombstone", async () => {
+    const { store, coordinator, vcbConnection } = await createHarness();
+
+    // 1. Untriggered PENDING_PROCESSING inbox event rescued after 30s grace window + payload minimized
+    const rescueReq = buildSignedWebhookRequest(
+      {
+        id: 220101,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 11:10:00",
+        accountNumber: "1017588888",
+        content: "Khach hang minh@example.com 0912345678 chuyen khoan",
+        transferType: "in",
+        transferAmount: 500000,
+        accumulated: 10500000,
+        referenceCode: "FT_BANK02_RESCUE"
+      },
+      baseNowMs
+    );
+    const httpRescue = await coordinator.handleSePayWebhookHttp(rescueReq);
+    assert.equal(httpRescue.statusCode, 200);
+    const beforeProcInbox = await store.getInboxEvent(httpRescue.providerEventKey!);
+    // Raw accountNumber and email/phone PII were already masked/scrubbed on ingress!
+    assert.equal(beforeProcInbox?.payload.accountNumber, "•••• 8888");
+    assert.equal(beforeProcInbox?.payload.content.includes("minh@example.com"), false);
+    assert.equal(beforeProcInbox?.payload.content.includes("0912345678"), false);
+
+    // Within 5s (< 30s grace window), sweeper leaves fresh PENDING_PROCESSING alone
+    const tooEarlySweep = await coordinator.recoverPendingWebhookInbox(baseNowMs + 5_000, 50);
+    assert.equal(tooEarlySweep.scanned, 0);
+
+    // After 35s, sweeper rescues & processes it
+    const rescueSweep = await coordinator.recoverPendingWebhookInbox(baseNowMs + 35_000, 50);
+    assert.equal(rescueSweep.scanned, 1);
+    assert.equal(rescueSweep.processed, 1);
+    assert.equal(rescueSweep.oldestPendingAgeMs, 35_000);
+    assert.equal(store.transactions.size, 1);
+    const afterProcInbox = await store.getInboxEvent(httpRescue.providerEventKey!);
+    assert.equal(afterProcInbox?.state, "PROCESSED");
+    // Raw memo/reference cleared after processing, 7d TTL set!
+    assert.equal(afterProcInbox?.payload.content, "");
+    assert.equal(afterProcInbox?.payload.description, "");
+    assert.equal(afterProcInbox?.payload.referenceCode, "");
+    assert.equal(afterProcInbox?.expiresAtMs, baseNowMs + 35_000 + 7 * 24 * 60 * 60 * 1000);
+
+    // 2. Transient processing failures retry with backoff and move to DEAD_LETTER after 6 attempts
+    const dlReq = buildSignedWebhookRequest(
+      {
+        id: 220102,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 11:15:00",
+        accountNumber: "1017588888",
+        content: "Dead letter transient fail",
+        transferType: "in",
+        transferAmount: 150000,
+        accumulated: 10650000,
+        referenceCode: "FT_BANK02_DL"
+      },
+      baseNowMs
+    );
+    const httpDl = await coordinator.handleSePayWebhookHttp(dlReq);
+    const origRunAtomic = store.runAtomic.bind(store);
+    let injectTxError = true;
+    store.runAtomic = async (fn) => {
+      if (injectTxError) {
+        return origRunAtomic(async (ctx) => {
+          const wrappedCtx = {
+            ...ctx,
+            findCandidateTransactions: async () => {
+              throw new Error("TRANSIENT_LEDGER_READ_TIMEOUT");
+            }
+          };
+          return fn(wrappedCtx);
+        });
+      }
+      return origRunAtomic(fn);
+    };
+
+    let sweepNow = baseNowMs + 40_000;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const m = await coordinator.recoverPendingWebhookInbox(sweepNow, 50);
+      assert.equal(m.scanned, 1);
+      assert.equal(m.retried, 1);
+      assert.equal(m.deadLettered, 0);
+      const rec = await store.getInboxEvent(httpDl.providerEventKey!);
+      assert.equal(rec?.state, "FAILED_RETRYABLE");
+      assert.equal(rec?.attemptCount, attempt);
+      sweepNow = (rec?.nextRetryAtMs ?? sweepNow) + 1;
+    }
+
+    // Attempt 6 exhausts retry budget -> DEAD_LETTER with 30d TTL!
+    const finalSweep = await coordinator.recoverPendingWebhookInbox(sweepNow, 50);
+    assert.equal(finalSweep.scanned, 1);
+    assert.equal(finalSweep.deadLettered, 1);
+    injectTxError = false;
+
+    const dlRecord = await store.getInboxEvent(httpDl.providerEventKey!);
+    assert.equal(dlRecord?.state, "DEAD_LETTER");
+    assert.equal(dlRecord?.attemptCount, 6);
+    assert.equal(dlRecord?.deadLetterReason, "TRANSIENT_LEDGER_READ_TIMEOUT");
+    assert.equal(dlRecord?.payload.content, "");
+    assert.equal(dlRecord?.expiresAtMs, sweepNow + 30 * 24 * 60 * 60 * 1000);
+
+    // Subsequent sweeps ignore DEAD_LETTER
+    const postDlSweep = await coordinator.recoverPendingWebhookInbox(sweepNow + 10_000, 50);
+    assert.equal(postDlSweep.scanned, 0);
+
+    // 3. Unlinked inbox records (`ownerId == null`) and expired docs past `expiresAtMs` are purged by `purgeExpiredInboxRecords`
+    const unlinkedReq = buildSignedWebhookRequest(
+      {
+        id: 220103,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 11:20:00",
+        accountNumber: "9999888877",
+        content: "Unlinked sensitive memo",
+        transferType: "in",
+        transferAmount: 50000
+      },
+      baseNowMs
+    );
+    const httpUnlinked = await coordinator.handleSePayWebhookHttp(unlinkedReq);
+    const unlinkedRec = await store.getInboxEvent(httpUnlinked.providerEventKey!);
+    assert.equal(unlinkedRec?.ownerId, null);
+    assert.equal(unlinkedRec?.payload.content, "");
+
+    // Not yet expired at +1 day -> 0 purged
+    const notExpiredPurge = await coordinator.purgeExpiredInboxRecords(baseNowMs + 86_400_000, 100);
+    assert.equal(notExpiredPurge.purged, 0);
+
+    // At +8 days -> PROCESSED + unlinked records (7d TTL) are purged; DEAD_LETTER (30d TTL) remains!
+    const purgeAt8d = await coordinator.purgeExpiredInboxRecords(baseNowMs + 8 * 86_400_000, 100);
+    assert.equal(purgeAt8d.purged, 2);
+    assert.equal(await store.getInboxEvent(httpUnlinked.providerEventKey!), null);
+    assert.equal(await store.getInboxEvent(httpRescue.providerEventKey!), null);
+    assert.ok(await store.getInboxEvent(httpDl.providerEventKey!));
+
+    // 4. DEL-04: account_deletion_tombstones freezes both webhook ingestion AND inbox processing!
+    // First, create a pending inbox event BEFORE tombstone appears
+    const preFreezeReq = buildSignedWebhookRequest(
+      {
+        id: 220104,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 11:25:00",
+        accountNumber: "1017588888",
+        content: "Pending before deletion freeze",
+        transferType: "in",
+        transferAmount: 200000,
+        accumulated: 10700000
+      },
+      baseNowMs + 1000
+    );
+    const httpPreFreeze = await coordinator.handleSePayWebhookHttp(preFreezeReq);
+
+    // Now freeze UID with deletion tombstone
+    store.accountDeletionTombstones.set("user_minh", { uid: "user_minh", frozenAtMs: baseNowMs + 2000 });
+
+    // New webhook for frozen UID -> marked `skipped_account_deleting`, no tx/notification written
+    const postFreezeReq = buildSignedWebhookRequest(
+      {
+        id: 220105,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 11:26:00",
+        accountNumber: "1017588888",
+        content: "Arrived after deletion freeze",
+        transferType: "in",
+        transferAmount: 300000,
+        accumulated: 11000000
+      },
+      baseNowMs + 3000
+    );
+    const httpPostFreeze = await coordinator.handleSePayWebhookHttp(postFreezeReq);
+    assert.equal(httpPostFreeze.statusCode, 200);
+    assert.equal(
+      (await store.getInboxEvent(httpPostFreeze.providerEventKey!))?.state,
+      "skipped_account_deleting"
+    );
+
+    // Pre-freeze pending inbox processed after freeze -> marked `skipped_account_deleting` cleanly!
+    const preFreezeProc = await coordinator.processInboxEvent(httpPreFreeze.providerEventKey!, baseNowMs + 4000);
+    assert.equal(preFreezeProc.state, "skipped_account_deleting");
+    assert.equal(
+      (await store.getInboxEvent(httpPreFreeze.providerEventKey!))?.state,
+      "skipped_account_deleting"
+    );
+    assert.equal(store.transactions.size, 1); // Only the pre-freeze rescued tx from step 1!
+    assert.equal(store.wallets.get("user_minh::wallet_vcb")?.balanceMinor, 10500000);
+    // Connection still untouched by frozen events
+    assert.equal(store.serverConnections.get(vcbConnection.id)?.id, vcbConnection.id);
+  });
+
+  it("BANK-03 — 1,250-item paginated reconciliation preserves watermark on incomplete pass, resumes cursor across passes, ignores invalid row 0 & aborts CAS watermark on concurrent revoke", async () => {
+    const { store, coordinator, vcbConnection } = await createHarness();
+
+    // Seed an existing older watermark on connection ("500")
+    store.serverConnections.set(vcbConnection.id, {
+      ...vcbConnection,
+      lastSyncedExternalTxId: "500",
+      lastReconciledExternalTxId: "500"
+    });
+
+    // 1. Dataset of 1,250 transactions (IDs 3250 down to 2001) > 10 pages * 100 = 1,000
+    const dataset1250 = Array.from({ length: 1250 }, (_, idx) => ({
+      id: 3250 - idx,
+      bank_brand_name: "Vietcombank",
+      transaction_date: "2026-11-23 12:00:00",
+      transaction_content: `Item #${idx + 1}`,
+      amount_in: 1_000,
+      amount_out: 0,
+      accumulated: 0,
+      reference_number: `REF_1250_${idx + 1}`
+    }));
+
+    // Pass 1: fetches pages 0..9 (1,000 items), hits maxPages=10 with full page without hitting watermark "500"
+    const pass1 = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: "user_minh",
+      connectionId: vcbConnection.id,
+      accountNumber: "1017588888",
+      bankName: "Vietcombank",
+      pageSize: 100,
+      maxPages: 10,
+      nowMs: baseNowMs + 10_000,
+      fetchPage: async (pageIndex, limit) => dataset1250.slice(pageIndex * limit, (pageIndex + 1) * limit)
+    });
+
+    assert.equal(pass1.pagesFetched, 10);
+    assert.equal(pass1.fetchedCount, 1000);
+    assert.equal(pass1.processedCount, 1000);
+    assert.equal(pass1.duplicateCount, 0);
+    assert.equal(pass1.incomplete, true);
+    assert.equal(pass1.reachedPreviousWatermark, false);
+    assert.equal(pass1.watermarkAdvanced, false);
+    assert.equal(pass1.newestExternalTxId, undefined);
+    assert.ok(pass1.resumableCursor);
+    assert.equal(pass1.resumableCursor.nextPage, 10);
+    assert.equal(pass1.resumableCursor.grantVersion, vcbConnection.grantVersion);
+    assert.equal(pass1.resumableCursor.pendingNewestValidExternalTxId, "3250");
+
+    // CRITICAL: Connection's OLD watermark `"500"` MUST remain untouched while incomplete!
+    const connAfterPass1 = await store.getConnectionById(vcbConnection.id);
+    assert.equal(connAfterPass1?.lastSyncedExternalTxId, "500");
+    assert.equal(connAfterPass1?.backfillCursor?.nextPage, 10);
+
+    // Pass 2: automatically resumes from persisted backfillCursor at page 10 and finishes remaining 250 items!
+    const pass2 = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: "user_minh",
+      connectionId: vcbConnection.id,
+      accountNumber: "1017588888",
+      bankName: "Vietcombank",
+      pageSize: 100,
+      maxPages: 10,
+      nowMs: baseNowMs + 20_000,
+      fetchPage: async (pageIndex, limit) => dataset1250.slice(pageIndex * limit, (pageIndex + 1) * limit)
+    });
+
+    assert.equal(pass2.pagesFetched, 3);
+    assert.equal(pass2.fetchedCount, 250);
+    assert.equal(pass2.processedCount, 250);
+    assert.equal(pass2.duplicateCount, 0);
+    assert.equal(pass2.skippedCount, 0);
+    assert.equal(pass2.incomplete, false);
+    assert.equal(pass2.watermarkAdvanced, true);
+    assert.equal(pass2.newestValidExternalTxId, "3250");
+    assert.equal(pass2.newestExternalTxId, "3250");
+    assert.equal(pass2.resumableCursor, null);
+    assert.equal(store.transactions.size, 1250);
+
+    const connAfterPass2 = await store.getConnectionById(vcbConnection.id);
+    assert.equal(connAfterPass2?.lastSyncedExternalTxId, "3250");
+    assert.equal(connAfterPass2?.backfillCursor, null);
+
+    // 2. Invalid first item MUST increment invalidCount and NEVER set watermark from an invalid row
+    const invalidFirstPass = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: "user_minh",
+      connectionId: vcbConnection.id,
+      accountNumber: "1017588888",
+      bankName: "Vietcombank",
+      pageSize: 100,
+      maxPages: 2,
+      nowMs: baseNowMs + 30_000,
+      fetchPage: async (pageIndex) => {
+        if (pageIndex > 0) return [];
+        return [
+          {
+            id: 99999,
+            bank_brand_name: "Vietcombank",
+            transaction_date: "NOT_A_VALID_DATE", // Malformed row at index 0!
+            transaction_content: "Broken item 0",
+            amount_in: 50_000,
+            amount_out: 0
+          },
+          {
+            id: 4001,
+            bank_brand_name: "Vietcombank",
+            transaction_date: "2026-11-23 12:30:00",
+            transaction_content: "Valid item 1",
+            amount_in: 50_000,
+            amount_out: 0,
+            accumulated: 0
+          },
+          {
+            id: 3250, // Previous watermark!
+            bank_brand_name: "Vietcombank",
+            transaction_date: "2026-11-23 12:00:00",
+            transaction_content: "Previous watermark",
+            amount_in: 1_000,
+            amount_out: 0
+          }
+        ];
+      }
+    });
+    assert.equal(invalidFirstPass.invalidCount, 1);
+    assert.equal(invalidFirstPass.reachedPreviousWatermark, true);
+    assert.equal(invalidFirstPass.newestValidExternalTxId, "4001"); // NEVER "99999"!
+    assert.equal((await store.getConnectionById(vcbConnection.id))?.lastSyncedExternalTxId, "4001");
+
+    // 3. Concurrent revoke mid-backfill aborts CAS watermark update cleanly!
+    const revokeMidRun = await coordinator.reconcilePaginatedSePayPages({
+      ownerId: "user_minh",
+      connectionId: vcbConnection.id,
+      accountNumber: "1017588888",
+      bankName: "Vietcombank",
+      pageSize: 100,
+      maxPages: 2,
+      nowMs: baseNowMs + 40_000,
+      fetchPage: async (pageIndex) => {
+        if (pageIndex > 0) return [];
+        // Simulate concurrent revoke while fetching page from SePay!
+        await coordinator.revokeConnection("user_minh", vcbConnection.id, baseNowMs + 40_500);
+        return [
+          {
+            id: 5001,
+            bank_brand_name: "Vietcombank",
+            transaction_date: "2026-11-23 13:00:00",
+            transaction_content: "During concurrent revoke",
+            amount_in: 100_000,
+            amount_out: 0,
+            accumulated: 0
+          }
+        ];
+      }
+    });
+    assert.equal(revokeMidRun.watermarkAdvanced, false);
+    assert.equal(revokeMidRun.watermarkAbortedReason, "CONNECTION_REVOKED_OR_GRANT_CHANGED");
+    assert.equal(revokeMidRun.newestExternalTxId, undefined);
+    assert.equal(revokeMidRun.skippedCount, 1);
+    // Watermark remained "4001", never updated to "5001"!
+    assert.equal((await store.getConnectionById(vcbConnection.id))?.lastSyncedExternalTxId, "4001");
+  });
+
+  it("SEC-02 & SEC-03 — Server-owned dedup prevents double-posting even if client deletes/tampers source_events, and archived wallet is never resurrected", async () => {
+    const { store, coordinator, vcbConnection } = await createHarness();
+
+    // 1. SEC-03 (Tampered client source_events BEFORE webhook arrives does NOT suppress real bank webhook)
+    const realKey = `sepay_${vcbConnection.id}_330001`;
+    store.sourceEvents.set(`user_minh::${realKey}`, {
+      linkedTransactionId: "attacker_fake_tx_id"
+    });
+    const req1 = buildSignedWebhookRequest(
+      {
+        id: 330001,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 14:00:00",
+        accountNumber: "1017588888",
+        content: "SEC03 real bank credit",
+        transferType: "in",
+        transferAmount: 500000,
+        accumulated: 0,
+        referenceCode: "FT_SEC03_1"
+      },
+      baseNowMs
+    );
+    const h1 = await coordinator.handleSePayWebhookHttp(req1);
+    const p1 = await coordinator.processInboxEvent(h1.providerEventKey!, baseNowMs);
+    assert.equal(p1.state, "PROCESSED");
+    assert.equal(store.transactions.size, 1);
+    assert.equal(store.wallets.get("user_minh::wallet_vcb")?.balanceMinor, 10500000);
+    assert.ok(store.serverSourceEvents.get(`user_minh::${realKey}`));
+
+    // 2. SEC-03 (Client deletes `users/{uid}/source_events` AND inbox is reset -> server_source_events STILL blocks double-posting!)
+    store.sourceEvents.delete(`user_minh::${realKey}`);
+    const prevInbox = store.inbox.get(realKey)!;
+    store.inbox.set(realKey, { ...prevInbox, state: "PENDING_PROCESSING", status: "pending_processing" });
+    const pReplay = await coordinator.processInboxEvent(realKey, baseNowMs + 5000);
+    assert.equal(pReplay.state, "DUPLICATE");
+    assert.equal(pReplay.transactionId, p1.transactionId);
+    assert.equal(store.transactions.size, 1);
+    assert.equal(store.wallets.get("user_minh::wallet_vcb")?.balanceMinor, 10500000);
+
+    // 3. SEC-02: Linked wallet exists with `archived: true` -> webhook MUST NOT resurrect or mutate wallet!
+    store.wallets.set("user_minh::wallet_vcb", {
+      ...store.wallets.get("user_minh::wallet_vcb")!,
+      archived: true,
+      archivedAtMs: baseNowMs + 10_000
+    });
+
+    const reqArchived = buildSignedWebhookRequest(
+      {
+        id: 330002,
+        gateway: "Vietcombank",
+        transactionDate: "2026-11-23 14:10:00",
+        accountNumber: "1017588888",
+        content: "Transfer while wallet archived",
+        transferType: "in",
+        transferAmount: 900000,
+        accumulated: 11400000,
+        referenceCode: "FT_SEC02_ARCHIVED"
+      },
+      baseNowMs + 11_000
+    );
+    const hArch = await coordinator.handleSePayWebhookHttp(reqArchived);
+    const pArch = await coordinator.processInboxEvent(hArch.providerEventKey!, baseNowMs + 11_000);
+    assert.equal(pArch.state, "NEEDS_REVIEW");
+    assert.equal(pArch.reason, "LINKED_WALLET_ARCHIVED");
+
+    // Archived wallet stayed `archived: true` and `balanceMinor: 10500000` (untouched!)
+    const walletAfter = store.wallets.get("user_minh::wallet_vcb")!;
+    assert.equal(walletAfter.archived, true);
+    assert.equal(walletAfter.balanceMinor, 10500000);
+
+    // Connection got statusWarning and transaction was marked needsReview (`ledgerApplied: false`)
+    assert.equal(
+      store.serverConnections.get(vcbConnection.id)?.statusWarning,
+      "LINKED_WALLET_ARCHIVED"
+    );
+    const reviewTx = store.transactions.get(`user_minh::${pArch.transactionId}`);
+    assert.equal(reviewTx?.verification, "needsReview");
+    assert.equal(reviewTx?.ledgerApplied, false);
+
+    // Linking a new connection to an archived wallet is also rejected
+    const linkArchivedRes = await coordinator.verifyAndConnectBankAccount({
+      authenticatedUserId: "user_minh",
+      bankCode: "MB",
+      accountNumber: "0999888777",
+      linkedWalletId: "wallet_vcb",
+      providerAccountProof: { verifiedByProviderApi: true, providerConnectionId: "sp_arch_test" },
+      nowMs: baseNowMs + 12_000
+    });
+    assert.equal(linkArchivedRes.ok, false);
+    assert.equal(linkArchivedRes.errorCode, "WALLET_ARCHIVED_OR_FORBIDDEN");
   });
 });

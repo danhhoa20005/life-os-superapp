@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import {
+  BackfillCursorRecord,
   BankAccountClaimRecord,
   BankingBackendStore,
   BankingTxContext,
@@ -10,6 +11,7 @@ import {
   FcmPushSender,
   InboxEventRecord,
   NotificationOutboxRecord,
+  NotificationOutboxState,
   ServerBankConnectionRecord,
   UserDeviceRecord,
   UserNotificationPreferences,
@@ -18,6 +20,7 @@ import {
   isConnectionActiveAndGranted
 } from "./bankingEngine";
 import { resolveBankCapability } from "./capabilities";
+import { INBOX_TERMINAL_TTL_MS } from "./schema";
 import { maskAccountNumber } from "./security";
 
 export class FirebaseAdminFcmSender implements FcmPushSender {
@@ -63,19 +66,28 @@ export class FirebaseAdminFcmSender implements FcmPushSender {
     });
 
     const invalidTokens: string[] = [];
+    const succeededTokens: string[] = [];
+    const failedTokens: Record<string, string> = {};
     let retryableError: string | undefined;
 
     res.responses.forEach((r, idx) => {
-      if (!r.success && r.error) {
-        const code = r.error.code;
+      const token = params.tokens[idx];
+      if (r.success) {
+        succeededTokens.push(token);
+      } else if (r.error) {
+        const code = r.error.code || "messaging/unknown";
         if (
           code === "messaging/registration-token-not-registered" ||
           code === "messaging/invalid-registration-token"
         ) {
-          invalidTokens.push(params.tokens[idx]);
+          invalidTokens.push(token);
         } else {
+          failedTokens[token] = code;
           retryableError = `${code}: ${r.error.message}`;
         }
+      } else {
+        failedTokens[token] = "messaging/unknown";
+        retryableError = retryableError ?? "messaging/unknown";
       }
     });
 
@@ -83,6 +95,8 @@ export class FirebaseAdminFcmSender implements FcmPushSender {
       successCount: res.successCount,
       failureCount: res.failureCount,
       invalidTokens,
+      succeededTokens,
+      failedTokens,
       retryableError
     };
   }
@@ -99,6 +113,27 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): Record<strin
     }
   }
   return clean;
+}
+
+function mapBackfillCursor(raw: unknown): BackfillCursorRecord | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const d = raw as Record<string, unknown>;
+  if (typeof d.connectionId !== "string" || typeof d.nextPage !== "number") return null;
+  return {
+    connectionId: d.connectionId,
+    grantVersion: typeof d.grantVersion === "number" && Number.isFinite(d.grantVersion) ? d.grantVersion : 1,
+    nextPage: d.nextPage,
+    beforeExternalTxId: typeof d.beforeExternalTxId === "string" ? d.beforeExternalTxId : null,
+    pendingNewestValidExternalTxId:
+      typeof d.pendingNewestValidExternalTxId === "string"
+        ? d.pendingNewestValidExternalTxId
+        : null,
+    previousWatermarkExternalTxId:
+      typeof d.previousWatermarkExternalTxId === "string"
+        ? d.previousWatermarkExternalTxId
+        : null,
+    updatedAtMs: typeof d.updatedAtMs === "number" ? d.updatedAtMs : 0
+  };
 }
 
 function mapServerConnectionDoc(
@@ -124,6 +159,18 @@ function mapServerConnectionDoc(
     encryptedApiToken: typeof d.encryptedApiToken === "string" ? d.encryptedApiToken : undefined,
     capabilities: d.capabilities as ServerBankConnectionRecord["capabilities"],
     lastSyncedAtMs: typeof d.lastSyncedAtMs === "number" ? d.lastSyncedAtMs : null,
+    lastSyncedExternalTxId:
+      typeof d.lastSyncedExternalTxId === "string" ? d.lastSyncedExternalTxId : null,
+    lastReconciledExternalTxId:
+      typeof d.lastReconciledExternalTxId === "string" ? d.lastReconciledExternalTxId : null,
+    lastReconciledAtMs:
+      typeof d.lastReconciledAtMs === "number"
+        ? d.lastReconciledAtMs
+        : d.lastReconciledAt instanceof Timestamp
+          ? d.lastReconciledAt.toMillis()
+          : null,
+    backfillCursor: mapBackfillCursor(d.backfillCursor),
+    statusWarning: typeof d.statusWarning === "string" ? d.statusWarning : null,
     revokedAtMs:
       typeof d.revokedAtMs === "number"
         ? d.revokedAtMs
@@ -135,12 +182,91 @@ function mapServerConnectionDoc(
   };
 }
 
+function mapNotificationOutboxDoc(
+  id: string,
+  d: Record<string, unknown>
+): NotificationOutboxRecord {
+  const rawFailed = d.failedTokens;
+  const failedTokens: Record<string, string> = {};
+  if (rawFailed && typeof rawFailed === "object" && !Array.isArray(rawFailed)) {
+    for (const [k, v] of Object.entries(rawFailed as Record<string, unknown>)) {
+      if (typeof v === "string") failedTokens[k] = v;
+    }
+  }
+  return {
+    id: String(d.id ?? id),
+    ownerId: String(d.ownerId ?? ""),
+    transactionId: String(d.transactionId ?? ""),
+    walletId: String(d.walletId ?? ""),
+    connectionId: String(d.connectionId ?? ""),
+    grantVersion: typeof d.grantVersion === "number" ? d.grantVersion : undefined,
+    direction: d.direction === "debit" ? "debit" : "credit",
+    amountMinor: Number(d.amountMinor ?? 0),
+    bankCode: String(d.bankCode ?? ""),
+    bankName: String(d.bankName ?? ""),
+    accountMasked: String(d.accountMasked ?? ""),
+    content: String(d.content ?? ""),
+    occurredAtMs: Number(d.occurredAtMs ?? 0),
+    verificationStatus: (d.verificationStatus as NotificationOutboxRecord["verificationStatus"]) ?? "VERIFIED",
+    state: (d.state as NotificationOutboxState) ?? "PENDING_DELIVERY",
+    attemptCount: typeof d.attemptCount === "number" && Number.isFinite(d.attemptCount) ? d.attemptCount : 0,
+    version: typeof d.version === "number" && Number.isFinite(d.version) ? d.version : 1,
+    leaseOwner: typeof d.leaseOwner === "string" ? d.leaseOwner : null,
+    leaseExpiresAtMs: typeof d.leaseExpiresAtMs === "number" ? d.leaseExpiresAtMs : null,
+    deliveredTokens: Array.isArray(d.deliveredTokens) ? d.deliveredTokens.map(String) : [],
+    failedTokens,
+    deadLetteredAtMs: typeof d.deadLetteredAtMs === "number" ? d.deadLetteredAtMs : null,
+    lastError: typeof d.lastError === "string" ? d.lastError : null,
+    nextRetryAtMs: typeof d.nextRetryAtMs === "number" ? d.nextRetryAtMs : null,
+    createdAtMs: typeof d.createdAtMs === "number" ? d.createdAtMs : 0,
+    updatedAtMs: typeof d.updatedAtMs === "number" ? d.updatedAtMs : 0
+  };
+}
+
+function mapInboxEventDoc(
+  id: string,
+  d: Record<string, unknown>
+): InboxEventRecord {
+  return {
+    ...(d as unknown as InboxEventRecord),
+    providerEventKey: String(d.providerEventKey ?? id),
+    attemptCount: typeof d.attemptCount === "number" && Number.isFinite(d.attemptCount) ? d.attemptCount : 0,
+    leaseOwner: typeof d.leaseOwner === "string" ? d.leaseOwner : null,
+    leaseExpiresAtMs: typeof d.leaseExpiresAtMs === "number" ? d.leaseExpiresAtMs : null,
+    nextRetryAtMs: typeof d.nextRetryAtMs === "number" ? d.nextRetryAtMs : null,
+    expiresAtMs: typeof d.expiresAtMs === "number" ? d.expiresAtMs : null,
+    deadLetterReason: typeof d.deadLetterReason === "string" ? d.deadLetterReason : null,
+    receivedAtMs:
+      typeof d.receivedAtMs === "number"
+        ? d.receivedAtMs
+        : d.receivedAt instanceof Timestamp
+          ? d.receivedAt.toMillis()
+          : 0,
+    updatedAtMs:
+      typeof d.updatedAtMs === "number"
+        ? d.updatedAtMs
+        : d.updatedAt instanceof Timestamp
+          ? d.updatedAt.toMillis()
+          : 0
+  };
+}
+
+function serverSourceEventDocId(ownerId: string, eventKey: string): string {
+  return `${ownerId}__${eventKey}`;
+}
+
 export class FirestoreAdminBankingStore implements BankingBackendStore {
   constructor(private readonly db: admin.firestore.Firestore) {}
 
   async runAtomic<T>(fn: (ctx: BankingTxContext) => Promise<T>): Promise<T> {
     return this.db.runTransaction(async (tx) => {
       const ctx: BankingTxContext = {
+        isUserDeletionFrozen: async (ownerId) => {
+          const cleanUid = ownerId.trim();
+          if (!cleanUid) return false;
+          const snap = await tx.get(this.db.collection("account_deletion_tombstones").doc(cleanUid));
+          return snap.exists;
+        },
         getConnectionById: async (connectionId) => {
           const snap = await tx.get(this.db.collection("server_bank_connections").doc(connectionId));
           if (!snap.exists) return null;
@@ -148,13 +274,14 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
         },
         getInboxEvent: async (providerEventKey) => {
           const snap = await tx.get(this.db.collection("sepay_webhook_inbox").doc(providerEventKey));
-          return snap.exists ? (snap.data() as InboxEventRecord) : null;
+          return snap.exists ? mapInboxEventDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>) : null;
         },
         setInboxEvent: async (record) => {
           tx.set(
             this.db.collection("sepay_webhook_inbox").doc(record.providerEventKey),
             stripUndefined({
               ...record,
+              expiresAt: record.expiresAtMs != null ? Timestamp.fromMillis(record.expiresAtMs) : null,
               updatedAt: Timestamp.fromMillis(record.updatedAtMs)
             })
           );
@@ -175,6 +302,29 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
             linkedTransactionId: data.linkedTransactionId,
             receivedAt: Timestamp.fromMillis(data.receivedAtMs)
           });
+        },
+        getServerSourceEvent: async (ownerId, eventKey) => {
+          const ref = this.db.collection("server_source_events").doc(serverSourceEventDocId(ownerId, eventKey));
+          const snap = await tx.get(ref);
+          if (!snap.exists) return null;
+          const d = snap.data() ?? {};
+          return { linkedTransactionId: String(d.linkedTransactionId ?? "") };
+        },
+        setServerSourceEvent: async (ownerId, eventKey, data) => {
+          const ref = this.db.collection("server_source_events").doc(serverSourceEventDocId(ownerId, eventKey));
+          tx.set(
+            ref,
+            stripUndefined({
+              ownerId,
+              eventKey,
+              source: data.source,
+              status: data.status,
+              linkedTransactionId: data.linkedTransactionId,
+              connectionId: data.connectionId,
+              receivedAtMs: data.receivedAtMs,
+              receivedAt: Timestamp.fromMillis(data.receivedAtMs)
+            })
+          );
         },
         findCandidateTransactions: async (ownerId, softWindowFingerprints) => {
           if (softWindowFingerprints.length === 0) return [];
@@ -251,6 +401,14 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
               typeof d.lastObservedBalanceEventId === "string" ? d.lastObservedBalanceEventId : null,
             bankCode: typeof d.bankCode === "string" ? d.bankCode : undefined,
             maskedAccount: typeof d.maskedAccount === "string" ? d.maskedAccount : undefined,
+            archived: d.archived === true || d.isArchived === true,
+            isArchived: d.isArchived === true || d.archived === true,
+            archivedAtMs:
+              typeof d.archivedAtMs === "number"
+                ? d.archivedAtMs
+                : d.archivedAt instanceof Timestamp
+                  ? d.archivedAt.toMillis()
+                  : null,
             updatedAtMs: Date.now()
           };
         },
@@ -339,6 +497,19 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
             { merge: true }
           );
         },
+        markConnectionWarning: async (ownerId, connectionId, warning, nowMs) => {
+          const ts = Timestamp.fromMillis(nowMs);
+          tx.set(
+            this.db.collection("server_bank_connections").doc(connectionId),
+            { statusWarning: warning, updatedAtMs: nowMs, updatedAt: ts },
+            { merge: true }
+          );
+          tx.set(
+            this.db.collection("users").doc(ownerId).collection("bank_connections").doc(connectionId),
+            { statusWarning: warning, updatedAt: ts },
+            { merge: true }
+          );
+        },
         getBankAccountClaim: async (claimId) => {
           const snap = await tx.get(this.db.collection("server_bank_account_claims").doc(claimId));
           if (!snap.exists) return null;
@@ -357,6 +528,13 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
 
       return fn(ctx);
     });
+  }
+
+  async isUserDeletionFrozen(ownerId: string): Promise<boolean> {
+    const cleanUid = ownerId.trim();
+    if (!cleanUid) return false;
+    const snap = await this.db.collection("account_deletion_tombstones").doc(cleanUid).get();
+    return snap.exists;
   }
 
   private writeVerifiedConnection(
@@ -556,7 +734,7 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
 
   async getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null> {
     const snap = await this.db.collection("sepay_webhook_inbox").doc(providerEventKey).get();
-    return snap.exists ? (snap.data() as InboxEventRecord) : null;
+    return snap.exists ? mapInboxEventDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>) : null;
   }
 
   async createDurableInboxIfAbsent(
@@ -566,12 +744,16 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
     return this.db.runTransaction(async (tx) => {
       const existing = await tx.get(ref);
       if (existing.exists) {
-        return { created: false, existing: existing.data() as InboxEventRecord };
+        return {
+          created: false,
+          existing: mapInboxEventDoc(existing.id, (existing.data() ?? {}) as Record<string, unknown>)
+        };
       }
       tx.set(
         ref,
         stripUndefined({
           ...record,
+          expiresAt: record.expiresAtMs != null ? Timestamp.fromMillis(record.expiresAtMs) : null,
           receivedAt: Timestamp.fromMillis(record.receivedAtMs),
           updatedAt: Timestamp.fromMillis(record.updatedAtMs)
         })
@@ -580,24 +762,195 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
     });
   }
 
-  async claimOutboxForDelivery(
-    notificationId: string,
-    nowMs: number
-  ): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }> {
-    const ref = this.db.collection("notification_outbox").doc(notificationId);
+  async claimInboxEvent(
+    providerEventKey: string,
+    nowMs: number,
+    leaseOwner: string,
+    leaseTtlMs: number = 60_000
+  ): Promise<{ claimed: boolean; record: InboxEventRecord | null }> {
+    const ref = this.db.collection("sepay_webhook_inbox").doc(providerEventKey);
     return this.db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) return { claimed: false, record: null };
-      const cur = snap.data() as NotificationOutboxRecord;
-      if (cur.state !== "PENDING_DELIVERY" && cur.state !== "FAILED_RETRYABLE") {
+      const cur = mapInboxEventDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+
+      const leaseExpired = cur.leaseExpiresAtMs == null || cur.leaseExpiresAtMs <= nowMs;
+      const isEligiblePending = cur.state === "PENDING_PROCESSING" && leaseExpired;
+      const isEligibleRetry =
+        cur.state === "FAILED_RETRYABLE" &&
+        (cur.nextRetryAtMs ?? 0) <= nowMs &&
+        leaseExpired;
+
+      if (!isEligiblePending && !isEligibleRetry) {
         return { claimed: false, record: cur };
       }
-      if (cur.state === "FAILED_RETRYABLE" && typeof cur.nextRetryAtMs === "number" && cur.nextRetryAtMs > nowMs) {
+
+      const claimedRecord: InboxEventRecord = {
+        ...cur,
+        attemptCount: (cur.attemptCount ?? 0) + 1,
+        leaseOwner,
+        leaseExpiresAtMs: nowMs + leaseTtlMs,
+        updatedAtMs: nowMs
+      };
+      tx.set(
+        ref,
+        stripUndefined({
+          ...claimedRecord,
+          updatedAt: Timestamp.fromMillis(nowMs)
+        }),
+        { merge: true }
+      );
+      return { claimed: true, record: claimedRecord };
+    });
+  }
+
+  async updateInboxRecord(record: InboxEventRecord): Promise<void> {
+    await this.db
+      .collection("sepay_webhook_inbox")
+      .doc(record.providerEventKey)
+      .set(
+        stripUndefined({
+          ...record,
+          expiresAt: record.expiresAtMs != null ? Timestamp.fromMillis(record.expiresAtMs) : null,
+          updatedAt: Timestamp.fromMillis(record.updatedAtMs)
+        }),
+        { merge: true }
+      );
+  }
+
+  async listRecoverableInboxRecords(
+    nowMs: number,
+    limit: number = 50,
+    pendingGraceMs: number = 30_000
+  ): Promise<{ records: InboxEventRecord[]; oldestPendingAgeMs: number }> {
+    const [pendingSnap, retrySnap] = await Promise.all([
+      this.db
+        .collection("sepay_webhook_inbox")
+        .where("state", "==", "PENDING_PROCESSING")
+        .orderBy("receivedAtMs", "asc")
+        .limit(limit * 3)
+        .get(),
+      this.db
+        .collection("sepay_webhook_inbox")
+        .where("state", "==", "FAILED_RETRYABLE")
+        .where("nextRetryAtMs", "<=", nowMs)
+        .orderBy("nextRetryAtMs", "asc")
+        .limit(limit)
+        .get()
+    ]);
+
+    const seen = new Set<string>();
+    const candidates: Array<{ rec: InboxEventRecord; dueAtMs: number }> = [];
+    let oldestPendingAgeMs = 0;
+
+    for (const doc of pendingSnap.docs) {
+      const rec = mapInboxEventDoc(doc.id, (doc.data() ?? {}) as Record<string, unknown>);
+      const age = Math.max(0, nowMs - rec.receivedAtMs);
+      if (age > oldestPendingAgeMs) oldestPendingAgeMs = age;
+
+      const leaseExpired =
+        rec.leaseExpiresAtMs != null
+          ? rec.leaseExpiresAtMs <= nowMs
+          : rec.receivedAtMs <= nowMs - pendingGraceMs;
+      if (leaseExpired && !seen.has(rec.providerEventKey)) {
+        seen.add(rec.providerEventKey);
+        candidates.push({ rec, dueAtMs: rec.leaseExpiresAtMs ?? rec.receivedAtMs });
+      }
+    }
+
+    for (const doc of retrySnap.docs) {
+      const rec = mapInboxEventDoc(doc.id, (doc.data() ?? {}) as Record<string, unknown>);
+      const age = Math.max(0, nowMs - rec.receivedAtMs);
+      if (age > oldestPendingAgeMs) oldestPendingAgeMs = age;
+
+      const leaseFree = rec.leaseExpiresAtMs == null || rec.leaseExpiresAtMs <= nowMs;
+      if (leaseFree && !seen.has(rec.providerEventKey)) {
+        seen.add(rec.providerEventKey);
+        candidates.push({ rec, dueAtMs: rec.nextRetryAtMs ?? rec.receivedAtMs });
+      }
+    }
+
+    candidates.sort((a, b) => a.dueAtMs - b.dueAtMs);
+    return {
+      records: candidates.slice(0, limit).map((c) => c.rec),
+      oldestPendingAgeMs
+    };
+  }
+
+  async purgeExpiredInboxRecords(
+    nowMs: number,
+    limit: number = 100
+  ): Promise<{ purged: number; deletedCount: number }> {
+    const expiredSnap = await this.db
+      .collection("sepay_webhook_inbox")
+      .where("expiresAtMs", "<=", nowMs)
+      .orderBy("expiresAtMs", "asc")
+      .limit(limit)
+      .get();
+
+    const refsToDelete = new Map<string, admin.firestore.DocumentReference>();
+    for (const doc of expiredSnap.docs) {
+      refsToDelete.set(doc.ref.path, doc.ref);
+    }
+
+    if (refsToDelete.size < limit) {
+      const legacyCutoffMs = nowMs - INBOX_TERMINAL_TTL_MS;
+      const legacyUnlinkedSnap = await this.db
+        .collection("sepay_webhook_inbox")
+        .where("ownerId", "==", null)
+        .where("receivedAtMs", "<=", legacyCutoffMs)
+        .limit(limit - refsToDelete.size)
+        .get();
+      for (const doc of legacyUnlinkedSnap.docs) {
+        const d = doc.data() ?? {};
+        if (d.expiresAtMs == null && !refsToDelete.has(doc.ref.path)) {
+          refsToDelete.set(doc.ref.path, doc.ref);
+        }
+      }
+    }
+
+    if (refsToDelete.size === 0) {
+      return { purged: 0, deletedCount: 0 };
+    }
+
+    const batch = this.db.batch();
+    for (const ref of refsToDelete.values()) {
+      batch.delete(ref);
+    }
+    await batch.commit();
+    const purged = refsToDelete.size;
+    return { purged, deletedCount: purged };
+  }
+
+  async claimNotificationOutbox(
+    outboxId: string,
+    nowMs: number,
+    leaseOwner: string,
+    leaseTtlMs: number = 60_000
+  ): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }> {
+    const ref = this.db.collection("notification_outbox").doc(outboxId);
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return { claimed: false, record: null };
+      const cur = mapNotificationOutboxDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+
+      const isPending = cur.state === "PENDING" || cur.state === "PENDING_DELIVERY";
+      const isDueRetry =
+        cur.state === "FAILED_RETRYABLE" && (cur.nextRetryAtMs ?? 0) <= nowMs;
+      const isExpiredDispatch =
+        cur.state === "DISPATCHING" && (cur.leaseExpiresAtMs ?? 0) <= nowMs;
+
+      if (!isPending && !isDueRetry && !isExpiredDispatch) {
         return { claimed: false, record: cur };
       }
+
       const dispatching: NotificationOutboxRecord = {
         ...cur,
+        version: cur.version + 1,
+        attemptCount: cur.attemptCount + 1,
         state: "DISPATCHING",
+        leaseOwner: leaseOwner.trim() || "worker",
+        leaseExpiresAtMs: nowMs + leaseTtlMs,
         updatedAtMs: nowMs
       };
       tx.set(ref, stripUndefined({ ...dispatching, updatedAt: Timestamp.fromMillis(nowMs) }), { merge: true });
@@ -605,26 +958,126 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
     });
   }
 
+  async claimOutboxForDelivery(
+    notificationId: string,
+    nowMs: number
+  ): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }> {
+    return this.claimNotificationOutbox(notificationId, nowMs, "default_worker", 60_000);
+  }
+
+  async commitNotificationOutboxWithCas(params: {
+    outboxId: string;
+    expectedVersion: number;
+    expectedLeaseOwner: string;
+    nextRecord: NotificationOutboxRecord;
+  }): Promise<{ committed: boolean; record: NotificationOutboxRecord | null }> {
+    const ref = this.db.collection("notification_outbox").doc(params.outboxId);
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return { committed: false, record: null };
+      const cur = mapNotificationOutboxDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+
+      if (
+        cur.version !== params.expectedVersion ||
+        cur.state !== "DISPATCHING" ||
+        cur.leaseOwner !== params.expectedLeaseOwner
+      ) {
+        return { committed: false, record: cur };
+      }
+
+      const committedRecord: NotificationOutboxRecord = {
+        ...params.nextRecord,
+        version: params.expectedVersion + 1,
+        leaseOwner: null,
+        leaseExpiresAtMs: null
+      };
+      tx.set(
+        ref,
+        stripUndefined({
+          ...committedRecord,
+          updatedAt: Timestamp.fromMillis(committedRecord.updatedAtMs)
+        }),
+        { merge: true }
+      );
+      return { committed: true, record: committedRecord };
+    });
+  }
+
+  async listRecoverableOutboxIds(nowMs: number, limit: number = 50): Promise<string[]> {
+    const staleCutoffMs = nowMs - 30_000;
+    const [retrySnap, dispatchingSnap, pendingDeliverySnap, pendingSnap] = await Promise.all([
+      this.db
+        .collection("notification_outbox")
+        .where("state", "==", "FAILED_RETRYABLE")
+        .where("nextRetryAtMs", "<=", nowMs)
+        .orderBy("nextRetryAtMs", "asc")
+        .limit(limit)
+        .get(),
+      this.db
+        .collection("notification_outbox")
+        .where("state", "==", "DISPATCHING")
+        .where("leaseExpiresAtMs", "<=", nowMs)
+        .orderBy("leaseExpiresAtMs", "asc")
+        .limit(limit)
+        .get(),
+      this.db
+        .collection("notification_outbox")
+        .where("state", "==", "PENDING_DELIVERY")
+        .where("createdAtMs", "<=", staleCutoffMs)
+        .orderBy("createdAtMs", "asc")
+        .limit(limit)
+        .get(),
+      this.db
+        .collection("notification_outbox")
+        .where("state", "==", "PENDING")
+        .where("createdAtMs", "<=", staleCutoffMs)
+        .orderBy("createdAtMs", "asc")
+        .limit(limit)
+        .get()
+    ]);
+
+    const seen = new Set<string>();
+    const candidates: Array<{ id: string; dueAtMs: number }> = [];
+
+    for (const doc of retrySnap.docs) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+      const d = doc.data() ?? {};
+      candidates.push({ id: doc.id, dueAtMs: Number(d.nextRetryAtMs ?? 0) });
+    }
+    for (const doc of dispatchingSnap.docs) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+      const d = doc.data() ?? {};
+      candidates.push({ id: doc.id, dueAtMs: Number(d.leaseExpiresAtMs ?? 0) });
+    }
+    for (const doc of [...pendingDeliverySnap.docs, ...pendingSnap.docs]) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+      const d = doc.data() ?? {};
+      candidates.push({ id: doc.id, dueAtMs: Number(d.createdAtMs ?? 0) });
+    }
+
+    candidates.sort((a, b) => a.dueAtMs - b.dueAtMs);
+    return candidates.slice(0, limit).map((c) => c.id);
+  }
+
   async listDueRetryableOutboxRecords(nowMs: number, limit = 50): Promise<NotificationOutboxRecord[]> {
     const snap = await this.db
       .collection("notification_outbox")
       .where("state", "==", "FAILED_RETRYABLE")
-      .limit(limit * 2)
+      .where("nextRetryAtMs", "<=", nowMs)
+      .orderBy("nextRetryAtMs", "asc")
+      .limit(limit)
       .get();
-    const due: NotificationOutboxRecord[] = [];
-    for (const doc of snap.docs) {
-      const rec = doc.data() as NotificationOutboxRecord;
-      if (typeof rec.nextRetryAtMs !== "number" || rec.nextRetryAtMs <= nowMs) {
-        due.push(rec);
-        if (due.length >= limit) break;
-      }
-    }
-    return due;
+    return snap.docs.map((doc) =>
+      mapNotificationOutboxDoc(doc.id, (doc.data() ?? {}) as Record<string, unknown>)
+    );
   }
 
   async getOutboxRecord(notificationId: string): Promise<NotificationOutboxRecord | null> {
     const snap = await this.db.collection("notification_outbox").doc(notificationId).get();
-    return snap.exists ? (snap.data() as NotificationOutboxRecord) : null;
+    return snap.exists ? mapNotificationOutboxDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>) : null;
   }
 
   async updateOutboxRecord(record: NotificationOutboxRecord): Promise<void> {
@@ -632,6 +1085,83 @@ export class FirestoreAdminBankingStore implements BankingBackendStore {
       .collection("notification_outbox")
       .doc(record.id)
       .set(stripUndefined({ ...record, updatedAt: Timestamp.fromMillis(record.updatedAtMs) }), { merge: true });
+  }
+
+  async commitReconciliationStateCas(params: {
+    ownerId: string;
+    connectionId: string;
+    expectedGrantVersion: number;
+    incomplete: boolean;
+    newestValidExternalTxId: string | null;
+    resumableCursor: BackfillCursorRecord | null;
+    nowMs: number;
+  }): Promise<{ committed: boolean; reason?: string; connection: ServerBankConnectionRecord | null }> {
+    const serverRef = this.db.collection("server_bank_connections").doc(params.connectionId);
+    const ts = Timestamp.fromMillis(params.nowMs);
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(serverRef);
+      if (!snap.exists) {
+        return {
+          committed: false,
+          reason: "CONNECTION_NOT_FOUND",
+          connection: null
+        };
+      }
+      const conn = mapServerConnectionDoc(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+      if (
+        conn.ownerId !== params.ownerId ||
+        !isConnectionActiveAndGranted(conn) ||
+        (conn.grantVersion ?? 1) !== params.expectedGrantVersion
+      ) {
+        return {
+          committed: false,
+          reason: "CONNECTION_REVOKED_OR_GRANT_CHANGED",
+          connection: conn
+        };
+      }
+
+      const patch: Record<string, unknown> = params.incomplete
+        ? {
+            backfillCursor: params.resumableCursor,
+            updatedAtMs: params.nowMs,
+            updatedAt: ts
+          }
+        : {
+            backfillCursor: null,
+            lastReconciledAtMs: params.nowMs,
+            lastReconciledAt: ts,
+            ...(params.newestValidExternalTxId !== null
+              ? {
+                  lastSyncedExternalTxId: params.newestValidExternalTxId,
+                  lastReconciledExternalTxId: params.newestValidExternalTxId
+                }
+              : {}),
+            updatedAtMs: params.nowMs,
+            updatedAt: ts
+          };
+
+      tx.set(serverRef, stripUndefined(patch), { merge: true });
+
+      const updated: ServerBankConnectionRecord = params.incomplete
+        ? {
+            ...conn,
+            backfillCursor: params.resumableCursor,
+            updatedAtMs: params.nowMs
+          }
+        : {
+            ...conn,
+            backfillCursor: null,
+            lastReconciledAtMs: params.nowMs,
+            ...(params.newestValidExternalTxId !== null
+              ? {
+                  lastSyncedExternalTxId: params.newestValidExternalTxId,
+                  lastReconciledExternalTxId: params.newestValidExternalTxId
+                }
+              : {}),
+            updatedAtMs: params.nowMs
+          };
+      return { committed: true, connection: updated };
+    });
   }
 
   async getUserNotificationPreferences(ownerId: string): Promise<UserNotificationPreferences> {

@@ -1,10 +1,14 @@
+import * as crypto from "node:crypto";
 import {
   BankIntegrationCapability,
   checkWebhookDirectionSupport,
   resolveBankCapability
 } from "./capabilities";
 import {
+  BackfillCursorRecord,
   BalanceType,
+  INBOX_DEAD_LETTER_TTL_MS,
+  INBOX_TERMINAL_TTL_MS,
   InboxEventRecord,
   InboxProcessingState,
   NotificationOutboxRecord,
@@ -19,12 +23,15 @@ import {
   extractAccountTail,
   formatVndCompactNotification,
   isConnectionActiveAndGranted,
+  minimizeInboxPayload,
   parseAndValidateSePayPayload
 } from "./schema";
 export type {
+  BackfillCursorRecord,
   InboxEventRecord,
   NotificationOutboxEvent,
   NotificationOutboxRecord,
+  NotificationOutboxState,
   SepayWebhookInboxEvent,
   ServerBankConnection,
   ServerBankConnectionRecord
@@ -295,6 +302,9 @@ export interface WalletRecord {
   readonly lastObservedBalanceEventId?: string | null;
   readonly bankCode?: string;
   readonly maskedAccount?: string;
+  readonly archived?: boolean;
+  readonly isArchived?: boolean;
+  readonly archivedAtMs?: number | null;
   readonly updatedAtMs: number;
 }
 
@@ -356,6 +366,8 @@ export interface FcmMulticastResult {
   readonly successCount: number;
   readonly failureCount: number;
   readonly invalidTokens: readonly string[];
+  readonly succeededTokens?: readonly string[];
+  readonly failedTokens?: Readonly<Record<string, string>>;
   readonly retryableError?: string;
 }
 
@@ -375,6 +387,7 @@ export interface FcmPushSender {
  * Transactional context executed atomically (maps 1:1 to Firestore Transaction).
  */
 export interface BankingTxContext {
+  isUserDeletionFrozen(ownerId: string): Promise<boolean>;
   getConnectionById(connectionId: string): Promise<ServerBankConnectionRecord | null>;
   getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null>;
   setInboxEvent(record: InboxEventRecord): Promise<void>;
@@ -383,6 +396,18 @@ export interface BankingTxContext {
     ownerId: string,
     eventKey: string,
     data: { source: string; status: string; linkedTransactionId: string; receivedAtMs: number }
+  ): Promise<void>;
+  getServerSourceEvent(ownerId: string, eventKey: string): Promise<{ linkedTransactionId: string } | null>;
+  setServerSourceEvent(
+    ownerId: string,
+    eventKey: string,
+    data: {
+      source: string;
+      status: string;
+      linkedTransactionId: string;
+      receivedAtMs: number;
+      connectionId?: string;
+    }
   ): Promise<void>;
   findCandidateTransactions(
     ownerId: string,
@@ -399,6 +424,7 @@ export interface BankingTxContext {
   upsertFinancialNotification(ownerId: string, notif: FinancialNotificationRecord): Promise<void>;
   upsertNotificationOutbox(outbox: NotificationOutboxRecord): Promise<void>;
   updateConnectionLastSync(ownerId: string, connectionId: string, syncedAtMs: number): Promise<void>;
+  markConnectionWarning(ownerId: string, connectionId: string, warning: string, nowMs: number): Promise<void>;
   getBankAccountClaim(claimId: string): Promise<BankAccountClaimRecord | null>;
   upsertBankAccountClaim(claim: BankAccountClaimRecord): Promise<void>;
   saveVerifiedConnectionTx(record: ServerBankConnectionRecord): Promise<void>;
@@ -406,6 +432,7 @@ export interface BankingTxContext {
 
 export interface BankingBackendStore {
   runAtomic<T>(fn: (ctx: BankingTxContext) => Promise<T>): Promise<T>;
+  isUserDeletionFrozen(ownerId: string): Promise<boolean>;
   getConnectionById(connectionId: string): Promise<ServerBankConnectionRecord | null>;
   findActiveConnectionForAccount(params: {
     bankCode: string;
@@ -422,10 +449,48 @@ export interface BankingBackendStore {
   disconnectConnection(ownerId: string, connectionId: string, nowMs: number): Promise<void>;
   getInboxEvent(providerEventKey: string): Promise<InboxEventRecord | null>;
   createDurableInboxIfAbsent(record: InboxEventRecord): Promise<{ created: boolean; existing?: InboxEventRecord }>;
+  claimInboxEvent(
+    providerEventKey: string,
+    nowMs: number,
+    leaseOwner: string,
+    leaseTtlMs?: number
+  ): Promise<{ claimed: boolean; record: InboxEventRecord | null }>;
+  updateInboxRecord(record: InboxEventRecord): Promise<void>;
+  listRecoverableInboxRecords(
+    nowMs: number,
+    limit?: number,
+    pendingGraceMs?: number
+  ): Promise<{ records: InboxEventRecord[]; oldestPendingAgeMs: number }>;
+  purgeExpiredInboxRecords(
+    nowMs: number,
+    limit?: number
+  ): Promise<{ purged: number; deletedCount: number }>;
+  claimNotificationOutbox(
+    outboxId: string,
+    nowMs: number,
+    leaseOwner: string,
+    leaseTtlMs?: number
+  ): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }>;
   claimOutboxForDelivery(notificationId: string, nowMs: number): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }>;
+  commitNotificationOutboxWithCas(params: {
+    outboxId: string;
+    expectedVersion: number;
+    expectedLeaseOwner: string;
+    nextRecord: NotificationOutboxRecord;
+  }): Promise<{ committed: boolean; record: NotificationOutboxRecord | null }>;
+  listRecoverableOutboxIds(nowMs: number, limit?: number): Promise<string[]>;
   listDueRetryableOutboxRecords(nowMs: number, limit?: number): Promise<NotificationOutboxRecord[]>;
   getOutboxRecord(notificationId: string): Promise<NotificationOutboxRecord | null>;
   updateOutboxRecord(record: NotificationOutboxRecord): Promise<void>;
+  commitReconciliationStateCas(params: {
+    ownerId: string;
+    connectionId: string;
+    expectedGrantVersion: number;
+    incomplete: boolean;
+    newestValidExternalTxId: string | null;
+    resumableCursor: BackfillCursorRecord | null;
+    nowMs: number;
+  }): Promise<{ committed: boolean; reason?: string; connection: ServerBankConnectionRecord | null }>;
   getUserNotificationPreferences(ownerId: string): Promise<UserNotificationPreferences>;
   listActiveUserDevices(ownerId: string): Promise<UserDeviceRecord[]>;
   deactivateInvalidTokens(ownerId: string, invalidTokens: readonly string[]): Promise<void>;
@@ -569,6 +634,29 @@ export interface WebhookHttpResponse {
   readonly providerEventKey?: string;
 }
 
+export const OUTBOX_DEFAULT_LEASE_TTL_MS = 60_000;
+export const OUTBOX_STALE_PENDING_GRACE_MS = 30_000;
+export const OUTBOX_MAX_ATTEMPTS = 5;
+export const INBOX_DEFAULT_LEASE_TTL_MS = 60_000;
+export const INBOX_STALE_PENDING_GRACE_MS = 30_000;
+export const INBOX_MAX_ATTEMPTS = 6;
+
+export interface ReconcilePagesResult {
+  readonly pagesFetched: number;
+  readonly fetchedCount: number;
+  readonly processedCount: number;
+  readonly duplicateCount: number;
+  readonly invalidCount: number;
+  readonly skippedCount: number;
+  readonly reachedPreviousWatermark: boolean;
+  readonly incomplete: boolean;
+  readonly watermarkAdvanced: boolean;
+  readonly watermarkAbortedReason?: string;
+  readonly newestValidExternalTxId: string | null;
+  readonly newestExternalTxId?: string;
+  readonly resumableCursor: BackfillCursorRecord | null;
+}
+
 /**
  * Core Real-Time Banking Backend Coordinator:
  * 1. Authenticates & validates SePay Webhooks (`POST /webhooks/sepay`)
@@ -640,6 +728,34 @@ export class RealtimeBankingCoordinator {
       : `unlinked_${bankCode}_${sha256Hex(p.accountNumber).slice(0, 10)}`;
     const providerEventKey = `sepay_${scopePart}_${p.id}`;
 
+    const deletionFrozen = matchedConnection
+      ? await this.store.isUserDeletionFrozen(matchedConnection.ownerId)
+      : false;
+
+    let initialState: InboxProcessingState;
+    let initialStatus: string;
+    let errorReason: string | undefined;
+    let expiresAtMs: number | null = null;
+    let stripText = false;
+
+    if (!matchedConnection) {
+      initialState = "FAILED_PERMANENT";
+      initialStatus = "ignored_unlinked_or_revoked";
+      errorReason = "UNLINKED_OR_INACTIVE_BANK_ACCOUNT";
+      expiresAtMs = nowMs + INBOX_TERMINAL_TTL_MS;
+      stripText = true;
+    } else if (deletionFrozen) {
+      initialState = "skipped_account_deleting";
+      initialStatus = "skipped_account_deleting";
+      errorReason = "ACCOUNT_DELETION_FROZEN";
+      expiresAtMs = nowMs + INBOX_TERMINAL_TTL_MS;
+      stripText = true;
+    } else {
+      initialState = "PENDING_PROCESSING";
+      initialStatus = "pending_processing";
+      stripText = false;
+    }
+
     const inboxRecord: InboxEventRecord = {
       providerEventKey,
       provider: "sepay",
@@ -648,11 +764,17 @@ export class RealtimeBankingCoordinator {
       ownerId: matchedConnection?.ownerId ?? null,
       walletId: matchedConnection?.linkedWalletId ?? null,
       grantVersion: matchedConnection ? (matchedConnection.grantVersion ?? 1) : null,
-      state: matchedConnection ? "PENDING_PROCESSING" : "FAILED_PERMANENT",
-      status: matchedConnection ? "pending_processing" : "ignored_unlinked_or_revoked",
-      payload: p,
-      errorReason: matchedConnection ? undefined : "UNLINKED_OR_INACTIVE_BANK_ACCOUNT",
-      reason: matchedConnection ? undefined : "UNLINKED_OR_INACTIVE_BANK_ACCOUNT",
+      state: initialState,
+      status: initialStatus,
+      payload: minimizeInboxPayload(p, { stripText }),
+      errorReason,
+      reason: errorReason,
+      attemptCount: 0,
+      leaseOwner: null,
+      leaseExpiresAtMs: null,
+      nextRetryAtMs: null,
+      expiresAtMs,
+      deadLetterReason: null,
       receivedAtMs: nowMs,
       updatedAtMs: nowMs
     };
@@ -682,7 +804,8 @@ export class RealtimeBankingCoordinator {
    */
   async processInboxEvent(
     providerEventKey: string,
-    nowMs: number = Date.now()
+    nowMs: number = Date.now(),
+    options?: { readonly expectedLeaseOwner?: string }
   ): Promise<{
     state: InboxProcessingState;
     transactionId?: string;
@@ -695,6 +818,24 @@ export class RealtimeBankingCoordinator {
     }
     if (outerInbox.state === "PROCESSED" || outerInbox.state === "DUPLICATE") {
       return { state: "DUPLICATE", transactionId: outerInbox.linkedTransactionId };
+    }
+    if (outerInbox.state === "DEAD_LETTER") {
+      return {
+        state: "DEAD_LETTER",
+        reason: outerInbox.deadLetterReason ?? outerInbox.errorReason
+      };
+    }
+    if (outerInbox.state === "skipped_account_deleting") {
+      return {
+        state: "skipped_account_deleting",
+        reason: outerInbox.reason ?? outerInbox.errorReason
+      };
+    }
+    if (outerInbox.state === "skipped_archived_wallet") {
+      return {
+        state: "skipped_archived_wallet",
+        reason: outerInbox.reason ?? outerInbox.errorReason
+      };
     }
     if (outerInbox.state === "skipped_revoked_or_reassigned") {
       return {
@@ -720,6 +861,24 @@ export class RealtimeBankingCoordinator {
           transactionId: inbox.linkedTransactionId
         };
       }
+      if (inbox.state === "DEAD_LETTER") {
+        return {
+          state: "DEAD_LETTER" as const,
+          reason: inbox.deadLetterReason ?? inbox.errorReason
+        };
+      }
+      if (inbox.state === "skipped_account_deleting") {
+        return {
+          state: "skipped_account_deleting" as const,
+          reason: inbox.reason ?? inbox.errorReason
+        };
+      }
+      if (inbox.state === "skipped_archived_wallet") {
+        return {
+          state: "skipped_archived_wallet" as const,
+          reason: inbox.reason ?? inbox.errorReason
+        };
+      }
       if (inbox.state === "skipped_revoked_or_reassigned") {
         return {
           state: "skipped_revoked_or_reassigned" as const,
@@ -730,8 +889,43 @@ export class RealtimeBankingCoordinator {
         return { state: "FAILED_PERMANENT" as const, reason: inbox.errorReason };
       }
 
+      if (
+        options?.expectedLeaseOwner &&
+        inbox.leaseOwner &&
+        inbox.leaseOwner !== options.expectedLeaseOwner &&
+        (inbox.leaseExpiresAtMs ?? 0) > nowMs
+      ) {
+        return {
+          state: inbox.state,
+          reason: "INBOX_LEASE_HELD_BY_OTHER_WORKER"
+        };
+      }
+
+      // DEL-04 / BANK-02: Never ingest new transactions/notifications when user deletion tombstone exists!
+      const deletionFrozen = await ctx.isUserDeletionFrozen(inbox.ownerId);
       // H3: Load exact connection by `inbox.connectionId` — NEVER re-query by bank account!
       const connection = await ctx.getConnectionById(inbox.connectionId);
+
+      if (deletionFrozen) {
+        await ctx.setInboxEvent({
+          ...inbox,
+          state: "skipped_account_deleting",
+          status: "skipped_account_deleting",
+          errorReason: "ACCOUNT_DELETION_FROZEN",
+          reason: "ACCOUNT_DELETION_FROZEN",
+          payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
+          updatedAtMs: nowMs
+        });
+        return {
+          state: "skipped_account_deleting" as const,
+          reason: "ACCOUNT_DELETION_FROZEN"
+        };
+      }
+
       const expectedGrantVersion = inbox.grantVersion ?? 1;
       let skipReason: string | null = null;
       if (!connection) {
@@ -754,6 +948,11 @@ export class RealtimeBankingCoordinator {
           status: "skipped_revoked_or_reassigned",
           errorReason: finalReason,
           reason: finalReason,
+          payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
           updatedAtMs: nowMs
         });
         return {
@@ -778,6 +977,11 @@ export class RealtimeBankingCoordinator {
           status: "failed_permanent",
           errorReason: dirSupport.reason ?? "UNSUPPORTED_BANK_DIRECTION",
           reason: dirSupport.reason ?? "UNSUPPORTED_BANK_DIRECTION",
+          payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
           updatedAtMs: nowMs
         });
         return {
@@ -788,8 +992,14 @@ export class RealtimeBankingCoordinator {
 
       const ownerId = connection.ownerId;
       const walletId = connection.linkedWalletId;
-      const existingSourceEv = await ctx.getSourceEvent(ownerId, providerEventKey);
-      if (existingSourceEv) {
+
+      // SEC-03: Check server-owned `server_source_events` FIRST so deleting/tampering with
+      // client `users/{uid}/source_events` can NEVER cause duplicate transaction posting or hijack dedup!
+      const existingServerSourceEv = await ctx.getServerSourceEvent(ownerId, providerEventKey);
+      // Read client source_events for transactional read-before-write compliance
+      await ctx.getSourceEvent(ownerId, providerEventKey);
+
+      if (existingServerSourceEv) {
         await ctx.setInboxEvent({
           ...inbox,
           ownerId,
@@ -798,12 +1008,17 @@ export class RealtimeBankingCoordinator {
           grantVersion: connection.grantVersion ?? 1,
           state: "DUPLICATE",
           status: "duplicate",
-          linkedTransactionId: existingSourceEv.linkedTransactionId,
+          linkedTransactionId: existingServerSourceEv.linkedTransactionId,
+          payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
           updatedAtMs: nowMs
         });
         return {
           state: "DUPLICATE" as const,
-          transactionId: existingSourceEv.linkedTransactionId
+          transactionId: existingServerSourceEv.linkedTransactionId
         };
       }
 
@@ -821,6 +1036,7 @@ export class RealtimeBankingCoordinator {
       });
 
       const rawCandidates = await ctx.findCandidateTransactions(ownerId, candidateWindowFps);
+      const existingWallet = await ctx.getWallet(ownerId, walletId);
 
       const windowMs = 15 * 60 * 1000;
       const windowCandidates = rawCandidates.filter((c) => {
@@ -837,6 +1053,13 @@ export class RealtimeBankingCoordinator {
           c.externalTransactionId === String(p.id)
       );
       if (exactSameExternal) {
+        await ctx.setServerSourceEvent(ownerId, providerEventKey, {
+          source: "sepay_webhook",
+          status: "duplicate_already_synced",
+          linkedTransactionId: exactSameExternal.id,
+          receivedAtMs: nowMs,
+          connectionId: connection.id
+        });
         await ctx.setSourceEvent(ownerId, providerEventKey, {
           source: "sepay_webhook",
           status: "duplicate_already_synced",
@@ -852,9 +1075,176 @@ export class RealtimeBankingCoordinator {
           state: "DUPLICATE",
           status: "duplicate",
           linkedTransactionId: exactSameExternal.id,
+          payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
           updatedAtMs: nowMs
         });
         return { state: "DUPLICATE" as const, transactionId: exactSameExternal.id };
+      }
+
+      // SEC-02: If linked wallet already exists and is archived (`archived === true` / `isArchived === true`),
+      // NEVER resurrect or mutate it — route event to NEEDS_REVIEW and mark connection warning!
+      const isWalletArchived =
+        existingWallet !== null &&
+        (existingWallet.archived === true || existingWallet.isArchived === true);
+
+      if (isWalletArchived && existingWallet) {
+        const canonicalTxId = `ver_${sha256Hex(providerEventKey).slice(0, 20)}`;
+        const combinedText = `${p.content} ${p.description}`.trim();
+        const classified = classifyVietnameseTransaction(combinedText, p.direction);
+
+        await ctx.markConnectionWarning(ownerId, connection.id, "LINKED_WALLET_ARCHIVED", nowMs);
+
+        const archivedReviewTx: CanonicalTransactionRecord = {
+          id: canonicalTxId,
+          ownerId,
+          walletId,
+          walletName: existingWallet.name,
+          connectionId: connection.id,
+          sourceProvider: "sepay",
+          sourceKind: "bankWebhook",
+          externalTransactionId: String(p.id),
+          referenceCode: p.referenceCode || undefined,
+          kind: p.direction === "credit" ? "income" : "expense",
+          direction: p.direction,
+          amountMinor: p.transferAmount,
+          currencyCode: "VND",
+          bankCode: connection.bankCode,
+          accountMasked: connection.accountMasked,
+          accountTail: extractAccountTail(connection.accountNumber) ?? undefined,
+          counterpartyDisplay: p.content || p.description || connection.bankName,
+          merchant: p.content || p.description || `${connection.bankName} giao dịch`,
+          description: combinedText,
+          categoryName: classified.categoryName,
+          occurredAtMs: p.occurredAtMs,
+          receivedAtMs: nowMs,
+          monthKey: formatMonthKeyVn(p.occurredAtMs),
+          verification: "needsReview",
+          verificationStatus: "NEEDS_REVIEW",
+          reconciliationStatus: "ambiguous_collision",
+          sourceEventKey: providerEventKey,
+          crossSourceFingerprint: computeCrossSourceFingerprint({
+            ownerId,
+            direction: p.direction,
+            amountMinor: p.transferAmount,
+            occurredAtMs: p.occurredAtMs,
+            referenceCode: p.referenceCode
+          }),
+          softWindowFingerprint: softFp,
+          balanceAfterMinor: null,
+          balanceType: "unknownBalance",
+          ledgerApplied: false,
+          isVehicleMaintenanceHint: classified.isVehicleMaintenanceHint,
+          isRecurringCandidate: classified.isRecurringCandidate,
+          createdAtMs: nowMs,
+          updatedAtMs: nowMs
+        };
+
+        await ctx.upsertTransaction(ownerId, archivedReviewTx);
+        await ctx.setServerSourceEvent(ownerId, providerEventKey, {
+          source: "sepay_webhook",
+          status: "needs_review_archived_wallet",
+          linkedTransactionId: canonicalTxId,
+          receivedAtMs: nowMs,
+          connectionId: connection.id
+        });
+        await ctx.setSourceEvent(ownerId, providerEventKey, {
+          source: "sepay_webhook",
+          status: "needs_review_archived_wallet",
+          linkedTransactionId: canonicalTxId,
+          receivedAtMs: nowMs
+        });
+
+        const notifId = `notif_${sha256Hex(providerEventKey).slice(0, 24)}`;
+        const copy = buildBankingNotificationCopy({
+          direction: p.direction,
+          amountMinor: p.transferAmount,
+          bankName: connection.bankName,
+          accountMasked: connection.accountMasked,
+          content: p.content || p.description,
+          occurredAtMs: p.occurredAtMs,
+          verificationStatus: "NEEDS_REVIEW",
+          prefs
+        });
+
+        await ctx.upsertFinancialNotification(ownerId, {
+          id: notifId,
+          ownerId,
+          transactionId: canonicalTxId,
+          walletId,
+          connectionId: connection.id,
+          direction: p.direction,
+          amountMinor: p.transferAmount,
+          bankCode: connection.bankCode,
+          bankName: connection.bankName,
+          accountMasked: connection.accountMasked,
+          title: copy.title,
+          body: copy.fullBody,
+          lockscreenRedactedBody: copy.pushBody,
+          content: p.content || p.description,
+          verificationStatus: "NEEDS_REVIEW",
+          sourceKind: "sepay_webhook",
+          isRead: false,
+          isTestNotification: false,
+          occurredAtMs: p.occurredAtMs,
+          createdAtMs: nowMs
+        });
+
+        await ctx.upsertNotificationOutbox({
+          id: notifId,
+          ownerId,
+          transactionId: canonicalTxId,
+          walletId,
+          connectionId: connection.id,
+          grantVersion: connection.grantVersion ?? 1,
+          direction: p.direction,
+          amountMinor: p.transferAmount,
+          bankCode: connection.bankCode,
+          bankName: connection.bankName,
+          accountMasked: connection.accountMasked,
+          content: p.content || p.description,
+          occurredAtMs: p.occurredAtMs,
+          verificationStatus: "NEEDS_REVIEW",
+          state: "PENDING_DELIVERY",
+          attemptCount: 0,
+          version: 1,
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          deliveredTokens: [],
+          failedTokens: {},
+          deadLetteredAtMs: null,
+          createdAtMs: nowMs,
+          updatedAtMs: nowMs
+        });
+
+        await ctx.setInboxEvent({
+          ...inbox,
+          ownerId,
+          connectionId: connection.id,
+          walletId,
+          grantVersion: connection.grantVersion ?? 1,
+          state: "NEEDS_REVIEW",
+          status: "needs_review",
+          errorReason: "LINKED_WALLET_ARCHIVED",
+          reason: "LINKED_WALLET_ARCHIVED",
+          linkedTransactionId: canonicalTxId,
+          payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
+          updatedAtMs: nowMs
+        });
+
+        return {
+          state: "NEEDS_REVIEW" as const,
+          transactionId: canonicalTxId,
+          notificationId: notifId,
+          reason: "LINKED_WALLET_ARCHIVED"
+        };
       }
 
       // M8: Strictly scope cross-source Android candidates to same wallet, bankCode & accountTail
@@ -871,7 +1261,7 @@ export class RealtimeBankingCoordinator {
       const matchedAndroidTx = reconcilableAndroidCandidates.length === 1 ? reconcilableAndroidCandidates[0] : null;
 
       const wallet =
-        (await ctx.getWallet(ownerId, walletId)) ?? {
+        existingWallet ?? {
           id: walletId,
           ownerId,
           name: `${connection.bankName} ${connection.accountMasked}`,
@@ -1046,6 +1436,13 @@ export class RealtimeBankingCoordinator {
       };
 
       await ctx.upsertTransaction(ownerId, canonicalTx);
+      await ctx.setServerSourceEvent(ownerId, providerEventKey, {
+        source: "sepay_webhook",
+        status: isAmbiguousCollision ? "needs_review" : "verified_processed",
+        linkedTransactionId: canonicalTxId,
+        receivedAtMs: nowMs,
+        connectionId: connection.id
+      });
       await ctx.setSourceEvent(ownerId, providerEventKey, {
         source: "sepay_webhook",
         status: isAmbiguousCollision ? "needs_review" : "verified_processed",
@@ -1105,6 +1502,12 @@ export class RealtimeBankingCoordinator {
         verificationStatus,
         state: "PENDING_DELIVERY",
         attemptCount: 0,
+        version: 1,
+        leaseOwner: null,
+        leaseExpiresAtMs: null,
+        deliveredTokens: [],
+        failedTokens: {},
+        deadLetteredAtMs: null,
         createdAtMs: nowMs,
         updatedAtMs: nowMs
       });
@@ -1121,6 +1524,11 @@ export class RealtimeBankingCoordinator {
         state: finalState,
         status: finalState === "NEEDS_REVIEW" ? "needs_review" : "processed",
         linkedTransactionId: canonicalTxId,
+        payload: minimizeInboxPayload(inbox.payload, { stripText: true }),
+        leaseOwner: null,
+        leaseExpiresAtMs: null,
+        nextRetryAtMs: null,
+        expiresAtMs: nowMs + INBOX_TERMINAL_TTL_MS,
         ...(balanceObservationSkippedStale ? { balanceObservationSkippedStale: true } : {}),
         updatedAtMs: nowMs
       });
@@ -1134,20 +1542,74 @@ export class RealtimeBankingCoordinator {
   }
 
   /**
+   * BANK-01: Atomically claims an outbox record with CAS version + lease TTL.
+   */
+  async claimNotificationOutbox(
+    outboxId: string,
+    nowMs: number = Date.now(),
+    leaseOwner: string = `worker_${crypto.randomUUID()}`,
+    leaseTtlMs: number = OUTBOX_DEFAULT_LEASE_TTL_MS
+  ): Promise<{ claimed: boolean; record: NotificationOutboxRecord | null }> {
+    return this.store.claimNotificationOutbox(outboxId, nowMs, leaseOwner, leaseTtlMs);
+  }
+
+  /**
    * Stage 3: Notification Outbox -> FCM Delivery Worker.
    * Never rolls back financial transactions if FCM fails (T14); deduplicates via deterministic notificationId (T18).
    */
   async dispatchNotificationOutbox(
     notificationId: string,
-    nowMs: number = Date.now()
+    nowMs: number = Date.now(),
+    leaseOwner: string = `worker_${crypto.randomUUID()}`,
+    leaseTtlMs: number = OUTBOX_DEFAULT_LEASE_TTL_MS
   ): Promise<NotificationOutboxRecord | null> {
-    // Atomic CAS claim prevents concurrent outbox workers from sending duplicate FCM pushes (T18)!
-    const claim = await this.store.claimOutboxForDelivery(notificationId, nowMs);
+    // Atomic CAS lease claim prevents concurrent outbox workers from sending duplicate FCM pushes (T18 / BANK-01)!
+    const claim = await this.store.claimNotificationOutbox(
+      notificationId,
+      nowMs,
+      leaseOwner,
+      leaseTtlMs
+    );
     if (!claim.record) return null;
     if (!claim.claimed) {
       return claim.record;
     }
     const outbox = claim.record;
+    const expectedVersion = outbox.version;
+    const expectedLeaseOwner = outbox.leaseOwner ?? leaseOwner;
+
+    const commitCas = async (nextRecord: NotificationOutboxRecord): Promise<NotificationOutboxRecord | null> => {
+      const committed = await this.store.commitNotificationOutboxWithCas({
+        outboxId: outbox.id,
+        expectedVersion,
+        expectedLeaseOwner,
+        nextRecord
+      });
+      return committed.record;
+    };
+
+    // If a worker repeatedly crashed during DISPATCHING and exhausted the max retry budget, dead-letter cleanly.
+    if (outbox.attemptCount > OUTBOX_MAX_ATTEMPTS) {
+      return commitCas({
+        ...outbox,
+        state: "FAILED_PERMANENT",
+        lastError: outbox.lastError ?? "MAX_ATTEMPTS_EXCEEDED_AFTER_CRASH",
+        nextRetryAtMs: null,
+        deadLetteredAtMs: nowMs,
+        updatedAtMs: nowMs
+      });
+    }
+
+    const deletionFrozen = await this.store.isUserDeletionFrozen(outbox.ownerId);
+    if (deletionFrozen) {
+      return commitCas({
+        ...outbox,
+        state: "skipped_revoked_or_reassigned",
+        lastError: "ACCOUNT_DELETION_FROZEN",
+        nextRetryAtMs: null,
+        updatedAtMs: nowMs
+      });
+    }
 
     // H3: Strictly verify connection ownerId, active consent, grantVersion & walletId before dispatching!
     const connection = outbox.connectionId
@@ -1168,14 +1630,13 @@ export class RealtimeBankingCoordinator {
     }
 
     if (dropReason !== null) {
-      const skipped: NotificationOutboxRecord = {
+      return commitCas({
         ...outbox,
         state: "skipped_revoked_or_reassigned",
         lastError: dropReason,
+        nextRetryAtMs: null,
         updatedAtMs: nowMs
-      };
-      await this.store.updateOutboxRecord(skipped);
-      return skipped;
+      });
     }
 
     const prefs = await this.store.getUserNotificationPreferences(outbox.ownerId);
@@ -1187,28 +1648,47 @@ export class RealtimeBankingCoordinator {
       (outbox.verificationStatus !== "VERIFIED" && !prefs.notifyUnverified);
 
     if (suppressed) {
-      const updated: NotificationOutboxRecord = {
+      return commitCas({
         ...outbox,
         state: "SUPPRESSED_BY_PREFS",
+        nextRetryAtMs: null,
         updatedAtMs: nowMs
-      };
-      await this.store.updateOutboxRecord(updated);
-      return updated;
+      });
     }
 
     const devices = await this.store.listActiveUserDevices(outbox.ownerId);
-    const validUserTokens = devices
-      .filter((d) => d.ownerId === outbox.ownerId && d.pushEnabled && d.fcmToken.trim().length > 0)
-      .map((d) => d.fcmToken);
+    const allActiveTokens = Array.from(
+      new Set(
+        devices
+          .filter((d) => d.ownerId === outbox.ownerId && d.pushEnabled && d.fcmToken.trim().length > 0)
+          .map((d) => d.fcmToken.trim())
+      )
+    );
+    const alreadyDeliveredSet = new Set(outbox.deliveredTokens ?? []);
 
-    if (validUserTokens.length === 0) {
-      const noDev: NotificationOutboxRecord = {
+    if (allActiveTokens.length === 0) {
+      return commitCas({
         ...outbox,
-        state: "NO_ACTIVE_DEVICES",
+        state: alreadyDeliveredSet.size > 0 ? "DELIVERED" : "NO_ACTIVE_DEVICES",
+        failedTokens: {},
+        lastError: null,
+        nextRetryAtMs: null,
         updatedAtMs: nowMs
-      };
-      await this.store.updateOutboxRecord(noDev);
-      return noDev;
+      });
+    }
+
+    // BANK-01: Exclude already-delivered tokens so retries NEVER re-send to already-delivered devices!
+    const tokensToSend = allActiveTokens.filter((token) => !alreadyDeliveredSet.has(token));
+    if (tokensToSend.length === 0) {
+      return commitCas({
+        ...outbox,
+        state: "DELIVERED",
+        deliveredTokens: Array.from(alreadyDeliveredSet),
+        failedTokens: {},
+        lastError: null,
+        nextRetryAtMs: null,
+        updatedAtMs: nowMs
+      });
     }
 
     const copy = buildBankingNotificationCopy({
@@ -1224,7 +1704,7 @@ export class RealtimeBankingCoordinator {
 
     try {
       const sendRes = await this.fcmSender.sendToUserDevices({
-        tokens: validUserTokens,
+        tokens: tokensToSend,
         notificationId: outbox.id,
         title: copy.title,
         body: copy.pushBody,
@@ -1232,6 +1712,8 @@ export class RealtimeBankingCoordinator {
         soundEnabled: prefs.soundEnabled,
         data: {
           type: "bank_transaction",
+          targetUid: outbox.ownerId,
+          ownerId: outbox.ownerId,
           notificationId: outbox.id,
           transactionId: outbox.transactionId,
           walletId: outbox.walletId,
@@ -1245,42 +1727,102 @@ export class RealtimeBankingCoordinator {
         await this.store.deactivateInvalidTokens(outbox.ownerId, sendRes.invalidTokens);
       }
 
-      if (sendRes.successCount > 0) {
-        const delivered: NotificationOutboxRecord = {
-          ...outbox,
-          state: "DELIVERED",
-          attemptCount: outbox.attemptCount + 1,
-          updatedAtMs: nowMs
-        };
-        await this.store.updateOutboxRecord(delivered);
-        return delivered;
+      const invalidSet = new Set(sendRes.invalidTokens);
+      let newlySucceeded: string[];
+      if (sendRes.succeededTokens !== undefined) {
+        newlySucceeded = sendRes.succeededTokens.filter(
+          (t) => tokensToSend.includes(t) && !invalidSet.has(t)
+        );
+      } else if (sendRes.failureCount === 0 && sendRes.successCount >= tokensToSend.length) {
+        newlySucceeded = [...tokensToSend];
+      } else if (sendRes.successCount <= 0) {
+        newlySucceeded = [];
+      } else {
+        newlySucceeded = tokensToSend
+          .filter((t) => !invalidSet.has(t))
+          .slice(0, sendRes.successCount);
       }
 
-      const nextAttempt = outbox.attemptCount + 1;
-      const nextState = nextAttempt >= 5 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
-      const failed: NotificationOutboxRecord = {
+      const newlySucceededSet = new Set(newlySucceeded);
+      const nextFailedTokens: Record<string, string> = {};
+      if (sendRes.failedTokens !== undefined) {
+        for (const [tok, errCode] of Object.entries(sendRes.failedTokens)) {
+          if (!invalidSet.has(tok) && !newlySucceededSet.has(tok) && !alreadyDeliveredSet.has(tok)) {
+            nextFailedTokens[tok] = errCode || "messaging/transient-error";
+          }
+        }
+      }
+      if (sendRes.failedTokens === undefined || sendRes.failureCount > sendRes.invalidTokens.length) {
+        for (const tok of tokensToSend) {
+          if (!invalidSet.has(tok) && !newlySucceededSet.has(tok) && !(tok in nextFailedTokens)) {
+            nextFailedTokens[tok] = sendRes.retryableError ?? "messaging/transient-error";
+          }
+        }
+      }
+
+      const nextDeliveredTokens = Array.from(
+        new Set([...alreadyDeliveredSet, ...newlySucceeded])
+      );
+      const retryableFailedTokens = Object.keys(nextFailedTokens);
+
+      const allRemainingResolved =
+        retryableFailedTokens.length === 0 &&
+        (nextDeliveredTokens.length > 0 || !sendRes.retryableError);
+
+      if (allRemainingResolved) {
+        return commitCas({
+          ...outbox,
+          state: nextDeliveredTokens.length > 0 ? "DELIVERED" : "NO_ACTIVE_DEVICES",
+          deliveredTokens: nextDeliveredTokens,
+          failedTokens: {},
+          lastError: null,
+          nextRetryAtMs: null,
+          deadLetteredAtMs: null,
+          updatedAtMs: nowMs
+        });
+      }
+
+      const currentAttempt = outbox.attemptCount;
+      const nextState = currentAttempt >= OUTBOX_MAX_ATTEMPTS ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
+      const firstErr =
+        sendRes.retryableError ??
+        Object.values(nextFailedTokens)[0] ??
+        "FCM_ALL_TOKENS_FAILED";
+
+      return commitCas({
         ...outbox,
         state: nextState,
-        attemptCount: nextAttempt,
-        lastError: sendRes.retryableError ?? "FCM_ALL_TOKENS_FAILED",
-        nextRetryAtMs: nextState === "FAILED_RETRYABLE" ? nowMs + RealtimeBankingCoordinator.computeOutboxRetryDelayMs(nextAttempt) : undefined,
+        deliveredTokens: nextDeliveredTokens,
+        failedTokens: nextFailedTokens,
+        lastError: firstErr,
+        nextRetryAtMs:
+          nextState === "FAILED_RETRYABLE"
+            ? nowMs + RealtimeBankingCoordinator.computeOutboxRetryDelayMs(currentAttempt)
+            : null,
+        deadLetteredAtMs: nextState === "FAILED_PERMANENT" ? nowMs : null,
         updatedAtMs: nowMs
-      };
-      await this.store.updateOutboxRecord(failed);
-      return failed;
+      });
     } catch (err) {
-      const nextAttempt = outbox.attemptCount + 1;
-      const nextState = nextAttempt >= 5 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
-      const failed: NotificationOutboxRecord = {
+      const currentAttempt = outbox.attemptCount;
+      const nextState = currentAttempt >= OUTBOX_MAX_ATTEMPTS ? "FAILED_PERMANENT" : "FAILED_RETRYABLE";
+      const errMsg = err instanceof Error ? err.message : "FCM_TRANSPORT_ERROR";
+      const nextFailedTokens: Record<string, string> = {};
+      for (const tok of tokensToSend) {
+        nextFailedTokens[tok] = errMsg;
+      }
+      return commitCas({
         ...outbox,
         state: nextState,
-        attemptCount: nextAttempt,
-        lastError: err instanceof Error ? err.message : "FCM_TRANSPORT_ERROR",
-        nextRetryAtMs: nextState === "FAILED_RETRYABLE" ? nowMs + RealtimeBankingCoordinator.computeOutboxRetryDelayMs(nextAttempt) : undefined,
+        deliveredTokens: Array.from(alreadyDeliveredSet),
+        failedTokens: nextFailedTokens,
+        lastError: errMsg,
+        nextRetryAtMs:
+          nextState === "FAILED_RETRYABLE"
+            ? nowMs + RealtimeBankingCoordinator.computeOutboxRetryDelayMs(currentAttempt)
+            : null,
+        deadLetteredAtMs: nextState === "FAILED_PERMANENT" ? nowMs : null,
         updatedAtMs: nowMs
-      };
-      await this.store.updateOutboxRecord(failed);
-      return failed;
+      });
     }
   }
 
@@ -1301,8 +1843,64 @@ export class RealtimeBankingCoordinator {
     }
   }
 
+  static computeInboxRetryDelayMs(attemptCount: number): number {
+    switch (attemptCount) {
+      case 1:
+        return 30_000;
+      case 2:
+        return 120_000;
+      case 3:
+        return 480_000;
+      case 4:
+        return 1_800_000;
+      default:
+        return 3_600_000;
+    }
+  }
+
   /**
-   * F12 / BG-02: Autonomous scheduled retry sweep for `FAILED_RETRYABLE` outbox notifications.
+   * BANK-01: Starvation-free outbox recovery sweeper covering due `FAILED_RETRYABLE`,
+   * expired `DISPATCHING` leases (crashed workers), and stale `PENDING` / `PENDING_DELIVERY` records.
+   */
+  async recoverNotificationOutbox(
+    nowMs: number = Date.now(),
+    limit: number = 50
+  ): Promise<{
+    scanned: number;
+    attempted: number;
+    delivered: number;
+    stillRetryable: number;
+    permanentFailures: number;
+  }> {
+    const ids = await this.store.listRecoverableOutboxIds(nowMs, limit);
+    let attempted = 0;
+    let delivered = 0;
+    let stillRetryable = 0;
+    let permanentFailures = 0;
+
+    for (const outboxId of ids) {
+      attempted += 1;
+      const updated = await this.dispatchNotificationOutbox(outboxId, nowMs);
+      if (updated?.state === "DELIVERED") {
+        delivered += 1;
+      } else if (updated?.state === "FAILED_PERMANENT") {
+        permanentFailures += 1;
+      } else if (updated?.state === "FAILED_RETRYABLE") {
+        stillRetryable += 1;
+      }
+    }
+
+    return {
+      scanned: ids.length,
+      attempted,
+      delivered,
+      stillRetryable,
+      permanentFailures
+    };
+  }
+
+  /**
+   * F12 / BG-02: Autonomous scheduled retry sweep for recoverable outbox notifications.
    * Never creates duplicate `financial_notifications` and guarantees at-most-once delivery per attempt window.
    */
   async retryDueNotificationOutboxBatch(
@@ -1314,30 +1912,142 @@ export class RealtimeBankingCoordinator {
     stillRetryable: number;
     permanentFailures: number;
   }> {
-    const due = await this.store.listDueRetryableOutboxRecords(nowMs, limit);
-    let attempted = 0;
-    let delivered = 0;
-    let stillRetryable = 0;
-    let permanentFailures = 0;
-
-    for (const item of due) {
-      attempted += 1;
-      const updated = await this.dispatchNotificationOutbox(item.id, nowMs);
-      if (updated?.state === "DELIVERED") {
-        delivered += 1;
-      } else if (updated?.state === "FAILED_PERMANENT") {
-        permanentFailures += 1;
-      } else if (updated?.state === "FAILED_RETRYABLE") {
-        stillRetryable += 1;
-      }
-    }
-
-    return { attempted, delivered, stillRetryable, permanentFailures };
+    const res = await this.recoverNotificationOutbox(nowMs, limit);
+    return {
+      attempted: res.attempted,
+      delivered: res.delivered,
+      stillRetryable: res.stillRetryable,
+      permanentFailures: res.permanentFailures
+    };
   }
 
   /**
-   * F13 / FIN-05 & M9: Multi-page idempotent SePay REST reconciliation engine (supports 100-1,000+ transactions,
-   * watermark early-stop, chronological page sorting, monotonic observed balance guard, and mid-flight resume).
+   * BANK-02: Sweeps `PENDING_PROCESSING` (past grace/lease) and due `FAILED_RETRYABLE`
+   * webhook inbox events with lease protection and retry budget (`maxAttempts = 6` -> `DEAD_LETTER`).
+   */
+  async recoverPendingWebhookInbox(
+    nowMs: number = Date.now(),
+    limit: number = 50,
+    pendingGraceMs: number = INBOX_STALE_PENDING_GRACE_MS
+  ): Promise<{
+    scanned: number;
+    processed: number;
+    retried: number;
+    deadLettered: number;
+    oldestPendingAgeMs: number;
+  }> {
+    const { records, oldestPendingAgeMs } = await this.store.listRecoverableInboxRecords(
+      nowMs,
+      limit,
+      pendingGraceMs
+    );
+    const leaseOwner = `inbox_sweeper_${crypto.randomUUID()}`;
+
+    let scanned = 0;
+    let processed = 0;
+    let retried = 0;
+    let deadLettered = 0;
+
+    for (const rec of records) {
+      const claim = await this.store.claimInboxEvent(
+        rec.providerEventKey,
+        nowMs,
+        leaseOwner,
+        INBOX_DEFAULT_LEASE_TTL_MS
+      );
+      if (!claim.claimed || !claim.record) {
+        continue;
+      }
+      scanned += 1;
+      const claimedRec = claim.record;
+      const attempts = claimedRec.attemptCount ?? 1;
+
+      if (attempts > INBOX_MAX_ATTEMPTS) {
+        const reason = claimedRec.errorReason ?? "MAX_ATTEMPTS_EXCEEDED";
+        await this.store.updateInboxRecord({
+          ...claimedRec,
+          state: "DEAD_LETTER",
+          status: "dead_letter",
+          deadLetterReason: reason,
+          errorReason: reason,
+          payload: minimizeInboxPayload(claimedRec.payload, { stripText: true }),
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
+          expiresAtMs: nowMs + INBOX_DEAD_LETTER_TTL_MS,
+          updatedAtMs: nowMs
+        });
+        deadLettered += 1;
+        continue;
+      }
+
+      try {
+        const out = await this.processInboxEvent(claimedRec.providerEventKey, nowMs, {
+          expectedLeaseOwner: leaseOwner
+        });
+        if (out.state === "FAILED_RETRYABLE") {
+          retried += 1;
+        } else if (out.state === "DEAD_LETTER") {
+          deadLettered += 1;
+        } else {
+          processed += 1;
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "INBOX_PROCESSING_ERROR";
+        if (attempts >= INBOX_MAX_ATTEMPTS) {
+          await this.store.updateInboxRecord({
+            ...claimedRec,
+            state: "DEAD_LETTER",
+            status: "dead_letter",
+            deadLetterReason: errMsg,
+            errorReason: errMsg,
+            payload: minimizeInboxPayload(claimedRec.payload, { stripText: true }),
+            leaseOwner: null,
+            leaseExpiresAtMs: null,
+            nextRetryAtMs: null,
+            expiresAtMs: nowMs + INBOX_DEAD_LETTER_TTL_MS,
+            updatedAtMs: nowMs
+          });
+          deadLettered += 1;
+        } else {
+          await this.store.updateInboxRecord({
+            ...claimedRec,
+            state: "FAILED_RETRYABLE",
+            status: "failed_retryable",
+            errorReason: errMsg,
+            leaseOwner: null,
+            leaseExpiresAtMs: null,
+            nextRetryAtMs: nowMs + RealtimeBankingCoordinator.computeInboxRetryDelayMs(attempts),
+            updatedAtMs: nowMs
+          });
+          retried += 1;
+        }
+      }
+    }
+
+    return {
+      scanned,
+      processed,
+      retried,
+      deadLettered,
+      oldestPendingAgeMs
+    };
+  }
+
+  /**
+   * BANK-02: Purges unlinked (`ownerId == null`) and expired inbox documents past `expiresAtMs`.
+   */
+  async purgeExpiredInboxRecords(
+    nowMs: number = Date.now(),
+    limit: number = 100
+  ): Promise<{ purged: number; deletedCount: number }> {
+    return this.store.purgeExpiredInboxRecords(nowMs, limit);
+  }
+
+  /**
+   * F13 / FIN-05, M9 & BANK-03: Multi-page idempotent SePay REST reconciliation engine with
+   * strict pre-watermark validation, resumable `(connectionId, grantVersion)` cursor,
+   * incomplete backfill detection (never advances watermark on truncation), and CAS watermark commit.
    */
   async reconcilePaginatedSePayPages(params: {
     ownerId: string;
@@ -1345,35 +2055,69 @@ export class RealtimeBankingCoordinator {
     accountNumber: string;
     subAccount?: string;
     bankName: string;
-    fetchPage: (pageIndex: number, pageLimit: number) => Promise<Array<Record<string, unknown>>>;
+    fetchPage: (
+      pageIndex: number,
+      pageLimit: number,
+      cursor?: { beforeExternalTxId?: string | null }
+    ) => Promise<Array<Record<string, unknown>>>;
     pageSize?: number;
     maxPages?: number;
     stopAtExternalTxId?: string;
+    cursor?: BackfillCursorRecord | null;
+    startPage?: number;
+    resetCursor?: boolean;
     nowMs?: number;
-  }): Promise<{
-    pagesFetched: number;
-    fetchedCount: number;
-    processedCount: number;
-    duplicateCount: number;
-    newestExternalTxId?: string;
-  }> {
+  }): Promise<ReconcilePagesResult> {
     const pageSize = Math.max(1, Math.min(params.pageSize ?? 100, 200));
     const maxPages = Math.max(1, Math.min(params.maxPages ?? 10, 25));
     const nowMs = params.nowMs ?? Date.now();
+
+    const deletionFrozen = await this.store.isUserDeletionFrozen(params.ownerId);
+    if (deletionFrozen) {
+      throw new Error("ACCOUNT_DELETION_FROZEN");
+    }
 
     const conn = await this.store.getConnectionById(params.connectionId);
     if (!conn || conn.ownerId !== params.ownerId || !isConnectionActiveAndGranted(conn)) {
       throw new Error("CONNECTION_REVOKED_OR_INACTIVE");
     }
 
+    const expectedGrantVersion = conn.grantVersion ?? 1;
+    const previousWatermarkExternalTxId =
+      params.stopAtExternalTxId !== undefined
+        ? params.stopAtExternalTxId.trim() || undefined
+        : (conn.lastSyncedExternalTxId ?? conn.lastReconciledExternalTxId ?? undefined);
+
+    const savedCursor =
+      !params.resetCursor &&
+      conn.backfillCursor &&
+      conn.backfillCursor.connectionId === conn.id &&
+      conn.backfillCursor.grantVersion === expectedGrantVersion &&
+      (conn.backfillCursor.previousWatermarkExternalTxId ?? null) ===
+        (previousWatermarkExternalTxId ?? null)
+        ? conn.backfillCursor
+        : null;
+
+    const activeCursor = params.cursor ?? savedCursor;
+    const startPage = params.startPage ?? activeCursor?.nextPage ?? 0;
+
     let pagesFetched = 0;
     let fetchedCount = 0;
     let processedCount = 0;
     let duplicateCount = 0;
-    let newestExternalTxId: string | undefined;
+    let invalidCount = 0;
+    let skippedCount = 0;
+    let reachedPreviousWatermark = false;
+    let hitMaxPagesWithFullPage = false;
+    let candidateNewestValidExternalTxId: string | null =
+      activeCursor?.pendingNewestValidExternalTxId ?? null;
+    let lastSeenValidExternalTxId: string | null = activeCursor?.beforeExternalTxId ?? null;
 
-    for (let page = 0; page < maxPages; page++) {
-      const items = await params.fetchPage(page, pageSize);
+    for (let offsetPage = 0; offsetPage < maxPages; offsetPage++) {
+      const page = startPage + offsetPage;
+      const items = await params.fetchPage(page, pageSize, {
+        beforeExternalTxId: lastSeenValidExternalTxId
+      });
       pagesFetched += 1;
       if (!Array.isArray(items) || items.length === 0) {
         break;
@@ -1383,25 +2127,46 @@ export class RealtimeBankingCoordinator {
       const parsedPageItems: ValidatedSePayWebhookPayload[] = [];
       for (const raw of items) {
         const extId = String(raw.id ?? "").trim();
-        if (!newestExternalTxId && extId) {
-          newestExternalTxId = extId;
-        }
-        if (params.stopAtExternalTxId && extId === params.stopAtExternalTxId) {
+        if (previousWatermarkExternalTxId && extId && extId === previousWatermarkExternalTxId) {
           hitWatermark = true;
+          reachedPreviousWatermark = true;
           break;
         }
 
-        const amountIn = Number(raw.amount_in ?? 0);
-        const amountOut = Number(raw.amount_out ?? 0);
-        const transferType = amountIn > 0 ? "in" : "out";
-        const transferAmount = Math.round(amountIn > 0 ? amountIn : amountOut);
-        if (transferAmount <= 0) continue;
+        const rawIdNum = Number(raw.id);
+        if (!Number.isSafeInteger(rawIdNum) || rawIdNum <= 0) {
+          invalidCount += 1;
+          continue;
+        }
 
-        fetchedCount += 1;
+        const rawAmountIn =
+          raw.amount_in !== undefined && raw.amount_in !== null && raw.amount_in !== ""
+            ? Number(raw.amount_in)
+            : 0;
+        const rawAmountOut =
+          raw.amount_out !== undefined && raw.amount_out !== null && raw.amount_out !== ""
+            ? Number(raw.amount_out)
+            : 0;
+
+        if (!Number.isFinite(rawAmountIn) || !Number.isFinite(rawAmountOut)) {
+          invalidCount += 1;
+          continue;
+        }
+        if ((rawAmountIn > 0 && rawAmountOut > 0) || (rawAmountIn <= 0 && rawAmountOut <= 0)) {
+          invalidCount += 1;
+          continue;
+        }
+
+        const transferType = rawAmountIn > 0 ? "in" : "out";
+        const transferAmount = rawAmountIn > 0 ? rawAmountIn : rawAmountOut;
+        const rawAcc =
+          raw.accumulated !== undefined && raw.accumulated !== null && raw.accumulated !== ""
+            ? Number(raw.accumulated)
+            : 0;
 
         const normalizedPayload = Buffer.from(
           JSON.stringify({
-            id: Number(raw.id),
+            id: rawIdNum,
             gateway: String(raw.bank_brand_name ?? params.bankName),
             transactionDate: String(raw.transaction_date ?? ""),
             accountNumber: params.accountNumber,
@@ -1411,14 +2176,25 @@ export class RealtimeBankingCoordinator {
             transferType,
             description: String(raw.transaction_content ?? ""),
             transferAmount,
-            accumulated: Number(raw.accumulated ?? 0),
+            accumulated: Number.isFinite(rawAcc) ? rawAcc : 0,
             referenceCode: String(raw.reference_number ?? "")
           }),
           "utf8"
         );
 
         const validated = parseAndValidateSePayPayload(normalizedPayload);
-        if (!validated.valid || !validated.payload) continue;
+        if (!validated.valid || !validated.payload) {
+          // BANK-03: Never promote an invalid/malformed row into newestValidExternalTxId!
+          invalidCount += 1;
+          continue;
+        }
+
+        fetchedCount += 1;
+        const validIdStr = String(validated.payload.id);
+        if (candidateNewestValidExternalTxId === null) {
+          candidateNewestValidExternalTxId = validIdStr;
+        }
+        lastSeenValidExternalTxId = validIdStr;
         parsedPageItems.push(validated.payload);
       }
 
@@ -1435,10 +2211,14 @@ export class RealtimeBankingCoordinator {
           connectionId: conn.id,
           ownerId: conn.ownerId,
           walletId: conn.linkedWalletId,
-          grantVersion: conn.grantVersion ?? 1,
+          grantVersion: expectedGrantVersion,
           state: "PENDING_PROCESSING",
           status: "pending_processing",
-          payload: validatedPayload,
+          payload: minimizeInboxPayload(validatedPayload, { stripText: false }),
+          attemptCount: 0,
+          leaseOwner: null,
+          leaseExpiresAtMs: null,
+          nextRetryAtMs: null,
           receivedAtMs: nowMs,
           updatedAtMs: nowMs
         });
@@ -1451,20 +2231,64 @@ export class RealtimeBankingCoordinator {
           if (out.notificationId) {
             await this.dispatchNotificationOutbox(out.notificationId, nowMs);
           }
+        } else {
+          skippedCount += 1;
         }
       }
 
       if (hitWatermark || items.length < pageSize) {
         break;
       }
+
+      if (offsetPage === maxPages - 1 && items.length >= pageSize) {
+        hitMaxPagesWithFullPage = true;
+      }
     }
+
+    const incomplete = !reachedPreviousWatermark && hitMaxPagesWithFullPage;
+    const resumableCursor: BackfillCursorRecord | null = incomplete
+      ? {
+          connectionId: conn.id,
+          grantVersion: expectedGrantVersion,
+          nextPage: startPage + pagesFetched,
+          beforeExternalTxId: lastSeenValidExternalTxId,
+          pendingNewestValidExternalTxId: candidateNewestValidExternalTxId,
+          previousWatermarkExternalTxId: previousWatermarkExternalTxId ?? null,
+          updatedAtMs: nowMs
+        }
+      : null;
+
+    // BANK-03: CAS verification on `(connectionId, grantVersion)` before advancing watermark or persisting cursor.
+    // Never advances `lastSyncedExternalTxId` when `incomplete === true`, when `newestValidExternalTxId == null`,
+    // or when connection was revoked / re-linked mid-backfill!
+    const casRes = await this.store.commitReconciliationStateCas({
+      ownerId: params.ownerId,
+      connectionId: conn.id,
+      expectedGrantVersion,
+      incomplete,
+      newestValidExternalTxId: candidateNewestValidExternalTxId,
+      resumableCursor,
+      nowMs
+    });
+
+    const watermarkAdvanced =
+      casRes.committed && !incomplete && candidateNewestValidExternalTxId !== null;
 
     return {
       pagesFetched,
       fetchedCount,
       processedCount,
       duplicateCount,
-      newestExternalTxId
+      invalidCount,
+      skippedCount,
+      reachedPreviousWatermark,
+      incomplete,
+      watermarkAdvanced,
+      ...(casRes.committed ? {} : { watermarkAbortedReason: casRes.reason ?? "CONNECTION_REVOKED_OR_GRANT_CHANGED" }),
+      newestValidExternalTxId: candidateNewestValidExternalTxId,
+      newestExternalTxId:
+        watermarkAdvanced && candidateNewestValidExternalTxId ? candidateNewestValidExternalTxId : undefined,
+      resumableCursor
     };
   }
 
@@ -1570,13 +2394,21 @@ export class RealtimeBankingCoordinator {
 
     return this.store.runAtomic(async (tx) => {
       // 1. All reads MUST occur before any writes (Cloud Firestore transaction constraint)
+      const deletionFrozen = await tx.isUserDeletionFrozen(uid);
       const targetWallet = await tx.getWallet(uid, linkedWalletId);
       const acctClaim = await tx.getBankAccountClaim(acctClaimId);
       const idClaim = idClaimId ? await tx.getBankAccountClaim(idClaimId) : null;
       const existingConn = await tx.getConnectionById(connId);
 
+      if (deletionFrozen) {
+        return { ok: false, errorCode: "ACCOUNT_DELETION_FROZEN" };
+      }
+
       if (!targetWallet || targetWallet.ownerId !== uid) {
         return { ok: false, errorCode: "WALLET_NOT_FOUND_OR_FORBIDDEN" };
+      }
+      if (targetWallet.archived === true || targetWallet.isArchived === true) {
+        return { ok: false, errorCode: "WALLET_ARCHIVED_OR_FORBIDDEN" };
       }
 
       if (

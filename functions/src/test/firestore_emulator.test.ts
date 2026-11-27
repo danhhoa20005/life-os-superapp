@@ -29,6 +29,9 @@ function isPortOpen(host: string, port: number): Promise<boolean> {
 
 class EmulatorMockFcm implements FcmPushSender {
   public sentCount = 0;
+  public calls: Array<{ tokens: readonly string[]; data: Record<string, string> }> = [];
+  public transientFailuresByToken = new Map<string, string>();
+
   async sendToUserDevices(params: {
     tokens: readonly string[];
     notificationId: string;
@@ -38,8 +41,28 @@ class EmulatorMockFcm implements FcmPushSender {
     soundEnabled: boolean;
     data: Record<string, string>;
   }): Promise<FcmMulticastResult> {
-    this.sentCount += params.tokens.length;
-    return { successCount: params.tokens.length, failureCount: 0, invalidTokens: [] };
+    this.calls.push({ tokens: params.tokens, data: params.data });
+    const succeededTokens: string[] = [];
+    const failedTokens: Record<string, string> = {};
+    let retryableError: string | undefined;
+    for (const tok of params.tokens) {
+      if (this.transientFailuresByToken.has(tok)) {
+        const code = this.transientFailuresByToken.get(tok)!;
+        failedTokens[tok] = code;
+        retryableError = code;
+      } else {
+        succeededTokens.push(tok);
+      }
+    }
+    this.sentCount += succeededTokens.length;
+    return {
+      successCount: succeededTokens.length,
+      failureCount: Object.keys(failedTokens).length,
+      invalidTokens: [],
+      succeededTokens,
+      failedTokens,
+      retryableError
+    };
   }
 }
 
@@ -539,6 +562,241 @@ describe("Live Cloud Firestore Emulator Integration — FirestoreAdminBankingSto
       const rerun = await deleteServerOnlyUserAccountData(db, uid);
       assert.equal(rerun.ok, true);
       assert.equal(rerun.verifiedClean, true);
+    } finally {
+      await app.delete();
+    }
+  });
+
+  it("BANK-01, BANK-02, BANK-03, DEL-04, SEC-02 & SEC-03 — Real Firestore transaction lease recovery, partial FCM retry, inbox sweeper/TTL, tombstone freeze, resumable backfill & server dedup", async (t) => {
+    const emu = resolveEmulatorEndpoint();
+    const reachable = await isPortOpen(emu.host, emu.port);
+    if (!reachable) {
+      t.skip(`Firestore Emulator on ${emu.raw} is not running`);
+      return;
+    }
+
+    process.env.FIRESTORE_EMULATOR_HOST = emu.raw;
+    const app = admin.initializeApp({ projectId: "demo-life-os" }, `emu_bank_reliability_${Date.now()}`);
+    try {
+      const db = app.firestore();
+      const store = new FirestoreAdminBankingStore(db);
+      const fcm = new EmulatorMockFcm();
+      const secret = "emulator_hmac_secret_2026_bank_reliability_v3272";
+      const coordinator = new RealtimeBankingCoordinator(store, fcm, () => secret);
+      const nowMs = Date.now();
+      const uid = `u_rel_${nowMs}`;
+      const accNum = `066${nowMs.toString().slice(-7)}`;
+
+      await db.collection("users").doc(uid).collection("wallets").doc("w_rel").set({
+        id: "w_rel",
+        ownerId: uid,
+        name: "VCB Reliability",
+        type: "bank",
+        balanceMinor: 1000000,
+        isEstimatedBalance: true
+      });
+      await db.collection("users").doc(uid).collection("devices").doc("dev_1").set({
+        deviceId: "dev_1",
+        ownerId: uid,
+        fcmToken: "emu_tok_1",
+        platform: "android",
+        pushEnabled: true
+      });
+      await db.collection("users").doc(uid).collection("devices").doc("dev_2").set({
+        deviceId: "dev_2",
+        ownerId: uid,
+        fcmToken: "emu_tok_2",
+        platform: "ios",
+        pushEnabled: true
+      });
+
+      const linkRes = await coordinator.verifyAndConnectBankAccount({
+        authenticatedUserId: uid,
+        bankCode: "VCB",
+        accountNumber: accNum,
+        linkedWalletId: "w_rel",
+        sepayAccounts: [{ id: `ba_rel_${nowMs}`, account_number: accNum, bank_short_name: "VCB", active: "1" }],
+        nowMs
+      });
+      assert.equal(linkRes.ok, true);
+      const connId = linkRes.connection!.id;
+
+      // 1. BANK-01: Partial multi-device failure & crashed DISPATCHING recovery on real Firestore
+      const makeSignedReq = (payloadObj: Record<string, unknown>, tsMs: number) => {
+        const rawBody = Buffer.from(JSON.stringify(payloadObj), "utf8");
+        const tsSec = Math.floor(tsMs / 1000);
+        const sig = computeHmacSha256Hex(secret, `${tsSec}.${rawBody.toString("utf8")}`);
+        return {
+          method: "POST",
+          rawBody,
+          nowMs: tsMs,
+          headers: { "x-sepay-signature": `sha256=${sig}`, "x-sepay-timestamp": String(tsSec) }
+        };
+      };
+
+      const h1 = await coordinator.handleSePayWebhookHttp(
+        makeSignedReq(
+          {
+            id: 710001,
+            gateway: "Vietcombank",
+            transactionDate: "2026-11-23 15:00:00",
+            accountNumber: accNum,
+            content: "Emu BANK01 & BANK02 rescue test",
+            transferType: "in",
+            transferAmount: 500000,
+            accumulated: 1500000,
+            referenceCode: "FT_EMU_REL_1"
+          },
+          nowMs
+        )
+      );
+      assert.equal(h1.statusCode, 200);
+
+      // BANK-02: Untriggered inbox event rescued after 35s + payload minimized
+      const sweepRes = await coordinator.recoverPendingWebhookInbox(nowMs + 35_000, 50);
+      assert.equal(sweepRes.scanned, 1);
+      assert.equal(sweepRes.processed, 1);
+      const inboxAfter = await store.getInboxEvent(h1.providerEventKey!);
+      assert.equal(inboxAfter?.state, "PROCESSED");
+      assert.equal(inboxAfter?.payload.content, "");
+      assert.equal(inboxAfter?.payload.accountNumber, `•••• ${accNum.slice(-4)}`);
+
+      // Partial FCM failure: emu_tok_1 succeeds, emu_tok_2 transient failure -> FAILED_RETRYABLE
+      const outboxId = (await db.collection("notification_outbox").where("ownerId", "==", uid).get()).docs[0].id;
+      fcm.transientFailuresByToken.set("emu_tok_2", "messaging/unavailable");
+      const out1 = await coordinator.dispatchNotificationOutbox(outboxId, nowMs + 36_000, "emu_worker_1");
+      assert.equal(out1?.state, "FAILED_RETRYABLE");
+      assert.deepEqual(out1?.deliveredTokens, ["emu_tok_1"]);
+      assert.equal(fcm.calls[0].data.targetUid, uid);
+
+      // Simulate crashed worker holding an expired DISPATCHING lease on Firestore
+      await db.collection("notification_outbox").doc(outboxId).set(
+        {
+          state: "DISPATCHING",
+          leaseOwner: "crashed_worker",
+          leaseExpiresAtMs: nowMs + 40_000
+        },
+        { merge: true }
+      );
+      fcm.transientFailuresByToken.delete("emu_tok_2");
+      const outRecover = await coordinator.recoverNotificationOutbox(nowMs + 100_000, 50);
+      assert.equal(outRecover.delivered, 1);
+      assert.equal(fcm.calls.length, 2);
+      assert.deepEqual(fcm.calls[1].tokens, ["emu_tok_2"]); // Did NOT re-send emu_tok_1!
+
+      // 2. SEC-03: Client deletes `users/{uid}/source_events` -> server_source_events STILL blocks double-posting!
+      await db.collection("users").doc(uid).collection("source_events").doc(h1.providerEventKey!).delete();
+      await db.collection("sepay_webhook_inbox").doc(h1.providerEventKey!).set(
+        { state: "PENDING_PROCESSING", status: "pending_processing" },
+        { merge: true }
+      );
+      const dupProc = await coordinator.processInboxEvent(h1.providerEventKey!, nowMs + 110_000);
+      assert.equal(dupProc.state, "DUPLICATE");
+      assert.equal((await db.collection("users").doc(uid).collection("wallets").doc("w_rel").get()).data()?.balanceMinor, 1500000);
+
+      // 3. BANK-03: Resumable backfill on real Firestore (`maxPages=2, pageSize=3` across 8 items)
+      const items8 = Array.from({ length: 8 }, (_, idx) => ({
+        id: 800010 - idx,
+        bank_brand_name: "Vietcombank",
+        transaction_date: "2026-11-23 15:10:00",
+        transaction_content: `Emu backfill ${idx}`,
+        amount_in: 10000,
+        amount_out: 0,
+        accumulated: 0
+      }));
+      const bfPass1 = await coordinator.reconcilePaginatedSePayPages({
+        ownerId: uid,
+        connectionId: connId,
+        accountNumber: accNum,
+        bankName: "Vietcombank",
+        pageSize: 3,
+        maxPages: 2,
+        nowMs: nowMs + 120_000,
+        fetchPage: async (pageIndex, limit) => items8.slice(pageIndex * limit, (pageIndex + 1) * limit)
+      });
+      assert.equal(bfPass1.incomplete, true);
+      assert.equal(bfPass1.processedCount, 6);
+      assert.equal(bfPass1.watermarkAdvanced, false);
+      assert.equal((await store.getConnectionById(connId))?.backfillCursor?.nextPage, 2);
+
+      const bfPass2 = await coordinator.reconcilePaginatedSePayPages({
+        ownerId: uid,
+        connectionId: connId,
+        accountNumber: accNum,
+        bankName: "Vietcombank",
+        pageSize: 3,
+        maxPages: 2,
+        nowMs: nowMs + 130_000,
+        fetchPage: async (pageIndex, limit) => items8.slice(pageIndex * limit, (pageIndex + 1) * limit)
+      });
+      assert.equal(bfPass2.incomplete, false);
+      assert.equal(bfPass2.processedCount, 2);
+      assert.equal(bfPass2.watermarkAdvanced, true);
+      assert.equal((await store.getConnectionById(connId))?.lastSyncedExternalTxId, "800010");
+      assert.equal((await store.getConnectionById(connId))?.backfillCursor, null);
+
+      // 4. SEC-02: Archived wallet is NOT resurrected and sets connection warning
+      await db.collection("users").doc(uid).collection("wallets").doc("w_rel").set(
+        { archived: true, archivedAtMs: nowMs + 140_000 },
+        { merge: true }
+      );
+      const hArch = await coordinator.handleSePayWebhookHttp(
+        makeSignedReq(
+          {
+            id: 710002,
+            gateway: "Vietcombank",
+            transactionDate: "2026-11-23 15:20:00",
+            accountNumber: accNum,
+            content: "Emu archived wallet check",
+            transferType: "in",
+            transferAmount: 250000,
+            accumulated: 1750000
+          },
+          nowMs + 141_000
+        )
+      );
+      const pArch = await coordinator.processInboxEvent(hArch.providerEventKey!, nowMs + 141_000);
+      assert.equal(pArch.state, "NEEDS_REVIEW");
+      const walletAfterArch = await db.collection("users").doc(uid).collection("wallets").doc("w_rel").get();
+      assert.equal(walletAfterArch.data()?.archived, true);
+      assert.equal(walletAfterArch.data()?.balanceMinor, 1580000); // 1,500,000 + 8*10,000, NEVER +250,000!
+      assert.equal((await store.getConnectionById(connId))?.statusWarning, "LINKED_WALLET_ARCHIVED");
+
+      // 5. DEL-04 + BANK-02 TTL purge: Tombstone freezes ingestion & expired unlinked record is purged
+      await db.collection("account_deletion_tombstones").doc(uid).set({ uid, frozenAtMs: nowMs + 150_000 });
+      const hFrozen = await coordinator.handleSePayWebhookHttp(
+        makeSignedReq(
+          {
+            id: 710003,
+            gateway: "Vietcombank",
+            transactionDate: "2026-11-23 15:25:00",
+            accountNumber: accNum,
+            content: "Frozen account webhook",
+            transferType: "in",
+            transferAmount: 100000
+          },
+          nowMs + 151_000
+        )
+      );
+      assert.equal((await store.getInboxEvent(hFrozen.providerEventKey!))?.state, "skipped_account_deleting");
+
+      const hUnlinked = await coordinator.handleSePayWebhookHttp(
+        makeSignedReq(
+          {
+            id: 710004,
+            gateway: "Vietcombank",
+            transactionDate: "2026-11-23 15:26:00",
+            accountNumber: "9999111122",
+            content: "Expired unlinked",
+            transferType: "in",
+            transferAmount: 50000
+          },
+          nowMs + 152_000
+        )
+      );
+      const purgeRes = await coordinator.purgeExpiredInboxRecords(nowMs + 8 * 86_400_000, 100);
+      assert.ok(purgeRes.purged >= 2);
+      assert.equal(await store.getInboxEvent(hUnlinked.providerEventKey!), null);
     } finally {
       await app.delete();
     }
